@@ -1,4 +1,7 @@
-use std::collections::{HashMap, VecDeque};
+use std::{
+    collections::{HashMap, VecDeque},
+    mem::size_of,
+};
 
 pub type Token = u16;
 type CellId = usize;
@@ -209,6 +212,32 @@ impl UnifiedLearner {
 
     pub fn active_pattern_count(&self) -> usize {
         self.active_patterns.len()
+    }
+
+    /// Estimates allocated storage owned by the learner's Rust containers.
+    /// Hash-table control bytes and allocator bookkeeping are not included.
+    pub fn estimated_storage_bytes(&self) -> usize {
+        let cell_storage = self.cells.capacity() * size_of::<Cell>()
+            + self
+                .cells
+                .iter()
+                .map(|cell| cell.outgoing.capacity() * size_of::<ArrowId>())
+                .sum::<usize>();
+        let arrow_storage = self.arrows.capacity() * size_of::<Arrow>();
+        let join_storage =
+            self.joins.capacity() * (size_of::<(CellId, CellId)>() + size_of::<Join>());
+        let prediction_storage =
+            self.predictions.capacity() * (size_of::<(CellId, CellId)>() + size_of::<ArrowId>());
+        let active_storage = self.active_patterns.capacity() * size_of::<CellId>();
+        let queue_storage = self.queue.capacity() * size_of::<Spike>();
+
+        size_of::<Self>()
+            + cell_storage
+            + arrow_storage
+            + join_storage
+            + prediction_storage
+            + active_storage
+            + queue_storage
     }
 
     /// Rebuilds the graph around patterns that reactivated often enough to

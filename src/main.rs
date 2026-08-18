@@ -723,13 +723,13 @@ fn main() {
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - recurring memory consolidates without losing tested behavior and all earlier experiments still pass"
+            "PASS - identical rest compresses both memories, and the trie remains smaller while all earlier experiments pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: v17 removes one-off contexts by recurrence; it does not yet discover shared structure beneath different surface tokens."
+        "LIMIT: recurrence pruning is not an event-substrate advantage; the equally rested trie uses fewer links, less estimated storage, and less query work."
     );
 }
 

@@ -25,20 +25,36 @@ not as evidence of autonomous abstraction.
 ## Rest Result
 
 ```text
-pattern cells            66,826 -> 11,741
-arrows                   210,057 -> 44,818
-induction accuracy       97.8% -> 97.8%
-key-value recall         32 / 32 -> 32 / 32
-needle retrieval         3 / 3 -> 3 / 3
-work per query           15.9 -> 15.9
-active patterns/query    7.3 -> 7.3
+                         rested event graph    rested trie
+pattern nodes            11,741                11,741
+links                    44,818                33,077
+induction accuracy       97.8%                 97.8%
+key-value recall         32 / 32               32 / 32
+needle retrieval         3 / 3                 3 / 3
+work per query           15.9 spikes           8.6 lookups
+active patterns/query    7.3                   7.3
+estimated storage        4,169 KiB             2,342 KiB
 ```
 
-The consolidation rebuild physically removes one-off patterns. It does not
-leave inactive cells in the original allocation.
+Both consolidation rebuilds physically remove one-off patterns. They do not
+leave inactive nodes in their original allocations.
 
-The candidate rewrite is tested in read-only mode. No missing cell or arrow
+Both candidate rewrites are tested in read-only mode. No missing node or link
 can be silently recreated during evaluation.
+
+The storage estimate includes allocated Rust container capacity but excludes
+hash-table control bytes and allocator bookkeeping.
+
+## Adaptation After Rest
+
+Both memories learn and retrieve two new associations:
+
+```text
+                         rested event graph    rested trie
+correct                   2 / 2                 2 / 2
+new pattern nodes         5                     5
+new links                 12                    7
+```
 
 ## Control
 
@@ -49,12 +65,12 @@ showing that graph reduction alone is insufficient.
 ## Experience Sweep
 
 ```text
-experience tokens    raw patterns    consolidated patterns
-1,704                9,810           1,931
-2,728                16,880          2,022
-4,776                30,766          2,420
-8,872                57,986          3,574
-17,064               110,445         6,576
+experience tokens    raw patterns    rested event    rested trie
+1,704                9,810           1,931           1,931
+2,728                16,880          2,022           2,022
+4,776                30,766          2,420           2,420
+8,872                57,986          3,574           3,574
+17,064               110,445         6,576           6,576
 ```
 
 Across this sweep, raw pattern storage grows more than eleven times.
@@ -68,8 +84,15 @@ rewrite. The replay set is counted during rest and is not retained afterward.
 
 ## Interpretation Boundary
 
-V17 learns which exact patterns recur and discards most one-off contexts. It
-does not merge different surface patterns into one shared structural concept.
+V17 learns which exact patterns recur and discards most one-off contexts. The
+same policy works equally well for a conventional trie, which then uses fewer
+links, less estimated storage, and less query work.
+
+V17 therefore shows no compression advantage for the event-driven substrate.
+The useful result belongs to the recurrence-based retention policy.
+
+Neither memory merges different surface patterns into one shared structural
+concept.
 
 The recurrence threshold, rest timing, rewrite operation, and replay suite are
 supplied. V18 must test whether the machine can reuse one learned relationship

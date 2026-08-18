@@ -71,6 +71,11 @@ V17 additionally supplies:
 Reviewers should count replay storage and test whether rare but important
 one-shot associations are deleted before they are queried.
 
+The equal-rest comparison currently favors the trie: both retain the same
+contexts and behavior, while the trie uses fewer links, less estimated
+container storage, and less query work. Do not interpret v17 as an
+architecture-specific compression result.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report

@@ -488,10 +488,25 @@ The experience sweep increases retained input from 1,704 to 17,064 tokens.
 Raw pattern storage grows from 9,810 to 110,445 cells. Consolidated storage
 grows from 1,931 to 6,576 cells while induction remains above 95%.
 
-This is selective retention, not structural abstraction. The recurrence
-threshold, rest timing, rewrite operation, and replay acceptance suite are
-supplied. The replay set is counted during rest and discarded after the
-candidate graph is accepted.
+The corrected comparison gives the trie the same activation counts, retention
+threshold, rest timing, and read-only retest. It retains exactly the same
+11,741 contexts and the same 97.8% induction accuracy. However:
+
+- the rested event graph uses 44,818 links,
+- the rested trie uses 33,077 links,
+- estimated owned container storage is about 4,169 KiB for the event graph
+  and 2,342 KiB for the trie,
+- query work is 15.9 spikes for the event graph and 8.6 lookups for the trie,
+- both learn both new post-rest associations, but the trie adds fewer links.
+
+The storage estimate includes allocated Rust container capacity but excludes
+hash-table control bytes and allocator bookkeeping.
+
+Therefore v17 demonstrates a useful recurrence-based retention policy, not a
+compression advantage for cells, arrows, and spikes. It is selective
+retention, not structural abstraction. The recurrence threshold, rest timing,
+rewrite operation, and replay acceptance suite are supplied. The replay set
+is counted during rest and discarded after the candidate graph is accepted.
 
 Recorded measurements are in
 [`results/v17_consolidation.md`](results/v17_consolidation.md).

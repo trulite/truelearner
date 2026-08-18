@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, mem::size_of};
 
 use crate::unified::{Token, UnifiedLearner};
 
@@ -50,6 +50,7 @@ impl Behavior {
 struct MemorySize {
     structures: usize,
     links: usize,
+    estimated_bytes: usize,
     work: u64,
     active_patterns: usize,
 }
@@ -84,6 +85,7 @@ impl SequenceMemory for UnifiedLearner {
         MemorySize {
             structures: metrics.learned_pattern_cells,
             links: metrics.arrows,
+            estimated_bytes: self.estimated_storage_bytes(),
             work: metrics.spikes,
             active_patterns: self.active_pattern_count(),
         }
@@ -201,6 +203,84 @@ impl ContextTrie {
             best.map(|(token, _)| token)
         }
     }
+
+    fn consolidate_recurring(&mut self, minimum_activations: u32) {
+        assert!(minimum_activations > 0);
+        let mut parents = vec![None; self.nodes.len()];
+        for (parent, node) in self.nodes.iter().enumerate() {
+            for (&token, &child) in &node.children {
+                parents[child] = Some((parent, token));
+            }
+        }
+
+        let mut keep = vec![false; self.nodes.len()];
+        keep[0] = true;
+        for (node, retained) in keep.iter_mut().enumerate().skip(1) {
+            *retained = self.nodes[node].activations >= minimum_activations;
+        }
+        for node in (1..self.nodes.len()).rev() {
+            if !keep[node] {
+                continue;
+            }
+            let mut ancestor = parents[node].map(|(parent, _)| parent);
+            while let Some(parent) = ancestor {
+                if keep[parent] {
+                    break;
+                }
+                keep[parent] = true;
+                ancestor = parents[parent].map(|(next, _)| next);
+            }
+        }
+
+        let mut rebuilt = vec![TrieNode {
+            depth: 0,
+            activations: self.nodes[0].activations,
+            children: HashMap::new(),
+            predictions: self.nodes[0].predictions.clone(),
+        }];
+        let mut remap = vec![None; self.nodes.len()];
+        remap[0] = Some(0);
+        let mut edges: Vec<_> = parents
+            .iter()
+            .enumerate()
+            .skip(1)
+            .filter_map(|(child, parent)| parent.map(|(parent, token)| (parent, token, child)))
+            .collect();
+        edges.sort_unstable_by_key(|&(_, _, child)| (self.nodes[child].depth, child));
+
+        for (parent, token, child) in edges {
+            if !keep[child] {
+                continue;
+            }
+            let new_parent = remap[parent].expect("kept trie node must retain its parent");
+            let new_child = rebuilt.len();
+            rebuilt.push(TrieNode {
+                depth: self.nodes[child].depth,
+                activations: self.nodes[child].activations,
+                children: HashMap::new(),
+                predictions: self.nodes[child].predictions.clone(),
+            });
+            rebuilt[new_parent].children.insert(token, new_child);
+            remap[child] = Some(new_child);
+        }
+
+        self.nodes = rebuilt;
+        self.active.clear();
+        self.last_prediction = None;
+    }
+
+    fn estimated_storage_bytes(&self) -> usize {
+        let node_storage = self.nodes.capacity() * size_of::<TrieNode>()
+            + self
+                .nodes
+                .iter()
+                .map(|node| {
+                    node.children.capacity() * (size_of::<Token>() + size_of::<usize>())
+                        + node.predictions.capacity() * (size_of::<Token>() + size_of::<u32>())
+                })
+                .sum::<usize>();
+        size_of::<Self>() + node_storage + self.active.capacity() * size_of::<usize>()
+    }
 }
 
 impl SequenceMemory for ContextTrie {
@@ -227,6 +307,7 @@ impl SequenceMemory for ContextTrie {
         MemorySize {
             structures: self.nodes.len() - 1,
             links: child_links + predictions,
+            estimated_bytes: self.estimated_storage_bytes(),
             work: self.lookups,
             active_patterns: self.active.len(),
         }
@@ -435,12 +516,42 @@ fn evaluate_read_only<M: SequenceMemory>(memory: &M, curriculum: &Curriculum) ->
     behavior
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+struct Adaptation {
+    correct: usize,
+    total: usize,
+    structures_added: usize,
+    links_added: usize,
+}
+
+fn adaptation_probe<M: SequenceMemory>(memory: &M) -> Adaptation {
+    let mut memory = memory.clone();
+    let before = memory.size();
+    let new_pairs = [(253, 254), (255, 253)];
+    for &(key, value) in &new_pairs {
+        memory.reset();
+        memory.absorb_learning(key);
+        memory.absorb_learning(value);
+    }
+    let after = memory.size();
+    let mut behavior = Behavior::default();
+    let correct = query_pairs(&mut memory, &new_pairs, false, &mut behavior);
+    Adaptation {
+        correct,
+        total: new_pairs.len(),
+        structures_added: after.structures - before.structures,
+        links_added: after.links - before.links,
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct ConsolidationScalePoint {
     pub experience_tokens: usize,
     pub raw_patterns: usize,
     pub consolidated_patterns: usize,
+    pub consolidated_trie_nodes: usize,
     pub consolidated_accuracy: f64,
+    pub consolidated_trie_accuracy: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -448,6 +559,7 @@ pub struct ConsolidationReport {
     pub event_accuracy_before: f64,
     pub event_accuracy_after: f64,
     pub trie_accuracy: f64,
+    pub trie_accuracy_after: f64,
     pub event_pairs: usize,
     pub consolidated_pairs: usize,
     pub trie_pairs: usize,
@@ -457,13 +569,26 @@ pub struct ConsolidationReport {
     pub patterns_before: usize,
     pub patterns_after: usize,
     pub trie_nodes: usize,
+    pub trie_nodes_after: usize,
     pub arrows_before: usize,
     pub arrows_after: usize,
     pub trie_links: usize,
+    pub trie_links_after: usize,
+    pub event_estimated_bytes_after: usize,
+    pub trie_estimated_bytes_after: usize,
     pub work_per_query_before: f64,
     pub work_per_query_after: f64,
     pub active_per_query_before: f64,
     pub active_per_query_after: f64,
+    pub trie_work_per_query_after: f64,
+    pub trie_active_per_query_after: f64,
+    pub event_adaptation_correct: usize,
+    pub trie_adaptation_correct: usize,
+    pub adaptation_total: usize,
+    pub event_adaptation_structures: usize,
+    pub trie_adaptation_structures: usize,
+    pub event_adaptation_links: usize,
+    pub trie_adaptation_links: usize,
     pub random_control_accuracy: f64,
     pub random_control_patterns: usize,
     pub rest_replay_tokens: usize,
@@ -489,11 +614,18 @@ fn scaling_sweep() -> Vec<ConsolidationScalePoint> {
             let mut consolidated = learner.clone();
             consolidated.consolidate_recurring(2);
             let behavior = evaluate_read_only(&consolidated, &curriculum);
+
+            let mut trie = ContextTrie::new(MAX_PATTERN_DEPTH);
+            train_and_mark(&mut trie, &curriculum);
+            trie.consolidate_recurring(2);
+            let trie_behavior = evaluate_read_only(&trie, &curriculum);
             ConsolidationScalePoint {
                 experience_tokens: curriculum.experience_tokens(),
                 raw_patterns,
                 consolidated_patterns: consolidated.metrics().learned_pattern_cells,
+                consolidated_trie_nodes: trie.size().structures,
                 consolidated_accuracy: behavior.induction_accuracy(),
+                consolidated_trie_accuracy: trie_behavior.induction_accuracy(),
             }
         })
         .collect()
@@ -509,6 +641,10 @@ pub fn run_experiment() -> ConsolidationReport {
     train_and_mark(&mut trie, &curriculum);
     let trie_behavior = evaluate_read_only(&trie, &curriculum);
     let trie_size = trie.size();
+    let mut consolidated_trie = trie.clone();
+    consolidated_trie.consolidate_recurring(2);
+    let trie_after_behavior = evaluate_read_only(&consolidated_trie, &curriculum);
+    let trie_after_size = consolidated_trie.size();
 
     let mut candidate = learner.clone();
     let consolidation = candidate.consolidate_recurring(2);
@@ -520,6 +656,8 @@ pub fn run_experiment() -> ConsolidationReport {
     random_control.scramble_prediction_targets(0x1700_dead);
     let random_behavior = evaluate_read_only(&random_control, &curriculum);
     let random_size = random_control.size();
+    let event_adaptation = adaptation_probe(&candidate);
+    let trie_adaptation = adaptation_probe(&consolidated_trie);
 
     let scaling = scaling_sweep();
     let first = &scaling[0];
@@ -535,19 +673,28 @@ pub fn run_experiment() -> ConsolidationReport {
             <= 0.01
         && trie_behavior.pair_correct == before_behavior.pair_correct
         && trie_behavior.needle_correct == before_behavior.needle_correct
+        && trie_after_behavior.preserves(trie_behavior)
+        && trie_after_size.structures == after_size.structures
+        && trie_after_size.links < after_size.links
+        && trie_after_size.estimated_bytes < after_size.estimated_bytes
+        && event_adaptation.correct == event_adaptation.total
+        && trie_adaptation.correct == trie_adaptation.total
         && memory_reduction >= 0.60
         && after_size.links * 2 < before_size.links
         && random_behavior.induction_accuracy() + 0.20 < after_behavior.induction_accuracy()
         && raw_growth >= 6.0
         && consolidated_growth <= 4.0
-        && scaling
-            .iter()
-            .all(|point| point.consolidated_accuracy >= 0.95);
+        && scaling.iter().all(|point| {
+            point.consolidated_accuracy >= 0.95
+                && point.consolidated_trie_accuracy >= 0.95
+                && point.consolidated_patterns == point.consolidated_trie_nodes
+        });
 
     ConsolidationReport {
         event_accuracy_before: before_behavior.induction_accuracy(),
         event_accuracy_after: after_behavior.induction_accuracy(),
         trie_accuracy: trie_behavior.induction_accuracy(),
+        trie_accuracy_after: trie_after_behavior.induction_accuracy(),
         event_pairs: before_behavior.pair_correct,
         consolidated_pairs: after_behavior.pair_correct,
         trie_pairs: trie_behavior.pair_correct,
@@ -557,13 +704,26 @@ pub fn run_experiment() -> ConsolidationReport {
         patterns_before: before_size.structures,
         patterns_after: after_size.structures,
         trie_nodes: trie_size.structures,
+        trie_nodes_after: trie_after_size.structures,
         arrows_before: before_size.links,
         arrows_after: after_size.links,
         trie_links: trie_size.links,
+        trie_links_after: trie_after_size.links,
+        event_estimated_bytes_after: after_size.estimated_bytes,
+        trie_estimated_bytes_after: trie_after_size.estimated_bytes,
         work_per_query_before: before_behavior.average_work(),
         work_per_query_after: after_behavior.average_work(),
         active_per_query_before: before_behavior.average_active_patterns(),
         active_per_query_after: after_behavior.average_active_patterns(),
+        trie_work_per_query_after: trie_after_behavior.average_work(),
+        trie_active_per_query_after: trie_after_behavior.average_active_patterns(),
+        event_adaptation_correct: event_adaptation.correct,
+        trie_adaptation_correct: trie_adaptation.correct,
+        adaptation_total: event_adaptation.total,
+        event_adaptation_structures: event_adaptation.structures_added,
+        trie_adaptation_structures: trie_adaptation.structures_added,
+        event_adaptation_links: event_adaptation.links_added,
+        trie_adaptation_links: trie_adaptation.links_added,
         random_control_accuracy: random_behavior.induction_accuracy(),
         random_control_patterns: random_size.structures,
         rest_replay_tokens: curriculum.replay_tokens(),
@@ -577,10 +737,11 @@ pub fn run_experiment() -> ConsolidationReport {
 pub fn print_report(report: &ConsolidationReport) {
     println!("v17 consolidation:");
     println!(
-        "  induction: event={:.1}%, trie={:.1}%, after rest={:.1}%",
+        "  induction: event={:.1}% -> {:.1}%, trie={:.1}% -> {:.1}%",
         report.event_accuracy_before * 100.0,
+        report.event_accuracy_after * 100.0,
         report.trie_accuracy * 100.0,
-        report.event_accuracy_after * 100.0
+        report.trie_accuracy_after * 100.0
     );
     println!(
         "  recall: pairs event/after/trie={}/{}/{}, needles={}/{}/{}",
@@ -592,20 +753,41 @@ pub fn print_report(report: &ConsolidationReport) {
         report.trie_needles
     );
     println!(
-        "  patterns: {} -> {}, trie nodes={}; links: {} -> {}, trie links={}",
+        "  patterns: event {} -> {}, trie {} -> {}; links: event {} -> {}, trie {} -> {}",
         report.patterns_before,
         report.patterns_after,
         report.trie_nodes,
+        report.trie_nodes_after,
         report.arrows_before,
         report.arrows_after,
-        report.trie_links
+        report.trie_links,
+        report.trie_links_after
     );
     println!(
-        "  work/query: {:.1} -> {:.1}, active patterns/query: {:.1} -> {:.1}",
-        report.work_per_query_before,
+        "  rested work/query event/trie={:.1}/{:.1}, active patterns/query={:.1}/{:.1}",
         report.work_per_query_after,
-        report.active_per_query_before,
-        report.active_per_query_after
+        report.trie_work_per_query_after,
+        report.active_per_query_after,
+        report.trie_active_per_query_after
+    );
+    println!(
+        "  estimated storage after rest event/trie={:.1}/{:.1} KiB",
+        report.event_estimated_bytes_after as f64 / 1_024.0,
+        report.trie_estimated_bytes_after as f64 / 1_024.0
+    );
+    println!(
+        "  adaptation event/trie={}/{}/{}; added structures={}/{}, links={}/{}",
+        report.event_adaptation_correct,
+        report.trie_adaptation_correct,
+        report.adaptation_total,
+        report.event_adaptation_structures,
+        report.trie_adaptation_structures,
+        report.event_adaptation_links,
+        report.trie_adaptation_links
+    );
+    println!(
+        "  pre-rest event work/query={:.1}, active patterns/query={:.1}",
+        report.work_per_query_before, report.active_per_query_before
     );
     println!(
         "  arbitrary rewiring control: {:.1}% with {} patterns; rewrite accepted={}",
@@ -617,11 +799,14 @@ pub fn print_report(report: &ConsolidationReport) {
         "  rest replay tokens={}, retained after rest={}",
         report.rest_replay_tokens, report.retained_replay_tokens
     );
-    print!("  scaling patterns raw/consolidated:");
+    print!("  scaling patterns raw/event/trie:");
     for point in &report.scaling {
         print!(
-            " {}:{}/{}",
-            point.experience_tokens, point.raw_patterns, point.consolidated_patterns
+            " {}:{}/{}/{}",
+            point.experience_tokens,
+            point.raw_patterns,
+            point.consolidated_patterns,
+            point.consolidated_trie_nodes
         );
     }
     println!();
@@ -653,6 +838,18 @@ mod tests {
     }
 
     #[test]
+    fn v17_equally_rested_trie_matches_behavior_with_less_storage() {
+        let report = run_experiment();
+
+        assert!((report.event_accuracy_after - report.trie_accuracy_after).abs() <= 0.01);
+        assert_eq!(report.patterns_after, report.trie_nodes_after);
+        assert!(report.trie_links_after < report.arrows_after);
+        assert!(report.trie_estimated_bytes_after < report.event_estimated_bytes_after);
+        assert_eq!(report.event_adaptation_correct, report.adaptation_total);
+        assert_eq!(report.trie_adaptation_correct, report.adaptation_total);
+    }
+
+    #[test]
     fn v17_arbitrary_rewiring_does_not_preserve_induction() {
         let report = run_experiment();
 
@@ -675,10 +872,11 @@ mod tests {
 
         assert!(raw_growth >= 6.0);
         assert!(consolidated_growth <= 4.0);
-        assert!(report
-            .scaling
-            .iter()
-            .all(|point| point.consolidated_accuracy >= 0.95));
+        assert!(report.scaling.iter().all(|point| {
+            point.consolidated_accuracy >= 0.95
+                && point.consolidated_trie_accuracy >= 0.95
+                && point.consolidated_patterns == point.consolidated_trie_nodes
+        }));
         assert!(report.passed);
     }
 }
