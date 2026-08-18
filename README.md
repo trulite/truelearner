@@ -334,6 +334,47 @@ local port graph, effect candidate vocabulary, codecs, compression objective,
 and task pool remain supplied. Tiny Shakespeare is intentionally deferred to
 v15.
 
+## v14.5: Scaling harness
+
+The v14.5 harness measures deterministic work rather than treating noisy wall
+time as the scaling law. The production structural learner records:
+
+- causal-hypothesis evaluations,
+- active-sensor visits,
+- topology states scanned while selecting experiments.
+
+It sweeps:
+
+```text
+training observations: 256 -> 16,384
+active context:        1 -> 256 sensors
+topology size:         64 -> 4,096 sensors
+```
+
+Log-log regression estimates combined work for observation and topology
+scaling, and active-sensor visits for context scaling. A queue-based
+branching-process probe measures event-cascade size below and above the
+critical branching ratio. A bounded associative-memory probe measures recall
+accuracy from 0.25x through 4x slot load.
+
+Wall-clock nanoseconds are recorded in the CSV as secondary hardware-specific
+evidence. The deterministic operation counts, cascade error, and memory-load
+curve determine pass/fail.
+
+Run and record the scaling sweep with:
+
+```bash
+cargo run --release --bin scaling -- --output results/v14_5_scaling.csv
+```
+
+The current machine-specific measurements are recorded in
+[`results/v14_5_scaling.md`](results/v14_5_scaling.md).
+
+This is not yet a language-model scaling law. It covers the local structural
+learner, event cascades, and a bounded associative-memory probe. v15 must add
+loss-versus-data, capacity, context, and compute curves for the unified
+sequence learner.
+
 ## Run
 
 ```bash

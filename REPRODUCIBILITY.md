@@ -15,6 +15,7 @@ cargo fmt -- --check
 cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo run --release
+cargo run --release --bin scaling -- --output results/v14_5_scaling.csv
 ```
 
 `rust-toolchain.toml` pins the compiler and installs `rustfmt` and Clippy.
@@ -29,9 +30,9 @@ Determinism makes regressions reproducible but does not provide statistical
 confidence. Reviewers should replace or supplement fixed seeds through
 independent integration tests.
 
-## Current Expected Test Inventory
+## Expected Test Inventory
 
-- 44 in-crate unit tests
+- 48 in-crate unit tests
 - 2 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -49,6 +50,10 @@ independent integration tests.
   task traces; random trace sampling averages 26.1
 - v14: three new action aliases calibrate and a learned procedure transfers
   without target-domain task demonstrations
+- v14.5: deterministic work is fitted against observation count, active
+  context, and topology size; event cascades are compared with subcritical
+  branching-process theory; bounded associative recall is measured across a
+  16x load range
 
 ## Interpretation Boundary
 

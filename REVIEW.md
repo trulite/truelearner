@@ -59,6 +59,8 @@ results.
 - `src/vision.rs`: v5 raw-frame visual templates
 - `src/causal.rs`: v6-v8 causal learning, planning, and procedures
 - `src/generality.rs`: v9-v14 representation through transfer experiments
+- `src/scaling.rs`: v14.5 deterministic scaling and capacity probes
+- `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation
 

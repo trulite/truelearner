@@ -137,6 +137,15 @@ pub enum StructuralEffect {
     FollowPort(usize),
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WorkMetrics {
+    pub observations: u64,
+    pub predictions: u64,
+    pub hypothesis_evaluations: u64,
+    pub sensor_visits: u64,
+    pub experiment_states_considered: u64,
+}
+
 fn candidate_effects(topology: &RelationalTopology) -> BTreeSet<StructuralEffect> {
     std::iter::once(StructuralEffect::Stay)
         .chain((0..topology.port_count()).map(StructuralEffect::FollowPort))
@@ -144,15 +153,27 @@ fn candidate_effects(topology: &RelationalTopology) -> BTreeSet<StructuralEffect
 }
 
 fn apply_effect(topology: &RelationalTopology, before: &Frame, effect: StructuralEffect) -> Frame {
+    apply_effect_measured(topology, before, effect).0
+}
+
+fn apply_effect_measured(
+    topology: &RelationalTopology,
+    before: &Frame,
+    effect: StructuralEffect,
+) -> (Frame, u64) {
     match effect {
-        StructuralEffect::Stay => before.clone(),
+        StructuralEffect::Stay => (before.clone(), before.active.len() as u64),
         StructuralEffect::FollowPort(port) => {
-            let moved: Option<BTreeSet<_>> = before
-                .active
-                .iter()
-                .map(|&sensor| topology.neighbor(sensor, port))
-                .collect();
-            moved.map_or_else(|| before.clone(), |active| Frame { active })
+            let mut visits = 0;
+            let mut active = BTreeSet::new();
+            for &sensor in &before.active {
+                visits += 1;
+                let Some(neighbor) = topology.neighbor(sensor, port) else {
+                    return (before.clone(), visits);
+                };
+                active.insert(neighbor);
+            }
+            (Frame { active }, visits)
         }
     }
 }
@@ -199,10 +220,30 @@ impl RepresentationLearner {
         action: ActionId,
         after: &Frame,
     ) -> bool {
+        self.observe_measured(topology, before, action, after, &mut WorkMetrics::default())
+    }
+
+    pub fn observe_measured(
+        &mut self,
+        topology: &RelationalTopology,
+        before: &Frame,
+        action: ActionId,
+        after: &Frame,
+        metrics: &mut WorkMetrics,
+    ) -> bool {
         let Some(candidates) = self.candidates.get_mut(&action) else {
             return false;
         };
-        candidates.retain(|&effect| apply_effect(topology, before, effect) == *after);
+        metrics.observations += 1;
+        let previous = std::mem::take(candidates);
+        for effect in previous {
+            metrics.hypothesis_evaluations += 1;
+            let (predicted, visits) = apply_effect_measured(topology, before, effect);
+            metrics.sensor_visits += visits;
+            if predicted == *after {
+                candidates.insert(effect);
+            }
+        }
         true
     }
 
@@ -248,18 +289,29 @@ impl RepresentationLearner {
     }
 
     pub fn choose_experiment(&self, topology: &RelationalTopology) -> Option<(ActionId, SensorId)> {
+        self.choose_experiment_measured(topology, &mut WorkMetrics::default())
+    }
+
+    pub fn choose_experiment_measured(
+        &self,
+        topology: &RelationalTopology,
+        metrics: &mut WorkMetrics,
+    ) -> Option<(ActionId, SensorId)> {
         let mut best: Option<((usize, usize), ActionId, SensorId)> = None;
         for (&action, candidates) in &self.candidates {
             if candidates.len() <= 1 {
                 continue;
             }
             for sensor in 0..topology.sensor_count() {
+                metrics.experiment_states_considered += 1;
                 let before = Frame::singleton(sensor);
                 let mut outcome_counts = BTreeMap::new();
                 for &effect in candidates {
-                    *outcome_counts
-                        .entry(apply_effect(topology, &before, effect))
-                        .or_insert(0usize) += 1;
+                    metrics.predictions += 1;
+                    metrics.hypothesis_evaluations += 1;
+                    let (predicted, visits) = apply_effect_measured(topology, &before, effect);
+                    metrics.sensor_visits += visits;
+                    *outcome_counts.entry(predicted).or_insert(0usize) += 1;
                 }
                 let worst_partition = outcome_counts.values().copied().max().unwrap_or(0);
                 let information = candidates.len() - worst_partition;

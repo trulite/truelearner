@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use organism_v0::{causal, generality, inertia, tracking, vision};
+use organism_v0::{causal, generality, inertia, scaling, tracking, vision};
 
 type CellId = usize;
 type ArrowId = usize;
@@ -552,7 +552,7 @@ fn main() {
     let random_concept = MotionConcept::discover(&random, 0.8);
     let stationary_concept = MotionConcept::discover(&stationary, 0.8);
 
-    println!("organism-v14 general-learning experiment");
+    println!("organism-v14.5 scaling experiment");
     println!();
     println!(
         "queue runtime smoke check: {} spikes processed",
@@ -690,6 +690,10 @@ fn main() {
     generality::print_report(&generality_report);
     println!();
 
+    let scaling_report = scaling::run_experiment();
+    scaling::print_report(&scaling_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -697,17 +701,18 @@ fn main() {
         && causal_report.passed
         && planning_report.passed
         && procedure_report.passed
-        && generality_report.passed;
+        && generality_report.passed
+        && scaling_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - learned representations, hypotheses, abstractions, curricula, and procedures transferred across domains"
+            "PASS - learned structures transfer and measured work remains linear in the tested scaling regimes"
         } else {
-            "FAIL - at least one learning, representation, adaptation, abstraction, transfer, or control test failed"
+            "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: relational ports, candidate-effect vocabulary, compression objectives, raw codecs, and evaluation curricula remain supplied."
+        "LIMIT: measured exponents cover synthetic local operations; unified language-training loss scaling is not yet established."
     );
 }
 
