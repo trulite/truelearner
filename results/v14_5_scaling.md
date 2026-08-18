@@ -1,4 +1,4 @@
-# v14.5 Scaling Results
+# v14.5 and v14.6 Scaling Results
 
 **Recorded:** 2026-08-18
 
@@ -14,6 +14,7 @@
 data work exponent:             0.996
 active-context work exponent:   1.000
 topology-search work exponent:  1.000
+stabilization work exponent:     1.000
 maximum subcritical error:      1.8%
 supercritical runaway rate:    23.3%
 associative accuracy:
@@ -27,36 +28,36 @@ The v14.5 acceptance criteria pass.
 
 ### Training observations
 
-| Observations | Work units | Release wall time |
-|---:|---:|---:|
-| 256 | 520 | 24.7 us |
-| 1,024 | 2,056 | 60.8 us |
-| 4,096 | 8,200 | 240.9 us |
-| 16,384 | 32,776 | 934.8 us |
+| Observations | Work units |
+|---:|---:|
+| 256 | 520 |
+| 1,024 | 2,056 |
+| 4,096 | 8,200 |
+| 16,384 | 32,776 |
 
 The fitted exponent is `0.996`. The small constant offset comes from
 eliminating the initial competing hypotheses.
 
 ### Active context
 
-| Active sensors | Sensor visits | Release wall time |
-|---:|---:|---:|
-| 1 | 1,028 | 47.9 us |
-| 4 | 4,112 | 63.6 us |
-| 16 | 16,448 | 233.3 us |
-| 64 | 65,792 | 819.4 us |
-| 256 | 263,168 | 4.76 ms |
+| Active sensors | Sensor visits |
+|---:|---:|
+| 1 | 1,028 |
+| 4 | 4,112 |
+| 16 | 16,448 |
+| 64 | 65,792 |
+| 256 | 263,168 |
 
 The fitted active-sensor-visit exponent is exactly `1.000`.
 
 ### Topology search
 
-| Sensors | Work units | Release wall time |
-|---:|---:|---:|
-| 64 | 3,520 | 94.7 us |
-| 256 | 14,080 | 355.0 us |
-| 1,024 | 56,320 | 1.48 ms |
-| 4,096 | 225,280 | 4.98 ms |
+| Sensors | Work units |
+|---:|---:|
+| 64 | 3,520 |
+| 256 | 14,080 |
+| 1,024 | 56,320 |
+| 4,096 | 225,280 |
 
 The fitted experiment-selection exponent is exactly `1.000`. This also
 identifies a scaling liability: exhaustive hypothesis-directed experiment
@@ -94,11 +95,32 @@ Accuracy degrades monotonically as collisions overwrite prior associations.
 The result exposes the memory-capacity knee; it does not demonstrate that the
 current organism uses this exact storage scheme.
 
+## Learned Stabilization
+
+Each route begins with a useful recurring path and a useless loop. Training
+creates a short concept route and weakens activity that no longer contributes
+to the answer.
+
+| Independent routes | Training spikes | Final spikes per route | Final runaway rate |
+|---:|---:|---:|---:|
+| 1 | 1,295 | 2 | 0% |
+| 2 | 2,590 | 2 | 0% |
+| 4 | 5,180 | 2 | 0% |
+| 8 | 10,360 | 2 | 0% |
+| 16 | 20,720 | 2 | 0% |
+
+Training activity grows exactly in proportion to the number of independent
+routes in this test. Every learned route compresses to one cue spike followed
+by one output spike.
+
+This does not yet measure interacting concepts that share cells or
+connections. Shared structure may create interference and different scaling.
+
 ## Interpretation
 
 These measurements establish linear deterministic work in the tested local
-update, active-context, and topology-search regimes. They do not establish a
-Transformer-style loss scaling law.
+update, active-context, topology-search, and independent stabilization
+regimes. They do not establish a Transformer-style loss scaling law.
 
 Remaining requirements for v15:
 

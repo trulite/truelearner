@@ -60,6 +60,7 @@ results.
 - `src/causal.rs`: v6-v8 causal learning, planning, and procedures
 - `src/generality.rs`: v9-v14 representation through transfer experiments
 - `src/scaling.rs`: v14.5 deterministic scaling and capacity probes
+- `src/stability.rs`: v14.6 learned compression and self-stabilization
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

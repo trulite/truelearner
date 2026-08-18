@@ -6,6 +6,7 @@ use crate::generality::{
     simulate_effect, Frame, RelationalTopology, RepresentationLearner, StructuralEffect,
     WorkMetrics,
 };
+use crate::stability::{scaling_sweep as stabilization_sweep, StabilizationScalePoint};
 
 #[derive(Clone, Debug)]
 pub struct ScalePoint {
@@ -41,6 +42,8 @@ pub struct ScalingReport {
     pub topology_exponent: f64,
     pub cascade_points: Vec<CascadePoint>,
     pub capacity_points: Vec<CapacityPoint>,
+    pub stabilization_points: Vec<StabilizationScalePoint>,
+    pub stabilization_exponent: f64,
     pub maximum_subcritical_error: f64,
     pub supercritical_runaway_fraction: f64,
     pub passed: bool,
@@ -49,33 +52,33 @@ pub struct ScalingReport {
 impl ScalingReport {
     pub fn to_csv(&self) -> String {
         let mut output = String::from(
-            "probe,size,work,wall_nanoseconds,branching_ratio,theoretical_mean,relative_error,runaway_fraction,slots,load,accuracy\n",
+            "probe,size,work,wall_nanoseconds,branching_ratio,theoretical_mean,relative_error,runaway_fraction,slots,load,accuracy,final_spikes_per_route,final_runaway_rate\n",
         );
         for point in &self.data_points {
             let _ = writeln!(
                 output,
-                "data,{},{},{},,,,,,,",
+                "data,{},{},{},,,,,,,,,",
                 point.size, point.work, point.wall_nanoseconds
             );
         }
         for point in &self.context_points {
             let _ = writeln!(
                 output,
-                "context,{},{},{},,,,,,,",
+                "context,{},{},{},,,,,,,,,",
                 point.size, point.work, point.wall_nanoseconds
             );
         }
         for point in &self.topology_points {
             let _ = writeln!(
                 output,
-                "topology,{},{},{},,,,,,,",
+                "topology,{},{},{},,,,,,,,,",
                 point.size, point.work, point.wall_nanoseconds
             );
         }
         for point in &self.cascade_points {
             let _ = writeln!(
                 output,
-                "cascade,,,,{:.4},{},{},{:.6},,,",
+                "cascade,,,,{:.4},{},{},{:.6},,,,,",
                 point.branching_ratio,
                 point
                     .theoretical_mean
@@ -89,8 +92,18 @@ impl ScalingReport {
         for point in &self.capacity_points {
             let _ = writeln!(
                 output,
-                "capacity,{},,,,,,,{},{:.4},{:.6}",
+                "capacity,{},,,,,,,{},{:.4},{:.6},,",
                 point.associations, point.slots, point.load, point.accuracy
+            );
+        }
+        for point in &self.stabilization_points {
+            let _ = writeln!(
+                output,
+                "stabilization,{},{},,,,,,,,,{:.6},{:.6}",
+                point.routes,
+                point.training_spikes,
+                point.final_spikes_per_route,
+                point.final_runaway_rate
             );
         }
         output
@@ -98,10 +111,11 @@ impl ScalingReport {
 
     pub fn summary(&self) -> String {
         format!(
-            "v14.5 scaling: data exponent={:.3}, context exponent={:.3}, topology exponent={:.3}, max subcritical cascade error={:.1}%, supercritical runaway={:.1}%, capacity accuracy {:.1}% -> {:.1}%, passed={}",
+            "v14.5-v14.6 scaling: data exponent={:.3}, context exponent={:.3}, topology exponent={:.3}, stabilization exponent={:.3}, max subcritical cascade error={:.1}%, supercritical runaway={:.1}%, capacity accuracy {:.1}% -> {:.1}%, passed={}",
             self.data_exponent,
             self.context_exponent,
             self.topology_exponent,
+            self.stabilization_exponent,
             self.maximum_subcritical_error * 100.0,
             self.supercritical_runaway_fraction * 100.0,
             self.capacity_points.first().map_or(0.0, |point| point.accuracy) * 100.0,
@@ -206,6 +220,29 @@ fn fit_power_exponent(points: &[ScalePoint]) -> f64 {
     let variance = points
         .iter()
         .map(|point| ((point.size as f64).ln() - mean_x).powi(2))
+        .sum::<f64>();
+    covariance / variance
+}
+
+fn fit_pairs(points: &[(usize, u64)]) -> f64 {
+    let count = points.len() as f64;
+    let mean_x = points
+        .iter()
+        .map(|(size, _)| (*size as f64).ln())
+        .sum::<f64>()
+        / count;
+    let mean_y = points
+        .iter()
+        .map(|(_, work)| (*work as f64).ln())
+        .sum::<f64>()
+        / count;
+    let covariance = points
+        .iter()
+        .map(|(size, work)| ((*size as f64).ln() - mean_x) * ((*work as f64).ln() - mean_y))
+        .sum::<f64>();
+    let variance = points
+        .iter()
+        .map(|(size, _)| ((*size as f64).ln() - mean_x).powi(2))
         .sum::<f64>();
     covariance / variance
 }
@@ -345,6 +382,15 @@ pub fn run_experiment() -> ScalingReport {
         .find(|point| point.branching_ratio > 1.0)
         .map_or(0.0, |point| point.runaway_fraction);
     let capacity_points = capacity_sweep();
+    let stabilization_points = stabilization_sweep();
+    let stabilization_pairs: Vec<_> = stabilization_points
+        .iter()
+        .map(|point| (point.routes, point.training_spikes))
+        .collect();
+    let stabilization_exponent = fit_pairs(&stabilization_pairs);
+    let stabilization_settles = stabilization_points
+        .iter()
+        .all(|point| point.final_runaway_rate == 0.0 && point.final_spikes_per_route <= 3.0);
     let capacity_monotonic = capacity_points
         .windows(2)
         .all(|pair| pair[1].accuracy <= pair[0].accuracy);
@@ -359,7 +405,9 @@ pub fn run_experiment() -> ScalingReport {
             .is_some_and(|point| point.accuracy > 0.8)
         && capacity_points
             .last()
-            .is_some_and(|point| point.accuracy < 0.35);
+            .is_some_and(|point| point.accuracy < 0.35)
+        && (0.98..=1.02).contains(&stabilization_exponent)
+        && stabilization_settles;
 
     ScalingReport {
         data_points,
@@ -370,6 +418,8 @@ pub fn run_experiment() -> ScalingReport {
         topology_exponent,
         cascade_points,
         capacity_points,
+        stabilization_points,
+        stabilization_exponent,
         maximum_subcritical_error,
         supercritical_runaway_fraction,
         passed,
@@ -407,6 +457,19 @@ pub fn print_report(report: &ScalingReport) {
             .capacity_points
             .last()
             .map_or(0.0, |point| point.load)
+    );
+    println!(
+        "  learned stabilization: training exponent={:.3}, final spikes/route={:.1}, final runaway={:.1}%",
+        report.stabilization_exponent,
+        report
+            .stabilization_points
+            .last()
+            .map_or(0.0, |point| point.final_spikes_per_route),
+        report
+            .stabilization_points
+            .last()
+            .map_or(0.0, |point| point.final_runaway_rate)
+            * 100.0
     );
 }
 
@@ -446,5 +509,20 @@ mod tests {
     #[test]
     fn v14_5_complete_scaling_experiment_passes() {
         assert!(run_experiment().passed);
+    }
+
+    #[test]
+    fn v14_6_stabilization_training_scales_with_independent_routes() {
+        let report = run_experiment();
+
+        assert!((0.98..=1.02).contains(&report.stabilization_exponent));
+        assert!(report
+            .stabilization_points
+            .iter()
+            .all(|point| point.final_runaway_rate == 0.0));
+        assert!(report
+            .stabilization_points
+            .iter()
+            .all(|point| point.final_spikes_per_route <= 3.0));
     }
 }

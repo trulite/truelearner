@@ -375,6 +375,39 @@ learner, event cascades, and a bounded associative-memory probe. v15 must add
 loss-versus-data, capacity, context, and compute curves for the unified
 sequence learner.
 
+## v14.6: Learned self-stabilization
+
+The problem is repeated internal activity that keeps circulating after the
+machine has already found the useful result.
+
+The experiment begins with two kinds of recurring paths:
+
+- a useful recurring path that eventually reaches the correct output,
+- a useless loop that creates activity without adding information.
+
+The machine is not told which connection is unstable. It sees whether the
+episode reached the correct output and how much internal activity was used.
+
+Repeated successful paths become short concept routes. Once a concept route
+produces the same result, older activity that adds nothing new becomes weaker.
+A temporary activity limit protects the experiment while this learning takes
+place.
+
+Three controls are required:
+
+- prediction pressure alone remains correct but unstable,
+- activity pressure alone becomes quiet but stops producing answers,
+- combined pressure preserves correct answers, creates concept routes, and
+  settles.
+
+After learning, a new unstable loop is attached to the network. The machine
+must detect its wasted activity through experience and recover without being
+told which new connection caused the problem.
+
+The scaling harness also repeats this learning with one through sixteen
+independent routes. It measures how training activity grows and verifies that
+every learned route finishes with a small stable cascade.
+
 ## Run
 
 ```bash

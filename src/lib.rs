@@ -2,6 +2,7 @@ pub mod causal;
 pub mod generality;
 pub mod inertia;
 pub mod scaling;
+pub mod stability;
 pub mod tracking;
 pub mod vision;
 

@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use organism_v0::{causal, generality, inertia, scaling, tracking, vision};
+use organism_v0::{causal, generality, inertia, scaling, stability, tracking, vision};
 
 type CellId = usize;
 type ArrowId = usize;
@@ -552,7 +552,7 @@ fn main() {
     let random_concept = MotionConcept::discover(&random, 0.8);
     let stationary_concept = MotionConcept::discover(&stationary, 0.8);
 
-    println!("organism-v14.5 scaling experiment");
+    println!("organism-v14.6 learned-stability experiment");
     println!();
     println!(
         "queue runtime smoke check: {} spikes processed",
@@ -690,6 +690,10 @@ fn main() {
     generality::print_report(&generality_report);
     println!();
 
+    let stability_report = stability::run_experiment();
+    stability::print_report(&stability_report);
+    println!();
+
     let scaling_report = scaling::run_experiment();
     scaling::print_report(&scaling_report);
     println!();
@@ -702,17 +706,18 @@ fn main() {
         && planning_report.passed
         && procedure_report.passed
         && generality_report.passed
+        && stability_report.passed
         && scaling_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - learned structures transfer and measured work remains linear in the tested scaling regimes"
+            "PASS - useful cascades compress into stable concepts and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: measured exponents cover synthetic local operations; unified language-training loss scaling is not yet established."
+        "LIMIT: stability is learned in synthetic routes with supplied success feedback and a temporary activity limit."
     );
 }
 

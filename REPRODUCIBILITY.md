@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 48 in-crate unit tests
+- 53 in-crate unit tests
 - 2 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -54,6 +54,9 @@ independent integration tests.
   context, and topology size; event cascades are compared with subcritical
   branching-process theory; bounded associative recall is measured across a
   16x load range
+- v14.6: repeated useful cascades compress into short concept routes, useless
+  activity weakens, a newly introduced unstable loop is learned away, and the
+  stabilization training sweep covers one through sixteen independent routes
 
 ## Interpretation Boundary
 
