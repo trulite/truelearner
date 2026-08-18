@@ -64,3 +64,30 @@ fn reviewer_can_probe_the_unified_learner_with_hidden_tokens() {
         assert_eq!(learner.answer(), Some(value));
     }
 }
+
+#[test]
+fn reviewer_can_consolidate_hidden_pairs_and_retest_without_learning() {
+    let mut learner = UnifiedLearner::new(256, 6, 512);
+    let hidden_pairs = [(19, 211), (43, 207), (83, 201), (109, 197)];
+
+    for &(key, value) in &hidden_pairs {
+        learner.reset_activity();
+        learner.absorb(key);
+        learner.absorb(value);
+    }
+    for &(key, _) in &hidden_pairs {
+        learner.reset_activity();
+        learner.absorb(key);
+    }
+
+    let before = learner.metrics();
+    learner.consolidate_recurring(2);
+    let after = learner.metrics();
+    assert!(after.learned_pattern_cells < before.learned_pattern_cells);
+
+    for (key, value) in hidden_pairs {
+        learner.reset_activity();
+        learner.absorb_without_learning(key);
+        assert_eq!(learner.answer(), Some(value));
+    }
+}

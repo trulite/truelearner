@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 
-use organism_v0::{causal, generality, inertia, scaling, stability, tracking, unified, vision};
+use organism_v0::{
+    causal, consolidation, generality, inertia, scaling, stability, tracking, unified, vision,
+};
 
 type CellId = usize;
 type ArrowId = usize;
@@ -702,6 +704,10 @@ fn main() {
     unified::print_report(&unified_report);
     println!();
 
+    let consolidation_report = consolidation::run_experiment();
+    consolidation::print_report(&consolidation_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -712,17 +718,18 @@ fn main() {
         && generality_report.passed
         && stability_report.passed
         && scaling_report.passed
-        && unified_report.passed;
+        && unified_report.passed
+        && consolidation_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - one cell-arrow-spike learner passes the synthetic integration gate and all earlier experiments still pass"
+            "PASS - recurring memory consolidates without losing tested behavior and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: v16 supplies ordered token arrival, activity phases, pattern recruitment, and deepest-pattern selection; reversal and sorting are not yet demonstrated."
+        "LIMIT: v17 removes one-off contexts by recurrence; it does not yet discover shared structure beneath different surface tokens."
     );
 }
 

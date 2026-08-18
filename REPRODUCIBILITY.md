@@ -32,8 +32,8 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 57 in-crate unit tests
-- 3 public reviewer-API integration tests
+- 61 in-crate unit tests
+- 4 public reviewer-API integration tests
 
 ## Current Strongest Results
 
@@ -60,6 +60,9 @@ independent integration tests.
 - v16: one persistent cell-arrow-spike learner performs repeated-sequence
   induction, thirty-two-pair recall, and three-position needle retrieval while
   rejecting remapped and unknown queries
+- v17: a plain trie matches v16, after which recurrence-guided consolidation
+  preserves tested behavior while physically removing most one-off pattern
+  cells and arrows
 
 ## Interpretation Boundary
 

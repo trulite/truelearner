@@ -457,6 +457,45 @@ compression of its growing pattern graph. The recorded v16 measurements are
 in [`results/v16_one_learner.md`](results/v16_one_learner.md). Tiny Shakespeare
 is not part of this milestone.
 
+## v17: Consolidation
+
+V17 asks whether v16 is more compact than a conventional variable-depth
+lookup structure, and whether an offline rest phase can retain tested behavior
+with less permanent structure.
+
+The same synthetic curriculum is given to:
+
+- the v16 cell-arrow-spike learner,
+- a plain context trie with no cells or spikes.
+
+The trie matches v16's induction and associative retrieval results. This is
+important negative evidence: v16 currently behaves like an event-driven trie,
+not a discovered abstraction system.
+
+During rest, the event-driven learner:
+
+- counts which pattern cells actually reactivate,
+- proposes a new graph containing recurring patterns and their required
+  parents,
+- physically rebuilds its cell and arrow storage,
+- runs the remembered behavior suite without permitting new learning,
+- accepts the rewrite only when the tested behavior survives.
+
+An arbitrary prediction rewiring keeps the same consolidated graph size but
+destroys behavior. This verifies that reduced size alone is not the result.
+
+The experience sweep increases retained input from 1,704 to 17,064 tokens.
+Raw pattern storage grows from 9,810 to 110,445 cells. Consolidated storage
+grows from 1,931 to 6,576 cells while induction remains above 95%.
+
+This is selective retention, not structural abstraction. The recurrence
+threshold, rest timing, rewrite operation, and replay acceptance suite are
+supplied. The replay set is counted during rest and discarded after the
+candidate graph is accepted.
+
+Recorded measurements are in
+[`results/v17_consolidation.md`](results/v17_consolidation.md).
+
 ## Run
 
 ```bash

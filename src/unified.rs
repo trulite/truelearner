@@ -16,6 +16,7 @@ struct Cell {
     state: u32,
     threshold: u32,
     depth: usize,
+    activations: u32,
     outgoing: Vec<ArrowId>,
 }
 
@@ -58,6 +59,15 @@ pub struct AbsorbResult {
     pub spikes: u64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConsolidationResult {
+    pub cells_before: usize,
+    pub cells_after: usize,
+    pub arrows_before: usize,
+    pub arrows_after: usize,
+    pub patterns_removed: usize,
+}
+
 /// One sequence learner built from cells, arrows, and queued spikes.
 ///
 /// The learner receives no task identifier. Its only supplied structure is
@@ -95,6 +105,7 @@ impl UnifiedLearner {
                 state: 0,
                 threshold: u32::MAX,
                 depth: 0,
+                activations: 0,
                 outgoing: Vec::new(),
             });
         }
@@ -103,6 +114,7 @@ impl UnifiedLearner {
             state: 0,
             threshold: 1,
             depth: 0,
+            activations: 0,
             outgoing: Vec::new(),
         });
 
@@ -136,9 +148,21 @@ impl UnifiedLearner {
     }
 
     pub fn absorb(&mut self, token: Token) -> AbsorbResult {
+        self.absorb_internal(token, true)
+    }
+
+    /// Propagates one token through existing structure without recruiting
+    /// cells or changing arrow strengths.
+    pub fn absorb_without_learning(&mut self, token: Token) -> AbsorbResult {
+        self.absorb_internal(token, false)
+    }
+
+    fn absorb_internal(&mut self, token: Token, learn: bool) -> AbsorbResult {
         let receptor = self.receptor(token);
         let prediction_before_input = self.last_prediction;
-        self.learn_successor(receptor);
+        if learn {
+            self.learn_successor(receptor);
+        }
 
         let mut parents = Vec::with_capacity(self.active_patterns.len() + 1);
         parents.push(self.root);
@@ -152,7 +176,13 @@ impl UnifiedLearner {
         let joins: Vec<_> = parents
             .iter()
             .copied()
-            .map(|parent| self.get_or_recruit_join(parent, receptor))
+            .filter_map(|parent| {
+                if learn {
+                    Some(self.get_or_recruit_join(parent, receptor))
+                } else {
+                    self.joins.get(&(parent, receptor)).copied()
+                }
+            })
             .collect();
         let before_spikes = self.total_spikes;
         self.active_patterns = self.activate_joins(&joins);
@@ -177,6 +207,148 @@ impl UnifiedLearner {
         }
     }
 
+    pub fn active_pattern_count(&self) -> usize {
+        self.active_patterns.len()
+    }
+
+    /// Rebuilds the graph around patterns that reactivated often enough to
+    /// justify permanent storage. The caller is responsible for validating a
+    /// candidate rebuild against remembered behavior before accepting it.
+    pub fn consolidate_recurring(&mut self, minimum_activations: u32) -> ConsolidationResult {
+        assert!(minimum_activations > 0);
+        let mut keep = vec![false; self.cells.len()];
+        keep[..=self.root].fill(true);
+        for (cell, retained) in keep.iter_mut().enumerate().skip(self.root + 1) {
+            *retained = self.cells[cell].activations >= minimum_activations;
+        }
+        self.rebuild_with_keep(keep)
+    }
+
+    /// Retains an arbitrary sample of pattern cells. This is a control for the
+    /// claim that recurrence, rather than deletion alone, preserves behavior.
+    pub fn consolidate_random_sample(
+        &mut self,
+        target_patterns: usize,
+        seed: u64,
+    ) -> ConsolidationResult {
+        let mut candidates: Vec<_> = (self.root + 1..self.cells.len()).collect();
+        candidates.sort_unstable_by_key(|&cell| {
+            let mut value = seed ^ cell as u64;
+            value ^= value >> 30;
+            value = value.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+            value ^= value >> 27;
+            value = value.wrapping_mul(0x94d0_49bb_1331_11eb);
+            value ^ (value >> 31)
+        });
+
+        let mut keep = vec![false; self.cells.len()];
+        keep[..=self.root].fill(true);
+        for cell in candidates.into_iter().take(target_patterns) {
+            keep[cell] = true;
+        }
+        self.rebuild_with_keep(keep)
+    }
+
+    /// Reassigns every prediction arrow through the same non-zero receptor
+    /// rotation while preserving graph size and arrow strengths.
+    pub fn scramble_prediction_targets(&mut self, seed: u64) {
+        let shift = (seed as usize % (self.token_count - 1)) + 1;
+        self.predictions.clear();
+        for (arrow_id, arrow) in self.arrows.iter_mut().enumerate() {
+            if arrow.use_ != ArrowUse::Predict {
+                continue;
+            }
+            arrow.to = (arrow.to + shift) % self.token_count;
+            self.predictions.insert((arrow.from, arrow.to), arrow_id);
+        }
+        self.reset_activity();
+    }
+
+    fn rebuild_with_keep(&mut self, mut keep: Vec<bool>) -> ConsolidationResult {
+        assert_eq!(keep.len(), self.cells.len());
+        let cells_before = self.cells.len();
+        let arrows_before = self.arrows.len();
+
+        let mut parents = vec![None; self.cells.len()];
+        for (&(parent, receptor), join) in &self.joins {
+            parents[join.child] = Some((parent, receptor));
+        }
+
+        for cell in (self.root + 1..self.cells.len()).rev() {
+            if !keep[cell] {
+                continue;
+            }
+            let mut ancestor = parents[cell].map(|(parent, _)| parent);
+            while let Some(parent) = ancestor {
+                if keep[parent] {
+                    break;
+                }
+                keep[parent] = true;
+                ancestor = parents[parent].map(|(next, _)| next);
+            }
+        }
+
+        let mut rebuilt = Self::new(
+            self.token_count,
+            self.max_pattern_depth,
+            self.activity_limit,
+        );
+        let mut remap = vec![None; self.cells.len()];
+        for (receptor, mapped) in remap.iter_mut().enumerate().take(self.token_count) {
+            *mapped = Some(receptor);
+        }
+        remap[self.root] = Some(rebuilt.root);
+
+        let mut joins: Vec<_> = self
+            .joins
+            .iter()
+            .map(|(&(parent, receptor), &join)| (parent, receptor, join))
+            .collect();
+        joins.sort_unstable_by_key(|(_, _, join)| (self.cells[join.child].depth, join.child));
+
+        for (parent, receptor, join) in joins {
+            if !keep[join.child] {
+                continue;
+            }
+            let new_parent = remap[parent].expect("kept pattern must retain its parent");
+            let new_join = rebuilt.get_or_recruit_join(new_parent, receptor);
+            rebuilt.cells[new_join.child].activations = self.cells[join.child].activations;
+            remap[join.child] = Some(new_join.child);
+        }
+
+        let mut predictions: Vec<_> = self
+            .predictions
+            .iter()
+            .map(|(&(source, receptor), &arrow)| (source, receptor, arrow))
+            .collect();
+        predictions.sort_unstable_by_key(|&(source, receptor, _)| (source, receptor));
+        for (source, receptor, arrow_id) in predictions {
+            let Some(new_source) = remap[source] else {
+                continue;
+            };
+            let strength = self.arrows[arrow_id].strength;
+            let new_arrow = rebuilt.add_arrow(new_source, receptor, strength, ArrowUse::Predict);
+            rebuilt
+                .predictions
+                .insert((new_source, receptor), new_arrow);
+        }
+
+        rebuilt.total_spikes = self.total_spikes;
+        rebuilt.absorbed_tokens = self.absorbed_tokens;
+        rebuilt.activity_limit_hits = self.activity_limit_hits;
+        *self = rebuilt;
+
+        let cells_after = self.cells.len();
+        let arrows_after = self.arrows.len();
+        ConsolidationResult {
+            cells_before,
+            cells_after,
+            arrows_before,
+            arrows_after,
+            patterns_removed: cells_before - cells_after,
+        }
+    }
+
     fn receptor(&self, token: Token) -> CellId {
         let receptor = token as usize;
         assert!(
@@ -192,6 +364,7 @@ impl UnifiedLearner {
             state: 0,
             threshold,
             depth,
+            activations: 0,
             outgoing: Vec::new(),
         });
         id
@@ -273,6 +446,7 @@ impl UnifiedLearner {
             cell.state = cell.state.saturating_add(spike.value);
             if cell.state >= cell.threshold {
                 cell.state = 0;
+                cell.activations = cell.activations.saturating_add(1);
                 active.push(spike.to);
             }
         }

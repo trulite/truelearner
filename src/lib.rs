@@ -1,4 +1,5 @@
 pub mod causal;
+pub mod consolidation;
 pub mod generality;
 pub mod inertia;
 pub mod scaling;
@@ -12,5 +13,7 @@ pub mod review {
         simulate_effect, ActionId, Frame, RelationalTopology, RepresentationLearner, SensorId,
         StructuralEffect, WorkMetrics,
     };
-    pub use crate::unified::{AbsorbResult, LearnerMetrics, Token, UnifiedLearner};
+    pub use crate::unified::{
+        AbsorbResult, ConsolidationResult, LearnerMetrics, Token, UnifiedLearner,
+    };
 }

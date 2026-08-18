@@ -61,6 +61,16 @@ V16 removes those later modules from its learning path, but still supplies:
 - deepest-pattern selection
 - recent-activity reset and an activity limit
 
+V17 additionally supplies:
+
+- a two-activation retention threshold
+- the timing of the rest phase
+- the graph-rebuild operation
+- the replay cases used to accept or reject a rewrite
+
+Reviewers should count replay storage and test whether rare but important
+one-shot associations are deleted before they are queried.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -72,6 +82,7 @@ V16 removes those later modules from its learning path, but still supplies:
 - `src/scaling.rs`: v14.5 deterministic scaling and capacity probes
 - `src/stability.rs`: v14.6 learned compression and self-stabilization
 - `src/unified.rs`: v16 single cell-arrow-spike sequence learner
+- `src/consolidation.rs`: v17 trie baseline and offline graph consolidation
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation
