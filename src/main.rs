@@ -1,7 +1,8 @@
 use std::collections::VecDeque;
 
 use organism_v0::{
-    causal, consolidation, generality, inertia, scaling, stability, tracking, unified, vision,
+    causal, composition, consolidation, generality, inertia, scaling, stability, tracking, unified,
+    vision,
 };
 
 type CellId = usize;
@@ -708,6 +709,10 @@ fn main() {
     consolidation::print_report(&consolidation_report);
     println!();
 
+    let composition_report = composition::run_experiment();
+    composition::print_report(&composition_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -719,17 +724,18 @@ fn main() {
         && stability_report.passed
         && scaling_report.passed
         && unified_report.passed
-        && consolidation_report.passed;
+        && consolidation_report.passed
+        && composition_report.probe_valid;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - identical rest compresses both memories, and the trie remains smaller while all earlier experiments pass"
+            "PASS - the v18 probe is valid, reusable composition was not discovered, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: recurrence pruning is not an event-substrate advantage; the equally rested trie uses fewer links, less estimated storage, and less query work."
+        "LIMIT: the unchanged learner fails renaming-invariant chain traversal; adding a specialized walker would not count as learning the procedure."
     );
 }
 

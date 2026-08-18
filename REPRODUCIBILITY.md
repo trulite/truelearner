@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 62 in-crate unit tests
+- 66 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -63,6 +63,9 @@ independent integration tests.
 - v17: identical recurrence-guided consolidation preserves both memories'
   tested behavior and retains the same contexts, while the trie uses fewer
   links, less estimated storage, and less query work
+- v18: a solvable renaming-invariant chain benchmark produces a clean negative
+  result; the unchanged learner and trie both score zero on unseen symbols and
+  depths while permanent memory continues growing with training examples
 
 ## Interpretation Boundary
 

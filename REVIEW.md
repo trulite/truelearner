@@ -76,6 +76,11 @@ contexts and behavior, while the trie uses fewer links, less estimated
 container storage, and less query work. Do not interpret v17 as an
 architecture-specific compression result.
 
+V18 leaves the unified learner unchanged. Its fixed stream markers and the
+separate hard-coded walker are supplied by the evaluator. The walker validates
+the dataset only. V18 must not be credited with graph traversal because the
+actual learner scores zero on all held-out episodes.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -88,6 +93,7 @@ architecture-specific compression result.
 - `src/stability.rs`: v14.6 learned compression and self-stabilization
 - `src/unified.rs`: v16 single cell-arrow-spike sequence learner
 - `src/consolidation.rs`: v17 trie baseline and offline graph consolidation
+- `src/composition.rs`: v18 renaming-invariant composition probe
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

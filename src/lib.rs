@@ -1,4 +1,5 @@
 pub mod causal;
+pub mod composition;
 pub mod consolidation;
 pub mod generality;
 pub mod inertia;

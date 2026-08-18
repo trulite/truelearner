@@ -511,6 +511,50 @@ is counted during rest and discarded after the candidate graph is accepted.
 Recorded measurements are in
 [`results/v17_consolidation.md`](results/v17_consolidation.md).
 
+## v18: Renaming-invariant composition
+
+V18 tests the frozen v16 learner without adding a traversal controller,
+temporary binding system, or task-specific graph machinery.
+
+Each training episode is serialized into the ordinary token interface. It
+contains shuffled directed link statements, an unrelated distractor chain, a
+query symbol, and the correct final symbol.
+
+Training uses chains two to four links long and surface symbols from receptors
+0 through 95. Held-out evaluation uses completely disjoint symbols from
+receptors 96 through 239 and chains five, eight, sixteen, and thirty-two links
+long. No learning is permitted during evaluation.
+
+A separate hard-coded walker validates the dataset. It is an upper bound, not
+part of the learner. A variable-context trie receives the same serialized
+training episodes as the event learner.
+
+Results:
+
+- the validating walker solves all 32 held-out episodes,
+- the event learner solves 0 of 32,
+- the trie solves 0 of 32,
+- the event learner fabricates answers on branch, cycle, and missing-query
+  controls,
+- permanent event patterns grow from 1,786 after 16 examples to 12,834 after
+  128 examples,
+- held-out evaluation adds no permanent cells or arrows.
+
+Spike work rises with prompt length, but because accuracy remains zero this is
+input processing rather than evidence of learned reasoning.
+
+The result is negative:
+
+> The existing one-learner substrate does not discover renaming-invariant
+> reusable composition.
+
+The raw stream still supplies fixed edge, query, answer, and end markers.
+Adding a specialized graph walker would solve the benchmark but would not
+count as the learner discovering the procedure.
+
+Recorded measurements are in
+[`results/v18_composition.md`](results/v18_composition.md).
+
 ## Run
 
 ```bash
