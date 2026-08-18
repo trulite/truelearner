@@ -35,6 +35,8 @@ Check:
 - whether thresholds were selected after seeing test results
 - whether a simpler memorizer or lookup table explains the result
 - whether each conclusion is narrower than its supplied priors
+- whether v16 pattern cells add capability beyond a variable-order lookup
+  table
 
 ## Highest-Risk Assumptions
 
@@ -51,6 +53,14 @@ The current v14 experiments still supply:
 These assumptions should be treated as part of the model, not as learned
 results.
 
+V16 removes those later modules from its learning path, but still supplies:
+
+- ordered token boundaries
+- separate joining and prediction phases
+- pattern-cell recruitment
+- deepest-pattern selection
+- recent-activity reset and an activity limit
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -61,6 +71,7 @@ results.
 - `src/generality.rs`: v9-v14 representation through transfer experiments
 - `src/scaling.rs`: v14.5 deterministic scaling and capacity probes
 - `src/stability.rs`: v14.6 learned compression and self-stabilization
+- `src/unified.rs`: v16 single cell-arrow-spike sequence learner
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

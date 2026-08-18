@@ -1,5 +1,6 @@
 use organism_v0::review::{
     simulate_effect, Frame, RelationalTopology, RepresentationLearner, StructuralEffect,
+    UnifiedLearner,
 };
 
 fn reviewer_ring() -> RelationalTopology {
@@ -43,4 +44,23 @@ fn reviewer_can_expose_an_unsupported_or_contradictory_action() {
     assert_eq!(learner.candidate_count(211), 0);
     assert_eq!(learner.predict(&topology, &before, 211), None);
     assert!(!learner.observe(&topology, &before, 255, &clockwise));
+}
+
+#[test]
+fn reviewer_can_probe_the_unified_learner_with_hidden_tokens() {
+    let mut learner = UnifiedLearner::new(256, 6, 512);
+    let hidden_pairs = [(17, 203), (41, 199), (89, 197), (113, 193)];
+
+    learner.reset_activity();
+    for &(key, value) in &hidden_pairs {
+        learner.absorb(250);
+        learner.absorb(key);
+        learner.absorb(value);
+    }
+
+    for (key, value) in hidden_pairs {
+        learner.reset_activity();
+        learner.absorb(key);
+        assert_eq!(learner.answer(), Some(value));
+    }
 }

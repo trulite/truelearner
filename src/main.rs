@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use organism_v0::{causal, generality, inertia, scaling, stability, tracking, vision};
+use organism_v0::{causal, generality, inertia, scaling, stability, tracking, unified, vision};
 
 type CellId = usize;
 type ArrowId = usize;
@@ -698,6 +698,10 @@ fn main() {
     scaling::print_report(&scaling_report);
     println!();
 
+    let unified_report = unified::run_experiment();
+    unified::print_report(&unified_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -707,17 +711,18 @@ fn main() {
         && procedure_report.passed
         && generality_report.passed
         && stability_report.passed
-        && scaling_report.passed;
+        && scaling_report.passed
+        && unified_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - useful cascades compress into stable concepts and all earlier experiments still pass"
+            "PASS - one cell-arrow-spike learner passes the synthetic integration gate and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: stability is learned in synthetic routes with supplied success feedback and a temporary activity limit."
+        "LIMIT: v16 supplies ordered token arrival, activity phases, pattern recruitment, and deepest-pattern selection; reversal and sorting are not yet demonstrated."
     );
 }
 

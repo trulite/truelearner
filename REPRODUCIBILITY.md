@@ -32,8 +32,8 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 53 in-crate unit tests
-- 2 public reviewer-API integration tests
+- 57 in-crate unit tests
+- 3 public reviewer-API integration tests
 
 ## Current Strongest Results
 
@@ -57,6 +57,9 @@ independent integration tests.
 - v14.6: repeated useful cascades compress into short concept routes, useless
   activity weakens, a newly introduced unstable loop is learned away, and the
   stabilization training sweep covers one through sixteen independent routes
+- v16: one persistent cell-arrow-spike learner performs repeated-sequence
+  induction, thirty-two-pair recall, and three-position needle retrieval while
+  rejecting remapped and unknown queries
 
 ## Interpretation Boundary
 

@@ -15,7 +15,7 @@ held-out integration tests without editing the learner.
 The project name is historical. The experiments do not claim biological life,
 consciousness, or unrestricted general intelligence.
 
-## Current experiment: general learning batch
+## Capability ladder: initial motion
 
 The original smoke test used a hand-wired receptor-to-motion graph. The current
 experiment removes that graph and asks a falsifiable question:
@@ -331,8 +331,7 @@ absent from the source library must remain unclassified.
 
 This is structural transfer, not unrestricted cross-domain understanding. The
 local port graph, effect candidate vocabulary, codecs, compression objective,
-and task pool remain supplied. Tiny Shakespeare is intentionally deferred to
-v15.
+and task pool remain supplied.
 
 ## v14.5: Scaling harness
 
@@ -370,10 +369,8 @@ cargo run --release --bin scaling -- --output results/v14_5_scaling.csv
 The current machine-specific measurements are recorded in
 [`results/v14_5_scaling.md`](results/v14_5_scaling.md).
 
-This is not yet a language-model scaling law. It covers the local structural
-learner, event cascades, and a bounded associative-memory probe. v15 must add
-loss-versus-data, capacity, context, and compute curves for the unified
-sequence learner.
+This is not a general prediction scaling law. It covers the local structural
+learner, event cascades, and a bounded associative-memory probe.
 
 ## v14.6: Learned self-stabilization
 
@@ -407,6 +404,58 @@ told which new connection caused the problem.
 The scaling harness also repeats this learning with one through sixteen
 independent routes. It measures how training activity grows and verifies that
 every learned route finishes with a small stable cascade.
+
+## v16: One learner
+
+V16 starts a fresh integration line. It does not import the frame, effect,
+tracking, planning, or procedure machinery from the capability ladder.
+
+What comes in:
+
+- one opaque token at a time,
+- with arrival order as the only relationship.
+
+What happens:
+
+- one receptor cell fires for the current token,
+- previously active pattern cells join with that receptor,
+- a new join recruits a pattern cell and later occurrences reuse it,
+- arrows from active patterns strengthen toward the token that followed,
+- queued spikes carry the strongest learned continuation back to token
+  receptors,
+- recent activity can be cleared while learned cells and arrows remain.
+
+What comes out:
+
+- the token receptor with the strongest unambiguous activity is returned as
+  the next-token answer.
+
+The exact same learner instance is evaluated on:
+
+- a delimiter-separated repeated-sequence induction probe,
+- thirty-two key-value associations absorbed in one stream,
+- three facts hidden near the beginning, middle, and end of an 8,192-token
+  noise stream,
+- unknown-query and deliberately remapped controls.
+
+A one-token-context version of the same learner is the induction baseline.
+The full learner must improve on it by at least twenty percentage points.
+
+This is the first direct integration of cells, arrows, and spikes into one
+generic sequence learner, but important structure remains supplied:
+
+- token boundaries and ordered arrival,
+- separate joining and prediction phases,
+- recruitment of a new pattern cell for a new join,
+- preference for the deepest matching pattern,
+- an external recent-activity reset,
+- a fixed activity limit.
+
+The learner demonstrates associative sequence memory. It does not yet
+demonstrate reversal, sorting, learned phase control, or autonomous
+compression of its growing pattern graph. The recorded v16 measurements are
+in [`results/v16_one_learner.md`](results/v16_one_learner.md). Tiny Shakespeare
+is not part of this milestone.
 
 ## Run
 
