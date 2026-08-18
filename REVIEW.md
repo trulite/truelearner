@@ -95,6 +95,19 @@ Terminal supervision contains only the complete correct outcome. The result
 should be interpreted as learned selection among supplied role routes, not as
 general variable binding or composition.
 
+V20 freezes the selected v19 lookup and additionally supplies:
+
+- one identical apply event with host-controlled timing
+- temporary current and result roles
+- a read event
+- three candidate feedback routes
+
+The host does not pass the previous result back as a new query and no apply
+number is exposed. Terminal supervision selects the feedback route from the
+complete two-pulse outcome. The three- and four-pulse results show that the
+selected route can be reused, but do not show that the machine learned when to
+continue or stop.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -109,6 +122,7 @@ general variable binding or composition.
 - `src/consolidation.rs`: v17 trie baseline and offline graph consolidation
 - `src/composition.rs`: v18 renaming-invariant composition probe
 - `src/binding.rs`: v19 temporary identity binding
+- `src/iteration.rs`: v20 repeated use of one learned lookup and feedback route
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

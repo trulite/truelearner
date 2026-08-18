@@ -4,6 +4,7 @@ pub mod composition;
 pub mod consolidation;
 pub mod generality;
 pub mod inertia;
+pub mod iteration;
 pub mod scaling;
 pub mod stability;
 pub mod tracking;

@@ -9,17 +9,17 @@ pub struct OpaqueId {
 }
 
 #[derive(Clone, Debug)]
-struct IdentitySource {
+pub(crate) struct IdentitySource {
     next: u64,
     seed: u64,
 }
 
 impl IdentitySource {
-    fn new(seed: u64) -> Self {
+    pub(crate) fn new(seed: u64) -> Self {
         Self { next: 0, seed }
     }
 
-    fn issue(&mut self) -> OpaqueId {
+    pub(crate) fn issue(&mut self) -> OpaqueId {
         let value = self.next;
         self.next += 1;
         OpaqueId {
@@ -132,14 +132,14 @@ pub enum BindingOutcome {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-struct EpisodeMetrics {
-    temporary_cells: usize,
-    temporary_arrows: usize,
-    spikes: usize,
+pub(crate) struct EpisodeMetrics {
+    pub(crate) temporary_cells: usize,
+    pub(crate) temporary_arrows: usize,
+    pub(crate) spikes: usize,
 }
 
 #[derive(Clone, Debug)]
-struct BindingLearner {
+pub(crate) struct BindingLearner {
     permanent_cells: Vec<PermanentCell>,
     permanent_arrows: Vec<PermanentArrow>,
     training_examples: u64,
@@ -150,7 +150,7 @@ struct BindingLearner {
 }
 
 impl BindingLearner {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             permanent_cells: Vec::new(),
             permanent_arrows: Vec::new(),
@@ -188,14 +188,14 @@ impl BindingLearner {
         }
     }
 
-    fn begin_episode(&mut self) {
+    pub(crate) fn begin_episode(&mut self) {
         self.erase_temporary();
     }
 
     /// The parser exposes that two opaque identities occupied two different
     /// slots in one relation. Both structural arrows point from the relation
     /// cell to its slot occurrence; neither is an answer route.
-    fn observe_relation(&mut self, slot1: OpaqueId, slot2: OpaqueId) {
+    pub(crate) fn observe_relation(&mut self, slot1: OpaqueId, slot2: OpaqueId) {
         let relation_index = self.temporary_relations.len();
         let relation_cell = self.push_temp(TempCellKind::Relation);
         let slot1_cell = self.push_temp(TempCellKind::Identity {
@@ -234,7 +234,7 @@ impl BindingLearner {
     }
 
     fn answer(&self) -> (BindingOutcome, EpisodeMetrics) {
-        let Some(route) = self.selected_route() else {
+        let Some((_, route)) = self.selected_route() else {
             return (
                 BindingOutcome::NotFound,
                 self.episode_metrics(self.temporary_identity_count() + 1),
@@ -265,28 +265,44 @@ impl BindingLearner {
         self.training_examples += 1;
     }
 
-    fn selected_route(&self) -> Option<&PermanentArrow> {
+    fn selected_route(&self) -> Option<(usize, &PermanentArrow)> {
         let mut best = None;
         let mut tied = false;
-        for arrow in &self.permanent_arrows {
+        for (index, arrow) in self.permanent_arrows.iter().enumerate() {
             match best {
                 None => {
-                    best = Some(arrow);
+                    best = Some((index, arrow));
                     tied = false;
                 }
-                Some(current) if arrow.strength > current.strength => {
-                    best = Some(arrow);
+                Some((_, current)) if arrow.strength > current.strength => {
+                    best = Some((index, arrow));
                     tied = false;
                 }
-                Some(current) if arrow.strength == current.strength => tied = true,
+                Some((_, current)) if arrow.strength == current.strength => tied = true,
                 Some(_) => {}
             }
         }
         if tied {
             None
         } else {
-            best.filter(|arrow| arrow.strength > 0)
+            best.filter(|(_, arrow)| arrow.strength > 0)
         }
+    }
+
+    pub(crate) fn lookup_identity(
+        &self,
+        identity: OpaqueId,
+    ) -> (BindingOutcome, EpisodeMetrics, Option<usize>) {
+        let Some((arrow_id, route)) = self.selected_route() else {
+            return (
+                BindingOutcome::NotFound,
+                self.episode_metrics(self.temporary_identity_count() + 1),
+                None,
+            );
+        };
+        let (outcome, metrics) =
+            self.execute_identity(identity, route.match_role, route.output_role);
+        (outcome, metrics, Some(arrow_id))
     }
 
     fn execute_route(
@@ -304,6 +320,15 @@ impl BindingLearner {
             unreachable!("query cell has query kind")
         };
 
+        self.execute_identity(query_identity, match_role, output_role)
+    }
+
+    fn execute_identity(
+        &self,
+        query_identity: OpaqueId,
+        match_role: SlotRole,
+        output_role: SlotRole,
+    ) -> (BindingOutcome, EpisodeMetrics) {
         let mut outputs = HashSet::new();
         let mut spikes = 1;
         for cell in &self.temporary_cells {
@@ -365,18 +390,18 @@ impl BindingLearner {
         id
     }
 
-    fn erase_temporary(&mut self) {
+    pub(crate) fn erase_temporary(&mut self) {
         self.temporary_cells = Vec::new();
         self.temporary_arrows = Vec::new();
         self.temporary_relations = Vec::new();
         self.query_cell = None;
     }
 
-    fn temporary_counts(&self) -> (usize, usize) {
+    pub(crate) fn temporary_counts(&self) -> (usize, usize) {
         (self.temporary_cells.len(), self.temporary_arrows.len())
     }
 
-    fn temporary_capacities(&self) -> (usize, usize, usize) {
+    pub(crate) fn temporary_capacities(&self) -> (usize, usize, usize) {
         (
             self.temporary_cells.capacity(),
             self.temporary_arrows.capacity(),
@@ -388,7 +413,7 @@ impl BindingLearner {
         0
     }
 
-    fn permanent_fingerprint(&self) -> u64 {
+    pub(crate) fn permanent_fingerprint(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         fingerprint_mix(&mut hash, self.training_examples);
         fingerprint_mix(&mut hash, self.permanent_cells.len() as u64);
@@ -405,7 +430,7 @@ impl BindingLearner {
         hash
     }
 
-    fn permanent_counts(&self) -> (usize, usize) {
+    pub(crate) fn permanent_counts(&self) -> (usize, usize) {
         (self.permanent_cells.len(), self.permanent_arrows.len())
     }
 
@@ -488,6 +513,20 @@ fn evaluate_episode(
     let correct = outcome == episode.correct;
     learner.erase_temporary();
     (correct, metrics)
+}
+
+pub(crate) fn frozen_lookup_operation() -> BindingLearner {
+    let mut learner = BindingLearner::new();
+    let mut identities = IdentitySource::new(0x1900_f001);
+    let mut rng = DeterministicRng::new(0x1900_f002);
+    for _ in 0..32 {
+        let episode = normal_episode(&mut identities, &mut rng, 6);
+        present(&mut learner, &episode);
+        let _proposal = learner.answer();
+        learner.learn_from_terminal(episode.correct);
+        learner.erase_temporary();
+    }
+    learner
 }
 
 #[derive(Clone, Debug, Default)]

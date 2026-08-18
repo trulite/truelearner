@@ -607,6 +607,57 @@ the four possible role-routing arrows. V19 does not demonstrate composition.
 Recorded measurements are in
 [`results/v19_binding.md`](results/v19_binding.md).
 
+## v20: Iterable lookup
+
+V20 freezes the learned v19 lookup and asks one narrower question:
+
+> Can the output of that operation become its next input through one learned
+> reusable feedback route?
+
+Each episode contains a shuffled two-link chain, distractor relations, a fresh
+opaque query identity, two identical `APPLY` events, and one `READ` event.
+Every training episode uses exactly two apply pulses.
+
+The host does not pass an identity into `APPLY`, does not assign the lookup
+result to the next query, and exposes no pulse number. One apply pulse enters
+the same permanent apply cell every time. The machine reads its temporary
+current identity, invokes the frozen v19 lookup, places the answer in a
+temporary result role, and may update current only through one of three
+candidate permanent feedback arrows.
+
+Terminal supervision provides only the complete expected outcome after both
+pulses. It does not identify the correct feedback arrow or reveal an
+intermediate identity.
+
+Results:
+
+- ten permanent cells and seven permanent arrows remain fixed from ten through
+  one thousand training episodes,
+- held-out depth-two accuracy is 1,000 of 1,000,
+- without retraining, depth one, three, and four are also each 1,000 of 1,000,
+- all successful pulses reuse apply cell 6, frozen lookup arrow 1, and learned
+  feedback arrow 4,
+- every result becomes the next temporary current identity inside the machine,
+- lookup work is 23 spikes per apply pulse,
+- seventy-four thousand held-out identities create no permanent change,
+- missing intermediate links return `NOT_FOUND`,
+- conflicting intermediate links return `AMBIGUOUS`,
+- duplicate identical links still return one answer,
+- all temporary structure and owned capacity are released,
+- the canonical permanent fingerprint is unchanged by held-out evaluation.
+
+An unrolled two-stage baseline passes depths one and two but scores zero at
+depths three and four. A baseline given the correct feedback route passes all
+depths but receives no learning credit.
+
+This supports the narrow claim that the selected lookup operation is iterable.
+It does not show learned stopping or continuation. V20 supplies apply timing,
+temporary working roles, the frozen v19 lookup, and three candidate feedback
+routes.
+
+Recorded measurements are in
+[`results/v20_iteration.md`](results/v20_iteration.md).
+
 ## Run
 
 ```bash

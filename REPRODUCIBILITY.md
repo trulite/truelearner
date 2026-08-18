@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 70 in-crate unit tests
+- 74 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -70,6 +70,9 @@ independent integration tests.
   thousand held-out episodes containing four hundred thousand fresh opaque
   identities while temporary state is erased and permanent state remains
   fingerprint-identical
+- v20: one selected feedback route feeds the frozen v19 lookup output back
+  into its temporary current role; training uses only two pulses, while held
+  out depths one through four all pass with fixed permanent structure
 
 ## Interpretation Boundary
 
