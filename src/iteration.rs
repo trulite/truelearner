@@ -67,6 +67,15 @@ struct IterationLearner {
     trace: Vec<ApplyTrace>,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct FrozenIterableOperation {
+    pub(crate) lookup: BindingLearner,
+    pub(crate) feedback_arrow_id: usize,
+    pub(crate) permanent_cells: usize,
+    pub(crate) permanent_arrows: usize,
+    pub(crate) permanent_fingerprint: u64,
+}
+
 impl IterationLearner {
     fn new() -> Self {
         Self {
@@ -315,6 +324,33 @@ fn present(learner: &mut IterationLearner, episode: &IterationEpisode) {
     learner.begin_episode(episode.query);
     for &(left, right) in &episode.relations {
         learner.observe_relation(left, right);
+    }
+}
+
+pub(crate) fn frozen_iterable_operation() -> FrozenIterableOperation {
+    let mut learner = IterationLearner::new();
+    let mut identities = IdentitySource::new(0x2000_f001);
+    let mut rng = DeterministicRng::new(0x2000_f002);
+    for _ in 0..32 {
+        let episode = chain_episode(&mut identities, &mut rng, 2, 10);
+        present(&mut learner, &episode);
+        learner.apply_pulse();
+        learner.apply_pulse();
+        learner.learn_from_terminal(episode.correct, 2);
+        learner.erase_temporary();
+    }
+    let (feedback_index, route) = learner
+        .selected_feedback()
+        .expect("v20 feedback route must be learned before freezing");
+    assert_eq!(route, FeedbackRoute::UseResult);
+    let (permanent_cells, permanent_arrows) = learner.permanent_counts();
+    let permanent_fingerprint = learner.permanent_fingerprint();
+    FrozenIterableOperation {
+        lookup: learner.lookup,
+        feedback_arrow_id: FEEDBACK_ARROW_OFFSET + feedback_index,
+        permanent_cells,
+        permanent_arrows,
+        permanent_fingerprint,
     }
 }
 

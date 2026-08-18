@@ -2,6 +2,7 @@ pub mod binding;
 pub mod causal;
 pub mod composition;
 pub mod consolidation;
+pub mod continuation;
 pub mod generality;
 pub mod inertia;
 pub mod iteration;

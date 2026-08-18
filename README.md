@@ -658,6 +658,63 @@ routes.
 Recorded measurements are in
 [`results/v20_iteration.md`](results/v20_iteration.md).
 
+## v21a: Autonomous continuation
+
+V21a removes the repeated external apply events used by v20.
+
+The evaluator now contributes only:
+
+- one query identity,
+- one external start spike,
+- a safety cutoff that can kill execution after a requested number of
+  successful lookups.
+
+After start, every event is generated inside one queued runtime. The learned
+path repeatedly activates the same apply cell, fans queued comparison spikes
+over temporary relation cells, collects one result, follows the frozen v20
+feedback arrow, updates current, and fires one learned self-trigger arrow back
+to apply.
+
+Training uses only two-link chains and complete terminal outcomes. Three
+candidate self-routes are supplied: apply again, read now, or become quiet.
+Supervision does not identify the correct route.
+
+Held-out evaluation uses completely fresh identities. Every test episode
+contains the same forty-link chain and eight distractor relations, regardless
+of cutoff. This keeps temporary graph size constant while reasoning depth
+changes.
+
+Results:
+
+- twelve permanent cells and thirteen permanent arrows stay fixed from ten
+  through one thousand training episodes,
+- one external start produces one, two, four, eight, sixteen, or thirty-two
+  completed lookups,
+- every depth scores 200 of 200,
+- a supplied self-trigger baseline also passes every depth,
+- a v20-style baseline without self-trigger passes one step and scores zero
+  beyond one,
+- every iteration reuses apply cell 6, lookup arrow 1, feedback arrow 4, and
+  self-trigger arrow 10,
+- internal queued spikes are 103, 205, 409, 817, 1,633, and 3,265,
+- all sixty-eight thousand four hundred held-out identities remain temporary,
+- the canonical permanent fingerprint is unchanged,
+- branches remain ambiguous and duplicate identical relations produce one
+  result,
+- no activity limit is reached.
+
+The spike curve is linear because fixed-size held-out episodes require 102
+additional internal spikes per successful lookup, plus one initial
+start-to-apply spike.
+
+V21a demonstrates autonomous continuation, not learned finishing. The
+evaluator still supplies the start event and safety cutoff. The frozen v20
+operation, temporary working roles, and three candidate self-routes remain
+supplied.
+
+Recorded measurements are in
+[`results/v21a_continuation.md`](results/v21a_continuation.md).
+
 ## Run
 
 ```bash

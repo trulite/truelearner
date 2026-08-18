@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 74 in-crate unit tests
+- 79 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -73,6 +73,9 @@ independent integration tests.
 - v20: one selected feedback route feeds the frozen v19 lookup output back
   into its temporary current role; training uses only two pulses, while held
   out depths one through four all pass with fixed permanent structure
+- v21a: one external start drives up to thirty-two internally generated
+  lookups through a real queued spike runtime; permanent structure stays fixed
+  while internal spike work grows linearly with requested depth
 
 ## Interpretation Boundary
 

@@ -305,6 +305,53 @@ impl BindingLearner {
         (outcome, metrics, Some(arrow_id))
     }
 
+    pub(crate) fn selected_route_id(&self) -> Option<usize> {
+        self.selected_route().map(|(arrow_id, _)| arrow_id)
+    }
+
+    pub(crate) fn temporary_identity_cells(&self) -> Vec<usize> {
+        self.temporary_cells
+            .iter()
+            .enumerate()
+            .filter_map(|(cell_id, cell)| {
+                matches!(cell.kind, TempCellKind::Identity { .. }).then_some(cell_id)
+            })
+            .collect()
+    }
+
+    /// Performs the local work of one temporary identity occurrence. The
+    /// caller is responsible for delivering the comparison as a queued spike.
+    pub(crate) fn compare_temporary_identity(
+        &self,
+        query_identity: OpaqueId,
+        cell_id: usize,
+    ) -> Option<OpaqueId> {
+        let (_, route) = self.selected_route()?;
+        let TempCellKind::Identity {
+            identity,
+            role,
+            relation,
+        } = self.temporary_cells.get(cell_id)?.kind
+        else {
+            return None;
+        };
+        if role != route.match_role || identity != query_identity {
+            return None;
+        }
+        let relation = self.temporary_relations[relation];
+        let output_cell = match route.output_role {
+            SlotRole::Slot1 => relation.slot1_cell,
+            SlotRole::Slot2 => relation.slot2_cell,
+        };
+        let TempCellKind::Identity {
+            identity: output, ..
+        } = self.temporary_cells[output_cell].kind
+        else {
+            unreachable!("relation slot has identity kind")
+        };
+        Some(output)
+    }
+
     fn execute_route(
         &self,
         match_role: SlotRole,

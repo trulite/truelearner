@@ -108,6 +108,22 @@ complete two-pulse outcome. The three- and four-pulse results show that the
 selected route can be reused, but do not show that the machine learned when to
 continue or stop.
 
+V21a moves apply, temporary comparison, result, feedback, current update, and
+self-trigger execution into one queued spike runtime. It additionally
+supplies:
+
+- one external start event
+- a safety cutoff observed by the evaluator
+- the frozen v20 operation
+- three candidate self-routes
+- permanent apply, start, read, and quiet control cells
+
+The evaluator drains a generic queue and never calls apply or lookup. It does
+observe the number of completed lookups so it can kill execution at the test
+cutoff. The result supports autonomous continuation through selected
+structure; it does not support learned finishing, cycle detection, or
+unbounded safe execution.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -123,6 +139,7 @@ continue or stop.
 - `src/composition.rs`: v18 renaming-invariant composition probe
 - `src/binding.rs`: v19 temporary identity binding
 - `src/iteration.rs`: v20 repeated use of one learned lookup and feedback route
+- `src/continuation.rs`: v21a autonomous queued continuation
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

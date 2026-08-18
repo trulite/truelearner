@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
 use organism_v0::{
-    binding, causal, composition, consolidation, generality, inertia, iteration, scaling,
-    stability, tracking, unified, vision,
+    binding, causal, composition, consolidation, continuation, generality, inertia, iteration,
+    scaling, stability, tracking, unified, vision,
 };
 
 type CellId = usize;
@@ -721,6 +721,10 @@ fn main() {
     iteration::print_report(&iteration_report);
     println!();
 
+    let continuation_report = continuation::run_experiment();
+    continuation::print_report(&continuation_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -735,17 +739,18 @@ fn main() {
         && consolidation_report.passed
         && composition_report.probe_valid
         && binding_report.passed
-        && iteration_report.passed;
+        && iteration_report.passed
+        && continuation_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - one learned lookup and one learned feedback route iterate across fresh identities, and all earlier experiments still pass"
+            "PASS - one external start drives learned autonomous continuation through the queued spike runtime, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: v20 supplies APPLY timing, working roles, the frozen v19 lookup, and three candidate feedback routes; it does not decide when to continue or stop."
+        "LIMIT: v21a supplies START, a safety cutoff, the frozen v20 operation, and three candidate self-routes; it does not learn when to finish."
     );
 }
 
