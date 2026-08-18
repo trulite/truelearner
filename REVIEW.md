@@ -1,0 +1,114 @@
+# Independent Review Guide
+
+## Review Objective
+
+Determine which narrow capabilities are supported by the experiments and
+which apparent capabilities result from supplied representations, algorithms,
+thresholds, curricula, or evaluator knowledge.
+
+The project name is historical. This repository does not claim biological
+life, consciousness, general intelligence, or unrestricted real-world
+learning.
+
+## Recommended Review Tracks
+
+### Engineering
+
+Check:
+
+- Rust correctness and panic behavior
+- determinism and seed handling
+- invalid-state handling
+- algorithmic complexity
+- test independence
+- differences between debug and release execution
+- whether assertions accidentally participate in learning
+
+### Experimental Method
+
+Check:
+
+- train/test leakage
+- evaluator information unavailable to the learner
+- whether negative controls match positive cases fairly
+- whether baselines receive equivalent information and compute
+- whether thresholds were selected after seeing test results
+- whether a simpler memorizer or lookup table explains the result
+- whether each conclusion is narrower than its supplied priors
+
+## Highest-Risk Assumptions
+
+The current v14 experiments still supply:
+
+- relational sensor ports
+- the candidate effect family: `STAY` or `FOLLOW_PORT`
+- opaque action boundaries
+- binary or sparse observation codecs
+- compression and support objectives
+- task pools and evaluation criteria
+- several earlier object-grouping, tracking, planning, and search algorithms
+
+These assumptions should be treated as part of the model, not as learned
+results.
+
+## Code Map
+
+- `src/main.rs`: original v1-v2 runtime and executable report
+- `src/inertia.rs`: v3 higher-order motion
+- `src/tracking.rs`: v4 persistent identity
+- `src/vision.rs`: v5 raw-frame visual templates
+- `src/causal.rs`: v6-v8 causal learning, planning, and procedures
+- `src/generality.rs`: v9-v14 representation through transfer experiments
+- `src/lib.rs`: public library and reviewer API
+- `tests/reviewer_api.rs`: example independent black-box evaluation
+
+## Standard Verification
+
+```bash
+cargo fmt -- --check
+cargo test --all-targets
+cargo clippy --all-targets -- -D warnings
+```
+
+## Secret Evaluation
+
+Reviewers should add a new integration test under `tests/` and avoid modifying
+`src/`.
+
+Use the `organism_v0::review` API to:
+
+1. Construct a reviewer-controlled relational topology.
+2. Register opaque action IDs.
+3. Provide training transitions.
+4. Keep topology seeds, action mappings, and held-out frames private.
+5. Measure prediction, ambiguity, and rejection behavior.
+
+The API deliberately exposes the supplied hypothesis family. This lets a
+reviewer test the current claim honestly; it does not pretend that relational
+ports or effect candidates were learned.
+
+Suggested adversarial cases:
+
+- asymmetric and non-grid graphs
+- ports that merge two sensors into one
+- disconnected components
+- contradictory and noisy transitions
+- actions outside the supported effect family
+- topology changes after learning
+- action aliases and action remapping
+- held-out multi-sensor frames
+- boundary cases where several hypotheses predict `STAY`
+
+## Review Output
+
+For every finding, report:
+
+1. Severity: invalidates claim, narrows claim, or engineering issue.
+2. Exact experiment and code location.
+3. Reproduction with seed or custom topology.
+4. Expected behavior.
+5. Actual behavior.
+6. Consequence for the stated conclusion.
+
+The most valuable contribution is a reviewer-controlled test that fails for a
+principled reason.
