@@ -555,6 +555,58 @@ count as the learner discovering the procedure.
 Recorded measurements are in
 [`results/v18_composition.md`](results/v18_composition.md).
 
+## v19: Temporary binding
+
+V19 adds one substrate facility after the negative v18 result: cells and
+arrows may exist only for the lifetime of one episode.
+
+The input boundary exposes:
+
+- a relation containing opaque identities in slot 1 and slot 2,
+- a query containing one opaque identity.
+
+It does not create an answer arrow or match the query against relation
+statements. Opaque identities expose equality and hashing only. Their numeric
+contents, ordering, and spelling are unavailable to the learning rule.
+
+During an episode:
+
+- relation and identity occurrences become temporary cells,
+- symmetric structural arrows record slot membership,
+- `SAME` compares the query identity with temporary occurrences,
+- four permanent role-routing arrows compete,
+- terminal answer supervision strengthens routes that produced the complete
+  correct outcome and weakens alternatives.
+
+After the episode, all temporary cells, arrows, relation records, and owned
+container capacity are released.
+
+Results:
+
+- six permanent cells and four permanent arrows remain constant from ten
+  through ten thousand training episodes,
+- validation is 100 of 100 at every checkpoint,
+- twenty thousand held-out episodes produce 20,000 correct answers,
+- those episodes contain 400,000 completely fresh identities,
+- zero identity-specific permanent cells remain,
+- peak temporary structure is 31 cells and 20 arrows for ten relations,
+- temporary structure and owned capacity return exactly to zero,
+- reverse lookup and missing identities return `NOT_FOUND`,
+- conflicting outputs return `AMBIGUOUS`,
+- repeated identical relations return one answer,
+- the canonical permanent fingerprint is unchanged across all held-out
+  evaluation and across the ten-thousandth novel episode.
+
+A persistent identity memorizer retains 100,000 entries from training and
+answers zero held-out episodes.
+
+This is a narrow temporary-binding result. The substrate still supplies
+opaque equality, slot positions, temporary lifetime, output cardinality, and
+the four possible role-routing arrows. V19 does not demonstrate composition.
+
+Recorded measurements are in
+[`results/v19_binding.md`](results/v19_binding.md).
+
 ## Run
 
 ```bash

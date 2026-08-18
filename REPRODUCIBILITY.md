@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 66 in-crate unit tests
+- 70 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -66,6 +66,10 @@ independent integration tests.
 - v18: a solvable renaming-invariant chain benchmark produces a clean negative
   result; the unchanged learner and trie both score zero on unseen symbols and
   depths while permanent memory continues growing with training examples
+- v19: six permanent cells and four learned role-routing arrows answer twenty
+  thousand held-out episodes containing four hundred thousand fresh opaque
+  identities while temporary state is erased and permanent state remains
+  fingerprint-identical
 
 ## Interpretation Boundary
 

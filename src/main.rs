@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
 use organism_v0::{
-    causal, composition, consolidation, generality, inertia, scaling, stability, tracking, unified,
-    vision,
+    binding, causal, composition, consolidation, generality, inertia, scaling, stability, tracking,
+    unified, vision,
 };
 
 type CellId = usize;
@@ -713,6 +713,10 @@ fn main() {
     composition::print_report(&composition_report);
     println!();
 
+    let binding_report = binding::run_experiment();
+    binding::print_report(&binding_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -725,17 +729,18 @@ fn main() {
         && scaling_report.passed
         && unified_report.passed
         && consolidation_report.passed
-        && composition_report.probe_valid;
+        && composition_report.probe_valid
+        && binding_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - the v18 probe is valid, reusable composition was not discovered, and all earlier experiments still pass"
+            "PASS - temporary binding transfers across opaque identities without permanent growth, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: the unchanged learner fails renaming-invariant chain traversal; adding a specialized walker would not count as learning the procedure."
+        "LIMIT: v19 supplies opaque equality, slot positions, temporary lifetime, and the four possible role-routing arrows; it does not yet compose bindings."
     );
 }
 

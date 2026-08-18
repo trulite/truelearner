@@ -81,6 +81,20 @@ separate hard-coded walker are supplied by the evaluator. The walker validates
 the dataset only. V18 must not be credited with graph traversal because the
 actual learner scores zero on all held-out episodes.
 
+V19 introduces a new substrate prior:
+
+- opaque identity equality and hashing
+- exposed slot positions
+- episode-local cells and arrows
+- automatic temporary erasure
+- three output cardinalities
+- four possible role-routing arrows
+
+The parser does not construct an answer route or perform query matching.
+Terminal supervision contains only the complete correct outcome. The result
+should be interpreted as learned selection among supplied role routes, not as
+general variable binding or composition.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -94,6 +108,7 @@ actual learner scores zero on all held-out episodes.
 - `src/unified.rs`: v16 single cell-arrow-spike sequence learner
 - `src/consolidation.rs`: v17 trie baseline and offline graph consolidation
 - `src/composition.rs`: v18 renaming-invariant composition probe
+- `src/binding.rs`: v19 temporary identity binding
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation
