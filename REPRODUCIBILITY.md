@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 93 in-crate unit tests
+- 97 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -87,6 +87,10 @@ independent integration tests.
   observation-only training produces 10 shortcut failures in 32 runs, while
   counterbalanced contrasting experience produces zero and all 32 learners
   retain the true slot route
+- d2: all 32 learners prefer the action whose consequences selectively weaken
+  the shortcut, none prefer disruption, and action use falls to zero after
+  resolution across all six opaque-action permutations; random action search
+  also solves all runs and is slightly cheaper in this small action space
 
 ## Interpretation Boundary
 

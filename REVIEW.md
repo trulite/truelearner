@@ -176,6 +176,26 @@ d0 control remains 15 of 32 because it uses a different curriculum.
 D1 should be interpreted as information supplied by an intervention
 curriculum, not intervention understanding or active causal learning.
 
+D2 adds a separate action-learning loop. It supplies:
+
+- an unresolved-topology context,
+- three opaque action identities plus no action,
+- a fixed real-action cost,
+- an action trace that snapshots plausible route identities and strengths,
+- temporary protection from pruning while the trace gathers evidence,
+- informative, disruptive, and uninformative classifications derived from
+  route-strength changes,
+- unique-winner consolidation after an action window,
+- environment-defined action effects, randomly permuted between runs.
+
+The evaluator does not identify an informative action or route. Action credit
+comes from the learner's own before-and-after route strengths.
+
+Random actions solve all 32 runs and are slightly cheaper than the learned
+policy in this three-action environment. D2 therefore supports learned
+context-dependent action preference and stopping, not sample-efficiency or
+counterfactual experiment planning.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -193,7 +213,7 @@ curriculum, not intervention understanding or active causal learning.
 - `src/iteration.rs`: v20 repeated use of one learned lookup and feedback route
 - `src/continuation.rs`: v21a autonomous continuation and v21b learned finish
 - `src/discovery.rs`: d0 generic topology proposal, trace, reward, and pruning
-  plus d1 counterbalanced contrasting experience
+  plus d1 contrasting experience and d2 learned epistemic action
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

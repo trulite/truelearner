@@ -5,6 +5,32 @@ use crate::binding::{BindingOutcome, IdentitySource, OpaqueId};
 const COACTIVITY_WINDOW: usize = 2;
 const CONSOLIDATION_STRENGTH: i32 = 4;
 
+#[derive(Clone, Debug)]
+struct DeterministicRng {
+    state: u64,
+}
+
+impl DeterministicRng {
+    fn new(seed: u64) -> Self {
+        Self { state: seed }
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.state = self
+            .state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1);
+        self.state
+    }
+
+    fn shuffle<T>(&mut self, values: &mut [T]) {
+        for index in (1..values.len()).rev() {
+            let selected = (self.next_u64() as usize) % (index + 1);
+            values.swap(index, selected);
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Role {
     Query,
@@ -182,7 +208,12 @@ impl DiscoveryLearner {
         Some(selected)
     }
 
-    fn terminal_feedback(&mut self, success: bool, episode_number: usize) {
+    fn terminal_feedback(
+        &mut self,
+        success: bool,
+        episode_number: usize,
+        allow_consolidation: bool,
+    ) {
         if self.consolidated.is_some() {
             return;
         }
@@ -195,6 +226,15 @@ impl DiscoveryLearner {
                 }
                 arrow.trace = false;
             }
+        }
+        if allow_consolidation {
+            self.consolidate_if_ready(episode_number);
+        }
+    }
+
+    fn consolidate_if_ready(&mut self, episode_number: usize) {
+        if self.consolidated.is_some() {
+            return;
         }
         if let Some(winner) = self
             .candidates
@@ -209,11 +249,51 @@ impl DiscoveryLearner {
         }
     }
 
+    fn consolidate_unique_if_ready(&mut self, episode_number: usize) {
+        if self.consolidated.is_some() {
+            return;
+        }
+        let Some(best_strength) = self.candidates.iter().map(|arrow| arrow.strength).max() else {
+            return;
+        };
+        if best_strength < CONSOLIDATION_STRENGTH {
+            return;
+        }
+        let mut strongest = self
+            .candidates
+            .iter()
+            .copied()
+            .filter(|arrow| arrow.strength == best_strength);
+        let Some(winner) = strongest.next() else {
+            return;
+        };
+        if strongest.next().is_some() {
+            return;
+        }
+        self.rejected += self.candidates.len().saturating_sub(1);
+        self.candidates.clear();
+        self.consolidated = Some(winner);
+        self.episodes_to_competence = Some(episode_number);
+    }
+
     fn train_episode(&mut self, episode: &Episode, episode_number: usize) -> bool {
+        self.train_episode_internal(episode, episode_number, true)
+    }
+
+    fn train_episode_deferred(&mut self, episode: &Episode, episode_number: usize) -> bool {
+        self.train_episode_internal(episode, episode_number, false)
+    }
+
+    fn train_episode_internal(
+        &mut self,
+        episode: &Episode,
+        episode_number: usize,
+        allow_consolidation: bool,
+    ) -> bool {
         let mut work = self.present(episode, true);
         let proposal = self.propose_answer(episode, &mut work);
         let success = proposal == episode.correct;
-        self.terminal_feedback(success, episode_number);
+        self.terminal_feedback(success, episode_number, allow_consolidation);
         self.last_episode_spikes = work.total_spikes();
         self.training_spikes += self.last_episode_spikes;
         success
@@ -285,6 +365,16 @@ impl DiscoveryLearner {
                     .find(|arrow| arrow.from == from && arrow.to == to)
                     .map(|arrow| arrow.strength)
             })
+    }
+
+    fn plausible_routes(&self) -> Vec<(Role, Role)> {
+        if let Some(route) = self.consolidated {
+            return vec![(route.from, route.to)];
+        }
+        self.candidates
+            .iter()
+            .filter_map(|arrow| (arrow.strength > 0).then_some((arrow.from, arrow.to)))
+            .collect()
     }
 }
 
@@ -1014,6 +1104,585 @@ pub fn print_intervention_report(report: &InterventionReport) {
     );
 }
 
+const NO_ACTION_INDEX: usize = 3;
+const ACTION_COST: i32 = 1;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ActionEffect {
+    Informative,
+    Disruptive,
+    Inert,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InformationResult {
+    Informative,
+    Disruptive,
+    Uninformative,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct RouteSnapshot {
+    route: (Role, Role),
+    strength_before: i32,
+    tested: bool,
+}
+
+#[derive(Clone, Debug)]
+struct ActionTrace {
+    action_index: usize,
+    routes: Vec<RouteSnapshot>,
+}
+
+impl ActionTrace {
+    fn new(action_index: usize, learner: &DiscoveryLearner) -> Self {
+        let routes = learner
+            .plausible_routes()
+            .into_iter()
+            .map(|route| RouteSnapshot {
+                route,
+                strength_before: learner.route_strength(route.0, route.1).unwrap(),
+                tested: false,
+            })
+            .collect();
+        Self {
+            action_index,
+            routes,
+        }
+    }
+
+    fn observe_route(&mut self, route: Option<(Role, Role)>) {
+        let Some(route) = route else {
+            return;
+        };
+        if let Some(snapshot) = self
+            .routes
+            .iter_mut()
+            .find(|snapshot| snapshot.route == route)
+        {
+            snapshot.tested = true;
+        }
+    }
+
+    fn complete(&self) -> bool {
+        self.routes.iter().all(|snapshot| snapshot.tested)
+    }
+
+    fn classify(&self, learner: &DiscoveryLearner) -> InformationResult {
+        let changes: Vec<_> = self
+            .routes
+            .iter()
+            .map(|snapshot| {
+                learner
+                    .route_strength(snapshot.route.0, snapshot.route.1)
+                    .unwrap_or(i32::MIN)
+                    - snapshot.strength_before
+            })
+            .collect();
+        let weakened = changes.iter().filter(|change| **change < 0).count();
+        let supported = changes.iter().filter(|change| **change >= 0).count();
+        if weakened > 0 && supported > 0 {
+            InformationResult::Informative
+        } else if weakened == changes.len() {
+            InformationResult::Disruptive
+        } else {
+            InformationResult::Uninformative
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ActionPolicy {
+    values: [i32; 4],
+    tried: [bool; 4],
+    exploration_cursor: usize,
+}
+
+impl ActionPolicy {
+    fn new(seed: u64) -> Self {
+        Self {
+            values: [0; 4],
+            tried: [false; 4],
+            exploration_cursor: seed as usize % 4,
+        }
+    }
+
+    fn choose(&mut self, unresolved: bool) -> usize {
+        if !unresolved {
+            return NO_ACTION_INDEX;
+        }
+        if let Some((index, _)) = self
+            .values
+            .iter()
+            .take(3)
+            .enumerate()
+            .filter(|(_, value)| **value > 0)
+            .max_by_key(|(_, value)| **value)
+        {
+            return index;
+        }
+        for offset in 0..4 {
+            let index = (self.exploration_cursor + offset) % 4;
+            if !self.tried[index] {
+                self.exploration_cursor = (index + 1) % 4;
+                return index;
+            }
+        }
+        self.values
+            .iter()
+            .enumerate()
+            .max_by_key(|(index, value)| (**value, usize::from(*index == NO_ACTION_INDEX)))
+            .map(|(index, _)| index)
+            .unwrap()
+    }
+
+    fn learn(&mut self, action_index: usize, result: InformationResult) {
+        self.tried[action_index] = true;
+        let information_value = match result {
+            InformationResult::Informative => 3,
+            InformationResult::Disruptive => -2,
+            InformationResult::Uninformative => 0,
+        };
+        let cost = i32::from(action_index != NO_ACTION_INDEX) * ACTION_COST;
+        self.values[action_index] += information_value - cost;
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum ActionStrategy {
+    Learned,
+    Random,
+    Fixed,
+    NoAction,
+}
+
+#[derive(Clone, Debug)]
+pub struct ActionDecision {
+    pub decision: usize,
+    pub action_id: usize,
+    pub actual_effect: String,
+    pub result: String,
+    pub real_before: i32,
+    pub real_after: i32,
+    pub shortcut_before: i32,
+    pub shortcut_after: i32,
+    pub policy_value_after: i32,
+}
+
+#[derive(Clone, Debug)]
+struct ActionRun {
+    correct: usize,
+    total: usize,
+    selected_route: String,
+    informative_action_id: usize,
+    disruptive_action_id: usize,
+    informative_preferred: bool,
+    disruptive_preferred: bool,
+    decisions: usize,
+    paid_actions: usize,
+    post_resolution_paid_actions: usize,
+    information_results: [usize; 3],
+    policy_values: [i32; 4],
+    trace: Vec<ActionDecision>,
+}
+
+fn shuffled_action_effects(seed: u64) -> [ActionEffect; 3] {
+    let mut effects = [
+        ActionEffect::Informative,
+        ActionEffect::Disruptive,
+        ActionEffect::Inert,
+    ];
+    let mut rng = DeterministicRng::new(seed ^ 0xd200_1000);
+    rng.shuffle(&mut effects);
+    effects
+}
+
+fn action_episode(
+    identities: &mut IdentitySource,
+    episode_number: usize,
+    effect: Option<ActionEffect>,
+) -> Episode {
+    let target = episode_number * 7 % 10;
+    let mut episode = normal_episode(identities, 10, target, Direction::LeftToRight, true);
+    let target_index = episode
+        .relations
+        .iter()
+        .position(|relation| relation.left == episode.query)
+        .unwrap();
+    match effect {
+        Some(ActionEffect::Informative) => {
+            for relation in &mut episode.relations {
+                relation.cued = false;
+            }
+            let wrong = (target_index + 1) % episode.relations.len();
+            episode.relations[wrong].cued = true;
+        }
+        Some(ActionEffect::Disruptive) => {
+            episode.correct = BindingOutcome::Answer(identities.issue());
+        }
+        Some(ActionEffect::Inert) | None => {}
+    }
+    episode
+}
+
+fn prepare_unresolved_topology(
+    learner: &mut DiscoveryLearner,
+    identities: &mut IdentitySource,
+    episode_number: &mut usize,
+) {
+    let mut recovery_steps = 0;
+    while learner.consolidated.is_none()
+        && (!learner
+            .plausible_routes()
+            .contains(&(Role::Slot1, Role::Slot2))
+            || !learner
+                .plausible_routes()
+                .contains(&(Role::Cue, Role::Slot2)))
+    {
+        *episode_number += 1;
+        recovery_steps += 1;
+        let episode = action_episode(identities, *episode_number, None);
+        learner.train_episode_deferred(&episode, *episode_number);
+        assert!(
+            recovery_steps < 5_000,
+            "failed to create unresolved topology: real={:?}, cue={:?}, plausible={:?}, candidates={:?}",
+            learner.route_strength(Role::Slot1, Role::Slot2),
+            learner.route_strength(Role::Cue, Role::Slot2),
+            learner.plausible_routes(),
+            learner
+                .candidates
+                .iter()
+                .map(|arrow| (arrow.from, arrow.to, arrow.strength, arrow.uses))
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
+fn choose_strategy_action(
+    strategy: ActionStrategy,
+    policy: &mut ActionPolicy,
+    unresolved: bool,
+    rng: &mut DeterministicRng,
+) -> usize {
+    match strategy {
+        ActionStrategy::Learned => policy.choose(unresolved),
+        ActionStrategy::Random if unresolved => (rng.next_u64() as usize) % 4,
+        ActionStrategy::Fixed if unresolved => 0,
+        ActionStrategy::NoAction | ActionStrategy::Random | ActionStrategy::Fixed => {
+            NO_ACTION_INDEX
+        }
+    }
+}
+
+fn run_action_strategy(seed: u64, strategy: ActionStrategy, keep_trace: bool) -> ActionRun {
+    let effects = shuffled_action_effects(seed);
+    let informative_action_id = effects
+        .iter()
+        .position(|effect| *effect == ActionEffect::Informative)
+        .unwrap();
+    let disruptive_action_id = effects
+        .iter()
+        .position(|effect| *effect == ActionEffect::Disruptive)
+        .unwrap();
+    let mut learner = DiscoveryLearner::new(seed ^ 0xd210_0000);
+    let mut policy = ActionPolicy::new(seed ^ 0xd211_0000);
+    let mut rng = DeterministicRng::new(seed ^ 0xd212_0000);
+    let mut identities = IdentitySource::new(seed ^ 0xd213_0000);
+    let mut episode_number = 0;
+    let mut decisions = 0;
+    let mut paid_actions = 0;
+    let mut information_results = [0; 3];
+    let mut trace_log = Vec::new();
+
+    prepare_unresolved_topology(&mut learner, &mut identities, &mut episode_number);
+    while learner.consolidated.is_none() && decisions < 16 {
+        prepare_unresolved_topology(&mut learner, &mut identities, &mut episode_number);
+        if learner.consolidated.is_some() {
+            break;
+        }
+        let plausible = learner.plausible_routes();
+        if plausible.len() < 2 {
+            continue;
+        }
+        let action_index = choose_strategy_action(strategy, &mut policy, true, &mut rng);
+        let effect = (action_index != NO_ACTION_INDEX).then(|| effects[action_index]);
+        decisions += 1;
+        paid_actions += usize::from(action_index != NO_ACTION_INDEX);
+        let mut trace = ActionTrace::new(action_index, &learner);
+        let real_before = learner
+            .route_strength(Role::Slot1, Role::Slot2)
+            .unwrap_or(0);
+        let shortcut_before = learner.route_strength(Role::Cue, Role::Slot2).unwrap_or(0);
+        let mut window_steps = 0;
+        while !trace.complete() {
+            episode_number += 1;
+            window_steps += 1;
+            let episode = action_episode(&mut identities, episode_number, effect);
+            learner.train_episode_deferred(&episode, episode_number);
+            trace.observe_route(learner.last_used_route);
+            assert!(window_steps < 200, "action evidence window did not close");
+        }
+        let result = trace.classify(&learner);
+        information_results[result as usize] += 1;
+        if matches!(strategy, ActionStrategy::Learned) {
+            policy.learn(trace.action_index, result);
+        }
+        let real_after = learner
+            .route_strength(Role::Slot1, Role::Slot2)
+            .unwrap_or(0);
+        let shortcut_after = learner.route_strength(Role::Cue, Role::Slot2).unwrap_or(0);
+        if keep_trace {
+            trace_log.push(ActionDecision {
+                decision: decisions,
+                action_id: action_index,
+                actual_effect: format!("{:?}", effect.unwrap_or(ActionEffect::Inert)),
+                result: format!("{result:?}"),
+                real_before,
+                real_after,
+                shortcut_before,
+                shortcut_after,
+                policy_value_after: policy.values[action_index],
+            });
+        }
+        learner.consolidate_unique_if_ready(episode_number);
+    }
+
+    let mut post_resolution_paid_actions = 0;
+    if learner.consolidated.is_some() {
+        for _ in 0..100 {
+            let action = choose_strategy_action(strategy, &mut policy, false, &mut rng);
+            post_resolution_paid_actions += usize::from(action != NO_ACTION_INDEX);
+        }
+    }
+    let (correct, _, _) = held_out_accuracy(
+        &mut learner,
+        seed ^ 0xd214_0000,
+        Direction::LeftToRight,
+        500,
+        false,
+    );
+    let informative_preferred = policy.values[informative_action_id]
+        > policy
+            .values
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != informative_action_id)
+            .map(|(_, value)| *value)
+            .max()
+            .unwrap();
+    let disruptive_preferred = policy.values[disruptive_action_id]
+        > policy
+            .values
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != disruptive_action_id)
+            .map(|(_, value)| *value)
+            .max()
+            .unwrap();
+
+    ActionRun {
+        correct,
+        total: 500,
+        selected_route: route_name(learner.selected_route()),
+        informative_action_id,
+        disruptive_action_id,
+        informative_preferred,
+        disruptive_preferred,
+        decisions,
+        paid_actions,
+        post_resolution_paid_actions,
+        information_results,
+        policy_values: policy.values,
+        trace: trace_log,
+    }
+}
+
+fn random_label_action_control() -> (usize, usize) {
+    let mut learner = DiscoveryLearner::new(0xd240_0001);
+    let mut policy = ActionPolicy::new(0xd240_0002);
+    let mut identities = IdentitySource::new(0xd240_0003);
+    for episode_number in 1..=10_000 {
+        let episode = random_label_episode(
+            &mut identities,
+            10,
+            episode_number * 7 % 10,
+            episode_number * 3 + 1,
+        );
+        learner.train_episode(&episode, episode_number);
+        if learner.plausible_routes().len() > 1 {
+            let action = policy.choose(true);
+            policy.learn(action, InformationResult::Uninformative);
+        }
+    }
+    (
+        policy.values.iter().filter(|value| **value > 0).count(),
+        learner.stable_arrows(),
+    )
+}
+
+#[derive(Clone, Debug)]
+pub struct ActiveDiscoveryReport {
+    pub learned_correct_runs: usize,
+    pub learned_forward_routes: usize,
+    pub informative_preferred_runs: usize,
+    pub disruptive_preferred_runs: usize,
+    pub post_resolution_paid_actions: usize,
+    pub random_correct_runs: usize,
+    pub fixed_correct_runs: usize,
+    pub no_action_correct_runs: usize,
+    pub average_learned_decisions: f64,
+    pub average_learned_paid_actions: f64,
+    pub average_random_decisions: f64,
+    pub average_random_paid_actions: f64,
+    pub learned_information_results: Vec<usize>,
+    pub action_permutations_seen: usize,
+    pub random_label_positive_actions: usize,
+    pub random_label_stable_arrows: usize,
+    pub representative_informative_action_id: usize,
+    pub representative_disruptive_action_id: usize,
+    pub representative_policy_values: Vec<i32>,
+    pub representative_trace: Vec<ActionDecision>,
+    pub passed: bool,
+}
+
+pub fn run_active_discovery_experiment() -> ActiveDiscoveryReport {
+    let mut learned_correct_runs = 0;
+    let mut learned_forward_routes = 0;
+    let mut informative_preferred_runs = 0;
+    let mut disruptive_preferred_runs = 0;
+    let mut post_resolution_paid_actions = 0;
+    let mut random_correct_runs = 0;
+    let mut fixed_correct_runs = 0;
+    let mut no_action_correct_runs = 0;
+    let mut total_learned_decisions = 0;
+    let mut total_learned_paid_actions = 0;
+    let mut total_random_decisions = 0;
+    let mut total_random_paid_actions = 0;
+    let mut learned_information_results = [0; 3];
+    let mut permutations = HashSet::new();
+    let mut representative = None;
+
+    for seed in 0..32 {
+        let seed = 0xd220_0000 + seed;
+        let learned = run_action_strategy(seed, ActionStrategy::Learned, seed == 0xd220_0000);
+        let random = run_action_strategy(seed, ActionStrategy::Random, false);
+        let fixed = run_action_strategy(seed, ActionStrategy::Fixed, false);
+        let no_action = run_action_strategy(seed, ActionStrategy::NoAction, false);
+        learned_correct_runs += usize::from(learned.correct == learned.total);
+        learned_forward_routes += usize::from(learned.selected_route == "Slot1->Slot2");
+        informative_preferred_runs += usize::from(learned.informative_preferred);
+        disruptive_preferred_runs += usize::from(learned.disruptive_preferred);
+        post_resolution_paid_actions += learned.post_resolution_paid_actions;
+        random_correct_runs += usize::from(random.correct == random.total);
+        fixed_correct_runs += usize::from(fixed.correct == fixed.total);
+        no_action_correct_runs += usize::from(no_action.correct == no_action.total);
+        total_learned_decisions += learned.decisions;
+        total_learned_paid_actions += learned.paid_actions;
+        total_random_decisions += random.decisions;
+        total_random_paid_actions += random.paid_actions;
+        for (total, count) in learned_information_results
+            .iter_mut()
+            .zip(learned.information_results)
+        {
+            *total += count;
+        }
+        permutations.insert((learned.informative_action_id, learned.disruptive_action_id));
+        if representative.is_none() {
+            representative = Some(learned);
+        }
+    }
+    let representative = representative.unwrap();
+    let (random_label_positive_actions, random_label_stable_arrows) = random_label_action_control();
+    let passed = learned_correct_runs == 32
+        && informative_preferred_runs == 32
+        && disruptive_preferred_runs == 0
+        && post_resolution_paid_actions == 0
+        && learned_forward_routes == 32
+        && fixed_correct_runs < learned_correct_runs
+        && no_action_correct_runs < learned_correct_runs
+        && permutations.len() >= 6
+        && random_label_positive_actions == 0
+        && random_label_stable_arrows == 0;
+
+    ActiveDiscoveryReport {
+        learned_correct_runs,
+        learned_forward_routes,
+        informative_preferred_runs,
+        disruptive_preferred_runs,
+        post_resolution_paid_actions,
+        random_correct_runs,
+        fixed_correct_runs,
+        no_action_correct_runs,
+        average_learned_decisions: total_learned_decisions as f64 / 32.0,
+        average_learned_paid_actions: total_learned_paid_actions as f64 / 32.0,
+        average_random_decisions: total_random_decisions as f64 / 32.0,
+        average_random_paid_actions: total_random_paid_actions as f64 / 32.0,
+        learned_information_results: learned_information_results.to_vec(),
+        action_permutations_seen: permutations.len(),
+        random_label_positive_actions,
+        random_label_stable_arrows,
+        representative_informative_action_id: representative.informative_action_id,
+        representative_disruptive_action_id: representative.disruptive_action_id,
+        representative_policy_values: representative.policy_values.to_vec(),
+        representative_trace: representative.trace,
+        passed,
+    }
+}
+
+pub fn print_active_discovery_report(report: &ActiveDiscoveryReport) {
+    println!("d2 learned epistemic action:");
+    println!(
+        "  learned/informative-preferred/disruptive-preferred: {}/{}/{} of 32",
+        report.learned_correct_runs,
+        report.informative_preferred_runs,
+        report.disruptive_preferred_runs
+    );
+    println!(
+        "  random/fixed/no-action correct runs: {}/{}/{} of 32",
+        report.random_correct_runs, report.fixed_correct_runs, report.no_action_correct_runs
+    );
+    println!(
+        "  learned/random decisions={:.1}/{:.1}, paid actions={:.1}/{:.1}, post-resolution paid actions={}",
+        report.average_learned_decisions,
+        report.average_random_decisions,
+        report.average_learned_paid_actions,
+        report.average_random_paid_actions,
+        report.post_resolution_paid_actions
+    );
+    println!(
+        "  learned informative/disruptive/uninformative windows={}/{}/{}",
+        report.learned_information_results[0],
+        report.learned_information_results[1],
+        report.learned_information_results[2]
+    );
+    println!(
+        "  action permutations={}, random-label positive actions/stable arrows={}/{}",
+        report.action_permutations_seen,
+        report.random_label_positive_actions,
+        report.random_label_stable_arrows
+    );
+    println!(
+        "  representative informative/disruptive ids={}/{}, policy values={:?}",
+        report.representative_informative_action_id,
+        report.representative_disruptive_action_id,
+        report.representative_policy_values
+    );
+    for decision in &report.representative_trace {
+        println!(
+            "    decision {} action {} effect={} result={} real {}->{}, shortcut {}->{}, action value={}",
+            decision.decision,
+            decision.action_id,
+            decision.actual_effect,
+            decision.result,
+            decision.real_before,
+            decision.real_after,
+            decision.shortcut_before,
+            decision.shortcut_after,
+            decision.policy_value_after
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1107,6 +1776,38 @@ mod tests {
     fn d1_held_out_and_random_label_controls_remain_clean() {
         let report = run_intervention_experiment();
         assert!(report.held_out_fingerprint_unchanged);
+        assert_eq!(report.random_label_stable_arrows, 0);
+        assert!(report.passed);
+    }
+
+    #[test]
+    fn d2_learns_the_informative_action_across_opaque_permutations() {
+        let report = run_active_discovery_experiment();
+        assert_eq!(report.learned_correct_runs, 32);
+        assert_eq!(report.informative_preferred_runs, 32);
+        assert!(report.action_permutations_seen >= 6);
+    }
+
+    #[test]
+    fn d2_rejects_disruption_and_stops_paying_after_resolution() {
+        let report = run_active_discovery_experiment();
+        assert_eq!(report.disruptive_preferred_runs, 0);
+        assert_eq!(report.post_resolution_paid_actions, 0);
+    }
+
+    #[test]
+    fn d2_baselines_expose_random_search_and_reject_fixed_or_passive_habits() {
+        let report = run_active_discovery_experiment();
+        assert_eq!(report.random_correct_runs, report.learned_correct_runs);
+        assert!(report.average_random_paid_actions < report.average_learned_paid_actions);
+        assert!(report.fixed_correct_runs < report.learned_correct_runs);
+        assert!(report.no_action_correct_runs < report.learned_correct_runs);
+    }
+
+    #[test]
+    fn d2_random_labels_create_neither_topology_nor_action_preference() {
+        let report = run_active_discovery_experiment();
+        assert_eq!(report.random_label_positive_actions, 0);
         assert_eq!(report.random_label_stable_arrows, 0);
         assert!(report.passed);
     }

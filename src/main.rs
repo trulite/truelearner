@@ -737,6 +737,10 @@ fn main() {
     discovery::print_intervention_report(&intervention_report);
     println!();
 
+    let active_discovery_report = discovery::run_active_discovery_experiment();
+    discovery::print_active_discovery_report(&active_discovery_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -755,17 +759,18 @@ fn main() {
         && continuation_report.passed
         && finish_report.passed
         && discovery_report.passed
-        && intervention_report.passed;
+        && intervention_report.passed
+        && active_discovery_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - counterbalanced contrasting experience removes a predictive shortcut without changing the d0 learner, and all earlier experiments still pass"
+            "PASS - unresolved topology learns a context-dependent preference for opaque actions that selectively separate competing routes, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: d1 receives its interventions from the curriculum; the learner does not yet choose actions that distinguish competing routes."
+        "LIMIT: d2 learns informativeness from past action consequences; it does not predict an untried action's information value, and random search remains cheaper in this tiny action space."
     );
 }
 

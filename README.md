@@ -854,6 +854,51 @@ create.
 Recorded measurements are in
 [`results/d1_intervention.md`](results/d1_intervention.md).
 
+## Discovery d2: Learned epistemic action
+
+D2 lets unresolved topology choose among three opaque actions and no action.
+Action meanings are permuted between runs:
+
+- one moves the cue while preserving the real slot relationship,
+- one corrupts both competing predictions,
+- one changes nothing useful.
+
+Every real action has the same small cost.
+
+An action trace snapshots the currently plausible routes and their strengths.
+Ordinary d0 updates continue until every snapshotted route has been exercised.
+The trace then classifies its own consequence:
+
+- one route weakened while another remained supported,
+- all routes weakened,
+- nothing useful separated.
+
+No evaluator information score or correct route enters this process. Cleanup
+waits while the trace is active, and an unresolved strength tie cannot
+consolidate through fixed arrow ordering.
+
+Across 32 runs and all six action permutations:
+
+- all 32 learn the correct topology,
+- all 32 prefer the informative action,
+- none prefer the disruptive action,
+- paid action use falls to zero after topology resolves,
+- random labels produce neither stable topology nor positive action value.
+
+In the representative run, disruption changes both route strengths from 1 to
+0 and receives action value -3. The informative action changes the real route
+from 1 to 2 while the shortcut falls from 1 to 0, receives value +2, and is
+selected again. Its second use raises the real route from 3 to 4, the shortcut
+falls from 1 to 0, and topology consolidates. No further paid action occurs.
+
+Random action search also solves all 32 runs and uses slightly fewer paid
+actions on average: 2.6 versus the learned policy's 3.0. D2 therefore
+demonstrates conditional epistemic preference, not superior search
+efficiency.
+
+Recorded measurements are in
+[`results/d2_epistemic_action.md`](results/d2_epistemic_action.md).
+
 ## Run
 
 ```bash
