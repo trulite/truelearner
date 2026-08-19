@@ -5,3 +5,6 @@ edition = "2021"
 default-run = "organism-v0"
 
 [dependencies]
+
+[profile.test]
+opt-level = 2

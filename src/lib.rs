@@ -8,6 +8,7 @@ pub mod discovery;
 pub mod generality;
 pub mod inertia;
 pub mod iteration;
+pub mod local_plasticity;
 pub mod model_epistemic;
 pub mod program_discovery;
 pub mod role_discovery;

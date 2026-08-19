@@ -1298,6 +1298,55 @@ Recorded measurements are in
 [`results/p1_role_discovery.md`](results/p1_role_discovery.md) and
 [`results/p1_role_discovery.csv`](results/p1_role_discovery.csv).
 
+## De-supply P2: Local structural plasticity
+
+P2 removes P1's global all-pairs connection opportunity. Nearby cells that
+are active in the same short window receive independent probationary
+couplings in both directions. Each cell has a small number of growth slots.
+Only couplings that carry activity enter the bounded eligibility queue, and
+terminal feedback updates only that queue.
+
+P2a discovers forward and reverse lookup using this local physical mechanism:
+
+```text
+forward lookup                 8 / 8
+reverse lookup                 8 / 8
+random-feedback stable routes      0
+```
+
+P2b preserves P1's three identity-independent sensory representations and
+encoding transfer.
+
+P2c starts from a fresh substrate with no inherited roles or program
+couplings:
+
+```text
+competent seeds                8 / 8
+held-out depth 5-32          512 / 512
+permanent role cells                 3
+surviving program couplings          4
+shuffled feedback              0 / 8
+random feedback                0 / 8
+```
+
+Increasing dormant capacity from ten to ten thousand cells produces exactly
+the same active touches and local encounters, with zero dormant touches.
+Increasing active irrelevant structure produces proportionally more local
+work while held-out behavior remains intact.
+
+The primary limitation is topology churn: the integrated learner creates and
+releases roughly 533,000 probationary couplings before retaining four.
+
+P2 still supplies local geometry, task-neutral activation of the current
+workspace, coactivity timing, growth slots, probation, eligibility traces,
+terminal correctness, pruning, P1's structural comparison, the isolated-query
+boundary, internal execution roles and identity equality.
+
+Recorded measurements are in
+[`results/p2_local_structural_plasticity.md`](results/p2_local_structural_plasticity.md)
+and
+[`results/p2_local_structural_plasticity.csv`](results/p2_local_structural_plasticity.csv).
+
 ## Run
 
 ```bash

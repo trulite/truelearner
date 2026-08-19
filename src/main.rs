@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 
 use organism_v0::{
     binding, causal, composable_models, composition, consolidation, continuation, discovery,
-    generality, inertia, iteration, model_epistemic, program_discovery, role_discovery, scaling,
-    search_value, stability, tracking, unified, vision,
+    generality, inertia, iteration, local_plasticity, model_epistemic, program_discovery,
+    role_discovery, scaling, search_value, stability, tracking, unified, vision,
 };
 
 type CellId = usize;
@@ -790,6 +790,10 @@ fn main() {
     role_discovery::print_report(&role_discovery_report);
     println!();
 
+    let local_plasticity_report = local_plasticity::run_p2_experiment();
+    local_plasticity::print_p2_report(&local_plasticity_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -822,17 +826,18 @@ fn main() {
         && guidance_gate_report.passed
         && program_discovery_report.experimental_gate_valid
         && program_discovery_report.integrated_hypothesis_supported
-        && role_discovery_report.passed;
+        && role_discovery_report.passed
+        && local_plasticity_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - repeated sensor topology acquires reusable positional roles, generic topology discovery builds the recurrent program over them, and all earlier experiments still pass"
+            "PASS - local structural plasticity grows reusable sensory representation and recurrent computation with work governed by active neighborhoods, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: P1 still supplies local directed sensor geometry, structural comparison, the isolated-query boundary, internal execution roles, identity equality, temporary lifetime, global proposal physics, terminal correctness, and pruning."
+        "LIMIT: P2 still supplies local geometry, task-neutral workspace activation, coactivity windows, growth slots, probation, eligibility traces, terminal correctness, pruning, sensory structural comparison, the isolated-query boundary, internal execution roles, and identity equality."
     );
 }
 
