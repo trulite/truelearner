@@ -396,6 +396,12 @@ discovery from raw sensation.
   supplied search ordering plus S1.1 compiled recognition and local activation
 - `src/program_discovery.rs`: P0a-P0d isolated route discovery and fresh P0e
   end-to-end recurrent program discovery
+- `src/role_discovery.rs`: P1 anonymous sensory-position role recruitment,
+  lookup through learned roles, and fresh role-plus-program integration
+- `src/local_plasticity.rs`: P2 local structural plasticity, P2.1 selective
+  plasticity, and P2.2 learned encounter representations and values
+- `src/internal_roles.rs`: P3 anonymous working and control-event role
+  recruitment plus fresh role-and-program integration
 - `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
 - `src/bin/plasticity.rs`: CSV writer for d2.3 regime trajectories
 - `src/bin/model_epistemic.rs`: CSV writer for d3 pre-action traces
@@ -406,6 +412,13 @@ discovery from raw sensation.
 - `src/bin/guidance_gate.rs`: CSV writer for S1.2 metareasoning economics
 - `src/bin/program_discovery.rs`: CSV writer for P0 program-discovery
   trajectories and controls
+- `src/bin/role_discovery.rs`: CSV writer for P1 sensory-role discovery
+- `src/bin/local_plasticity.rs`: CSV writer for P2 local-plasticity scaling
+- `src/bin/selective_plasticity.rs`: CSV writer for P2.1 gate economics
+- `src/bin/encounter_representations.rs`: CSV writer for P2.2 learned
+  encounter representations
+- `src/bin/internal_roles.rs`: CSV writer for P3 working/control roles and
+  integrated program discovery
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

@@ -7,6 +7,7 @@ pub mod continuation;
 pub mod discovery;
 pub mod generality;
 pub mod inertia;
+pub mod internal_roles;
 pub mod iteration;
 pub mod local_plasticity;
 pub mod model_epistemic;

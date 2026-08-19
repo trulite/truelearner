@@ -149,6 +149,25 @@ independent integration tests.
   programs and score 512/512 on fresh identities and unseen depths, versus
   zero competent shuffled-feedback seeds, zero random-feedback seeds, and one
   accidental activity-only seed
+- P1: recurring anonymous sensor geometry recruits three identity-independent
+  positional role cells; fresh learners combine those roles with a discovered
+  four-arrow recurrent program in all eight seeds and transfer 512/512
+  traversals to new receptor encodings
+- P2: local bidirectional structural plasticity replaces global opportunity;
+  all eight fresh learners recover the three sensory roles and four program
+  couplings, dormant capacity from ten to ten thousand cells adds no work, and
+  active distractor cost follows experienced activity
+- P2.1: a supplied six-entry coarse plasticity-value gate reduces average
+  coupling creation from 696,314 to 11,817 and counted work from 1,582,909 to
+  239,025 while preserving all eight learners and 512/512 held-out traversals
+- P2.2: immutable generic pre-coupling snapshots recruit six encounter
+  representations and separate contextual plasticity values; a fresh lifetime
+  reduces coupling creation to 28,059 and counted work to 523,458 while all
+  eight learners remain competent
+- P3: recurring anonymous working and control-event structure recruits two
+  working roles and two event roles; fresh learners retain seven total role
+  cells and four recurrent-program arrows, pass 512/512 held-out traversals
+  across new internal encodings, and fail under shuffled or random feedback
 
 ## Interpretation Boundary
 

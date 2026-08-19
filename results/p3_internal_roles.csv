@@ -1,0 +1,7 @@
+gate,condition,successful,total,correct,correct_total,sensory_roles,working_roles,event_roles,program_arrows,encounter_representations,created,released,competence_episode,passed
+P3a,working,8,8,256,256,0,2,0,0,0,0,0,,true
+P3b,feedback,8,8,56,56,0,2,0,1,0,0,0,,true
+P3c,control,8,8,48,48,0,0,2,2,0,0,0,,true
+P3d,real,8,8,512,512,3.0,2.0,2.0,4.0,13.9,1538,1534,Some(48.25),true
+P3d,shuffled,0,8,0,0,3.0,2.0,2.0,0.0,14.0,395707,395579,None,false
+P3d,random,0,8,0,0,3.0,2.0,2.0,0.0,14.0,395830,395702,None,false

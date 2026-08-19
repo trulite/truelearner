@@ -1416,6 +1416,45 @@ Recorded measurements are in
 and
 [`results/p2_2_encounter_representations.csv`](results/p2_2_encounter_representations.csv).
 
+## P3: Discovered internal execution roles
+
+P3 removes the named `CURRENT`, `RESULT`, `APPLY` and `NO_RESULT` cells.
+Anonymous temporary working and event receptors expose only recurring local
+structure. Repeated experience recruits persistent role cells from that
+structure. The program learner receives only learned role-cell activity,
+opaque identities and local plastic opportunities.
+
+```text
+P3a working-role seeds                    8 / 8
+P3a transferred encodings              256 / 256
+P3b iterable feedback depths            56 / 56
+P3c control-role seeds                    8 / 8
+P3c traversal depths                     48 / 48
+
+P3d fresh integrated learners             8 / 8
+P3d held-out depth 5-32                 512 / 512
+P3d transferred internal encodings      512 / 512
+retained sensory / working / event roles  3 / 2 / 2
+retained recurrent program arrows             4
+```
+
+Irrelevant cells fire before and after the operation, and absolute timing is
+not used by the role learner. When two working or event positions are made
+structurally symmetric, the learner does not invent a distinction.
+
+Every P3d seed starts without sensory roles, working roles, control-event
+roles, encounter representations, plasticity values or program arrows. The
+same lifetime learns all of them from the complete traversal task. Shuffled
+and random terminal feedback produce no competent programs.
+
+P3 still supplies broad sensory, working, event and output populations,
+structural comparison, generic operation effects, local plasticity physics,
+identity equality and the query/start/output boundaries.
+
+Recorded measurements are in
+[`results/p3_internal_roles.md`](results/p3_internal_roles.md) and
+[`results/p3_internal_roles.csv`](results/p3_internal_roles.csv).
+
 ## Run
 
 ```bash
