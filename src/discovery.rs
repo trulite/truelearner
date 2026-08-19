@@ -1762,6 +1762,17 @@ impl ScalableActionPolicy {
     fn retained_problem_identities(&self) -> usize {
         0
     }
+
+    fn preferred_paid_action(&self) -> Option<usize> {
+        let no_action = self.values.len() - 1;
+        self.values
+            .iter()
+            .take(no_action)
+            .enumerate()
+            .filter(|(_, value)| **value > 0)
+            .max_by_key(|(_, value)| **value)
+            .map(|(index, _)| index)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -2172,6 +2183,504 @@ pub fn print_amortization_report(report: &AmortizationReport) {
     );
 }
 
+const REMAP_MAX_PROBLEMS: usize = 500;
+const REMAP_SUCCESS_STREAK: usize = 5;
+const REMAP_SEEDS: usize = 2;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RemapCase {
+    Untried,
+    Rejected,
+}
+
+impl RemapCase {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Untried => "untried",
+            Self::Rejected => "rejected",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RemapProblemResult {
+    paid_actions: usize,
+    correct: bool,
+    selected_actions: Vec<usize>,
+    live_workspaces_after_drop: usize,
+}
+
+fn remap_initial_effects(
+    choice_count: usize,
+    policy: &ScalableActionPolicy,
+) -> (Vec<ActionEffect>, usize, usize, usize) {
+    let no_action = choice_count - 1;
+    let mut paid_order = Vec::with_capacity(choice_count - 1);
+    for offset in 0..choice_count {
+        let action = (policy.exploration_cursor + offset) % choice_count;
+        if action != no_action {
+            paid_order.push(action);
+        }
+    }
+    let rejected_candidate = paid_order[0];
+    let informative_action = paid_order[2];
+    let untried_candidate = *paid_order.last().unwrap();
+    let mut effects = vec![ActionEffect::Inert; choice_count - 1];
+    effects[informative_action] = ActionEffect::Informative;
+    let disruptive_action = paid_order[paid_order.len() / 2];
+    if disruptive_action != informative_action && disruptive_action != untried_candidate {
+        effects[disruptive_action] = ActionEffect::Disruptive;
+    }
+    (
+        effects,
+        informative_action,
+        rejected_candidate,
+        untried_candidate,
+    )
+}
+
+fn remapped_effects(
+    original: &[ActionEffect],
+    old_informative: usize,
+    new_informative: usize,
+) -> Vec<ActionEffect> {
+    let mut effects = original.to_vec();
+    effects[old_informative] = ActionEffect::Inert;
+    effects[new_informative] = ActionEffect::Informative;
+    effects
+}
+
+fn solve_remap_problem(
+    policy: &mut ScalableActionPolicy,
+    effects: &[ActionEffect],
+    seed: u64,
+    live_counter: Rc<Cell<usize>>,
+) -> RemapProblemResult {
+    let no_action = effects.len();
+    let mut workspace = FreshWorkspace::new(seed, live_counter.clone());
+    prepare_workspace_competitors(&mut workspace);
+    let mut paid_actions = 0;
+    let mut selected_actions = Vec::new();
+
+    while workspace.learner.consolidated.is_none() && selected_actions.len() < effects.len() + 1 {
+        prepare_workspace_competitors(&mut workspace);
+        let action_index = policy.choose(true);
+        selected_actions.push(action_index);
+        paid_actions += usize::from(action_index != no_action);
+        let effect = (action_index != no_action).then(|| effects[action_index]);
+        let mut trace = ActionTrace::new(action_index, &workspace.learner);
+        let mut evidence_steps = 0;
+        while !trace.complete() {
+            workspace.episode_number += 1;
+            evidence_steps += 1;
+            let episode =
+                action_episode(&mut workspace.identities, workspace.episode_number, effect);
+            workspace
+                .learner
+                .train_episode_deferred(&episode, workspace.episode_number);
+            trace.observe_route(workspace.learner.last_used_route);
+            assert!(evidence_steps < 500, "remap evidence window did not close");
+        }
+        let information = trace.classify(&workspace.learner);
+        let value_before = policy.values[action_index];
+        policy.learn(action_index, information);
+        workspace
+            .learner
+            .consolidate_unique_if_ready(workspace.episode_number);
+
+        // Once no-action leaves both topology and policy unchanged, repeating
+        // it cannot resolve this fresh problem.
+        if action_index == no_action
+            && information == InformationResult::Uninformative
+            && policy.values[action_index] == value_before
+        {
+            break;
+        }
+    }
+
+    let (correct, _, _) = held_out_accuracy(
+        &mut workspace.learner,
+        seed ^ 0xd440_0000,
+        Direction::LeftToRight,
+        20,
+        false,
+    );
+    let result = RemapProblemResult {
+        paid_actions,
+        correct: workspace.learner.consolidated.is_some() && correct == 20,
+        selected_actions,
+        live_workspaces_after_drop: usize::MAX,
+    };
+    drop(workspace);
+    RemapProblemResult {
+        live_workspaces_after_drop: live_counter.get(),
+        ..result
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct RemapTrajectoryPoint {
+    pub choice_count: usize,
+    pub maturity: usize,
+    pub remap_case: String,
+    pub seed_index: usize,
+    pub policy_kind: String,
+    pub problem: usize,
+    pub old_action: usize,
+    pub new_action: usize,
+    pub old_action_value: i32,
+    pub new_action_value: i32,
+    pub preferred_action: Option<usize>,
+    pub selected_actions: Vec<usize>,
+    pub paid_actions: usize,
+    pub correct: bool,
+    pub cumulative_cost: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct RemapPoint {
+    pub choice_count: usize,
+    pub maturity: usize,
+    pub remap_case: String,
+    pub mature_adapted_runs: usize,
+    pub fresh_adapted_runs: usize,
+    pub total_runs: usize,
+    pub mature_average_problems: Option<f64>,
+    pub fresh_average_problems: Option<f64>,
+    pub mature_average_cost: Option<f64>,
+    pub fresh_average_cost: Option<f64>,
+    pub mature_average_observed_cost: f64,
+    pub fresh_average_observed_cost: f64,
+    pub mature_average_old_collapse_problem: Option<f64>,
+    pub mature_average_exploration_resume_problem: Option<f64>,
+    pub mature_average_new_preferred_problem: Option<f64>,
+    pub mature_old_value_before: f64,
+    pub mature_new_value_before: f64,
+}
+
+#[derive(Clone, Debug)]
+pub struct RemapReport {
+    pub points: Vec<RemapPoint>,
+    pub trajectories: Vec<RemapTrajectoryPoint>,
+    pub workspaces_created: usize,
+    pub workspaces_destroyed: usize,
+    pub maximum_live_workspaces_after_problem: usize,
+    pub mature_slower_than_scratch_cases: usize,
+    pub mature_failed_cases: usize,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug)]
+struct AdaptationRun {
+    adapted_at: Option<usize>,
+    cumulative_cost: usize,
+    old_collapsed_at: Option<usize>,
+    exploration_resumed_at: Option<usize>,
+    new_preferred_at: Option<usize>,
+}
+
+struct AdaptationSpec<'a> {
+    choice_count: usize,
+    maturity: usize,
+    remap_case: RemapCase,
+    seed_index: usize,
+    policy_kind: &'a str,
+    old_action: usize,
+    new_action: usize,
+}
+
+fn run_adaptation(
+    policy: &mut ScalableActionPolicy,
+    effects: &[ActionEffect],
+    spec: &AdaptationSpec<'_>,
+    seed: u64,
+    live_counter: Rc<Cell<usize>>,
+    trajectories: &mut Vec<RemapTrajectoryPoint>,
+    workspace_audit: &mut (usize, usize, usize),
+) -> AdaptationRun {
+    let mut cumulative_cost = 0;
+    let mut success_streak = 0;
+    let mut adapted_at = None;
+    let mut old_collapsed_at = None;
+    let mut exploration_resumed_at = None;
+    let mut new_preferred_at = None;
+
+    for problem in 1..=REMAP_MAX_PROBLEMS {
+        let problem_seed = seed + problem as u64 * 100_000;
+        let result = solve_remap_problem(policy, effects, problem_seed, live_counter.clone());
+        workspace_audit.0 += 1;
+        workspace_audit.1 += usize::from(result.live_workspaces_after_drop == 0);
+        workspace_audit.2 = workspace_audit.2.max(result.live_workspaces_after_drop);
+        cumulative_cost += result.paid_actions;
+        let new_is_preferred = policy.preferred_paid_action() == Some(spec.new_action);
+        if old_collapsed_at.is_none() && policy.preferred_paid_action() != Some(spec.old_action) {
+            old_collapsed_at = Some(problem);
+        }
+        if exploration_resumed_at.is_none()
+            && result
+                .selected_actions
+                .iter()
+                .any(|action| *action != spec.old_action && *action < effects.len())
+        {
+            exploration_resumed_at = Some(problem);
+        }
+        if new_preferred_at.is_none() && new_is_preferred {
+            new_preferred_at = Some(problem);
+        }
+        let clean_success = result.correct
+            && result.paid_actions == 1
+            && result.selected_actions == [spec.new_action]
+            && new_is_preferred;
+        success_streak = if clean_success { success_streak + 1 } else { 0 };
+        trajectories.push(RemapTrajectoryPoint {
+            choice_count: spec.choice_count,
+            maturity: spec.maturity,
+            remap_case: spec.remap_case.name().to_string(),
+            seed_index: spec.seed_index,
+            policy_kind: spec.policy_kind.to_string(),
+            problem,
+            old_action: spec.old_action,
+            new_action: spec.new_action,
+            old_action_value: policy.values[spec.old_action],
+            new_action_value: policy.values[spec.new_action],
+            preferred_action: policy.preferred_paid_action(),
+            selected_actions: result.selected_actions,
+            paid_actions: result.paid_actions,
+            correct: result.correct,
+            cumulative_cost,
+        });
+        if success_streak == REMAP_SUCCESS_STREAK {
+            adapted_at = Some(problem);
+            break;
+        }
+    }
+
+    AdaptationRun {
+        adapted_at,
+        cumulative_cost,
+        old_collapsed_at,
+        exploration_resumed_at,
+        new_preferred_at,
+    }
+}
+
+fn average_recorded_problem(values: &[Option<usize>]) -> Option<f64> {
+    let recorded: Vec<_> = values.iter().flatten().copied().collect();
+    (!recorded.is_empty()).then_some(recorded.iter().sum::<usize>() as f64 / recorded.len() as f64)
+}
+
+pub fn run_remap_experiment() -> RemapReport {
+    let choice_counts = [16, 64];
+    let maturities = [10, 50, 100];
+    let remap_cases = [RemapCase::Untried, RemapCase::Rejected];
+    let mut points = Vec::new();
+    let mut trajectories = Vec::new();
+    let live_counter = Rc::new(Cell::new(0));
+    let mut workspace_audit = (0usize, 0usize, 0usize);
+    let mut mature_slower_than_scratch_cases = 0;
+    let mut mature_failed_cases = 0;
+
+    for choice_count in choice_counts {
+        for maturity in maturities {
+            for remap_case in remap_cases {
+                let mut mature_adapted = 0;
+                let mut fresh_adapted = 0;
+                let mut mature_problems = 0;
+                let mut fresh_problems = 0;
+                let mut mature_cost = 0;
+                let mut fresh_cost = 0;
+                let mut mature_observed_cost = 0;
+                let mut fresh_observed_cost = 0;
+                let mut mature_old_collapse = Vec::new();
+                let mut mature_exploration_resume = Vec::new();
+                let mut mature_new_preferred = Vec::new();
+                let mut mature_old_before = 0;
+                let mut mature_new_before = 0;
+
+                for seed_index in 0..REMAP_SEEDS {
+                    let seed = 0xd410_0000
+                        + choice_count as u64 * 100_000
+                        + maturity as u64 * 1_000
+                        + seed_index as u64;
+                    let mut mature_policy =
+                        ScalableActionPolicy::new(choice_count, seed ^ 0xd411_0000);
+                    let (original_effects, old_action, rejected_action, untried_action) =
+                        remap_initial_effects(choice_count, &mature_policy);
+                    for problem in 0..maturity {
+                        let result = solve_amortized_problem(
+                            &mut mature_policy,
+                            &original_effects,
+                            AmortizationStrategy::Learned,
+                            seed + problem as u64 * 10_000,
+                            live_counter.clone(),
+                        );
+                        workspace_audit.0 += 1;
+                        workspace_audit.1 += usize::from(result.live_workspaces_after_drop == 0);
+                        workspace_audit.2 =
+                            workspace_audit.2.max(result.live_workspaces_after_drop);
+                        assert!(result.correct, "maturity problem did not resolve");
+                    }
+                    let new_action = match remap_case {
+                        RemapCase::Untried => untried_action,
+                        RemapCase::Rejected => rejected_action,
+                    };
+                    assert!(mature_policy.values[old_action] > 0);
+                    match remap_case {
+                        RemapCase::Untried => assert!(!mature_policy.tried[new_action]),
+                        RemapCase::Rejected => {
+                            assert!(mature_policy.tried[new_action]);
+                            assert!(mature_policy.values[new_action] < 0);
+                        }
+                    }
+                    let effects = remapped_effects(&original_effects, old_action, new_action);
+                    mature_old_before += mature_policy.values[old_action];
+                    mature_new_before += mature_policy.values[new_action];
+                    let mut fresh_policy =
+                        ScalableActionPolicy::new(choice_count, seed ^ 0xd411_0000);
+                    let mature_spec = AdaptationSpec {
+                        choice_count,
+                        maturity,
+                        remap_case,
+                        seed_index,
+                        policy_kind: "mature",
+                        old_action,
+                        new_action,
+                    };
+                    let fresh_spec = AdaptationSpec {
+                        policy_kind: "fresh",
+                        ..mature_spec
+                    };
+                    let mature_run = run_adaptation(
+                        &mut mature_policy,
+                        &effects,
+                        &mature_spec,
+                        seed ^ 0xd412_0000,
+                        live_counter.clone(),
+                        &mut trajectories,
+                        &mut workspace_audit,
+                    );
+                    let fresh_run = run_adaptation(
+                        &mut fresh_policy,
+                        &effects,
+                        &fresh_spec,
+                        seed ^ 0xd412_0000,
+                        live_counter.clone(),
+                        &mut trajectories,
+                        &mut workspace_audit,
+                    );
+                    mature_observed_cost += mature_run.cumulative_cost;
+                    fresh_observed_cost += fresh_run.cumulative_cost;
+                    mature_old_collapse.push(mature_run.old_collapsed_at);
+                    mature_exploration_resume.push(mature_run.exploration_resumed_at);
+                    mature_new_preferred.push(mature_run.new_preferred_at);
+                    if let Some(problem) = mature_run.adapted_at {
+                        mature_adapted += 1;
+                        mature_problems += problem;
+                        mature_cost += mature_run.cumulative_cost;
+                    } else {
+                        mature_failed_cases += 1;
+                    }
+                    if let Some(problem) = fresh_run.adapted_at {
+                        fresh_adapted += 1;
+                        fresh_problems += problem;
+                        fresh_cost += fresh_run.cumulative_cost;
+                    }
+                    if match (mature_run.adapted_at, fresh_run.adapted_at) {
+                        (Some(mature), Some(fresh)) => {
+                            mature > fresh || mature_run.cumulative_cost > fresh_run.cumulative_cost
+                        }
+                        (None, Some(_)) => true,
+                        _ => false,
+                    } {
+                        mature_slower_than_scratch_cases += 1;
+                    }
+                }
+
+                points.push(RemapPoint {
+                    choice_count,
+                    maturity,
+                    remap_case: remap_case.name().to_string(),
+                    mature_adapted_runs: mature_adapted,
+                    fresh_adapted_runs: fresh_adapted,
+                    total_runs: REMAP_SEEDS,
+                    mature_average_problems: (mature_adapted > 0)
+                        .then_some(mature_problems as f64 / mature_adapted as f64),
+                    fresh_average_problems: (fresh_adapted > 0)
+                        .then_some(fresh_problems as f64 / fresh_adapted as f64),
+                    mature_average_cost: (mature_adapted > 0)
+                        .then_some(mature_cost as f64 / mature_adapted as f64),
+                    fresh_average_cost: (fresh_adapted > 0)
+                        .then_some(fresh_cost as f64 / fresh_adapted as f64),
+                    mature_average_observed_cost: mature_observed_cost as f64 / REMAP_SEEDS as f64,
+                    fresh_average_observed_cost: fresh_observed_cost as f64 / REMAP_SEEDS as f64,
+                    mature_average_old_collapse_problem: average_recorded_problem(
+                        &mature_old_collapse,
+                    ),
+                    mature_average_exploration_resume_problem: average_recorded_problem(
+                        &mature_exploration_resume,
+                    ),
+                    mature_average_new_preferred_problem: average_recorded_problem(
+                        &mature_new_preferred,
+                    ),
+                    mature_old_value_before: mature_old_before as f64 / REMAP_SEEDS as f64,
+                    mature_new_value_before: mature_new_before as f64 / REMAP_SEEDS as f64,
+                });
+            }
+        }
+    }
+
+    let all_fresh_adapt = points
+        .iter()
+        .all(|point| point.fresh_adapted_runs == point.total_runs);
+    let all_workspaces_destroyed = workspace_audit.0 == workspace_audit.1 && workspace_audit.2 == 0;
+    let diagnostic_found_rigidity = mature_slower_than_scratch_cases > 0;
+    let passed = all_fresh_adapt && all_workspaces_destroyed && diagnostic_found_rigidity;
+
+    RemapReport {
+        points,
+        trajectories,
+        workspaces_created: workspace_audit.0,
+        workspaces_destroyed: workspace_audit.1,
+        maximum_live_workspaces_after_problem: workspace_audit.2,
+        mature_slower_than_scratch_cases,
+        mature_failed_cases,
+        passed,
+    }
+}
+
+pub fn print_remap_report(report: &RemapReport) {
+    println!("d2.2 silent action remapping:");
+    for point in &report.points {
+        println!(
+            "  choices {:>2}, maturity {:>3}, {:>8}: adapted mature/fresh={}/{}, problems={:?}/{:?}, adapted cost={:?}/{:?}, observed cost={:.1}/{:.1}, collapse/explore/new={:?}/{:?}/{:?}, initial old/new={:.1}/{:.1}",
+            point.choice_count,
+            point.maturity,
+            point.remap_case,
+            point.mature_adapted_runs,
+            point.fresh_adapted_runs,
+            point.mature_average_problems,
+            point.fresh_average_problems,
+            point.mature_average_cost,
+            point.fresh_average_cost,
+            point.mature_average_observed_cost,
+            point.fresh_average_observed_cost,
+            point.mature_average_old_collapse_problem,
+            point.mature_average_exploration_resume_problem,
+            point.mature_average_new_preferred_problem,
+            point.mature_old_value_before,
+            point.mature_new_value_before
+        );
+    }
+    println!(
+        "  rigidity cases={}, no-adaptation cases={}, workspaces created/destroyed={}/{}, max live={}",
+        report.mature_slower_than_scratch_cases,
+        report.mature_failed_cases,
+        report.workspaces_created,
+        report.workspaces_destroyed,
+        report.maximum_live_workspaces_after_problem
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2180,6 +2689,11 @@ mod tests {
     fn amortization_report() -> &'static AmortizationReport {
         static REPORT: OnceLock<AmortizationReport> = OnceLock::new();
         REPORT.get_or_init(run_amortization_experiment)
+    }
+
+    fn remap_report() -> &'static RemapReport {
+        static REPORT: OnceLock<RemapReport> = OnceLock::new();
+        REPORT.get_or_init(run_remap_experiment)
     }
 
     #[test]
@@ -2346,6 +2860,44 @@ mod tests {
                 && point.random_correct == point.total_problems
                 && point.oracle_correct == point.total_problems
         }));
+        assert!(report.passed);
+    }
+
+    #[test]
+    fn d2_2_fresh_policy_adapts_under_every_new_mapping() {
+        let report = remap_report();
+        assert!(report
+            .points
+            .iter()
+            .all(|point| point.fresh_adapted_runs == point.total_runs));
+    }
+
+    #[test]
+    fn d2_2_exposes_rigidity_without_adding_plasticity() {
+        let report = remap_report();
+        assert!(report.mature_slower_than_scratch_cases > 0);
+        assert!(report.mature_failed_cases > 0);
+    }
+
+    #[test]
+    fn d2_2_destroys_every_adaptation_workspace() {
+        let report = remap_report();
+        assert_eq!(report.workspaces_created, report.workspaces_destroyed);
+        assert_eq!(report.maximum_live_workspaces_after_problem, 0);
+    }
+
+    #[test]
+    fn d2_2_records_complete_old_and_new_value_trajectories() {
+        let report = remap_report();
+        assert!(!report.trajectories.is_empty());
+        assert!(report
+            .trajectories
+            .iter()
+            .any(|point| point.policy_kind == "mature"));
+        assert!(report
+            .trajectories
+            .iter()
+            .any(|point| point.policy_kind == "fresh"));
         assert!(report.passed);
     }
 }

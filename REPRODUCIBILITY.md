@@ -1,6 +1,6 @@
 # Reproducibility
 
-**Recorded:** 2026-08-18
+**Recorded:** 2026-08-19
 
 **Rust:** 1.97.1
 
@@ -16,6 +16,7 @@ cargo test --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo run --release
 cargo run --release --bin scaling -- --output results/v14_5_scaling.csv
+cargo run --release --bin remap -- results/d2_2_remap.csv
 ```
 
 `rust-toolchain.toml` pins the compiler and installs `rustfmt` and Clippy.
@@ -32,7 +33,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 101 in-crate unit tests
+- 105 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -95,6 +96,10 @@ independent integration tests.
   search grows from 2.5 to 36 actions, cumulative learned cost beats random by
   the second ambiguity at latest, and all 12,000 fresh topology workspaces are
   destroyed between problems
+- d2.2: unknown replacement actions are eventually found but become more
+  expensive to learn as old evidence accumulates; previously rejected
+  replacements are never reconsidered in 12 mature runs within 500 problems,
+  while every matched fresh policy adapts; all 7,547 workspaces are destroyed
 
 ## Interpretation Boundary
 

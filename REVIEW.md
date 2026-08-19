@@ -209,6 +209,20 @@ The learned mature policy uses one action from four through sixty-four
 choices. Random search grows from 2.5 to 36 actions. All 12,000 workspaces are
 destroyed before the next problem begins.
 
+D2.2 changes only the action mapping after policy maturity. It does not add
+forgetting, value decay, or exploration reopening. Mature and fresh policies
+receive identical remapped effects and problem seeds.
+
+When the new informative action was never tried, mature policies eventually
+adapt but become slower and more expensive as old evidence accumulates. When
+the new informative action had previously received negative evidence, no
+mature policy adapts within five hundred problems, while every fresh policy
+does.
+
+D2.2 therefore demonstrates rigidity, not successful continual adaptation.
+The usefulness of selectively separating routes remains supplied. Only the
+opaque action-to-consequence mapping changes.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -227,7 +241,8 @@ destroyed before the next problem begins.
 - `src/continuation.rs`: v21a autonomous continuation and v21b learned finish
 - `src/discovery.rs`: d0 generic topology proposal, trace, reward, and pruning
   plus d1 contrasting experience, d2 learned epistemic action, and d2.1
-  amortization
+  amortization and d2.2 silent-remap diagnostics
+- `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

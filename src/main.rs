@@ -745,6 +745,10 @@ fn main() {
     discovery::print_amortization_report(&amortization_report);
     println!();
 
+    let remap_report = discovery::run_remap_experiment();
+    discovery::print_remap_report(&remap_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -765,17 +769,18 @@ fn main() {
         && discovery_report.passed
         && intervention_report.passed
         && active_discovery_report.passed
-        && amortization_report.passed;
+        && amortization_report.passed
+        && remap_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - epistemic action cost is amortized across fresh ambiguity problems while every topology workspace is destroyed, and all earlier experiments still pass"
+            "PASS - silent action remapping exposes the frozen policy's adaptation or rigidity without adding plasticity, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: d2.1 keeps the action mapping fixed across problems and supplies fresh workspace boundaries; action remapping and continual topology contexts remain untested."
+        "LIMIT: d2.2 diagnoses rebinding of learned action identity only; the value of distinguishing evidence remains supplied, and no forgetting or reopening mechanism was added."
     );
 }
 

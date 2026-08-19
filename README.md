@@ -939,6 +939,39 @@ Recorded measurements are in
 [`results/d2_1_amortization.md`](results/d2_1_amortization.md) and
 [`results/d2_1_amortization.csv`](results/d2_1_amortization.csv).
 
+## Discovery d2.2: Silent action remapping
+
+D2.2 keeps the d2.1 action policy unchanged and silently changes which opaque
+action is informative after 10, 50, or 100 maturity problems.
+
+Two remaps are tested:
+
+- the new informative action was never tried,
+- the new informative action was previously tried and weakened.
+
+Mature and fresh policies receive the same new mapping and fresh topology
+problems. Adaptation requires five consecutive correct problems using one paid
+action. No forgetting, value decay, or exploration-reopening rule is added.
+
+Unknown replacements are eventually found, but prior confidence creates
+increasing adaptation cost. At 16 choices, mature adaptation cost rises from
+36.5 after 10 maturity problems to 216.5 after 100. At 64 choices it rises
+from 85 to 265.
+
+Previously rejected replacements are never reconsidered in any of 12 mature
+runs within 500 problems. All matched fresh policies adapt in five problems.
+All 7,547 fresh topology workspaces are destroyed.
+
+D2.2 therefore records rigidity rather than hiding it:
+
+> The frozen policy can exhaust obsolete positive evidence and re-explore an
+> unknown action, but it cannot overturn old negative evidence once no-action
+> is preferred.
+
+Recorded measurements are in
+[`results/d2_2_remap.md`](results/d2_2_remap.md) and
+[`results/d2_2_remap.csv`](results/d2_2_remap.csv).
+
 ## Run
 
 ```bash
