@@ -749,6 +749,10 @@ fn main() {
     discovery::print_remap_report(&remap_report);
     println!();
 
+    let plasticity_report = discovery::run_plasticity_experiment();
+    discovery::print_plasticity_report(&plasticity_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -770,17 +774,18 @@ fn main() {
         && intervention_report.passed
         && active_discovery_report.passed
         && amortization_report.passed
-        && remap_report.passed;
+        && remap_report.passed
+        && plasticity_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - silent action remapping exposes the frozen policy's adaptation or rigidity without adding plasticity, and all earlier experiments still pass"
+            "PASS - sustained expectation violations reopen local action alternatives on a maturity-independent timescale while historical evidence is retained, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: d2.2 diagnoses rebinding of learned action identity only; the value of distinguishing evidence remains supplied, and no forgetting or reopening mechanism was added."
+        "LIMIT: d2.3 supplies the usefulness of distinguishing evidence and a fixed three-violation reopening rule; it does not learn its own change-detection threshold or regime representation."
     );
 }
 

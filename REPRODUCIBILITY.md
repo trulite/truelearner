@@ -17,6 +17,7 @@ cargo clippy --all-targets -- -D warnings
 cargo run --release
 cargo run --release --bin scaling -- --output results/v14_5_scaling.csv
 cargo run --release --bin remap -- results/d2_2_remap.csv
+cargo run --release --bin plasticity -- results/d2_3_plasticity.csv
 ```
 
 `rust-toolchain.toml` pins the compiler and installs `rustfmt` and Clippy.
@@ -33,7 +34,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 105 in-crate unit tests
+- 109 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -100,6 +101,11 @@ independent integration tests.
   expensive to learn as old evidence accumulates; previously rejected
   replacements are never reconsidered in 12 mature runs within 500 problems,
   while every matched fresh policy adapts; all 7,547 workspaces are destroyed
+- d2.3: the hard rejected-action remap adapts in all 12 runs after exactly
+  three expectation violations and eight problems regardless of prior
+  maturity; isolated noise causes no reopening, repeated regime switches
+  become cheaper through retained history, and all 2,162 workspaces are
+  destroyed
 
 ## Interpretation Boundary
 

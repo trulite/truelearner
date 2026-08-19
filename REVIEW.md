@@ -223,6 +223,23 @@ D2.2 therefore demonstrates rigidity, not successful continual adaptation.
 The usefulness of selectively separating routes remains supplied. Only the
 opaque action-to-consequence mapping changes.
 
+D2.3 introduces a separate current-regime action record and an append-only
+historical outcome record. Three consecutive violations of a trusted action
+reopen the local action mapping. Isolated failures do not.
+
+Across 16 and 64 choices and maturity levels 10, 50, and 100, reopening always
+occurs after three violations and adaptation always completes in eight
+problems. Previously rejected actions become eligible again.
+
+A full reset adapts in six problems and is therefore initially cheaper, but it
+loses all earlier evidence. After both regimes have been experienced, repeated
+switches cost fewer actions because historical evidence prioritizes previously
+useful alternatives.
+
+The three-violation threshold, the separation into historical and
+current-regime state, and the usefulness of distinguishing evidence are
+supplied. D2.3 does not discover its own plasticity timescale.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -241,8 +258,9 @@ opaque action-to-consequence mapping changes.
 - `src/continuation.rs`: v21a autonomous continuation and v21b learned finish
 - `src/discovery.rs`: d0 generic topology proposal, trace, reward, and pruning
   plus d1 contrasting experience, d2 learned epistemic action, and d2.1
-  amortization and d2.2 silent-remap diagnostics
+  amortization, d2.2 silent-remap diagnostics, and d2.3 local reopening
 - `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
+- `src/bin/plasticity.rs`: CSV writer for d2.3 regime trajectories
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

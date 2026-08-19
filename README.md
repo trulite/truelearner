@@ -972,6 +972,44 @@ Recorded measurements are in
 [`results/d2_2_remap.md`](results/d2_2_remap.md) and
 [`results/d2_2_remap.csv`](results/d2_2_remap.csv).
 
+## Discovery d2.3: Expectation-triggered reopening
+
+D2.3 adds one generic plasticity mechanism without changing the topology
+learner or the meaning of useful evidence.
+
+Historical action outcomes are retained separately from current-regime
+evidence. A trusted action remains consolidated through isolated failures.
+Three consecutive missing expected consequences mark only that action mapping
+unreliable and reopen previously rejected alternatives.
+
+The hard d2.2 case now adapts in every run:
+
+```text
+choices  maturity  violations to reopen  problems to adapt  paid actions
+16       10        3                     8                  21
+16       50        3                     8                  21
+16       100       3                     8                  21
+64       10        3                     8                  69
+64       50        3                     8                  69
+64       100       3                     8                  69
+```
+
+Adaptation time is independent of how long the old policy had been correct.
+Isolated noise and an unchanged environment cause zero false reopenings.
+
+The first switch to a previously rejected action costs 21 paid actions in the
+16-choice diagnostic. Switching back costs 9, and switching again also costs
+9, because historical evidence from both regimes remains available.
+
+A full reset adapts in six problems, faster than d2.3, but discards all
+history. D2.3 preserves history and reduces later rediscovery cost.
+
+All 2,162 fresh topology workspaces are destroyed.
+
+Recorded measurements are in
+[`results/d2_3_plasticity.md`](results/d2_3_plasticity.md) and
+[`results/d2_3_plasticity.csv`](results/d2_3_plasticity.csv).
+
 ## Run
 
 ```bash

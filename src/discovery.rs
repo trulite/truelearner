@@ -2681,6 +2681,710 @@ pub fn print_remap_report(report: &RemapReport) {
     );
 }
 
+const REOPEN_VIOLATIONS: usize = 3;
+const RECONSOLIDATE_SUCCESSES: usize = 2;
+const PLASTICITY_SEEDS: usize = 2;
+const PLASTICITY_MAX_PROBLEMS: usize = 100;
+
+#[derive(Clone, Debug, Default)]
+struct HistoricalActionEvidence {
+    informative: usize,
+    disruptive: usize,
+    uninformative: usize,
+}
+
+impl HistoricalActionEvidence {
+    fn record(&mut self, result: InformationResult) {
+        match result {
+            InformationResult::Informative => self.informative += 1,
+            InformationResult::Disruptive => self.disruptive += 1,
+            InformationResult::Uninformative => self.uninformative += 1,
+        }
+    }
+
+    fn preference(&self) -> i64 {
+        self.informative as i64 * 3 - self.disruptive as i64 * 2 - self.uninformative as i64
+    }
+
+    fn total(&self) -> usize {
+        self.informative + self.disruptive + self.uninformative
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RegimeActionPolicy {
+    historical: Vec<HistoricalActionEvidence>,
+    current_values: Vec<i32>,
+    current_tried: Vec<bool>,
+    exploration_cursor: usize,
+    trusted_action: Option<usize>,
+    trusted: bool,
+    violation_streak: usize,
+    reconsolidating_action: Option<usize>,
+    reconsolidation_streak: usize,
+    violated_action: Option<usize>,
+    reopen_count: usize,
+    last_reopen_violation_count: Option<usize>,
+}
+
+impl RegimeActionPolicy {
+    fn new(choice_count: usize, seed: u64) -> Self {
+        Self {
+            historical: vec![HistoricalActionEvidence::default(); choice_count],
+            current_values: vec![0; choice_count],
+            current_tried: vec![false; choice_count],
+            exploration_cursor: seed as usize % choice_count,
+            trusted_action: None,
+            trusted: false,
+            violation_streak: 0,
+            reconsolidating_action: None,
+            reconsolidation_streak: 0,
+            violated_action: None,
+            reopen_count: 0,
+            last_reopen_violation_count: None,
+        }
+    }
+
+    fn choose(&mut self, unresolved: bool) -> usize {
+        let no_action = self.current_values.len() - 1;
+        if !unresolved {
+            return no_action;
+        }
+        if self.trusted {
+            return self.trusted_action.expect("trusted action");
+        }
+        if let Some((index, _)) = self
+            .current_values
+            .iter()
+            .take(no_action)
+            .enumerate()
+            .filter(|(_, value)| **value > 0)
+            .max_by_key(|(_, value)| **value)
+        {
+            return index;
+        }
+
+        let mut candidates = Vec::new();
+        for offset in 0..self.current_values.len() {
+            let index = (self.exploration_cursor + offset) % self.current_values.len();
+            if index != no_action && !self.current_tried[index] {
+                candidates.push((index, offset));
+            }
+        }
+        if let Some((index, _)) = candidates
+            .into_iter()
+            .max_by_key(|(index, offset)| (self.historical[*index].preference(), -(*offset as i64)))
+        {
+            self.exploration_cursor = (index + 1) % self.current_values.len();
+            return index;
+        }
+        no_action
+    }
+
+    fn learn(&mut self, action: usize, result: InformationResult) {
+        self.historical[action].record(result);
+        if self.trusted {
+            debug_assert_eq!(self.trusted_action, Some(action));
+            if result == InformationResult::Informative {
+                self.violation_streak = 0;
+            } else {
+                self.violation_streak += 1;
+                if self.violation_streak >= REOPEN_VIOLATIONS {
+                    self.reopen(action);
+                }
+            }
+            return;
+        }
+
+        self.current_tried[action] = true;
+        let no_action = self.current_values.len() - 1;
+        let information_value = match result {
+            InformationResult::Informative => 3,
+            InformationResult::Disruptive => -2,
+            InformationResult::Uninformative => 0,
+        };
+        let cost = i32::from(action != no_action) * ACTION_COST;
+        self.current_values[action] =
+            (self.current_values[action] + information_value - cost).clamp(-4, 4);
+
+        if result == InformationResult::Informative {
+            if self.reconsolidating_action == Some(action) {
+                self.reconsolidation_streak += 1;
+            } else {
+                self.reconsolidating_action = Some(action);
+                self.reconsolidation_streak = 1;
+            }
+            self.trusted_action = Some(action);
+            if self.reconsolidation_streak >= RECONSOLIDATE_SUCCESSES {
+                self.trusted = true;
+                self.violation_streak = 0;
+                self.violated_action = None;
+            }
+        } else if self.reconsolidating_action == Some(action) {
+            self.reconsolidating_action = None;
+            self.reconsolidation_streak = 0;
+        }
+    }
+
+    fn reopen(&mut self, violated_action: usize) {
+        self.trusted = false;
+        self.trusted_action = None;
+        self.last_reopen_violation_count = Some(self.violation_streak);
+        self.violation_streak = 0;
+        self.reconsolidating_action = None;
+        self.reconsolidation_streak = 0;
+        self.current_values.fill(0);
+        self.current_tried.fill(false);
+        self.current_values[violated_action] = -1;
+        self.current_tried[violated_action] = true;
+        self.violated_action = Some(violated_action);
+        self.exploration_cursor = (violated_action + 1) % self.current_values.len();
+        self.reopen_count += 1;
+    }
+
+    fn preferred_action(&self) -> Option<usize> {
+        if self.trusted {
+            return self.trusted_action;
+        }
+        let no_action = self.current_values.len() - 1;
+        self.current_values
+            .iter()
+            .take(no_action)
+            .enumerate()
+            .filter(|(_, value)| **value > 0)
+            .max_by_key(|(_, value)| **value)
+            .map(|(index, _)| index)
+    }
+
+    fn historical_total(&self) -> usize {
+        self.historical
+            .iter()
+            .map(HistoricalActionEvidence::total)
+            .sum()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RegimeProblemResult {
+    paid_actions: usize,
+    correct: bool,
+    selected_actions: Vec<usize>,
+    reopened: bool,
+    live_workspaces_after_drop: usize,
+}
+
+fn solve_regime_problem(
+    policy: &mut RegimeActionPolicy,
+    effects: &[ActionEffect],
+    seed: u64,
+    live_counter: Rc<Cell<usize>>,
+) -> RegimeProblemResult {
+    let no_action = effects.len();
+    let mut workspace = FreshWorkspace::new(seed, live_counter.clone());
+    prepare_workspace_competitors(&mut workspace);
+    let reopen_before = policy.reopen_count;
+    let mut paid_actions = 0;
+    let mut selected_actions = Vec::new();
+
+    while workspace.learner.consolidated.is_none()
+        && selected_actions.len() < effects.len() + REOPEN_VIOLATIONS
+    {
+        prepare_workspace_competitors(&mut workspace);
+        let was_trusted = policy.trusted;
+        let action = policy.choose(true);
+        selected_actions.push(action);
+        paid_actions += usize::from(action != no_action);
+        let effect = (action != no_action).then(|| effects[action]);
+        let mut trace = ActionTrace::new(action, &workspace.learner);
+        let mut evidence_steps = 0;
+        while !trace.complete() {
+            workspace.episode_number += 1;
+            evidence_steps += 1;
+            let episode =
+                action_episode(&mut workspace.identities, workspace.episode_number, effect);
+            workspace
+                .learner
+                .train_episode_deferred(&episode, workspace.episode_number);
+            trace.observe_route(workspace.learner.last_used_route);
+            assert!(
+                evidence_steps < 500,
+                "plasticity evidence window did not close"
+            );
+        }
+        let information = trace.classify(&workspace.learner);
+        policy.learn(action, information);
+        workspace
+            .learner
+            .consolidate_unique_if_ready(workspace.episode_number);
+
+        // A trusted mapping receives one independent expectation test per
+        // problem. Exploration proceeds immediately only after reopening.
+        if was_trusted && policy.trusted && workspace.learner.consolidated.is_none() {
+            break;
+        }
+        if action == no_action && information == InformationResult::Uninformative {
+            break;
+        }
+    }
+
+    let (correct, _, _) = held_out_accuracy(
+        &mut workspace.learner,
+        seed ^ 0xd540_0000,
+        Direction::LeftToRight,
+        20,
+        false,
+    );
+    let result = RegimeProblemResult {
+        paid_actions,
+        correct: workspace.learner.consolidated.is_some() && correct == 20,
+        selected_actions,
+        reopened: policy.reopen_count > reopen_before,
+        live_workspaces_after_drop: usize::MAX,
+    };
+    drop(workspace);
+    RegimeProblemResult {
+        live_workspaces_after_drop: live_counter.get(),
+        ..result
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct PlasticityTrajectoryPoint {
+    pub choice_count: usize,
+    pub maturity: usize,
+    pub seed_index: usize,
+    pub phase: String,
+    pub problem: usize,
+    pub old_action: usize,
+    pub new_action: usize,
+    pub preferred_action: Option<usize>,
+    pub trusted: bool,
+    pub violation_streak: usize,
+    pub reopen_count: usize,
+    pub selected_actions: Vec<usize>,
+    pub paid_actions: usize,
+    pub correct: bool,
+    pub historical_evidence: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct PlasticityPoint {
+    pub choice_count: usize,
+    pub maturity: usize,
+    pub adapted_runs: usize,
+    pub total_runs: usize,
+    pub average_violations_to_reopen: f64,
+    pub average_problems_to_adapt: f64,
+    pub average_paid_actions: f64,
+    pub reset_average_problems: f64,
+    pub false_reopenings: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct SwitchDiagnostic {
+    pub phase: String,
+    pub problems_to_adapt: usize,
+    pub paid_actions: usize,
+    pub violations_to_reopen: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct PlasticityReport {
+    pub points: Vec<PlasticityPoint>,
+    pub trajectories: Vec<PlasticityTrajectoryPoint>,
+    pub switch_diagnostic: Vec<SwitchDiagnostic>,
+    pub noisy_false_reopenings: usize,
+    pub unchanged_false_reopenings: usize,
+    pub historical_evidence_preserved: bool,
+    pub workspaces_created: usize,
+    pub workspaces_destroyed: usize,
+    pub maximum_live_workspaces_after_problem: usize,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug)]
+struct PlasticityAdaptation {
+    adapted_at: Option<usize>,
+    paid_actions: usize,
+    violations_to_reopen: Option<usize>,
+}
+
+struct PlasticitySpec<'a> {
+    choice_count: usize,
+    maturity: usize,
+    seed_index: usize,
+    phase: &'a str,
+    old_action: usize,
+    new_action: usize,
+}
+
+fn run_plasticity_adaptation(
+    policy: &mut RegimeActionPolicy,
+    effects: &[ActionEffect],
+    spec: &PlasticitySpec<'_>,
+    seed: u64,
+    live_counter: Rc<Cell<usize>>,
+    trajectories: &mut Vec<PlasticityTrajectoryPoint>,
+    workspace_audit: &mut (usize, usize, usize),
+) -> PlasticityAdaptation {
+    let mut paid_actions = 0;
+    let mut success_streak = 0;
+    let mut adapted_at = None;
+    let mut violations_to_reopen = None;
+
+    for problem in 1..=PLASTICITY_MAX_PROBLEMS {
+        let result = solve_regime_problem(
+            policy,
+            effects,
+            seed + problem as u64 * 100_000,
+            live_counter.clone(),
+        );
+        workspace_audit.0 += 1;
+        workspace_audit.1 += usize::from(result.live_workspaces_after_drop == 0);
+        workspace_audit.2 = workspace_audit.2.max(result.live_workspaces_after_drop);
+        paid_actions += result.paid_actions;
+        if result.reopened && violations_to_reopen.is_none() {
+            violations_to_reopen = policy.last_reopen_violation_count;
+        }
+        let clean_success = result.correct
+            && result.paid_actions == 1
+            && result.selected_actions == [spec.new_action]
+            && policy.trusted
+            && policy.preferred_action() == Some(spec.new_action);
+        success_streak = if clean_success { success_streak + 1 } else { 0 };
+        trajectories.push(PlasticityTrajectoryPoint {
+            choice_count: spec.choice_count,
+            maturity: spec.maturity,
+            seed_index: spec.seed_index,
+            phase: spec.phase.to_string(),
+            problem,
+            old_action: spec.old_action,
+            new_action: spec.new_action,
+            preferred_action: policy.preferred_action(),
+            trusted: policy.trusted,
+            violation_streak: policy.violation_streak,
+            reopen_count: policy.reopen_count,
+            selected_actions: result.selected_actions,
+            paid_actions: result.paid_actions,
+            correct: result.correct,
+            historical_evidence: policy.historical_total(),
+        });
+        if success_streak == REMAP_SUCCESS_STREAK {
+            adapted_at = Some(problem);
+            break;
+        }
+    }
+
+    PlasticityAdaptation {
+        adapted_at,
+        paid_actions,
+        violations_to_reopen,
+    }
+}
+
+fn mature_regime_policy(
+    choice_count: usize,
+    maturity: usize,
+    seed: u64,
+    live_counter: Rc<Cell<usize>>,
+    workspace_audit: &mut (usize, usize, usize),
+) -> (RegimeActionPolicy, Vec<ActionEffect>, usize, usize) {
+    let template = ScalableActionPolicy::new(choice_count, seed ^ 0xd511_0000);
+    let (effects, informative, rejected, _) = remap_initial_effects(choice_count, &template);
+    let mut policy = RegimeActionPolicy::new(choice_count, seed ^ 0xd511_0000);
+    for problem in 0..maturity {
+        let result = solve_regime_problem(
+            &mut policy,
+            &effects,
+            seed + problem as u64 * 10_000,
+            live_counter.clone(),
+        );
+        workspace_audit.0 += 1;
+        workspace_audit.1 += usize::from(result.live_workspaces_after_drop == 0);
+        workspace_audit.2 = workspace_audit.2.max(result.live_workspaces_after_drop);
+        assert!(result.correct, "maturity problem did not resolve");
+    }
+    assert!(policy.trusted);
+    assert_eq!(policy.preferred_action(), Some(informative));
+    (policy, effects, informative, rejected)
+}
+
+fn run_noise_control(
+    policy: &mut RegimeActionPolicy,
+    effects: &[ActionEffect],
+    seed: u64,
+    live_counter: Rc<Cell<usize>>,
+    workspace_audit: &mut (usize, usize, usize),
+    noisy: bool,
+) -> usize {
+    let reopen_before = policy.reopen_count;
+    for problem in 1..=60 {
+        let mut problem_effects = effects.to_vec();
+        if noisy && problem % 10 == 0 {
+            let preferred = policy.preferred_action().unwrap();
+            problem_effects[preferred] = ActionEffect::Inert;
+        }
+        let result = solve_regime_problem(
+            policy,
+            &problem_effects,
+            seed + problem as u64 * 100_000,
+            live_counter.clone(),
+        );
+        workspace_audit.0 += 1;
+        workspace_audit.1 += usize::from(result.live_workspaces_after_drop == 0);
+        workspace_audit.2 = workspace_audit.2.max(result.live_workspaces_after_drop);
+    }
+    policy.reopen_count - reopen_before
+}
+
+pub fn run_plasticity_experiment() -> PlasticityReport {
+    let choice_counts = [16, 64];
+    let maturities = [10, 50, 100];
+    let live_counter = Rc::new(Cell::new(0));
+    let mut workspace_audit = (0usize, 0usize, 0usize);
+    let mut points = Vec::new();
+    let mut trajectories = Vec::new();
+    let mut noisy_false_reopenings = 0;
+    let mut unchanged_false_reopenings = 0;
+    let mut historical_evidence_preserved = true;
+
+    for choice_count in choice_counts {
+        for maturity in maturities {
+            let mut adapted_runs = 0;
+            let mut violations = 0;
+            let mut problems = 0;
+            let mut actions = 0;
+            let mut reset_problems = 0;
+
+            for seed_index in 0..PLASTICITY_SEEDS {
+                let seed = 0xd510_0000 + choice_count as u64 * 100_000 + seed_index as u64;
+                let (mut policy, original, old_action, rejected_action) = mature_regime_policy(
+                    choice_count,
+                    maturity,
+                    seed,
+                    live_counter.clone(),
+                    &mut workspace_audit,
+                );
+                let history_before = policy.historical[old_action].informative;
+                let remapped = remapped_effects(&original, old_action, rejected_action);
+                let spec = PlasticitySpec {
+                    choice_count,
+                    maturity,
+                    seed_index,
+                    phase: "first-remap",
+                    old_action,
+                    new_action: rejected_action,
+                };
+                let adaptation = run_plasticity_adaptation(
+                    &mut policy,
+                    &remapped,
+                    &spec,
+                    seed ^ 0xd512_0000,
+                    live_counter.clone(),
+                    &mut trajectories,
+                    &mut workspace_audit,
+                );
+                if let Some(adapted) = adaptation.adapted_at {
+                    adapted_runs += 1;
+                    problems += adapted;
+                }
+                violations += adaptation.violations_to_reopen.unwrap_or(0);
+                actions += adaptation.paid_actions;
+                historical_evidence_preserved &=
+                    policy.historical[old_action].informative >= history_before;
+
+                let mut reset_policy = RegimeActionPolicy::new(choice_count, seed ^ 0xd511_0000);
+                let reset_spec = PlasticitySpec {
+                    phase: "full-reset",
+                    ..spec
+                };
+                let reset = run_plasticity_adaptation(
+                    &mut reset_policy,
+                    &remapped,
+                    &reset_spec,
+                    seed ^ 0xd512_0000,
+                    live_counter.clone(),
+                    &mut Vec::new(),
+                    &mut workspace_audit,
+                );
+                reset_problems += reset.adapted_at.unwrap_or(PLASTICITY_MAX_PROBLEMS);
+
+                if maturity == 100 {
+                    let (mut unchanged, effects, _, _) = mature_regime_policy(
+                        choice_count,
+                        maturity,
+                        seed ^ 0xd513_0000,
+                        live_counter.clone(),
+                        &mut workspace_audit,
+                    );
+                    unchanged_false_reopenings += run_noise_control(
+                        &mut unchanged,
+                        &effects,
+                        seed ^ 0xd514_0000,
+                        live_counter.clone(),
+                        &mut workspace_audit,
+                        false,
+                    );
+                    let (mut noisy, effects, _, _) = mature_regime_policy(
+                        choice_count,
+                        maturity,
+                        seed ^ 0xd515_0000,
+                        live_counter.clone(),
+                        &mut workspace_audit,
+                    );
+                    noisy_false_reopenings += run_noise_control(
+                        &mut noisy,
+                        &effects,
+                        seed ^ 0xd516_0000,
+                        live_counter.clone(),
+                        &mut workspace_audit,
+                        true,
+                    );
+                }
+            }
+
+            points.push(PlasticityPoint {
+                choice_count,
+                maturity,
+                adapted_runs,
+                total_runs: PLASTICITY_SEEDS,
+                average_violations_to_reopen: violations as f64 / PLASTICITY_SEEDS as f64,
+                average_problems_to_adapt: problems as f64 / PLASTICITY_SEEDS as f64,
+                average_paid_actions: actions as f64 / PLASTICITY_SEEDS as f64,
+                reset_average_problems: reset_problems as f64 / PLASTICITY_SEEDS as f64,
+                false_reopenings: 0,
+            });
+        }
+    }
+
+    let diagnostic_seed = 0xd590_0001;
+    let (mut switch_policy, original, action_a, action_b) = mature_regime_policy(
+        16,
+        50,
+        diagnostic_seed,
+        live_counter.clone(),
+        &mut workspace_audit,
+    );
+    let mut switch_diagnostic = Vec::new();
+    let phases = [
+        (
+            "second-regime",
+            action_a,
+            action_b,
+            remapped_effects(&original, action_a, action_b),
+        ),
+        ("first-regime", action_b, action_a, original.clone()),
+        (
+            "second-regime-again",
+            action_a,
+            action_b,
+            remapped_effects(&original, action_a, action_b),
+        ),
+    ];
+    for (phase_index, (phase, old_action, new_action, effects)) in phases.into_iter().enumerate() {
+        let spec = PlasticitySpec {
+            choice_count: 16,
+            maturity: 50,
+            seed_index: 0,
+            phase,
+            old_action,
+            new_action,
+        };
+        let adaptation = run_plasticity_adaptation(
+            &mut switch_policy,
+            &effects,
+            &spec,
+            diagnostic_seed ^ 0xd591_0000 ^ phase_index as u64,
+            live_counter.clone(),
+            &mut trajectories,
+            &mut workspace_audit,
+        );
+        switch_diagnostic.push(SwitchDiagnostic {
+            phase: phase.to_string(),
+            problems_to_adapt: adaptation.adapted_at.unwrap_or(PLASTICITY_MAX_PROBLEMS),
+            paid_actions: adaptation.paid_actions,
+            violations_to_reopen: adaptation.violations_to_reopen.unwrap_or(0),
+        });
+    }
+
+    let maturity_independent = choice_counts.iter().all(|choice_count| {
+        let matching: Vec<_> = points
+            .iter()
+            .filter(|point| point.choice_count == *choice_count)
+            .collect();
+        let (minimum, maximum) = matching
+            .iter()
+            .map(|point| point.average_problems_to_adapt)
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(min, max), value| {
+                (min.min(value), max.max(value))
+            });
+        matching
+            .iter()
+            .all(|point| point.average_violations_to_reopen == REOPEN_VIOLATIONS as f64)
+            && maximum - minimum <= 1.0
+    });
+    let all_adapt = points
+        .iter()
+        .all(|point| point.adapted_runs == point.total_runs);
+    let all_workspaces_destroyed = workspace_audit.0 == workspace_audit.1 && workspace_audit.2 == 0;
+    let switch_back_pass = switch_diagnostic
+        .iter()
+        .all(|point| point.problems_to_adapt < PLASTICITY_MAX_PROBLEMS)
+        && switch_diagnostic[1].paid_actions < switch_diagnostic[0].paid_actions;
+    let passed = all_adapt
+        && maturity_independent
+        && noisy_false_reopenings == 0
+        && unchanged_false_reopenings == 0
+        && historical_evidence_preserved
+        && switch_back_pass
+        && all_workspaces_destroyed;
+
+    PlasticityReport {
+        points,
+        trajectories,
+        switch_diagnostic,
+        noisy_false_reopenings,
+        unchanged_false_reopenings,
+        historical_evidence_preserved,
+        workspaces_created: workspace_audit.0,
+        workspaces_destroyed: workspace_audit.1,
+        maximum_live_workspaces_after_problem: workspace_audit.2,
+        passed,
+    }
+}
+
+pub fn print_plasticity_report(report: &PlasticityReport) {
+    println!("d2.3 expectation-triggered reopening:");
+    for point in &report.points {
+        println!(
+            "  choices {:>2}, maturity {:>3}: adapted={}/{}, violations={:.1}, problems={:.1}, paid actions={:.1}, reset problems={:.1}",
+            point.choice_count,
+            point.maturity,
+            point.adapted_runs,
+            point.total_runs,
+            point.average_violations_to_reopen,
+            point.average_problems_to_adapt,
+            point.average_paid_actions,
+            point.reset_average_problems
+        );
+    }
+    for point in &report.switch_diagnostic {
+        println!(
+            "  switch {}: violations={}, problems={}, paid actions={}",
+            point.phase, point.violations_to_reopen, point.problems_to_adapt, point.paid_actions
+        );
+    }
+    println!(
+        "  false reopenings noisy/unchanged={}/{}, history preserved={}, workspaces created/destroyed={}/{}, max live={}",
+        report.noisy_false_reopenings,
+        report.unchanged_false_reopenings,
+        report.historical_evidence_preserved,
+        report.workspaces_created,
+        report.workspaces_destroyed,
+        report.maximum_live_workspaces_after_problem
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2694,6 +3398,11 @@ mod tests {
     fn remap_report() -> &'static RemapReport {
         static REPORT: OnceLock<RemapReport> = OnceLock::new();
         REPORT.get_or_init(run_remap_experiment)
+    }
+
+    fn plasticity_report() -> &'static PlasticityReport {
+        static REPORT: OnceLock<PlasticityReport> = OnceLock::new();
+        REPORT.get_or_init(run_plasticity_experiment)
     }
 
     #[test]
@@ -2898,6 +3607,55 @@ mod tests {
             .trajectories
             .iter()
             .any(|point| point.policy_kind == "fresh"));
+        assert!(report.passed);
+    }
+
+    #[test]
+    fn d2_3_reopens_rejected_actions_after_a_fixed_violation_streak() {
+        let report = plasticity_report();
+        assert!(report.points.iter().all(|point| {
+            point.adapted_runs == point.total_runs
+                && point.average_violations_to_reopen == REOPEN_VIOLATIONS as f64
+        }));
+    }
+
+    #[test]
+    fn d2_3_adaptation_time_is_independent_of_prior_maturity() {
+        let report = plasticity_report();
+        for choice_count in [16, 64] {
+            let values: Vec<_> = report
+                .points
+                .iter()
+                .filter(|point| point.choice_count == choice_count)
+                .map(|point| point.average_problems_to_adapt)
+                .collect();
+            let minimum = values.iter().copied().fold(f64::INFINITY, f64::min);
+            let maximum = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+            assert!(maximum - minimum <= 1.0);
+        }
+    }
+
+    #[test]
+    fn d2_3_ignores_isolated_noise_and_preserves_history() {
+        let report = plasticity_report();
+        assert_eq!(report.noisy_false_reopenings, 0);
+        assert_eq!(report.unchanged_false_reopenings, 0);
+        assert!(report.historical_evidence_preserved);
+    }
+
+    #[test]
+    fn d2_3_switches_back_without_leaking_problem_workspaces() {
+        let report = plasticity_report();
+        assert_eq!(report.switch_diagnostic.len(), 3);
+        assert!(report
+            .switch_diagnostic
+            .iter()
+            .all(|point| point.problems_to_adapt < PLASTICITY_MAX_PROBLEMS));
+        assert!(
+            report.switch_diagnostic[1].paid_actions < report.switch_diagnostic[0].paid_actions
+        );
+        assert_eq!(report.workspaces_created, report.workspaces_destroyed);
+        assert_eq!(report.maximum_live_workspaces_after_problem, 0);
         assert!(report.passed);
     }
 }
