@@ -137,6 +137,10 @@ independent integration tests.
   signature with identical outputs and ordering; reachable direct lookup work
   falls to 1,196,296 and local activation work to 1,236,712, both below neutral
   exhaustive work of 1,255,048, while unreachable guidance remains overhead
+- S1.2: a six-entry gate trained only from selected-mode terminal work chooses
+  neutral search for shallow and unreachable contexts and compiled guidance
+  for depth eight; held-out work falls to 22,817,640 versus 23,278,200 always
+  neutral and 35,232,600 always guided, and exploration repays by problem 1,439
 
 ## Interpretation Boundary
 

@@ -12,8 +12,16 @@ const ROLE_COUNT: usize = 13;
 const ACTION_COUNT: usize = 3;
 const TRAINING_EPISODES_PER_ACTION: usize = 64;
 const EVALUATION_SEEDS: usize = 8;
+const GATE_EVALUATION_SEEDS: usize = 60;
 const DEPTHS: [usize; 5] = [1, 2, 3, 4, 8];
 const TRAINING_CHECKPOINTS: [usize; 8] = [0, 32, 128, 512, 2_048, 8_192, 32_768, 65_536];
+const GATE_TRAINING_PROBLEMS: usize = 2_880;
+const GATE_CHECKPOINTS: [usize; 11] = [0, 6, 12, 24, 48, 96, 192, 384, 768, 1_440, 2_880];
+const GATE_SIGNATURE_WORK: usize = ROLE_COUNT;
+const GATE_RETRIEVAL_WORK: usize = 1;
+const GATE_EXPLORATION_WORK: usize = 1;
+const GATE_MIN_MODE_TRIALS: usize = 8;
+const GATE_MAX_UNCERTAIN_TRIALS: usize = 32;
 
 #[derive(Clone, Debug)]
 struct DeterministicRng {
@@ -85,6 +93,47 @@ impl SearchWorld {
     fn apply(&self, action: OpaqueAction, state: &TemporaryStructure) -> TemporaryStructure {
         self.effect_for_action[&action].apply(state)
     }
+
+    fn action_order(&self) -> [usize; ACTION_COUNT] {
+        let mut actions = self
+            .action_for_effect
+            .iter()
+            .copied()
+            .enumerate()
+            .collect::<Vec<_>>();
+        actions.sort_by_key(|(_, action)| *action);
+        std::array::from_fn(|index| actions[index].0)
+    }
+}
+
+const ACTION_ORDERS: [[usize; ACTION_COUNT]; 6] = [
+    [0, 1, 2],
+    [0, 2, 1],
+    [1, 0, 2],
+    [1, 2, 0],
+    [2, 0, 1],
+    [2, 1, 0],
+];
+
+fn counterbalanced_world_seeds(base: u64, occurrences_per_order: usize) -> Vec<Vec<u64>> {
+    let mut seeds = vec![Vec::new(); ACTION_ORDERS.len()];
+    let mut candidate = 0u64;
+    while seeds
+        .iter()
+        .any(|order_seeds| order_seeds.len() < occurrences_per_order)
+    {
+        let seed = base + candidate;
+        let order = SearchWorld::new(seed).action_order();
+        let order_index = ACTION_ORDERS
+            .iter()
+            .position(|candidate| candidate == &order)
+            .unwrap();
+        if seeds[order_index].len() < occurrences_per_order {
+            seeds[order_index].push(seed);
+        }
+        candidate += 1;
+    }
+    seeds
 }
 
 fn train_action_models(seed: u64) -> (SearchWorld, ProvenanceLearner) {
@@ -1083,6 +1132,65 @@ pub struct CompiledSearchValueReport {
     pub passed: bool,
 }
 
+#[derive(Clone, Debug)]
+pub struct GuidanceCheckpointReport {
+    pub training_problems: usize,
+    pub gate_entries: usize,
+    pub cumulative_training_work: usize,
+    pub cumulative_neutral_work: usize,
+    pub cumulative_exploration_choices: usize,
+    pub held_out_total_work: usize,
+    pub oracle_mode_choices: usize,
+    pub false_guides: usize,
+    pub missed_guides: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct GuidanceContextReport {
+    pub context: String,
+    pub cases: usize,
+    pub learned_guided: bool,
+    pub neutral_total_work: usize,
+    pub guided_total_work: usize,
+    pub oracle_guided_cases: usize,
+    pub training_neutral_average: usize,
+    pub training_guided_average: usize,
+    pub training_neutral_trials: usize,
+    pub training_guided_trials: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct GuidanceGateReport {
+    pub checkpoints: Vec<GuidanceCheckpointReport>,
+    pub contexts: Vec<GuidanceContextReport>,
+    pub held_out_cases: usize,
+    pub learned_total_work: usize,
+    pub neutral_total_work: usize,
+    pub guided_total_work: usize,
+    pub random_total_work: usize,
+    pub oracle_total_work: usize,
+    pub shuffled_total_work: usize,
+    pub memorizer_total_work: usize,
+    pub learned_oracle_choices: usize,
+    pub learned_expected_context_choices: usize,
+    pub learned_false_guides: usize,
+    pub learned_false_guide_cost: usize,
+    pub learned_missed_guides: usize,
+    pub learned_missed_guide_cost: usize,
+    pub training_total_work: usize,
+    pub training_neutral_work: usize,
+    pub exploration_choices: usize,
+    pub exploration_regret: usize,
+    pub cumulative_break_even_problem: Option<usize>,
+    pub gate_entries: usize,
+    pub entries_plateau: bool,
+    pub all_searches_correct_and_shortest: bool,
+    pub frozen_fingerprints_unchanged: bool,
+    pub shuffled_no_advantage: bool,
+    pub memorizer_no_transfer: bool,
+    pub passed: bool,
+}
+
 fn evaluate_policy(
     learner: &SearchValueLearner,
     shuffled: &SearchValueLearner,
@@ -1727,6 +1835,715 @@ pub fn run_compiled_experiment() -> CompiledSearchValueReport {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SearchMode {
+    Neutral,
+    Guided,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ModeWork {
+    neutral_total: usize,
+    neutral_trials: usize,
+    guided_total: usize,
+    guided_trials: usize,
+}
+
+impl ModeWork {
+    fn observe(&mut self, mode: SearchMode, work: usize) {
+        match mode {
+            SearchMode::Neutral => {
+                self.neutral_total += work;
+                self.neutral_trials += 1;
+            }
+            SearchMode::Guided => {
+                self.guided_total += work;
+                self.guided_trials += 1;
+            }
+        }
+    }
+
+    fn preferred(&self) -> Option<SearchMode> {
+        if self.neutral_trials == 0 || self.guided_trials == 0 {
+            return None;
+        }
+        let neutral_scaled = self.neutral_total as u128 * self.guided_trials as u128;
+        let guided_scaled = self.guided_total as u128 * self.neutral_trials as u128;
+        Some(if guided_scaled * 100 < neutral_scaled * 99 {
+            SearchMode::Guided
+        } else {
+            SearchMode::Neutral
+        })
+    }
+
+    fn average(&self, mode: SearchMode) -> Option<usize> {
+        match mode {
+            SearchMode::Neutral => self.neutral_total.checked_div(self.neutral_trials),
+            SearchMode::Guided => self.guided_total.checked_div(self.guided_trials),
+        }
+    }
+
+    fn economically_uncertain(&self) -> bool {
+        let (Some(neutral), Some(guided)) = (
+            self.average(SearchMode::Neutral),
+            self.average(SearchMode::Guided),
+        ) else {
+            return true;
+        };
+        let lower = neutral.min(guided);
+        let difference = neutral.abs_diff(guided);
+        difference.saturating_mul(4) < lower
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct GateChoice {
+    mode: SearchMode,
+    exploratory: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+struct GuidanceGate {
+    values: HashMap<CompiledValueKey, ModeWork>,
+}
+
+impl GuidanceGate {
+    fn choose_training(&self, key: CompiledValueKey, rng: &mut DeterministicRng) -> GateChoice {
+        let Some(value) = self.values.get(&key) else {
+            return GateChoice {
+                mode: if rng.next_u64().is_multiple_of(2) {
+                    SearchMode::Neutral
+                } else {
+                    SearchMode::Guided
+                },
+                exploratory: true,
+            };
+        };
+        if value.neutral_trials < GATE_MIN_MODE_TRIALS
+            && value.neutral_trials <= value.guided_trials
+        {
+            return GateChoice {
+                mode: SearchMode::Neutral,
+                exploratory: true,
+            };
+        }
+        if value.guided_trials < GATE_MIN_MODE_TRIALS {
+            return GateChoice {
+                mode: SearchMode::Guided,
+                exploratory: true,
+            };
+        }
+        if value.economically_uncertain()
+            && (value.neutral_trials < GATE_MAX_UNCERTAIN_TRIALS
+                || value.guided_trials < GATE_MAX_UNCERTAIN_TRIALS)
+        {
+            let mode = match value.neutral_trials.cmp(&value.guided_trials) {
+                Ordering::Less => SearchMode::Neutral,
+                Ordering::Greater => SearchMode::Guided,
+                Ordering::Equal => {
+                    if rng.next_u64().is_multiple_of(2) {
+                        SearchMode::Neutral
+                    } else {
+                        SearchMode::Guided
+                    }
+                }
+            };
+            return GateChoice {
+                mode,
+                exploratory: true,
+            };
+        }
+        GateChoice {
+            mode: value.preferred().unwrap(),
+            exploratory: false,
+        }
+    }
+
+    fn choose_frozen(&self, key: CompiledValueKey) -> SearchMode {
+        self.values
+            .get(&key)
+            .and_then(ModeWork::preferred)
+            .unwrap_or(SearchMode::Neutral)
+    }
+
+    fn observe(&mut self, key: CompiledValueKey, mode: SearchMode, work: usize) {
+        self.values.entry(key).or_default().observe(mode, work);
+    }
+
+    fn entries(&self) -> usize {
+        self.values.len()
+    }
+
+    fn fingerprint(&self) -> u64 {
+        let mut entries = self.values.iter().collect::<Vec<_>>();
+        entries.sort_by_key(|(key, _)| **key);
+        let mut hash = 0xcbf2_9ce4_8422_2325u64;
+        for (key, value) in entries {
+            for class in key.state.0 {
+                mix_fingerprint(&mut hash, class as u64);
+            }
+            mix_fingerprint(&mut hash, key.first_roles as u64);
+            mix_fingerprint(&mut hash, key.second_roles as u64);
+            mix_fingerprint(&mut hash, key.remaining_budget as u64);
+            mix_fingerprint(&mut hash, value.neutral_total as u64);
+            mix_fingerprint(&mut hash, value.neutral_trials as u64);
+            mix_fingerprint(&mut hash, value.guided_total as u64);
+            mix_fingerprint(&mut hash, value.guided_trials as u64);
+        }
+        hash
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+enum GateProblemKind {
+    Reachable(usize),
+    Unreachable,
+}
+
+impl GateProblemKind {
+    fn all() -> [Self; 6] {
+        [
+            Self::Reachable(1),
+            Self::Reachable(2),
+            Self::Reachable(3),
+            Self::Reachable(4),
+            Self::Reachable(8),
+            Self::Unreachable,
+        ]
+    }
+
+    fn maximum_depth(self) -> usize {
+        match self {
+            Self::Reachable(depth) => depth,
+            Self::Unreachable => 8,
+        }
+    }
+
+    fn expected_depth(self) -> Option<usize> {
+        match self {
+            Self::Reachable(depth) => Some(depth),
+            Self::Unreachable => None,
+        }
+    }
+
+    fn goal(self) -> SearchGoal {
+        match self {
+            Self::Reachable(_) => SearchGoal::reachable(),
+            Self::Unreachable => SearchGoal::unreachable(),
+        }
+    }
+
+    fn label(self) -> String {
+        match self {
+            Self::Reachable(depth) => format!("reachable-depth-{depth}"),
+            Self::Unreachable => "unreachable-budget-8".to_string(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct ExactGateKey {
+    occupants: Vec<OpaqueIdentity>,
+    actions: Vec<OpaqueAction>,
+    goal: CompiledValueKey,
+}
+
+fn exact_gate_key(
+    initial: &TemporaryStructure,
+    models: &BTreeMap<OpaqueAction, RoleTransformation>,
+    key: CompiledValueKey,
+) -> ExactGateKey {
+    ExactGateKey {
+        occupants: initial.occupants.clone(),
+        actions: models.keys().copied().collect(),
+        goal: key,
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct ExactGuidanceMemory {
+    values: HashMap<ExactGateKey, ModeWork>,
+}
+
+impl ExactGuidanceMemory {
+    fn choose_training(&self, key: &ExactGateKey, rng: &mut DeterministicRng) -> GateChoice {
+        let Some(value) = self.values.get(key) else {
+            return GateChoice {
+                mode: if rng.next_u64().is_multiple_of(2) {
+                    SearchMode::Neutral
+                } else {
+                    SearchMode::Guided
+                },
+                exploratory: true,
+            };
+        };
+        if value.neutral_trials == 0 {
+            return GateChoice {
+                mode: SearchMode::Neutral,
+                exploratory: true,
+            };
+        }
+        if value.guided_trials == 0 {
+            return GateChoice {
+                mode: SearchMode::Guided,
+                exploratory: true,
+            };
+        }
+        GateChoice {
+            mode: value.preferred().unwrap(),
+            exploratory: false,
+        }
+    }
+
+    fn observe(&mut self, key: ExactGateKey, mode: SearchMode, work: usize) {
+        self.values.entry(key).or_default().observe(mode, work);
+    }
+
+    fn choose_frozen(&self, key: &ExactGateKey) -> SearchMode {
+        self.values
+            .get(key)
+            .and_then(ModeWork::preferred)
+            .unwrap_or(SearchMode::Neutral)
+    }
+}
+
+#[derive(Clone, Debug)]
+struct GatePlanningCase {
+    kind: GateProblemKind,
+    key: CompiledValueKey,
+    exact_key: ExactGateKey,
+    neutral_work: usize,
+    guided_work: usize,
+    correct_and_shortest: bool,
+}
+
+type GateCostCache = HashMap<(GateProblemKind, [usize; ACTION_COUNT]), (usize, usize, bool)>;
+
+impl GatePlanningCase {
+    fn oracle_mode(&self) -> SearchMode {
+        if self.neutral_work <= self.guided_work {
+            SearchMode::Neutral
+        } else {
+            SearchMode::Guided
+        }
+    }
+
+    fn work(&self, mode: SearchMode) -> usize {
+        match mode {
+            SearchMode::Neutral => self.neutral_work,
+            SearchMode::Guided => self.guided_work,
+        }
+    }
+}
+
+fn plan_matches_problem(
+    result: &PlanResult,
+    expected_depth: Option<usize>,
+    initial: &TemporaryStructure,
+    goal: &SearchGoal,
+    world: &SearchWorld,
+) -> bool {
+    match expected_depth {
+        Some(depth) => {
+            let Some(sequence) = result.sequence.as_ref() else {
+                return false;
+            };
+            if sequence.len() != depth {
+                return false;
+            }
+            let real = sequence.iter().fold(initial.clone(), |state, &action| {
+                world.apply(action, &state)
+            });
+            result.predicted.as_ref() == Some(&real) && goal.distinguishes(initial, &real)
+        }
+        None => result.sequence.is_none(),
+    }
+}
+
+fn build_gate_case(
+    compiled: &CompiledValueTable,
+    seed: u64,
+    kind: GateProblemKind,
+    cost_cache: &mut GateCostCache,
+) -> GatePlanningCase {
+    let (world, action_learner) = train_action_models(seed);
+    let models = (0..ACTION_COUNT)
+        .map(|index| {
+            let action = world.action(index);
+            (action, action_learner.predict(action).unwrap())
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut identities = IdentitySource::new(seed ^ 0x6200_0000);
+    let initial = initial_state(&mut identities, kind.expected_depth());
+    let goal = kind.goal();
+    let maximum_depth = kind.maximum_depth();
+    let signature = StateSignature::from_state(&initial);
+    let key = CompiledValueKey::from_parts(signature, &goal, maximum_depth);
+    let exact_key = exact_gate_key(&initial, &models, key);
+    let cache_key = (kind, world.action_order());
+    let (neutral_work, guided_work, correct_and_shortest) =
+        *cost_cache.entry(cache_key).or_insert_with(|| {
+            let neutral = plan_shortest(
+                &models,
+                &initial,
+                &goal,
+                maximum_depth,
+                PriorityPolicy::Exhaustive,
+            );
+            let guided = plan_shortest(
+                &models,
+                &initial,
+                &goal,
+                maximum_depth,
+                PriorityPolicy::Compiled(compiled),
+            );
+            (
+                neutral.work.total_work(),
+                guided.work.total_work(),
+                plan_matches_problem(&neutral, kind.expected_depth(), &initial, &goal, &world)
+                    && plan_matches_problem(
+                        &guided,
+                        kind.expected_depth(),
+                        &initial,
+                        &goal,
+                        &world,
+                    ),
+            )
+        });
+    GatePlanningCase {
+        kind,
+        key,
+        exact_key,
+        neutral_work,
+        guided_work,
+        correct_and_shortest,
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+struct GateEvaluation {
+    total_work: usize,
+    oracle_choices: usize,
+    false_guides: usize,
+    false_guide_cost: usize,
+    missed_guides: usize,
+    missed_guide_cost: usize,
+    correct_and_shortest: usize,
+}
+
+#[derive(Clone, Copy)]
+enum GatePolicy<'a> {
+    Neutral,
+    Guided,
+    Learned(&'a GuidanceGate),
+    Random(u64),
+    Oracle,
+    Shuffled(&'a GuidanceGate),
+    Memorized(&'a ExactGuidanceMemory),
+}
+
+fn evaluate_gate_policy(cases: &[GatePlanningCase], policy: GatePolicy<'_>) -> GateEvaluation {
+    let mut evaluation = GateEvaluation::default();
+    for (index, case) in cases.iter().enumerate() {
+        let (mode, gate_work) = match policy {
+            GatePolicy::Neutral => (SearchMode::Neutral, 0),
+            GatePolicy::Guided => (SearchMode::Guided, 0),
+            GatePolicy::Learned(gate) | GatePolicy::Shuffled(gate) => (
+                gate.choose_frozen(case.key),
+                GATE_SIGNATURE_WORK + GATE_RETRIEVAL_WORK,
+            ),
+            GatePolicy::Random(seed) => (
+                if mix64(seed ^ index as u64).is_multiple_of(2) {
+                    SearchMode::Neutral
+                } else {
+                    SearchMode::Guided
+                },
+                GATE_SIGNATURE_WORK + GATE_RETRIEVAL_WORK + GATE_EXPLORATION_WORK,
+            ),
+            GatePolicy::Oracle => (case.oracle_mode(), 0),
+            GatePolicy::Memorized(memory) => (
+                memory.choose_frozen(&case.exact_key),
+                GATE_SIGNATURE_WORK + GATE_RETRIEVAL_WORK,
+            ),
+        };
+        let oracle = case.oracle_mode();
+        evaluation.total_work += case.work(mode) + gate_work;
+        evaluation.oracle_choices += usize::from(mode == oracle);
+        evaluation.correct_and_shortest += usize::from(case.correct_and_shortest);
+        if mode == SearchMode::Guided && oracle == SearchMode::Neutral {
+            evaluation.false_guides += 1;
+            evaluation.false_guide_cost += case.guided_work.saturating_sub(case.neutral_work);
+        }
+        if mode == SearchMode::Neutral && oracle == SearchMode::Guided {
+            evaluation.missed_guides += 1;
+            evaluation.missed_guide_cost += case.neutral_work.saturating_sub(case.guided_work);
+        }
+    }
+    evaluation
+}
+
+fn gate_fingerprint(compiled: &CompiledValueTable) -> u64 {
+    let mut entries = compiled.values.iter().collect::<Vec<_>>();
+    entries.sort_by_key(|(key, _)| **key);
+    let mut hash = 0xcbf2_9ce4_8422_2325u64;
+    for (key, value) in entries {
+        for class in key.state.0 {
+            mix_fingerprint(&mut hash, class as u64);
+        }
+        mix_fingerprint(&mut hash, key.first_roles as u64);
+        mix_fingerprint(&mut hash, key.second_roles as u64);
+        mix_fingerprint(&mut hash, key.remaining_budget as u64);
+        mix_fingerprint(
+            &mut hash,
+            value.map_or(3, |value| match value {
+                SearchValue::Low => 0,
+                SearchValue::Medium => 1,
+                SearchValue::High => 2,
+            }),
+        );
+    }
+    hash
+}
+
+pub fn run_guidance_gate_experiment() -> GuidanceGateReport {
+    let (snapshots, _, _) = train_value_models(*TRAINING_CHECKPOINTS.last().unwrap());
+    let value_learner = snapshots[TRAINING_CHECKPOINTS.last().unwrap()].clone();
+    let value_fingerprint = value_learner.fingerprint();
+    let compiled = CompiledValueTable::compile(&value_learner);
+    let compiled_fingerprint = gate_fingerprint(&compiled);
+    let kinds = GateProblemKind::all();
+    let mut gate = GuidanceGate::default();
+    let mut shuffled = GuidanceGate::default();
+    let mut memorizer = ExactGuidanceMemory::default();
+    let mut gate_rng = DeterministicRng::new(0x6300_0000);
+    let mut shuffled_rng = DeterministicRng::new(0x6300_0001);
+    let mut memorizer_rng = DeterministicRng::new(0x6300_0002);
+    let mut label_rng = DeterministicRng::new(0x6300_0003);
+    let mut gate_snapshots = BTreeMap::from([(0usize, gate.clone())]);
+    let mut training_metrics = BTreeMap::from([(0usize, (0usize, 0usize, 0usize))]);
+    let mut cumulative_training_work = 0;
+    let mut cumulative_neutral_work = 0;
+    let mut cumulative_comparisons = Vec::new();
+    let mut exploration_choices = 0;
+    let mut exploration_regret = 0;
+    let mut training_cost_cache = GateCostCache::new();
+    let training_seeds =
+        counterbalanced_world_seeds(0x6400_0000, GATE_TRAINING_PROBLEMS / ACTION_ORDERS.len());
+    let mut training_order_uses = [0usize; ACTION_ORDERS.len()];
+
+    for problem in 0..GATE_TRAINING_PROBLEMS {
+        let kind_index = problem % kinds.len();
+        let kind = kinds[kind_index];
+        let round = problem / kinds.len();
+        let order = (round + kind_index) % ACTION_ORDERS.len();
+        let occurrence = training_order_uses[order];
+        training_order_uses[order] += 1;
+        let case = build_gate_case(
+            &compiled,
+            training_seeds[order][occurrence],
+            kind,
+            &mut training_cost_cache,
+        );
+        let choice = gate.choose_training(case.key, &mut gate_rng);
+        let selected_work = case.work(choice.mode)
+            + GATE_SIGNATURE_WORK
+            + GATE_RETRIEVAL_WORK
+            + usize::from(choice.exploratory) * GATE_EXPLORATION_WORK;
+        gate.observe(case.key, choice.mode, selected_work);
+        cumulative_training_work += selected_work;
+        cumulative_neutral_work += case.neutral_work;
+        cumulative_comparisons.push((cumulative_training_work, cumulative_neutral_work));
+        if choice.exploratory {
+            exploration_choices += 1;
+            exploration_regret += selected_work.saturating_sub(
+                case.work(case.oracle_mode()) + GATE_SIGNATURE_WORK + GATE_RETRIEVAL_WORK,
+            );
+        }
+        let shuffled_choice = shuffled.choose_training(case.key, &mut shuffled_rng);
+        let shuffled_label = 1 + (label_rng.next_u64() as usize % 4_000_000);
+        shuffled.observe(case.key, shuffled_choice.mode, shuffled_label);
+
+        let exact_choice = memorizer.choose_training(&case.exact_key, &mut memorizer_rng);
+        let exact_work = case.work(exact_choice.mode);
+        memorizer.observe(case.exact_key, exact_choice.mode, exact_work);
+
+        let completed = problem + 1;
+        if GATE_CHECKPOINTS.contains(&completed) {
+            gate_snapshots.insert(completed, gate.clone());
+            training_metrics.insert(
+                completed,
+                (
+                    cumulative_training_work,
+                    cumulative_neutral_work,
+                    exploration_choices,
+                ),
+            );
+        }
+    }
+
+    let held_out_seeds = counterbalanced_world_seeds(
+        0x6500_0000,
+        GATE_EVALUATION_SEEDS * kinds.len() / ACTION_ORDERS.len(),
+    );
+    let mut held_out_order_uses = [0usize; ACTION_ORDERS.len()];
+    let mut held_out_cases = Vec::new();
+    let mut held_out_cost_cache = GateCostCache::new();
+    for seed_index in 0..GATE_EVALUATION_SEEDS {
+        for (kind_index, kind) in kinds.into_iter().enumerate() {
+            let order = (seed_index + kind_index) % ACTION_ORDERS.len();
+            let occurrence = held_out_order_uses[order];
+            held_out_order_uses[order] += 1;
+            held_out_cases.push(build_gate_case(
+                &compiled,
+                held_out_seeds[order][occurrence],
+                kind,
+                &mut held_out_cost_cache,
+            ));
+        }
+    }
+    let checkpoints = GATE_CHECKPOINTS
+        .iter()
+        .map(|checkpoint| {
+            let snapshot = &gate_snapshots[checkpoint];
+            let (training_work, neutral_work, checkpoint_exploration_choices) =
+                training_metrics[checkpoint];
+            let evaluation = evaluate_gate_policy(&held_out_cases, GatePolicy::Learned(snapshot));
+            GuidanceCheckpointReport {
+                training_problems: *checkpoint,
+                gate_entries: snapshot.entries(),
+                cumulative_training_work: training_work,
+                cumulative_neutral_work: neutral_work,
+                cumulative_exploration_choices: checkpoint_exploration_choices,
+                held_out_total_work: evaluation.total_work,
+                oracle_mode_choices: evaluation.oracle_choices,
+                false_guides: evaluation.false_guides,
+                missed_guides: evaluation.missed_guides,
+            }
+        })
+        .collect::<Vec<_>>();
+    let frozen_gate_fingerprint = gate.fingerprint();
+    let learned = evaluate_gate_policy(&held_out_cases, GatePolicy::Learned(&gate));
+    let neutral = evaluate_gate_policy(&held_out_cases, GatePolicy::Neutral);
+    let guided = evaluate_gate_policy(&held_out_cases, GatePolicy::Guided);
+    let random = evaluate_gate_policy(&held_out_cases, GatePolicy::Random(0x6600_0000));
+    let oracle = evaluate_gate_policy(&held_out_cases, GatePolicy::Oracle);
+    let shuffled_evaluation =
+        evaluate_gate_policy(&held_out_cases, GatePolicy::Shuffled(&shuffled));
+    let memorizer_evaluation =
+        evaluate_gate_policy(&held_out_cases, GatePolicy::Memorized(&memorizer));
+    let contexts = kinds
+        .into_iter()
+        .map(|kind| {
+            let matching = held_out_cases
+                .iter()
+                .filter(|case| case.kind == kind)
+                .collect::<Vec<_>>();
+            let neutral_total_work = matching.iter().map(|case| case.neutral_work).sum();
+            let guided_total_work = matching.iter().map(|case| case.guided_work).sum();
+            let learned_guided = matching
+                .first()
+                .is_some_and(|case| gate.choose_frozen(case.key) == SearchMode::Guided);
+            let training = matching
+                .first()
+                .and_then(|case| gate.values.get(&case.key))
+                .cloned()
+                .unwrap_or_default();
+            GuidanceContextReport {
+                context: kind.label(),
+                cases: matching.len(),
+                learned_guided,
+                neutral_total_work,
+                guided_total_work,
+                oracle_guided_cases: matching
+                    .iter()
+                    .filter(|case| case.oracle_mode() == SearchMode::Guided)
+                    .count(),
+                training_neutral_average: training
+                    .neutral_total
+                    .checked_div(training.neutral_trials)
+                    .unwrap_or(0),
+                training_guided_average: training
+                    .guided_total
+                    .checked_div(training.guided_trials)
+                    .unwrap_or(0),
+                training_neutral_trials: training.neutral_trials,
+                training_guided_trials: training.guided_trials,
+            }
+        })
+        .collect::<Vec<_>>();
+    let learned_expected_context_choices = contexts
+        .iter()
+        .filter(|context| {
+            context.learned_guided == (context.guided_total_work < context.neutral_total_work)
+        })
+        .count();
+    let cumulative_break_even_problem = if cumulative_training_work > cumulative_neutral_work {
+        None
+    } else {
+        cumulative_comparisons
+            .iter()
+            .rposition(|(learned, neutral)| learned > neutral)
+            .map_or(Some(1), |last_bad| Some(last_bad + 2))
+    };
+    let entries_plateau = checkpoints
+        .iter()
+        .rev()
+        .take(2)
+        .map(|checkpoint| checkpoint.gate_entries)
+        .collect::<BTreeSet<_>>()
+        .len()
+        == 1;
+    let all_searches_correct_and_shortest =
+        held_out_cases.iter().all(|case| case.correct_and_shortest);
+    let frozen_fingerprints_unchanged = value_learner.fingerprint() == value_fingerprint
+        && gate_fingerprint(&compiled) == compiled_fingerprint
+        && gate.fingerprint() == frozen_gate_fingerprint;
+    let shuffled_no_advantage = shuffled_evaluation.total_work >= learned.total_work;
+    let memorizer_no_transfer = memorizer_evaluation.total_work >= learned.total_work;
+    let passed = learned.total_work < neutral.total_work
+        && learned.total_work < guided.total_work
+        && learned.total_work < random.total_work
+        && learned_expected_context_choices == contexts.len()
+        && cumulative_break_even_problem.is_some()
+        && gate.entries() == kinds.len()
+        && entries_plateau
+        && all_searches_correct_and_shortest
+        && frozen_fingerprints_unchanged
+        && shuffled_no_advantage
+        && memorizer_no_transfer;
+
+    GuidanceGateReport {
+        checkpoints,
+        contexts,
+        held_out_cases: held_out_cases.len(),
+        learned_total_work: learned.total_work,
+        neutral_total_work: neutral.total_work,
+        guided_total_work: guided.total_work,
+        random_total_work: random.total_work,
+        oracle_total_work: oracle.total_work,
+        shuffled_total_work: shuffled_evaluation.total_work,
+        memorizer_total_work: memorizer_evaluation.total_work,
+        learned_oracle_choices: learned.oracle_choices,
+        learned_expected_context_choices,
+        learned_false_guides: learned.false_guides,
+        learned_false_guide_cost: learned.false_guide_cost,
+        learned_missed_guides: learned.missed_guides,
+        learned_missed_guide_cost: learned.missed_guide_cost,
+        training_total_work: cumulative_training_work,
+        training_neutral_work: cumulative_neutral_work,
+        exploration_choices,
+        exploration_regret,
+        cumulative_break_even_problem,
+        gate_entries: gate.entries(),
+        entries_plateau,
+        all_searches_correct_and_shortest,
+        frozen_fingerprints_unchanged,
+        shuffled_no_advantage,
+        memorizer_no_transfer,
+        passed,
+    }
+}
+
 pub fn run_experiment() -> SearchValueReport {
     let (snapshots, shuffled, memorized_paths) =
         train_value_models(*TRAINING_CHECKPOINTS.last().unwrap());
@@ -1992,6 +2809,77 @@ pub fn print_compiled_report(report: &CompiledSearchValueReport) {
     );
 }
 
+pub fn print_guidance_gate_report(report: &GuidanceGateReport) {
+    println!("s1.2 learned guidance gate:");
+    for checkpoint in &report.checkpoints {
+        println!(
+            "  training problems {:4}: entries={}, cumulative work learned/neutral={}/{}, exploration={}, held-out work={}, oracle choices={}/{}, false/missed={}/{}",
+            checkpoint.training_problems,
+            checkpoint.gate_entries,
+            checkpoint.cumulative_training_work,
+            checkpoint.cumulative_neutral_work,
+            checkpoint.cumulative_exploration_choices,
+            checkpoint.held_out_total_work,
+            checkpoint.oracle_mode_choices,
+            report.held_out_cases,
+            checkpoint.false_guides,
+            checkpoint.missed_guides
+        );
+    }
+    for context in &report.contexts {
+        println!(
+            "  {}: learned={}, held-out neutral/guided={}/{}, training averages={}/{} from {}/{}, individually guided={}/{}",
+            context.context,
+            if context.learned_guided {
+                "guided"
+            } else {
+                "neutral"
+            },
+            context.neutral_total_work,
+            context.guided_total_work,
+            context.training_neutral_average,
+            context.training_guided_average,
+            context.training_neutral_trials,
+            context.training_guided_trials,
+            context.oracle_guided_cases,
+            context.cases
+        );
+    }
+    println!(
+        "  held-out total work learned/neutral/guided/random/oracle={}/{}/{}/{}/{}",
+        report.learned_total_work,
+        report.neutral_total_work,
+        report.guided_total_work,
+        report.random_total_work,
+        report.oracle_total_work
+    );
+    println!(
+        "  learned oracle choices={}/{}, false guides={} cost={}, missed guides={} cost={}",
+        report.learned_oracle_choices,
+        report.held_out_cases,
+        report.learned_false_guides,
+        report.learned_false_guide_cost,
+        report.learned_missed_guides,
+        report.learned_missed_guide_cost
+    );
+    println!(
+        "  training work learned/neutral={}/{}, exploration choices={}, exploration regret={}, cumulative break even={:?}",
+        report.training_total_work,
+        report.training_neutral_work,
+        report.exploration_choices,
+        report.exploration_regret,
+        report.cumulative_break_even_problem
+    );
+    println!(
+        "  shuffled/memorizer work={}/{}, gate entries={}, plateau={}, frozen={}",
+        report.shuffled_total_work,
+        report.memorizer_total_work,
+        report.gate_entries,
+        report.entries_plateau,
+        report.frozen_fingerprints_unchanged
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2005,6 +2893,11 @@ mod tests {
     fn compiled_report() -> &'static CompiledSearchValueReport {
         static REPORT: OnceLock<CompiledSearchValueReport> = OnceLock::new();
         REPORT.get_or_init(run_compiled_experiment)
+    }
+
+    fn gate_report() -> &'static GuidanceGateReport {
+        static REPORT: OnceLock<GuidanceGateReport> = OnceLock::new();
+        REPORT.get_or_init(run_guidance_gate_experiment)
     }
 
     #[test]
@@ -2091,6 +2984,45 @@ mod tests {
         let report = compiled_report();
         assert!(report.unreachable_compiled_total_work > report.unreachable_exhaustive_total_work);
         assert!(report.unreachable_local_total_work > report.unreachable_exhaustive_total_work);
+        assert!(report.passed);
+    }
+
+    #[test]
+    fn s1_2_learns_the_economically_correct_mode_from_selected_cost_only() {
+        let report = gate_report();
+        assert_eq!(
+            report.learned_expected_context_choices,
+            report.contexts.len()
+        );
+        assert!(report.learned_oracle_choices < report.held_out_cases);
+        assert!(report.learned_false_guides > 0);
+        assert!(report.learned_missed_guides > 0);
+    }
+
+    #[test]
+    fn s1_2_beats_always_neutral_and_always_guided_search() {
+        let report = gate_report();
+        assert!(report.learned_total_work < report.neutral_total_work);
+        assert!(report.learned_total_work < report.guided_total_work);
+        assert!(report.learned_total_work < report.random_total_work);
+    }
+
+    #[test]
+    fn s1_2_accounts_for_exploration_and_reaches_cumulative_break_even() {
+        let report = gate_report();
+        assert!(report.exploration_choices > 0);
+        assert!(report.exploration_regret > 0);
+        assert!(report.cumulative_break_even_problem.is_some());
+        assert!(report.entries_plateau);
+    }
+
+    #[test]
+    fn s1_2_controls_preserve_complete_search_and_reject_nontransfer() {
+        let report = gate_report();
+        assert!(report.all_searches_correct_and_shortest);
+        assert!(report.frozen_fingerprints_unchanged);
+        assert!(report.shuffled_no_advantage);
+        assert!(report.memorizer_no_transfer);
         assert!(report.passed);
     }
 }

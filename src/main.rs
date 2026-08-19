@@ -778,6 +778,10 @@ fn main() {
     search_value::print_compiled_report(&compiled_search_value_report);
     println!();
 
+    let guidance_gate_report = search_value::run_guidance_gate_experiment();
+    search_value::print_guidance_gate_report(&guidance_gate_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -806,17 +810,18 @@ fn main() {
         && composable_model_report.passed
         && counterfactual_planning_report.passed
         && search_value_report.passed
-        && compiled_search_value_report.passed;
+        && compiled_search_value_report.passed
+        && guidance_gate_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - compiled structural recognition makes frozen learned search value cheaper than rediscovery while preserving identical ordering, and all earlier experiments still pass"
+            "PASS - terminal planning cost teaches a cheap structural gate when compiled guidance is worth using, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: S1.1 models compiled recognition and local activation with deterministic work counts; unreachable proof still pays guidance overhead, and no hardware speedup is established."
+        "LIMIT: S1.2 supplies a two-mode bandit rule, structural signature, conservative near-tie policy, and search itself; it does not learn how much thinking to buy."
     );
 }
 

@@ -327,6 +327,29 @@ level.
 These are deterministic work counts. S1.1 does not establish hardware speed,
 learn signature compilation, or learn when guidance is worth invoking.
 
+S1.2 freezes S0 and S1.1, then adds a six-entry structural bandit gate between
+neutral and compiled-guided search. Training reveals only the selected mode's
+correctness and paid work. The unchosen mode, required plan depth,
+reachability, and oracle choice are hidden from the learner.
+
+Training and held-out data counterbalance all six opaque action orderings.
+Exploration is fully charged. The gate learns neutral search for reachable
+depths one through four and unreachable search, and guided search for depth
+eight.
+
+Held-out work is 22,817,640 for the learned gate, versus 23,278,200 for always
+neutral, 35,232,600 for always guided, and 30,056,073 for random gating.
+Cumulative training work repays exploration at problem 1,439 and remains
+ahead through problem 2,880.
+
+The per-problem oracle sees hidden action-order economics that the gate input
+does not. Therefore the claim concerns expected cost for observable
+structural contexts, not perfect individual oracle classification.
+
+S1.2 supplies the bandit update, exploration rule, conservative near-tie
+policy, two reasoning modes, signature, and search algorithms. It does not
+learn how much thinking to buy.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -359,6 +382,7 @@ learn signature compilation, or learn when guidance is worth invoking.
 - `src/bin/counterfactual_planning.rs`: CSV writer for d4b candidate traces
 - `src/bin/search_value.rs`: CSV writer for S0/S1 work curves
 - `src/bin/compiled_search_value.rs`: CSV writer for S1.1 compilation economics
+- `src/bin/guidance_gate.rs`: CSV writer for S1.2 metareasoning economics
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

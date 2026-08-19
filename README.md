@@ -1174,6 +1174,35 @@ Recorded measurements are in
 and
 [`results/s1_1_compiled_search_value.csv`](results/s1_1_compiled_search_value.csv).
 
+## Search S1.2: Learned guidance gate
+
+S1.2 adds a cheap bandit gate above neutral and compiled-guided search. The
+gate sees only the compact structural signature, goal structure, and search
+budget. It observes only the chosen mode's correctness and actual paid work.
+
+Opaque action orderings are counterbalanced. Exploration cost is included.
+After training, the frozen six-entry gate chooses neutral search at reachable
+depths one through four and on unreachable problems. It chooses compiled
+guidance at depth eight.
+
+```text
+Held-out work
+
+learned gate       22,817,640
+always neutral     23,278,200
+always guided      35,232,600
+random gate        30,056,073
+oracle             21,412,520
+```
+
+The gate repays its training exploration by problem 1,439 and remains ahead
+through problem 2,880. All 360 held-out searches remain complete, shortest,
+and correct.
+
+Recorded measurements are in
+[`results/s1_2_guidance_gate.md`](results/s1_2_guidance_gate.md) and
+[`results/s1_2_guidance_gate.csv`](results/s1_2_guidance_gate.csv).
+
 ## Run
 
 ```bash
