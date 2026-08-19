@@ -1455,6 +1455,46 @@ Recorded measurements are in
 [`results/p3_internal_roles.md`](results/p3_internal_roles.md) and
 [`results/p3_internal_roles.csv`](results/p3_internal_roles.csv).
 
+## P4: Discovered request roles
+
+P4 removes the target query marker. Every episode contains several anonymous
+identity-carrying events. Their receptor IDs, opaque identities, ordering and
+surface encoding change. Only recurring local event geometry distinguishes
+the event whose identity should enter the recurrent program.
+
+```text
+P4a request-role seeds                    8 / 8
+P4a transferred encodings              256 / 256
+retained request roles                    1
+symmetric preference formed           false
+
+P4b iterable traversal depths             56 / 56
+
+P4c fresh integrated learners              8 / 8
+P4c held-out depth 5-32                  512 / 512
+P4c transferred request encodings        512 / 512
+retained relation/request/working/event    2 / 1 / 2 / 2
+retained recurrent program arrows              4
+```
+
+Request-role activity is recorded before execution and answer emission.
+Terminal correctness may strengthen or weaken that existing trace afterward,
+but it is not an input to request selection. Downstream execution receives
+only the learned role activity and opaque identity.
+
+When two anonymous identity events are structurally indistinguishable, no
+stable request preference forms. Shuffled and random terminal feedback also
+produce no competent integrated programs.
+
+P4 still supplies relation-versus-anonymous-event containers, broad
+sensory/working/event populations, structural signatures, generic event
+effects, local learning physics, identity equality, `START`, answer emission
+and terminal correctness.
+
+Recorded measurements are in
+[`results/p4_request_roles.md`](results/p4_request_roles.md) and
+[`results/p4_request_roles.csv`](results/p4_request_roles.csv).
+
 ## Run
 
 ```bash

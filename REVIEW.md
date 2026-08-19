@@ -402,6 +402,8 @@ discovery from raw sensation.
   plasticity, and P2.2 learned encounter representations and values
 - `src/internal_roles.rs`: P3 anonymous working and control-event role
   recruitment plus fresh role-and-program integration
+- `src/request_roles.rs`: P4 anonymous request-event role recruitment,
+  request-only execution boundary, and fresh request-plus-program integration
 - `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
 - `src/bin/plasticity.rs`: CSV writer for d2.3 regime trajectories
 - `src/bin/model_epistemic.rs`: CSV writer for d3 pre-action traces
@@ -419,6 +421,8 @@ discovery from raw sensation.
   encounter representations
 - `src/bin/internal_roles.rs`: CSV writer for P3 working/control roles and
   integrated program discovery
+- `src/bin/request_roles.rs`: CSV writer for P4 request-role discovery and
+  fresh integration
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

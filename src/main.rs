@@ -3,7 +3,8 @@ use std::collections::VecDeque;
 use organism_v0::{
     binding, causal, composable_models, composition, consolidation, continuation, discovery,
     generality, inertia, internal_roles, iteration, local_plasticity, model_epistemic,
-    program_discovery, role_discovery, scaling, search_value, stability, tracking, unified, vision,
+    program_discovery, request_roles, role_discovery, scaling, search_value, stability, tracking,
+    unified, vision,
 };
 
 type CellId = usize;
@@ -806,6 +807,10 @@ fn main() {
     internal_roles::print_report(&internal_role_report);
     println!();
 
+    let request_role_report = request_roles::run_experiment();
+    request_roles::print_report(&request_role_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -842,17 +847,18 @@ fn main() {
         && local_plasticity_report.passed
         && selective_plasticity_report.passed
         && encounter_representation_report.passed
-        && internal_role_report.passed;
+        && internal_role_report.passed
+        && request_role_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - recurring activity discovers sensory, working, and control-event roles used by a recurrent program, and all earlier experiments still pass"
+            "PASS - recurring activity discovers sensory, working, control-event, and request roles used by a recurrent program, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: P3 learns roles inside supplied sensory, working, and event populations, but still supplies those broad populations, structural signatures, generic event effects, local plasticity physics, terminal correctness, identity equality, and the query/start/output boundaries."
+        "LIMIT: P4 removes the target query marker but still supplies relation-versus-anonymous-event containers, broad sensory/working/event populations, structural signatures, generic event effects, local plasticity physics, terminal correctness, identity equality, START, and answer emission."
     );
 }
 

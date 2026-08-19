@@ -22,6 +22,7 @@ cargo run --release --bin model_epistemic -- results/d3_pre_action_traces.csv
 cargo run --release --bin composable_models -- results/d4a_composition_traces.csv
 cargo run --release --bin counterfactual_planning -- results/d4b_planning_traces.csv
 cargo run --release --bin search_value -- results/s0_s1_search_value.csv
+cargo run --release --bin request_roles -- results/p4_request_roles.csv
 ```
 
 `rust-toolchain.toml` pins the compiler and installs `rustfmt` and Clippy.
@@ -38,7 +39,8 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 113 in-crate unit tests
+- 150 library unit tests
+- 10 main-binary unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -168,6 +170,11 @@ independent integration tests.
   working roles and two event roles; fresh learners retain seven total role
   cells and four recurrent-program arrows, pass 512/512 held-out traversals
   across new internal encodings, and fail under shuffled or random feedback
+- P4: anonymous identity-event geometry recruits one request role before
+  execution; fresh learners retain two relation roles, one request role, two
+  working roles, two event roles and four recurrent-program arrows, pass
+  512/512 held-out traversals across changed request encodings, and fail under
+  shuffled or random feedback
 
 ## Interpretation Boundary
 
