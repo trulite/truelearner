@@ -133,6 +133,10 @@ independent integration tests.
   9,839.8 to 4,924.8 and reachable model applications from 80,112 to 40,272;
   full accounting remains negative because reachable total work rises from
   1,255,048 to 1,357,960 and unreachable total work more than doubles
+- S1.1: the same frozen 92 values compile into a path-independent structural
+  signature with identical outputs and ordering; reachable direct lookup work
+  falls to 1,196,296 and local activation work to 1,236,712, both below neutral
+  exhaustive work of 1,255,048, while unreachable guidance remains overhead
 
 ## Interpretation Boundary
 

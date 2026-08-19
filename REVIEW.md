@@ -308,6 +308,25 @@ completeness requires identical expansion plus heuristic overhead.
 S0 demonstrates reusable search-value knowledge. S1 demonstrates useful
 ordering, but not an economic search advantage.
 
+S1.1 freezes those 92 values and compiles the expensive recognition boundary.
+An incremental equality signature is updated alongside each learned model
+application. The same signature either directly indexes value or activates a
+signature cell whose fixed arrow reaches a high, medium, or low value cell.
+
+The original, compiled, and local evaluators agree on all 46,944 audited
+states and produce identical search ordering. Convergent action paths are
+checked for path-independent signatures, and collisions between differently
+valued structural states are rejected.
+
+On the frozen reachable workload, direct compiled work is 1,196,296 and local
+activation work is 1,236,712, both below neutral exhaustive work of 1,255,048.
+The one-time compilation costs repay after two and five reachable problems.
+Unreachable work remains higher because complete search still exhausts the
+level.
+
+These are deterministic work counts. S1.1 does not establish hardware speed,
+learn signature compilation, or learn when guidance is worth invoking.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -332,13 +351,14 @@ ordering, but not an economic search advantage.
 - `src/composable_models.rs`: d4a source-role learning and frozen model
   composition plus d4b bounded counterfactual search
 - `src/search_value.rs`: S0 goal-conditioned value learning and S1 lazy
-  supplied search ordering
+  supplied search ordering plus S1.1 compiled recognition and local activation
 - `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
 - `src/bin/plasticity.rs`: CSV writer for d2.3 regime trajectories
 - `src/bin/model_epistemic.rs`: CSV writer for d3 pre-action traces
 - `src/bin/composable_models.rs`: CSV writer for d4a composition traces
 - `src/bin/counterfactual_planning.rs`: CSV writer for d4b candidate traces
 - `src/bin/search_value.rs`: CSV writer for S0/S1 work curves
+- `src/bin/compiled_search_value.rs`: CSV writer for S1.1 compilation economics
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

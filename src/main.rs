@@ -774,6 +774,10 @@ fn main() {
     search_value::print_report(&search_value_report);
     println!();
 
+    let compiled_search_value_report = search_value::run_compiled_experiment();
+    search_value::print_compiled_report(&compiled_search_value_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -801,17 +805,18 @@ fn main() {
         && model_based_action_report.passed
         && composable_model_report.passed
         && counterfactual_planning_report.passed
-        && search_value_report.passed;
+        && search_value_report.passed
+        && compiled_search_value_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - learned goal-relative search value transfers across fresh problems and orders supplied lazy search while preserving shortest plans, and all earlier experiments still pass"
+            "PASS - compiled structural recognition makes frozen learned search value cheaper than rediscovery while preserving identical ordering, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: S1 halves model expansion at depth eight, but heuristic evaluation overhead leaves total planning work higher than neutral exhaustive search; economic advantage is not yet demonstrated."
+        "LIMIT: S1.1 models compiled recognition and local activation with deterministic work counts; unreachable proof still pays guidance overhead, and no hardware speedup is established."
     );
 }
 

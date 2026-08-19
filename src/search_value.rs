@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, BTreeSet, BinaryHeap},
+    collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap},
 };
 
 use crate::composable_models::{
@@ -206,6 +206,74 @@ struct ValueKey {
     remaining_budget: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct StateSignature([u8; ROLE_COUNT]);
+
+impl StateSignature {
+    fn from_state(state: &TemporaryStructure) -> Self {
+        Self::from_classes(equality_pattern(state))
+    }
+
+    fn from_classes(classes: impl IntoIterator<Item = usize>) -> Self {
+        let classes = classes.into_iter().collect::<Vec<_>>();
+        assert_eq!(classes.len(), ROLE_COUNT);
+        let mut canonical = BTreeMap::<usize, u8>::new();
+        let mut next_class = 0u8;
+        let mut signature = [0u8; ROLE_COUNT];
+        for (role, class) in classes.into_iter().enumerate() {
+            signature[role] = *canonical.entry(class).or_insert_with(|| {
+                let assigned = next_class;
+                next_class += 1;
+                assigned
+            });
+        }
+        Self(signature)
+    }
+
+    fn apply(self, transformation: &RoleTransformation) -> Self {
+        Self::from_classes(
+            transformation
+                .source_for_output
+                .iter()
+                .map(|source| self.0[source.0] as usize),
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct CompiledValueKey {
+    state: StateSignature,
+    first_roles: u16,
+    second_roles: u16,
+    remaining_budget: u8,
+}
+
+fn role_mask(roles: impl IntoIterator<Item = usize>) -> u16 {
+    roles
+        .into_iter()
+        .fold(0u16, |mask, role| mask | (1u16 << role))
+}
+
+impl CompiledValueKey {
+    fn from_value_key(key: &ValueKey) -> Self {
+        Self {
+            state: StateSignature::from_classes(key.equality_pattern.iter().copied()),
+            first_roles: role_mask(key.first_roles.iter().copied()),
+            second_roles: role_mask(key.second_roles.iter().copied()),
+            remaining_budget: key.remaining_budget as u8,
+        }
+    }
+
+    fn from_parts(state: StateSignature, goal: &SearchGoal, remaining_budget: usize) -> Self {
+        Self {
+            state,
+            first_roles: role_mask(goal.first_roles.iter().map(|role| role.0)),
+            second_roles: role_mask(goal.second_roles.iter().map(|role| role.0)),
+            remaining_budget: remaining_budget as u8,
+        }
+    }
+}
+
 fn equality_pattern(state: &TemporaryStructure) -> Vec<usize> {
     let mut classes = BTreeMap::<OpaqueIdentity, usize>::new();
     let mut next_class = 0;
@@ -238,6 +306,22 @@ struct ValueCounts {
     high: usize,
 }
 
+impl ValueCounts {
+    fn winner(&self) -> Option<SearchValue> {
+        let candidates = [
+            (SearchValue::Low, self.low),
+            (SearchValue::Medium, self.medium),
+            (SearchValue::High, self.high),
+        ];
+        let strongest = candidates.iter().map(|(_, count)| count).max()?;
+        let winners = candidates
+            .iter()
+            .filter(|(_, count)| count == strongest)
+            .collect::<Vec<_>>();
+        (winners.len() == 1).then_some(winners[0].0)
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 struct SearchValueLearner {
     values: BTreeMap<ValueKey, ValueCounts>,
@@ -261,18 +345,9 @@ impl SearchValueLearner {
         goal: &SearchGoal,
         remaining_budget: usize,
     ) -> Option<SearchValue> {
-        let counts = self.values.get(&value_key(state, goal, remaining_budget))?;
-        let candidates = [
-            (SearchValue::Low, counts.low),
-            (SearchValue::Medium, counts.medium),
-            (SearchValue::High, counts.high),
-        ];
-        let strongest = candidates.iter().map(|(_, count)| count).max()?;
-        let winners = candidates
-            .iter()
-            .filter(|(_, count)| count == strongest)
-            .collect::<Vec<_>>();
-        (winners.len() == 1).then_some(winners[0].0)
+        self.values
+            .get(&value_key(state, goal, remaining_budget))?
+            .winner()
     }
 
     fn entries(&self) -> usize {
@@ -297,6 +372,107 @@ impl SearchValueLearner {
             mix_fingerprint(&mut hash, counts.high as u64);
         }
         hash
+    }
+}
+
+#[derive(Clone, Debug)]
+struct CompiledValueTable {
+    values: HashMap<CompiledValueKey, Option<SearchValue>>,
+    collision_free: bool,
+    compilation_work: usize,
+}
+
+impl CompiledValueTable {
+    fn compile(learner: &SearchValueLearner) -> Self {
+        let mut values = HashMap::new();
+        let mut collision_free = true;
+        let mut compilation_work = 0;
+        for (key, counts) in &learner.values {
+            let compiled = CompiledValueKey::from_value_key(key);
+            let value = counts.winner();
+            if values
+                .insert(compiled, value)
+                .is_some_and(|previous| previous != value)
+            {
+                collision_free = false;
+            }
+            compilation_work +=
+                key.equality_pattern.len() + key.first_roles.len() + key.second_roles.len() + 4;
+        }
+        Self {
+            values,
+            collision_free,
+            compilation_work,
+        }
+    }
+
+    fn predict(
+        &self,
+        state: StateSignature,
+        goal: &SearchGoal,
+        remaining_budget: usize,
+    ) -> Option<SearchValue> {
+        self.values
+            .get(&CompiledValueKey::from_parts(state, goal, remaining_budget))
+            .copied()
+            .flatten()
+    }
+
+    fn entries(&self) -> usize {
+        self.values.len()
+    }
+}
+
+#[derive(Clone, Debug)]
+struct LocalValueNetwork {
+    entry_cells: HashMap<CompiledValueKey, usize>,
+    arrows: BTreeMap<usize, usize>,
+    cells: usize,
+    compilation_work: usize,
+}
+
+impl LocalValueNetwork {
+    fn compile(table: &CompiledValueTable) -> Self {
+        let mut entry_cells = HashMap::new();
+        let mut arrows = BTreeMap::new();
+        let mut entries = table
+            .values
+            .iter()
+            .map(|(&key, &value)| (key, value))
+            .collect::<Vec<_>>();
+        entries.sort_by_key(|(key, _)| *key);
+        for (index, (key, value)) in entries.into_iter().enumerate() {
+            let entry_cell = index + 3;
+            entry_cells.insert(key, entry_cell);
+            if let Some(value) = value {
+                arrows.insert(entry_cell, value as usize);
+            }
+        }
+        let confident = arrows.len();
+        Self {
+            entry_cells,
+            arrows,
+            cells: table.values.len() + 3,
+            compilation_work: table.compilation_work + table.values.len() + confident,
+        }
+    }
+
+    fn predict(
+        &self,
+        state: StateSignature,
+        goal: &SearchGoal,
+        remaining_budget: usize,
+    ) -> Option<SearchValue> {
+        let entry_cell = self
+            .entry_cells
+            .get(&CompiledValueKey::from_parts(state, goal, remaining_budget))
+            .copied()?;
+        match self.arrows.get(&entry_cell).copied()? {
+            0 => Some(SearchValue::Low),
+            1 => Some(SearchValue::Medium),
+            2 => Some(SearchValue::High),
+            _ => None,
+        }
     }
 }
 
@@ -413,15 +589,23 @@ enum PriorityPolicy<'a> {
     Exhaustive,
     Random(u64),
     Learned(&'a SearchValueLearner),
+    Compiled(&'a CompiledValueTable),
+    Local(&'a LocalValueNetwork),
+    ZeroCost(&'a CompiledValueTable),
     Oracle(&'a BTreeMap<OpaqueAction, RoleTransformation>),
     Shuffled(&'a SearchValueLearner),
     Memorized(&'a [Vec<OpaqueAction>]),
 }
 
 impl PriorityPolicy<'_> {
+    fn uses_signature(self) -> bool {
+        matches!(self, Self::Compiled(_) | Self::Local(_) | Self::ZeroCost(_))
+    }
+
     fn score(
         self,
         state: &TemporaryStructure,
+        signature: Option<StateSignature>,
         goal: &SearchGoal,
         remaining: usize,
         sequence: &[OpaqueAction],
@@ -440,6 +624,18 @@ impl PriorityPolicy<'_> {
                     .map_or(1, SearchValue::rank),
                 true,
             ),
+            Self::Compiled(table) | Self::ZeroCost(table) => (
+                table
+                    .predict(signature.expect("compiled signature"), goal, remaining)
+                    .map_or(1, SearchValue::rank),
+                true,
+            ),
+            Self::Local(network) => (
+                network
+                    .predict(signature.expect("local signature"), goal, remaining)
+                    .map_or(1, SearchValue::rank),
+                true,
+            ),
             Self::Oracle(transformations) => (
                 minimum_remaining_steps(transformations, state, goal, remaining)
                     .map_or(0, |steps| 1_000 - steps as i64),
@@ -455,6 +651,29 @@ impl PriorityPolicy<'_> {
             ),
         }
     }
+
+    fn evaluation_cost(self, scored: bool) -> EvaluationCost {
+        if !scored {
+            return EvaluationCost::default();
+        }
+        match self {
+            Self::Compiled(_) => EvaluationCost {
+                signature_update_work: ROLE_COUNT,
+                value_retrieval_work: 1,
+                ..EvaluationCost::default()
+            },
+            Self::Local(_) => EvaluationCost {
+                signature_update_work: ROLE_COUNT,
+                local_activation_spikes: 2,
+                ..EvaluationCost::default()
+            },
+            Self::ZeroCost(_) => EvaluationCost::default(),
+            _ => EvaluationCost {
+                value_retrieval_work: ROLE_COUNT + 5,
+                ..EvaluationCost::default()
+            },
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -464,6 +683,20 @@ struct FrontierNode {
     insertion_priority: usize,
     sequence: Vec<OpaqueAction>,
     state: TemporaryStructure,
+    signature: Option<StateSignature>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct EvaluationCost {
+    signature_update_work: usize,
+    value_retrieval_work: usize,
+    local_activation_spikes: usize,
+}
+
+impl EvaluationCost {
+    fn total(self) -> usize {
+        self.signature_update_work + self.value_retrieval_work + self.local_activation_spikes
+    }
 }
 
 impl PartialEq for FrontierNode {
@@ -501,6 +734,10 @@ struct SearchWork {
     heuristic_evaluations: usize,
     model_work: usize,
     heuristic_work: usize,
+    signature_update_work: usize,
+    value_retrieval_work: usize,
+    local_activation_spikes: usize,
+    signature_mismatches: usize,
 }
 
 impl SearchWork {
@@ -513,6 +750,10 @@ impl SearchWork {
         self.heuristic_evaluations += other.heuristic_evaluations;
         self.model_work += other.model_work;
         self.heuristic_work += other.heuristic_work;
+        self.signature_update_work += other.signature_update_work;
+        self.value_retrieval_work += other.value_retrieval_work;
+        self.local_activation_spikes += other.local_activation_spikes;
+        self.signature_mismatches += other.signature_mismatches;
     }
 
     fn total_work(&self) -> usize {
@@ -536,12 +777,20 @@ fn search_exact_length(
 ) -> ExactLengthResult {
     let actions = models.keys().copied().collect::<Vec<_>>();
     let mut frontier = BinaryHeap::new();
-    let (root_priority, root_scored) = policy.score(initial, goal, target_length, &[]);
+    let root_signature = policy
+        .uses_signature()
+        .then(|| StateSignature::from_state(initial));
+    let (root_priority, root_scored) =
+        policy.score(initial, root_signature, goal, target_length, &[]);
+    let root_cost = policy.evaluation_cost(root_scored);
     let mut work = SearchWork {
         partial_generated: 1,
         partial_scored: usize::from(root_scored),
         heuristic_evaluations: usize::from(root_scored),
-        heuristic_work: usize::from(root_scored) * (ROLE_COUNT + 5),
+        heuristic_work: root_cost.total(),
+        signature_update_work: root_cost.signature_update_work,
+        value_retrieval_work: root_cost.value_retrieval_work,
+        local_activation_spikes: root_cost.local_activation_spikes,
         ..SearchWork::default()
     };
     frontier.push(FrontierNode {
@@ -550,6 +799,7 @@ fn search_exact_length(
         insertion_priority: usize::MAX,
         sequence: Vec::new(),
         state: initial.clone(),
+        signature: root_signature,
     });
     let mut insertion = 0;
 
@@ -569,16 +819,28 @@ fn search_exact_length(
 
         for &action in &actions {
             let predicted = models[&action].apply(&node.state);
+            let signature = node
+                .signature
+                .map(|signature| signature.apply(&models[&action]));
             let mut sequence = node.sequence.clone();
             sequence.push(action);
             let remaining = target_length - sequence.len();
-            let (priority, scored) = policy.score(&predicted, goal, remaining, &sequence);
+            let (priority, scored) =
+                policy.score(&predicted, signature, goal, remaining, &sequence);
+            let evaluation_cost = policy.evaluation_cost(scored);
             work.partial_generated += 1;
             work.partial_scored += usize::from(scored);
             work.heuristic_evaluations += usize::from(scored);
             work.model_applications += 1;
             work.model_work += ROLE_COUNT;
-            work.heuristic_work += usize::from(scored) * (ROLE_COUNT + 5);
+            work.heuristic_work += evaluation_cost.total();
+            work.signature_update_work += evaluation_cost.signature_update_work;
+            work.value_retrieval_work += evaluation_cost.value_retrieval_work;
+            work.local_activation_spikes += evaluation_cost.local_activation_spikes;
+            work.signature_mismatches += usize::from(
+                signature
+                    .is_some_and(|signature| signature != StateSignature::from_state(&predicted)),
+            );
             insertion += 1;
             frontier.push(FrontierNode {
                 priority,
@@ -586,6 +848,7 @@ fn search_exact_length(
                 insertion_priority: usize::MAX - insertion,
                 sequence,
                 state: predicted,
+                signature,
             });
         }
     }
@@ -644,6 +907,10 @@ struct AggregateWork {
     heuristic_evaluations: usize,
     model_work: usize,
     heuristic_work: usize,
+    signature_update_work: usize,
+    value_retrieval_work: usize,
+    local_activation_spikes: usize,
+    signature_mismatches: usize,
     total_work: usize,
 }
 
@@ -684,6 +951,10 @@ impl AggregateWork {
         self.heuristic_evaluations += result.work.heuristic_evaluations;
         self.model_work += result.work.model_work;
         self.heuristic_work += result.work.heuristic_work;
+        self.signature_update_work += result.work.signature_update_work;
+        self.value_retrieval_work += result.work.value_retrieval_work;
+        self.local_activation_spikes += result.work.local_activation_spikes;
+        self.signature_mismatches += result.work.signature_mismatches;
         self.total_work += result.work.total_work();
     }
 }
@@ -748,6 +1019,67 @@ pub struct SearchValueReport {
     pub memorizer_no_transfer: bool,
     pub frozen_fingerprint_unchanged: bool,
     pub permanent_action_model_entries: usize,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct CompiledValueDepthReport {
+    pub required_depth: usize,
+    pub cases: usize,
+    pub exhaustive_expanded: usize,
+    pub current_expanded: usize,
+    pub compiled_expanded: usize,
+    pub local_expanded: usize,
+    pub zero_cost_expanded: usize,
+    pub exhaustive_total_work: usize,
+    pub current_total_work: usize,
+    pub compiled_total_work: usize,
+    pub local_total_work: usize,
+    pub zero_cost_total_work: usize,
+    pub compiled_signature_work: usize,
+    pub compiled_retrieval_work: usize,
+    pub local_signature_work: usize,
+    pub local_activation_spikes: usize,
+    pub signature_mismatches: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct CompiledSearchValueReport {
+    pub learned_entries: usize,
+    pub compiled_entries: usize,
+    pub local_cells: usize,
+    pub local_arrows: usize,
+    pub value_checks: usize,
+    pub values_identical: bool,
+    pub signatures_path_independent: bool,
+    pub convergent_paths_checked: usize,
+    pub collision_free: bool,
+    pub search_order_identical: bool,
+    pub signature_mismatches: usize,
+    pub depth_reports: Vec<CompiledValueDepthReport>,
+    pub reachable_cases: usize,
+    pub reachable_exhaustive_total_work: usize,
+    pub reachable_current_total_work: usize,
+    pub reachable_compiled_total_work: usize,
+    pub reachable_local_total_work: usize,
+    pub reachable_zero_cost_total_work: usize,
+    pub reachable_compiled_signature_work: usize,
+    pub reachable_compiled_retrieval_work: usize,
+    pub reachable_local_signature_work: usize,
+    pub reachable_local_activation_spikes: usize,
+    pub unreachable_cases: usize,
+    pub unreachable_exhaustive_total_work: usize,
+    pub unreachable_current_total_work: usize,
+    pub unreachable_compiled_total_work: usize,
+    pub unreachable_local_total_work: usize,
+    pub direct_compilation_work: usize,
+    pub local_compilation_work: usize,
+    pub direct_saving_per_problem: usize,
+    pub local_saving_per_problem: usize,
+    pub direct_break_even_problems: usize,
+    pub local_break_even_problems: usize,
+    pub frozen_fingerprint_unchanged: bool,
+    pub economic_advantage_demonstrated: bool,
     pub passed: bool,
 }
 
@@ -942,6 +1274,457 @@ fn evaluate_policy(
         frozen,
         permanent_entries,
     )
+}
+
+fn audit_value_equivalence(
+    learner: &SearchValueLearner,
+    compiled: &CompiledValueTable,
+    local: &LocalValueNetwork,
+) -> (usize, bool) {
+    let mut checks = 0;
+    let mut identical = true;
+    for seed_index in 0..EVALUATION_SEEDS {
+        let seed = 0x5b00_0000 + seed_index as u64;
+        let (world, action_learner) = train_action_models(seed);
+        let models = (0..ACTION_COUNT)
+            .map(|index| {
+                let action = world.action(index);
+                (action, action_learner.predict(action).unwrap())
+            })
+            .collect::<BTreeMap<_, _>>();
+        for required_depth in DEPTHS {
+            let mut identities = IdentitySource::new(seed ^ 0x5c00_0000 ^ required_depth as u64);
+            let initial = initial_state(&mut identities, Some(required_depth));
+            let mut states = BTreeMap::from([(initial.occupants.clone(), initial)]);
+            for _ in 0..=8 {
+                for state in states.values() {
+                    let signature = StateSignature::from_state(state);
+                    for goal in [SearchGoal::reachable(), SearchGoal::unreachable()] {
+                        for remaining in 0..=8 {
+                            let current = learner.predict(state, &goal, remaining);
+                            let direct = compiled.predict(signature, &goal, remaining);
+                            let activated = local.predict(signature, &goal, remaining);
+                            checks += 1;
+                            identical &= current == direct && direct == activated;
+                        }
+                    }
+                }
+                let new_states = states
+                    .values()
+                    .flat_map(|state| {
+                        models
+                            .values()
+                            .map(|transformation| transformation.apply(state))
+                    })
+                    .collect::<Vec<_>>();
+                for state in new_states {
+                    states.entry(state.occupants.clone()).or_insert(state);
+                }
+            }
+        }
+    }
+    (checks, identical)
+}
+
+fn audit_path_independence() -> (bool, usize) {
+    let (world, action_learner) = train_action_models(0x5d00_0000);
+    let models = (0..ACTION_COUNT)
+        .map(|index| {
+            let action = world.action(index);
+            (action, action_learner.predict(action).unwrap())
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut identities = IdentitySource::new(0x5e00_0000);
+    let initial = initial_state(&mut identities, Some(8));
+    let initial_signature = StateSignature::from_state(&initial);
+    let mut frontier = vec![(Vec::<OpaqueAction>::new(), initial, initial_signature)];
+    let mut path_independent = true;
+    let mut convergent_paths = 0;
+
+    for depth in 1..=8 {
+        let mut next = Vec::new();
+        let mut reached =
+            BTreeMap::<Vec<OpaqueIdentity>, (StateSignature, Vec<OpaqueAction>)>::new();
+        for (sequence, state, signature) in frontier {
+            for (&action, transformation) in &models {
+                let predicted = transformation.apply(&state);
+                let predicted_signature = signature.apply(transformation);
+                path_independent &= predicted_signature == StateSignature::from_state(&predicted);
+                let mut next_sequence = sequence.clone();
+                next_sequence.push(action);
+                if let Some((previous_signature, previous_sequence)) =
+                    reached.get(&predicted.occupants)
+                {
+                    if previous_sequence != &next_sequence {
+                        convergent_paths += 1;
+                        path_independent &= previous_signature == &predicted_signature;
+                    }
+                } else {
+                    reached.insert(
+                        predicted.occupants.clone(),
+                        (predicted_signature, next_sequence.clone()),
+                    );
+                }
+                next.push((next_sequence, predicted, predicted_signature));
+            }
+        }
+        frontier = next;
+        if depth == 8 {
+            break;
+        }
+    }
+    (path_independent, convergent_paths)
+}
+
+type CompiledDepthAggregates = (
+    usize,
+    AggregateWork,
+    AggregateWork,
+    AggregateWork,
+    AggregateWork,
+    AggregateWork,
+);
+
+fn evaluate_compiled_policies(
+    learner: &SearchValueLearner,
+    compiled: &CompiledValueTable,
+    local: &LocalValueNetwork,
+) -> (
+    Vec<CompiledValueDepthReport>,
+    AggregateWork,
+    AggregateWork,
+    AggregateWork,
+    AggregateWork,
+    bool,
+    bool,
+    usize,
+) {
+    let mut by_depth = DEPTHS
+        .iter()
+        .map(|&depth| {
+            (
+                depth,
+                AggregateWork::default(),
+                AggregateWork::default(),
+                AggregateWork::default(),
+                AggregateWork::default(),
+                AggregateWork::default(),
+            )
+        })
+        .collect::<Vec<CompiledDepthAggregates>>();
+    let mut unreachable_exhaustive = AggregateWork::default();
+    let mut unreachable_current = AggregateWork::default();
+    let mut unreachable_compiled = AggregateWork::default();
+    let mut unreachable_local = AggregateWork::default();
+    let mut ordering_identical = true;
+    let mut frozen = true;
+    let mut permanent_entries = 0;
+
+    for seed_index in 0..EVALUATION_SEEDS {
+        let seed = 0x5600_0000 + seed_index as u64;
+        let (world, action_learner) = train_action_models(seed);
+        let models = (0..ACTION_COUNT)
+            .map(|index| {
+                let action = world.action(index);
+                (action, action_learner.predict(action).unwrap())
+            })
+            .collect::<BTreeMap<_, _>>();
+        let fingerprint = action_learner.fingerprint();
+        permanent_entries = action_learner.model_entries();
+
+        for (required_depth, exhaustive, current, direct, activated, zero_cost) in &mut by_depth {
+            let mut identities = IdentitySource::new(seed ^ 0x5700_0000 ^ *required_depth as u64);
+            let initial = initial_state(&mut identities, Some(*required_depth));
+            let goal = SearchGoal::reachable();
+            let exhaustive_result = plan_shortest(
+                &models,
+                &initial,
+                &goal,
+                *required_depth,
+                PriorityPolicy::Exhaustive,
+            );
+            let current_result = plan_shortest(
+                &models,
+                &initial,
+                &goal,
+                *required_depth,
+                PriorityPolicy::Learned(learner),
+            );
+            let compiled_result = plan_shortest(
+                &models,
+                &initial,
+                &goal,
+                *required_depth,
+                PriorityPolicy::Compiled(compiled),
+            );
+            let local_result = plan_shortest(
+                &models,
+                &initial,
+                &goal,
+                *required_depth,
+                PriorityPolicy::Local(local),
+            );
+            let zero_result = plan_shortest(
+                &models,
+                &initial,
+                &goal,
+                *required_depth,
+                PriorityPolicy::ZeroCost(compiled),
+            );
+            ordering_identical &= current_result.sequence == compiled_result.sequence
+                && compiled_result.sequence == local_result.sequence
+                && local_result.sequence == zero_result.sequence
+                && current_result.predicted == compiled_result.predicted
+                && compiled_result.predicted == local_result.predicted
+                && current_result.work.partial_expanded == compiled_result.work.partial_expanded
+                && compiled_result.work.partial_expanded == local_result.work.partial_expanded
+                && local_result.work.partial_expanded == zero_result.work.partial_expanded
+                && current_result.work.complete_candidates
+                    == compiled_result.work.complete_candidates
+                && compiled_result.work.complete_candidates
+                    == local_result.work.complete_candidates
+                && local_result.work.complete_candidates == zero_result.work.complete_candidates;
+            exhaustive.record(
+                &exhaustive_result,
+                Some(*required_depth),
+                &initial,
+                &goal,
+                &world,
+            );
+            current.record(
+                &current_result,
+                Some(*required_depth),
+                &initial,
+                &goal,
+                &world,
+            );
+            direct.record(
+                &compiled_result,
+                Some(*required_depth),
+                &initial,
+                &goal,
+                &world,
+            );
+            activated.record(
+                &local_result,
+                Some(*required_depth),
+                &initial,
+                &goal,
+                &world,
+            );
+            zero_cost.record(&zero_result, Some(*required_depth), &initial, &goal, &world);
+        }
+
+        let mut identities = IdentitySource::new(seed ^ 0x5800_0000);
+        let initial = initial_state(&mut identities, None);
+        let goal = SearchGoal::unreachable();
+        let exhaustive_result =
+            plan_shortest(&models, &initial, &goal, 8, PriorityPolicy::Exhaustive);
+        let current_result = plan_shortest(
+            &models,
+            &initial,
+            &goal,
+            8,
+            PriorityPolicy::Learned(learner),
+        );
+        let compiled_result = plan_shortest(
+            &models,
+            &initial,
+            &goal,
+            8,
+            PriorityPolicy::Compiled(compiled),
+        );
+        let local_result = plan_shortest(&models, &initial, &goal, 8, PriorityPolicy::Local(local));
+        ordering_identical &= current_result.sequence == compiled_result.sequence
+            && compiled_result.sequence == local_result.sequence
+            && current_result.work.partial_expanded == compiled_result.work.partial_expanded
+            && compiled_result.work.partial_expanded == local_result.work.partial_expanded;
+        unreachable_exhaustive.record(&exhaustive_result, None, &initial, &goal, &world);
+        unreachable_current.record(&current_result, None, &initial, &goal, &world);
+        unreachable_compiled.record(&compiled_result, None, &initial, &goal, &world);
+        unreachable_local.record(&local_result, None, &initial, &goal, &world);
+        frozen &= action_learner.fingerprint() == fingerprint;
+    }
+
+    let depth_reports = by_depth
+        .into_iter()
+        .map(
+            |(required_depth, exhaustive, current, compiled, local, zero_cost)| {
+                CompiledValueDepthReport {
+                    required_depth,
+                    cases: current.cases,
+                    exhaustive_expanded: exhaustive.partial_expanded,
+                    current_expanded: current.partial_expanded,
+                    compiled_expanded: compiled.partial_expanded,
+                    local_expanded: local.partial_expanded,
+                    zero_cost_expanded: zero_cost.partial_expanded,
+                    exhaustive_total_work: exhaustive.total_work,
+                    current_total_work: current.total_work,
+                    compiled_total_work: compiled.total_work,
+                    local_total_work: local.total_work,
+                    zero_cost_total_work: zero_cost.total_work,
+                    compiled_signature_work: compiled.signature_update_work,
+                    compiled_retrieval_work: compiled.value_retrieval_work,
+                    local_signature_work: local.signature_update_work,
+                    local_activation_spikes: local.local_activation_spikes,
+                    signature_mismatches: compiled.signature_mismatches
+                        + local.signature_mismatches
+                        + zero_cost.signature_mismatches,
+                }
+            },
+        )
+        .collect();
+
+    (
+        depth_reports,
+        unreachable_exhaustive,
+        unreachable_current,
+        unreachable_compiled,
+        unreachable_local,
+        ordering_identical,
+        frozen,
+        permanent_entries,
+    )
+}
+
+fn divide_rounding_up(numerator: usize, denominator: usize) -> usize {
+    if numerator == 0 {
+        0
+    } else if denominator == 0 {
+        usize::MAX
+    } else {
+        numerator.div_ceil(denominator)
+    }
+}
+
+pub fn run_compiled_experiment() -> CompiledSearchValueReport {
+    let (snapshots, _, _) = train_value_models(*TRAINING_CHECKPOINTS.last().unwrap());
+    let learner = snapshots[TRAINING_CHECKPOINTS.last().unwrap()].clone();
+    let original_fingerprint = learner.fingerprint();
+    let compiled = CompiledValueTable::compile(&learner);
+    let local = LocalValueNetwork::compile(&compiled);
+    let (value_checks, values_identical) = audit_value_equivalence(&learner, &compiled, &local);
+    let (signatures_path_independent, convergent_paths_checked) = audit_path_independence();
+    let (
+        depth_reports,
+        unreachable_exhaustive,
+        unreachable_current,
+        unreachable_compiled,
+        unreachable_local,
+        search_order_identical,
+        action_models_frozen,
+        _,
+    ) = evaluate_compiled_policies(&learner, &compiled, &local);
+
+    let reachable_cases = depth_reports.iter().map(|depth| depth.cases).sum::<usize>();
+    let reachable_exhaustive_total_work = depth_reports
+        .iter()
+        .map(|depth| depth.exhaustive_total_work)
+        .sum::<usize>();
+    let reachable_current_total_work = depth_reports
+        .iter()
+        .map(|depth| depth.current_total_work)
+        .sum::<usize>();
+    let reachable_compiled_total_work = depth_reports
+        .iter()
+        .map(|depth| depth.compiled_total_work)
+        .sum::<usize>();
+    let reachable_local_total_work = depth_reports
+        .iter()
+        .map(|depth| depth.local_total_work)
+        .sum::<usize>();
+    let reachable_zero_cost_total_work = depth_reports
+        .iter()
+        .map(|depth| depth.zero_cost_total_work)
+        .sum::<usize>();
+
+    let compiled_saving =
+        reachable_exhaustive_total_work.saturating_sub(reachable_compiled_total_work);
+    let local_saving = reachable_exhaustive_total_work.saturating_sub(reachable_local_total_work);
+    let direct_saving_per_problem = compiled_saving / reachable_cases;
+    let local_saving_per_problem = local_saving / reachable_cases;
+    let direct_break_even_problems =
+        divide_rounding_up(compiled.compilation_work, direct_saving_per_problem);
+    let local_break_even_problems =
+        divide_rounding_up(local.compilation_work, local_saving_per_problem);
+    let signature_mismatches = depth_reports
+        .iter()
+        .map(|depth| depth.signature_mismatches)
+        .sum::<usize>()
+        + unreachable_compiled.signature_mismatches
+        + unreachable_local.signature_mismatches;
+    let reachable_compiled_signature_work = depth_reports
+        .iter()
+        .map(|depth| depth.compiled_signature_work)
+        .sum::<usize>();
+    let reachable_compiled_retrieval_work = depth_reports
+        .iter()
+        .map(|depth| depth.compiled_retrieval_work)
+        .sum::<usize>();
+    let reachable_local_signature_work = depth_reports
+        .iter()
+        .map(|depth| depth.local_signature_work)
+        .sum::<usize>();
+    let reachable_local_activation_spikes = depth_reports
+        .iter()
+        .map(|depth| depth.local_activation_spikes)
+        .sum();
+    let economic_advantage_demonstrated = reachable_compiled_total_work
+        < reachable_exhaustive_total_work
+        && reachable_local_total_work < reachable_exhaustive_total_work;
+    let frozen_fingerprint_unchanged =
+        action_models_frozen && learner.fingerprint() == original_fingerprint;
+    let passed = values_identical
+        && signatures_path_independent
+        && convergent_paths_checked > 0
+        && compiled.collision_free
+        && search_order_identical
+        && signature_mismatches == 0
+        && economic_advantage_demonstrated
+        && unreachable_compiled.correct == unreachable_compiled.cases
+        && unreachable_local.correct == unreachable_local.cases
+        && unreachable_compiled.partial_expanded == unreachable_exhaustive.partial_expanded
+        && unreachable_local.partial_expanded == unreachable_exhaustive.partial_expanded
+        && frozen_fingerprint_unchanged;
+
+    CompiledSearchValueReport {
+        learned_entries: learner.entries(),
+        compiled_entries: compiled.entries(),
+        local_cells: local.cells,
+        local_arrows: local.arrows.len(),
+        value_checks,
+        values_identical,
+        signatures_path_independent,
+        convergent_paths_checked,
+        collision_free: compiled.collision_free,
+        search_order_identical,
+        signature_mismatches,
+        depth_reports,
+        reachable_cases,
+        reachable_exhaustive_total_work,
+        reachable_current_total_work,
+        reachable_compiled_total_work,
+        reachable_local_total_work,
+        reachable_zero_cost_total_work,
+        reachable_compiled_signature_work,
+        reachable_compiled_retrieval_work,
+        reachable_local_signature_work,
+        reachable_local_activation_spikes,
+        unreachable_cases: unreachable_current.cases,
+        unreachable_exhaustive_total_work: unreachable_exhaustive.total_work,
+        unreachable_current_total_work: unreachable_current.total_work,
+        unreachable_compiled_total_work: unreachable_compiled.total_work,
+        unreachable_local_total_work: unreachable_local.total_work,
+        direct_compilation_work: compiled.compilation_work,
+        local_compilation_work: local.compilation_work,
+        direct_saving_per_problem,
+        local_saving_per_problem,
+        direct_break_even_problems,
+        local_break_even_problems,
+        frozen_fingerprint_unchanged,
+        economic_advantage_demonstrated,
+        passed,
+    }
 }
 
 pub fn run_experiment() -> SearchValueReport {
@@ -1147,6 +1930,68 @@ pub fn print_report(report: &SearchValueReport) {
     );
 }
 
+pub fn print_compiled_report(report: &CompiledSearchValueReport) {
+    println!("s1.1 compiled search value:");
+    println!(
+        "  entries learned/compiled={}/{}, local cells/arrows={}/{}, value checks={}, identical={}, collision free={}",
+        report.learned_entries,
+        report.compiled_entries,
+        report.local_cells,
+        report.local_arrows,
+        report.value_checks,
+        report.values_identical,
+        report.collision_free
+    );
+    println!(
+        "  path independent={}, convergent paths={}, ordering identical={}, signature mismatches={}",
+        report.signatures_path_independent,
+        report.convergent_paths_checked,
+        report.search_order_identical,
+        report.signature_mismatches
+    );
+    println!(
+        "  reachable total work exhaustive/current/compiled/local/zero={}/{}/{}/{}/{}, economic advantage={}",
+        report.reachable_exhaustive_total_work,
+        report.reachable_current_total_work,
+        report.reachable_compiled_total_work,
+        report.reachable_local_total_work,
+        report.reachable_zero_cost_total_work,
+        report.economic_advantage_demonstrated
+    );
+    println!(
+        "  compiled signature/retrieval work={}/{}, local signature/spikes={}/{}, compilation direct/local={}/{}, break even={}/{} problems",
+        report.reachable_compiled_signature_work,
+        report.reachable_compiled_retrieval_work,
+        report.reachable_local_signature_work,
+        report.reachable_local_activation_spikes,
+        report.direct_compilation_work,
+        report.local_compilation_work,
+        report.direct_break_even_problems,
+        report.local_break_even_problems
+    );
+    for depth in &report.depth_reports {
+        println!(
+            "  depth {}: expanded exhaustive/guided={:.1}/{:.1}, total work exhaustive/current/compiled/local/zero={:.1}/{:.1}/{:.1}/{:.1}/{:.1}",
+            depth.required_depth,
+            depth.exhaustive_expanded as f64 / depth.cases as f64,
+            depth.compiled_expanded as f64 / depth.cases as f64,
+            depth.exhaustive_total_work as f64 / depth.cases as f64,
+            depth.current_total_work as f64 / depth.cases as f64,
+            depth.compiled_total_work as f64 / depth.cases as f64,
+            depth.local_total_work as f64 / depth.cases as f64,
+            depth.zero_cost_total_work as f64 / depth.cases as f64
+        );
+    }
+    println!(
+        "  unreachable total work exhaustive/current/compiled/local={}/{}/{}/{}, correct={}",
+        report.unreachable_exhaustive_total_work,
+        report.unreachable_current_total_work,
+        report.unreachable_compiled_total_work,
+        report.unreachable_local_total_work,
+        report.unreachable_cases
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1155,6 +2000,11 @@ mod tests {
     fn report() -> &'static SearchValueReport {
         static REPORT: OnceLock<SearchValueReport> = OnceLock::new();
         REPORT.get_or_init(run_experiment)
+    }
+
+    fn compiled_report() -> &'static CompiledSearchValueReport {
+        static REPORT: OnceLock<CompiledSearchValueReport> = OnceLock::new();
+        REPORT.get_or_init(run_compiled_experiment)
     }
 
     #[test]
@@ -1202,5 +2052,45 @@ mod tests {
         );
         assert!(report.unreachable_learned_total_work > report.unreachable_exhaustive_total_work);
         assert!(!report.economic_advantage_demonstrated);
+    }
+
+    #[test]
+    fn s1_1_compiled_values_are_exact_and_path_independent() {
+        let report = compiled_report();
+        assert!(report.values_identical);
+        assert!(report.collision_free);
+        assert!(report.signatures_path_independent);
+        assert!(report.convergent_paths_checked > 0);
+        assert_eq!(report.signature_mismatches, 0);
+    }
+
+    #[test]
+    fn s1_1_all_value_paths_preserve_search_order() {
+        let report = compiled_report();
+        assert!(report.search_order_identical);
+        assert!(report.depth_reports.iter().all(|depth| {
+            depth.current_expanded == depth.compiled_expanded
+                && depth.compiled_expanded == depth.local_expanded
+                && depth.local_expanded == depth.zero_cost_expanded
+        }));
+        assert!(report.frozen_fingerprint_unchanged);
+    }
+
+    #[test]
+    fn s1_1_compilation_makes_guided_reachable_search_cheaper() {
+        let report = compiled_report();
+        assert!(report.reachable_compiled_total_work < report.reachable_exhaustive_total_work);
+        assert!(report.reachable_local_total_work < report.reachable_exhaustive_total_work);
+        assert!(report.economic_advantage_demonstrated);
+        assert!(report.direct_break_even_problems > 0);
+        assert!(report.local_break_even_problems > 0);
+    }
+
+    #[test]
+    fn s1_1_unreachable_search_remains_complete_with_overhead() {
+        let report = compiled_report();
+        assert!(report.unreachable_compiled_total_work > report.unreachable_exhaustive_total_work);
+        assert!(report.unreachable_local_total_work > report.unreachable_exhaustive_total_work);
+        assert!(report.passed);
     }
 }

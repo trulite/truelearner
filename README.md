@@ -1141,6 +1141,39 @@ Recorded measurements are in
 [`results/s0_s1_search_value.md`](results/s0_s1_search_value.md) and
 [`results/s0_s1_search_value.csv`](results/s0_s1_search_value.csv).
 
+## Search S1.1: Compiled value recognition
+
+S1.1 freezes all 92 S0 values and preserves S1's exact candidate ordering.
+It compiles both structural recognition and value retrieval:
+
+- an incremental role-relative signature replaces repeated canonicalization,
+- direct lookup retrieves the frozen value,
+- a local version activates one of 92 signature cells and follows a fixed
+  arrow to one of three value cells.
+
+All 46,944 audited values agree with the original evaluator. There are no
+signature collisions, 9,795 convergent action paths produce path-independent
+signatures, and all evaluators select identical plans.
+
+```text
+Reachable total work
+
+neutral exhaustive         1,255,048
+current S0 evaluator       1,357,960
+compiled direct lookup     1,196,296
+local activation           1,236,712
+zero-cost ordering bound     630,472
+```
+
+Direct compilation repays its one-time work after two reachable planning
+problems; local activation repays after five. Unreachable search remains more
+expensive because complete proof of absence cannot skip candidates.
+
+Recorded measurements are in
+[`results/s1_1_compiled_search_value.md`](results/s1_1_compiled_search_value.md)
+and
+[`results/s1_1_compiled_search_value.csv`](results/s1_1_compiled_search_value.csv).
+
 ## Run
 
 ```bash
