@@ -1,0 +1,8 @@
+section,condition,representations,valued,mixed,context_sensitive,competent_seeds,total_seeds,correct,total,created,gate_evaluations,gate_admissions,recognition_work,value_updates,first_useful_episode,competence_episode,early_created_per_episode,late_created_per_episode,work
+P2.2a,representation,6,2,2,1,0,0,11,11,0,0,0,0,0,,,0,0,0
+P2.2b,always,0,0,0,0,8,8,512,512,696314,399297,399297,0,0,,Some(15103.625),0,0,1582909
+P2.2b,frozen,0,0,0,0,8,8,512,512,7509,52829,5001,0,0,,Some(1540.5),0,0,291093
+P2.2b,random,0,0,0,0,6,8,384,512,175241,940845,89015,0,0,,Some(19826.666666666668),0,0,2687732
+P2.2b,shuffled,0,0,0,0,0,8,0,512,1042689,1490413,613756,0,0,,None,0,0,9998737
+P2.2b,oracle,0,0,0,0,8,8,512,512,19,879,10,0,0,,Some(23.375),0,0,2245
+P2.2c,adaptive,6.0,1.9,0,0,8,8,512,512,28059,72097,16894,276640,16894,Some(420.875),Some(2200.5),46.2400,4.8315,523458

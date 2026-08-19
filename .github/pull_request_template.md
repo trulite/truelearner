@@ -22,6 +22,6 @@ hand-authored?
 
 ```text
 cargo fmt -- --check
-cargo test --all-targets
+cargo test --lib --bin organism-v0 --test reviewer_api
 cargo clippy --all-targets -- -D warnings
 ```

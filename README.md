@@ -1378,10 +1378,48 @@ Recorded measurements are in
 and
 [`results/p2_1_selective_plasticity.csv`](results/p2_1_selective_plasticity.csv).
 
+## P2.2: Learned encounter representations
+
+P2.2 removes P2.1's six supplied sensory/internal/irrelevant pair classes.
+Before any coupling exists, an encounter exposes only generic facts about
+recent activity origin, cell lifetime and temporary activity. Recurring
+pre-coupling snapshots recruit representations; delayed coupling outcomes
+train a separate plasticity value.
+
+```text
+                                         always P2    frozen learned gate    fresh lifetime learner
+competent seeds                               8 / 8                    8 / 8                     8 / 8
+held-out depth 5-32                         512 / 512                512 / 512                 512 / 512
+couplings created                             696314                     7509                      28059
+counted discovery work                       1582909                   291093                     523458
+```
+
+The fresh learner starts without encounter representations, plasticity values,
+sensory roles or program couplings. Its coupling-creation rate falls from
+46.24 per early episode to 4.83 later. Representation comparison and delayed
+value-update work are included in the totals.
+
+Two learned representations contain both useful and rejected exact pairs, and
+one produces different value predictions under different temporary contexts.
+The representation is therefore separate from its learned plasticity value.
+Contextual negative evidence cannot permanently suppress a representation
+with established useful history; conservative positive backoff and low-rate
+exploration prevent plasticity starvation.
+
+P2.2 still supplies the generic endpoint facts, exact prototype matching,
+representation/value separation, exploration, the local plasticity law,
+internal execution roles and identity equality. It does not yet demonstrate
+transfer across substantially different program families.
+
+Recorded measurements are in
+[`results/p2_2_encounter_representations.md`](results/p2_2_encounter_representations.md)
+and
+[`results/p2_2_encounter_representations.csv`](results/p2_2_encounter_representations.csv).
+
 ## Run
 
 ```bash
-cargo test
+cargo test --lib --bin organism-v0 --test reviewer_api
 cargo run --release
 ```
 

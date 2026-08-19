@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::OnceLock;
 
 use crate::binding::{BindingOutcome, IdentitySource, OpaqueId};
 
@@ -792,6 +793,14 @@ struct EncounterContext {
     left: PlasticUnit,
     right: PlasticUnit,
     signature: EncounterSignature,
+    snapshot: PreCouplingSnapshot,
+    value_context: EncounterValueContext,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct EncounterAdmission {
+    admit: bool,
+    exploratory: bool,
 }
 
 impl EncounterSignature {
@@ -802,6 +811,83 @@ impl EncounterSignature {
             first: features[0],
             second: features[1],
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct EndpointSnapshot {
+    persists_across_episodes: bool,
+    receives_external_activity: bool,
+    receives_queued_activity: bool,
+    is_temporary_activity: bool,
+}
+
+impl EndpointSnapshot {
+    fn from_unit(unit: PlasticUnit) -> Self {
+        match unit {
+            PlasticUnit::Program(Unit::Sensory(_)) => Self {
+                persists_across_episodes: true,
+                receives_external_activity: true,
+                receives_queued_activity: false,
+                is_temporary_activity: false,
+            },
+            PlasticUnit::Program(Unit::Internal(_)) => Self {
+                persists_across_episodes: true,
+                receives_external_activity: false,
+                receives_queued_activity: true,
+                is_temporary_activity: false,
+            },
+            PlasticUnit::Irrelevant(_) => Self {
+                persists_across_episodes: false,
+                receives_external_activity: false,
+                receives_queued_activity: false,
+                is_temporary_activity: true,
+            },
+        }
+    }
+
+    fn code(self) -> u8 {
+        u8::from(self.persists_across_episodes)
+            | (u8::from(self.receives_external_activity) << 1)
+            | (u8::from(self.receives_queued_activity) << 2)
+            | (u8::from(self.is_temporary_activity) << 3)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct PreCouplingSnapshot {
+    first: EndpointSnapshot,
+    second: EndpointSnapshot,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct EndpointValueContext {
+    occupied_slots: u8,
+    has_consolidated_outgoing: bool,
+    has_consolidated_incoming: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct EncounterValueContext {
+    first: EndpointValueContext,
+    second: EndpointValueContext,
+}
+
+impl PreCouplingSnapshot {
+    fn between(left: PlasticUnit, right: PlasticUnit) -> Self {
+        let mut endpoints = [
+            EndpointSnapshot::from_unit(left),
+            EndpointSnapshot::from_unit(right),
+        ];
+        endpoints.sort_unstable();
+        Self {
+            first: endpoints[0],
+            second: endpoints[1],
+        }
+    }
+
+    fn code(self) -> u16 {
+        u16::from(self.first.code()) | (u16::from(self.second.code()) << 8)
     }
 }
 
@@ -823,6 +909,23 @@ struct PlasticArrow {
     consolidated: bool,
     probation_left: usize,
     last_touched: usize,
+    opportunity: Option<usize>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PlasticityOutcome {
+    snapshot: PreCouplingSnapshot,
+    context: EncounterValueContext,
+    exploratory: bool,
+    useful: bool,
+}
+
+#[derive(Clone, Debug)]
+struct PlasticOpportunity {
+    snapshot: PreCouplingSnapshot,
+    context: EncounterValueContext,
+    exploratory: bool,
+    arrows: HashSet<usize>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -854,27 +957,39 @@ struct LocalPlasticity {
     arrows: HashMap<usize, PlasticArrow>,
     slots: HashMap<PlasticUnit, Vec<usize>>,
     next_id: usize,
+    next_opportunity_id: usize,
     slot_count: usize,
     episode: usize,
     rng: DeterministicRng,
     eligibility: VecDeque<EligibilityEntry>,
     ever_used: HashSet<usize>,
     encountered_signatures: HashMap<EncounterSignature, usize>,
+    track_plasticity_outcomes: bool,
+    opportunities: HashMap<usize, PlasticOpportunity>,
+    pending_outcomes: Vec<PlasticityOutcome>,
     metrics: PlasticityMetrics,
 }
 
 impl LocalPlasticity {
     fn new(seed: u64, slot_count: usize) -> Self {
+        Self::with_outcome_tracking(seed, slot_count, false)
+    }
+
+    fn with_outcome_tracking(seed: u64, slot_count: usize, track_outcomes: bool) -> Self {
         Self {
             arrows: HashMap::new(),
             slots: HashMap::new(),
             next_id: 0,
+            next_opportunity_id: 0,
             slot_count,
             episode: 0,
             rng: DeterministicRng::new(seed),
             eligibility: VecDeque::new(),
             ever_used: HashSet::new(),
             encountered_signatures: HashMap::new(),
+            track_plasticity_outcomes: track_outcomes,
+            opportunities: HashMap::new(),
+            pending_outcomes: Vec::new(),
             metrics: PlasticityMetrics::default(),
         }
     }
@@ -888,6 +1003,20 @@ impl LocalPlasticity {
         sensory_cells: &[usize],
         active_irrelevant: usize,
         mut admit: impl FnMut(EncounterContext) -> bool,
+    ) {
+        self.expose_activity_with_admission_gate(sensory_cells, active_irrelevant, |context| {
+            EncounterAdmission {
+                admit: admit(context),
+                exploratory: false,
+            }
+        });
+    }
+
+    fn expose_activity_with_admission_gate(
+        &mut self,
+        sensory_cells: &[usize],
+        active_irrelevant: usize,
+        mut decide: impl FnMut(EncounterContext) -> EncounterAdmission,
     ) {
         self.episode += 1;
         let mut active: Vec<_> = sensory_cells
@@ -923,6 +1052,8 @@ impl LocalPlasticity {
                 let left = active[source_index];
                 let right = active[target_index];
                 let signature = EncounterSignature::between(left, right);
+                let snapshot = PreCouplingSnapshot::between(left, right);
+                let value_context = self.value_context(left, right);
                 *self.encountered_signatures.entry(signature).or_default() += 1;
                 let needs_growth = self.find_arrow(left, right).is_none()
                     || self.find_arrow(right, left).is_none();
@@ -930,14 +1061,22 @@ impl LocalPlasticity {
                     continue;
                 }
                 self.metrics.gate_evaluations += 1;
-                if admit(EncounterContext {
+                let admission = decide(EncounterContext {
                     left,
                     right,
                     signature,
-                }) {
+                    snapshot,
+                    value_context,
+                });
+                if admission.admit {
                     self.metrics.gate_admissions += 1;
-                    self.open_direction(left, right);
-                    self.open_direction(right, left);
+                    self.open_opportunity(
+                        left,
+                        right,
+                        snapshot,
+                        value_context,
+                        admission.exploratory,
+                    );
                 }
             }
         }
@@ -972,12 +1111,84 @@ impl LocalPlasticity {
         }
     }
 
-    fn open_direction(&mut self, from: PlasticUnit, to: PlasticUnit) {
-        if from == to || self.find_arrow(from, to).is_some() {
+    fn open_opportunity(
+        &mut self,
+        left: PlasticUnit,
+        right: PlasticUnit,
+        snapshot: PreCouplingSnapshot,
+        context: EncounterValueContext,
+        exploratory: bool,
+    ) {
+        if !self.track_plasticity_outcomes {
+            self.open_direction(left, right, None);
+            self.open_direction(right, left, None);
             return;
         }
+        let opportunity = self.next_opportunity_id;
+        self.next_opportunity_id += 1;
+        self.opportunities.insert(
+            opportunity,
+            PlasticOpportunity {
+                snapshot,
+                context,
+                exploratory,
+                arrows: HashSet::new(),
+            },
+        );
+        let first = self.open_direction(left, right, Some(opportunity));
+        let second = self.open_direction(right, left, Some(opportunity));
+        if first.is_none() && second.is_none() {
+            self.opportunities.remove(&opportunity);
+        }
+    }
+
+    fn endpoint_value_context(&self, unit: PlasticUnit) -> EndpointValueContext {
+        let occupied_slots = self.slots.get(&unit).map_or(0, Vec::len).min(2) as u8;
+        let has_consolidated_outgoing = self.slots.get(&unit).is_some_and(|slots| {
+            slots
+                .iter()
+                .any(|id| self.arrows.get(id).is_some_and(|arrow| arrow.consolidated))
+        });
+        let has_consolidated_incoming = self
+            .arrows
+            .values()
+            .any(|arrow| arrow.to == unit && arrow.consolidated);
+        EndpointValueContext {
+            occupied_slots,
+            has_consolidated_outgoing,
+            has_consolidated_incoming,
+        }
+    }
+
+    fn value_context(&self, left: PlasticUnit, right: PlasticUnit) -> EncounterValueContext {
+        let mut endpoints = [
+            (
+                EndpointSnapshot::from_unit(left),
+                self.endpoint_value_context(left),
+            ),
+            (
+                EndpointSnapshot::from_unit(right),
+                self.endpoint_value_context(right),
+            ),
+        ];
+        endpoints.sort_unstable();
+        EncounterValueContext {
+            first: endpoints[0].1,
+            second: endpoints[1].1,
+        }
+    }
+
+    fn open_direction(
+        &mut self,
+        from: PlasticUnit,
+        to: PlasticUnit,
+        opportunity: Option<usize>,
+    ) -> Option<usize> {
+        if from == to || self.find_arrow(from, to).is_some() {
+            return None;
+        }
         if self.slot_count == 0 {
-            return;
+            return None;
         }
         let occupied = self.slots.get(&from).map_or(0, Vec::len);
         if occupied >= self.slot_count {
@@ -994,9 +1205,7 @@ impl LocalPlasticity {
                     })
                     .map(|arrow| arrow.id)
             });
-            let Some(replace) = replace else {
-                return;
-            };
+            let replace = replace?;
             self.release(replace);
         }
         let id = self.next_id;
@@ -1012,10 +1221,17 @@ impl LocalPlasticity {
                 consolidated: false,
                 probation_left: P2_PROBATION_EPISODES,
                 last_touched: self.episode,
+                opportunity,
             },
         );
         self.slots.entry(from).or_default().push(id);
+        if let Some(opportunity) = opportunity {
+            if let Some(trace) = self.opportunities.get_mut(&opportunity) {
+                trace.arrows.insert(id);
+            }
+        }
         self.metrics.directional_couplings_created += 1;
+        Some(id)
     }
 
     fn release(&mut self, id: usize) {
@@ -1027,6 +1243,24 @@ impl LocalPlasticity {
         }
         self.eligibility.retain(|entry| entry.arrow != id);
         self.metrics.directional_couplings_released += 1;
+        if let Some(opportunity) = arrow.opportunity {
+            let mut rejected = None;
+            if let Some(trace) = self.opportunities.get_mut(&opportunity) {
+                trace.arrows.remove(&id);
+                if trace.arrows.is_empty() {
+                    rejected = Some((trace.snapshot, trace.context, trace.exploratory));
+                }
+            }
+            if let Some((snapshot, context, exploratory)) = rejected {
+                self.opportunities.remove(&opportunity);
+                self.pending_outcomes.push(PlasticityOutcome {
+                    snapshot,
+                    context,
+                    exploratory,
+                    useful: false,
+                });
+            }
+        }
     }
 
     fn find_arrow(&self, from: PlasticUnit, to: PlasticUnit) -> Option<usize> {
@@ -1140,11 +1374,17 @@ impl LocalPlasticity {
         let entries: Vec<_> = self.eligibility.drain(..).collect();
         let mut consolidate = Vec::new();
         let mut release = Vec::new();
+        let mut useful_opportunities = Vec::new();
         for entry in entries {
             let Some(arrow) = self.arrows.get_mut(&entry.arrow) else {
                 continue;
             };
             self.metrics.eligibility_updates += 1;
+            if success {
+                if let Some(opportunity) = arrow.opportunity {
+                    useful_opportunities.push(opportunity);
+                }
+            }
             if !arrow.consolidated {
                 arrow.strength += if success {
                     SUCCESS_CREDIT
@@ -1158,6 +1398,11 @@ impl LocalPlasticity {
                 release.push(arrow.id);
             }
         }
+        useful_opportunities.sort_unstable();
+        useful_opportunities.dedup();
+        for opportunity in useful_opportunities {
+            self.report_useful(opportunity);
+        }
         for id in release {
             self.release(id);
         }
@@ -1168,6 +1413,27 @@ impl LocalPlasticity {
             self.release_unconsolidated();
         }
         self.update_peak();
+    }
+
+    fn report_useful(&mut self, opportunity: usize) {
+        let Some(trace) = self.opportunities.remove(&opportunity) else {
+            return;
+        };
+        for arrow in &trace.arrows {
+            if let Some(arrow) = self.arrows.get_mut(arrow) {
+                arrow.opportunity = None;
+            }
+        }
+        self.pending_outcomes.push(PlasticityOutcome {
+            snapshot: trace.snapshot,
+            context: trace.context,
+            exploratory: trace.exploratory,
+            useful: true,
+        });
+    }
+
+    fn drain_plasticity_outcomes(&mut self) -> Vec<PlasticityOutcome> {
+        std::mem::take(&mut self.pending_outcomes)
     }
 
     fn consolidate(&mut self, id: usize) {
@@ -1935,6 +2201,11 @@ fn run_p21_always_seed(seed: usize) -> P21SeedResult {
     ))
 }
 
+fn cached_p21_always_results() -> &'static [P21SeedResult] {
+    static RESULTS: OnceLock<Vec<P21SeedResult>> = OnceLock::new();
+    RESULTS.get_or_init(|| (0..P21_EVALUATION_SEEDS).map(run_p21_always_seed).collect())
+}
+
 fn run_p21_model_seed(
     seed: usize,
     model: &PlasticityValueModel,
@@ -2125,13 +2396,13 @@ pub fn run_p2_1_experiment() -> P21Report {
         );
     }
 
-    let always_results: Vec<_> = (0..P21_EVALUATION_SEEDS).map(run_p21_always_seed).collect();
+    let always_results = cached_p21_always_results();
     let mut useful_recalled = 0;
     let mut useful_total = 0;
     let mut rejected_correctly = 0;
     let mut rejected_total = 0;
     let mut shuffled_useful_recalled = 0;
-    for result in &always_results {
+    for result in always_results {
         for signature in &result.useful_signatures {
             useful_total += 1;
             useful_recalled += usize::from(model.predicts_useful(*signature));
@@ -2188,7 +2459,7 @@ pub fn run_p2_1_experiment() -> P21Report {
         .map(|seed| run_p21_oracle_seed(seed, &oracle_pairs))
         .collect();
 
-    let always = summarize_p21_condition(&always_results, false);
+    let always = summarize_p21_condition(always_results, false);
     let learned = summarize_p21_condition(&learned_results, true);
     let random = summarize_p21_condition(&random_results, true);
     let shuffled = summarize_p21_condition(&shuffled_results, true);
@@ -2250,6 +2521,945 @@ pub fn print_p2_1_report(report: &P21Report) {
         report.learned.average_work,
         report.coupling_reduction * 100.0,
         report.work_reduction * 100.0
+    );
+    println!(
+        "  controls: random competent={}/{}, created={}; shuffled competent={}/{}, created={}; oracle competent={}/{}, created={}; passed={}",
+        report.random.competent_seeds,
+        report.random.total_seeds,
+        report.random.average_created,
+        report.shuffled.competent_seeds,
+        report.shuffled.total_seeds,
+        report.shuffled.average_created,
+        report.oracle.competent_seeds,
+        report.oracle.total_seeds,
+        report.oracle.average_created,
+        report.passed
+    );
+}
+
+const P22_REPRESENTATION_THRESHOLD: usize = 4;
+const P22_EXPLORATION_DIVISOR: u64 = 4_096;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct EncounterPrototype {
+    id: usize,
+    snapshot: PreCouplingSnapshot,
+    observations: usize,
+}
+
+#[derive(Clone, Debug, Default)]
+struct EncounterEncoder {
+    prototypes: Vec<EncounterPrototype>,
+}
+
+impl EncounterEncoder {
+    fn observe(&mut self, snapshot: PreCouplingSnapshot) -> usize {
+        self.observe_with_work(snapshot).0
+    }
+
+    fn observe_with_work(&mut self, snapshot: PreCouplingSnapshot) -> (usize, usize) {
+        let mut comparisons = 0;
+        for prototype in &mut self.prototypes {
+            comparisons += 1;
+            if prototype.snapshot == snapshot {
+                prototype.observations += 1;
+                return (prototype.id, comparisons);
+            }
+        }
+        let id = self.prototypes.len();
+        self.prototypes.push(EncounterPrototype {
+            id,
+            snapshot,
+            observations: 1,
+        });
+        (id, comparisons + 1)
+    }
+
+    fn encode(&self, snapshot: PreCouplingSnapshot) -> Option<usize> {
+        self.encode_with_work(snapshot).0
+    }
+
+    fn encode_with_work(&self, snapshot: PreCouplingSnapshot) -> (Option<usize>, usize) {
+        let mut comparisons = 0;
+        for prototype in &self.prototypes {
+            comparisons += 1;
+            if prototype.snapshot == snapshot
+                && prototype.observations >= P22_REPRESENTATION_THRESHOLD
+            {
+                return (Some(prototype.id), comparisons);
+            }
+        }
+        (None, comparisons)
+    }
+
+    fn fingerprint(&self) -> u64 {
+        let mut prototypes = self.prototypes.clone();
+        prototypes.sort_by_key(|prototype| prototype.snapshot);
+        let mut hash = 0xcbf2_9ce4_8422_2325u64;
+        for prototype in prototypes {
+            fingerprint_mix(&mut hash, prototype.snapshot.code() as u64);
+            fingerprint_mix(&mut hash, prototype.observations as u64);
+        }
+        hash
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct EncounterValueEvidence {
+    useful: usize,
+    rejected: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+struct EncounterValueKey {
+    representation: usize,
+    context: EncounterValueContext,
+}
+
+#[derive(Clone, Debug, Default)]
+struct EncounterValueModel {
+    aggregate: HashMap<usize, EncounterValueEvidence>,
+    contextual: HashMap<EncounterValueKey, EncounterValueEvidence>,
+}
+
+impl EncounterValueModel {
+    fn record(evidence: &mut EncounterValueEvidence, useful: bool) {
+        if useful {
+            evidence.useful += 1;
+        } else {
+            evidence.rejected += 1;
+        }
+    }
+
+    fn observe(&mut self, representation: usize, context: EncounterValueContext, useful: bool) {
+        Self::record(self.aggregate.entry(representation).or_default(), useful);
+        Self::record(
+            self.contextual
+                .entry(EncounterValueKey {
+                    representation,
+                    context,
+                })
+                .or_default(),
+            useful,
+        );
+    }
+
+    fn predicts_representation_useful(&self, representation: usize) -> bool {
+        self.aggregate
+            .get(&representation)
+            .is_some_and(|evidence| evidence.useful >= 2)
+    }
+
+    fn predicts_useful(&self, representation: usize, context: EncounterValueContext) -> bool {
+        if let Some(evidence) = self.contextual.get(&EncounterValueKey {
+            representation,
+            context,
+        }) {
+            if evidence.useful >= 2 {
+                return true;
+            }
+            if evidence.rejected >= 2 && evidence.useful == 0 {
+                return false;
+            }
+        }
+        self.predicts_representation_useful(representation)
+    }
+
+    fn admits_plasticity(&self, representation: usize, context: EncounterValueContext) -> bool {
+        self.predicts_representation_useful(representation)
+            || self.predicts_useful(representation, context)
+    }
+
+    fn has_useful_value(&self) -> bool {
+        self.aggregate
+            .keys()
+            .copied()
+            .any(|representation| self.predicts_representation_useful(representation))
+    }
+
+    fn useful_representations(&self) -> Vec<usize> {
+        let mut representations: Vec<_> = self
+            .aggregate
+            .keys()
+            .copied()
+            .filter(|representation| self.predicts_representation_useful(*representation))
+            .collect();
+        representations.sort_unstable();
+        representations
+    }
+
+    fn shuffled(&self, representation_count: usize) -> Self {
+        let useful = self.useful_representations();
+        let useful_set: HashSet<_> = useful.iter().copied().collect();
+        let replacements: HashSet<_> = (0..representation_count)
+            .filter(|representation| !useful_set.contains(representation))
+            .take(useful.len())
+            .collect();
+        let mut shuffled = Self::default();
+        for representation in 0..representation_count {
+            if replacements.contains(&representation) {
+                shuffled.aggregate.insert(
+                    representation,
+                    EncounterValueEvidence {
+                        useful: P21_TRAINING_SEEDS,
+                        rejected: 0,
+                    },
+                );
+            } else {
+                shuffled.aggregate.insert(
+                    representation,
+                    EncounterValueEvidence {
+                        useful: 0,
+                        rejected: P21_TRAINING_SEEDS,
+                    },
+                );
+            }
+        }
+        for (key, evidence) in &self.contextual {
+            let replacement = if useful_set.contains(&key.representation) {
+                (0..representation_count)
+                    .find(|representation| replacements.contains(representation))
+                    .unwrap_or(key.representation)
+            } else if replacements.contains(&key.representation) {
+                useful.first().copied().unwrap_or(key.representation)
+            } else {
+                key.representation
+            };
+            shuffled.contextual.insert(
+                EncounterValueKey {
+                    representation: replacement,
+                    context: key.context,
+                },
+                *evidence,
+            );
+        }
+        shuffled
+    }
+
+    fn fingerprint(&self) -> u64 {
+        let mut evidence: Vec<_> = self.aggregate.iter().collect();
+        evidence.sort_by_key(|(representation, _)| **representation);
+        let mut hash = 0xcbf2_9ce4_8422_2325u64;
+        for (representation, evidence) in evidence {
+            fingerprint_mix(&mut hash, *representation as u64);
+            fingerprint_mix(&mut hash, evidence.useful as u64);
+            fingerprint_mix(&mut hash, evidence.rejected as u64);
+        }
+        let mut contextual: Vec<_> = self.contextual.iter().collect();
+        contextual.sort_by_key(|(key, _)| **key);
+        for (key, evidence) in contextual {
+            fingerprint_mix(&mut hash, key.representation as u64);
+            fingerprint_mix(&mut hash, key.context.first.occupied_slots as u64);
+            fingerprint_mix(
+                &mut hash,
+                key.context.first.has_consolidated_outgoing as u64,
+            );
+            fingerprint_mix(
+                &mut hash,
+                key.context.first.has_consolidated_incoming as u64,
+            );
+            fingerprint_mix(&mut hash, key.context.second.occupied_slots as u64);
+            fingerprint_mix(
+                &mut hash,
+                key.context.second.has_consolidated_outgoing as u64,
+            );
+            fingerprint_mix(
+                &mut hash,
+                key.context.second.has_consolidated_incoming as u64,
+            );
+            fingerprint_mix(&mut hash, evidence.useful as u64);
+            fingerprint_mix(&mut hash, evidence.rejected as u64);
+        }
+        hash
+    }
+}
+
+#[derive(Clone, Debug)]
+struct EncounterObservation {
+    pair: (PlasticUnit, PlasticUnit),
+    snapshot: PreCouplingSnapshot,
+    context: EncounterValueContext,
+}
+
+#[derive(Clone, Debug)]
+struct EncounterTrainingRun {
+    observations: Vec<EncounterObservation>,
+    useful_pairs: HashSet<(PlasticUnit, PlasticUnit)>,
+}
+
+fn collect_encounter_training_run(seed: usize) -> EncounterTrainingRun {
+    let mut observed = HashSet::new();
+    let mut observations = Vec::new();
+    let mut gate = |context: EncounterContext| {
+        let key = (
+            ordered_pair(context.left, context.right),
+            context.snapshot,
+            context.value_context,
+        );
+        if observed.insert(key) {
+            observations.push(EncounterObservation {
+                pair: key.0,
+                snapshot: key.1,
+                context: key.2,
+            });
+        }
+        true
+    };
+    let result = run_p2_integrated_seed_with_gate(
+        6_000 + seed,
+        FeedbackMode::Real,
+        P2_PRIMARY_DISTRACTORS,
+        P2_PRIMARY_SLOTS,
+        &mut gate,
+    );
+    assert!(result.competent);
+    EncounterTrainingRun {
+        observations,
+        useful_pairs: result.network.useful_pairs(),
+    }
+}
+
+fn train_encounter_model() -> (
+    EncounterEncoder,
+    EncounterValueModel,
+    usize,
+    Vec<EncounterTrainingRun>,
+) {
+    let runs: Vec<_> = (0..P21_TRAINING_SEEDS)
+        .map(collect_encounter_training_run)
+        .collect();
+    let mut encoder = EncounterEncoder::default();
+    let mut snapshots: Vec<_> = runs
+        .iter()
+        .flat_map(|run| {
+            run.observations
+                .iter()
+                .map(|observation| observation.snapshot)
+        })
+        .collect();
+    snapshots.sort_unstable();
+    for snapshot in snapshots {
+        encoder.observe(snapshot);
+    }
+    let mut value = EncounterValueModel::default();
+    let mut mixed_representations: HashSet<usize> = HashSet::new();
+    for run in &runs {
+        let mut encountered = HashSet::new();
+        let mut useful = HashSet::new();
+        let mut rejected = HashSet::new();
+        for observation in &run.observations {
+            let representation = encoder.encode(observation.snapshot).unwrap();
+            encountered.insert(representation);
+            if run.useful_pairs.contains(&observation.pair) {
+                useful.insert(representation);
+            } else {
+                rejected.insert(representation);
+            }
+        }
+        mixed_representations.extend(useful.intersection(&rejected).copied());
+        for representation in encountered {
+            let contexts: HashSet<_> = run
+                .observations
+                .iter()
+                .filter(|observation| encoder.encode(observation.snapshot) == Some(representation))
+                .map(|observation| observation.context)
+                .collect();
+            for context in contexts {
+                let context_useful = run.observations.iter().any(|observation| {
+                    encoder.encode(observation.snapshot) == Some(representation)
+                        && observation.context == context
+                        && run.useful_pairs.contains(&observation.pair)
+                });
+                value.observe(representation, context, context_useful);
+            }
+        }
+    }
+    (encoder, value, mixed_representations.len(), runs)
+}
+
+fn run_p22_frozen_seed(
+    seed: usize,
+    encoder: &EncounterEncoder,
+    value: &EncounterValueModel,
+    exploration_divisor: u64,
+) -> (P21SeedResult, usize) {
+    let mut exploration = DeterministicRng::new(0xf100 + seed as u64);
+    let mut recognition_work = 0;
+    let mut gate = |context: EncounterContext| {
+        let (representation, comparisons) = encoder.encode_with_work(context.snapshot);
+        recognition_work += comparisons;
+        representation.is_some_and(|representation| {
+            value.admits_plasticity(representation, context.value_context)
+        }) || exploration.next_u64().is_multiple_of(exploration_divisor)
+    };
+    let result = summarize_p21_seed(run_p2_integrated_seed_with_gate(
+        7_000 + seed,
+        FeedbackMode::Real,
+        P2_PRIMARY_DISTRACTORS,
+        P2_PRIMARY_SLOTS,
+        &mut gate,
+    ));
+    (result, recognition_work)
+}
+
+#[derive(Clone, Debug)]
+struct AdaptiveEncounterGate {
+    encoder: EncounterEncoder,
+    value: EncounterValueModel,
+    exploration: DeterministicRng,
+    gate_rejections: usize,
+    exploration_admissions: usize,
+    useful_from_exploration: usize,
+    first_useful_episode: Option<usize>,
+    representation_work: usize,
+    value_updates: usize,
+}
+
+impl AdaptiveEncounterGate {
+    fn new(seed: u64) -> Self {
+        Self {
+            encoder: EncounterEncoder::default(),
+            value: EncounterValueModel::default(),
+            exploration: DeterministicRng::new(seed),
+            gate_rejections: 0,
+            exploration_admissions: 0,
+            useful_from_exploration: 0,
+            first_useful_episode: None,
+            representation_work: 0,
+            value_updates: 0,
+        }
+    }
+
+    fn decide(
+        &mut self,
+        snapshot: PreCouplingSnapshot,
+        context: EncounterValueContext,
+    ) -> EncounterAdmission {
+        let (representation, work) = self.encoder.observe_with_work(snapshot);
+        self.representation_work += work;
+        if !self.value.has_useful_value() {
+            return EncounterAdmission {
+                admit: true,
+                exploratory: false,
+            };
+        }
+        if self.value.admits_plasticity(representation, context) {
+            return EncounterAdmission {
+                admit: true,
+                exploratory: false,
+            };
+        }
+        if self
+            .exploration
+            .next_u64()
+            .is_multiple_of(P22_EXPLORATION_DIVISOR)
+        {
+            self.exploration_admissions += 1;
+            return EncounterAdmission {
+                admit: true,
+                exploratory: true,
+            };
+        }
+        self.gate_rejections += 1;
+        EncounterAdmission {
+            admit: false,
+            exploratory: false,
+        }
+    }
+
+    fn observe_outcomes(&mut self, episode: usize, outcomes: Vec<PlasticityOutcome>) {
+        for outcome in outcomes {
+            let (representation, work) = self.encoder.observe_with_work(outcome.snapshot);
+            self.representation_work += work;
+            if outcome.useful && outcome.exploratory {
+                self.useful_from_exploration += 1;
+            }
+            self.value
+                .observe(representation, outcome.context, outcome.useful);
+            self.value_updates += 1;
+        }
+        if self.value.has_useful_value() && self.first_useful_episode.is_none() {
+            self.first_useful_episode = Some(episode);
+        }
+    }
+
+    fn fingerprint(&self) -> u64 {
+        hash_words(&[self.encoder.fingerprint(), self.value.fingerprint()])
+    }
+}
+
+#[derive(Clone, Debug)]
+struct P22AdaptiveSeed {
+    seed: P21SeedResult,
+    representations: usize,
+    valued_representations: usize,
+    first_useful_episode: Option<usize>,
+    created_at_first_useful: usize,
+    gate_rejections: usize,
+    exploration_admissions: usize,
+    useful_from_exploration: usize,
+    encoder_value_fingerprint_unchanged: bool,
+    representation_work: usize,
+    value_updates: usize,
+}
+
+fn run_p22_adaptive_seed(seed: usize) -> P22AdaptiveSeed {
+    let mut roles = SensoryRoleLearner::default();
+    let mut network =
+        LocalPlasticity::with_outcome_tracking(0xf200 + seed as u64, P2_PRIMARY_SLOTS, true);
+    let mut gate = AdaptiveEncounterGate::new(0xf300 + seed as u64);
+    let mut ids = IdentitySource::new(0xf400 + seed as u64);
+    let mut rng = DeterministicRng::new(0xf500 + seed as u64);
+    let mut first_success = None;
+    let mut competence = None;
+    let mut created_at_first_useful = 0;
+
+    for episode_index in 1..=P2_INTEGRATED_BUDGET {
+        let depth = TRAIN_DEPTHS[(episode_index - 1) % TRAIN_DEPTHS.len()];
+        let episode = chain_episode(&mut ids, &mut rng, depth, 12);
+        let raw = encode_episode(
+            &episode,
+            EncodingFamily::Training,
+            0xf600 + seed as u64 * 100_000 + episode_index as u64,
+        );
+        roles.observe(&raw);
+        let Some(translated) = roles.translate(&raw) else {
+            continue;
+        };
+        let cells: Vec<_> = roles.patterns.iter().map(|pattern| pattern.cell).collect();
+        network.expose_activity_with_admission_gate(&cells, P2_PRIMARY_DISTRACTORS, |context| {
+            gate.decide(context.snapshot, context.value_context)
+        });
+        if let Some(choices) = network.choices() {
+            let run = execute_program(&translated, choices);
+            let success =
+                run.outcome == episode.correct && !run.activity_limit_hit && run.explicit_answer;
+            if success && first_success.is_none() {
+                first_success = Some(episode_index);
+            }
+            network.register_used(&run.used_arrows);
+            network.terminal_feedback(success);
+        }
+        let before_useful = gate.first_useful_episode.is_none();
+        gate.observe_outcomes(episode_index, network.drain_plasticity_outcomes());
+        if before_useful && gate.first_useful_episode.is_some() {
+            created_at_first_useful = network.metrics.directional_couplings_created;
+        }
+        if competence.is_none() && network.complete() && roles.consolidated_cells().len() == 3 {
+            competence = Some(episode_index);
+            break;
+        }
+    }
+
+    let learning_fingerprint = gate.fingerprint();
+    let fingerprint_before = hash_words(&[
+        roles.fingerprint(),
+        network.fingerprint(),
+        learning_fingerprint,
+    ]);
+    let mut held_out_correct = 0;
+    let mut held_out_total = 0;
+    let mut explicit_answers = true;
+    let mut queues_empty = true;
+    if let Some(choices) = network.evaluated_choices() {
+        let mut heldout_ids = IdentitySource::new(0xf700 + seed as u64);
+        let mut heldout_rng = DeterministicRng::new(0xf800 + seed as u64);
+        for depth in HELD_OUT_DEPTHS {
+            for episode_index in 0..16 {
+                let episode = chain_episode(&mut heldout_ids, &mut heldout_rng, depth, depth + 8);
+                let raw = encode_episode(
+                    &episode,
+                    EncodingFamily::Transferred,
+                    0xf900 + seed as u64 * 10_000 + depth as u64 * 100 + episode_index,
+                );
+                let translated = roles.translate(&raw).unwrap();
+                let run = execute_program(&translated, choices);
+                held_out_correct += usize::from(run.outcome == episode.correct);
+                held_out_total += 1;
+                explicit_answers &= run.explicit_answer;
+                queues_empty &= run.queue_empty && !run.activity_limit_hit;
+            }
+        }
+    } else {
+        held_out_total = HELD_OUT_DEPTHS.len() * 16;
+        explicit_answers = false;
+        queues_empty = false;
+    }
+    let fingerprint_after = hash_words(&[
+        roles.fingerprint(),
+        network.fingerprint(),
+        gate.fingerprint(),
+    ]);
+    network.update_peak();
+    let result = P2IntegratedSeed {
+        competent: held_out_correct == held_out_total,
+        held_out_correct,
+        held_out_total,
+        roles: roles.consolidated_cells().len(),
+        surviving_program: network.consolidated_count(),
+        fingerprint_unchanged: fingerprint_before == fingerprint_after,
+        explicit_answers,
+        queues_empty,
+        first_success_episode: first_success,
+        competence_episode: competence,
+        metrics: network.metrics.clone(),
+        network,
+    };
+    P22AdaptiveSeed {
+        seed: summarize_p21_seed(result),
+        representations: gate.encoder.prototypes.len(),
+        valued_representations: gate.value.useful_representations().len(),
+        first_useful_episode: gate.first_useful_episode,
+        created_at_first_useful,
+        gate_rejections: gate.gate_rejections,
+        exploration_admissions: gate.exploration_admissions,
+        useful_from_exploration: gate.useful_from_exploration,
+        encoder_value_fingerprint_unchanged: fingerprint_before == fingerprint_after,
+        representation_work: gate.representation_work,
+        value_updates: gate.value_updates,
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct P22RepresentationReport {
+    pub representations: usize,
+    pub valued_representations: usize,
+    pub mixed_outcome_representations: usize,
+    pub context_sensitive_representations: usize,
+    pub useful_recalled: usize,
+    pub useful_total: usize,
+    pub rejected_correctly: usize,
+    pub rejected_total: usize,
+    pub shuffled_useful_recalled: usize,
+    pub frozen: bool,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct P22AdaptiveReport {
+    pub condition: P21ConditionReport,
+    pub average_representations: f64,
+    pub average_valued_representations: f64,
+    pub average_first_useful_episode: Option<f64>,
+    pub average_created_at_first_useful: usize,
+    pub average_gate_rejections: usize,
+    pub average_exploration_admissions: usize,
+    pub useful_from_exploration: usize,
+    pub average_representation_work: usize,
+    pub average_value_updates: usize,
+    pub early_created_per_episode: f64,
+    pub late_created_per_episode: f64,
+    pub fingerprints_unchanged: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct P22Report {
+    pub representation: P22RepresentationReport,
+    pub always: P21ConditionReport,
+    pub frozen_gate: P21ConditionReport,
+    pub random: P21ConditionReport,
+    pub shuffled: P21ConditionReport,
+    pub oracle: P21ConditionReport,
+    pub adaptive: P22AdaptiveReport,
+    pub frozen_coupling_reduction: f64,
+    pub frozen_work_reduction: f64,
+    pub adaptive_coupling_reduction: f64,
+    pub adaptive_work_reduction: f64,
+    pub passed: bool,
+}
+
+pub fn run_p2_2_experiment() -> P22Report {
+    let (encoder, value, mixed_outcomes, training_runs) = train_encounter_model();
+    let oracle_pairs: HashSet<_> = training_runs
+        .iter()
+        .flat_map(|run| run.useful_pairs.iter().copied())
+        .collect();
+    let encoder_before = encoder.fingerprint();
+    let value_before = value.fingerprint();
+    let shuffled_value = value.shuffled(encoder.prototypes.len());
+
+    let always_results = cached_p21_always_results();
+    let mut useful_recalled = 0;
+    let mut useful_total = 0;
+    let mut rejected_correctly = 0;
+    let mut rejected_total = 0;
+    let mut shuffled_useful_recalled = 0;
+    let mut predictions_by_representation: HashMap<usize, HashSet<bool>> = HashMap::new();
+    for run in &training_runs {
+        let mut encountered_keys = HashSet::new();
+        let mut useful_keys = HashSet::new();
+        for observation in &run.observations {
+            let representation = encoder.encode(observation.snapshot).unwrap();
+            let key = EncounterValueKey {
+                representation,
+                context: observation.context,
+            };
+            encountered_keys.insert(key);
+            if run.useful_pairs.contains(&observation.pair) {
+                useful_keys.insert(key);
+            }
+        }
+        for key in &useful_keys {
+            useful_total += 1;
+            let prediction = value.predicts_useful(key.representation, key.context);
+            predictions_by_representation
+                .entry(key.representation)
+                .or_default()
+                .insert(prediction);
+            useful_recalled += usize::from(prediction);
+            shuffled_useful_recalled +=
+                usize::from(shuffled_value.predicts_useful(key.representation, key.context));
+        }
+        for key in encountered_keys.difference(&useful_keys) {
+            rejected_total += 1;
+            let prediction = value.predicts_useful(key.representation, key.context);
+            predictions_by_representation
+                .entry(key.representation)
+                .or_default()
+                .insert(prediction);
+            rejected_correctly += usize::from(!prediction);
+        }
+    }
+    let context_sensitive_representations = predictions_by_representation
+        .values()
+        .filter(|predictions| predictions.len() > 1)
+        .count();
+    let representation = P22RepresentationReport {
+        representations: encoder.prototypes.len(),
+        valued_representations: value.useful_representations().len(),
+        mixed_outcome_representations: mixed_outcomes,
+        context_sensitive_representations,
+        useful_recalled,
+        useful_total,
+        rejected_correctly,
+        rejected_total,
+        shuffled_useful_recalled,
+        frozen: encoder_before == encoder.fingerprint() && value_before == value.fingerprint(),
+        passed: encoder.prototypes.len() > 1
+            && mixed_outcomes > 0
+            && context_sensitive_representations > 0
+            && useful_recalled == useful_total
+            && rejected_correctly * 4 >= rejected_total * 3
+            && shuffled_useful_recalled < useful_total
+            && encoder_before == encoder.fingerprint()
+            && value_before == value.fingerprint(),
+    };
+
+    let frozen_runs: Vec<_> = (0..P21_EVALUATION_SEEDS)
+        .map(|seed| run_p22_frozen_seed(seed, &encoder, &value, P22_EXPLORATION_DIVISOR))
+        .collect();
+    let frozen_results: Vec<_> = frozen_runs
+        .iter()
+        .map(|(result, _)| result.clone())
+        .collect();
+    let frozen_recognition_work: usize = frozen_runs.iter().map(|(_, work)| work).sum();
+    let frozen_admissions: usize = frozen_results
+        .iter()
+        .map(|result| result.metrics.gate_admissions)
+        .sum();
+    let frozen_evaluations: usize = frozen_results
+        .iter()
+        .map(|result| result.metrics.gate_evaluations)
+        .sum();
+    let random_results: Vec<_> = (0..P21_EVALUATION_SEEDS)
+        .map(|seed| {
+            run_p21_random_seed(
+                200 + seed,
+                frozen_admissions.max(1) as u64,
+                frozen_evaluations.max(1) as u64,
+            )
+        })
+        .collect();
+    let shuffled_runs: Vec<_> = (0..P21_EVALUATION_SEEDS)
+        .map(|seed| {
+            run_p22_frozen_seed(
+                100 + seed,
+                &encoder,
+                &shuffled_value,
+                P22_EXPLORATION_DIVISOR,
+            )
+        })
+        .collect();
+    let shuffled_results: Vec<_> = shuffled_runs
+        .iter()
+        .map(|(result, _)| result.clone())
+        .collect();
+    let shuffled_recognition_work: usize = shuffled_runs.iter().map(|(_, work)| work).sum();
+    let oracle_results: Vec<_> = (0..P21_EVALUATION_SEEDS)
+        .map(|seed| run_p21_oracle_seed(200 + seed, &oracle_pairs))
+        .collect();
+    let adaptive_results: Vec<_> = (0..P21_EVALUATION_SEEDS)
+        .map(run_p22_adaptive_seed)
+        .collect();
+    let adaptive_seed_results: Vec<_> = adaptive_results
+        .iter()
+        .map(|result| result.seed.clone())
+        .collect();
+
+    let always = summarize_p21_condition(always_results, false);
+    let mut frozen_gate = summarize_p21_condition(&frozen_results, true);
+    frozen_gate.average_work += frozen_recognition_work / frozen_runs.len();
+    let random = summarize_p21_condition(&random_results, true);
+    let mut shuffled = summarize_p21_condition(&shuffled_results, true);
+    shuffled.average_work += shuffled_recognition_work / shuffled_runs.len();
+    let oracle = summarize_p21_condition(&oracle_results, true);
+    let mut adaptive_condition = summarize_p21_condition(&adaptive_seed_results, true);
+    let adaptive_representation_work: usize = adaptive_results
+        .iter()
+        .map(|result| result.representation_work)
+        .sum();
+    let adaptive_value_updates: usize = adaptive_results
+        .iter()
+        .map(|result| result.value_updates)
+        .sum();
+    adaptive_condition.average_work +=
+        (adaptive_representation_work + adaptive_value_updates) / adaptive_results.len();
+    let first_useful: Vec<_> = adaptive_results
+        .iter()
+        .filter_map(|result| result.first_useful_episode)
+        .collect();
+    let early_created: usize = adaptive_results
+        .iter()
+        .map(|result| result.created_at_first_useful)
+        .sum();
+    let early_episodes: usize = adaptive_results
+        .iter()
+        .filter_map(|result| result.first_useful_episode)
+        .sum();
+    let late_created: usize = adaptive_results
+        .iter()
+        .map(|result| {
+            result
+                .seed
+                .metrics
+                .directional_couplings_created
+                .saturating_sub(result.created_at_first_useful)
+        })
+        .sum();
+    let late_episodes: usize = adaptive_results
+        .iter()
+        .map(|result| {
+            result
+                .seed
+                .competence_episode
+                .unwrap_or(P2_INTEGRATED_BUDGET)
+                .saturating_sub(result.first_useful_episode.unwrap_or(0))
+        })
+        .sum();
+    let adaptive = P22AdaptiveReport {
+        condition: adaptive_condition,
+        average_representations: adaptive_results
+            .iter()
+            .map(|result| result.representations)
+            .sum::<usize>() as f64
+            / adaptive_results.len() as f64,
+        average_valued_representations: adaptive_results
+            .iter()
+            .map(|result| result.valued_representations)
+            .sum::<usize>() as f64
+            / adaptive_results.len() as f64,
+        average_first_useful_episode: average(&first_useful),
+        average_created_at_first_useful: early_created / adaptive_results.len(),
+        average_gate_rejections: adaptive_results
+            .iter()
+            .map(|result| result.gate_rejections)
+            .sum::<usize>()
+            / adaptive_results.len(),
+        average_exploration_admissions: adaptive_results
+            .iter()
+            .map(|result| result.exploration_admissions)
+            .sum::<usize>()
+            / adaptive_results.len(),
+        useful_from_exploration: adaptive_results
+            .iter()
+            .map(|result| result.useful_from_exploration)
+            .sum(),
+        average_representation_work: adaptive_representation_work / adaptive_results.len(),
+        average_value_updates: adaptive_value_updates / adaptive_results.len(),
+        early_created_per_episode: early_created as f64 / early_episodes.max(1) as f64,
+        late_created_per_episode: late_created as f64 / late_episodes.max(1) as f64,
+        fingerprints_unchanged: adaptive_results
+            .iter()
+            .all(|result| result.encoder_value_fingerprint_unchanged),
+    };
+    let frozen_coupling_reduction =
+        1.0 - frozen_gate.average_created as f64 / always.average_created as f64;
+    let frozen_work_reduction = 1.0 - frozen_gate.average_work as f64 / always.average_work as f64;
+    let adaptive_coupling_reduction =
+        1.0 - adaptive.condition.average_created as f64 / always.average_created as f64;
+    let adaptive_work_reduction =
+        1.0 - adaptive.condition.average_work as f64 / always.average_work as f64;
+    let passed = representation.passed
+        && frozen_gate.competent_seeds == P21_EVALUATION_SEEDS
+        && frozen_gate.held_out_correct == frozen_gate.held_out_total
+        && frozen_gate.average_created < always.average_created
+        && frozen_gate.average_created < random.average_created
+        && shuffled.competent_seeds < P21_EVALUATION_SEEDS
+        && oracle.competent_seeds == P21_EVALUATION_SEEDS
+        && adaptive.condition.competent_seeds == P21_EVALUATION_SEEDS
+        && adaptive.condition.held_out_correct == adaptive.condition.held_out_total
+        && adaptive.condition.average_created < always.average_created
+        && adaptive.condition.average_work < always.average_work
+        && adaptive.late_created_per_episode < adaptive.early_created_per_episode
+        && adaptive.fingerprints_unchanged;
+
+    P22Report {
+        representation,
+        always,
+        frozen_gate,
+        random,
+        shuffled,
+        oracle,
+        adaptive,
+        frozen_coupling_reduction,
+        frozen_work_reduction,
+        adaptive_coupling_reduction,
+        adaptive_work_reduction,
+        passed,
+    }
+}
+
+pub fn print_p2_2_report(report: &P22Report) {
+    println!("P2.2 learned encounter representations:");
+    println!(
+        "  representation: learned={}, valued={}, mixed={}, context-sensitive={}, useful={}/{}, rejected={}/{}, shuffled-useful={}/{}, frozen={}",
+        report.representation.representations,
+        report.representation.valued_representations,
+        report.representation.mixed_outcome_representations,
+        report.representation.context_sensitive_representations,
+        report.representation.useful_recalled,
+        report.representation.useful_total,
+        report.representation.rejected_correctly,
+        report.representation.rejected_total,
+        report.representation.shuffled_useful_recalled,
+        report.representation.useful_total,
+        report.representation.frozen
+    );
+    println!(
+        "  frozen gate: competent={}/{}, created={}, work={}, reduction={:.1}%/{:.1}%",
+        report.frozen_gate.competent_seeds,
+        report.frozen_gate.total_seeds,
+        report.frozen_gate.average_created,
+        report.frozen_gate.average_work,
+        report.frozen_coupling_reduction * 100.0,
+        report.frozen_work_reduction * 100.0
+    );
+    println!(
+        "  fresh adaptive: competent={}/{}, created={}, work={}, recognition/value={}/{}, first useful={:?}, competence={:?}, early/late creation={:.2}/{:.2}, exploration={}/{}, reduction={:.1}%/{:.1}%",
+        report.adaptive.condition.competent_seeds,
+        report.adaptive.condition.total_seeds,
+        report.adaptive.condition.average_created,
+        report.adaptive.condition.average_work,
+        report.adaptive.average_representation_work,
+        report.adaptive.average_value_updates,
+        report.adaptive.average_first_useful_episode,
+        report.adaptive.condition.average_competence_episode,
+        report.adaptive.early_created_per_episode,
+        report.adaptive.late_created_per_episode,
+        report.adaptive.useful_from_exploration,
+        report.adaptive.average_exploration_admissions,
+        report.adaptive_coupling_reduction * 100.0,
+        report.adaptive_work_reduction * 100.0
     );
     println!(
         "  controls: random competent={}/{}, created={}; shuffled competent={}/{}, created={}; oracle competent={}/{}, created={}; passed={}",
@@ -2517,5 +3727,57 @@ mod p21_tests {
         assert!(report.learned.average_gate_admissions < report.learned.average_gate_evaluations);
         assert!(report.always.average_work > 0);
         assert!(report.learned.average_work > 0);
+    }
+}
+
+#[cfg(test)]
+mod p22_tests {
+    use super::*;
+    use std::sync::OnceLock;
+
+    fn report() -> &'static P22Report {
+        static REPORT: OnceLock<P22Report> = OnceLock::new();
+        REPORT.get_or_init(run_p2_2_experiment)
+    }
+
+    #[test]
+    fn p22a_learns_pre_coupling_representations_separately_from_value() {
+        let report = report();
+        assert!(report.representation.passed);
+        assert!(report.representation.representations > 1);
+        assert!(report.representation.mixed_outcome_representations > 0);
+        assert!(report.representation.frozen);
+    }
+
+    #[test]
+    fn p22b_frozen_representations_gate_plasticity_without_supplied_classes() {
+        let report = report();
+        assert_eq!(report.frozen_gate.competent_seeds, P21_EVALUATION_SEEDS);
+        assert_eq!(
+            report.frozen_gate.held_out_correct,
+            report.frozen_gate.held_out_total
+        );
+        assert!(report.frozen_gate.average_created < report.always.average_created);
+        assert!(report.shuffled.competent_seeds < P21_EVALUATION_SEEDS);
+    }
+
+    #[test]
+    fn p22c_fresh_lifetime_learning_becomes_selective() {
+        let report = report();
+        assert!(report.passed);
+        assert_eq!(
+            report.adaptive.condition.competent_seeds,
+            P21_EVALUATION_SEEDS
+        );
+        assert_eq!(
+            report.adaptive.condition.held_out_correct,
+            report.adaptive.condition.held_out_total
+        );
+        assert!(report.adaptive.condition.average_created < report.always.average_created);
+        assert!(report.adaptive.condition.average_work < report.always.average_work);
+        assert!(
+            report.adaptive.late_created_per_episode < report.adaptive.early_created_per_episode
+        );
+        assert!(report.adaptive.fingerprints_unchanged);
     }
 }

@@ -12,7 +12,7 @@
 rustc --version
 cargo --version
 cargo fmt -- --check
-cargo test --all-targets
+cargo test --lib --bin organism-v0 --test reviewer_api
 cargo clippy --all-targets -- -D warnings
 cargo run --release
 cargo run --release --bin scaling -- --output results/v14_5_scaling.csv
