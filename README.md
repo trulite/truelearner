@@ -816,6 +816,44 @@ It discovers one role-routing arrow, not the complete v19-v21b program.
 Recorded measurements are in
 [`results/d0_topology_discovery.md`](results/d0_topology_discovery.md).
 
+## Discovery d1: Contrasting experience
+
+D1 leaves the d0 learner unchanged and changes only the information in its
+experience.
+
+Observation-only and contrasting learners receive identical opaque
+identities, relations, query, relation order, answer changes, learner seeds,
+and 792-episode budgets. In the observation-only stream, an irrelevant cue
+always marks the target relation. In the contrasting stream, matched episodes
+move the cue without changing the answer and change the true right-side value
+while holding the cue fixed.
+
+The contrasting curriculum counterbalances every observable cue location:
+each of ten relative relation positions and cue absence occurs 72 times.
+Changed and unchanged answers each occur 396 times. No intervention marker or
+explanation reaches the learner.
+
+Results across 32 seeds:
+
+- observation-only learners fail 10 times after cue removal,
+- contrasting learners fail 0 times after cue removal,
+- all 32 contrasting learners retain `Slot1 -> Slot2`,
+- the representative cue shortcut rises to strength 1 and later falls to -1,
+- the true route reaches strength 4 and consolidates at episode 83,
+- random labels still produce no stable topology,
+- held-out evaluation leaves permanent state unchanged.
+
+The separate d0 curriculum remains recorded at 15 shortcut failures in 32
+runs. D1's 10-of-32 observation result belongs to the exactly paired
+comparison.
+
+D1 demonstrates intervention-robust prediction under a supplied curriculum,
+not causal understanding. The learner does not choose which contrast to
+create.
+
+Recorded measurements are in
+[`results/d1_intervention.md`](results/d1_intervention.md).
+
 ## Run
 
 ```bash

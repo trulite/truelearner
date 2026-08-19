@@ -733,6 +733,10 @@ fn main() {
     discovery::print_report(&discovery_report);
     println!();
 
+    let intervention_report = discovery::run_intervention_experiment();
+    discovery::print_intervention_report(&intervention_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -750,17 +754,18 @@ fn main() {
         && iteration_report.passed
         && continuation_report.passed
         && finish_report.passed
-        && discovery_report.passed;
+        && discovery_report.passed
+        && intervention_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - generic coactivity proposals, recently-used arrow traces, and terminal success discover a reusable routing topology, and all earlier experiments still pass"
+            "PASS - counterbalanced contrasting experience removes a predictive shortcut without changing the d0 learner, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: d0 still supplies opaque equality, role cells, episode boundaries, and a generic coactivity window; it discovers one routing arrow, not the full v19-v21b program."
+        "LIMIT: d1 receives its interventions from the curriculum; the learner does not yet choose actions that distinguish competing routes."
     );
 }
 

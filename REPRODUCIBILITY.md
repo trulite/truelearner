@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 89 in-crate unit tests
+- 93 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -83,6 +83,10 @@ independent integration tests.
   traces plus scalar feedback retain one direction-appropriate arrow, reversed
   experience learns the reverse arrow, and random labels retain no stable
   topology; an irrelevant cue causes 15 of 32 learners to choose a shortcut
+- d1: an exactly paired 792-episode comparison leaves the d0 learner unchanged;
+  observation-only training produces 10 shortcut failures in 32 runs, while
+  counterbalanced contrasting experience produces zero and all 32 learners
+  retain the true slot route
 
 ## Interpretation Boundary
 

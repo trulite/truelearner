@@ -160,6 +160,22 @@ The irrelevant-cue control is deliberately unfavorable: 15 of 32 learners
 select the shortcut and fail when it is removed. D0 therefore demonstrates
 topology selection under reward, not causal route discovery.
 
+D1 changes only the curriculum. The proposal, trace, scalar feedback,
+competition, and consolidation behavior remain unchanged from d0.
+
+The paired observation and contrasting streams share identities, relation
+order, answer changes, learner seeds, and episode budgets. Cue location is the
+only difference. The contrasting stream distributes the cue equally across
+all ten relation positions plus absence and balances changed against unchanged
+answers.
+
+The observation-only side of this paired comparison fails after cue removal
+in 10 of 32 runs; the contrasting side fails in zero. The separate historical
+d0 control remains 15 of 32 because it uses a different curriculum.
+
+D1 should be interpreted as information supplied by an intervention
+curriculum, not intervention understanding or active causal learning.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -177,6 +193,7 @@ topology selection under reward, not causal route discovery.
 - `src/iteration.rs`: v20 repeated use of one learned lookup and feedback route
 - `src/continuation.rs`: v21a autonomous continuation and v21b learned finish
 - `src/discovery.rs`: d0 generic topology proposal, trace, reward, and pruning
+  plus d1 counterbalanced contrasting experience
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

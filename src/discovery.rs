@@ -70,6 +70,8 @@ struct DiscoveryLearner {
     rejected: usize,
     training_spikes: usize,
     episodes_to_competence: Option<usize>,
+    last_used_route: Option<(Role, Role)>,
+    last_episode_spikes: usize,
 }
 
 impl DiscoveryLearner {
@@ -84,6 +86,8 @@ impl DiscoveryLearner {
             rejected: 0,
             training_spikes: 0,
             episodes_to_competence: None,
+            last_used_route: None,
+            last_episode_spikes: 0,
         }
     }
 
@@ -160,6 +164,7 @@ impl DiscoveryLearner {
             self.candidates[index].trace = true;
             self.candidates[index]
         };
+        self.last_used_route = Some((selected.from, selected.to));
         work.answer_spikes += 1;
         execute_arrow(selected, episode, work)
     }
@@ -209,7 +214,8 @@ impl DiscoveryLearner {
         let proposal = self.propose_answer(episode, &mut work);
         let success = proposal == episode.correct;
         self.terminal_feedback(success, episode_number);
-        self.training_spikes += work.total_spikes();
+        self.last_episode_spikes = work.total_spikes();
+        self.training_spikes += self.last_episode_spikes;
         success
     }
 
@@ -267,6 +273,18 @@ impl DiscoveryLearner {
 
     fn stable_arrows(&self) -> usize {
         usize::from(self.consolidated.is_some())
+    }
+
+    fn route_strength(&self, from: Role, to: Role) -> Option<i32> {
+        self.consolidated
+            .filter(|arrow| arrow.from == from && arrow.to == to)
+            .map(|arrow| arrow.strength)
+            .or_else(|| {
+                self.candidates
+                    .iter()
+                    .find(|arrow| arrow.from == from && arrow.to == to)
+                    .map(|arrow| arrow.strength)
+            })
     }
 }
 
@@ -660,6 +678,342 @@ pub fn print_report(report: &DiscoveryReport) {
     );
 }
 
+const INTERVENTION_BASES: usize = 18;
+const INTERVENTION_STATES: usize = 22;
+const INTERVENTION_BLOCKS: usize = 2;
+const INTERVENTION_BUDGET: usize = INTERVENTION_BASES * INTERVENTION_STATES * INTERVENTION_BLOCKS;
+
+#[derive(Clone, Debug)]
+struct ContrastBase {
+    episode: Episode,
+    changed_answer: OpaqueId,
+}
+
+#[derive(Clone, Debug, Default)]
+struct CurriculumAudit {
+    cue_offsets: [usize; 11],
+    unchanged_answers: usize,
+    changed_answers: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct StrengthPoint {
+    pub episode: usize,
+    pub real_route_strength: Option<i32>,
+    pub shortcut_route_strength: Option<i32>,
+    pub used_route: String,
+    pub success: bool,
+    pub live_candidates: usize,
+    pub spikes: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct InterventionSeedResult {
+    pub seed: u64,
+    pub observation_route: String,
+    pub observation_correct: usize,
+    pub contrasting_route: String,
+    pub contrasting_correct: usize,
+    pub total: usize,
+    pub contrasting_episodes_to_competence: Option<usize>,
+}
+
+#[derive(Clone, Debug)]
+pub struct InterventionReport {
+    pub training_budget: usize,
+    pub seed_results: Vec<InterventionSeedResult>,
+    pub observation_shortcut_failures: usize,
+    pub contrasting_shortcut_failures: usize,
+    pub contrasting_forward_routes: usize,
+    pub cue_offset_counts: Vec<usize>,
+    pub unchanged_answer_episodes: usize,
+    pub changed_answer_episodes: usize,
+    pub representative_history: Vec<StrengthPoint>,
+    pub representative_competence_episode: Option<usize>,
+    pub representative_real_peak: i32,
+    pub representative_shortcut_peak: i32,
+    pub representative_shortcut_last: i32,
+    pub held_out_fingerprint_unchanged: bool,
+    pub random_label_stable_arrows: usize,
+    pub random_label_training_correct: usize,
+    pub passed: bool,
+}
+
+fn intervention_states() -> Vec<(usize, bool)> {
+    let mut states = vec![(0, false), (1, false), (1, true), (10, true)];
+    for changed in [false, true] {
+        for cue_offset in 0..=10 {
+            if !states.contains(&(cue_offset, changed)) {
+                states.push((cue_offset, changed));
+            }
+        }
+    }
+    debug_assert_eq!(states.len(), INTERVENTION_STATES);
+    states
+}
+
+fn make_contrast_bases(
+    identities: &mut IdentitySource,
+    seed: u64,
+    block: usize,
+) -> Vec<ContrastBase> {
+    (0..INTERVENTION_BASES)
+        .map(|index| {
+            let target = (index * 7 + block * 3 + seed as usize) % 10;
+            let mut episode = normal_episode(identities, 10, target, Direction::LeftToRight, false);
+            let shift = (index * 3 + block * 7 + seed as usize) % episode.relations.len();
+            episode.relations.rotate_left(shift);
+            if (index + block + seed as usize).is_multiple_of(2) {
+                episode.relations.reverse();
+            }
+            ContrastBase {
+                episode,
+                changed_answer: identities.issue(),
+            }
+        })
+        .collect()
+}
+
+fn contrast_variant(base: &ContrastBase, cue_offset: usize, changed: bool) -> Episode {
+    let mut episode = base.episode.clone();
+    for relation in &mut episode.relations {
+        relation.cued = false;
+    }
+    let target = episode
+        .relations
+        .iter()
+        .position(|relation| relation.left == episode.query)
+        .expect("query identity must occur in slot one");
+    if changed {
+        episode.relations[target].right = base.changed_answer;
+        episode.correct = BindingOutcome::Answer(base.changed_answer);
+    }
+    if cue_offset < episode.relations.len() {
+        let cued = (target + cue_offset) % episode.relations.len();
+        episode.relations[cued].cued = true;
+    }
+    episode
+}
+
+fn intervention_curricula(seed: u64) -> (Vec<Episode>, Vec<Episode>, CurriculumAudit) {
+    let mut identities = IdentitySource::new(seed ^ 0xd100_1000);
+    let states = intervention_states();
+    let mut observation = Vec::with_capacity(INTERVENTION_BUDGET);
+    let mut contrasting = Vec::with_capacity(INTERVENTION_BUDGET);
+    let mut audit = CurriculumAudit::default();
+
+    for block in 0..INTERVENTION_BLOCKS {
+        let bases = make_contrast_bases(&mut identities, seed, block);
+        for (state_index, &(cue_offset, changed)) in states.iter().enumerate() {
+            let start = (state_index * 5 + block * 7 + seed as usize) % bases.len();
+            for offset in 0..bases.len() {
+                let base = &bases[(start + offset) % bases.len()];
+                contrasting.push(contrast_variant(base, cue_offset, changed));
+                observation.push(contrast_variant(base, 0, changed));
+                audit.cue_offsets[cue_offset] += 1;
+                if changed {
+                    audit.changed_answers += 1;
+                } else {
+                    audit.unchanged_answers += 1;
+                }
+            }
+        }
+    }
+    debug_assert_eq!(observation.len(), INTERVENTION_BUDGET);
+    debug_assert_eq!(contrasting.len(), INTERVENTION_BUDGET);
+    (observation, contrasting, audit)
+}
+
+fn train_with_history(
+    seed: u64,
+    curriculum: &[Episode],
+    record_history: bool,
+) -> (DiscoveryLearner, Vec<StrengthPoint>) {
+    let mut learner = DiscoveryLearner::new(seed);
+    let mut history = Vec::with_capacity(usize::from(record_history) * curriculum.len());
+    for (index, episode) in curriculum.iter().enumerate() {
+        let success = learner.train_episode(episode, index + 1);
+        if record_history {
+            history.push(StrengthPoint {
+                episode: index + 1,
+                real_route_strength: learner.route_strength(Role::Slot1, Role::Slot2),
+                shortcut_route_strength: learner.route_strength(Role::Cue, Role::Slot2),
+                used_route: route_name(learner.last_used_route),
+                success,
+                live_candidates: learner.live_candidates(),
+                spikes: learner.last_episode_spikes,
+            });
+        }
+    }
+    (learner, history)
+}
+
+fn d1_random_label_control() -> (usize, usize) {
+    let mut learner = DiscoveryLearner::new(0xd140_0001);
+    let mut identities = IdentitySource::new(0xd140_0002);
+    let mut correct = 0;
+    for episode_number in 1..=10_000 {
+        let episode = random_label_episode(
+            &mut identities,
+            10,
+            episode_number * 7 % 10,
+            episode_number * 3 + 1,
+        );
+        correct += usize::from(learner.train_episode(&episode, episode_number));
+    }
+    (learner.stable_arrows(), correct)
+}
+
+pub fn run_intervention_experiment() -> InterventionReport {
+    let mut seed_results = Vec::new();
+    let mut observation_shortcut_failures = 0;
+    let mut contrasting_shortcut_failures = 0;
+    let mut contrasting_forward_routes = 0;
+    let mut representative_history = Vec::new();
+    let mut representative_learner = None;
+    let mut representative_audit = None;
+
+    for seed in 0..32 {
+        let learner_seed = 0xd110_0000 + seed as u64;
+        let (observation, contrasting, audit) = intervention_curricula(0xd120_0000 + seed as u64);
+        let (mut observation_learner, _) = train_with_history(learner_seed, &observation, false);
+        let (mut contrasting_learner, history) =
+            train_with_history(learner_seed, &contrasting, seed == 0);
+
+        let (observation_correct, _, _) = held_out_accuracy(
+            &mut observation_learner,
+            0xd130_0000 + seed as u64,
+            Direction::LeftToRight,
+            500,
+            false,
+        );
+        let (contrasting_correct, _, _) = held_out_accuracy(
+            &mut contrasting_learner,
+            0xd131_0000 + seed as u64,
+            Direction::LeftToRight,
+            500,
+            false,
+        );
+        observation_shortcut_failures += usize::from(observation_correct < 500);
+        contrasting_shortcut_failures += usize::from(contrasting_correct < 500);
+        contrasting_forward_routes +=
+            usize::from(contrasting_learner.selected_route() == Some((Role::Slot1, Role::Slot2)));
+        seed_results.push(InterventionSeedResult {
+            seed: seed as u64,
+            observation_route: route_name(observation_learner.selected_route()),
+            observation_correct,
+            contrasting_route: route_name(contrasting_learner.selected_route()),
+            contrasting_correct,
+            total: 500,
+            contrasting_episodes_to_competence: contrasting_learner.episodes_to_competence,
+        });
+        if seed == 0 {
+            representative_history = history;
+            representative_learner = Some(contrasting_learner);
+            representative_audit = Some(audit);
+        }
+    }
+
+    let mut representative_learner =
+        representative_learner.expect("representative learner must exist");
+    let fingerprint_before = representative_learner.permanent_fingerprint();
+    let _ = held_out_accuracy(
+        &mut representative_learner,
+        0xd150_0001,
+        Direction::LeftToRight,
+        20_000,
+        false,
+    );
+    let held_out_fingerprint_unchanged =
+        fingerprint_before == representative_learner.permanent_fingerprint();
+    let audit = representative_audit.expect("representative audit must exist");
+    let (random_label_stable_arrows, random_label_training_correct) = d1_random_label_control();
+    let representative_real_peak = representative_history
+        .iter()
+        .filter_map(|point| point.real_route_strength)
+        .max()
+        .unwrap_or(0);
+    let representative_shortcut_peak = representative_history
+        .iter()
+        .filter_map(|point| point.shortcut_route_strength)
+        .max()
+        .unwrap_or(0);
+    let representative_shortcut_last = representative_history
+        .iter()
+        .rev()
+        .find_map(|point| point.shortcut_route_strength)
+        .unwrap_or(0);
+    let representative_competence_episode = representative_learner.episodes_to_competence;
+
+    let exactly_counterbalanced = audit
+        .cue_offsets
+        .iter()
+        .all(|count| *count == audit.cue_offsets[0])
+        && audit.unchanged_answers == audit.changed_answers;
+    let passed = observation_shortcut_failures > 0
+        && contrasting_shortcut_failures == 0
+        && contrasting_forward_routes == 32
+        && exactly_counterbalanced
+        && held_out_fingerprint_unchanged
+        && random_label_stable_arrows == 0
+        && random_label_training_correct < 1_500;
+
+    InterventionReport {
+        training_budget: INTERVENTION_BUDGET,
+        seed_results,
+        observation_shortcut_failures,
+        contrasting_shortcut_failures,
+        contrasting_forward_routes,
+        cue_offset_counts: audit.cue_offsets.to_vec(),
+        unchanged_answer_episodes: audit.unchanged_answers,
+        changed_answer_episodes: audit.changed_answers,
+        representative_history,
+        representative_competence_episode,
+        representative_real_peak,
+        representative_shortcut_peak,
+        representative_shortcut_last,
+        held_out_fingerprint_unchanged,
+        random_label_stable_arrows,
+        random_label_training_correct,
+        passed,
+    }
+}
+
+pub fn print_intervention_report(report: &InterventionReport) {
+    println!("d1 intervention-robust topology discovery:");
+    println!(
+        "  observation/contrasting shortcut failures: {}/32 / {}/32",
+        report.observation_shortcut_failures, report.contrasting_shortcut_failures
+    );
+    println!(
+        "  contrasting forward routes: {}/32, budget per learner={}",
+        report.contrasting_forward_routes, report.training_budget
+    );
+    println!(
+        "  cue offsets={}, unchanged/changed answers={}/{}, fingerprint unchanged={}",
+        report
+            .cue_offset_counts
+            .iter()
+            .map(usize::to_string)
+            .collect::<Vec<_>>()
+            .join("/"),
+        report.unchanged_answer_episodes,
+        report.changed_answer_episodes,
+        report.held_out_fingerprint_unchanged
+    );
+    println!(
+        "  representative real peak={}, shortcut peak/last={}/{}, competence episode={:?}",
+        report.representative_real_peak,
+        report.representative_shortcut_peak,
+        report.representative_shortcut_last,
+        report.representative_competence_episode
+    );
+    println!(
+        "  random labels successes= {}/10000, stable arrows={}",
+        report.random_label_training_correct, report.random_label_stable_arrows
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -704,5 +1058,56 @@ mod tests {
     fn d0_records_shortcut_vulnerability() {
         let report = run_experiment();
         assert!(report.shortcut_failures_without_cue > 0);
+    }
+
+    #[test]
+    fn d1_contrasting_experience_removes_the_observation_only_shortcut() {
+        let report = run_intervention_experiment();
+        assert!(report.observation_shortcut_failures > 0);
+        assert_eq!(report.contrasting_shortcut_failures, 0);
+        assert_eq!(report.contrasting_forward_routes, 32);
+    }
+
+    #[test]
+    fn d1_counterbalances_every_observable_cue_location_and_answer_change() {
+        let report = run_intervention_experiment();
+        assert!(report
+            .cue_offset_counts
+            .iter()
+            .all(|count| *count == report.cue_offset_counts[0]));
+        assert_eq!(
+            report.unchanged_answer_episodes,
+            report.changed_answer_episodes
+        );
+    }
+
+    #[test]
+    fn d1_strength_history_records_shortcut_reversal_before_consolidation() {
+        let report = run_intervention_experiment();
+        let shortcut_peak = report
+            .representative_history
+            .iter()
+            .filter_map(|point| point.shortcut_route_strength)
+            .max()
+            .unwrap();
+        let shortcut_last = report
+            .representative_history
+            .iter()
+            .rev()
+            .find_map(|point| point.shortcut_route_strength)
+            .unwrap_or(0);
+        assert!(shortcut_peak > shortcut_last);
+        assert!(report
+            .representative_history
+            .iter()
+            .any(|point| point.real_route_strength == Some(CONSOLIDATION_STRENGTH)));
+    }
+
+    #[test]
+    fn d1_held_out_and_random_label_controls_remain_clean() {
+        let report = run_intervention_experiment();
+        assert!(report.held_out_fingerprint_unchanged);
+        assert_eq!(report.random_label_stable_arrows, 0);
+        assert!(report.passed);
     }
 }
