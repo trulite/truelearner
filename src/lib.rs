@@ -10,6 +10,7 @@ pub mod inertia;
 pub mod iteration;
 pub mod model_epistemic;
 pub mod program_discovery;
+pub mod role_discovery;
 pub mod scaling;
 pub mod search_value;
 pub mod stability;

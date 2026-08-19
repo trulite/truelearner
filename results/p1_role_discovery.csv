@@ -1,0 +1,6 @@
+gate,condition,successful_seeds,total_seeds,correct,total,role_cells,possible_proposals,actual_proposals,used_proposals,surviving_arrows,first_success_episode,competence_episode,fingerprint_unchanged
+P1a,encoding-transfer,8,8,256,256,3,0,0,0,0,,,true
+P1b,forward-and-reverse,16,16,512,512,3,0,6,3,1,,,true
+P1c,real,8,8,512,512,3.000,110,110,36,4,Some(351.0),Some(7523.75),true
+P1c,shuffled,0,8,0,512,3.000,110,110,36,110,Some(351.0),None,true
+P1c,random,0,8,0,512,3.000,110,110,36,110,Some(158.0),None,true

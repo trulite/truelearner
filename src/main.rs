@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 
 use organism_v0::{
     binding, causal, composable_models, composition, consolidation, continuation, discovery,
-    generality, inertia, iteration, model_epistemic, program_discovery, scaling, search_value,
-    stability, tracking, unified, vision,
+    generality, inertia, iteration, model_epistemic, program_discovery, role_discovery, scaling,
+    search_value, stability, tracking, unified, vision,
 };
 
 type CellId = usize;
@@ -786,6 +786,10 @@ fn main() {
     program_discovery::print_program_discovery_report(&program_discovery_report);
     println!();
 
+    let role_discovery_report = role_discovery::run_experiment();
+    role_discovery::print_report(&role_discovery_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -817,17 +821,18 @@ fn main() {
         && compiled_search_value_report.passed
         && guidance_gate_report.passed
         && program_discovery_report.experimental_gate_valid
-        && program_discovery_report.integrated_hypothesis_supported;
+        && program_discovery_report.integrated_hypothesis_supported
+        && role_discovery_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - generic topology discovery reconstructs the reusable recurrent program without supplied route candidates, and all earlier experiments still pass"
+            "PASS - repeated sensor topology acquires reusable positional roles, generic topology discovery builds the recurrent program over them, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: P0 still supplies role cells, identity equality, temporary lifetime, event meanings, proposal physics, eligibility traces, terminal correctness, and pruning."
+        "LIMIT: P1 still supplies local directed sensor geometry, structural comparison, the isolated-query boundary, internal execution roles, identity equality, temporary lifetime, global proposal physics, terminal correctness, and pruning."
     );
 }
 

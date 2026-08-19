@@ -1243,6 +1243,61 @@ Recorded measurements are in
 [`results/p0_program_discovery.md`](results/p0_program_discovery.md) and
 [`results/p0_program_discovery.csv`](results/p0_program_discovery.csv).
 
+## De-supply P1: Discover sensory roles
+
+P1 removes the supplied first-field, second-field and query role cells from
+the input boundary. Raw episodes contain anonymous receptor IDs, opaque
+identity activity and directed local sensor connections.
+
+P1a recruits persistent cells for recurring role-relative sensor structure.
+The learned cells transfer to new receptor IDs and a different serialization
+order:
+
+```text
+role discovery seeds          8 / 8
+encoding transfer           256 / 256
+permanent role cells                  3
+permanent receptor IDs                0
+```
+
+When the two relation positions are made structurally symmetric, no stable
+first/second distinction is created.
+
+P1b freezes those learned role structures. Lookup discovery receives only
+role-cell activity, opaque identities and spikes. It discovers both forward
+and reversed lookup without field indexes or receptor IDs:
+
+```text
+forward lookup                8 / 8
+reverse lookup                8 / 8
+transferred lookup          512 / 512
+```
+
+P1c starts from a fresh substrate with no inherited roles, lookup or P0
+program arrows. From the complete traversal task and terminal correctness, it
+discovers the sensory roles and recurrent program together:
+
+```text
+real feedback competent       8 / 8
+held-out depth 5-32         512 / 512
+final role cells                      3
+final program arrows                  4
+shuffled feedback              0 / 8
+random feedback                0 / 8
+```
+
+Held-out evaluation uses new receptor IDs, new opaque identities and a
+different sensor serialization while permanent learning is disabled.
+
+P1 still supplies directed local sensor geometry, generic structural
+comparison, the isolated-query versus relation-component boundary, internal
+execution roles, identity equality, temporary lifetime, global all-pairs
+proposals, terminal correctness and pruning.
+
+Recorded measurements are in
+[`results/p1_role_discovery.md`](results/p1_role_discovery.md) and
+[`results/p1_role_discovery.csv`](results/p1_role_discovery.csv).
+
 ## Run
 
 ```bash
