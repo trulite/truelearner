@@ -1081,6 +1081,33 @@ Recorded measurements are in
 [`results/d4a_composable_transformations.md`](results/d4a_composable_transformations.md)
 and [`results/d4a_composition_traces.csv`](results/d4a_composition_traces.csv).
 
+## Discovery d4b: Counterfactual sequence search
+
+D4b freezes learned provenance models and supplies a generic shortest-first
+sequence enumerator. No real action is taken during planning. Every candidate
+is simulated only through learned models and tested with the supplied
+structural separation criterion.
+
+Fresh problems require shortest distinguishing sequences of exactly one, two,
+three, four, or eight actions:
+
+```text
+model prediction and real execution   40 / 40
+true-model oracle                     40 / 40
+equal-budget random order             30 / 40
+one-step selector                      8 / 40
+changed-role-mask planner              0 / 40
+unreachable reported                   8 / 8
+```
+
+Permanent model size remains 507 entries. Average candidates examined grow
+from 1.9 at depth one to 6,969.8 at depth eight. The corresponding model
+applications grow from 1.9 to 50,850, exposing the cost of exhaustive search.
+
+Recorded measurements are in
+[`results/d4b_counterfactual_planning.md`](results/d4b_counterfactual_planning.md)
+and [`results/d4b_planning_traces.csv`](results/d4b_planning_traces.csv).
+
 ## Run
 
 ```bash

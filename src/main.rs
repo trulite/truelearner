@@ -765,6 +765,10 @@ fn main() {
     composable_models::print_report(&composable_model_report);
     println!();
 
+    let counterfactual_planning_report = composable_models::run_planning_experiment();
+    composable_models::print_planning_report(&counterfactual_planning_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -790,17 +794,18 @@ fn main() {
         && plasticity_report.passed
         && action_model_report.passed
         && model_based_action_report.passed
-        && composable_model_report.passed;
+        && composable_model_report.passed
+        && counterfactual_planning_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - individually learned role-relative transformations compose into exact predictions for unseen action sequences, and all earlier experiments still pass"
+            "PASS - supplied bounded search uses frozen learned transformations to select and execute unseen multi-step interventions, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: d4a supplies role positions, identity comparison, the action sequence, and generic repeated model application; it does not learn how to choose or search action sequences."
+        "LIMIT: d4b supplies role positions, identity comparison, the epistemic criterion, and exhaustive sequence enumeration; it demonstrates planning with learned models, not learned search."
     );
 }
 

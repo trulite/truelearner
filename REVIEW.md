@@ -275,6 +275,21 @@ D4a supplies role positions, identity equality, the action sequence, and
 generic repeated model application. It demonstrates composition of learned
 world models, not planning or learned search.
 
+D4b trains the same provenance learner on individual actions, freezes the
+resulting 507-entry model, and supplies a shortest-first bounded sequence
+enumerator. Candidate futures use only learned transformations. The true
+environment executes only the selected sequence.
+
+Across required depths one, two, three, four, and eight, learned-model
+prediction and real execution both solve all 40 problems. The true-model
+oracle also solves all 40, equal-budget random ordering solves 30, the
+one-step selector solves eight, and the changed-role-mask planner solves none.
+All eight unreachable cases are reported.
+
+Average candidate evaluations grow from 1.9 to 6,969.8, making the cost of
+supplied exhaustive enumeration explicit. D4b demonstrates planning with
+learned compositional models, not learned or efficient search.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -297,11 +312,12 @@ world models, not planning or learned search.
 - `src/model_epistemic.rs`: d3a action-effect learning and d3b pre-action
   structural experiment selection
 - `src/composable_models.rs`: d4a source-role learning and frozen model
-  composition
+  composition plus d4b bounded counterfactual search
 - `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
 - `src/bin/plasticity.rs`: CSV writer for d2.3 regime trajectories
 - `src/bin/model_epistemic.rs`: CSV writer for d3 pre-action traces
 - `src/bin/composable_models.rs`: CSV writer for d4a composition traces
+- `src/bin/counterfactual_planning.rs`: CSV writer for d4b candidate traces
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

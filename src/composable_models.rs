@@ -42,7 +42,7 @@ struct RoleId(usize);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct TemporaryStructure {
-    occupants: [OpaqueIdentity; ROLE_COUNT],
+    occupants: Vec<OpaqueIdentity>,
 }
 
 #[derive(Clone, Debug)]
@@ -56,9 +56,9 @@ impl IdentitySource {
         Self { next: 0, namespace }
     }
 
-    fn fresh_structure(&mut self) -> TemporaryStructure {
+    fn fresh_structure(&mut self, role_count: usize) -> TemporaryStructure {
         TemporaryStructure {
-            occupants: std::array::from_fn(|_| self.issue()),
+            occupants: (0..role_count).map(|_| self.issue()).collect(),
         }
     }
 
@@ -79,21 +79,23 @@ fn mix64(mut value: u64) -> u64 {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct RoleTransformation {
-    source_for_output: [RoleId; ROLE_COUNT],
+    source_for_output: Vec<RoleId>,
 }
 
 impl RoleTransformation {
-    fn new(sources: [usize; ROLE_COUNT]) -> Self {
+    fn new(sources: impl IntoIterator<Item = usize>) -> Self {
         Self {
-            source_for_output: sources.map(RoleId),
+            source_for_output: sources.into_iter().map(RoleId).collect(),
         }
     }
 
     fn apply(&self, before: &TemporaryStructure) -> TemporaryStructure {
         TemporaryStructure {
-            occupants: std::array::from_fn(|output| {
-                before.occupants[self.source_for_output[output].0]
-            }),
+            occupants: self
+                .source_for_output
+                .iter()
+                .map(|source| before.occupants[source.0])
+                .collect(),
         }
     }
 
@@ -125,28 +127,40 @@ struct SourceArrow {
     support: usize,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 struct ProvenanceLearner {
+    role_count: usize,
     arrows: Vec<SourceArrow>,
     proposed_arrows: usize,
     observed_identities: usize,
 }
 
 impl ProvenanceLearner {
+    fn new(role_count: usize) -> Self {
+        Self {
+            role_count,
+            arrows: Vec::new(),
+            proposed_arrows: 0,
+            observed_identities: 0,
+        }
+    }
+
     fn observe(
         &mut self,
         action: OpaqueAction,
         before: &TemporaryStructure,
         after: &TemporaryStructure,
     ) {
-        self.observed_identities += ROLE_COUNT * 2;
-        for output in 0..ROLE_COUNT {
+        assert_eq!(before.occupants.len(), self.role_count);
+        assert_eq!(after.occupants.len(), self.role_count);
+        self.observed_identities += self.role_count * 2;
+        for output in 0..self.role_count {
             if !self
                 .arrows
                 .iter()
                 .any(|arrow| arrow.action == action && arrow.output_role == RoleId(output))
             {
-                for input in 0..ROLE_COUNT {
+                for input in 0..self.role_count {
                     self.arrows.push(SourceArrow {
                         action,
                         output_role: RoleId(output),
@@ -158,7 +172,7 @@ impl ProvenanceLearner {
                 self.arrows.sort();
             }
 
-            for input in 0..ROLE_COUNT {
+            for input in 0..self.role_count {
                 if after.occupants[output] == before.occupants[input] {
                     self.arrows
                         .iter_mut()
@@ -175,14 +189,14 @@ impl ProvenanceLearner {
     }
 
     fn predict(&self, action: OpaqueAction) -> Option<RoleTransformation> {
-        let mut sources = [RoleId(0); ROLE_COUNT];
+        let mut sources = vec![RoleId(0); self.role_count];
         for (output, source) in sources.iter_mut().enumerate() {
             let candidates = self
                 .arrows
                 .iter()
                 .filter(|arrow| arrow.action == action && arrow.output_role == RoleId(output))
                 .collect::<Vec<_>>();
-            if candidates.len() != ROLE_COUNT {
+            if candidates.len() != self.role_count {
                 return None;
             }
             let total = candidates.iter().map(|arrow| arrow.support).sum::<usize>();
@@ -262,13 +276,13 @@ impl ActionWorld {
 
 fn train_models(seed: u64, shuffled_outcomes: bool) -> (ActionWorld, ProvenanceLearner) {
     let world = ActionWorld::new(seed);
-    let mut learner = ProvenanceLearner::default();
+    let mut learner = ProvenanceLearner::new(ROLE_COUNT);
     let mut identities = IdentitySource::new(seed ^ 0xd4a1_0000);
 
     for episode in 0..TRAINING_EPISODES_PER_ACTION {
         for action_index in 0..ACTION_COUNT {
             let action = world.action(action_index);
-            let before = identities.fresh_structure();
+            let before = identities.fresh_structure(ROLE_COUNT);
             let observed_action_index = if shuffled_outcomes {
                 (action_index + episode) % ACTION_COUNT
             } else {
@@ -294,28 +308,31 @@ struct ChangedMaskModel {
 
 impl ChangedMaskModel {
     fn from_world(world: &ActionWorld) -> Self {
+        Self::from_effects(&world.effect_for_action)
+    }
+
+    fn from_effects(effects: &BTreeMap<OpaqueAction, RoleTransformation>) -> Self {
         Self {
-            changed_by_action: world
-                .effect_for_action
+            changed_by_action: effects
                 .iter()
                 .map(|(&action, effect)| (action, effect.changed_roles()))
                 .collect(),
         }
     }
 
-    fn apply(
-        &self,
-        action: OpaqueAction,
-        before: &[MaskValue; ROLE_COUNT],
-    ) -> [MaskValue; ROLE_COUNT] {
+    fn apply(&self, action: OpaqueAction, before: &[MaskValue]) -> Vec<MaskValue> {
         let changed = &self.changed_by_action[&action];
-        std::array::from_fn(|role| {
-            if changed.contains(&RoleId(role)) {
-                MaskValue::Unknown
-            } else {
-                before[role].clone()
-            }
-        })
+        before
+            .iter()
+            .enumerate()
+            .map(|(role, value)| {
+                if changed.contains(&RoleId(role)) {
+                    MaskValue::Unknown
+                } else {
+                    value.clone()
+                }
+            })
+            .collect()
     }
 }
 
@@ -386,8 +403,13 @@ fn apply_mask_sequence(
     model: &ChangedMaskModel,
     initial: &TemporaryStructure,
     actions: &[OpaqueAction],
-) -> [MaskValue; ROLE_COUNT] {
-    let mut current = initial.occupants.map(MaskValue::Known);
+) -> Vec<MaskValue> {
+    let mut current = initial
+        .occupants
+        .iter()
+        .copied()
+        .map(MaskValue::Known)
+        .collect::<Vec<_>>();
     for &action in actions {
         current = model.apply(action, &current);
     }
@@ -471,11 +493,11 @@ pub fn run_composable_model_experiment() -> ComposableModelReport {
 
         let (_, small_learner) = {
             let world = ActionWorld::new(seed);
-            let mut learner = ProvenanceLearner::default();
+            let mut learner = ProvenanceLearner::new(ROLE_COUNT);
             let mut identities = IdentitySource::new(seed ^ 0xd4a3_0000);
             for _ in 0..8 {
                 for action_index in 0..ACTION_COUNT {
-                    let before = identities.fresh_structure();
+                    let before = identities.fresh_structure(ROLE_COUNT);
                     let action = world.action(action_index);
                     let after = world.apply(action, &before);
                     learner.observe(action, &before, &after);
@@ -494,7 +516,7 @@ pub fn run_composable_model_experiment() -> ComposableModelReport {
         let model_fingerprint = learner.fingerprint();
         let mask_model = ChangedMaskModel::from_world(&world);
         let mut control_identities = IdentitySource::new(seed ^ 0xd4a5_0000);
-        let control_initial = control_identities.fresh_structure();
+        let control_initial = control_identities.fresh_structure(ROLE_COUNT);
         let swap = world.action(1);
         let (swap_twice, _) =
             apply_frozen_sequence(&models, &control_initial, &[swap, swap]).unwrap();
@@ -533,7 +555,7 @@ pub fn run_composable_model_experiment() -> ComposableModelReport {
 
         let mut identities = IdentitySource::new(seed ^ 0xd4a4_0000);
         for sequence in held_out_sequences() {
-            let initial = identities.fresh_structure();
+            let initial = identities.fresh_structure(ROLE_COUNT);
             let actions = sequence
                 .effect_indices
                 .iter()
@@ -556,16 +578,28 @@ pub fn run_composable_model_experiment() -> ComposableModelReport {
             let mask_prediction = apply_mask_sequence(&mask_model, &initial, &actions);
             let mask_exact = mask_prediction
                 .iter()
-                .zip(expected.occupants)
-                .all(|(predicted, expected)| *predicted == MaskValue::Known(expected));
+                .zip(&expected.occupants)
+                .all(|(predicted, expected)| *predicted == MaskValue::Known(*expected));
             mask_baseline_exact += usize::from(mask_exact);
 
             traces.push(CompositionTrace {
                 seed_index,
                 sequence_label: sequence.label,
-                initial_identity_ids: initial.occupants.map(|identity| identity.0).to_vec(),
-                expected_identity_ids: expected.occupants.map(|identity| identity.0).to_vec(),
-                predicted_identity_ids: predicted.occupants.map(|identity| identity.0).to_vec(),
+                initial_identity_ids: initial
+                    .occupants
+                    .iter()
+                    .map(|identity| identity.0)
+                    .collect(),
+                expected_identity_ids: expected
+                    .occupants
+                    .iter()
+                    .map(|identity| identity.0)
+                    .collect(),
+                predicted_identity_ids: predicted
+                    .occupants
+                    .iter()
+                    .map(|identity| identity.0)
+                    .collect(),
                 exact,
                 model_fingerprint_before: model_fingerprint,
                 model_fingerprint_after: learner.fingerprint(),
@@ -581,7 +615,11 @@ pub fn run_composable_model_experiment() -> ComposableModelReport {
                             .iter()
                             .map(|role| role.0)
                             .collect(),
-                        resulting_identity_ids: state.occupants.map(|identity| identity.0).to_vec(),
+                        resulting_identity_ids: state
+                            .occupants
+                            .iter()
+                            .map(|identity| identity.0)
+                            .collect(),
                     })
                     .collect(),
             });
@@ -670,6 +708,620 @@ pub fn print_report(report: &ComposableModelReport) {
     }
 }
 
+const D4B_ROLE_COUNT: usize = 13;
+const D4B_ACTION_COUNT: usize = 3;
+const D4B_SEEDS: usize = 8;
+const D4B_DEPTHS: [usize; 5] = [1, 2, 3, 4, 8];
+
+#[derive(Clone, Debug)]
+struct PlanningWorld {
+    action_for_effect: [OpaqueAction; D4B_ACTION_COUNT],
+    effect_for_action: BTreeMap<OpaqueAction, RoleTransformation>,
+}
+
+impl PlanningWorld {
+    fn new(seed: u64) -> Self {
+        let mut shift = (0..D4B_ROLE_COUNT).collect::<Vec<_>>();
+        shift[0] = 8;
+        for (role, source) in shift.iter_mut().enumerate().take(9).skip(1) {
+            *source = role - 1;
+        }
+
+        let mut reveal = (0..D4B_ROLE_COUNT).collect::<Vec<_>>();
+        reveal[9] = 8;
+        let identity = (0..D4B_ROLE_COUNT).collect::<Vec<_>>();
+        let transformations = [
+            RoleTransformation::new(shift),
+            RoleTransformation::new(reveal),
+            RoleTransformation::new(identity),
+        ];
+
+        let mut rng = DeterministicRng::new(seed ^ 0xd4b0_0000);
+        let mut actions =
+            std::array::from_fn(|index| OpaqueAction(mix64(seed ^ 0xb400_0000 ^ index as u64)));
+        rng.shuffle(&mut actions);
+        let effect_for_action = actions
+            .iter()
+            .copied()
+            .zip(transformations)
+            .collect::<BTreeMap<_, _>>();
+        Self {
+            action_for_effect: actions,
+            effect_for_action,
+        }
+    }
+
+    fn action(&self, effect_index: usize) -> OpaqueAction {
+        self.action_for_effect[effect_index]
+    }
+
+    fn apply(&self, action: OpaqueAction, state: &TemporaryStructure) -> TemporaryStructure {
+        self.effect_for_action[&action].apply(state)
+    }
+}
+
+fn train_planning_models(seed: u64) -> (PlanningWorld, ProvenanceLearner) {
+    let world = PlanningWorld::new(seed);
+    let mut learner = ProvenanceLearner::new(D4B_ROLE_COUNT);
+    let mut identities = IdentitySource::new(seed ^ 0xd4b1_0000);
+    for _ in 0..TRAINING_EPISODES_PER_ACTION {
+        for action_index in 0..D4B_ACTION_COUNT {
+            let action = world.action(action_index);
+            let before = identities.fresh_structure(D4B_ROLE_COUNT);
+            let after = world.apply(action, &before);
+            learner.observe(action, &before, &after);
+        }
+    }
+    (world, learner)
+}
+
+#[derive(Clone, Debug)]
+struct RouteStructure {
+    dependencies: BTreeSet<RoleId>,
+}
+
+#[derive(Clone, Debug)]
+struct RouteComparison {
+    shared: BTreeSet<RoleId>,
+    first_only: BTreeSet<RoleId>,
+    second_only: BTreeSet<RoleId>,
+}
+
+fn compare_route_structures(first: &RouteStructure, second: &RouteStructure) -> RouteComparison {
+    RouteComparison {
+        shared: first
+            .dependencies
+            .intersection(&second.dependencies)
+            .copied()
+            .collect(),
+        first_only: first
+            .dependencies
+            .difference(&second.dependencies)
+            .copied()
+            .collect(),
+        second_only: second
+            .dependencies
+            .difference(&first.dependencies)
+            .copied()
+            .collect(),
+    }
+}
+
+fn route_output(state: &TemporaryStructure, route: &RouteStructure) -> Vec<OpaqueIdentity> {
+    route
+        .dependencies
+        .iter()
+        .map(|role| state.occupants[role.0])
+        .collect()
+}
+
+fn changes_roles(
+    before: &TemporaryStructure,
+    after: &TemporaryStructure,
+    roles: &BTreeSet<RoleId>,
+) -> usize {
+    roles
+        .iter()
+        .filter(|role| before.occupants[role.0] != after.occupants[role.0])
+        .count()
+}
+
+fn is_distinguishing_state(
+    initial: &TemporaryStructure,
+    predicted: &TemporaryStructure,
+    first: &RouteStructure,
+    second: &RouteStructure,
+    comparison: &RouteComparison,
+) -> bool {
+    let first_changes = changes_roles(initial, predicted, &comparison.first_only);
+    let second_changes = changes_roles(initial, predicted, &comparison.second_only);
+    let shared_changes = changes_roles(initial, predicted, &comparison.shared);
+    shared_changes == 0
+        && (first_changes > 0) != (second_changes > 0)
+        && route_output(predicted, first) != route_output(predicted, second)
+}
+
+fn planning_routes() -> (RouteStructure, RouteStructure, RouteComparison) {
+    let first = RouteStructure {
+        dependencies: BTreeSet::from([RoleId(9), RoleId(12)]),
+    };
+    let second = RouteStructure {
+        dependencies: BTreeSet::from([RoleId(10), RoleId(12)]),
+    };
+    let comparison = compare_route_structures(&first, &second);
+    (first, second, comparison)
+}
+
+fn planning_initial(
+    identities: &mut IdentitySource,
+    required_depth: Option<usize>,
+) -> (TemporaryStructure, OpaqueIdentity) {
+    let base = identities.issue();
+    let marker = identities.issue();
+    let mut occupants = vec![base; D4B_ROLE_COUNT];
+    if let Some(depth) = required_depth {
+        occupants[9 - depth] = marker;
+    }
+    (TemporaryStructure { occupants }, marker)
+}
+
+fn sorted_actions(models: &BTreeMap<OpaqueAction, RoleTransformation>) -> Vec<OpaqueAction> {
+    models.keys().copied().collect()
+}
+
+fn sequence_from_index(
+    actions: &[OpaqueAction],
+    length: usize,
+    mut index: usize,
+) -> Vec<OpaqueAction> {
+    let mut sequence = vec![actions[0]; length];
+    for position in (0..length).rev() {
+        sequence[position] = actions[index % actions.len()];
+        index /= actions.len();
+    }
+    sequence
+}
+
+#[derive(Clone, Debug)]
+pub struct PlanningCandidateTrace {
+    pub seed_index: usize,
+    pub required_depth: usize,
+    pub reachable: bool,
+    pub candidate_index: usize,
+    pub action_ids: Vec<u64>,
+    pub predicted_marker_roles: Vec<usize>,
+    pub distinguishes: bool,
+    pub before_real_action: bool,
+}
+
+#[derive(Clone, Debug)]
+struct SearchResult {
+    selected: Option<Vec<OpaqueAction>>,
+    predicted: Option<TemporaryStructure>,
+    candidates_examined: usize,
+    model_applications: usize,
+    traces: Vec<PlanningCandidateTrace>,
+}
+
+struct SearchContext<'a> {
+    seed_index: usize,
+    required_depth: usize,
+    reachable: bool,
+    marker: OpaqueIdentity,
+    first: &'a RouteStructure,
+    second: &'a RouteStructure,
+    comparison: &'a RouteComparison,
+}
+
+fn bounded_model_search(
+    models: &BTreeMap<OpaqueAction, RoleTransformation>,
+    initial: &TemporaryStructure,
+    maximum_depth: usize,
+    context: &SearchContext<'_>,
+    record_traces: bool,
+) -> SearchResult {
+    let actions = sorted_actions(models);
+    let mut candidates_examined = 0;
+    let mut model_applications = 0;
+    let mut traces = Vec::new();
+
+    for length in 1..=maximum_depth {
+        let candidate_count = actions.len().pow(length as u32);
+        for candidate_in_length in 0..candidate_count {
+            let sequence = sequence_from_index(&actions, length, candidate_in_length);
+            let (predicted, _) = apply_frozen_sequence(models, initial, &sequence).unwrap();
+            let distinguishes = is_distinguishing_state(
+                initial,
+                &predicted,
+                context.first,
+                context.second,
+                context.comparison,
+            );
+            candidates_examined += 1;
+            model_applications += sequence.len();
+            if record_traces {
+                traces.push(PlanningCandidateTrace {
+                    seed_index: context.seed_index,
+                    required_depth: context.required_depth,
+                    reachable: context.reachable,
+                    candidate_index: candidates_examined,
+                    action_ids: sequence.iter().map(|action| action.0).collect(),
+                    predicted_marker_roles: predicted
+                        .occupants
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(role, identity)| {
+                            (*identity == context.marker).then_some(role)
+                        })
+                        .collect(),
+                    distinguishes,
+                    before_real_action: true,
+                });
+            }
+            if distinguishes {
+                return SearchResult {
+                    selected: Some(sequence),
+                    predicted: Some(predicted),
+                    candidates_examined,
+                    model_applications,
+                    traces,
+                };
+            }
+        }
+    }
+
+    SearchResult {
+        selected: None,
+        predicted: None,
+        candidates_examined,
+        model_applications,
+        traces,
+    }
+}
+
+fn mask_search(
+    model: &ChangedMaskModel,
+    actions: &[OpaqueAction],
+    initial: &TemporaryStructure,
+    maximum_depth: usize,
+    first: &RouteStructure,
+    second: &RouteStructure,
+) -> Option<Vec<OpaqueAction>> {
+    for length in 1..=maximum_depth {
+        for candidate in 0..actions.len().pow(length as u32) {
+            let sequence = sequence_from_index(actions, length, candidate);
+            let predicted = apply_mask_sequence(model, initial, &sequence);
+            let route_known = |route: &RouteStructure| {
+                route
+                    .dependencies
+                    .iter()
+                    .map(|role| predicted[role.0].clone())
+                    .collect::<Vec<_>>()
+            };
+            let first_output = route_known(first);
+            let second_output = route_known(second);
+            if first_output
+                .iter()
+                .all(|value| matches!(value, MaskValue::Known(_)))
+                && second_output
+                    .iter()
+                    .all(|value| matches!(value, MaskValue::Known(_)))
+                && first_output != second_output
+            {
+                return Some(sequence);
+            }
+        }
+    }
+    None
+}
+
+fn random_search_with_budget(
+    models: &BTreeMap<OpaqueAction, RoleTransformation>,
+    initial: &TemporaryStructure,
+    maximum_depth: usize,
+    candidate_budget: usize,
+    seed: u64,
+    context: &SearchContext<'_>,
+) -> Option<Vec<OpaqueAction>> {
+    let actions = sorted_actions(models);
+    let mut candidates = Vec::new();
+    for length in 1..=maximum_depth {
+        for candidate in 0..actions.len().pow(length as u32) {
+            candidates.push(sequence_from_index(&actions, length, candidate));
+        }
+    }
+    let mut rng = DeterministicRng::new(seed);
+    rng.shuffle(&mut candidates);
+    for sequence in candidates.into_iter().take(candidate_budget) {
+        let (predicted, _) = apply_frozen_sequence(models, initial, &sequence).unwrap();
+        if is_distinguishing_state(
+            initial,
+            &predicted,
+            context.first,
+            context.second,
+            context.comparison,
+        ) {
+            return Some(sequence);
+        }
+    }
+    None
+}
+
+#[derive(Clone, Debug)]
+pub struct PlanningDepthReport {
+    pub required_depth: usize,
+    pub cases: usize,
+    pub correct: usize,
+    pub real_execution_correct: usize,
+    pub shortest_correct: usize,
+    pub oracle_correct: usize,
+    pub one_step_correct: usize,
+    pub mask_planner_correct: usize,
+    pub random_correct: usize,
+    pub candidates_examined: usize,
+    pub model_applications: usize,
+    pub role_transfers: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct PlanningReport {
+    pub depth_reports: Vec<PlanningDepthReport>,
+    pub unreachable_correct: usize,
+    pub unreachable_total: usize,
+    pub order_sensitive_correct: usize,
+    pub order_sensitive_total: usize,
+    pub permanent_model_entries: usize,
+    pub permanent_model_size_flat: bool,
+    pub frozen_fingerprint_unchanged: bool,
+    pub all_planning_before_action: bool,
+    pub training_sequences: usize,
+    pub traces: Vec<PlanningCandidateTrace>,
+    pub passed: bool,
+}
+
+pub fn run_planning_experiment() -> PlanningReport {
+    let (first, second, comparison) = planning_routes();
+    let mut depth_reports = D4B_DEPTHS
+        .iter()
+        .map(|&required_depth| PlanningDepthReport {
+            required_depth,
+            cases: 0,
+            correct: 0,
+            real_execution_correct: 0,
+            shortest_correct: 0,
+            oracle_correct: 0,
+            one_step_correct: 0,
+            mask_planner_correct: 0,
+            random_correct: 0,
+            candidates_examined: 0,
+            model_applications: 0,
+            role_transfers: 0,
+        })
+        .collect::<Vec<_>>();
+    let mut unreachable_correct = 0;
+    let mut order_sensitive_correct = 0;
+    let mut permanent_model_entries = 0;
+    let mut permanent_model_size_flat = true;
+    let mut frozen_fingerprint_unchanged = true;
+    let mut all_planning_before_action = true;
+    let mut traces = Vec::new();
+
+    for seed_index in 0..D4B_SEEDS {
+        let seed = 0xd4b2_0000 + seed_index as u64;
+        let (world, learner) = train_planning_models(seed);
+        let models = (0..D4B_ACTION_COUNT)
+            .map(|index| {
+                let action = world.action(index);
+                (action, learner.predict(action).unwrap())
+            })
+            .collect::<BTreeMap<_, _>>();
+        let fingerprint = learner.fingerprint();
+        let entries = learner.model_entries();
+        if seed_index == 0 {
+            permanent_model_entries = entries;
+        } else {
+            permanent_model_size_flat &= entries == permanent_model_entries;
+        }
+        let actions = sorted_actions(&models);
+        let mask_model = ChangedMaskModel::from_effects(&world.effect_for_action);
+
+        for (depth_index, &required_depth) in D4B_DEPTHS.iter().enumerate() {
+            let mut identities = IdentitySource::new(seed ^ 0xd4b3_0000 ^ required_depth as u64);
+            let (initial, marker) = planning_initial(&mut identities, Some(required_depth));
+            let context = SearchContext {
+                seed_index,
+                required_depth,
+                reachable: true,
+                marker,
+                first: &first,
+                second: &second,
+                comparison: &comparison,
+            };
+            let result = bounded_model_search(&models, &initial, required_depth, &context, true);
+            let selected = result.selected.clone();
+            let predicted = result.predicted.clone();
+            let correct = selected.as_ref().is_some_and(|sequence| {
+                sequence.len() == required_depth
+                    && predicted.as_ref().is_some_and(|state| {
+                        is_distinguishing_state(&initial, state, &first, &second, &comparison)
+                    })
+            });
+            let real = selected.as_ref().map(|sequence| {
+                sequence.iter().fold(initial.clone(), |state, &action| {
+                    world.apply(action, &state)
+                })
+            });
+            let real_execution_correct = real.as_ref().is_some_and(|state| {
+                predicted.as_ref() == Some(state)
+                    && is_distinguishing_state(&initial, state, &first, &second, &comparison)
+            });
+
+            let oracle = bounded_model_search(
+                &world.effect_for_action,
+                &initial,
+                required_depth,
+                &context,
+                false,
+            );
+            let one_step = bounded_model_search(&models, &initial, 1, &context, false).selected;
+            let mask = mask_search(
+                &mask_model,
+                &actions,
+                &initial,
+                required_depth,
+                &first,
+                &second,
+            );
+            let random = random_search_with_budget(
+                &models,
+                &initial,
+                required_depth,
+                result.candidates_examined,
+                seed ^ 0xd4b4_0000 ^ required_depth as u64,
+                &context,
+            );
+
+            let report = &mut depth_reports[depth_index];
+            report.cases += 1;
+            report.correct += usize::from(correct);
+            report.real_execution_correct += usize::from(real_execution_correct);
+            report.shortest_correct += usize::from(
+                selected
+                    .as_ref()
+                    .is_some_and(|sequence| sequence.len() == required_depth),
+            );
+            report.oracle_correct += usize::from(oracle.selected == selected);
+            report.one_step_correct += usize::from(one_step.is_some());
+            report.mask_planner_correct += usize::from(mask.is_some());
+            report.random_correct += usize::from(random.is_some());
+            report.candidates_examined += result.candidates_examined;
+            report.model_applications += result.model_applications;
+            report.role_transfers += result.model_applications * D4B_ROLE_COUNT;
+            all_planning_before_action &=
+                result.traces.iter().all(|trace| trace.before_real_action);
+            traces.extend(result.traces);
+
+            if required_depth == 2 {
+                let shift_then_reveal = [world.action(0), world.action(1)];
+                let reveal_then_shift = [world.action(1), world.action(0)];
+                let first_result = apply_frozen_sequence(&models, &initial, &shift_then_reveal)
+                    .unwrap()
+                    .0;
+                let second_result = apply_frozen_sequence(&models, &initial, &reveal_then_shift)
+                    .unwrap()
+                    .0;
+                order_sensitive_correct += usize::from(
+                    is_distinguishing_state(&initial, &first_result, &first, &second, &comparison)
+                        && !is_distinguishing_state(
+                            &initial,
+                            &second_result,
+                            &first,
+                            &second,
+                            &comparison,
+                        ),
+                );
+            }
+            frozen_fingerprint_unchanged &= learner.fingerprint() == fingerprint;
+        }
+
+        let mut identities = IdentitySource::new(seed ^ 0xd4b5_0000);
+        let (initial, marker) = planning_initial(&mut identities, None);
+        let context = SearchContext {
+            seed_index,
+            required_depth: 8,
+            reachable: false,
+            marker,
+            first: &first,
+            second: &second,
+            comparison: &comparison,
+        };
+        let unreachable = bounded_model_search(&models, &initial, 8, &context, true);
+        unreachable_correct += usize::from(unreachable.selected.is_none());
+        all_planning_before_action &= unreachable
+            .traces
+            .iter()
+            .all(|trace| trace.before_real_action);
+        traces.extend(unreachable.traces);
+        frozen_fingerprint_unchanged &= learner.fingerprint() == fingerprint;
+    }
+
+    let candidate_growth = depth_reports
+        .windows(2)
+        .all(|pair| pair[0].candidates_examined < pair[1].candidates_examined);
+    let work_growth = depth_reports
+        .windows(2)
+        .all(|pair| pair[0].model_applications < pair[1].model_applications);
+    let reachable_cases = D4B_SEEDS;
+    let passed = depth_reports.iter().all(|report| {
+        report.correct == reachable_cases
+            && report.real_execution_correct == reachable_cases
+            && report.shortest_correct == reachable_cases
+            && report.oracle_correct == reachable_cases
+            && report.mask_planner_correct == 0
+            && if report.required_depth == 1 {
+                report.one_step_correct == reachable_cases
+            } else {
+                report.one_step_correct == 0
+            }
+    }) && depth_reports
+        .iter()
+        .map(|report| report.random_correct)
+        .sum::<usize>()
+        < D4B_DEPTHS.len() * D4B_SEEDS
+        && unreachable_correct == D4B_SEEDS
+        && order_sensitive_correct == D4B_SEEDS
+        && permanent_model_size_flat
+        && frozen_fingerprint_unchanged
+        && all_planning_before_action
+        && candidate_growth
+        && work_growth;
+
+    PlanningReport {
+        depth_reports,
+        unreachable_correct,
+        unreachable_total: D4B_SEEDS,
+        order_sensitive_correct,
+        order_sensitive_total: D4B_SEEDS,
+        permanent_model_entries,
+        permanent_model_size_flat,
+        frozen_fingerprint_unchanged,
+        all_planning_before_action,
+        training_sequences: 0,
+        traces,
+        passed,
+    }
+}
+
+pub fn print_planning_report(report: &PlanningReport) {
+    println!("d4b counterfactual search over learned transformations:");
+    for depth in &report.depth_reports {
+        println!(
+            "  depth {}: model/real/oracle/random/one-step/mask={}/{}/{}/{}/{}/{} of {}, candidates={:.1}, applications={:.1}, role transfers={:.1}",
+            depth.required_depth,
+            depth.correct,
+            depth.real_execution_correct,
+            depth.oracle_correct,
+            depth.random_correct,
+            depth.one_step_correct,
+            depth.mask_planner_correct,
+            depth.cases,
+            depth.candidates_examined as f64 / depth.cases as f64,
+            depth.model_applications as f64 / depth.cases as f64,
+            depth.role_transfers as f64 / depth.cases as f64
+        );
+    }
+    println!(
+        "  unreachable={}/{}, order-sensitive={}/{}, model entries={}, frozen={}, all planning pre-action={}",
+        report.unreachable_correct,
+        report.unreachable_total,
+        report.order_sensitive_correct,
+        report.order_sensitive_total,
+        report.permanent_model_entries,
+        report.frozen_fingerprint_unchanged,
+        report.all_planning_before_action
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -678,6 +1330,11 @@ mod tests {
     fn report() -> &'static ComposableModelReport {
         static REPORT: OnceLock<ComposableModelReport> = OnceLock::new();
         REPORT.get_or_init(run_composable_model_experiment)
+    }
+
+    fn planning_report() -> &'static PlanningReport {
+        static REPORT: OnceLock<PlanningReport> = OnceLock::new();
+        REPORT.get_or_init(run_planning_experiment)
     }
 
     #[test]
@@ -720,6 +1377,65 @@ mod tests {
         assert!(report.exact_by_sequence_length.contains_key(&16));
         assert!(report.model_applications > report.total_predictions);
         assert_eq!(report.maximum_temporary_roles, ROLE_COUNT);
+        assert!(report.passed);
+    }
+
+    #[test]
+    fn d4b_selects_shortest_sequences_before_acting() {
+        let report = planning_report();
+        assert!(report.depth_reports.iter().all(|depth| {
+            depth.correct == depth.cases
+                && depth.real_execution_correct == depth.cases
+                && depth.shortest_correct == depth.cases
+                && depth.oracle_correct == depth.cases
+        }));
+        assert!(report.all_planning_before_action);
+        assert_eq!(report.training_sequences, 0);
+    }
+
+    #[test]
+    fn d4b_requires_composition_and_provenance() {
+        let report = planning_report();
+        assert_eq!(
+            report
+                .depth_reports
+                .iter()
+                .find(|depth| depth.required_depth == 1)
+                .unwrap()
+                .one_step_correct,
+            D4B_SEEDS
+        );
+        assert!(report
+            .depth_reports
+            .iter()
+            .filter(|depth| depth.required_depth > 1)
+            .all(|depth| depth.one_step_correct == 0));
+        assert!(report
+            .depth_reports
+            .iter()
+            .all(|depth| depth.mask_planner_correct == 0));
+        assert_eq!(report.order_sensitive_correct, report.order_sensitive_total);
+    }
+
+    #[test]
+    fn d4b_reports_unreachable_and_preserves_frozen_models() {
+        let report = planning_report();
+        assert_eq!(report.unreachable_correct, report.unreachable_total);
+        assert!(report.permanent_model_size_flat);
+        assert!(report.frozen_fingerprint_unchanged);
+    }
+
+    #[test]
+    fn d4b_exposes_enumeration_growth_with_depth() {
+        let report = planning_report();
+        assert!(report
+            .depth_reports
+            .windows(2)
+            .all(|pair| pair[0].candidates_examined < pair[1].candidates_examined));
+        assert!(report
+            .depth_reports
+            .windows(2)
+            .all(|pair| pair[0].model_applications < pair[1].model_applications));
         assert!(report.passed);
     }
 }

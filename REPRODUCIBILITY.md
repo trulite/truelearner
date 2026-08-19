@@ -20,6 +20,7 @@ cargo run --release --bin remap -- results/d2_2_remap.csv
 cargo run --release --bin plasticity -- results/d2_3_plasticity.csv
 cargo run --release --bin model_epistemic -- results/d3_pre_action_traces.csv
 cargo run --release --bin composable_models -- results/d4a_composition_traces.csv
+cargo run --release --bin counterfactual_planning -- results/d4b_planning_traces.csv
 ```
 
 `rust-toolchain.toml` pins the compiler and installs `rustfmt` and Clippy.
@@ -120,6 +121,12 @@ independent integration tests.
   opposite rotations with identical changed-role masks remain structurally
   distinguishable, swap-twice and order-sensitive controls pass, and frozen
   model fingerprints remain unchanged
+- d4b: supplied bounded search over frozen learned transformations predicts
+  and executes all 40 shortest distinguishing sequences through depth eight;
+  the true-model oracle also solves 40, equal-budget random ordering solves
+  30, the one-step selector solves eight, and the changed-role-mask planner
+  solves none; all eight unreachable problems are reported and average
+  candidate evaluations grow from 1.9 to 6,969.8
 
 ## Interpretation Boundary
 
