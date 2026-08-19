@@ -725,6 +725,10 @@ fn main() {
     continuation::print_report(&continuation_report);
     println!();
 
+    let finish_report = continuation::run_finish_experiment();
+    continuation::print_finish_report(&finish_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -740,17 +744,18 @@ fn main() {
         && composition_report.probe_valid
         && binding_report.passed
         && iteration_report.passed
-        && continuation_report.passed;
+        && continuation_report.passed
+        && finish_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - one external start drives learned autonomous continuation through the queued spike runtime, and all earlier experiments still pass"
+            "PASS - learned absence-to-answer routing finishes autonomous queued reasoning without an external cutoff, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: v21a supplies START, a safety cutoff, the frozen v20 operation, and three candidate self-routes; it does not learn when to finish."
+        "LIMIT: v21b supplies a neutral no-result event, the frozen v21a continuation path, and four candidate finish routes; cycles still require a safety limit."
     );
 }
 

@@ -715,6 +715,70 @@ supplied.
 Recorded measurements are in
 [`results/v21a_continuation.md`](results/v21a_continuation.md).
 
+## v21b: Learned finish
+
+V21b freezes the successful v21a path and removes the evaluator cutoff.
+
+When queued lookup produces no successor, the generic runtime now emits one
+neutral no-result event. Four supplied candidate routes compete:
+
+- emit the current identity as an explicit answer,
+- apply again,
+- clear current,
+- become quiet.
+
+Terminal supervision provides only the expected final identity. It does not
+identify the finish route. Scoring accepts only an explicit answer spike; the
+evaluator never reads current as the answer.
+
+Training uses finite chains one through four links deep. Held-out evaluation
+uses completely fresh identities and chains five, eight, sixteen, and
+thirty-two links deep. Every depth sweep episode contains forty total
+relations, so the temporary working set stays fixed while execution depth
+changes.
+
+Results:
+
+- fifteen permanent cells and eighteen permanent arrows remain fixed,
+- all four held-out depths score 200 of 200,
+- a supplied finish baseline also passes every depth,
+- the frozen v21a machine without finish scores zero at every depth because it
+  emits no explicit answer,
+- each run receives one start, uses no cutoff, emits one answer, and reaches an
+  empty queue naturally,
+- the final semantic trace is exactly terminal current, lookup, no result,
+  finish arrow 14, and explicit answer,
+- the successful apply, lookup, feedback, and self-trigger route IDs remain
+  unchanged from v21a,
+- the v21a permanent fingerprint remains unchanged while only finish-route
+  confidence learns.
+
+Two scaling curves are recorded:
+
+```text
+reasoning depth       5     8      16      32
+internal spikes      515   773   1,461   2,837
+
+temporary relations   8    16    32     64      128
+internal spikes      197   341   629   1,205   2,357
+```
+
+At fixed working-set size, each additional successful lookup adds 86 spikes.
+At fixed depth eight, each additional temporary relation adds 18 spikes to the
+complete run.
+
+Branches remain ambiguous, duplicate identical links produce one result, and
+a zero-link chain answers its query identity. A cycle emits no answer and
+reaches the safety limit, confirming that cycle memory remains unsolved.
+
+The later substrate also solves 32 of 32 episodes from the original v18 depth
+distribution. This does not erase v18's negative result: v21b additionally
+supplies opaque equality, relation slots, temporary lifetime, a no-result
+event, and candidate route families that v18 did not have.
+
+Recorded measurements are in
+[`results/v21b_finish.md`](results/v21b_finish.md).
+
 ## Run
 
 ```bash

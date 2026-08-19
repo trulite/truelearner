@@ -124,6 +124,22 @@ cutoff. The result supports autonomous continuation through selected
 structure; it does not support learned finishing, cycle detection, or
 unbounded safe execution.
 
+V21b freezes the v21a successful path and additionally supplies:
+
+- a neutral no-result event after a completed lookup finds zero successors
+- permanent answer and clear cells
+- four candidate finish routes
+
+Only finish-route confidence changes during v21b training. Held-out scoring
+accepts an explicit answer event and never reads the temporary current cell.
+The evaluator supplies no cutoff. Cycles still reach a safety limit and emit no
+answer.
+
+The 32-of-32 recomposed v18-distribution result must not replace the original
+v18 failure. The later substrate receives identity equality, structured
+relation slots, temporary lifetime, and candidate route families that the v18
+unified sequence learner did not receive.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -139,7 +155,7 @@ unbounded safe execution.
 - `src/composition.rs`: v18 renaming-invariant composition probe
 - `src/binding.rs`: v19 temporary identity binding
 - `src/iteration.rs`: v20 repeated use of one learned lookup and feedback route
-- `src/continuation.rs`: v21a autonomous queued continuation
+- `src/continuation.rs`: v21a autonomous continuation and v21b learned finish
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

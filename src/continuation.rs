@@ -10,11 +10,16 @@ const RESULT_CELL_ID: usize = 8;
 const READ_CELL_ID: usize = 9;
 const START_CELL_ID: usize = 10;
 const QUIET_CELL_ID: usize = 11;
+const NO_RESULT_CELL_ID: usize = 12;
+const EXPLICIT_ANSWER_CELL_ID: usize = 13;
+const CLEAR_CELL_ID: usize = 14;
 
 const START_TO_APPLY_ARROW_ID: usize = 7;
 const APPLY_TO_LOOKUP_ARROW_ID: usize = 8;
 const LOOKUP_TO_RESULT_ARROW_ID: usize = 9;
 const SELF_ARROW_OFFSET: usize = 10;
+const LOOKUP_TO_NO_RESULT_ARROW_ID: usize = 13;
+const FINISH_ARROW_OFFSET: usize = 14;
 
 #[derive(Clone, Debug)]
 struct DeterministicRng {
@@ -53,6 +58,43 @@ enum SelfRoute {
 struct SelfArrow {
     route: SelfRoute,
     strength: i32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FinishRoute {
+    AnswerCurrent,
+    ApplyAgain,
+    Clear,
+    BecomeQuiet,
+}
+
+#[derive(Clone, Debug)]
+struct FinishArrow {
+    route: FinishRoute,
+    strength: i32,
+}
+
+#[derive(Clone, Debug)]
+struct FinishControl {
+    arrows: Vec<FinishArrow>,
+    training_examples: u64,
+}
+
+impl FinishControl {
+    fn new() -> Self {
+        Self {
+            arrows: [
+                FinishRoute::AnswerCurrent,
+                FinishRoute::ApplyAgain,
+                FinishRoute::Clear,
+                FinishRoute::BecomeQuiet,
+            ]
+            .into_iter()
+            .map(|route| FinishArrow { route, strength: 0 })
+            .collect(),
+            training_examples: 0,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -95,20 +137,32 @@ struct ContinuationTrace {
     internal_spikes_for_step: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SemanticEvent {
+    Current(OpaqueId),
+    Lookup(OpaqueId),
+    NoResult,
+    FinishArrow(usize),
+    Answer(OpaqueId),
+}
+
 #[derive(Clone, Debug)]
 struct AutonomousContinuation {
     operation: FrozenIterableOperation,
     self_arrows: Vec<SelfArrow>,
+    finish_control: Option<FinishControl>,
     training_examples: u64,
     episode_query: Option<OpaqueId>,
     current: Option<OpaqueId>,
     result: Option<OpaqueId>,
     fault: Option<BindingOutcome>,
     emitted_answer: Option<OpaqueId>,
+    finish_answer: Option<OpaqueId>,
     lookup_input: Option<OpaqueId>,
     lookup_outputs: HashSet<OpaqueId>,
     queue: VecDeque<QueuedSpike>,
     trace: Vec<ContinuationTrace>,
+    semantic_events: Vec<SemanticEvent>,
     external_start_spikes: usize,
     internal_spikes: usize,
     delivered_spikes: usize,
@@ -119,6 +173,7 @@ struct AutonomousContinuation {
     discarded_at_cutoff: usize,
     activity_limit_hit: bool,
     route_override: Option<SelfRoute>,
+    finish_route_override: Option<FinishRoute>,
 }
 
 impl AutonomousContinuation {
@@ -135,16 +190,19 @@ impl AutonomousContinuation {
             .into_iter()
             .map(|route| SelfArrow { route, strength: 0 })
             .collect(),
+            finish_control: None,
             training_examples: 0,
             episode_query: None,
             current: None,
             result: None,
             fault: None,
             emitted_answer: None,
+            finish_answer: None,
             lookup_input: None,
             lookup_outputs: HashSet::new(),
             queue: VecDeque::new(),
             trace: Vec::new(),
+            semantic_events: Vec::new(),
             external_start_spikes: 0,
             internal_spikes: 0,
             delivered_spikes: 0,
@@ -155,6 +213,7 @@ impl AutonomousContinuation {
             discarded_at_cutoff: 0,
             activity_limit_hit: false,
             route_override: None,
+            finish_route_override: None,
         }
     }
 
@@ -164,6 +223,24 @@ impl AutonomousContinuation {
             arrow.strength = if arrow.route == route { 1 } else { -1 };
         }
         learner
+    }
+
+    fn enable_finish_learning(mut self) -> Self {
+        self.finish_control = Some(FinishControl::new());
+        self
+    }
+
+    fn with_supplied_finish(mut self) -> Self {
+        let mut control = FinishControl::new();
+        for arrow in &mut control.arrows {
+            arrow.strength = if arrow.route == FinishRoute::AnswerCurrent {
+                1
+            } else {
+                -1
+            };
+        }
+        self.finish_control = Some(control);
+        self
     }
 
     fn begin_episode(&mut self, query: OpaqueId) {
@@ -180,17 +257,30 @@ impl AutonomousContinuation {
     /// The host contributes exactly one external event. All later events are
     /// emitted by permanent or temporary cells through the same queue.
     fn start_and_settle(&mut self, successful_lookup_cutoff: usize) -> RunResult {
-        self.run(successful_lookup_cutoff, None)
+        self.run(Some(successful_lookup_cutoff), None, None, 1_000_000)
+    }
+
+    fn start_and_finish(&mut self) -> RunResult {
+        self.run(None, None, None, 100_000)
+    }
+
+    fn start_and_finish_with_limit(&mut self, activity_limit: usize) -> RunResult {
+        self.run(None, None, None, activity_limit)
     }
 
     fn run(
         &mut self,
-        successful_lookup_cutoff: usize,
+        successful_lookup_cutoff: Option<usize>,
         route_override: Option<SelfRoute>,
+        finish_route_override: Option<FinishRoute>,
+        activity_limit: usize,
     ) -> RunResult {
-        assert!(successful_lookup_cutoff > 0);
+        if let Some(cutoff) = successful_lookup_cutoff {
+            assert!(cutoff > 0);
+        }
         self.reset_execution();
         self.route_override = route_override;
+        self.finish_route_override = finish_route_override;
         self.external_start_spikes = 1;
         self.queue.push_back(QueuedSpike {
             from: CellRef::External,
@@ -200,15 +290,16 @@ impl AutonomousContinuation {
             external: true,
         });
 
-        let activity_limit = 1_000_000;
         while let Some(spike) = self.queue.pop_front() {
             self.delivered_spikes += 1;
             self.activate(spike);
-            if self.completed_lookups >= successful_lookup_cutoff {
-                self.cutoff_reached = true;
-                self.discarded_at_cutoff = self.queue.len();
-                self.queue = VecDeque::new();
-                break;
+            if let Some(cutoff) = successful_lookup_cutoff {
+                if self.completed_lookups >= cutoff {
+                    self.cutoff_reached = true;
+                    self.discarded_at_cutoff = self.queue.len();
+                    self.queue = VecDeque::new();
+                    break;
+                }
             }
             if self.internal_spikes >= activity_limit {
                 self.activity_limit_hit = true;
@@ -217,9 +308,16 @@ impl AutonomousContinuation {
             }
         }
         self.route_override = None;
+        self.finish_route_override = None;
+        let outcome = if successful_lookup_cutoff.is_some() {
+            self.read_current()
+        } else {
+            self.explicit_outcome()
+        };
 
         RunResult {
-            outcome: self.read_current(),
+            outcome,
+            explicit_answer_emitted: self.finish_answer.is_some(),
             completed_lookups: self.completed_lookups,
             external_start_spikes: self.external_start_spikes,
             internal_spikes: self.internal_spikes,
@@ -230,6 +328,7 @@ impl AutonomousContinuation {
             activity_limit_hit: self.activity_limit_hit,
             remaining_queued_spikes: self.queue.len(),
             trace: self.trace.clone(),
+            semantic_events: self.semantic_events.clone(),
         }
     }
 
@@ -248,6 +347,7 @@ impl AutonomousContinuation {
                 debug_assert!(
                     spike.arrow_id == Some(START_TO_APPLY_ARROW_ID)
                         || spike.arrow_id == Some(SELF_ARROW_OFFSET)
+                        || spike.arrow_id == Some(FINISH_ARROW_OFFSET + 1)
                 );
                 self.apply_activations += 1;
                 self.enqueue_internal(
@@ -289,6 +389,22 @@ impl AutonomousContinuation {
                 };
                 self.activate_current(identity);
             }
+            CellRef::Permanent(NO_RESULT_CELL_ID) => {
+                debug_assert_eq!(spike.arrow_id, Some(LOOKUP_TO_NO_RESULT_ARROW_ID));
+                self.activate_no_result();
+            }
+            CellRef::Permanent(EXPLICIT_ANSWER_CELL_ID) => {
+                debug_assert_eq!(spike.arrow_id, Some(FINISH_ARROW_OFFSET));
+                let SpikePayload::Identity(identity) = spike.payload else {
+                    unreachable!("explicit answer receives an identity")
+                };
+                self.emitted_answer = Some(identity);
+                self.finish_answer = Some(identity);
+                self.semantic_events.push(SemanticEvent::Answer(identity));
+            }
+            CellRef::Permanent(CLEAR_CELL_ID) => {
+                self.current = None;
+            }
             CellRef::Permanent(READ_CELL_ID) => {
                 self.emitted_answer = self.current;
             }
@@ -304,6 +420,7 @@ impl AutonomousContinuation {
             return;
         };
         self.lookup_input = Some(current);
+        self.semantic_events.push(SemanticEvent::Lookup(current));
         self.lookup_outputs.clear();
         let identity_cells = self.operation.lookup.temporary_identity_cells();
         if identity_cells.is_empty() {
@@ -357,6 +474,12 @@ impl AutonomousContinuation {
 
     fn finalize_lookup(&mut self) {
         match self.lookup_outputs.len() {
+            0 if self.finish_control.is_some() => self.enqueue_internal(
+                CellRef::Permanent(LOOKUP_CELL_ID),
+                CellRef::Permanent(NO_RESULT_CELL_ID),
+                Some(LOOKUP_TO_NO_RESULT_ARROW_ID),
+                SpikePayload::None,
+            ),
             0 => self.fault = Some(BindingOutcome::NotFound),
             1 => {
                 let result = *self.lookup_outputs.iter().next().unwrap();
@@ -373,6 +496,7 @@ impl AutonomousContinuation {
 
     fn activate_current(&mut self, identity: OpaqueId) {
         self.current = Some(identity);
+        self.semantic_events.push(SemanticEvent::Current(identity));
         self.completed_lookups += 1;
         let (self_arrow_id, route) = self.selected_or_overridden_route();
         match route {
@@ -410,6 +534,48 @@ impl AutonomousContinuation {
             internal_spikes_for_step: self.internal_spikes - self.last_trace_internal_spikes,
         });
         self.last_trace_internal_spikes = self.internal_spikes;
+    }
+
+    fn activate_no_result(&mut self) {
+        self.semantic_events.push(SemanticEvent::NoResult);
+        let (arrow_id, route) = self.selected_or_overridden_finish_route();
+        let Some(route) = route else {
+            return;
+        };
+        let arrow_id = arrow_id.expect("selected finish route has an arrow");
+        self.semantic_events
+            .push(SemanticEvent::FinishArrow(arrow_id));
+        match route {
+            FinishRoute::AnswerCurrent => {
+                let Some(current) = self.current else {
+                    return;
+                };
+                self.enqueue_internal(
+                    CellRef::Permanent(NO_RESULT_CELL_ID),
+                    CellRef::Permanent(EXPLICIT_ANSWER_CELL_ID),
+                    Some(arrow_id),
+                    SpikePayload::Identity(current),
+                );
+            }
+            FinishRoute::ApplyAgain => self.enqueue_internal(
+                CellRef::Permanent(NO_RESULT_CELL_ID),
+                CellRef::Permanent(APPLY_CELL_ID),
+                Some(arrow_id),
+                SpikePayload::None,
+            ),
+            FinishRoute::Clear => self.enqueue_internal(
+                CellRef::Permanent(NO_RESULT_CELL_ID),
+                CellRef::Permanent(CLEAR_CELL_ID),
+                Some(arrow_id),
+                SpikePayload::None,
+            ),
+            FinishRoute::BecomeQuiet => self.enqueue_internal(
+                CellRef::Permanent(NO_RESULT_CELL_ID),
+                CellRef::Permanent(QUIET_CELL_ID),
+                Some(arrow_id),
+                SpikePayload::None,
+            ),
+        }
     }
 
     fn selected_or_overridden_route(&self) -> (Option<usize>, Option<SelfRoute>) {
@@ -452,6 +618,50 @@ impl AutonomousContinuation {
         }
     }
 
+    fn selected_or_overridden_finish_route(&self) -> (Option<usize>, Option<FinishRoute>) {
+        if let Some(route) = self.finish_route_override {
+            let index = self
+                .finish_control
+                .as_ref()
+                .expect("finish override requires finish control")
+                .arrows
+                .iter()
+                .position(|arrow| arrow.route == route)
+                .unwrap();
+            return (Some(FINISH_ARROW_OFFSET + index), Some(route));
+        }
+        self.selected_finish_route()
+            .map_or((None, None), |(index, route)| {
+                (Some(FINISH_ARROW_OFFSET + index), Some(route))
+            })
+    }
+
+    fn selected_finish_route(&self) -> Option<(usize, FinishRoute)> {
+        let control = self.finish_control.as_ref()?;
+        let mut best: Option<(usize, &FinishArrow)> = None;
+        let mut tied = false;
+        for (index, arrow) in control.arrows.iter().enumerate() {
+            match best {
+                None => {
+                    best = Some((index, arrow));
+                    tied = false;
+                }
+                Some((_, current)) if arrow.strength > current.strength => {
+                    best = Some((index, arrow));
+                    tied = false;
+                }
+                Some((_, current)) if arrow.strength == current.strength => tied = true,
+                Some(_) => {}
+            }
+        }
+        if tied {
+            None
+        } else {
+            best.filter(|(_, arrow)| arrow.strength > 0)
+                .map(|(index, arrow)| (index, arrow.route))
+        }
+    }
+
     /// Supervision supplies only the expected identity after two successful
     /// lookups. Each candidate is evaluated by one external start and the
     /// queued runtime, never by repeated host calls to lookup.
@@ -461,7 +671,9 @@ impl AutonomousContinuation {
             .iter()
             .map(|arrow| {
                 let mut candidate = self.clone();
-                candidate.run(cutoff, Some(arrow.route)).outcome
+                candidate
+                    .run(Some(cutoff), Some(arrow.route), None, 1_000_000)
+                    .outcome
             })
             .collect();
         for (arrow, outcome) in self.self_arrows.iter_mut().zip(outcomes) {
@@ -472,6 +684,33 @@ impl AutonomousContinuation {
             }
         }
         self.training_examples += 1;
+    }
+
+    fn learn_finish_from_terminal(&mut self, correct: BindingOutcome) {
+        let routes: Vec<_> = self
+            .finish_control
+            .as_ref()
+            .expect("finish learning requires finish candidates")
+            .arrows
+            .iter()
+            .map(|arrow| arrow.route)
+            .collect();
+        let outcomes: Vec<_> = routes
+            .iter()
+            .map(|&route| {
+                let mut candidate = self.clone();
+                candidate.run(None, None, Some(route), 512).outcome
+            })
+            .collect();
+        let control = self.finish_control.as_mut().unwrap();
+        for (arrow, outcome) in control.arrows.iter_mut().zip(outcomes) {
+            if outcome == correct {
+                arrow.strength = arrow.strength.saturating_add(1);
+            } else {
+                arrow.strength = arrow.strength.saturating_sub(1);
+            }
+        }
+        control.training_examples += 1;
     }
 
     fn enqueue_internal(
@@ -500,15 +739,25 @@ impl AutonomousContinuation {
             .map_or(BindingOutcome::NotFound, BindingOutcome::Answer)
     }
 
+    fn explicit_outcome(&self) -> BindingOutcome {
+        if self.fault == Some(BindingOutcome::Ambiguous) {
+            return BindingOutcome::Ambiguous;
+        }
+        self.finish_answer
+            .map_or(BindingOutcome::NotFound, BindingOutcome::Answer)
+    }
+
     fn reset_execution(&mut self) {
         self.current = self.episode_query;
         self.result = None;
         self.fault = None;
         self.emitted_answer = None;
+        self.finish_answer = None;
         self.lookup_input = None;
         self.lookup_outputs = HashSet::new();
         self.queue = VecDeque::new();
         self.trace = Vec::new();
+        self.semantic_events = Vec::new();
         self.external_start_spikes = 0;
         self.internal_spikes = 0;
         self.delivered_spikes = 0;
@@ -519,6 +768,7 @@ impl AutonomousContinuation {
         self.discarded_at_cutoff = 0;
         self.activity_limit_hit = false;
         self.route_override = None;
+        self.finish_route_override = None;
     }
 
     fn erase_temporary(&mut self) {
@@ -528,11 +778,14 @@ impl AutonomousContinuation {
         self.result = None;
         self.fault = None;
         self.emitted_answer = None;
+        self.finish_answer = None;
         self.lookup_input = None;
         self.lookup_outputs = HashSet::new();
         self.queue = VecDeque::new();
         self.trace = Vec::new();
+        self.semantic_events = Vec::new();
         self.route_override = None;
+        self.finish_route_override = None;
     }
 
     fn temporary_counts(&self) -> (usize, usize) {
@@ -545,7 +798,7 @@ impl AutonomousContinuation {
         (lookup_cells + working_cells, lookup_arrows)
     }
 
-    fn temporary_capacities(&self) -> (usize, usize, usize, usize, usize, usize) {
+    fn temporary_capacities(&self) -> (usize, usize, usize, usize, usize, usize, usize) {
         let (cells, arrows, relations) = self.operation.lookup.temporary_capacities();
         (
             cells,
@@ -554,17 +807,23 @@ impl AutonomousContinuation {
             self.lookup_outputs.capacity(),
             self.queue.capacity(),
             self.trace.capacity(),
+            self.semantic_events.capacity(),
         )
     }
 
     fn permanent_counts(&self) -> (usize, usize) {
-        (
+        let base = (
             self.operation.permanent_cells + 2,
             self.operation.permanent_arrows + 3 + self.self_arrows.len(),
-        )
+        );
+        if let Some(control) = &self.finish_control {
+            (base.0 + 3, base.1 + 1 + control.arrows.len())
+        } else {
+            base
+        }
     }
 
-    fn permanent_fingerprint(&self) -> u64 {
+    fn continuation_fingerprint(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         fingerprint_mix(&mut hash, self.operation.permanent_fingerprint);
         fingerprint_mix(&mut hash, self.training_examples);
@@ -592,11 +851,40 @@ impl AutonomousContinuation {
         hash
     }
 
+    fn permanent_fingerprint(&self) -> u64 {
+        let mut hash = self.continuation_fingerprint();
+        if let Some(control) = &self.finish_control {
+            fingerprint_mix(&mut hash, control.training_examples);
+            for cell in [NO_RESULT_CELL_ID, EXPLICIT_ANSWER_CELL_ID, CLEAR_CELL_ID] {
+                fingerprint_mix(&mut hash, cell as u64);
+            }
+            fingerprint_mix(&mut hash, LOOKUP_TO_NO_RESULT_ARROW_ID as u64);
+            for arrow in &control.arrows {
+                fingerprint_mix(&mut hash, arrow.route as u64);
+                fingerprint_mix(&mut hash, arrow.strength as i64 as u64);
+            }
+        }
+        hash
+    }
+
     fn route_strengths(&self) -> Vec<(String, i32)> {
         self.self_arrows
             .iter()
             .map(|arrow| (format!("{:?}", arrow.route), arrow.strength))
             .collect()
+    }
+
+    fn finish_route_strengths(&self) -> Vec<(String, i32)> {
+        self.finish_control
+            .as_ref()
+            .map(|control| {
+                control
+                    .arrows
+                    .iter()
+                    .map(|arrow| (format!("{:?}", arrow.route), arrow.strength))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -650,9 +938,46 @@ fn present(learner: &mut AutonomousContinuation, episode: &ContinuationEpisode) 
     }
 }
 
+fn frozen_autonomous_continuation() -> AutonomousContinuation {
+    let mut learner = AutonomousContinuation::new(frozen_iterable_operation());
+    let mut identities = IdentitySource::new(0x210a_f001);
+    let mut rng = DeterministicRng::new(0x210a_f002);
+    for _ in 0..32 {
+        let episode = chain_episode(&mut identities, &mut rng, 2, 10);
+        present(&mut learner, &episode);
+        let _proposal = learner.start_and_settle(2);
+        learner.learn_from_terminal(episode.answer_after(2), 2);
+        learner.erase_temporary();
+    }
+    let (_, route) = learner
+        .selected_self_route()
+        .expect("v21a self-trigger must be learned before freezing");
+    assert_eq!(route, SelfRoute::ApplyAgain);
+    learner
+}
+
+fn v18_style_episode(
+    identities: &mut IdentitySource,
+    rng: &mut DeterministicRng,
+    depth: usize,
+) -> ContinuationEpisode {
+    let chain: Vec<_> = (0..=depth).map(|_| identities.issue()).collect();
+    let distractor = [identities.issue(), identities.issue(), identities.issue()];
+    let mut relations: Vec<_> = chain.windows(2).map(|pair| (pair[0], pair[1])).collect();
+    relations.extend(distractor.windows(2).map(|pair| (pair[0], pair[1])));
+    rng.shuffle(&mut relations);
+    ContinuationEpisode {
+        relations,
+        query: chain[0],
+        chain,
+        distinct_identities: depth + 4,
+    }
+}
+
 #[derive(Clone, Debug)]
 struct RunResult {
     outcome: BindingOutcome,
+    explicit_answer_emitted: bool,
     completed_lookups: usize,
     external_start_spikes: usize,
     internal_spikes: usize,
@@ -663,6 +988,7 @@ struct RunResult {
     activity_limit_hit: bool,
     remaining_queued_spikes: usize,
     trace: Vec<ContinuationTrace>,
+    semantic_events: Vec<SemanticEvent>,
 }
 
 fn evaluate(
@@ -679,7 +1005,7 @@ fn evaluate(
     let correct = run.outcome == episode.answer_after(cutoff);
     learner.erase_temporary();
     assert_eq!(learner.temporary_counts(), (0, 0));
-    assert_eq!(learner.temporary_capacities(), (0, 0, 0, 0, 0, 0));
+    assert_eq!(learner.temporary_capacities(), (0, 0, 0, 0, 0, 0, 0));
     (correct, run, peak_cells, peak_arrows)
 }
 
@@ -909,7 +1235,7 @@ pub fn run_experiment() -> ContinuationReport {
     learner.erase_temporary();
 
     let (residual_temporary_cells, residual_temporary_arrows) = learner.temporary_counts();
-    let temporary_capacity_released = learner.temporary_capacities() == (0, 0, 0, 0, 0, 0);
+    let temporary_capacity_released = learner.temporary_capacities() == (0, 0, 0, 0, 0, 0, 0);
     let permanent_fingerprint_unchanged = fingerprint_before == learner.permanent_fingerprint();
     let (permanent_cells, permanent_arrows) = learner.permanent_counts();
     let route_strengths = learner.route_strengths();
@@ -1048,6 +1374,419 @@ pub fn print_report(report: &ContinuationReport) {
     );
 }
 
+fn evaluate_finish(
+    learner: &mut AutonomousContinuation,
+    episode: &ContinuationEpisode,
+) -> (bool, RunResult, usize, usize) {
+    present(learner, episode);
+    let before = learner.temporary_counts();
+    let run = learner.start_and_finish();
+    let after = learner.temporary_counts();
+    let peak_cells = before.0.max(after.0);
+    let peak_arrows = before.1.max(after.1);
+    let expected = episode.answer_after(episode.chain.len() - 1);
+    let correct = run.explicit_answer_emitted && run.outcome == expected;
+    learner.erase_temporary();
+    assert_eq!(learner.temporary_counts(), (0, 0));
+    assert_eq!(learner.temporary_capacities(), (0, 0, 0, 0, 0, 0, 0));
+    (correct, run, peak_cells, peak_arrows)
+}
+
+#[derive(Clone, Debug)]
+pub struct FinishCheckpoint {
+    pub training_episodes: usize,
+    pub permanent_cells: usize,
+    pub permanent_arrows: usize,
+    pub validation_correct: usize,
+    pub validation_total: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct FinishDepth {
+    pub depth: usize,
+    pub learner_correct: usize,
+    pub supplied_finish_correct: usize,
+    pub no_finish_correct: usize,
+    pub total: usize,
+    pub average_internal_spikes: f64,
+    pub average_apply_activations: f64,
+}
+
+#[derive(Clone, Debug)]
+pub struct WorkingSetPoint {
+    pub relations: usize,
+    pub average_internal_spikes: f64,
+}
+
+#[derive(Clone, Debug)]
+pub struct FinishReport {
+    pub checkpoints: Vec<FinishCheckpoint>,
+    pub depth_results: Vec<FinishDepth>,
+    pub working_set: Vec<WorkingSetPoint>,
+    pub permanent_cells: usize,
+    pub permanent_arrows: usize,
+    pub finish_route_strengths: Vec<(String, i32)>,
+    pub held_out_distinct_identities: usize,
+    pub explicit_answer_only: bool,
+    pub natural_queue_empty: bool,
+    pub no_cutoff_used: bool,
+    pub success_path_reuses_v21a_routes: bool,
+    pub final_trace_is_exact: bool,
+    pub finish_arrow_id: usize,
+    pub depth_work_is_linear: bool,
+    pub working_set_work_is_linear: bool,
+    pub branch_is_ambiguous_without_answer: bool,
+    pub duplicate_is_single_answer: bool,
+    pub zero_hop_answers_query: bool,
+    pub cycle_emits_no_answer: bool,
+    pub cycle_hits_safety_limit: bool,
+    pub v18_distribution_correct: usize,
+    pub v18_distribution_total: usize,
+    pub continuation_fingerprint_unchanged: bool,
+    pub permanent_fingerprint_unchanged: bool,
+    pub residual_temporary_cells: usize,
+    pub residual_temporary_arrows: usize,
+    pub temporary_capacity_released: bool,
+    pub activity_limit_hits: usize,
+    pub passed: bool,
+}
+
+pub fn run_finish_experiment() -> FinishReport {
+    let frozen_continuation = frozen_autonomous_continuation();
+    let continuation_fingerprint = frozen_continuation.continuation_fingerprint();
+    let mut learner = frozen_continuation.clone().enable_finish_learning();
+    let mut training_ids = IdentitySource::new(0x210b_0001);
+    let mut training_rng = DeterministicRng::new(0x210b_0002);
+    let mut validation_ids = IdentitySource::new(0x210b_1001);
+    let mut validation_rng = DeterministicRng::new(0x210b_1002);
+    let checkpoints_at = [10, 100, 1_000];
+    let mut checkpoints = Vec::new();
+
+    for episode_index in 1..=1_000 {
+        let depth = 1 + (episode_index - 1) % 4;
+        let episode = chain_episode(&mut training_ids, &mut training_rng, depth, 10);
+        present(&mut learner, &episode);
+        let _proposal = learner.start_and_finish();
+        learner.learn_finish_from_terminal(episode.answer_after(depth));
+        learner.erase_temporary();
+
+        if checkpoints_at.contains(&episode_index) {
+            let fingerprint = learner.permanent_fingerprint();
+            let correct = (0..100)
+                .filter(|index| {
+                    let depth = 1 + index % 4;
+                    let episode =
+                        chain_episode(&mut validation_ids, &mut validation_rng, depth, 10);
+                    evaluate_finish(&mut learner, &episode).0
+                })
+                .count();
+            assert_eq!(fingerprint, learner.permanent_fingerprint());
+            let (permanent_cells, permanent_arrows) = learner.permanent_counts();
+            checkpoints.push(FinishCheckpoint {
+                training_episodes: episode_index,
+                permanent_cells,
+                permanent_arrows,
+                validation_correct: correct,
+                validation_total: 100,
+            });
+        }
+    }
+
+    let permanent_fingerprint = learner.permanent_fingerprint();
+    let mut supplied = frozen_continuation.clone().with_supplied_finish();
+    let mut no_finish = frozen_continuation;
+    let mut held_out_ids = IdentitySource::new(0x210b_2001);
+    let mut held_out_rng = DeterministicRng::new(0x210b_2002);
+    let mut depth_results = Vec::new();
+    let mut held_out_distinct_identities = 0;
+    let mut explicit_answer_only = true;
+    let mut natural_queue_empty = true;
+    let mut no_cutoff_used = true;
+    let mut activity_limit_hits = 0;
+    let mut representative_episode = None;
+    let mut representative_run = None;
+
+    for depth in [5, 8, 16, 32] {
+        let total = 200;
+        let mut learner_correct = 0;
+        let mut supplied_finish_correct = 0;
+        let mut no_finish_correct = 0;
+        let mut internal_spikes = 0;
+        let mut apply_activations = 0;
+
+        for episode_index in 0..total {
+            // Main-chain depth changes while total relations stay fixed.
+            let episode = chain_episode(&mut held_out_ids, &mut held_out_rng, depth, 40);
+            held_out_distinct_identities += episode.distinct_identities;
+            let (correct, run, _, _) = evaluate_finish(&mut learner, &episode);
+            learner_correct += usize::from(correct);
+            internal_spikes += run.internal_spikes;
+            apply_activations += run.apply_activations;
+            explicit_answer_only &= run.explicit_answer_emitted;
+            natural_queue_empty &= run.remaining_queued_spikes == 0;
+            no_cutoff_used &= !run.cutoff_reached;
+            activity_limit_hits += usize::from(run.activity_limit_hit);
+
+            supplied_finish_correct += usize::from(evaluate_finish(&mut supplied, &episode).0);
+            no_finish_correct += usize::from(evaluate_finish(&mut no_finish, &episode).0);
+
+            if depth == 32 && episode_index == 0 {
+                representative_episode = Some(episode);
+                representative_run = Some(run);
+            }
+        }
+
+        depth_results.push(FinishDepth {
+            depth,
+            learner_correct,
+            supplied_finish_correct,
+            no_finish_correct,
+            total,
+            average_internal_spikes: internal_spikes as f64 / total as f64,
+            average_apply_activations: apply_activations as f64 / total as f64,
+        });
+    }
+
+    let representative_episode = representative_episode.unwrap();
+    let representative_run = representative_run.unwrap();
+    let terminal_identity = *representative_episode.chain.last().unwrap();
+    let final_events = &representative_run.semantic_events
+        [representative_run.semantic_events.len().saturating_sub(5)..];
+    let finish_arrow_id = FINISH_ARROW_OFFSET;
+    let final_trace_is_exact = final_events
+        == [
+            SemanticEvent::Current(terminal_identity),
+            SemanticEvent::Lookup(terminal_identity),
+            SemanticEvent::NoResult,
+            SemanticEvent::FinishArrow(finish_arrow_id),
+            SemanticEvent::Answer(terminal_identity),
+        ];
+    let answer_events = representative_run
+        .semantic_events
+        .iter()
+        .filter(|event| matches!(event, SemanticEvent::Answer(_)))
+        .count();
+    explicit_answer_only &= answer_events == 1;
+    let success_path_reuses_v21a_routes = representative_run.trace.iter().all(|step| {
+        step.apply_cell_id == APPLY_CELL_ID
+            && step.lookup_arrow_id == 1
+            && step.feedback_arrow_id == 4
+            && step.self_arrow_id == 10
+    });
+    let depth_work_is_linear = depth_results.windows(2).all(|pair| {
+        let first = &pair[0];
+        let second = &pair[1];
+        let first_slope = (first.average_internal_spikes - 85.0) / first.depth as f64;
+        let second_slope = (second.average_internal_spikes - 85.0) / second.depth as f64;
+        (first_slope - second_slope).abs() < f64::EPSILON
+    });
+
+    let mut working_set_ids = IdentitySource::new(0x210b_4001);
+    let mut working_set_rng = DeterministicRng::new(0x210b_4002);
+    let mut working_set = Vec::new();
+    for relations in [8, 16, 32, 64, 128] {
+        let total = 50;
+        let mut spikes = 0;
+        for _ in 0..total {
+            let episode = chain_episode(&mut working_set_ids, &mut working_set_rng, 8, relations);
+            let (correct, run, _, _) = evaluate_finish(&mut learner, &episode);
+            assert!(correct);
+            spikes += run.internal_spikes;
+        }
+        working_set.push(WorkingSetPoint {
+            relations,
+            average_internal_spikes: spikes as f64 / total as f64,
+        });
+    }
+    let working_set_work_is_linear = working_set.windows(2).all(|pair| {
+        let relation_delta = (pair[1].relations - pair[0].relations) as f64;
+        let spike_delta = pair[1].average_internal_spikes - pair[0].average_internal_spikes;
+        (spike_delta / relation_delta - 18.0).abs() < f64::EPSILON
+    });
+
+    let mut control_ids = IdentitySource::new(0x210b_3001);
+    let (branch, duplicate) = control_episodes(&mut control_ids);
+    present(&mut learner, &branch);
+    let branch_run = learner.start_and_finish();
+    let branch_is_ambiguous_without_answer =
+        branch_run.outcome == BindingOutcome::Ambiguous && !branch_run.explicit_answer_emitted;
+    learner.erase_temporary();
+
+    let duplicate_is_single_answer = evaluate_finish(&mut learner, &duplicate).0;
+
+    let zero_query = control_ids.issue();
+    let zero_hop = ContinuationEpisode {
+        relations: Vec::new(),
+        chain: vec![zero_query],
+        query: zero_query,
+        distinct_identities: 1,
+    };
+    let zero_hop_answers_query = evaluate_finish(&mut learner, &zero_hop).0;
+
+    let cycle_a = control_ids.issue();
+    let cycle_b = control_ids.issue();
+    let cycle = ContinuationEpisode {
+        relations: vec![(cycle_a, cycle_b), (cycle_b, cycle_a)],
+        chain: vec![cycle_a, cycle_b],
+        query: cycle_a,
+        distinct_identities: 2,
+    };
+    present(&mut learner, &cycle);
+    let cycle_run = learner.start_and_finish_with_limit(512);
+    let cycle_emits_no_answer = !cycle_run.explicit_answer_emitted;
+    let cycle_hits_safety_limit = cycle_run.activity_limit_hit;
+    learner.erase_temporary();
+
+    let mut v18_ids = IdentitySource::new(0x210b_5001);
+    let mut v18_rng = DeterministicRng::new(0x210b_5002);
+    let mut v18_distribution_correct = 0;
+    let mut v18_distribution_total = 0;
+    for depth in [5, 8, 16, 32] {
+        for _ in 0..8 {
+            let episode = v18_style_episode(&mut v18_ids, &mut v18_rng, depth);
+            v18_distribution_correct += usize::from(evaluate_finish(&mut learner, &episode).0);
+            v18_distribution_total += 1;
+        }
+    }
+
+    let (residual_temporary_cells, residual_temporary_arrows) = learner.temporary_counts();
+    let temporary_capacity_released = learner.temporary_capacities() == (0, 0, 0, 0, 0, 0, 0);
+    let continuation_fingerprint_unchanged =
+        continuation_fingerprint == learner.continuation_fingerprint();
+    let permanent_fingerprint_unchanged = permanent_fingerprint == learner.permanent_fingerprint();
+    let (permanent_cells, permanent_arrows) = learner.permanent_counts();
+    let finish_route_strengths = learner.finish_route_strengths();
+    let checkpoint_accuracy = checkpoints
+        .iter()
+        .all(|point| point.validation_correct == point.validation_total);
+    let structure_plateaued = checkpoints.windows(2).all(|pair| {
+        pair[0].permanent_cells == pair[1].permanent_cells
+            && pair[0].permanent_arrows == pair[1].permanent_arrows
+    });
+    let learned_all_depths = depth_results
+        .iter()
+        .all(|point| point.learner_correct == point.total);
+    let supplied_all_depths = depth_results
+        .iter()
+        .all(|point| point.supplied_finish_correct == point.total);
+    let no_finish_never_answers = depth_results
+        .iter()
+        .all(|point| point.no_finish_correct == 0);
+    let passed = checkpoint_accuracy
+        && structure_plateaued
+        && learned_all_depths
+        && supplied_all_depths
+        && no_finish_never_answers
+        && explicit_answer_only
+        && natural_queue_empty
+        && no_cutoff_used
+        && success_path_reuses_v21a_routes
+        && final_trace_is_exact
+        && depth_work_is_linear
+        && working_set_work_is_linear
+        && branch_is_ambiguous_without_answer
+        && duplicate_is_single_answer
+        && zero_hop_answers_query
+        && cycle_emits_no_answer
+        && cycle_hits_safety_limit
+        && v18_distribution_correct == v18_distribution_total
+        && continuation_fingerprint_unchanged
+        && permanent_fingerprint_unchanged
+        && residual_temporary_cells == 0
+        && residual_temporary_arrows == 0
+        && temporary_capacity_released
+        && activity_limit_hits == 0;
+
+    FinishReport {
+        checkpoints,
+        depth_results,
+        working_set,
+        permanent_cells,
+        permanent_arrows,
+        finish_route_strengths,
+        held_out_distinct_identities,
+        explicit_answer_only,
+        natural_queue_empty,
+        no_cutoff_used,
+        success_path_reuses_v21a_routes,
+        final_trace_is_exact,
+        finish_arrow_id,
+        depth_work_is_linear,
+        working_set_work_is_linear,
+        branch_is_ambiguous_without_answer,
+        duplicate_is_single_answer,
+        zero_hop_answers_query,
+        cycle_emits_no_answer,
+        cycle_hits_safety_limit,
+        v18_distribution_correct,
+        v18_distribution_total,
+        continuation_fingerprint_unchanged,
+        permanent_fingerprint_unchanged,
+        residual_temporary_cells,
+        residual_temporary_arrows,
+        temporary_capacity_released,
+        activity_limit_hits,
+        passed,
+    }
+}
+
+pub fn print_finish_report(report: &FinishReport) {
+    println!("v21b learned finish:");
+    print!("  checkpoints episodes:cells/arrows/accuracy:");
+    for checkpoint in &report.checkpoints {
+        print!(
+            " {}:{}/{}/{}/{}",
+            checkpoint.training_episodes,
+            checkpoint.permanent_cells,
+            checkpoint.permanent_arrows,
+            checkpoint.validation_correct,
+            checkpoint.validation_total
+        );
+    }
+    println!();
+    for depth in &report.depth_results {
+        println!(
+            "  depth {} learner/supplied/no-finish={}/{}, {}/{}, {}/{}, internal spikes={:.1}, apply activations={:.1}",
+            depth.depth,
+            depth.learner_correct,
+            depth.total,
+            depth.supplied_finish_correct,
+            depth.total,
+            depth.no_finish_correct,
+            depth.total,
+            depth.average_internal_spikes,
+            depth.average_apply_activations
+        );
+    }
+    print!("  working-set relations:spikes:");
+    for point in &report.working_set {
+        print!(" {}:{:.1}", point.relations, point.average_internal_spikes);
+    }
+    println!();
+    println!(
+        "  explicit answer={}, natural empty queue={}, no cutoff={}, reused v21a path={}, exact final trace={}, finish arrow={}",
+        report.explicit_answer_only,
+        report.natural_queue_empty,
+        report.no_cutoff_used,
+        report.success_path_reuses_v21a_routes,
+        report.final_trace_is_exact,
+        report.finish_arrow_id
+    );
+    println!(
+        "  permanent cells/arrows={}/{}, v18 distribution={}/{}, branch ambiguous={}, duplicate={}, zero-hop={}, cycle no-answer/limit={}/{}, activity-limit hits={}",
+        report.permanent_cells,
+        report.permanent_arrows,
+        report.v18_distribution_correct,
+        report.v18_distribution_total,
+        report.branch_is_ambiguous_without_answer,
+        report.duplicate_is_single_answer,
+        report.zero_hop_answers_query,
+        report.cycle_emits_no_answer,
+        report.cycle_hits_safety_limit,
+        report.activity_limit_hits
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1129,6 +1868,87 @@ mod tests {
 
         assert!(report.branch_is_ambiguous);
         assert!(report.duplicate_is_single_result);
+        assert!(report.passed);
+    }
+
+    #[test]
+    fn v21b_selects_explicit_finish_from_terminal_supervision() {
+        let report = run_finish_experiment();
+        let selected = report
+            .finish_route_strengths
+            .iter()
+            .find(|(route, _)| route == "AnswerCurrent")
+            .unwrap()
+            .1;
+        let strongest_alternative = report
+            .finish_route_strengths
+            .iter()
+            .filter(|(route, _)| route != "AnswerCurrent")
+            .map(|(_, strength)| *strength)
+            .max()
+            .unwrap();
+
+        assert!(selected > strongest_alternative);
+        assert!(report
+            .checkpoints
+            .iter()
+            .all(|point| point.validation_correct == point.validation_total));
+    }
+
+    #[test]
+    fn v21b_finishes_naturally_with_an_explicit_answer_at_unseen_depths() {
+        let report = run_finish_experiment();
+
+        assert!(report
+            .depth_results
+            .iter()
+            .all(|point| point.learner_correct == point.total));
+        assert!(report.explicit_answer_only);
+        assert!(report.natural_queue_empty);
+        assert!(report.no_cutoff_used);
+        assert!(report.success_path_reuses_v21a_routes);
+        assert!(report.final_trace_is_exact);
+    }
+
+    #[test]
+    fn v21b_preserves_depth_and_working_set_scaling_axes() {
+        let report = run_finish_experiment();
+
+        assert!(report.depth_work_is_linear);
+        assert!(report.working_set_work_is_linear);
+        assert!(report
+            .depth_results
+            .windows(2)
+            .all(|pair| pair[1].average_internal_spikes > pair[0].average_internal_spikes));
+        assert!(report
+            .working_set
+            .windows(2)
+            .all(|pair| pair[1].average_internal_spikes > pair[0].average_internal_spikes));
+    }
+
+    #[test]
+    fn v21b_controls_distinguish_finish_ambiguity_duplicates_and_cycles() {
+        let report = run_finish_experiment();
+
+        assert!(report.branch_is_ambiguous_without_answer);
+        assert!(report.duplicate_is_single_answer);
+        assert!(report.zero_hop_answers_query);
+        assert!(report.cycle_emits_no_answer);
+        assert!(report.cycle_hits_safety_limit);
+    }
+
+    #[test]
+    fn v21b_recomposes_the_v18_distribution_without_changing_frozen_routes() {
+        let report = run_finish_experiment();
+
+        assert_eq!(
+            report.v18_distribution_correct,
+            report.v18_distribution_total
+        );
+        assert_eq!(report.v18_distribution_total, 32);
+        assert!(report.continuation_fingerprint_unchanged);
+        assert!(report.permanent_fingerprint_unchanged);
+        assert!(report.temporary_capacity_released);
         assert!(report.passed);
     }
 }

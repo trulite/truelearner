@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 79 in-crate unit tests
+- 84 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -76,6 +76,9 @@ independent integration tests.
 - v21a: one external start drives up to thirty-two internally generated
   lookups through a real queued spike runtime; permanent structure stays fixed
   while internal spike work grows linearly with requested depth
+- v21b: a no-result event selects an explicit finish route; held-out chains
+  through depth thirty-two settle naturally without a cutoff, and separate
+  depth and working-set spike curves remain linear
 
 ## Interpretation Boundary
 
