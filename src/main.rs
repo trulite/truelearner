@@ -2,7 +2,8 @@ use std::collections::VecDeque;
 
 use organism_v0::{
     binding, causal, composable_models, composition, consolidation, continuation, discovery,
-    generality, inertia, iteration, model_epistemic, scaling, stability, tracking, unified, vision,
+    generality, inertia, iteration, model_epistemic, scaling, search_value, stability, tracking,
+    unified, vision,
 };
 
 type CellId = usize;
@@ -769,6 +770,10 @@ fn main() {
     composable_models::print_planning_report(&counterfactual_planning_report);
     println!();
 
+    let search_value_report = search_value::run_experiment();
+    search_value::print_report(&search_value_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -795,17 +800,18 @@ fn main() {
         && action_model_report.passed
         && model_based_action_report.passed
         && composable_model_report.passed
-        && counterfactual_planning_report.passed;
+        && counterfactual_planning_report.passed
+        && search_value_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - supplied bounded search uses frozen learned transformations to select and execute unseen multi-step interventions, and all earlier experiments still pass"
+            "PASS - learned goal-relative search value transfers across fresh problems and orders supplied lazy search while preserving shortest plans, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: d4b supplies role positions, identity comparison, the epistemic criterion, and exhaustive sequence enumeration; it demonstrates planning with learned models, not learned search."
+        "LIMIT: S1 halves model expansion at depth eight, but heuristic evaluation overhead leaves total planning work higher than neutral exhaustive search; economic advantage is not yet demonstrated."
     );
 }
 

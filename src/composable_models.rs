@@ -32,44 +32,44 @@ impl DeterministicRng {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-struct OpaqueAction(u64);
+pub(crate) struct OpaqueAction(pub(crate) u64);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-struct OpaqueIdentity(u64);
+pub(crate) struct OpaqueIdentity(pub(crate) u64);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-struct RoleId(usize);
+pub(crate) struct RoleId(pub(crate) usize);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct TemporaryStructure {
-    occupants: Vec<OpaqueIdentity>,
+pub(crate) struct TemporaryStructure {
+    pub(crate) occupants: Vec<OpaqueIdentity>,
 }
 
 #[derive(Clone, Debug)]
-struct IdentitySource {
+pub(crate) struct IdentitySource {
     next: u64,
     namespace: u64,
 }
 
 impl IdentitySource {
-    fn new(namespace: u64) -> Self {
+    pub(crate) fn new(namespace: u64) -> Self {
         Self { next: 0, namespace }
     }
 
-    fn fresh_structure(&mut self, role_count: usize) -> TemporaryStructure {
+    pub(crate) fn fresh_structure(&mut self, role_count: usize) -> TemporaryStructure {
         TemporaryStructure {
             occupants: (0..role_count).map(|_| self.issue()).collect(),
         }
     }
 
-    fn issue(&mut self) -> OpaqueIdentity {
+    pub(crate) fn issue(&mut self) -> OpaqueIdentity {
         let identity = OpaqueIdentity(mix64(self.namespace ^ self.next));
         self.next += 1;
         identity
     }
 }
 
-fn mix64(mut value: u64) -> u64 {
+pub(crate) fn mix64(mut value: u64) -> u64 {
     value ^= value >> 30;
     value = value.wrapping_mul(0xbf58_476d_1ce4_e5b9);
     value ^= value >> 27;
@@ -78,18 +78,18 @@ fn mix64(mut value: u64) -> u64 {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct RoleTransformation {
-    source_for_output: Vec<RoleId>,
+pub(crate) struct RoleTransformation {
+    pub(crate) source_for_output: Vec<RoleId>,
 }
 
 impl RoleTransformation {
-    fn new(sources: impl IntoIterator<Item = usize>) -> Self {
+    pub(crate) fn new(sources: impl IntoIterator<Item = usize>) -> Self {
         Self {
             source_for_output: sources.into_iter().map(RoleId).collect(),
         }
     }
 
-    fn apply(&self, before: &TemporaryStructure) -> TemporaryStructure {
+    pub(crate) fn apply(&self, before: &TemporaryStructure) -> TemporaryStructure {
         TemporaryStructure {
             occupants: self
                 .source_for_output
@@ -128,7 +128,7 @@ struct SourceArrow {
 }
 
 #[derive(Clone, Debug)]
-struct ProvenanceLearner {
+pub(crate) struct ProvenanceLearner {
     role_count: usize,
     arrows: Vec<SourceArrow>,
     proposed_arrows: usize,
@@ -136,7 +136,7 @@ struct ProvenanceLearner {
 }
 
 impl ProvenanceLearner {
-    fn new(role_count: usize) -> Self {
+    pub(crate) fn new(role_count: usize) -> Self {
         Self {
             role_count,
             arrows: Vec::new(),
@@ -145,7 +145,7 @@ impl ProvenanceLearner {
         }
     }
 
-    fn observe(
+    pub(crate) fn observe(
         &mut self,
         action: OpaqueAction,
         before: &TemporaryStructure,
@@ -188,7 +188,7 @@ impl ProvenanceLearner {
         }
     }
 
-    fn predict(&self, action: OpaqueAction) -> Option<RoleTransformation> {
+    pub(crate) fn predict(&self, action: OpaqueAction) -> Option<RoleTransformation> {
         let mut sources = vec![RoleId(0); self.role_count];
         for (output, source) in sources.iter_mut().enumerate() {
             let candidates = self
@@ -215,7 +215,7 @@ impl ProvenanceLearner {
         })
     }
 
-    fn model_entries(&self) -> usize {
+    pub(crate) fn model_entries(&self) -> usize {
         self.arrows.len()
     }
 
@@ -223,7 +223,7 @@ impl ProvenanceLearner {
         0
     }
 
-    fn fingerprint(&self) -> u64 {
+    pub(crate) fn fingerprint(&self) -> u64 {
         let mut hash = 0xcbf2_9ce4_8422_2325u64;
         for arrow in &self.arrows {
             fingerprint_mix(&mut hash, arrow.action.0);

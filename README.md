@@ -1108,6 +1108,39 @@ Recorded measurements are in
 [`results/d4b_counterfactual_planning.md`](results/d4b_counterfactual_planning.md)
 and [`results/d4b_planning_traces.csv`](results/d4b_planning_traces.csv).
 
+## Search S0/S1: Learned value and supplied lazy search
+
+S0 learns a goal-conditioned high, medium, or low value for predicted partial
+states. Its key uses canonical identity equality, route structure, and
+remaining budget, but no action sequence or opaque identity.
+
+S1 freezes that value learner and uses it only to order a supplied complete
+search. Every unsuccessful sequence length remains exhaustive.
+
+```text
+depth-eight partial expansion    9,839.8 -> 4,924.8
+depth-eight oracle expansion                 4,924.8
+reachable model applications       80,112 -> 40,272
+permanent heuristic entries                     92
+```
+
+All solutions remain shortest and match real execution. Shuffled labels and
+exact-path memory provide no transferred advantage.
+
+The economic result is negative after complete accounting:
+
+```text
+reachable total work     1,255,048 -> 1,357,960
+unreachable total work   1,848,672 -> 3,973,536
+```
+
+Learned value reduces model search work, but evaluating it at every partial
+state costs more than it saves.
+
+Recorded measurements are in
+[`results/s0_s1_search_value.md`](results/s0_s1_search_value.md) and
+[`results/s0_s1_search_value.csv`](results/s0_s1_search_value.csv).
+
 ## Run
 
 ```bash

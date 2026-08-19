@@ -290,6 +290,24 @@ Average candidate evaluations grow from 1.9 to 6,969.8, making the cost of
 supplied exhaustive enumeration explicit. D4b demonstrates planning with
 learned compositional models, not learned or efficient search.
 
+S0 learns a coarse value over canonical temporary-state equality, route
+structure, and remaining budget. The learner never receives the successful
+action sequence. It reaches 92 permanent entries and remains invariant to
+opaque identity renaming.
+
+S1 uses frozen value only to order a supplied lazy complete search. At depth
+eight it matches oracle ordering and cuts average partial expansion from
+9,839.8 to 4,924.8. Shortest-plan accuracy and real execution remain exact.
+Shuffled values and exact-path memory provide no transferred advantage.
+
+Full accounting is unfavorable. Reachable total work rises from 1,255,048 to
+1,357,960 because value evaluation costs more than the saved model
+applications. Unreachable work rises from 1,848,672 to 3,973,536 because
+completeness requires identical expansion plus heuristic overhead.
+
+S0 demonstrates reusable search-value knowledge. S1 demonstrates useful
+ordering, but not an economic search advantage.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -313,11 +331,14 @@ learned compositional models, not learned or efficient search.
   structural experiment selection
 - `src/composable_models.rs`: d4a source-role learning and frozen model
   composition plus d4b bounded counterfactual search
+- `src/search_value.rs`: S0 goal-conditioned value learning and S1 lazy
+  supplied search ordering
 - `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
 - `src/bin/plasticity.rs`: CSV writer for d2.3 regime trajectories
 - `src/bin/model_epistemic.rs`: CSV writer for d3 pre-action traces
 - `src/bin/composable_models.rs`: CSV writer for d4a composition traces
 - `src/bin/counterfactual_planning.rs`: CSV writer for d4b candidate traces
+- `src/bin/search_value.rs`: CSV writer for S0/S1 work curves
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

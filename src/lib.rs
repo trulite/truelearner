@@ -10,6 +10,7 @@ pub mod inertia;
 pub mod iteration;
 pub mod model_epistemic;
 pub mod scaling;
+pub mod search_value;
 pub mod stability;
 pub mod tracking;
 pub mod unified;

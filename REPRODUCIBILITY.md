@@ -21,6 +21,7 @@ cargo run --release --bin plasticity -- results/d2_3_plasticity.csv
 cargo run --release --bin model_epistemic -- results/d3_pre_action_traces.csv
 cargo run --release --bin composable_models -- results/d4a_composition_traces.csv
 cargo run --release --bin counterfactual_planning -- results/d4b_planning_traces.csv
+cargo run --release --bin search_value -- results/s0_s1_search_value.csv
 ```
 
 `rust-toolchain.toml` pins the compiler and installs `rustfmt` and Clippy.
@@ -127,6 +128,11 @@ independent integration tests.
   30, the one-step selector solves eight, and the changed-role-mask planner
   solves none; all eight unreachable problems are reported and average
   candidate evaluations grow from 1.9 to 6,969.8
+- S0/S1: a 92-entry identity-independent and goal-conditioned value learner
+  matches oracle search ordering, cutting depth-eight partial expansion from
+  9,839.8 to 4,924.8 and reachable model applications from 80,112 to 40,272;
+  full accounting remains negative because reachable total work rises from
+  1,255,048 to 1,357,960 and unreachable total work more than doubles
 
 ## Interpretation Boundary
 
