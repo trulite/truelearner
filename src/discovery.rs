@@ -1,4 +1,6 @@
+use std::cell::Cell;
 use std::collections::{HashSet, VecDeque};
+use std::rc::Rc;
 
 use crate::binding::{BindingOutcome, IdentitySource, OpaqueId};
 
@@ -1683,9 +1685,502 @@ pub fn print_active_discovery_report(report: &ActiveDiscoveryReport) {
     }
 }
 
+const AMORTIZATION_PROBLEMS: usize = 100;
+const AMORTIZATION_SEEDS: usize = 8;
+const AMORTIZATION_STRENGTH: i32 = CONSOLIDATION_STRENGTH - 1;
+
+#[derive(Clone, Debug)]
+struct ScalableActionPolicy {
+    values: Vec<i32>,
+    tried: Vec<bool>,
+    exploration_cursor: usize,
+}
+
+impl ScalableActionPolicy {
+    fn new(choice_count: usize, seed: u64) -> Self {
+        Self {
+            values: vec![0; choice_count],
+            tried: vec![false; choice_count],
+            exploration_cursor: seed as usize % choice_count,
+        }
+    }
+
+    fn choose(&mut self, unresolved: bool) -> usize {
+        let no_action = self.values.len() - 1;
+        if !unresolved {
+            return no_action;
+        }
+        if let Some((index, _)) = self
+            .values
+            .iter()
+            .take(no_action)
+            .enumerate()
+            .filter(|(_, value)| **value > 0)
+            .max_by_key(|(_, value)| **value)
+        {
+            return index;
+        }
+        for offset in 0..self.values.len() {
+            let index = (self.exploration_cursor + offset) % self.values.len();
+            if !self.tried[index] {
+                self.exploration_cursor = (index + 1) % self.values.len();
+                return index;
+            }
+        }
+        self.values
+            .iter()
+            .enumerate()
+            .max_by_key(|(index, value)| (**value, usize::from(*index == no_action)))
+            .map(|(index, _)| index)
+            .unwrap()
+    }
+
+    fn learn(&mut self, action_index: usize, result: InformationResult) {
+        self.tried[action_index] = true;
+        let information_value = match result {
+            InformationResult::Informative => 3,
+            InformationResult::Disruptive => -2,
+            InformationResult::Uninformative => 0,
+        };
+        let no_action = self.values.len() - 1;
+        let cost = i32::from(action_index != no_action) * ACTION_COST;
+        self.values[action_index] += information_value - cost;
+    }
+
+    fn fingerprint(&self) -> u64 {
+        let mut hash = 0xcbf2_9ce4_8422_2325u64;
+        for value in &self.values {
+            fingerprint_mix(&mut hash, *value as i64 as u64);
+        }
+        for tried in &self.tried {
+            fingerprint_mix(&mut hash, u64::from(*tried));
+        }
+        fingerprint_mix(&mut hash, self.exploration_cursor as u64);
+        hash
+    }
+
+    fn retained_problem_identities(&self) -> usize {
+        0
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum AmortizationStrategy {
+    Learned,
+    Random,
+    Oracle,
+}
+
+#[derive(Clone, Debug)]
+struct FreshWorkspace {
+    learner: DiscoveryLearner,
+    identities: IdentitySource,
+    episode_number: usize,
+    live_counter: Rc<Cell<usize>>,
+}
+
+impl FreshWorkspace {
+    fn new(seed: u64, live_counter: Rc<Cell<usize>>) -> Self {
+        assert_eq!(
+            live_counter.get(),
+            0,
+            "previous topology workspace is still live"
+        );
+        live_counter.set(1);
+        Self {
+            learner: DiscoveryLearner::new(seed ^ 0xd310_0000),
+            identities: IdentitySource::new(seed ^ 0xd311_0000),
+            episode_number: 0,
+            live_counter,
+        }
+    }
+}
+
+impl Drop for FreshWorkspace {
+    fn drop(&mut self) {
+        self.live_counter.set(self.live_counter.get() - 1);
+    }
+}
+
+#[derive(Clone, Debug)]
+struct AmortizedProblemResult {
+    paid_actions: usize,
+    action_decisions: usize,
+    correct: bool,
+    spikes: usize,
+    episodes: usize,
+    workspace_fingerprint: u64,
+    workspace_arrows_before_drop: usize,
+    live_workspaces_after_drop: usize,
+    policy_fingerprint_before: u64,
+    policy_fingerprint_after: u64,
+}
+
+fn scalable_action_effects(choice_count: usize, seed: u64) -> Vec<ActionEffect> {
+    assert!(choice_count >= 4);
+    let mut effects = vec![ActionEffect::Inert; choice_count - 1];
+    effects[0] = ActionEffect::Informative;
+    effects[1] = ActionEffect::Disruptive;
+    let mut rng = DeterministicRng::new(seed ^ 0xd320_0000);
+    rng.shuffle(&mut effects);
+    effects
+}
+
+fn prepare_workspace_competitors(workspace: &mut FreshWorkspace) {
+    let mut preparation_steps = 0;
+    loop {
+        let real = workspace
+            .learner
+            .route_strength(Role::Slot1, Role::Slot2)
+            .unwrap_or(i32::MIN);
+        let shortcut = workspace
+            .learner
+            .route_strength(Role::Cue, Role::Slot2)
+            .unwrap_or(i32::MIN);
+        if real >= AMORTIZATION_STRENGTH && shortcut >= AMORTIZATION_STRENGTH {
+            return;
+        }
+        workspace.episode_number += 1;
+        preparation_steps += 1;
+        let episode = action_episode(&mut workspace.identities, workspace.episode_number, None);
+        workspace
+            .learner
+            .train_episode_deferred(&episode, workspace.episode_number);
+        assert!(
+            preparation_steps < 10_000,
+            "failed to prepare equally plausible routes"
+        );
+    }
+}
+
+fn solve_amortized_problem(
+    policy: &mut ScalableActionPolicy,
+    effects: &[ActionEffect],
+    strategy: AmortizationStrategy,
+    seed: u64,
+    live_counter: Rc<Cell<usize>>,
+) -> AmortizedProblemResult {
+    let policy_fingerprint_before = policy.fingerprint();
+    let no_action = effects.len();
+    let informative_action = effects
+        .iter()
+        .position(|effect| *effect == ActionEffect::Informative)
+        .unwrap();
+    let mut random_choices: Vec<_> = (0..=no_action).collect();
+    let mut rng = DeterministicRng::new(seed ^ 0xd330_0000);
+    rng.shuffle(&mut random_choices);
+    let mut random_cursor = 0;
+    let mut workspace = FreshWorkspace::new(seed, live_counter.clone());
+    prepare_workspace_competitors(&mut workspace);
+    let mut paid_actions = 0;
+    let mut action_decisions = 0;
+
+    while workspace.learner.consolidated.is_none() && action_decisions < effects.len() + 1 {
+        prepare_workspace_competitors(&mut workspace);
+        let action_index = match strategy {
+            AmortizationStrategy::Learned => policy.choose(true),
+            AmortizationStrategy::Random => {
+                let action = random_choices[random_cursor];
+                random_cursor += 1;
+                action
+            }
+            AmortizationStrategy::Oracle => informative_action,
+        };
+        action_decisions += 1;
+        paid_actions += usize::from(action_index != no_action);
+        let effect = (action_index != no_action).then(|| effects[action_index]);
+        let mut trace = ActionTrace::new(action_index, &workspace.learner);
+        let mut evidence_steps = 0;
+        while !trace.complete() {
+            workspace.episode_number += 1;
+            evidence_steps += 1;
+            let episode =
+                action_episode(&mut workspace.identities, workspace.episode_number, effect);
+            workspace
+                .learner
+                .train_episode_deferred(&episode, workspace.episode_number);
+            trace.observe_route(workspace.learner.last_used_route);
+            assert!(
+                evidence_steps < 500,
+                "amortization evidence window did not close"
+            );
+        }
+        let result = trace.classify(&workspace.learner);
+        if matches!(strategy, AmortizationStrategy::Learned) {
+            policy.learn(action_index, result);
+        }
+        workspace
+            .learner
+            .consolidate_unique_if_ready(workspace.episode_number);
+    }
+
+    let (correct, _, _) = held_out_accuracy(
+        &mut workspace.learner,
+        seed ^ 0xd340_0000,
+        Direction::LeftToRight,
+        20,
+        false,
+    );
+    let workspace_fingerprint = workspace.learner.permanent_fingerprint();
+    let workspace_arrows_before_drop =
+        workspace.learner.live_candidates() + workspace.learner.stable_arrows();
+    let spikes = workspace.learner.training_spikes;
+    let episodes = workspace.episode_number;
+    let result = AmortizedProblemResult {
+        paid_actions,
+        action_decisions,
+        correct: correct == 20,
+        spikes,
+        episodes,
+        workspace_fingerprint,
+        workspace_arrows_before_drop,
+        live_workspaces_after_drop: usize::MAX,
+        policy_fingerprint_before,
+        policy_fingerprint_after: policy.fingerprint(),
+    };
+    drop(workspace);
+    AmortizedProblemResult {
+        live_workspaces_after_drop: live_counter.get(),
+        ..result
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct AmortizationPoint {
+    pub choice_count: usize,
+    pub first_problem_learned_actions: f64,
+    pub mature_learned_actions: f64,
+    pub mature_random_actions: f64,
+    pub mature_oracle_actions: f64,
+    pub break_even_problem: Option<usize>,
+    pub learned_correct: usize,
+    pub random_correct: usize,
+    pub oracle_correct: usize,
+    pub total_problems: usize,
+    pub average_learned_spikes: f64,
+    pub average_random_spikes: f64,
+    pub average_learned_episodes: f64,
+    pub average_random_episodes: f64,
+}
+
+#[derive(Clone, Debug)]
+pub struct AmortizationReport {
+    pub points: Vec<AmortizationPoint>,
+    pub workspaces_created: usize,
+    pub workspaces_destroyed: usize,
+    pub maximum_live_workspaces_after_problem: usize,
+    pub policy_retained_problem_identities: usize,
+    pub workspace_fingerprints_observed: usize,
+    pub policy_only_state_crosses_problems: bool,
+    pub passed: bool,
+}
+
+pub fn run_amortization_experiment() -> AmortizationReport {
+    let choice_counts = [4, 8, 16, 32, 64];
+    let mut points = Vec::new();
+    let mut workspaces_created = 0;
+    let mut workspaces_destroyed = 0;
+    let mut maximum_live_workspaces_after_problem = 0;
+    let mut workspace_fingerprints = HashSet::new();
+    let mut policy_retained_problem_identities = 0;
+
+    for choice_count in choice_counts {
+        let mut learned_by_problem = vec![0usize; AMORTIZATION_PROBLEMS];
+        let mut random_by_problem = vec![0usize; AMORTIZATION_PROBLEMS];
+        let mut oracle_by_problem = vec![0usize; AMORTIZATION_PROBLEMS];
+        let mut learned_correct = 0;
+        let mut random_correct = 0;
+        let mut oracle_correct = 0;
+        let mut learned_spikes = 0;
+        let mut random_spikes = 0;
+        let mut learned_episodes = 0;
+        let mut random_episodes = 0;
+
+        for seed_index in 0..AMORTIZATION_SEEDS {
+            let seed = 0xd350_0000 + choice_count as u64 * 1_000 + seed_index as u64;
+            let effects = scalable_action_effects(choice_count, seed);
+            let mut learned_policy = ScalableActionPolicy::new(choice_count, seed ^ 0xd351_0000);
+            let mut random_policy = ScalableActionPolicy::new(choice_count, seed ^ 0xd352_0000);
+            let mut oracle_policy = ScalableActionPolicy::new(choice_count, seed ^ 0xd353_0000);
+            let live_counter = Rc::new(Cell::new(0));
+
+            for problem_index in 0..AMORTIZATION_PROBLEMS {
+                let problem_seed = seed + problem_index as u64 * 10_000;
+                let learned = solve_amortized_problem(
+                    &mut learned_policy,
+                    &effects,
+                    AmortizationStrategy::Learned,
+                    problem_seed,
+                    live_counter.clone(),
+                );
+                let random = solve_amortized_problem(
+                    &mut random_policy,
+                    &effects,
+                    AmortizationStrategy::Random,
+                    problem_seed ^ 0xd354_0000,
+                    live_counter.clone(),
+                );
+                let oracle = solve_amortized_problem(
+                    &mut oracle_policy,
+                    &effects,
+                    AmortizationStrategy::Oracle,
+                    problem_seed ^ 0xd355_0000,
+                    live_counter.clone(),
+                );
+                workspaces_created += 3;
+                workspaces_destroyed += usize::from(learned.live_workspaces_after_drop == 0)
+                    + usize::from(random.live_workspaces_after_drop == 0)
+                    + usize::from(oracle.live_workspaces_after_drop == 0);
+                maximum_live_workspaces_after_problem = maximum_live_workspaces_after_problem.max(
+                    learned
+                        .live_workspaces_after_drop
+                        .max(random.live_workspaces_after_drop)
+                        .max(oracle.live_workspaces_after_drop),
+                );
+                workspace_fingerprints.insert(learned.workspace_fingerprint);
+                workspace_fingerprints.insert(random.workspace_fingerprint);
+                workspace_fingerprints.insert(oracle.workspace_fingerprint);
+                debug_assert!(learned.workspace_arrows_before_drop > 0);
+                debug_assert!(random.workspace_arrows_before_drop > 0);
+                debug_assert!(oracle.workspace_arrows_before_drop > 0);
+                debug_assert!(
+                    learned.policy_fingerprint_before != learned.policy_fingerprint_after
+                        || problem_index > 0
+                );
+                learned_by_problem[problem_index] += learned.paid_actions;
+                random_by_problem[problem_index] += random.paid_actions;
+                oracle_by_problem[problem_index] += oracle.paid_actions;
+                learned_correct += usize::from(learned.correct);
+                random_correct += usize::from(random.correct);
+                oracle_correct += usize::from(oracle.correct);
+                learned_spikes += learned.spikes;
+                random_spikes += random.spikes;
+                learned_episodes += learned.episodes;
+                random_episodes += random.episodes;
+                debug_assert!(learned.episodes > 0);
+                debug_assert!(random.episodes > 0);
+                debug_assert!(oracle.action_decisions > 0);
+            }
+            policy_retained_problem_identities += learned_policy.retained_problem_identities();
+        }
+
+        let seed_count = AMORTIZATION_SEEDS as f64;
+        let first_problem_learned_actions = learned_by_problem[0] as f64 / seed_count;
+        let mature_start = AMORTIZATION_PROBLEMS - 20;
+        let mature_divisor = (20 * AMORTIZATION_SEEDS) as f64;
+        let mature_learned_actions =
+            learned_by_problem[mature_start..].iter().sum::<usize>() as f64 / mature_divisor;
+        let mature_random_actions =
+            random_by_problem[mature_start..].iter().sum::<usize>() as f64 / mature_divisor;
+        let mature_oracle_actions =
+            oracle_by_problem[mature_start..].iter().sum::<usize>() as f64 / mature_divisor;
+        let mut learned_cumulative = 0;
+        let mut random_cumulative = 0;
+        let mut break_even_problem = None;
+        for problem_index in 0..AMORTIZATION_PROBLEMS {
+            learned_cumulative += learned_by_problem[problem_index];
+            random_cumulative += random_by_problem[problem_index];
+            if learned_cumulative < random_cumulative {
+                break_even_problem = Some(problem_index + 1);
+                break;
+            }
+        }
+        let total_problems = AMORTIZATION_PROBLEMS * AMORTIZATION_SEEDS;
+        points.push(AmortizationPoint {
+            choice_count,
+            first_problem_learned_actions,
+            mature_learned_actions,
+            mature_random_actions,
+            mature_oracle_actions,
+            break_even_problem,
+            learned_correct,
+            random_correct,
+            oracle_correct,
+            total_problems,
+            average_learned_spikes: learned_spikes as f64 / total_problems as f64,
+            average_random_spikes: random_spikes as f64 / total_problems as f64,
+            average_learned_episodes: learned_episodes as f64 / total_problems as f64,
+            average_random_episodes: random_episodes as f64 / total_problems as f64,
+        });
+    }
+
+    let accuracy_pass = points.iter().all(|point| {
+        point.learned_correct == point.total_problems
+            && point.random_correct == point.total_problems
+            && point.oracle_correct == point.total_problems
+    });
+    let mature_policy_pass = points.iter().all(|point| {
+        (point.mature_learned_actions - 1.0).abs() < 0.01
+            && (point.mature_oracle_actions - 1.0).abs() < 0.01
+    });
+    let random_scaling_pass = points
+        .windows(2)
+        .all(|pair| pair[1].mature_random_actions > pair[0].mature_random_actions);
+    let amortization_pass = points.iter().skip(1).all(|point| {
+        point.mature_learned_actions < point.mature_random_actions
+            && point.break_even_problem.is_some()
+    });
+    let policy_only_state_crosses_problems = workspaces_created == workspaces_destroyed
+        && maximum_live_workspaces_after_problem == 0
+        && policy_retained_problem_identities == 0;
+    let passed = accuracy_pass
+        && mature_policy_pass
+        && random_scaling_pass
+        && amortization_pass
+        && policy_only_state_crosses_problems;
+
+    AmortizationReport {
+        points,
+        workspaces_created,
+        workspaces_destroyed,
+        maximum_live_workspaces_after_problem,
+        policy_retained_problem_identities,
+        workspace_fingerprints_observed: workspace_fingerprints.len(),
+        policy_only_state_crosses_problems,
+        passed,
+    }
+}
+
+pub fn print_amortization_report(report: &AmortizationReport) {
+    println!("d2.1 epistemic-action amortization:");
+    for point in &report.points {
+        println!(
+            "  choices {:>2}: first learned={:.1}, mature learned/random/oracle={:.1}/{:.1}/{:.1}, break-even={:?}, spikes={:.0}/{:.0}, episodes={:.0}/{:.0}, accuracy={}/{}/{}/{}",
+            point.choice_count,
+            point.first_problem_learned_actions,
+            point.mature_learned_actions,
+            point.mature_random_actions,
+            point.mature_oracle_actions,
+            point.break_even_problem,
+            point.average_learned_spikes,
+            point.average_random_spikes,
+            point.average_learned_episodes,
+            point.average_random_episodes,
+            point.learned_correct,
+            point.random_correct,
+            point.oracle_correct,
+            point.total_problems
+        );
+    }
+    println!(
+        "  workspaces created/destroyed={}/{}, max live after problem={}, policy identities={}, workspace fingerprints={}",
+        report.workspaces_created,
+        report.workspaces_destroyed,
+        report.maximum_live_workspaces_after_problem,
+        report.policy_retained_problem_identities,
+        report.workspace_fingerprints_observed
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::OnceLock;
+
+    fn amortization_report() -> &'static AmortizationReport {
+        static REPORT: OnceLock<AmortizationReport> = OnceLock::new();
+        REPORT.get_or_init(run_amortization_experiment)
+    }
 
     #[test]
     fn d0_discovers_forward_topology_without_supplied_route_candidates() {
@@ -1809,6 +2304,48 @@ mod tests {
         let report = run_active_discovery_experiment();
         assert_eq!(report.random_label_positive_actions, 0);
         assert_eq!(report.random_label_stable_arrows, 0);
+        assert!(report.passed);
+    }
+
+    #[test]
+    fn d2_1_mature_policy_reuses_one_informative_action() {
+        let report = amortization_report();
+        assert!(report.points.iter().all(|point| {
+            (point.mature_learned_actions - 1.0).abs() < 0.01
+                && (point.mature_oracle_actions - 1.0).abs() < 0.01
+        }));
+    }
+
+    #[test]
+    fn d2_1_random_search_cost_grows_with_action_space() {
+        let report = amortization_report();
+        assert!(report
+            .points
+            .windows(2)
+            .all(|pair| pair[1].mature_random_actions > pair[0].mature_random_actions));
+        assert!(report.points.iter().skip(1).all(|point| {
+            point.mature_learned_actions < point.mature_random_actions
+                && point.break_even_problem.is_some()
+        }));
+    }
+
+    #[test]
+    fn d2_1_destroys_every_problem_workspace() {
+        let report = amortization_report();
+        assert_eq!(report.workspaces_created, report.workspaces_destroyed);
+        assert_eq!(report.maximum_live_workspaces_after_problem, 0);
+        assert_eq!(report.policy_retained_problem_identities, 0);
+        assert!(report.policy_only_state_crosses_problems);
+    }
+
+    #[test]
+    fn d2_1_preserves_accuracy_for_learned_random_and_oracle_policies() {
+        let report = amortization_report();
+        assert!(report.points.iter().all(|point| {
+            point.learned_correct == point.total_problems
+                && point.random_correct == point.total_problems
+                && point.oracle_correct == point.total_problems
+        }));
         assert!(report.passed);
     }
 }

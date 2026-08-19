@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 97 in-crate unit tests
+- 101 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -91,6 +91,10 @@ independent integration tests.
   the shortcut, none prefer disruption, and action use falls to zero after
   resolution across all six opaque-action permutations; random action search
   also solves all runs and is slightly cheaper in this small action space
+- d2.1: mature learned cost stays at one action across 4-to-64 choices, random
+  search grows from 2.5 to 36 actions, cumulative learned cost beats random by
+  the second ambiguity at latest, and all 12,000 fresh topology workspaces are
+  destroyed between problems
 
 ## Interpretation Boundary
 

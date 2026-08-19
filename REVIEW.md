@@ -196,6 +196,19 @@ policy in this three-action environment. D2 therefore supports learned
 context-dependent action preference and stopping, not sample-efficiency or
 counterfactual experiment planning.
 
+D2.1 supplies fresh problem boundaries. Every ambiguity constructs and
+destroys a new d0 topology workspace while one variable-length action policy
+persists. The policy type contains action values, tried flags, and an
+exploration cursor; it contains no problem identities or route references.
+
+Action meanings remain fixed across one hundred problems in a run. This makes
+amortization possible and must not be interpreted as action-remapping
+adaptation.
+
+The learned mature policy uses one action from four through sixty-four
+choices. Random search grows from 2.5 to 36 actions. All 12,000 workspaces are
+destroyed before the next problem begins.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -213,7 +226,8 @@ counterfactual experiment planning.
 - `src/iteration.rs`: v20 repeated use of one learned lookup and feedback route
 - `src/continuation.rs`: v21a autonomous continuation and v21b learned finish
 - `src/discovery.rs`: d0 generic topology proposal, trace, reward, and pruning
-  plus d1 contrasting experience and d2 learned epistemic action
+  plus d1 contrasting experience, d2 learned epistemic action, and d2.1
+  amortization
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

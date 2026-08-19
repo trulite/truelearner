@@ -741,6 +741,10 @@ fn main() {
     discovery::print_active_discovery_report(&active_discovery_report);
     println!();
 
+    let amortization_report = discovery::run_amortization_experiment();
+    discovery::print_amortization_report(&amortization_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -760,17 +764,18 @@ fn main() {
         && finish_report.passed
         && discovery_report.passed
         && intervention_report.passed
-        && active_discovery_report.passed;
+        && active_discovery_report.passed
+        && amortization_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - unresolved topology learns a context-dependent preference for opaque actions that selectively separate competing routes, and all earlier experiments still pass"
+            "PASS - epistemic action cost is amortized across fresh ambiguity problems while every topology workspace is destroyed, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: d2 learns informativeness from past action consequences; it does not predict an untried action's information value, and random search remains cheaper in this tiny action space."
+        "LIMIT: d2.1 keeps the action mapping fixed across problems and supplies fresh workspace boundaries; action remapping and continual topology contexts remain untested."
     );
 }
 

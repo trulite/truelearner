@@ -899,6 +899,46 @@ efficiency.
 Recorded measurements are in
 [`results/d2_epistemic_action.md`](results/d2_epistemic_action.md).
 
+## Discovery d2.1: Amortized epistemic action
+
+D2.1 keeps the d2 learner frozen and asks when remembering where useful
+evidence comes from becomes cheaper than searching again.
+
+Each ambiguity receives a new d0 topology workspace and fresh opaque
+identities. The workspace is consumed and destroyed after resolution. Only
+the action policy persists; it contains action values, tried flags, and an
+exploration cursor, but no problem identities or topology references.
+
+The environment is swept across 4, 8, 16, 32, and 64 total choices. Every
+mapping contains one informative action, one disruptive action, inert actions,
+and no action. Meanings stay fixed across one hundred problems but are
+permuted between runs.
+
+Results:
+
+```text
+choices                   4     8     16     32     64
+first learned cost       2.0   3.8   10.0   15.6   41.4
+mature learned cost      1.0   1.0    1.0    1.0    1.0
+mature random cost       2.5   5.1    8.2   17.9   36.0
+oracle cost              1.0   1.0    1.0    1.0    1.0
+break-even problem         1     1      2      1      2
+```
+
+All learned, random, and oracle runs remain correct. At 64 choices, average
+learned work is 3,684 spikes and 100 episodes, versus 35,548 spikes and 965
+episodes for random search.
+
+All 12,000 fresh workspaces are destroyed, no workspace remains live between
+problems, and the persistent policy retains zero problem identities.
+
+D2.1 supplies fresh workspace boundaries and a fixed action mapping across
+problems. Action remapping and continual topology contexts remain untested.
+
+Recorded measurements are in
+[`results/d2_1_amortization.md`](results/d2_1_amortization.md) and
+[`results/d2_1_amortization.csv`](results/d2_1_amortization.csv).
+
 ## Run
 
 ```bash
