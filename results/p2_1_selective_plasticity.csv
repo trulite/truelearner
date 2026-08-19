@@ -1,0 +1,7 @@
+section,condition,entries,predicted_useful,competent_seeds,total_seeds,correct,total,created,released,gate_evaluations,gate_admissions,active_touches,local_encounters,eligibility_updates,competence_episode,work
+P2.1a,predictor,6,2,0,0,16,16,0,0,0,0,0,0,0,,0
+P2.1b,always,0,0,8,8,512,512,696314,696310,399297,399297,286968,573937,25689,Some(15103.625),1582909
+P2.1b,learned,0,0,8,8,512,512,11817,11813,83504,7872,46255,92511,4936,Some(2434.5),239025
+P2.1b,random,0,0,6,8,384,512,150280,150265,809754,76341,447431,894862,9663,Some(14732.0),2311991
+P2.1b,shuffled,0,0,0,8,0,512,533999,533943,1697275,328784,950000,1900000,38,None,5081313
+P2.1b,oracle,0,0,8,8,512,512,18,14,798,9,403,807,15,Some(21.25),2043

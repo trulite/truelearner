@@ -1347,6 +1347,37 @@ Recorded measurements are in
 and
 [`results/p2_local_structural_plasticity.csv`](results/p2_local_structural_plasticity.csv).
 
+## P2.1: Selective structural plasticity
+
+P2.1 learns when broad kinds of local coactivity have historically been worth
+making plastic. The value learner sees only sensory, internal-workspace and
+irrelevant activity classes. It cannot see exact role IDs or choose a coupling
+direction.
+
+The frozen six-entry predictor preserves all eight fresh integrated learners:
+
+```text
+                              always P2    learned gate
+competent seeds                    8 / 8           8 / 8
+held-out depth 5-32              512 / 512       512 / 512
+couplings created                  696314           11817
+deterministic discovery work      1582909          239025
+```
+
+Coupling creation falls by 98.3 percent and recorded work by 84.9 percent.
+A random gate using the same per-opportunity admission rate succeeds in six
+of eight seeds; a shuffled value model succeeds in none.
+
+P2.1 still supplies the sensory/internal/irrelevant activity classes, pair
+signature, gate lookup, exploration rule and the complete P2 plasticity law.
+It has not demonstrated transfer across substantially different program
+families.
+
+Recorded measurements are in
+[`results/p2_1_selective_plasticity.md`](results/p2_1_selective_plasticity.md)
+and
+[`results/p2_1_selective_plasticity.csv`](results/p2_1_selective_plasticity.csv).
+
 ## Run
 
 ```bash

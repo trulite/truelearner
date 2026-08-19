@@ -794,6 +794,10 @@ fn main() {
     local_plasticity::print_p2_report(&local_plasticity_report);
     println!();
 
+    let selective_plasticity_report = local_plasticity::run_p2_1_experiment();
+    local_plasticity::print_p2_1_report(&selective_plasticity_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -827,17 +831,18 @@ fn main() {
         && program_discovery_report.experimental_gate_valid
         && program_discovery_report.integrated_hypothesis_supported
         && role_discovery_report.passed
-        && local_plasticity_report.passed;
+        && local_plasticity_report.passed
+        && selective_plasticity_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - local structural plasticity grows reusable sensory representation and recurrent computation with work governed by active neighborhoods, and all earlier experiments still pass"
+            "PASS - learned plasticity value selectively opens local growth opportunities, preserves program discovery, reduces coupling churn, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: P2 still supplies local geometry, task-neutral workspace activation, coactivity windows, growth slots, probation, eligibility traces, terminal correctness, pruning, sensory structural comparison, the isolated-query boundary, internal execution roles, and identity equality."
+        "LIMIT: P2.1 learns only a coarse sensory/internal/irrelevant admission bias. It still supplies the plasticity law, local geometry, workspace classes, gate representation, exploration rule, terminal correctness, internal execution roles, and identity equality."
     );
 }
 
