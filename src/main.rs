@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use organism_v0::{
     binding, causal, composition, consolidation, continuation, discovery, generality, inertia,
-    iteration, scaling, stability, tracking, unified, vision,
+    iteration, model_epistemic, scaling, stability, tracking, unified, vision,
 };
 
 type CellId = usize;
@@ -753,6 +753,14 @@ fn main() {
     discovery::print_plasticity_report(&plasticity_report);
     println!();
 
+    let action_model_report = model_epistemic::run_action_model_experiment();
+    model_epistemic::print_action_model_report(&action_model_report);
+    println!();
+
+    let model_based_action_report = model_epistemic::run_model_based_action_experiment();
+    model_epistemic::print_model_based_action_report(&model_based_action_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -775,17 +783,19 @@ fn main() {
         && active_discovery_report.passed
         && amortization_report.passed
         && remap_report.passed
-        && plasticity_report.passed;
+        && plasticity_report.passed
+        && action_model_report.passed
+        && model_based_action_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - sustained expectation violations reopen local action alternatives on a maturity-independent timescale while historical evidence is retained, and all earlier experiments still pass"
+            "PASS - frozen role-relative action models select distinguishing interventions on novel ambiguities before observing their usefulness, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: d2.3 supplies the usefulness of distinguishing evidence and a fixed three-violation reopening rule; it does not learn its own change-detection threshold or regime representation."
+        "LIMIT: d3 supplies role positions, same/different comparison, and the epistemic preference for selectively changing route-specific evidence; it does not discover those priors."
     );
 }
 

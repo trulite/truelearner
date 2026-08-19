@@ -7,6 +7,7 @@ pub mod discovery;
 pub mod generality;
 pub mod inertia;
 pub mod iteration;
+pub mod model_epistemic;
 pub mod scaling;
 pub mod stability;
 pub mod tracking;

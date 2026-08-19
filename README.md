@@ -1010,6 +1010,50 @@ Recorded measurements are in
 [`results/d2_3_plasticity.md`](results/d2_3_plasticity.md) and
 [`results/d2_3_plasticity.csv`](results/d2_3_plasticity.csv).
 
+## Discovery d3: Model-based epistemic action
+
+### D3a: Role-relative action models
+
+D3a trains outside any ambiguity task. It receives opaque actions and
+temporary role occupants before and after acting. Generic equality produces
+changed or preserved events for each role.
+
+Coactivity proposes persistent action-to-role outcome arrows. Across sixteen
+action permutations:
+
+- held-out effect predictions are 6,144 of 6,144,
+- shuffled action/outcome training produces zero confident models,
+- 196,608 opaque identities are observed,
+- zero identity-specific cells remain permanent,
+- model size remains fixed as identity experience grows.
+
+### D3b: Predict a useful experiment
+
+D3a models are frozen. D3b receives two novel competing route activity graphs.
+Generic set and connection comparison exposes shared and route-specific
+structure without naming a distinguishing role.
+
+Every action model predicts changed and preserved roles before action. The
+supplied epistemic preference chooses an action that changes route-specific
+evidence while preserving shared and competing evidence.
+
+First-action results:
+
+```text
+model-based selection   48 / 48
+empty action history    11 / 48
+random selection        18 / 48
+change-everything        0 / 48
+```
+
+All 48 complete decision traces exist before execution. The selected action is
+then executed once on fresh identities. Frozen model fingerprints remain
+unchanged.
+
+Recorded measurements are in
+[`results/d3_model_based_epistemic_action.md`](results/d3_model_based_epistemic_action.md)
+and [`results/d3_pre_action_traces.csv`](results/d3_pre_action_traces.csv).
+
 ## Run
 
 ```bash

@@ -18,6 +18,7 @@ cargo run --release
 cargo run --release --bin scaling -- --output results/v14_5_scaling.csv
 cargo run --release --bin remap -- results/d2_2_remap.csv
 cargo run --release --bin plasticity -- results/d2_3_plasticity.csv
+cargo run --release --bin model_epistemic -- results/d3_pre_action_traces.csv
 ```
 
 `rust-toolchain.toml` pins the compiler and installs `rustfmt` and Clippy.
@@ -34,7 +35,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 109 in-crate unit tests
+- 113 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -106,6 +107,13 @@ independent integration tests.
   maturity; isolated noise causes no reopening, repeated regime switches
   become cheaper through retained history, and all 2,162 workspaces are
   destroyed
+- d3a: role-relative action-effect models predict all 6,144 held-out
+  consequences across fresh identities and sixteen action permutations;
+  shuffled action/outcome training produces no confident model
+- d3b: frozen action models select all 48 distinguishing first interventions
+  on novel route pairs, versus 11 for empty history, 18 random, and zero for
+  the disruptive heuristic; complete traces exist before action and model
+  fingerprints remain unchanged
 
 ## Interpretation Boundary
 

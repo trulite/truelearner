@@ -240,6 +240,27 @@ The three-violation threshold, the separation into historical and
 current-regime state, and the usefulness of distinguishing evidence are
 supplied. D2.3 does not discover its own plasticity timescale.
 
+D3a trains action-effect models without an ambiguity task. Generic
+same/different observations propose action-to-role changed and preserved
+arrows. Action identities and temporary occupants are opaque, but role
+positions are supplied.
+
+D3b freezes those models. It compares competing route activity using generic
+set and connection intersection and difference. The comparison does not emit a
+named distinguishing role. A supplied epistemic preference scores predicted
+action consequences by whether they change route-specific evidence while
+preserving common and competing evidence.
+
+The model selects all 48 first actions correctly under sixteen opaque action
+permutations. Empty-history, random, and disruptive baselines score 11, 18,
+and zero. All action predictions and structural comparisons are recorded
+before the selected action executes, and the model fingerprint remains
+unchanged.
+
+D3 demonstrates model-based selection within a supplied role and comparison
+ontology. It does not learn the structural comparison or the epistemic
+preference itself.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -259,8 +280,11 @@ supplied. D2.3 does not discover its own plasticity timescale.
 - `src/discovery.rs`: d0 generic topology proposal, trace, reward, and pruning
   plus d1 contrasting experience, d2 learned epistemic action, and d2.1
   amortization, d2.2 silent-remap diagnostics, and d2.3 local reopening
+- `src/model_epistemic.rs`: d3a action-effect learning and d3b pre-action
+  structural experiment selection
 - `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
 - `src/bin/plasticity.rs`: CSV writer for d2.3 regime trajectories
+- `src/bin/model_epistemic.rs`: CSV writer for d3 pre-action traces
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation
