@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
 use organism_v0::{
-    binding, causal, composition, consolidation, continuation, generality, inertia, iteration,
-    scaling, stability, tracking, unified, vision,
+    binding, causal, composition, consolidation, continuation, discovery, generality, inertia,
+    iteration, scaling, stability, tracking, unified, vision,
 };
 
 type CellId = usize;
@@ -729,6 +729,10 @@ fn main() {
     continuation::print_finish_report(&finish_report);
     println!();
 
+    let discovery_report = discovery::run_experiment();
+    discovery::print_report(&discovery_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -745,17 +749,18 @@ fn main() {
         && binding_report.passed
         && iteration_report.passed
         && continuation_report.passed
-        && finish_report.passed;
+        && finish_report.passed
+        && discovery_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - learned absence-to-answer routing finishes autonomous queued reasoning without an external cutoff, and all earlier experiments still pass"
+            "PASS - generic coactivity proposals, recently-used arrow traces, and terminal success discover a reusable routing topology, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: v21b supplies a neutral no-result event, the frozen v21a continuation path, and four candidate finish routes; cycles still require a safety limit."
+        "LIMIT: d0 still supplies opaque equality, role cells, episode boundaries, and a generic coactivity window; it discovers one routing arrow, not the full v19-v21b program."
     );
 }
 

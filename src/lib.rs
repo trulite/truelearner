@@ -3,6 +3,7 @@ pub mod causal;
 pub mod composition;
 pub mod consolidation;
 pub mod continuation;
+pub mod discovery;
 pub mod generality;
 pub mod inertia;
 pub mod iteration;

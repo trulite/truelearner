@@ -779,6 +779,43 @@ event, and candidate route families that v18 did not have.
 Recorded measurements are in
 [`results/v21b_finish.md`](results/v21b_finish.md).
 
+## Discovery d0: Discover one route
+
+The execution ladder v19 through v21b is frozen. D0 starts a separate
+discovery ladder and asks whether the v19 routing direction can emerge without
+receiving four task-specific route candidates.
+
+The parser exposes only opaque identities in two sensory slots and a query.
+Permanent role cells firing within a short temporal window propose arrows in
+both directions. This generic proposal rule creates useful and useless
+connections.
+
+Each training episode executes one competing arrow. Only the arrow that
+actually carried the attempted answer receives a recently-used trace.
+Terminal supervision then supplies one scalar fact: success or failure. It
+does not reveal the correct identity, route, or connection. Repeatedly
+successful arrows survive; the other provisional arrows are pruned.
+
+Results:
+
+- 18 arrows are proposed generically, 17 are rejected, and one becomes stable,
+- forward experience retains `Slot1 -> Slot2`,
+- reversed experience from the same prior retains `Slot2 -> Slot1`,
+- eight independent seeds in each direction reach perfect held-out accuracy,
+- random answer labels create no stable route,
+- twenty thousand further renamed episodes leave permanent state unchanged.
+
+An irrelevant-cue control exposes a limitation: 15 of 32 learners selected a
+predictive cue shortcut and failed after the cue was removed. D0 learns a
+reliably rewarded topology, not necessarily a causal one.
+
+D0 still supplies opaque equality, sensory role cells, episode boundaries, a
+coactivity window, one-route competition, traces, and the consolidation rule.
+It discovers one role-routing arrow, not the complete v19-v21b program.
+
+Recorded measurements are in
+[`results/d0_topology_discovery.md`](results/d0_topology_discovery.md).
+
 ## Run
 
 ```bash

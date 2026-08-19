@@ -140,6 +140,26 @@ v18 failure. The later substrate receives identity equality, structured
 relation slots, temporary lifetime, and candidate route families that the v18
 unified sequence learner did not receive.
 
+D0 begins a separate discovery ladder. It removes v19's fixed list of four
+slot routes, but still supplies:
+
+- opaque equality and permanent sensory-role cells,
+- episode boundaries and automatic temporary erasure,
+- a fixed temporal coactivity window,
+- bidirectional proposal between nearby active permanent cells,
+- one-arrow competition and exploration,
+- recently-used arrow traces,
+- scalar terminal success or failure,
+- a fixed consolidation threshold and pruning operation.
+
+Only the arrow used to produce the attempted answer receives feedback. The
+evaluator does not score every candidate route or identify a responsible
+arrow.
+
+The irrelevant-cue control is deliberately unfavorable: 15 of 32 learners
+select the shortcut and fail when it is removed. D0 therefore demonstrates
+topology selection under reward, not causal route discovery.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -156,6 +176,7 @@ unified sequence learner did not receive.
 - `src/binding.rs`: v19 temporary identity binding
 - `src/iteration.rs`: v20 repeated use of one learned lookup and feedback route
 - `src/continuation.rs`: v21a autonomous continuation and v21b learned finish
+- `src/discovery.rs`: d0 generic topology proposal, trace, reward, and pruning
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation

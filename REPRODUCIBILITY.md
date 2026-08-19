@@ -32,7 +32,7 @@ independent integration tests.
 
 ## Expected Test Inventory
 
-- 84 in-crate unit tests
+- 89 in-crate unit tests
 - 4 public reviewer-API integration tests
 
 ## Current Strongest Results
@@ -79,6 +79,10 @@ independent integration tests.
 - v21b: a no-result event selects an explicit finish route; held-out chains
   through depth thirty-two settle naturally without a cutoff, and separate
   depth and working-set spike curves remain linear
+- d0: generic temporal coactivity proposes 18 routing arrows, recently-used
+  traces plus scalar feedback retain one direction-appropriate arrow, reversed
+  experience learns the reverse arrow, and random labels retain no stable
+  topology; an irrelevant cue causes 15 of 32 learners to choose a shortcut
 
 ## Interpretation Boundary
 
