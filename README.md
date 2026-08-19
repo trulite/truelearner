@@ -1054,6 +1054,33 @@ Recorded measurements are in
 [`results/d3_model_based_epistemic_action.md`](results/d3_model_based_epistemic_action.md)
 and [`results/d3_pre_action_traces.csv`](results/d3_pre_action_traces.csv).
 
+## Discovery d4a: Composable action transformations
+
+D4a learns more than which roles change. For every opaque action and output
+role, it learns which input role supplies the resulting occupant.
+
+Training contains individual actions only. Held-out evaluation repeatedly
+applies frozen learned models to fresh temporary structures:
+
+```text
+exact sequence predictions   848 / 848
+changed-role mask baseline    32 / 848
+swap twice                    16 / 16
+order-sensitive pairs         16 / 16
+```
+
+Unseen sequence lengths range from one through sixteen. Permanent model size
+and temporary role count remain fixed while the number of generic model
+applications grows with sequence length.
+
+Two opposite rotations provide the decisive control: they change exactly the
+same roles but obtain occupants from different input roles. The changed-role
+mask cannot distinguish them; the learned provenance models can.
+
+Recorded measurements are in
+[`results/d4a_composable_transformations.md`](results/d4a_composable_transformations.md)
+and [`results/d4a_composition_traces.csv`](results/d4a_composition_traces.csv).
+
 ## Run
 
 ```bash

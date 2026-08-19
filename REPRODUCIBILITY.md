@@ -19,6 +19,7 @@ cargo run --release --bin scaling -- --output results/v14_5_scaling.csv
 cargo run --release --bin remap -- results/d2_2_remap.csv
 cargo run --release --bin plasticity -- results/d2_3_plasticity.csv
 cargo run --release --bin model_epistemic -- results/d3_pre_action_traces.csv
+cargo run --release --bin composable_models -- results/d4a_composition_traces.csv
 ```
 
 `rust-toolchain.toml` pins the compiler and installs `rustfmt` and Clippy.
@@ -114,6 +115,11 @@ independent integration tests.
   on novel route pairs, versus 11 for empty history, 18 random, and zero for
   the disruptive heuristic; complete traces exist before action and model
   fingerprints remain unchanged
+- d4a: source-role models predict all 848 held-out action sequences exactly
+  through length sixteen, while a changed-role mask baseline predicts 32;
+  opposite rotations with identical changed-role masks remain structurally
+  distinguishable, swap-twice and order-sensitive controls pass, and frozen
+  model fingerprints remain unchanged
 
 ## Interpretation Boundary
 

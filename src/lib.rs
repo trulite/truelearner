@@ -1,5 +1,6 @@
 pub mod binding;
 pub mod causal;
+pub mod composable_models;
 pub mod composition;
 pub mod consolidation;
 pub mod continuation;

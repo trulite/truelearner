@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
 use organism_v0::{
-    binding, causal, composition, consolidation, continuation, discovery, generality, inertia,
-    iteration, model_epistemic, scaling, stability, tracking, unified, vision,
+    binding, causal, composable_models, composition, consolidation, continuation, discovery,
+    generality, inertia, iteration, model_epistemic, scaling, stability, tracking, unified, vision,
 };
 
 type CellId = usize;
@@ -761,6 +761,10 @@ fn main() {
     model_epistemic::print_model_based_action_report(&model_based_action_report);
     println!();
 
+    let composable_model_report = composable_models::run_composable_model_experiment();
+    composable_models::print_report(&composable_model_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -785,17 +789,18 @@ fn main() {
         && remap_report.passed
         && plasticity_report.passed
         && action_model_report.passed
-        && model_based_action_report.passed;
+        && model_based_action_report.passed
+        && composable_model_report.passed;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - frozen role-relative action models select distinguishing interventions on novel ambiguities before observing their usefulness, and all earlier experiments still pass"
+            "PASS - individually learned role-relative transformations compose into exact predictions for unseen action sequences, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: d3 supplies role positions, same/different comparison, and the epistemic preference for selectively changing route-specific evidence; it does not discover those priors."
+        "LIMIT: d4a supplies role positions, identity comparison, the action sequence, and generic repeated model application; it does not learn how to choose or search action sequences."
     );
 }
 

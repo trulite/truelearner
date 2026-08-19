@@ -261,6 +261,20 @@ D3 demonstrates model-based selection within a supplied role and comparison
 ontology. It does not learn the structural comparison or the epistemic
 preference itself.
 
+D4a replaces changed/preserved action masks with learned occupant provenance.
+For each output role, it learns which input role supplies the occupant. Frozen
+individual-action models are then repeatedly applied to action sequences that
+never appeared during training.
+
+The provenance model predicts all 848 held-out sequences exactly through
+length sixteen. A changed-role mask baseline predicts only 32. Opposite
+rotations that change identical role sets remain indistinguishable to the mask
+but are distinguished by learned source-role structure.
+
+D4a supplies role positions, identity equality, the action sequence, and
+generic repeated model application. It demonstrates composition of learned
+world models, not planning or learned search.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -282,9 +296,12 @@ preference itself.
   amortization, d2.2 silent-remap diagnostics, and d2.3 local reopening
 - `src/model_epistemic.rs`: d3a action-effect learning and d3b pre-action
   structural experiment selection
+- `src/composable_models.rs`: d4a source-role learning and frozen model
+  composition
 - `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
 - `src/bin/plasticity.rs`: CSV writer for d2.3 regime trajectories
 - `src/bin/model_epistemic.rs`: CSV writer for d3 pre-action traces
+- `src/bin/composable_models.rs`: CSV writer for d4a composition traces
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation
