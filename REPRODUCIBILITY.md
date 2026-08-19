@@ -141,6 +141,14 @@ independent integration tests.
   neutral search for shallow and unreachable contexts and compiled guidance
   for depth eight; held-out work falls to 22,817,640 versus 23,278,200 always
   neutral and 35,232,600 always guided, and exploration repays by problem 1,439
+- P0a-P0d: one shared generic proposal, probation, trace, correctness, and
+  pruning configuration rediscovers lookup, feedback, self-trigger, and finish
+  routes in all eight seeds per isolated gate
+- P0e: fresh substrates receive the complete task with terminal correctness
+  only; all eight real-feedback seeds construct compact four-arrow recurrent
+  programs and score 512/512 on fresh identities and unseen depths, versus
+  zero competent shuffled-feedback seeds, zero random-feedback seeds, and one
+  accidental activity-only seed
 
 ## Interpretation Boundary
 

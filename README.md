@@ -1203,6 +1203,46 @@ Recorded measurements are in
 [`results/s1_2_guidance_gate.md`](results/s1_2_guidance_gate.md) and
 [`results/s1_2_guidance_gate.csv`](results/s1_2_guidance_gate.csv).
 
+## De-supply P0: Discover the execution program
+
+P0 removes the supplied route lists from the v19-v21 execution ladder.
+Generic coactivity proposes 90 directed arrows across ten permanent role
+cells. Every arrow receives identical probation; only arrows that actually
+carry queued activity receive terminal correctness credit.
+
+P0a through P0d establish one shared learning configuration:
+
+```text
+temporary lookup    8 / 8 seeds
+result feedback     8 / 8 seeds
+self-trigger        8 / 8 seeds
+explicit finish     8 / 8 seeds
+```
+
+P0e then starts from a fresh substrate with no inherited routes and receives
+the complete traversal task from its first episode. It receives no staged
+curriculum and only terminal correctness.
+
+```text
+real terminal feedback       8 / 8 competent
+shuffled terminal feedback   0 / 8
+random feedback              0 / 8
+activity only                1 / 8
+```
+
+Real-feedback learners retain four program arrows and score 512/512 on fresh
+identities at unseen depths five, eight, sixteen, and thirty-two. Every
+execution uses one external start, emits an explicit answer, settles naturally,
+and leaves permanent state unchanged.
+
+The one activity-only success is retained as a chance control result.
+Correctness feedback is required for reliable construction, not for every
+possible construction.
+
+Recorded measurements are in
+[`results/p0_program_discovery.md`](results/p0_program_discovery.md) and
+[`results/p0_program_discovery.csv`](results/p0_program_discovery.csv).
+
 ## Run
 
 ```bash

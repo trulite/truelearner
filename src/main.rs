@@ -2,8 +2,8 @@ use std::collections::VecDeque;
 
 use organism_v0::{
     binding, causal, composable_models, composition, consolidation, continuation, discovery,
-    generality, inertia, iteration, model_epistemic, scaling, search_value, stability, tracking,
-    unified, vision,
+    generality, inertia, iteration, model_epistemic, program_discovery, scaling, search_value,
+    stability, tracking, unified, vision,
 };
 
 type CellId = usize;
@@ -782,6 +782,10 @@ fn main() {
     search_value::print_guidance_gate_report(&guidance_gate_report);
     println!();
 
+    let program_discovery_report = program_discovery::run_program_discovery_experiment();
+    program_discovery::print_program_discovery_report(&program_discovery_report);
+    println!();
+
     let passed = v2_passed
         && inertia_report.passed
         && tracking_report.passed
@@ -811,17 +815,19 @@ fn main() {
         && counterfactual_planning_report.passed
         && search_value_report.passed
         && compiled_search_value_report.passed
-        && guidance_gate_report.passed;
+        && guidance_gate_report.passed
+        && program_discovery_report.experimental_gate_valid
+        && program_discovery_report.integrated_hypothesis_supported;
     println!(
         "RESULT: {}",
         if passed {
-            "PASS - terminal planning cost teaches a cheap structural gate when compiled guidance is worth using, and all earlier experiments still pass"
+            "PASS - generic topology discovery reconstructs the reusable recurrent program without supplied route candidates, and all earlier experiments still pass"
         } else {
             "FAIL - at least one learning, scaling, capacity, transfer, or control test failed"
         }
     );
     println!(
-        "LIMIT: S1.2 supplies a two-mode bandit rule, structural signature, conservative near-tie policy, and search itself; it does not learn how much thinking to buy."
+        "LIMIT: P0 still supplies role cells, identity equality, temporary lifetime, event meanings, proposal physics, eligibility traces, terminal correctness, and pruning."
     );
 }
 

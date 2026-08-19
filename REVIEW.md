@@ -350,6 +350,25 @@ S1.2 supplies the bandit update, exploration rule, conservative near-tie
 policy, two reasoning modes, signature, and search algorithms. It does not
 learn how much thinking to buy.
 
+P0 begins the de-supply ladder. It removes the four route-candidate lists from
+v19-v21 and replaces them with one generic all-pairs proposal field. Recently
+used arrows receive only terminal correctness or failure. The same probation,
+strengthening, weakening, consolidation, pruning, and activity settings are
+used for every isolated gate and for fresh integrated P0e seeds.
+
+P0e receives the complete traversal task from the first episode. It does not
+inherit isolated routes or receive a staged lookup, feedback, continuation, or
+finish curriculum. Real correctness produces eight functional four-arrow
+programs in eight seeds. Shuffled and random feedback produce none.
+Activity-only learning accidentally produces one functional program in eight
+seeds, which is retained as a chance result.
+
+P0 still supplies role cells, identity equality, relation slots, temporary
+lifetime, neutral no-result events, proposal physics, trace duration, terminal
+correctness, and pruning. The target-cell semantics also remain supplied. The
+claim is program-topology discovery inside this ontology, not program
+discovery from raw sensation.
+
 ## Code Map
 
 - `src/main.rs`: original v1-v2 runtime and executable report
@@ -375,6 +394,8 @@ learn how much thinking to buy.
   composition plus d4b bounded counterfactual search
 - `src/search_value.rs`: S0 goal-conditioned value learning and S1 lazy
   supplied search ordering plus S1.1 compiled recognition and local activation
+- `src/program_discovery.rs`: P0a-P0d isolated route discovery and fresh P0e
+  end-to-end recurrent program discovery
 - `src/bin/remap.rs`: CSV writer for complete d2.2 value trajectories
 - `src/bin/plasticity.rs`: CSV writer for d2.3 regime trajectories
 - `src/bin/model_epistemic.rs`: CSV writer for d3 pre-action traces
@@ -383,6 +404,8 @@ learn how much thinking to buy.
 - `src/bin/search_value.rs`: CSV writer for S0/S1 work curves
 - `src/bin/compiled_search_value.rs`: CSV writer for S1.1 compilation economics
 - `src/bin/guidance_gate.rs`: CSV writer for S1.2 metareasoning economics
+- `src/bin/program_discovery.rs`: CSV writer for P0 program-discovery
+  trajectories and controls
 - `src/bin/scaling.rs`: CSV-producing scaling runner
 - `src/lib.rs`: public library and reviewer API
 - `tests/reviewer_api.rs`: example independent black-box evaluation
