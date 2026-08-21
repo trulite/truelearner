@@ -17,6 +17,7 @@ const RG0A_DEPTHS: [usize; 6] = [5, 8, 16, 32, 64, 128];
 const RG0A_QUERIES_PER_DEPTH: usize = 16;
 const MICRO_DEPTHS: [usize; 2] = [3, 5];
 const MICRO_QUERIES_PER_DEPTH: usize = 4;
+const DEVELOPMENT_SEED_INDEX: usize = 10_000;
 
 type LowerLocation = u64;
 
@@ -1045,7 +1046,7 @@ fn synthetic_fixture(seed: u64, lifecycle: &Lifecycle) -> FrozenRp0aState {
         })
         .collect();
     FrozenRp0aState {
-        seed_index: usize::MAX,
+        seed_index: DEVELOPMENT_SEED_INDEX,
         role,
         program: ProgramLearner {
             arrows,
@@ -1530,7 +1531,7 @@ fn run_development_harness(mode: HarnessMode) -> Rg0aReport {
         &integrated,
         &shuffled,
         FixtureSpec {
-            seed_index: usize::MAX,
+            seed_index: DEVELOPMENT_SEED_INDEX,
             depths,
             queries_per_depth: queries,
             full_controls,
@@ -1542,7 +1543,7 @@ fn run_development_harness(mode: HarnessMode) -> Rg0aReport {
         &integrated,
         &shuffled,
         FixtureSpec {
-            seed_index: usize::MAX,
+            seed_index: DEVELOPMENT_SEED_INDEX,
             depths,
             queries_per_depth: queries,
             full_controls,
