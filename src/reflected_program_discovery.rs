@@ -211,7 +211,9 @@ struct Workspace<'a> {
 
 impl Drop for Workspace<'_> {
     fn drop(&mut self) {
-        self.lifecycle.destroyed.set(self.lifecycle.destroyed.get() + 1);
+        self.lifecycle
+            .destroyed
+            .set(self.lifecycle.destroyed.get() + 1);
         self.lifecycle.live.set(self.lifecycle.live.get() - 1);
     }
 }
@@ -274,7 +276,9 @@ fn build_invocation(
         .map(|(consumed, _)| *consumed)
         .max()
         .unwrap_or(0);
-    let mut available: Vec<_> = (0..initial_inputs).map(|index| base + index as u64).collect();
+    let mut available: Vec<_> = (0..initial_inputs)
+        .map(|index| base + index as u64)
+        .collect();
     let inputs = available.clone();
     let mut next_occurrence = base + initial_inputs as u64;
     let mut transitions = Vec::new();
@@ -394,13 +398,7 @@ fn role_observations(
     }
     let mut signatures = Vec::new();
     for (ordinal, role) in LowerRole::ALL.into_iter().enumerate() {
-        let invocation = build_invocation(
-            role,
-            episode,
-            ordinal,
-            arm == Arm::Symmetric,
-            lifecycle,
-        );
+        let invocation = build_invocation(role, episode, ordinal, arm == Arm::Symmetric, lifecycle);
         let _opaque_source = invocation.source_identity;
         signatures.push(provenance_signature(&invocation, work));
     }
@@ -465,7 +463,10 @@ impl RoleLearner {
     fn bindings(&self, observations: &[RoleObservation]) -> BTreeMap<LowerRole, usize> {
         observations
             .iter()
-            .filter_map(|item| self.translate(item.signature).map(|role| (item.lower, role)))
+            .filter_map(|item| {
+                self.translate(item.signature)
+                    .map(|role| (item.lower, role))
+            })
             .collect()
     }
 
@@ -734,7 +735,10 @@ impl ProgramLearner {
     }
 
     fn consolidated_count(&self) -> usize {
-        self.arrows.iter().filter(|arrow| arrow.consolidated).count()
+        self.arrows
+            .iter()
+            .filter(|arrow| arrow.consolidated)
+            .count()
     }
 
     fn permanent_bytes(&self) -> usize {
@@ -769,9 +773,7 @@ fn chain_episode(
     rng: &mut DeterministicRng,
     depth: usize,
 ) -> ChainEpisode {
-    let chain = (0..=depth)
-        .map(|_| identities.issue())
-        .collect::<Vec<_>>();
+    let chain = (0..=depth).map(|_| identities.issue()).collect::<Vec<_>>();
     let mut relations = chain
         .windows(2)
         .map(|pair| (pair[0], pair[1]))
@@ -1007,8 +1009,8 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
             Event::Quiet => queue.clear(),
         }
     }
-    let outcome = fault
-        .unwrap_or_else(|| emitted.map_or(BindingOutcome::NotFound, BindingOutcome::Answer));
+    let outcome =
+        fault.unwrap_or_else(|| emitted.map_or(BindingOutcome::NotFound, BindingOutcome::Answer));
     Execution {
         outcome,
         explicit_answer: emitted.is_some(),
@@ -1019,10 +1021,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
     }
 }
 
-fn program_correct(
-    learner: &ProgramLearner,
-    bindings: &BTreeMap<LowerRole, usize>,
-) -> bool {
+fn program_correct(learner: &ProgramLearner, bindings: &BTreeMap<LowerRole, usize>) -> bool {
     let mut work = Work::default();
     let choices = evaluated_choices(learner, bindings, &mut work);
     [
@@ -1131,10 +1130,7 @@ fn credited_feedback(
     }
 }
 
-fn correct_arrow_count(
-    learner: &ProgramLearner,
-    bindings: &BTreeMap<LowerRole, usize>,
-) -> usize {
+fn correct_arrow_count(learner: &ProgramLearner, bindings: &BTreeMap<LowerRole, usize>) -> usize {
     let inverse = inverse_bindings(bindings);
     learner
         .arrows
@@ -1212,8 +1208,7 @@ fn evaluate_learned(
             for lower in LowerRole::ALL {
                 transfer_total += 1;
                 transfer_correct += usize::from(
-                    bindings.get(&lower).is_some()
-                        && bindings.get(&lower) == canonical.get(&lower),
+                    bindings.get(&lower).is_some() && bindings.get(&lower) == canonical.get(&lower),
                 );
             }
             let choices = evaluated_choices(program, &bindings, &mut work);
@@ -1287,13 +1282,8 @@ fn run_learned_seed(
         let episode_id = domain_seed
             .wrapping_mul(1_000_000)
             .wrapping_add(episode_number as u64);
-        let observations = role_observations(
-            arm,
-            episode_id,
-            &mut provenance_rng,
-            lifecycle,
-            &mut work,
-        );
+        let observations =
+            role_observations(arm, episode_id, &mut provenance_rng, lifecycle, &mut work);
         let before_comparisons = role.comparisons;
         let before_updates = role.updates;
         role.observe(&observations);
@@ -1426,11 +1416,7 @@ fn run_learned_seed(
     (summary, trajectories)
 }
 
-fn run_oracle_seed(
-    seed_index: usize,
-    smoke: bool,
-    lifecycle: &Lifecycle,
-) -> SeedSummary {
+fn run_oracle_seed(seed_index: usize, smoke: bool, lifecycle: &Lifecycle) -> SeedSummary {
     let depths: &[usize] = if smoke {
         &SMOKE_HELD_OUT_DEPTHS
     } else {
@@ -1504,10 +1490,7 @@ fn summarize_arm(name: &str, seeds: &[SeedSummary]) -> ArmSummary {
         total_seeds: matching.len(),
         held_out_correct: matching.iter().map(|seed| seed.held_out_correct).sum(),
         held_out_total: matching.iter().map(|seed| seed.held_out_total).sum(),
-        role_transfer_correct: matching
-            .iter()
-            .map(|seed| seed.role_transfer_correct)
-            .sum(),
+        role_transfer_correct: matching.iter().map(|seed| seed.role_transfer_correct).sum(),
         role_transfer_total: matching.iter().map(|seed| seed.role_transfer_total).sum(),
         average_roles: matching
             .iter()
@@ -1522,10 +1505,7 @@ fn summarize_arm(name: &str, seeds: &[SeedSummary]) -> ArmSummary {
         average_competence_episode: average_optional(
             matching.iter().map(|seed| seed.competence_episode),
         ),
-        training_work: matching
-            .iter()
-            .map(|seed| seed.training_work.total())
-            .sum(),
+        training_work: matching.iter().map(|seed| seed.training_work.total()).sum(),
         evaluation_work: matching
             .iter()
             .map(|seed| seed.evaluation_work.total())
@@ -1596,8 +1576,8 @@ pub fn run_rp0a_experiment(smoke: bool) -> Rp0aReport {
             && seed.role_transfer_total > 0
     });
     let symmetric = arm(Arm::Symmetric);
-    let impossible = symmetric.competent_seeds == 0
-        && symmetric.average_roles < LowerRole::ALL.len() as f64;
+    let impossible =
+        symmetric.competent_seeds == 0 && symmetric.average_roles < LowerRole::ALL.len() as f64;
     let integrated = arm(Arm::Integrated);
     let competence = integrated.competent_seeds == seed_count;
     let held_out = integrated.held_out_correct == integrated.held_out_total
@@ -1634,9 +1614,9 @@ pub fn run_rp0a_experiment(smoke: bool) -> Rp0aReport {
     });
     let accounting = lifecycle.created.get() == lifecycle.destroyed.get()
         && lifecycle.live.get() == 0
-        && seeds.iter().all(|seed| {
-            seed.training_work.total() > 0 || seed.arm == Arm::Oracle.name()
-        });
+        && seeds
+            .iter()
+            .all(|seed| seed.training_work.total() > 0 || seed.arm == Arm::Oracle.name());
     let gates = vec![
         Gate {
             name: "frozen-ancestry-and-isolation".to_string(),
@@ -1811,10 +1791,7 @@ pub fn rp0a_csv(report: &Rp0aReport) -> String {
             ("episode", point.episode.to_string()),
             ("learned_roles", point.learned_roles.to_string()),
             ("live_arrows", point.live_arrows.to_string()),
-            (
-                "consolidated_arrows",
-                point.consolidated_arrows.to_string(),
-            ),
+            ("consolidated_arrows", point.consolidated_arrows.to_string()),
             ("actual_success", point.actual_success.to_string()),
             ("topology_correct", point.topology_correct.to_string()),
             ("training_work", point.work.to_string()),
@@ -1830,7 +1807,8 @@ pub fn rp0a_csv(report: &Rp0aReport) -> String {
             ("competent", seed.competent.to_string()),
             (
                 "first_roles_episode",
-                seed.first_roles_episode.map_or(String::new(), |v| v.to_string()),
+                seed.first_roles_episode
+                    .map_or(String::new(), |v| v.to_string()),
             ),
             (
                 "first_success_episode",
@@ -1839,13 +1817,11 @@ pub fn rp0a_csv(report: &Rp0aReport) -> String {
             ),
             (
                 "competence_episode",
-                seed.competence_episode.map_or(String::new(), |v| v.to_string()),
+                seed.competence_episode
+                    .map_or(String::new(), |v| v.to_string()),
             ),
             ("learned_roles", seed.learned_roles.to_string()),
-            (
-                "consolidated_arrows",
-                seed.consolidated_arrows.to_string(),
-            ),
+            ("consolidated_arrows", seed.consolidated_arrows.to_string()),
             (
                 "correct_program_arrows",
                 seed.correct_program_arrows.to_string(),
@@ -1861,10 +1837,7 @@ pub fn rp0a_csv(report: &Rp0aReport) -> String {
             ("role_transfer_total", seed.role_transfer_total.to_string()),
             ("explicit_answers", seed.explicit_answers.to_string()),
             ("queues_empty", seed.queues_empty.to_string()),
-            (
-                "activity_limit_hits",
-                seed.activity_limit_hits.to_string(),
-            ),
+            ("activity_limit_hits", seed.activity_limit_hits.to_string()),
             ("fallbacks", seed.fallbacks.to_string()),
             (
                 "permanent_source_identities",
@@ -1879,10 +1852,7 @@ pub fn rp0a_csv(report: &Rp0aReport) -> String {
                 seed.duplicate_deterministic.to_string(),
             ),
             ("training_work", seed.training_work.total().to_string()),
-            (
-                "evaluation_work",
-                seed.evaluation_work.total().to_string(),
-            ),
+            ("evaluation_work", seed.evaluation_work.total().to_string()),
             ("permanent_bytes", seed.permanent_bytes.to_string()),
         ]);
         writeln!(output, "{}", csv_row(&headers, &fields)).unwrap();
@@ -1902,10 +1872,7 @@ pub fn rp0a_csv(report: &Rp0aReport) -> String {
             ),
             ("role_transfer_total", arm.role_transfer_total.to_string()),
             ("learned_roles", format!("{:.6}", arm.average_roles)),
-            (
-                "consolidated_arrows",
-                format!("{:.6}", arm.average_arrows),
-            ),
+            ("consolidated_arrows", format!("{:.6}", arm.average_arrows)),
             (
                 "competence_episode",
                 arm.average_competence_episode
@@ -1923,10 +1890,7 @@ pub fn rp0a_csv(report: &Rp0aReport) -> String {
             ("row_type", "gate".to_string()),
             ("gate", gate.name.clone()),
             ("gate_passed", gate.passed.to_string()),
-            (
-                "workspaces_created",
-                report.workspaces_created.to_string(),
-            ),
+            ("workspaces_created", report.workspaces_created.to_string()),
             (
                 "workspaces_destroyed",
                 report.workspaces_destroyed.to_string(),
@@ -1964,11 +1928,7 @@ pub fn rp0a_markdown(report: &Rp0aReport) -> String {
         "| Arm | Competent | Held-out | Role transfer | Roles | Arrows | Competence | Training work | Eval work | Bytes |"
     )
     .unwrap();
-    writeln!(
-        output,
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
-    )
-    .unwrap();
+    writeln!(output, "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|").unwrap();
     for arm in &report.arms {
         writeln!(
             output,
@@ -2047,13 +2007,7 @@ mod tests {
         let lifecycle = Lifecycle::default();
         let mut rng = DeterministicRng::new(1);
         let mut work = Work::default();
-        let observations = role_observations(
-            Arm::Symmetric,
-            1,
-            &mut rng,
-            &lifecycle,
-            &mut work,
-        );
+        let observations = role_observations(Arm::Symmetric, 1, &mut rng, &lifecycle, &mut work);
         assert_eq!(
             observations
                 .iter()
