@@ -1515,6 +1515,13 @@ RP0b economics, real retrieval substitution, and recursive F1 remain blocked.
 See the frozen
 [`protocol`](experiments/reflected_program_discovery_protocol.md).
 
+The post-protocol create-new runner is:
+
+```bash
+mkdir -p target/rp0a-reproduction
+cargo run --release --bin reflected_program_discovery -- target/rp0a-reproduction/trajectory.csv target/rp0a-reproduction/report.md
+```
+
 ## Core runtime
 
 - `CELL`: local slow state + firing threshold
