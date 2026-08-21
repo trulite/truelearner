@@ -3157,6 +3157,17 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "explicit E2B frozen RP0a reconstruction parity"]
+    fn rp0b_reconstructs_every_frozen_rp0a_seed() {
+        let lifecycle = Lifecycle::default();
+        let (states, acquisition) = reconstruct_frozen_rp0a(&lifecycle);
+        assert_eq!(states.len(), FROZEN_RP0A_ENDPOINTS.len());
+        assert!(acquisition.iter().all(|row| row.parity));
+        assert_eq!(lifecycle.created.get(), lifecycle.destroyed.get());
+        assert_eq!(lifecycle.live.get(), 0);
+    }
+
+    #[test]
     #[ignore = "excluded preregistered E2B smoke"]
     fn smoke_gate() {
         let report = run_rp0a_experiment(true);
