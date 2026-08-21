@@ -1507,8 +1507,7 @@ fn run_learned_seed(
     smoke: bool,
     lifecycle: &Lifecycle,
 ) -> (SeedSummary, Vec<TrajectoryPoint>) {
-    let (summary, trajectories, _, _) =
-        train_learned_seed(arm, seed_index, smoke, lifecycle);
+    let (summary, trajectories, _, _) = train_learned_seed(arm, seed_index, smoke, lifecycle);
     (summary, trajectories)
 }
 
@@ -2071,8 +2070,7 @@ const RP0B_DEPTHS: [usize; 6] = [5, 8, 16, 32, 64, 128];
 const RP0B_QUERIES_PER_DEPTH: usize = 16;
 const RP0B_CARRYING_PRICES: [f64; 5] = [0.0, 0.000_001, 0.000_01, 0.000_1, 0.001];
 const RP0B_HORIZONS: [u64; 14] = [
-    1, 2, 4, 8, 16, 32, 64, 128, 256, 1_024, 10_000, 100_000, 1_000_000,
-    10_000_000,
+    1, 2, 4, 8, 16, 32, 64, 128, 256, 1_024, 10_000, 100_000, 1_000_000, 10_000_000,
 ];
 
 #[derive(Clone, Copy, Debug)]
@@ -2444,10 +2442,13 @@ fn counted_reflected_choices(
         if targets.len() != 1 {
             return None;
         }
-        let target = workspace.evaluator_locations.iter().find_map(|(role, location)| {
-            work.target_location_comparisons += 1;
-            (*location == targets[0]).then_some(*role)
-        })?;
+        let target = workspace
+            .evaluator_locations
+            .iter()
+            .find_map(|(role, location)| {
+                work.target_location_comparisons += 1;
+                (*location == targets[0]).then_some(*role)
+            })?;
         Some((choice.id, target))
     };
     ProgramChoices {
@@ -2507,10 +2508,7 @@ struct SnapshotEvaluation {
     fingerprint_unchanged: bool,
 }
 
-fn evaluate_rp0b_state(
-    state: &FrozenRp0aState,
-    lifecycle: &Lifecycle,
-) -> SnapshotEvaluation {
+fn evaluate_rp0b_state(state: &FrozenRp0aState, lifecycle: &Lifecycle) -> SnapshotEvaluation {
     let before = permanent_fingerprint(&state.role, &state.program);
     let mut identities = IdentitySource::new(0x8b00_0000 + state.seed_index as u64);
     let mut episode_rng = DeterministicRng::new(0x8b10_0000 + state.seed_index as u64);
@@ -2601,8 +2599,12 @@ fn scaling_improves(rows: &[Rp0bRuntimeRow]) -> (bool, bool) {
         let mut previous_absolute = None;
         let mut previous_fractional = None;
         for depth in RP0B_DEPTHS {
-            let concrete = runtime_row(rows, "concrete", seed_index, depth).work.total();
-            let reflected = runtime_row(rows, "reflected", seed_index, depth).work.total();
+            let concrete = runtime_row(rows, "concrete", seed_index, depth)
+                .work
+                .total();
+            let reflected = runtime_row(rows, "reflected", seed_index, depth)
+                .work
+                .total();
             let saving = concrete as i128 - reflected as i128;
             let fraction = saving as f64 / concrete as f64;
             if previous_absolute.is_some_and(|previous| saving < previous) {
@@ -2635,9 +2637,8 @@ fn conditional_economics(
                 .total() as f64
                 / RP0B_QUERIES_PER_DEPTH as f64;
             for carrying_price in RP0B_CARRYING_PRICES {
-                let recurring = concrete
-                    - reflected
-                    - acquired.permanent_bytes as f64 * carrying_price;
+                let recurring =
+                    concrete - reflected - acquired.permanent_bytes as f64 * carrying_price;
                 let break_even = (recurring > 0.0).then(|| {
                     ((acquired.acquisition_work + acquired.installation_work) as f64 / recurring)
                         .ceil() as u64
@@ -2646,10 +2647,10 @@ fn conditional_economics(
                     zero_price_finite &= break_even.is_some();
                 }
                 for horizon in RP0B_HORIZONS {
-                    let delta_cost = (acquired.acquisition_work + acquired.installation_work) as f64
+                    let delta_cost = (acquired.acquisition_work + acquired.installation_work)
+                        as f64
                         + horizon as f64
-                            * (reflected
-                                + acquired.permanent_bytes as f64 * carrying_price
+                            * (reflected + acquired.permanent_bytes as f64 * carrying_price
                                 - concrete);
                     rows.push(Rp0bEconomicRow {
                         seed_index: acquired.seed_index,
@@ -2713,10 +2714,9 @@ pub fn run_rp0b_experiment() -> Rp0bReport {
         .map(|row| row.work.total())
         .sum();
     let aggregate_cheaper = reflected_total < concrete_total;
-    let lifecycle_ok = lifecycle.created.get() == lifecycle.destroyed.get()
-        && lifecycle.live.get() == 0;
-    let (scaling_absolute_improves, scaling_fractional_improves) =
-        scaling_improves(&runtime);
+    let lifecycle_ok =
+        lifecycle.created.get() == lifecycle.destroyed.get() && lifecycle.live.get() == 0;
+    let (scaling_absolute_improves, scaling_fractional_improves) = scaling_improves(&runtime);
     let rp0b1_passed = reconstruction_parity
         && behavior
         && routing
@@ -2936,10 +2936,16 @@ pub fn rp0b_csv(report: &Rp0bReport) -> String {
             ("activity_limit_hits", row.activity_limit_hits.to_string()),
             ("fallbacks", row.fallbacks.to_string()),
             ("routing_equivalent", row.routing_equivalent.to_string()),
-            ("fingerprint_unchanged", row.fingerprint_unchanged.to_string()),
+            (
+                "fingerprint_unchanged",
+                row.fingerprint_unchanged.to_string(),
+            ),
             ("invocations", work.invocations.to_string()),
             ("provenance_events", work.provenance_events.to_string()),
-            ("provenance_relations", work.provenance_relations.to_string()),
+            (
+                "provenance_relations",
+                work.provenance_relations.to_string(),
+            ),
             (
                 "recognition_comparisons",
                 work.recognition_comparisons.to_string(),
@@ -2961,10 +2967,7 @@ pub fn rp0b_csv(report: &Rp0bReport) -> String {
                 "identity_comparisons",
                 work.identity_comparisons.to_string(),
             ),
-            (
-                "maintenance_updates",
-                work.maintenance_updates.to_string(),
-            ),
+            ("maintenance_updates", work.maintenance_updates.to_string()),
             ("runtime_total", work.total().to_string()),
         ]);
         writeln!(output, "{}", csv_row(&headers, &fields)).unwrap();
@@ -2978,7 +2981,8 @@ pub fn rp0b_csv(report: &Rp0bReport) -> String {
             ("carrying_price", format!("{:.6}", row.carrying_price)),
             (
                 "break_even",
-                row.break_even.map_or(String::new(), |value| value.to_string()),
+                row.break_even
+                    .map_or(String::new(), |value| value.to_string()),
             ),
             ("horizon", row.horizon.to_string()),
             ("delta_cost", format!("{:.6}", row.delta_cost)),
@@ -2991,10 +2995,7 @@ pub fn rp0b_csv(report: &Rp0bReport) -> String {
             ("row_type", "gate".to_string()),
             ("gate", gate.name.clone()),
             ("gate_status", gate.status.clone()),
-            (
-                "workspaces_created",
-                report.workspaces_created.to_string(),
-            ),
+            ("workspaces_created", report.workspaces_created.to_string()),
             (
                 "workspaces_destroyed",
                 report.workspaces_destroyed.to_string(),
