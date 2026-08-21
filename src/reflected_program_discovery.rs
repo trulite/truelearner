@@ -220,7 +220,7 @@ impl Drop for Workspace<'_> {
 
 #[derive(Clone, Debug)]
 struct Transition {
-    source: u64,
+    _source: u64,
     consumed: Vec<u64>,
     produced: Vec<u64>,
 }
@@ -302,7 +302,7 @@ fn build_invocation(
             next_occurrence += 1;
         }
         transitions.push(Transition {
-            source: source_identity.wrapping_add(step as u64),
+            _source: source_identity.wrapping_add(step as u64),
             consumed,
             produced,
         });
