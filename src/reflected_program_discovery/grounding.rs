@@ -1685,6 +1685,8 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
         "activity_limit_hits",
         "role_transfer_correct",
         "role_transfer_total",
+        "false_bindings",
+        "ambiguous_bindings",
         "fresh_lower_identities",
         "fresh_activity_sources",
         "expected_reflected_firings",
@@ -1693,6 +1695,11 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
         "immutable_state_unchanged",
         "permanent_fingerprint_unchanged",
         "runtime_total",
+        "invocations",
+        "state_installations",
+        "provenance_events",
+        "provenance_relations",
+        "role_activations",
         "reflected_arrow_evaluations",
         "reflected_arrow_firings",
         "binding_deliveries",
@@ -1706,11 +1713,15 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
         "binding_writes",
         "binding_reads",
         "failed_dereferences",
+        "cell_location_comparisons",
         "lower_cells",
         "spikes_enqueued",
         "spikes_dequeued",
+        "queue_checks",
         "relation_scans",
         "identity_comparisons",
+        "current_updates",
+        "finishes",
         "first_roles",
         "first_success",
         "competence",
@@ -1770,6 +1781,8 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
                 row.role_transfer_correct.to_string(),
             ),
             ("role_transfer_total", row.role_transfer_total.to_string()),
+            ("false_bindings", row.false_bindings.to_string()),
+            ("ambiguous_bindings", row.ambiguous_bindings.to_string()),
             (
                 "fresh_lower_identities",
                 row.fresh_lower_identities.to_string(),
@@ -1796,6 +1809,11 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
                 row.permanent_fingerprint_unchanged.to_string(),
             ),
             ("runtime_total", work.total().to_string()),
+            ("invocations", work.invocations.to_string()),
+            ("state_installations", work.state_installations.to_string()),
+            ("provenance_events", work.provenance_events.to_string()),
+            ("provenance_relations", work.provenance_relations.to_string()),
+            ("role_activations", work.role_activations.to_string()),
             (
                 "reflected_arrow_evaluations",
                 work.reflected_arrow_evaluations.to_string(),
@@ -1827,14 +1845,21 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
             ("binding_writes", work.binding_writes.to_string()),
             ("binding_reads", work.binding_reads.to_string()),
             ("failed_dereferences", work.failed_dereferences.to_string()),
+            (
+                "cell_location_comparisons",
+                work.cell_location_comparisons.to_string(),
+            ),
             ("lower_cells", work.lower_cells.to_string()),
             ("spikes_enqueued", work.spikes_enqueued.to_string()),
             ("spikes_dequeued", work.spikes_dequeued.to_string()),
+            ("queue_checks", work.queue_checks.to_string()),
             ("relation_scans", work.relation_scans.to_string()),
             (
                 "identity_comparisons",
                 work.identity_comparisons.to_string(),
             ),
+            ("current_updates", work.current_updates.to_string()),
+            ("finishes", work.finishes.to_string()),
         ]);
         writeln!(output, "{}", csv_row(&headers, &fields)).unwrap();
     }
@@ -1942,6 +1967,25 @@ mod tests {
             .iter()
             .zip(&randomized.arrows)
             .all(|(before, after)| before.to != after.to));
+    }
+
+    #[test]
+    fn rg0a_direct_cell_baseline_matches_frozen_lower_executor() {
+        let lifecycle = Lifecycle::default();
+        let mut identities = IdentitySource::new(0xcd01);
+        let mut rng = DeterministicRng::new(0xcd02);
+        for (ordinal, depth) in [1, 5, 32].into_iter().enumerate() {
+            let chain = chain_episode(&mut identities, &mut rng, depth);
+            let frozen = execute(&chain, oracle_choices());
+            let episode = build_ground_episode(chain, 0xcd00 + ordinal as u64, &lifecycle);
+            let direct = execute_direct(&episode, &lifecycle);
+            assert_eq!(direct.outcome, frozen.outcome);
+            assert_eq!(direct.explicit_answer, frozen.explicit_answer);
+            assert_eq!(direct.queue_empty, frozen.queue_empty);
+            assert_eq!(direct.activity_limit_hit, frozen.activity_limit_hit);
+            assert_eq!(direct.work.direct_arrow_firings, frozen.route_firings);
+        }
+        assert_eq!(lifecycle.created.get(), lifecycle.destroyed.get());
     }
 
     #[test]
