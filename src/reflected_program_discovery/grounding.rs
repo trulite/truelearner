@@ -21,12 +21,16 @@ type LowerLocation = u64;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum CellPhysics {
     RouteSource,
-    Apply { route_source: LowerLocation },
+    Apply {
+        route_source: LowerLocation,
+    },
     Lookup {
         result_source: LowerLocation,
         no_result_source: LowerLocation,
     },
-    StoreCurrent { success_source: LowerLocation },
+    StoreCurrent {
+        success_source: LowerLocation,
+    },
     Answer,
     Clear,
     Quiet,
@@ -122,10 +126,9 @@ fn build_ground_episode(
     let cells = std::array::from_fn(|ordinal| {
         let role = LowerRole::ALL[ordinal];
         let physics = match role {
-            LowerRole::Slot1
-            | LowerRole::Result
-            | LowerRole::Success
-            | LowerRole::NoResult => CellPhysics::RouteSource,
+            LowerRole::Slot1 | LowerRole::Result | LowerRole::Success | LowerRole::NoResult => {
+                CellPhysics::RouteSource
+            }
             LowerRole::Slot2 => CellPhysics::Lookup {
                 result_source: location(&evaluator_locations, LowerRole::Result),
                 no_result_source: location(&evaluator_locations, LowerRole::NoResult),
@@ -527,12 +530,7 @@ fn route_spike(
             work.reflected_arrow_firings += 1;
             used_reflected_arrows.insert(arrow.id);
             work.binding_reads += 1;
-            let Some(target) = grounding
-                .role_locations
-                .get(arrow.to)
-                .copied()
-                .flatten()
-            else {
+            let Some(target) = grounding.role_locations.get(arrow.to).copied().flatten() else {
                 work.failed_dereferences += 1;
                 return;
             };
@@ -928,7 +926,9 @@ fn role_transfer(
     let correct = machine
         .observations
         .iter()
-        .filter(|observation| learner.translate(observation.signature) == expected[observation.cell_index])
+        .filter(|observation| {
+            learner.translate(observation.signature) == expected[observation.cell_index]
+        })
         .count();
     (correct, ROLE_COUNT)
 }
@@ -1042,7 +1042,8 @@ fn evaluate_fixture(
             }
             let branch = integrated.branch(episode);
             let state_hash = branch.episode.machine.immutable_hash();
-            let transfer = role_transfer(&branch.episode.machine, &integrated.role, &expected_roles);
+            let transfer =
+                role_transfer(&branch.episode.machine, &integrated.role, &expected_roles);
             let expected_firings = (3 * *depth + 2) as u64;
             let direct = execute_direct(&branch.episode, lifecycle);
             depth_rows.get_mut(&Rg0aArm::Concrete).unwrap().record(
@@ -1091,12 +1092,7 @@ fn evaluate_fixture(
                 depth_rows
                     .get_mut(&Rg0aArm::ShuffledBindings)
                     .unwrap()
-                    .record(
-                        shuffled_bindings,
-                        branch.episode.machine.answer,
-                        None,
-                        None,
-                    );
+                    .record(shuffled_bindings, branch.episode.machine.answer, None, None);
                 let activity_only = execute_learned_grounded(
                     &branch.episode.machine,
                     &branch.permanent().role,
@@ -1105,15 +1101,12 @@ fn evaluate_fixture(
                     episode_id ^ 0x6600,
                     lifecycle,
                 );
-                depth_rows
-                    .get_mut(&Rg0aArm::ActivityOnly)
-                    .unwrap()
-                    .record(
-                        activity_only,
-                        branch.episode.machine.answer,
-                        None,
-                        None,
-                    );
+                depth_rows.get_mut(&Rg0aArm::ActivityOnly).unwrap().record(
+                    activity_only,
+                    branch.episode.machine.answer,
+                    None,
+                    None,
+                );
                 let random = execute_learned_grounded(
                     &branch.episode.machine,
                     &branch.permanent().role,
@@ -1122,10 +1115,12 @@ fn evaluate_fixture(
                     episode_id ^ 0x7700,
                     lifecycle,
                 );
-                depth_rows
-                    .get_mut(&Rg0aArm::RandomProgram)
-                    .unwrap()
-                    .record(random, branch.episode.machine.answer, None, None);
+                depth_rows.get_mut(&Rg0aArm::RandomProgram).unwrap().record(
+                    random,
+                    branch.episode.machine.answer,
+                    None,
+                    None,
+                );
                 let shuffled_terminal_run = execute_learned_grounded(
                     &branch.episode.machine,
                     &shuffled_terminal.role,
@@ -1151,12 +1146,9 @@ fn evaluate_fixture(
                 None,
                 Some(expected_firings),
             );
-            let hashes_unchanged = [
-                branch.episode.machine.immutable_hash(),
-                state_hash,
-            ]
-            .into_iter()
-            .all(|hash| hash == state_hash);
+            let hashes_unchanged = [branch.episode.machine.immutable_hash(), state_hash]
+                .into_iter()
+                .all(|hash| hash == state_hash);
             for row in depth_rows.values_mut() {
                 row.immutable_state_unchanged &= hashes_unchanged;
             }
@@ -1241,9 +1233,7 @@ fn competent_seeds(rows: &[Rg0aRow], arm: Rg0aArm) -> usize {
         let entry = by_seed.entry(row.seed_index).or_insert((0, 0, true));
         entry.0 += row.correct;
         entry.1 += row.total;
-        entry.2 &= row.explicit_answers
-            && row.queues_empty
-            && row.activity_limit_hits == 0;
+        entry.2 &= row.explicit_answers && row.queues_empty && row.activity_limit_hits == 0;
     }
     by_seed
         .values()
@@ -1271,9 +1261,9 @@ fn harness_report(
     let branch_states_identical = evaluations
         .iter()
         .all(|evaluation| evaluation.branch_states_identical);
-    let fresh_identities = evaluations.iter().all(|evaluation| {
-        evaluation.fresh_lower_identities && evaluation.fresh_activity_sources
-    });
+    let fresh_identities = evaluations
+        .iter()
+        .all(|evaluation| evaluation.fresh_lower_identities && evaluation.fresh_activity_sources);
     let grounded = arm_correct(&rows, Rg0aArm::Grounded);
     let concrete = arm_correct(&rows, Rg0aArm::Concrete);
     let oracle = arm_correct(&rows, Rg0aArm::Oracle);
@@ -1320,9 +1310,7 @@ fn harness_report(
             && row.work.oracle_calls == 0
     });
     let state_isolation = rows.iter().all(|row| {
-        row.bindings_erased
-            && row.immutable_state_unchanged
-            && row.permanent_fingerprint_unchanged
+        row.bindings_erased && row.immutable_state_unchanged && row.permanent_fingerprint_unchanged
     }) && duplicate_deterministic;
     let controls_present = [
         Rg0aArm::ShuffledBindings,
@@ -1334,16 +1322,13 @@ fn harness_report(
     .all(|arm| arm_correct(&rows, arm).1 > 0);
     let less_correct = |arm| {
         let control = arm_correct(&rows, arm);
-        control.1 > 0
-            && control.0 < grounded.0
-            && competent_seeds(&rows, arm) == 0
+        control.1 > 0 && control.0 < grounded.0 && competent_seeds(&rows, arm) == 0
     };
     let binding_controls = less_correct(Rg0aArm::NoBindings)
         && (!controls_present || less_correct(Rg0aArm::ShuffledBindings));
     let provenance_control = !controls_present || less_correct(Rg0aArm::ActivityOnly);
     let topology_controls = !controls_present
-        || (less_correct(Rg0aArm::RandomProgram)
-            && less_correct(Rg0aArm::ShuffledTerminal));
+        || (less_correct(Rg0aArm::RandomProgram) && less_correct(Rg0aArm::ShuffledTerminal));
     let lifecycle_ok = lifecycle.created == lifecycle.destroyed;
     let qualitative_passed = concrete_behavior
         && grounded_behavior
@@ -1360,34 +1345,85 @@ fn harness_report(
     let claim_eligible = mode == HarnessMode::Definitive;
     let opacity_audit = true;
     let ancestry = true;
-    let passed = claim_eligible
-        && ancestry
-        && reconstruction_parity
-        && qualitative_passed
-        && opacity_audit;
+    let passed =
+        claim_eligible && ancestry && reconstruction_parity && qualitative_passed && opacity_audit;
     let gates = if claim_eligible {
         vec![
-            Rg0aGate { name: "frozen-ancestry".to_string(), status: status(ancestry) },
-            Rg0aGate { name: "rp0a-reconstruction-parity".to_string(), status: status(reconstruction_parity) },
-            Rg0aGate { name: "identical-branch-state".to_string(), status: status(branch_states_identical) },
-            Rg0aGate { name: "fresh-anonymous-grounding".to_string(), status: status(anonymous_grounding) },
-            Rg0aGate { name: "grounded-functional-substitution".to_string(), status: status(grounded_behavior) },
-            Rg0aGate { name: "downward-causal-path".to_string(), status: status(downward_path) },
-            Rg0aGate { name: "no-lower-program-fallback".to_string(), status: status(no_lower_fallback) },
-            Rg0aGate { name: "state-isolation".to_string(), status: status(state_isolation) },
-            Rg0aGate { name: "necessary-bindings".to_string(), status: status(binding_controls) },
-            Rg0aGate { name: "necessary-structural-provenance".to_string(), status: status(provenance_control) },
-            Rg0aGate { name: "necessary-learned-topology-credit".to_string(), status: status(topology_controls) },
-            Rg0aGate { name: "grounding-upper-bound".to_string(), status: status(oracle_behavior) },
-            Rg0aGate { name: "opacity-audit".to_string(), status: status(opacity_audit) },
-            Rg0aGate { name: "accounting-and-lifecycle".to_string(), status: status(lifecycle_ok) },
+            Rg0aGate {
+                name: "frozen-ancestry".to_string(),
+                status: status(ancestry),
+            },
+            Rg0aGate {
+                name: "rp0a-reconstruction-parity".to_string(),
+                status: status(reconstruction_parity),
+            },
+            Rg0aGate {
+                name: "identical-branch-state".to_string(),
+                status: status(branch_states_identical),
+            },
+            Rg0aGate {
+                name: "fresh-anonymous-grounding".to_string(),
+                status: status(anonymous_grounding),
+            },
+            Rg0aGate {
+                name: "grounded-functional-substitution".to_string(),
+                status: status(grounded_behavior),
+            },
+            Rg0aGate {
+                name: "downward-causal-path".to_string(),
+                status: status(downward_path),
+            },
+            Rg0aGate {
+                name: "no-lower-program-fallback".to_string(),
+                status: status(no_lower_fallback),
+            },
+            Rg0aGate {
+                name: "state-isolation".to_string(),
+                status: status(state_isolation),
+            },
+            Rg0aGate {
+                name: "necessary-bindings".to_string(),
+                status: status(binding_controls),
+            },
+            Rg0aGate {
+                name: "necessary-structural-provenance".to_string(),
+                status: status(provenance_control),
+            },
+            Rg0aGate {
+                name: "necessary-learned-topology-credit".to_string(),
+                status: status(topology_controls),
+            },
+            Rg0aGate {
+                name: "grounding-upper-bound".to_string(),
+                status: status(oracle_behavior),
+            },
+            Rg0aGate {
+                name: "opacity-audit".to_string(),
+                status: status(opacity_audit),
+            },
+            Rg0aGate {
+                name: "accounting-and-lifecycle".to_string(),
+                status: status(lifecycle_ok),
+            },
         ]
     } else {
         vec![
-            Rg0aGate { name: "mechanism".to_string(), status: status(grounded_behavior && downward_path) },
-            Rg0aGate { name: "no-direct-continuation".to_string(), status: status(no_lower_fallback) },
-            Rg0aGate { name: "qualitative-controls".to_string(), status: status(binding_controls && provenance_control && topology_controls) },
-            Rg0aGate { name: "state-and-accounting".to_string(), status: status(state_isolation && lifecycle_ok) },
+            Rg0aGate {
+                name: "mechanism".to_string(),
+                status: status(grounded_behavior && downward_path),
+            },
+            Rg0aGate {
+                name: "no-direct-continuation".to_string(),
+                status: status(no_lower_fallback),
+            },
+            Rg0aGate {
+                name: "qualitative-controls".to_string(),
+                status: status(binding_controls && provenance_control && topology_controls),
+            },
+            Rg0aGate {
+                name: "state-and-accounting".to_string(),
+                status: status(state_isolation && lifecycle_ok),
+            },
         ]
     };
     Rg0aReport {
@@ -1516,7 +1552,11 @@ pub fn print_rg0a_report(report: &Rg0aReport) {
     println!(
         "RG0a {:?}: {}{}",
         report.mode,
-        if report.qualitative_passed { "PASS" } else { "FAIL" },
+        if report.qualitative_passed {
+            "PASS"
+        } else {
+            "FAIL"
+        },
         if report.claim_eligible {
             " (claim eligible)"
         } else {
@@ -1554,21 +1594,60 @@ fn mode_name(mode: HarnessMode) -> &'static str {
 
 pub fn rg0a_csv(report: &Rg0aReport) -> String {
     let headers = vec![
-        "row_type", "protocol", "mode", "claim_eligible", "passed", "arm",
-        "seed_index", "depth", "correct", "total", "explicit_answers",
-        "queues_empty", "activity_limit_hits", "role_transfer_correct",
-        "role_transfer_total", "fresh_lower_identities", "fresh_activity_sources",
-        "expected_reflected_firings", "used_reflected_arrows", "bindings_erased",
-        "immutable_state_unchanged", "permanent_fingerprint_unchanged",
-        "runtime_total", "reflected_arrow_evaluations", "reflected_arrow_firings",
-        "binding_deliveries", "direct_arrow_evaluations", "direct_arrow_firings",
-        "direct_executor_calls", "pre_resolved_routes", "fallback_calls",
-        "oracle_calls", "recognition_comparisons", "binding_writes", "binding_reads",
-        "failed_dereferences", "lower_cells", "spikes_enqueued", "spikes_dequeued",
-        "relation_scans", "identity_comparisons", "first_roles", "first_success",
-        "competence", "parity", "acquisition_work", "permanent_bytes",
-        "learned_roles", "correct_arrows", "gate", "gate_status",
-        "workspaces_created", "workspaces_destroyed", "maximum_live_workspaces_per_cell",
+        "row_type",
+        "protocol",
+        "mode",
+        "claim_eligible",
+        "passed",
+        "arm",
+        "seed_index",
+        "depth",
+        "correct",
+        "total",
+        "explicit_answers",
+        "queues_empty",
+        "activity_limit_hits",
+        "role_transfer_correct",
+        "role_transfer_total",
+        "fresh_lower_identities",
+        "fresh_activity_sources",
+        "expected_reflected_firings",
+        "used_reflected_arrows",
+        "bindings_erased",
+        "immutable_state_unchanged",
+        "permanent_fingerprint_unchanged",
+        "runtime_total",
+        "reflected_arrow_evaluations",
+        "reflected_arrow_firings",
+        "binding_deliveries",
+        "direct_arrow_evaluations",
+        "direct_arrow_firings",
+        "direct_executor_calls",
+        "pre_resolved_routes",
+        "fallback_calls",
+        "oracle_calls",
+        "recognition_comparisons",
+        "binding_writes",
+        "binding_reads",
+        "failed_dereferences",
+        "lower_cells",
+        "spikes_enqueued",
+        "spikes_dequeued",
+        "relation_scans",
+        "identity_comparisons",
+        "first_roles",
+        "first_success",
+        "competence",
+        "parity",
+        "acquisition_work",
+        "permanent_bytes",
+        "learned_roles",
+        "correct_arrows",
+        "gate",
+        "gate_status",
+        "workspaces_created",
+        "workspaces_destroyed",
+        "maximum_live_workspaces_per_cell",
         "parallel_cells",
     ];
     let common = || {
@@ -1610,26 +1689,65 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
             ("explicit_answers", row.explicit_answers.to_string()),
             ("queues_empty", row.queues_empty.to_string()),
             ("activity_limit_hits", row.activity_limit_hits.to_string()),
-            ("role_transfer_correct", row.role_transfer_correct.to_string()),
+            (
+                "role_transfer_correct",
+                row.role_transfer_correct.to_string(),
+            ),
             ("role_transfer_total", row.role_transfer_total.to_string()),
-            ("fresh_lower_identities", row.fresh_lower_identities.to_string()),
-            ("fresh_activity_sources", row.fresh_activity_sources.to_string()),
-            ("expected_reflected_firings", row.expected_reflected_firings.to_string()),
-            ("used_reflected_arrows", row.used_reflected_arrows.len().to_string()),
+            (
+                "fresh_lower_identities",
+                row.fresh_lower_identities.to_string(),
+            ),
+            (
+                "fresh_activity_sources",
+                row.fresh_activity_sources.to_string(),
+            ),
+            (
+                "expected_reflected_firings",
+                row.expected_reflected_firings.to_string(),
+            ),
+            (
+                "used_reflected_arrows",
+                row.used_reflected_arrows.len().to_string(),
+            ),
             ("bindings_erased", row.bindings_erased.to_string()),
-            ("immutable_state_unchanged", row.immutable_state_unchanged.to_string()),
-            ("permanent_fingerprint_unchanged", row.permanent_fingerprint_unchanged.to_string()),
+            (
+                "immutable_state_unchanged",
+                row.immutable_state_unchanged.to_string(),
+            ),
+            (
+                "permanent_fingerprint_unchanged",
+                row.permanent_fingerprint_unchanged.to_string(),
+            ),
             ("runtime_total", work.total().to_string()),
-            ("reflected_arrow_evaluations", work.reflected_arrow_evaluations.to_string()),
-            ("reflected_arrow_firings", work.reflected_arrow_firings.to_string()),
+            (
+                "reflected_arrow_evaluations",
+                work.reflected_arrow_evaluations.to_string(),
+            ),
+            (
+                "reflected_arrow_firings",
+                work.reflected_arrow_firings.to_string(),
+            ),
             ("binding_deliveries", work.binding_deliveries.to_string()),
-            ("direct_arrow_evaluations", work.direct_arrow_evaluations.to_string()),
-            ("direct_arrow_firings", work.direct_arrow_firings.to_string()),
-            ("direct_executor_calls", work.direct_executor_calls.to_string()),
+            (
+                "direct_arrow_evaluations",
+                work.direct_arrow_evaluations.to_string(),
+            ),
+            (
+                "direct_arrow_firings",
+                work.direct_arrow_firings.to_string(),
+            ),
+            (
+                "direct_executor_calls",
+                work.direct_executor_calls.to_string(),
+            ),
             ("pre_resolved_routes", work.pre_resolved_routes.to_string()),
             ("fallback_calls", work.fallback_calls.to_string()),
             ("oracle_calls", work.oracle_calls.to_string()),
-            ("recognition_comparisons", work.recognition_comparisons.to_string()),
+            (
+                "recognition_comparisons",
+                work.recognition_comparisons.to_string(),
+            ),
             ("binding_writes", work.binding_writes.to_string()),
             ("binding_reads", work.binding_reads.to_string()),
             ("failed_dereferences", work.failed_dereferences.to_string()),
@@ -1637,7 +1755,10 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
             ("spikes_enqueued", work.spikes_enqueued.to_string()),
             ("spikes_dequeued", work.spikes_dequeued.to_string()),
             ("relation_scans", work.relation_scans.to_string()),
-            ("identity_comparisons", work.identity_comparisons.to_string()),
+            (
+                "identity_comparisons",
+                work.identity_comparisons.to_string(),
+            ),
         ]);
         writeln!(output, "{}", csv_row(&headers, &fields)).unwrap();
     }
@@ -1648,8 +1769,14 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
             ("gate", gate.name.clone()),
             ("gate_status", gate.status.clone()),
             ("workspaces_created", report.workspaces_created.to_string()),
-            ("workspaces_destroyed", report.workspaces_destroyed.to_string()),
-            ("maximum_live_workspaces_per_cell", report.maximum_live_workspaces_per_cell.to_string()),
+            (
+                "workspaces_destroyed",
+                report.workspaces_destroyed.to_string(),
+            ),
+            (
+                "maximum_live_workspaces_per_cell",
+                report.maximum_live_workspaces_per_cell.to_string(),
+            ),
             ("parallel_cells", report.parallel_cells.to_string()),
         ]);
         writeln!(output, "{}", csv_row(&headers, &fields)).unwrap();
@@ -1670,10 +1797,16 @@ pub fn rg0a_markdown(report: &Rg0aReport) -> String {
     writeln!(
         output,
         "Mode: `{}`; reconstruction parity: `{}`; duplicate deterministic: `{}`.\n",
-        mode_name(report.mode), report.reconstruction_parity, report.duplicate_deterministic
+        mode_name(report.mode),
+        report.reconstruction_parity,
+        report.duplicate_deterministic
     )
     .unwrap();
-    writeln!(output, "| Arm | Correct | Total | Work |\n|---|---:|---:|---:|").unwrap();
+    writeln!(
+        output,
+        "| Arm | Correct | Total | Work |\n|---|---:|---:|---:|"
+    )
+    .unwrap();
     for arm in Rg0aArm::ALL {
         let (correct, total) = arm_correct(&report.rows, arm);
         if total == 0 {
@@ -1682,7 +1815,15 @@ pub fn rg0a_markdown(report: &Rg0aReport) -> String {
         let work: u64 = arm_rows(&report.rows, arm)
             .map(|row| row.work.total())
             .sum();
-        writeln!(output, "| {} | {} | {} | {} |", arm.name(), correct, total, work).unwrap();
+        writeln!(
+            output,
+            "| {} | {} | {} | {} |",
+            arm.name(),
+            correct,
+            total,
+            work
+        )
+        .unwrap();
     }
     writeln!(output, "\n## Gates\n").unwrap();
     for gate in &report.gates {
