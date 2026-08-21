@@ -950,11 +950,11 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     enqueue(&mut queue, &mut work, Event::NoResult);
                     continue;
                 };
-                let mut outputs = BTreeSet::new();
+                let mut outputs = Vec::new();
                 for (left, right) in &episode.relations {
                     work.identity_comparisons += 1;
-                    if *left == input {
-                        outputs.insert(*right);
+                    if *left == input && !outputs.contains(right) {
+                        outputs.push(*right);
                     }
                 }
                 match outputs.len() {
@@ -962,7 +962,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     1 => enqueue(
                         &mut queue,
                         &mut work,
-                        Event::Result(*outputs.iter().next().unwrap()),
+                        Event::Result(outputs[0]),
                     ),
                     _ => {
                         fault = Some(BindingOutcome::Ambiguous);
