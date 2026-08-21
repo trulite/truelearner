@@ -933,6 +933,7 @@ struct Execution {
     queue_empty: bool,
     activity_limit_hit: bool,
     used_arrows: Vec<usize>,
+    route_firings: u64,
     work: Work,
 }
 
@@ -972,6 +973,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
     let mut emitted = None;
     let mut fault = None;
     let mut used_arrows = Vec::new();
+    let mut route_firings = 0;
     let mut work = Work {
         spikes_enqueued: 1,
         ..Work::default()
@@ -994,6 +996,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     enqueue(&mut queue, &mut work, Event::NoResult);
                     continue;
                 };
+                route_firings += 1;
                 record_used_arrow(&mut used_arrows, arrow_id);
                 if target != LowerRole::Slot2 {
                     enqueue(&mut queue, &mut work, Event::NoResult);
@@ -1024,6 +1027,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     queue.clear();
                     continue;
                 };
+                route_firings += 1;
                 record_used_arrow(&mut used_arrows, arrow_id);
                 dispatch_target(&mut queue, &mut work, target, Some(identity));
             }
@@ -1036,6 +1040,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     queue.clear();
                     continue;
                 };
+                route_firings += 1;
                 record_used_arrow(&mut used_arrows, arrow_id);
                 dispatch_target(&mut queue, &mut work, target, current);
             }
@@ -1044,6 +1049,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     queue.clear();
                     continue;
                 };
+                route_firings += 1;
                 record_used_arrow(&mut used_arrows, arrow_id);
                 dispatch_target(&mut queue, &mut work, target, current);
             }
@@ -1066,6 +1072,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
         queue_empty: queue.is_empty(),
         activity_limit_hit,
         used_arrows,
+        route_firings,
         work,
     }
 }
@@ -1305,12 +1312,17 @@ fn evaluate_learned(
     )
 }
 
-fn run_learned_seed(
+fn train_learned_seed(
     arm: Arm,
     seed_index: usize,
     smoke: bool,
     lifecycle: &Lifecycle,
-) -> (SeedSummary, Vec<TrajectoryPoint>) {
+) -> (
+    SeedSummary,
+    Vec<TrajectoryPoint>,
+    RoleLearner,
+    ProgramLearner,
+) {
     let budget = if smoke { SMOKE_BUDGET } else { TRAIN_BUDGET };
     let depths: &[usize] = if smoke {
         &SMOKE_TRAIN_DEPTHS
@@ -1486,6 +1498,17 @@ fn run_learned_seed(
         evaluation_work: first_eval.7,
         permanent_bytes: role.permanent_bytes() + program.permanent_bytes(),
     };
+    (summary, trajectories, role, program)
+}
+
+fn run_learned_seed(
+    arm: Arm,
+    seed_index: usize,
+    smoke: bool,
+    lifecycle: &Lifecycle,
+) -> (SeedSummary, Vec<TrajectoryPoint>) {
+    let (summary, trajectories, _, _) =
+        train_learned_seed(arm, seed_index, smoke, lifecycle);
     (summary, trajectories)
 }
 
@@ -2042,6 +2065,1019 @@ pub fn rp0a_markdown(report: &Rp0aReport) -> String {
     output
 }
 
+pub const RP0B_PROTOCOL: &str = "reflected-program-economics-rp0b-v1";
+
+const RP0B_DEPTHS: [usize; 6] = [5, 8, 16, 32, 64, 128];
+const RP0B_QUERIES_PER_DEPTH: usize = 16;
+const RP0B_CARRYING_PRICES: [f64; 5] = [0.0, 0.000_001, 0.000_01, 0.000_1, 0.001];
+const RP0B_HORIZONS: [u64; 14] = [
+    1, 2, 4, 8, 16, 32, 64, 128, 256, 1_024, 10_000, 100_000, 1_000_000,
+    10_000_000,
+];
+
+#[derive(Clone, Copy, Debug)]
+struct FrozenRp0aEndpoint {
+    first_roles: usize,
+    first_success: usize,
+    competence: usize,
+    acquisition_work: u64,
+    roles: usize,
+    correct_arrows: usize,
+    bytes: usize,
+}
+
+const FROZEN_RP0A_ENDPOINTS: [FrozenRp0aEndpoint; 8] = [
+    FrozenRp0aEndpoint {
+        first_roles: 4,
+        first_success: 581,
+        competence: 9_654,
+        acquisition_work: 10_740_059,
+        roles: 10,
+        correct_arrows: 4,
+        bytes: 6_608,
+    },
+    FrozenRp0aEndpoint {
+        first_roles: 4,
+        first_success: 197,
+        competence: 3_874,
+        acquisition_work: 4_452_016,
+        roles: 10,
+        correct_arrows: 4,
+        bytes: 6_608,
+    },
+    FrozenRp0aEndpoint {
+        first_roles: 4,
+        first_success: 117,
+        competence: 19_500,
+        acquisition_work: 21_480_745,
+        roles: 10,
+        correct_arrows: 4,
+        bytes: 6_608,
+    },
+    FrozenRp0aEndpoint {
+        first_roles: 4,
+        first_success: 2_481,
+        competence: 14_838,
+        acquisition_work: 16_321_757,
+        roles: 10,
+        correct_arrows: 4,
+        bytes: 6_608,
+    },
+    FrozenRp0aEndpoint {
+        first_roles: 4,
+        first_success: 145,
+        competence: 13_260,
+        acquisition_work: 15_321_640,
+        roles: 10,
+        correct_arrows: 4,
+        bytes: 6_608,
+    },
+    FrozenRp0aEndpoint {
+        first_roles: 4,
+        first_success: 117,
+        competence: 20_842,
+        acquisition_work: 23_786_489,
+        roles: 10,
+        correct_arrows: 4,
+        bytes: 6_608,
+    },
+    FrozenRp0aEndpoint {
+        first_roles: 4,
+        first_success: 57,
+        competence: 16_803,
+        acquisition_work: 18_869_627,
+        roles: 10,
+        correct_arrows: 4,
+        bytes: 6_608,
+    },
+    FrozenRp0aEndpoint {
+        first_roles: 4,
+        first_success: 329,
+        competence: 2_388,
+        acquisition_work: 2_676_006,
+        roles: 10,
+        correct_arrows: 4,
+        bytes: 6_608,
+    },
+];
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Rp0bRuntimeWork {
+    pub invocations: u64,
+    pub provenance_events: u64,
+    pub provenance_relations: u64,
+    pub recognition_comparisons: u64,
+    pub role_activations: u64,
+    pub binding_writes: u64,
+    pub binding_reads: u64,
+    pub arrow_evaluations: u64,
+    pub target_location_comparisons: u64,
+    pub route_firings: u64,
+    pub lower_cells: u64,
+    pub spikes_enqueued: u64,
+    pub spikes_dequeued: u64,
+    pub queue_checks: u64,
+    pub identity_comparisons: u64,
+    pub maintenance_updates: u64,
+}
+
+impl Rp0bRuntimeWork {
+    pub fn total(self) -> u64 {
+        self.invocations
+            + self.provenance_events
+            + self.provenance_relations
+            + self.recognition_comparisons
+            + self.role_activations
+            + self.binding_writes
+            + self.binding_reads
+            + self.arrow_evaluations
+            + self.target_location_comparisons
+            + self.route_firings
+            + self.lower_cells
+            + self.spikes_enqueued
+            + self.spikes_dequeued
+            + self.queue_checks
+            + self.identity_comparisons
+            + self.maintenance_updates
+    }
+
+    fn add(&mut self, other: Self) {
+        self.invocations += other.invocations;
+        self.provenance_events += other.provenance_events;
+        self.provenance_relations += other.provenance_relations;
+        self.recognition_comparisons += other.recognition_comparisons;
+        self.role_activations += other.role_activations;
+        self.binding_writes += other.binding_writes;
+        self.binding_reads += other.binding_reads;
+        self.arrow_evaluations += other.arrow_evaluations;
+        self.target_location_comparisons += other.target_location_comparisons;
+        self.route_firings += other.route_firings;
+        self.lower_cells += other.lower_cells;
+        self.spikes_enqueued += other.spikes_enqueued;
+        self.spikes_dequeued += other.spikes_dequeued;
+        self.queue_checks += other.queue_checks;
+        self.identity_comparisons += other.identity_comparisons;
+        self.maintenance_updates += other.maintenance_updates;
+    }
+
+    fn add_execution(&mut self, execution: &Execution) {
+        self.route_firings += execution.route_firings;
+        self.lower_cells += execution.work.cells_activated;
+        self.spikes_enqueued += execution.work.spikes_enqueued;
+        self.spikes_dequeued += execution.work.spikes_dequeued;
+        self.queue_checks += execution.work.queue_checks;
+        self.identity_comparisons += execution.work.identity_comparisons;
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Rp0bRuntimeRow {
+    pub arm: String,
+    pub seed_index: usize,
+    pub depth: usize,
+    pub correct: usize,
+    pub total: usize,
+    pub explicit_answers: bool,
+    pub queues_empty: bool,
+    pub activity_limit_hits: usize,
+    pub fallbacks: usize,
+    pub routing_equivalent: bool,
+    pub fingerprint_unchanged: bool,
+    pub work: Rp0bRuntimeWork,
+}
+
+#[derive(Clone, Debug)]
+pub struct Rp0bAcquisitionRow {
+    pub seed_index: usize,
+    pub parity: bool,
+    pub first_roles: usize,
+    pub first_success: usize,
+    pub competence: usize,
+    pub acquisition_work: u64,
+    pub installation_work: u64,
+    pub permanent_bytes: usize,
+    pub learned_roles: usize,
+    pub correct_arrows: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct Rp0bEconomicRow {
+    pub seed_index: usize,
+    pub depth: usize,
+    pub carrying_price: f64,
+    pub break_even: Option<u64>,
+    pub horizon: u64,
+    pub delta_cost: f64,
+}
+
+#[derive(Clone, Debug)]
+pub struct Rp0bGate {
+    pub name: String,
+    pub status: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct Rp0bReport {
+    pub protocol: String,
+    pub rp0b1_passed: bool,
+    pub rp0b2_evaluated: bool,
+    pub rp0b2_passed: bool,
+    pub reconstruction_parity: bool,
+    pub duplicate_deterministic: bool,
+    pub scaling_absolute_improves: bool,
+    pub scaling_fractional_improves: bool,
+    pub acquisition: Vec<Rp0bAcquisitionRow>,
+    pub runtime: Vec<Rp0bRuntimeRow>,
+    pub economics: Vec<Rp0bEconomicRow>,
+    pub gates: Vec<Rp0bGate>,
+    pub workspaces_created: usize,
+    pub workspaces_destroyed: usize,
+    pub maximum_live_workspaces: usize,
+}
+
+#[derive(Clone, Debug)]
+struct FrozenRp0aState {
+    seed_index: usize,
+    role: RoleLearner,
+    program: ProgramLearner,
+}
+
+fn frozen_endpoint_matches(summary: &SeedSummary, expected: FrozenRp0aEndpoint) -> bool {
+    summary.competent
+        && summary.first_roles_episode == Some(expected.first_roles)
+        && summary.first_success_episode == Some(expected.first_success)
+        && summary.competence_episode == Some(expected.competence)
+        && summary.training_work.total() == expected.acquisition_work
+        && summary.learned_roles == expected.roles
+        && summary.consolidated_arrows == expected.correct_arrows
+        && summary.correct_program_arrows == expected.correct_arrows
+        && summary.permanent_bytes == expected.bytes
+        && summary.held_out_correct == 64
+        && summary.held_out_total == 64
+        && summary.role_transfer_correct == 640
+        && summary.role_transfer_total == 640
+        && summary.explicit_answers
+        && summary.queues_empty
+        && summary.activity_limit_hits == 0
+        && summary.fallbacks == 0
+        && summary.permanent_source_identities == 0
+        && summary.fingerprint_unchanged
+        && summary.duplicate_deterministic
+}
+
+fn reconstruct_frozen_rp0a(
+    lifecycle: &Lifecycle,
+) -> (Vec<FrozenRp0aState>, Vec<Rp0bAcquisitionRow>) {
+    let mut states = Vec::new();
+    let mut rows = Vec::new();
+    for (seed_index, expected) in FROZEN_RP0A_ENDPOINTS.into_iter().enumerate() {
+        let (summary, _, role, program) =
+            train_learned_seed(Arm::Integrated, seed_index, false, lifecycle);
+        let parity = frozen_endpoint_matches(&summary, expected);
+        rows.push(Rp0bAcquisitionRow {
+            seed_index,
+            parity,
+            first_roles: summary.first_roles_episode.unwrap_or(0),
+            first_success: summary.first_success_episode.unwrap_or(0),
+            competence: summary.competence_episode.unwrap_or(0),
+            acquisition_work: summary.training_work.total(),
+            installation_work: 0,
+            permanent_bytes: summary.permanent_bytes,
+            learned_roles: summary.learned_roles,
+            correct_arrows: summary.correct_program_arrows,
+        });
+        states.push(FrozenRp0aState {
+            seed_index,
+            role,
+            program,
+        });
+    }
+    (states, rows)
+}
+
+fn counted_role_bindings(
+    learner: &RoleLearner,
+    observations: &[RoleObservation],
+    work: &mut Rp0bRuntimeWork,
+) -> BTreeMap<u64, usize> {
+    let mut bindings = BTreeMap::new();
+    for observation in observations {
+        let mut translated = None;
+        for pattern in &learner.patterns {
+            work.recognition_comparisons += 1;
+            if pattern.signature == observation.signature {
+                if pattern.observations >= ROLE_THRESHOLD {
+                    translated = Some(pattern.role_id);
+                }
+                break;
+            }
+        }
+        if let Some(role_id) = translated {
+            work.role_activations += 1;
+            work.binding_writes += 1;
+            bindings.insert(observation.location, role_id);
+        }
+    }
+    bindings
+}
+
+fn counted_location(
+    workspace: &LowerWorkspace,
+    role: LowerRole,
+    work: &mut Rp0bRuntimeWork,
+) -> Option<u64> {
+    for (candidate, location) in &workspace.evaluator_locations {
+        work.target_location_comparisons += 1;
+        if *candidate == role {
+            return Some(*location);
+        }
+    }
+    None
+}
+
+fn counted_binding_role(
+    bindings: &BTreeMap<u64, usize>,
+    location: u64,
+    work: &mut Rp0bRuntimeWork,
+) -> Option<usize> {
+    work.binding_reads += 1;
+    bindings.get(&location).copied()
+}
+
+fn counted_program_choice(
+    program: &ProgramLearner,
+    source_role: usize,
+    work: &mut Rp0bRuntimeWork,
+) -> Option<ArrowChoice> {
+    let candidates = program
+        .arrows
+        .iter()
+        .filter(|arrow| arrow.from == source_role)
+        .collect::<Vec<_>>();
+    work.arrow_evaluations += candidates.len() as u64;
+    let arrow = candidates.iter().find(|arrow| arrow.consolidated)?;
+    Some(ArrowChoice {
+        id: arrow.id,
+        from: arrow.from,
+        to: arrow.to,
+    })
+}
+
+fn counted_reflected_choices(
+    program: &ProgramLearner,
+    workspace: &LowerWorkspace,
+    bindings: &BTreeMap<u64, usize>,
+    work: &mut Rp0bRuntimeWork,
+) -> ProgramChoices {
+    let mut inverse: BTreeMap<usize, Vec<u64>> = BTreeMap::new();
+    for (location, role) in bindings {
+        work.binding_reads += 1;
+        work.binding_writes += 1;
+        inverse.entry(*role).or_default().push(*location);
+    }
+    let mut choose = |source: LowerRole| {
+        let source_location = counted_location(workspace, source, work)?;
+        let source_role = counted_binding_role(bindings, source_location, work)?;
+        let choice = counted_program_choice(program, source_role, work)?;
+        work.binding_reads += 1;
+        let targets = inverse.get(&choice.to)?;
+        if targets.len() != 1 {
+            return None;
+        }
+        let target = workspace.evaluator_locations.iter().find_map(|(role, location)| {
+            work.target_location_comparisons += 1;
+            (*location == targets[0]).then_some(*role)
+        })?;
+        Some((choice.id, target))
+    };
+    ProgramChoices {
+        lookup: choose(LowerRole::Slot1),
+        feedback: choose(LowerRole::Result),
+        continuation: choose(LowerRole::Success),
+        finish: choose(LowerRole::NoResult),
+    }
+}
+
+fn runtime_from_execution(execution: &Execution) -> Rp0bRuntimeWork {
+    let mut work = Rp0bRuntimeWork {
+        invocations: 1,
+        ..Rp0bRuntimeWork::default()
+    };
+    work.add_execution(execution);
+    work
+}
+
+fn reflected_runtime(
+    state: &FrozenRp0aState,
+    episode: &ChainEpisode,
+    episode_id: u64,
+    provenance_rng: &mut DeterministicRng,
+    lifecycle: &Lifecycle,
+) -> (Execution, Rp0bRuntimeWork, bool) {
+    let mut provenance = Work::default();
+    let workspace = role_observations(
+        Arm::Integrated,
+        episode_id,
+        provenance_rng,
+        lifecycle,
+        &mut provenance,
+    );
+    let mut work = Rp0bRuntimeWork {
+        invocations: 1,
+        provenance_events: provenance.provenance_events,
+        provenance_relations: provenance.provenance_relations,
+        ..Rp0bRuntimeWork::default()
+    };
+    let bindings = counted_role_bindings(&state.role, &workspace.observations, &mut work);
+    let choices = counted_reflected_choices(&state.program, &workspace, &bindings, &mut work);
+    let mut reference_work = Work::default();
+    let reference = evaluated_choices(&state.program, &workspace, &bindings, &mut reference_work);
+    let routing_equivalent = choices.lookup == reference.lookup
+        && choices.feedback == reference.feedback
+        && choices.continuation == reference.continuation
+        && choices.finish == reference.finish;
+    let execution = execute(episode, choices);
+    work.add_execution(&execution);
+    (execution, work, routing_equivalent)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct SnapshotEvaluation {
+    rows: Vec<Rp0bRuntimeRow>,
+    fingerprint_unchanged: bool,
+}
+
+fn evaluate_rp0b_state(
+    state: &FrozenRp0aState,
+    lifecycle: &Lifecycle,
+) -> SnapshotEvaluation {
+    let before = permanent_fingerprint(&state.role, &state.program);
+    let mut identities = IdentitySource::new(0x8b00_0000 + state.seed_index as u64);
+    let mut episode_rng = DeterministicRng::new(0x8b10_0000 + state.seed_index as u64);
+    let mut provenance_rng = DeterministicRng::new(0x8b20_0000 + state.seed_index as u64);
+    let mut rows = Vec::new();
+    for depth in RP0B_DEPTHS {
+        let mut concrete = Rp0bRuntimeRow {
+            arm: "concrete".to_string(),
+            seed_index: state.seed_index,
+            depth,
+            correct: 0,
+            total: 0,
+            explicit_answers: true,
+            queues_empty: true,
+            activity_limit_hits: 0,
+            fallbacks: 0,
+            routing_equivalent: true,
+            fingerprint_unchanged: true,
+            work: Rp0bRuntimeWork::default(),
+        };
+        let mut reflected = Rp0bRuntimeRow {
+            arm: "reflected".to_string(),
+            ..concrete.clone()
+        };
+        let mut oracle = Rp0bRuntimeRow {
+            arm: "oracle-entry".to_string(),
+            ..concrete.clone()
+        };
+        for repeat in 0..RP0B_QUERIES_PER_DEPTH {
+            let _workspace = lifecycle.enter();
+            let episode = chain_episode(&mut identities, &mut episode_rng, depth);
+            let concrete_run = execute(&episode, oracle_choices());
+            let (reflected_run, reflected_work, routing_equivalent) = reflected_runtime(
+                state,
+                &episode,
+                0x8b00_0000_0000
+                    + state.seed_index as u64 * 1_000_000
+                    + depth as u64 * 1_000
+                    + repeat as u64,
+                &mut provenance_rng,
+                lifecycle,
+            );
+            let oracle_run = execute(&episode, oracle_choices());
+            for (row, run) in [
+                (&mut concrete, &concrete_run),
+                (&mut reflected, &reflected_run),
+                (&mut oracle, &oracle_run),
+            ] {
+                row.correct += usize::from(run.outcome == BindingOutcome::Answer(episode.answer));
+                row.total += 1;
+                row.explicit_answers &= run.explicit_answer;
+                row.queues_empty &= run.queue_empty;
+                row.activity_limit_hits += usize::from(run.activity_limit_hit);
+            }
+            concrete.work.add(runtime_from_execution(&concrete_run));
+            reflected.work.add(reflected_work);
+            oracle.work.add(runtime_from_execution(&oracle_run));
+            reflected.routing_equivalent &= routing_equivalent;
+        }
+        rows.extend([concrete, reflected, oracle]);
+    }
+    let after = permanent_fingerprint(&state.role, &state.program);
+    let unchanged = before == after;
+    for row in &mut rows {
+        row.fingerprint_unchanged = unchanged;
+    }
+    SnapshotEvaluation {
+        rows,
+        fingerprint_unchanged: unchanged,
+    }
+}
+
+fn runtime_row<'a>(
+    rows: &'a [Rp0bRuntimeRow],
+    arm: &str,
+    seed_index: usize,
+    depth: usize,
+) -> &'a Rp0bRuntimeRow {
+    rows.iter()
+        .find(|row| row.arm == arm && row.seed_index == seed_index && row.depth == depth)
+        .expect("complete RP0b runtime matrix")
+}
+
+fn scaling_improves(rows: &[Rp0bRuntimeRow]) -> (bool, bool) {
+    let mut absolute = true;
+    let mut fractional = true;
+    for seed_index in 0..FROZEN_RP0A_ENDPOINTS.len() {
+        let mut previous_absolute = None;
+        let mut previous_fractional = None;
+        for depth in RP0B_DEPTHS {
+            let concrete = runtime_row(rows, "concrete", seed_index, depth).work.total();
+            let reflected = runtime_row(rows, "reflected", seed_index, depth).work.total();
+            let saving = concrete as i128 - reflected as i128;
+            let fraction = saving as f64 / concrete as f64;
+            if previous_absolute.is_some_and(|previous| saving < previous) {
+                absolute = false;
+            }
+            if previous_fractional.is_some_and(|previous| fraction < previous) {
+                fractional = false;
+            }
+            previous_absolute = Some(saving);
+            previous_fractional = Some(fraction);
+        }
+    }
+    (absolute, fractional)
+}
+
+fn conditional_economics(
+    acquisition: &[Rp0bAcquisitionRow],
+    runtime: &[Rp0bRuntimeRow],
+) -> (Vec<Rp0bEconomicRow>, bool) {
+    let mut rows = Vec::new();
+    let mut zero_price_finite = true;
+    for acquired in acquisition {
+        for depth in RP0B_DEPTHS {
+            let concrete = runtime_row(runtime, "concrete", acquired.seed_index, depth)
+                .work
+                .total() as f64
+                / RP0B_QUERIES_PER_DEPTH as f64;
+            let reflected = runtime_row(runtime, "reflected", acquired.seed_index, depth)
+                .work
+                .total() as f64
+                / RP0B_QUERIES_PER_DEPTH as f64;
+            for carrying_price in RP0B_CARRYING_PRICES {
+                let recurring = concrete
+                    - reflected
+                    - acquired.permanent_bytes as f64 * carrying_price;
+                let break_even = (recurring > 0.0).then(|| {
+                    ((acquired.acquisition_work + acquired.installation_work) as f64 / recurring)
+                        .ceil() as u64
+                });
+                if carrying_price == 0.0 {
+                    zero_price_finite &= break_even.is_some();
+                }
+                for horizon in RP0B_HORIZONS {
+                    let delta_cost = (acquired.acquisition_work + acquired.installation_work) as f64
+                        + horizon as f64
+                            * (reflected
+                                + acquired.permanent_bytes as f64 * carrying_price
+                                - concrete);
+                    rows.push(Rp0bEconomicRow {
+                        seed_index: acquired.seed_index,
+                        depth,
+                        carrying_price,
+                        break_even,
+                        horizon,
+                        delta_cost,
+                    });
+                }
+            }
+        }
+    }
+    (rows, zero_price_finite)
+}
+
+pub fn run_rp0b_experiment() -> Rp0bReport {
+    let lifecycle = Lifecycle::default();
+    let (states, acquisition) = reconstruct_frozen_rp0a(&lifecycle);
+    let reconstruction_parity = acquisition.iter().all(|row| row.parity);
+    let mut runtime = Vec::new();
+    let mut duplicate_deterministic = true;
+    let mut fingerprints_unchanged = true;
+    for state in &states {
+        let first = evaluate_rp0b_state(state, &lifecycle);
+        let second = evaluate_rp0b_state(state, &lifecycle);
+        duplicate_deterministic &= first == second;
+        fingerprints_unchanged &= first.fingerprint_unchanged && second.fingerprint_unchanged;
+        runtime.extend(first.rows);
+    }
+    let behavior = runtime.iter().all(|row| {
+        row.correct == row.total
+            && row.total == RP0B_QUERIES_PER_DEPTH
+            && row.explicit_answers
+            && row.queues_empty
+            && row.activity_limit_hits == 0
+            && row.fallbacks == 0
+    });
+    let routing = runtime
+        .iter()
+        .filter(|row| row.arm == "reflected")
+        .all(|row| row.routing_equivalent);
+    let every_cell_cheaper = (0..FROZEN_RP0A_ENDPOINTS.len()).all(|seed_index| {
+        RP0B_DEPTHS.into_iter().all(|depth| {
+            runtime_row(&runtime, "reflected", seed_index, depth)
+                .work
+                .total()
+                < runtime_row(&runtime, "concrete", seed_index, depth)
+                    .work
+                    .total()
+        })
+    });
+    let reflected_total: u64 = runtime
+        .iter()
+        .filter(|row| row.arm == "reflected")
+        .map(|row| row.work.total())
+        .sum();
+    let concrete_total: u64 = runtime
+        .iter()
+        .filter(|row| row.arm == "concrete")
+        .map(|row| row.work.total())
+        .sum();
+    let aggregate_cheaper = reflected_total < concrete_total;
+    let lifecycle_ok = lifecycle.created.get() == lifecycle.destroyed.get()
+        && lifecycle.live.get() == 0;
+    let (scaling_absolute_improves, scaling_fractional_improves) =
+        scaling_improves(&runtime);
+    let rp0b1_passed = reconstruction_parity
+        && behavior
+        && routing
+        && fingerprints_unchanged
+        && duplicate_deterministic
+        && lifecycle_ok
+        && every_cell_cheaper
+        && aggregate_cheaper;
+    let (economics, rp0b2_passed) = if rp0b1_passed {
+        conditional_economics(&acquisition, &runtime)
+    } else {
+        (Vec::new(), false)
+    };
+    let status = |passed: bool| {
+        if passed {
+            "PASS".to_string()
+        } else {
+            "FAIL".to_string()
+        }
+    };
+    let gates = vec![
+        Rp0bGate {
+            name: "frozen-ancestry".to_string(),
+            status: "PASS".to_string(),
+        },
+        Rp0bGate {
+            name: "rp0a-reconstruction-parity".to_string(),
+            status: status(reconstruction_parity),
+        },
+        Rp0bGate {
+            name: "identical-correct-behavior".to_string(),
+            status: status(behavior),
+        },
+        Rp0bGate {
+            name: "learned-invocation-boundary".to_string(),
+            status: status(routing),
+        },
+        Rp0bGate {
+            name: "read-only-determinism".to_string(),
+            status: status(fingerprints_unchanged && duplicate_deterministic),
+        },
+        Rp0bGate {
+            name: "accounting-and-lifecycle".to_string(),
+            status: status(lifecycle_ok),
+        },
+        Rp0bGate {
+            name: "reflected-runtime-below-concrete".to_string(),
+            status: status(every_cell_cheaper && aggregate_cheaper),
+        },
+        Rp0bGate {
+            name: "conditional-amortization".to_string(),
+            status: if rp0b1_passed {
+                status(rp0b2_passed)
+            } else {
+                "NOT_EVALUATED".to_string()
+            },
+        },
+    ];
+    Rp0bReport {
+        protocol: RP0B_PROTOCOL.to_string(),
+        rp0b1_passed,
+        rp0b2_evaluated: rp0b1_passed,
+        rp0b2_passed,
+        reconstruction_parity,
+        duplicate_deterministic,
+        scaling_absolute_improves,
+        scaling_fractional_improves,
+        acquisition,
+        runtime,
+        economics,
+        gates,
+        workspaces_created: lifecycle.created.get(),
+        workspaces_destroyed: lifecycle.destroyed.get(),
+        maximum_live_workspaces: lifecycle.maximum_live.get(),
+    }
+}
+
+pub fn print_rp0b_report(report: &Rp0bReport) {
+    println!(
+        "RP0b.1 technical runtime: {}",
+        if report.rp0b1_passed { "PASS" } else { "FAIL" }
+    );
+    println!(
+        "RP0b.2 amortization: {}",
+        if !report.rp0b2_evaluated {
+            "NOT_EVALUATED"
+        } else if report.rp0b2_passed {
+            "PASS"
+        } else {
+            "FAIL"
+        }
+    );
+    for depth in RP0B_DEPTHS {
+        let concrete: u64 = report
+            .runtime
+            .iter()
+            .filter(|row| row.arm == "concrete" && row.depth == depth)
+            .map(|row| row.work.total())
+            .sum();
+        let reflected: u64 = report
+            .runtime
+            .iter()
+            .filter(|row| row.arm == "reflected" && row.depth == depth)
+            .map(|row| row.work.total())
+            .sum();
+        println!(
+            "depth={} concrete={} reflected={} delta={}",
+            depth,
+            concrete,
+            reflected,
+            reflected as i128 - concrete as i128
+        );
+    }
+    println!(
+        "workspaces: {}/{} destroyed, maximum live {}",
+        report.workspaces_destroyed, report.workspaces_created, report.maximum_live_workspaces
+    );
+}
+
+fn rp0b_headers() -> Vec<&'static str> {
+    vec![
+        "row_type",
+        "protocol",
+        "rp0b1_passed",
+        "rp0b2_evaluated",
+        "rp0b2_passed",
+        "arm",
+        "seed_index",
+        "depth",
+        "correct",
+        "total",
+        "explicit_answers",
+        "queues_empty",
+        "activity_limit_hits",
+        "fallbacks",
+        "routing_equivalent",
+        "fingerprint_unchanged",
+        "first_roles",
+        "first_success",
+        "competence",
+        "parity",
+        "acquisition_work",
+        "installation_work",
+        "permanent_bytes",
+        "learned_roles",
+        "correct_arrows",
+        "invocations",
+        "provenance_events",
+        "provenance_relations",
+        "recognition_comparisons",
+        "role_activations",
+        "binding_writes",
+        "binding_reads",
+        "arrow_evaluations",
+        "target_location_comparisons",
+        "route_firings",
+        "lower_cells",
+        "spikes_enqueued",
+        "spikes_dequeued",
+        "queue_checks",
+        "identity_comparisons",
+        "maintenance_updates",
+        "runtime_total",
+        "carrying_price",
+        "break_even",
+        "horizon",
+        "delta_cost",
+        "gate",
+        "gate_status",
+        "workspaces_created",
+        "workspaces_destroyed",
+        "maximum_live_workspaces",
+    ]
+}
+
+pub fn rp0b_csv(report: &Rp0bReport) -> String {
+    let headers = rp0b_headers();
+    let common = || {
+        vec![
+            ("protocol", report.protocol.clone()),
+            ("rp0b1_passed", report.rp0b1_passed.to_string()),
+            ("rp0b2_evaluated", report.rp0b2_evaluated.to_string()),
+            ("rp0b2_passed", report.rp0b2_passed.to_string()),
+        ]
+    };
+    let mut output = headers.join(",");
+    output.push('\n');
+    for row in &report.acquisition {
+        let mut fields = common();
+        fields.extend([
+            ("row_type", "acquisition".to_string()),
+            ("seed_index", row.seed_index.to_string()),
+            ("first_roles", row.first_roles.to_string()),
+            ("first_success", row.first_success.to_string()),
+            ("competence", row.competence.to_string()),
+            ("parity", row.parity.to_string()),
+            ("acquisition_work", row.acquisition_work.to_string()),
+            ("installation_work", row.installation_work.to_string()),
+            ("permanent_bytes", row.permanent_bytes.to_string()),
+            ("learned_roles", row.learned_roles.to_string()),
+            ("correct_arrows", row.correct_arrows.to_string()),
+        ]);
+        writeln!(output, "{}", csv_row(&headers, &fields)).unwrap();
+    }
+    for row in &report.runtime {
+        let work = row.work;
+        let mut fields = common();
+        fields.extend([
+            ("row_type", "runtime".to_string()),
+            ("arm", row.arm.clone()),
+            ("seed_index", row.seed_index.to_string()),
+            ("depth", row.depth.to_string()),
+            ("correct", row.correct.to_string()),
+            ("total", row.total.to_string()),
+            ("explicit_answers", row.explicit_answers.to_string()),
+            ("queues_empty", row.queues_empty.to_string()),
+            ("activity_limit_hits", row.activity_limit_hits.to_string()),
+            ("fallbacks", row.fallbacks.to_string()),
+            ("routing_equivalent", row.routing_equivalent.to_string()),
+            ("fingerprint_unchanged", row.fingerprint_unchanged.to_string()),
+            ("invocations", work.invocations.to_string()),
+            ("provenance_events", work.provenance_events.to_string()),
+            ("provenance_relations", work.provenance_relations.to_string()),
+            (
+                "recognition_comparisons",
+                work.recognition_comparisons.to_string(),
+            ),
+            ("role_activations", work.role_activations.to_string()),
+            ("binding_writes", work.binding_writes.to_string()),
+            ("binding_reads", work.binding_reads.to_string()),
+            ("arrow_evaluations", work.arrow_evaluations.to_string()),
+            (
+                "target_location_comparisons",
+                work.target_location_comparisons.to_string(),
+            ),
+            ("route_firings", work.route_firings.to_string()),
+            ("lower_cells", work.lower_cells.to_string()),
+            ("spikes_enqueued", work.spikes_enqueued.to_string()),
+            ("spikes_dequeued", work.spikes_dequeued.to_string()),
+            ("queue_checks", work.queue_checks.to_string()),
+            (
+                "identity_comparisons",
+                work.identity_comparisons.to_string(),
+            ),
+            (
+                "maintenance_updates",
+                work.maintenance_updates.to_string(),
+            ),
+            ("runtime_total", work.total().to_string()),
+        ]);
+        writeln!(output, "{}", csv_row(&headers, &fields)).unwrap();
+    }
+    for row in &report.economics {
+        let mut fields = common();
+        fields.extend([
+            ("row_type", "economics".to_string()),
+            ("seed_index", row.seed_index.to_string()),
+            ("depth", row.depth.to_string()),
+            ("carrying_price", format!("{:.6}", row.carrying_price)),
+            (
+                "break_even",
+                row.break_even.map_or(String::new(), |value| value.to_string()),
+            ),
+            ("horizon", row.horizon.to_string()),
+            ("delta_cost", format!("{:.6}", row.delta_cost)),
+        ]);
+        writeln!(output, "{}", csv_row(&headers, &fields)).unwrap();
+    }
+    for gate in &report.gates {
+        let mut fields = common();
+        fields.extend([
+            ("row_type", "gate".to_string()),
+            ("gate", gate.name.clone()),
+            ("gate_status", gate.status.clone()),
+            (
+                "workspaces_created",
+                report.workspaces_created.to_string(),
+            ),
+            (
+                "workspaces_destroyed",
+                report.workspaces_destroyed.to_string(),
+            ),
+            (
+                "maximum_live_workspaces",
+                report.maximum_live_workspaces.to_string(),
+            ),
+        ]);
+        writeln!(output, "{}", csv_row(&headers, &fields)).unwrap();
+    }
+    output
+}
+
+pub fn rp0b_markdown(report: &Rp0bReport) -> String {
+    let mut output = String::new();
+    writeln!(output, "# RP0b reflected-program economics\n").unwrap();
+    writeln!(
+        output,
+        "RP0b.1 technical gate: **{}**.\n",
+        if report.rp0b1_passed { "PASS" } else { "FAIL" }
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "RP0b.2 amortization: **{}**.\n",
+        if !report.rp0b2_evaluated {
+            "NOT EVALUATED"
+        } else if report.rp0b2_passed {
+            "PASS"
+        } else {
+            "FAIL"
+        }
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "Reconstruction parity: `{}`; duplicate deterministic: `{}`.\n",
+        report.reconstruction_parity, report.duplicate_deterministic
+    )
+    .unwrap();
+    writeln!(output, "| Depth | Concrete runtime | Reflected runtime | Delta | Oracle |\n|---:|---:|---:|---:|---:|").unwrap();
+    for depth in RP0B_DEPTHS {
+        let total = |arm: &str| {
+            report
+                .runtime
+                .iter()
+                .filter(|row| row.arm == arm && row.depth == depth)
+                .map(|row| row.work.total())
+                .sum::<u64>()
+        };
+        let concrete = total("concrete");
+        let reflected = total("reflected");
+        writeln!(
+            output,
+            "| {} | {} | {} | {} | {} |",
+            depth,
+            concrete,
+            reflected,
+            reflected as i128 - concrete as i128,
+            total("oracle-entry")
+        )
+        .unwrap();
+    }
+    writeln!(output, "\n## Gates\n").unwrap();
+    for gate in &report.gates {
+        writeln!(output, "- `{}`: {}", gate.name, gate.status).unwrap();
+    }
+    writeln!(
+        output,
+        "\nAbsolute scaling improvement: `{}`; fractional scaling improvement: `{}`.\n",
+        report.scaling_absolute_improves, report.scaling_fractional_improves
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "Workspaces destroyed: `{}/{}`; maximum live: `{}`.",
+        report.workspaces_destroyed, report.workspaces_created, report.maximum_live_workspaces
+    )
+    .unwrap();
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2102,6 +3138,21 @@ mod tests {
         assert!(run.explicit_answer);
         assert!(run.queue_empty);
         assert!(!run.activity_limit_hit);
+        assert_eq!(run.route_firings, 3 * 32 + 2);
+    }
+
+    #[test]
+    fn rp0b_concrete_and_oracle_accounting_match() {
+        let mut identities = IdentitySource::new(31);
+        let mut rng = DeterministicRng::new(32);
+        let episode = chain_episode(&mut identities, &mut rng, 8);
+        let concrete = execute(&episode, oracle_choices());
+        let oracle = execute(&episode, oracle_choices());
+        assert_eq!(concrete.outcome, oracle.outcome);
+        assert_eq!(
+            runtime_from_execution(&concrete),
+            runtime_from_execution(&oracle)
+        );
     }
 
     #[test]
