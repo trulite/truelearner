@@ -1502,6 +1502,19 @@ cargo test --lib --bin organism-v0 --test reviewer_api
 cargo run --release
 ```
 
+## RP0a: Reflected program discovery (preregistered)
+
+RP0a is a disposable continuation from the frozen P4 substrate. It does not
+rescue F0.3c or use d2.6. It asks whether anonymous consume/produce provenance
+from a substrate-native v19-v21 computation can recruit reflected roles over
+which the unchanged P0 learning physics constructs an executable recurrent
+program. Physics may be inherited; named reflected roles, semantic adapters,
+route labels, operation opcodes, and oracle execution may not.
+
+RP0b economics, real retrieval substitution, and recursive F1 remain blocked.
+See the frozen
+[`protocol`](experiments/reflected_program_discovery_protocol.md).
+
 ## Core runtime
 
 - `CELL`: local slow state + firing threshold
