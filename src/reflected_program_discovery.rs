@@ -959,11 +959,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                 }
                 match outputs.len() {
                     0 => enqueue(&mut queue, &mut work, Event::NoResult),
-                    1 => enqueue(
-                        &mut queue,
-                        &mut work,
-                        Event::Result(outputs[0]),
-                    ),
+                    1 => enqueue(&mut queue, &mut work, Event::Result(outputs[0])),
                     _ => {
                         fault = Some(BindingOutcome::Ambiguous);
                         queue.clear();
