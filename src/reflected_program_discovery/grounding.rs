@@ -415,31 +415,44 @@ fn evaluated_ground_arrow(
     source_role: usize,
     work: &mut Rg0aWork,
 ) -> Option<ArrowChoice> {
-    let candidates = program
+    let mut candidate_count = 0;
+    let mut consolidated = None;
+    let mut best_strength = i32::MIN;
+    let mut best_arrow = None;
+    let mut strongest_count = 0;
+    for arrow in program
         .arrows
         .iter()
         .filter(|arrow| arrow.from == source_role)
-        .collect::<Vec<_>>();
-    work.reflected_arrow_evaluations += candidates.len() as u64;
-    if let Some(arrow) = candidates.iter().find(|arrow| arrow.consolidated) {
+    {
+        candidate_count += 1;
+        if arrow.consolidated && consolidated.is_none() {
+            consolidated = Some(arrow);
+        }
+        if arrow.strength > best_strength {
+            best_strength = arrow.strength;
+            best_arrow = Some(arrow);
+            strongest_count = 1;
+        } else if arrow.strength == best_strength {
+            strongest_count += 1;
+        }
+    }
+    work.reflected_arrow_evaluations += candidate_count;
+    if let Some(arrow) = consolidated {
         return Some(ArrowChoice {
             id: arrow.id,
             from: arrow.from,
             to: arrow.to,
         });
     }
-    let best = candidates.iter().map(|arrow| arrow.strength).max()?;
-    if best <= 0 {
+    let arrow = best_arrow?;
+    if best_strength <= 0 || strongest_count != 1 {
         return None;
     }
-    let strongest = candidates
-        .into_iter()
-        .filter(|arrow| arrow.strength == best)
-        .collect::<Vec<_>>();
-    (strongest.len() == 1).then(|| ArrowChoice {
-        id: strongest[0].id,
-        from: strongest[0].from,
-        to: strongest[0].to,
+    Some(ArrowChoice {
+        id: arrow.id,
+        from: arrow.from,
+        to: arrow.to,
     })
 }
 
@@ -461,12 +474,40 @@ enum GroundRouter<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+struct UsedArrowIds {
+    values: [Option<usize>; ROLE_COUNT],
+}
+
+impl UsedArrowIds {
+    fn new() -> Self {
+        Self {
+            values: [None; ROLE_COUNT],
+        }
+    }
+
+    fn insert(&mut self, arrow: usize) {
+        if self.values.contains(&Some(arrow)) {
+            return;
+        }
+        if let Some(slot) = self.values.iter_mut().find(|slot| slot.is_none()) {
+            *slot = Some(arrow);
+        }
+    }
+
+    fn into_set(self) -> BTreeSet<usize> {
+        self.values.into_iter().flatten().collect()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct GroundExecution {
     outcome: BindingOutcome,
     explicit_answer: bool,
     queue_empty: bool,
     activity_limit_hit: bool,
     used_reflected_arrows: BTreeSet<usize>,
+    false_bindings: usize,
+    ambiguous_bindings: usize,
     bindings_erased: bool,
     immutable_state_unchanged: bool,
     work: Rg0aWork,
@@ -504,7 +545,7 @@ fn route_spike(
     identity: Option<OpaqueId>,
     router: &mut GroundRouter<'_>,
     queue: &mut VecDeque<GroundSpike>,
-    used_reflected_arrows: &mut BTreeSet<usize>,
+    used_reflected_arrows: &mut UsedArrowIds,
     work: &mut Rg0aWork,
 ) {
     match router {
@@ -558,7 +599,7 @@ fn run_cell_machine(
     let mut current = Some(machine.query);
     let mut emitted = None;
     let mut fault = None;
-    let mut used_reflected_arrows = BTreeSet::new();
+    let mut used_reflected_arrows = UsedArrowIds::new();
     let mut activity_limit_hit = false;
     while let Some(spike) = queue.pop_front() {
         work.spikes_dequeued += 1;
@@ -643,7 +684,9 @@ fn run_cell_machine(
         explicit_answer: emitted.is_some(),
         queue_empty: queue.is_empty(),
         activity_limit_hit,
-        used_reflected_arrows,
+        used_reflected_arrows: used_reflected_arrows.into_set(),
+        false_bindings: 0,
+        ambiguous_bindings: 0,
         bindings_erased: true,
         immutable_state_unchanged: immutable_before == machine.immutable_hash(),
         work,
@@ -687,11 +730,15 @@ fn execute_learned_grounded(
     let mut work = Rg0aWork::default();
     let mut shuffle_rng = DeterministicRng::new(shuffle_seed);
     let mut grounding = learned_grounding(machine, role, condition, &mut shuffle_rng, &mut work);
+    let false_bindings = grounding.cell_roles.iter().filter(|role| role.is_none()).count();
+    let ambiguous_bindings = grounding.ambiguous_roles;
     let mut router = GroundRouter::Reflected {
         program,
         grounding: &mut grounding,
     };
     let mut execution = run_cell_machine(machine, &mut router, work);
+    execution.false_bindings = false_bindings;
+    execution.ambiguous_bindings = ambiguous_bindings;
     grounding.erase();
     execution.bindings_erased = grounding.is_empty();
     execution
@@ -710,11 +757,15 @@ fn execute_oracle_grounded(
         ..Rg0aWork::default()
     };
     let mut grounding = oracle_grounding(episode, &mut work);
+    let false_bindings = grounding.cell_roles.iter().filter(|role| role.is_none()).count();
+    let ambiguous_bindings = grounding.ambiguous_roles;
     let mut router = GroundRouter::Reflected {
         program,
         grounding: &mut grounding,
     };
     let mut execution = run_cell_machine(&episode.machine, &mut router, work);
+    execution.false_bindings = false_bindings;
+    execution.ambiguous_bindings = ambiguous_bindings;
     grounding.erase();
     execution.bindings_erased = grounding.is_empty();
     execution
@@ -824,6 +875,8 @@ impl Rg0aRow {
             self.role_transfer_correct += correct;
             self.role_transfer_total += total;
         }
+        self.false_bindings += execution.false_bindings;
+        self.ambiguous_bindings += execution.ambiguous_bindings;
         if let Some(expected_firings) = expected_firings {
             self.expected_reflected_firings &=
                 execution.work.reflected_arrow_firings == expected_firings;
