@@ -9,6 +9,8 @@ use super::*;
 use crate::research_runtime::{parallel_map_ordered, Frozen, HarnessMode};
 use std::mem::size_of;
 
+pub mod motif_substitution;
+
 pub const RC0A_PROTOCOL: &str = "compiled-grounded-recurrence-rc0a-v1";
 
 const COMPILE_DEPTHS: [usize; 3] = [1, 2, 3];
@@ -340,6 +342,10 @@ struct RcExecution {
     bindings_erased: bool,
     temporary_routes_erased: bool,
     immutable_state_unchanged: bool,
+    final_current: Option<OpaqueId>,
+    observable_events: Vec<GroundObservableEvent>,
+    boundaries: Vec<GroundBoundary>,
+    internal_events: Vec<GroundInternalEvent>,
     work: Rc0aWork,
 }
 
@@ -358,6 +364,10 @@ impl RcExecution {
             bindings_erased: execution.bindings_erased,
             temporary_routes_erased: true,
             immutable_state_unchanged: execution.immutable_state_unchanged,
+            final_current: execution.final_current,
+            observable_events: execution.observable_events,
+            boundaries: execution.boundaries,
+            internal_events: execution.internal_events,
             work: prefix,
         }
     }
@@ -418,6 +428,89 @@ fn execute_local_arrows(
     };
     let base_work = std::mem::take(&mut work.rg0a);
     RcExecution::from_rg0a(run_cell_machine(machine, &mut router, base_work), work)
+}
+
+fn execute_local_arrows_traced(
+    machine: &GroundMachine,
+    routes: &TemporaryCompiledRoutes,
+    mut work: Rc0aWork,
+) -> RcExecution {
+    let mut router = GroundRouter::Compiled {
+        arrows: &routes.by_source_cell,
+    };
+    let base_work = std::mem::take(&mut work.rg0a);
+    RcExecution::from_rg0a(
+        run_cell_machine_traced(machine, &mut router, base_work, true),
+        work,
+    )
+}
+
+fn execute_compiled_or_resume_traced(
+    machine: &GroundMachine,
+    role: &RoleLearner,
+    program: &ProgramLearner,
+    dispatch: &mut CompiledDispatch,
+    condition: BindingCondition,
+    shuffle_seed: u64,
+    lifecycle: &Lifecycle,
+) -> RcExecution {
+    let mut work = Rc0aWork::default();
+    if !dispatch.validate(program, &mut work) {
+        work.generic_resumptions += 1;
+        let _workspace = lifecycle.enter();
+        let mut shuffle_rng = DeterministicRng::new(shuffle_seed);
+        let mut grounding =
+            learned_grounding(machine, role, condition, &mut shuffle_rng, &mut work.rg0a);
+        let false_bindings = grounding
+            .cell_roles
+            .iter()
+            .filter(|role| role.is_none())
+            .count();
+        let ambiguous_bindings = grounding.ambiguous_roles;
+        let mut router = GroundRouter::Reflected {
+            program,
+            grounding: &mut grounding,
+        };
+        let base_work = std::mem::take(&mut work.rg0a);
+        let mut execution = RcExecution::from_rg0a(
+            run_cell_machine_traced(machine, &mut router, base_work, true),
+            work,
+        );
+        execution.false_bindings = false_bindings;
+        execution.ambiguous_bindings = ambiguous_bindings;
+        grounding.erase();
+        execution.bindings_erased = grounding.is_empty();
+        return execution;
+    }
+    let _workspace = lifecycle.enter();
+    let mut shuffle_rng = DeterministicRng::new(shuffle_seed);
+    let mut grounding =
+        learned_grounding(machine, role, condition, &mut shuffle_rng, &mut work.rg0a);
+    let false_bindings = grounding
+        .cell_roles
+        .iter()
+        .filter(|role| role.is_none())
+        .count();
+    let ambiguous_bindings = grounding.ambiguous_roles;
+    let Some(mut routes) =
+        TemporaryCompiledRoutes::install(machine, &grounding, dispatch, &mut work)
+    else {
+        let mut execution =
+            execute_local_arrows_traced(machine, &TemporaryCompiledRoutes::empty(), work);
+        execution.false_bindings = false_bindings;
+        execution.ambiguous_bindings = ambiguous_bindings;
+        grounding.erase();
+        execution.bindings_erased = grounding.is_empty();
+        return execution;
+    };
+    let mut execution = execute_local_arrows_traced(machine, &routes, work);
+    execution.false_bindings = false_bindings;
+    execution.ambiguous_bindings = ambiguous_bindings;
+    grounding.erase();
+    routes.erase();
+    execution.bindings_erased = grounding.is_empty();
+    execution.temporary_routes_erased = routes.is_empty();
+    execution
 }
 
 fn execute_compiled_or_resume(
@@ -484,11 +577,14 @@ fn permute_episode(mut episode: GroundEpisode, seed: u64) -> GroundEpisode {
         permutation.rotate_left(1);
     }
     let old_cells = episode.machine.cells;
+    let old_context_effects = episode.machine.context_effects;
     let mut old_to_new = [0usize; ROLE_COUNT];
     for (new_index, old_index) in permutation.iter().copied().enumerate() {
         old_to_new[old_index] = new_index;
     }
     episode.machine.cells = std::array::from_fn(|new_index| old_cells[permutation[new_index]]);
+    episode.machine.context_effects =
+        std::array::from_fn(|new_index| old_context_effects[permutation[new_index]]);
     for observation in &mut episode.machine.observations {
         observation.cell_index = old_to_new[observation.cell_index];
     }

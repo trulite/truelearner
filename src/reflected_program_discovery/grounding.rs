@@ -64,6 +64,8 @@ struct GroundMachine {
     start_location: LowerLocation,
     provenance_events: u64,
     provenance_relations: u64,
+    context_marker: Option<u64>,
+    context_effects: [Option<LocalContextEffect>; ROLE_COUNT],
 }
 
 impl GroundMachine {
@@ -78,8 +80,16 @@ impl GroundMachine {
         self.start_location.hash(&mut hasher);
         self.provenance_events.hash(&mut hasher);
         self.provenance_relations.hash(&mut hasher);
+        self.context_marker.hash(&mut hasher);
+        self.context_effects.hash(&mut hasher);
         hasher.finish()
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct LocalContextEffect {
+    site: u64,
+    marker: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -164,6 +174,8 @@ fn build_ground_episode(
             start_location: location(&evaluator_locations, LowerRole::Apply),
             provenance_events: provenance.provenance_events,
             provenance_relations: provenance.provenance_relations,
+            context_marker: None,
+            context_effects: [None; ROLE_COUNT],
         },
         evaluator_locations,
     }
@@ -531,7 +543,33 @@ struct GroundExecution {
     ambiguous_bindings: usize,
     bindings_erased: bool,
     immutable_state_unchanged: bool,
+    final_current: Option<OpaqueId>,
+    observable_events: Vec<GroundObservableEvent>,
+    boundaries: Vec<GroundBoundary>,
+    internal_events: Vec<GroundInternalEvent>,
     work: Rg0aWork,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum GroundObservableEvent {
+    CurrentUpdate(OpaqueId),
+    ContextEffect { site: u64, marker: u64 },
+    Answer(OpaqueId),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct GroundBoundary {
+    current: Option<OpaqueId>,
+    effect_prefix_len: usize,
+    context_marker: Option<u64>,
+    work_at_boundary: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct GroundInternalEvent {
+    cell_index: usize,
+    identity: Option<OpaqueId>,
+    current_before: Option<OpaqueId>,
 }
 
 fn enqueue_ground(
@@ -616,7 +654,16 @@ fn route_spike(
 fn run_cell_machine(
     machine: &GroundMachine,
     router: &mut GroundRouter<'_>,
+    work: Rg0aWork,
+) -> GroundExecution {
+    run_cell_machine_traced(machine, router, work, false)
+}
+
+fn run_cell_machine_traced(
+    machine: &GroundMachine,
+    router: &mut GroundRouter<'_>,
     mut work: Rg0aWork,
+    record_trace: bool,
 ) -> GroundExecution {
     let immutable_before = machine.immutable_hash();
     let mut queue = VecDeque::new();
@@ -633,6 +680,9 @@ fn run_cell_machine(
     let mut fault = None;
     let mut used_reflected_arrows = UsedArrowIds::new();
     let mut used_compiled_arrows = UsedArrowIds::new();
+    let mut observable_events = Vec::new();
+    let mut boundaries = Vec::new();
+    let mut internal_events = Vec::new();
     let mut activity_limit_hit = false;
     while let Some(spike) = queue.pop_front() {
         work.spikes_dequeued += 1;
@@ -648,6 +698,27 @@ fn run_cell_machine(
             queue.clear();
             break;
         };
+        if record_trace {
+            internal_events.push(GroundInternalEvent {
+                cell_index,
+                identity: spike.identity,
+                current_before: current,
+            });
+            if matches!(machine.cells[cell_index].physics, CellPhysics::Apply { .. }) {
+                boundaries.push(GroundBoundary {
+                    current,
+                    effect_prefix_len: observable_events.len(),
+                    context_marker: machine.context_marker,
+                    work_at_boundary: work.total(),
+                });
+            }
+            if let Some(effect) = machine.context_effects[cell_index] {
+                observable_events.push(GroundObservableEvent::ContextEffect {
+                    site: effect.site,
+                    marker: effect.marker,
+                });
+            }
+        }
         match machine.cells[cell_index].physics {
             CellPhysics::RouteSource => route_spike(
                 cell_index,
@@ -698,11 +769,19 @@ fn run_cell_machine(
                 };
                 current = Some(identity);
                 work.current_updates += 1;
+                if record_trace {
+                    observable_events.push(GroundObservableEvent::CurrentUpdate(identity));
+                }
                 enqueue_ground(&mut queue, &mut work, success_source, current);
             }
             CellPhysics::Answer => {
                 emitted = spike.identity;
                 work.finishes += 1;
+                if record_trace {
+                    if let Some(identity) = emitted {
+                        observable_events.push(GroundObservableEvent::Answer(identity));
+                    }
+                }
                 queue.clear();
             }
             CellPhysics::Clear => {
@@ -724,6 +803,10 @@ fn run_cell_machine(
         ambiguous_bindings: 0,
         bindings_erased: true,
         immutable_state_unchanged: immutable_before == machine.immutable_hash(),
+        final_current: current,
+        observable_events,
+        boundaries,
+        internal_events,
         work,
     }
 }
