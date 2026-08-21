@@ -10,6 +10,8 @@ use crate::research_runtime::{parallel_map_ordered, Frozen, HarnessMode};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+pub mod compiled_recurrence;
+
 pub const RG0A_PROTOCOL: &str = "reflected-grounding-rg0a-v1";
 
 const ROLE_COUNT: usize = 10;
@@ -181,6 +183,8 @@ pub struct Rg0aWork {
     pub reflected_arrow_evaluations: u64,
     pub reflected_arrow_firings: u64,
     pub binding_deliveries: u64,
+    pub compiled_arrow_evaluations: u64,
+    pub compiled_arrow_firings: u64,
     pub direct_arrow_evaluations: u64,
     pub direct_arrow_firings: u64,
     pub direct_executor_calls: u64,
@@ -212,6 +216,8 @@ impl Rg0aWork {
             + self.reflected_arrow_evaluations
             + self.reflected_arrow_firings
             + self.binding_deliveries
+            + self.compiled_arrow_evaluations
+            + self.compiled_arrow_firings
             + self.direct_arrow_evaluations
             + self.direct_arrow_firings
             + self.direct_executor_calls
@@ -242,6 +248,8 @@ impl Rg0aWork {
         self.reflected_arrow_evaluations += other.reflected_arrow_evaluations;
         self.reflected_arrow_firings += other.reflected_arrow_firings;
         self.binding_deliveries += other.binding_deliveries;
+        self.compiled_arrow_evaluations += other.compiled_arrow_evaluations;
+        self.compiled_arrow_firings += other.compiled_arrow_firings;
         self.direct_arrow_evaluations += other.direct_arrow_evaluations;
         self.direct_arrow_firings += other.direct_arrow_firings;
         self.direct_executor_calls += other.direct_executor_calls;
@@ -465,6 +473,12 @@ struct GroundSpike {
     identity: Option<OpaqueId>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct LocalGroundArrow {
+    id: usize,
+    destination: LowerLocation,
+}
+
 #[derive(Debug)]
 enum GroundRouter<'a> {
     Direct {
@@ -473,6 +487,9 @@ enum GroundRouter<'a> {
     Reflected {
         program: &'a ProgramLearner,
         grounding: &'a mut TemporaryGrounding,
+    },
+    Compiled {
+        arrows: &'a [Option<LocalGroundArrow>; ROLE_COUNT],
     },
 }
 
@@ -509,6 +526,7 @@ struct GroundExecution {
     queue_empty: bool,
     activity_limit_hit: bool,
     used_reflected_arrows: BTreeSet<usize>,
+    used_compiled_arrows: BTreeSet<usize>,
     false_bindings: usize,
     ambiguous_bindings: usize,
     bindings_erased: bool,
@@ -549,6 +567,7 @@ fn route_spike(
     router: &mut GroundRouter<'_>,
     queue: &mut VecDeque<GroundSpike>,
     used_reflected_arrows: &mut UsedArrowIds,
+    used_compiled_arrows: &mut UsedArrowIds,
     work: &mut Rg0aWork,
 ) {
     match router {
@@ -581,6 +600,16 @@ fn route_spike(
             work.binding_deliveries += 1;
             enqueue_ground(queue, work, target, identity);
         }
+        GroundRouter::Compiled { arrows } => {
+            work.compiled_arrow_evaluations += 1;
+            let Some(arrow) = arrows[source_cell] else {
+                work.failed_dereferences += 1;
+                return;
+            };
+            work.compiled_arrow_firings += 1;
+            used_compiled_arrows.insert(arrow.id);
+            enqueue_ground(queue, work, arrow.destination, identity);
+        }
     }
 }
 
@@ -603,6 +632,7 @@ fn run_cell_machine(
     let mut emitted = None;
     let mut fault = None;
     let mut used_reflected_arrows = UsedArrowIds::new();
+    let mut used_compiled_arrows = UsedArrowIds::new();
     let mut activity_limit_hit = false;
     while let Some(spike) = queue.pop_front() {
         work.spikes_dequeued += 1;
@@ -625,6 +655,7 @@ fn run_cell_machine(
                 router,
                 &mut queue,
                 &mut used_reflected_arrows,
+                &mut used_compiled_arrows,
                 &mut work,
             ),
             CellPhysics::Apply { route_source } => {
@@ -688,6 +719,7 @@ fn run_cell_machine(
         queue_empty: queue.is_empty(),
         activity_limit_hit,
         used_reflected_arrows: used_reflected_arrows.into_set(),
+        used_compiled_arrows: used_compiled_arrows.into_set(),
         false_bindings: 0,
         ambiguous_bindings: 0,
         bindings_erased: true,
@@ -1706,6 +1738,8 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
         "reflected_arrow_evaluations",
         "reflected_arrow_firings",
         "binding_deliveries",
+        "compiled_arrow_evaluations",
+        "compiled_arrow_firings",
         "direct_arrow_evaluations",
         "direct_arrow_firings",
         "direct_executor_calls",
@@ -1829,6 +1863,14 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
                 work.reflected_arrow_firings.to_string(),
             ),
             ("binding_deliveries", work.binding_deliveries.to_string()),
+            (
+                "compiled_arrow_evaluations",
+                work.compiled_arrow_evaluations.to_string(),
+            ),
+            (
+                "compiled_arrow_firings",
+                work.compiled_arrow_firings.to_string(),
+            ),
             (
                 "direct_arrow_evaluations",
                 work.direct_arrow_evaluations.to_string(),
