@@ -1559,6 +1559,21 @@ remain blocked. See the immutable
 [`result`](results/rp0b_reflected_program_economics.md), and post-run
 [`audit`](results/rp0b_reflected_program_economics_audit.md).
 
+## RG0a: Reflected grounding (preregistered)
+
+RG0a is a new functional gate over the frozen RP0a/RP0b state. It asks whether
+the frozen learned reflected program can bind its anonymous roles temporarily
+to fresh current lower cells and project each learned-arrow activation back
+down as an ordinary spike, producing the correct concrete continuation while
+the original direct lower route program is absent. It adds only temporary
+binding dereference; semantic routing, evaluator bindings, pre-resolved route
+tables, callbacks, fallback, and direct lower continuation are forbidden.
+
+See the frozen
+[`protocol`](experiments/reflected_grounding_protocol.md). Runtime economics
+and recursive F1 remain blocked pending a valid RG0a positive and a separately
+preregistered grounded-runtime gate.
+
 ## Core runtime
 
 - `CELL`: local slow state + firing threshold
