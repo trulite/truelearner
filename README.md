@@ -1531,7 +1531,7 @@ arrows, and held-out execution was `512/512`. See the generated
 one reflected program-learning level only; economics and recursive reflection
 remain separate blocked gates.
 
-## RP0b: Reflected-program economics (preregistered)
+## RP0b: Reflected-program economics
 
 RP0b changes no learner capability. It reconstructs and freezes the eight RP0a
 positive programs, then compares fully counted direct lower execution with
@@ -1542,6 +1542,22 @@ only if reflected runtime is strictly lower in every seed/depth cell.
 See the frozen
 [`protocol`](experiments/reflected_program_economics_protocol.md). Recursive F1
 remains blocked.
+
+The single definitive E2B run was a technical negative. All frozen RP0a states
+reconstructed exactly and all runtime behavior remained correct, but reflected
+execution was more expensive in every one of the `48` seed/depth cells. Across
+the eight seeds, it added a constant `23296` work per 16-query batch at depths
+`5, 8, 16, 32, 64, 128`. It retained the complete lower execution and added
+provenance recognition, role activation, temporary binding, learned-arrow
+evaluation, and target resolution.
+
+RP0b.2 economics was correctly not evaluated: a positive per-use runtime delta
+cannot be rescued by prices or reuse. RP0a remains a functional one-level
+fractality positive, while economically useful one-level fractality and F1
+remain blocked. See the immutable
+[`trajectory`](results/rp0b_reflected_program_economics.csv), generated
+[`result`](results/rp0b_reflected_program_economics.md), and post-run
+[`audit`](results/rp0b_reflected_program_economics_audit.md).
 
 ## Core runtime
 
