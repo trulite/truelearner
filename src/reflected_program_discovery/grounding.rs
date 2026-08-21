@@ -1812,7 +1812,10 @@ pub fn rg0a_csv(report: &Rg0aReport) -> String {
             ("invocations", work.invocations.to_string()),
             ("state_installations", work.state_installations.to_string()),
             ("provenance_events", work.provenance_events.to_string()),
-            ("provenance_relations", work.provenance_relations.to_string()),
+            (
+                "provenance_relations",
+                work.provenance_relations.to_string(),
+            ),
             ("role_activations", work.role_activations.to_string()),
             (
                 "reflected_arrow_evaluations",
