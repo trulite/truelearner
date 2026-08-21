@@ -1522,6 +1522,15 @@ mkdir -p target/rp0a-reproduction
 cargo run --release --bin reflected_program_discovery -- target/rp0a-reproduction/trajectory.csv target/rp0a-reproduction/report.md
 ```
 
+The single definitive E2B run was positive: all `12/12` gates passed, all
+`8/8` integrated learners constructed exactly four correct reflected program
+arrows, and held-out execution was `512/512`. See the generated
+[`result`](results/rp0a_reflected_program_discovery.md), immutable
+[`trajectory`](results/rp0a_reflected_program_discovery.csv), and post-run
+[`audit`](results/rp0a_reflected_program_discovery_audit.md). This establishes
+one reflected program-learning level only; economics and recursive reflection
+remain separate blocked gates.
+
 ## Core runtime
 
 - `CELL`: local slow state + firing threshold
