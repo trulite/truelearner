@@ -1574,6 +1574,19 @@ See the frozen
 and recursive F1 remain blocked pending a valid RG0a positive and a separately
 preregistered grounded-runtime gate.
 
+The three-speed E2B harness keeps development separate from evidence:
+
+```bash
+cargo run --release --bin reflected_grounding -- --micro
+cargo run --release --bin reflected_grounding -- --gate
+```
+
+Both modes use only non-definitive fixtures, write no artifacts, and are never
+claim eligible. See the transparent development-harness
+[`amendment`](experiments/reflected_grounding_development_amendment.md) and the
+pre-definitive implementation
+[`audit`](experiments/reflected_grounding_implementation_audit.md).
+
 ## Core runtime
 
 - `CELL`: local slow state + firing threshold
