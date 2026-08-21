@@ -381,8 +381,26 @@ fn provenance_signature(invocation: &Invocation, work: &mut Work) -> u64 {
 
 #[derive(Clone, Copy, Debug)]
 struct RoleObservation {
-    lower: LowerRole,
+    location: u64,
     signature: u64,
+}
+
+#[derive(Clone, Debug)]
+struct LowerWorkspace {
+    evaluator_locations: BTreeMap<LowerRole, u64>,
+    observations: Vec<RoleObservation>,
+}
+
+impl LowerWorkspace {
+    fn location(&self, role: LowerRole) -> Option<u64> {
+        self.evaluator_locations.get(&role).copied()
+    }
+
+    fn evaluator_role(&self, location: u64) -> Option<LowerRole> {
+        self.evaluator_locations
+            .iter()
+            .find_map(|(role, candidate)| (*candidate == location).then_some(*role))
+    }
 }
 
 fn role_observations(
@@ -391,25 +409,44 @@ fn role_observations(
     rng: &mut DeterministicRng,
     lifecycle: &Lifecycle,
     work: &mut Work,
-) -> Vec<RoleObservation> {
+) -> LowerWorkspace {
     if arm == Arm::ActivityOnly {
         work.provenance_events += LowerRole::ALL.len() as u64;
-        return Vec::new();
+        return LowerWorkspace {
+            evaluator_locations: BTreeMap::new(),
+            observations: Vec::new(),
+        };
     }
+    let mut evaluator_locations = BTreeMap::new();
     let mut signatures = Vec::new();
     for (ordinal, role) in LowerRole::ALL.into_iter().enumerate() {
         let invocation = build_invocation(role, episode, ordinal, arm == Arm::Symmetric, lifecycle);
-        let _opaque_source = invocation.source_identity;
-        signatures.push(provenance_signature(&invocation, work));
+        evaluator_locations.insert(role, invocation.source_identity);
+        signatures.push((
+            invocation.source_identity,
+            provenance_signature(&invocation, work),
+        ));
     }
     if arm == Arm::ShuffledProvenance {
-        rng.shuffle(&mut signatures);
+        let mut shuffled = signatures
+            .iter()
+            .map(|(_, signature)| *signature)
+            .collect::<Vec<_>>();
+        rng.shuffle(&mut shuffled);
+        for ((_, signature), replacement) in signatures.iter_mut().zip(shuffled) {
+            *signature = replacement;
+        }
     }
-    LowerRole::ALL
-        .into_iter()
-        .zip(signatures)
-        .map(|(lower, signature)| RoleObservation { lower, signature })
-        .collect()
+    LowerWorkspace {
+        evaluator_locations,
+        observations: signatures
+            .into_iter()
+            .map(|(location, signature)| RoleObservation {
+                location,
+                signature,
+            })
+            .collect(),
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -460,12 +497,12 @@ impl RoleLearner {
             .map(|pattern| pattern.role_id)
     }
 
-    fn bindings(&self, observations: &[RoleObservation]) -> BTreeMap<LowerRole, usize> {
+    fn bindings(&self, observations: &[RoleObservation]) -> BTreeMap<u64, usize> {
         observations
             .iter()
             .filter_map(|item| {
                 self.translate(item.signature)
-                    .map(|role| (item.lower, role))
+                    .map(|role| (item.location, role))
             })
             .collect()
     }
@@ -797,33 +834,39 @@ struct ProgramChoices {
     finish: Option<(usize, LowerRole)>,
 }
 
-fn inverse_bindings(bindings: &BTreeMap<LowerRole, usize>) -> BTreeMap<usize, Vec<LowerRole>> {
-    let mut inverse: BTreeMap<usize, Vec<LowerRole>> = BTreeMap::new();
-    for (lower, role) in bindings {
-        inverse.entry(*role).or_default().push(*lower);
+fn inverse_bindings(bindings: &BTreeMap<u64, usize>) -> BTreeMap<usize, Vec<u64>> {
+    let mut inverse: BTreeMap<usize, Vec<u64>> = BTreeMap::new();
+    for (location, role) in bindings {
+        inverse.entry(*role).or_default().push(*location);
     }
     inverse
 }
 
 fn target_lower(
     choice: ArrowChoice,
-    inverse: &BTreeMap<usize, Vec<LowerRole>>,
+    inverse: &BTreeMap<usize, Vec<u64>>,
+    workspace: &LowerWorkspace,
 ) -> Option<(usize, LowerRole)> {
     let targets = inverse.get(&choice.to)?;
-    (targets.len() == 1).then_some((choice.id, targets[0]))
+    (targets.len() == 1)
+        .then(|| workspace.evaluator_role(targets[0]))
+        .flatten()
+        .map(|role| (choice.id, role))
 }
 
 fn learned_choices(
     learner: &mut ProgramLearner,
-    bindings: &BTreeMap<LowerRole, usize>,
+    workspace: &LowerWorkspace,
+    bindings: &BTreeMap<u64, usize>,
     work: &mut Work,
 ) -> ProgramChoices {
     let inverse = inverse_bindings(bindings);
     let mut choose = |source: LowerRole| {
-        bindings
-            .get(&source)
+        workspace
+            .location(source)
+            .and_then(|location| bindings.get(&location))
             .and_then(|role| learner.choose(*role, work))
-            .and_then(|choice| target_lower(choice, &inverse))
+            .and_then(|choice| target_lower(choice, &inverse, workspace))
     };
     ProgramChoices {
         lookup: choose(LowerRole::Slot1),
@@ -835,15 +878,17 @@ fn learned_choices(
 
 fn evaluated_choices(
     learner: &ProgramLearner,
-    bindings: &BTreeMap<LowerRole, usize>,
+    workspace: &LowerWorkspace,
+    bindings: &BTreeMap<u64, usize>,
     work: &mut Work,
 ) -> ProgramChoices {
     let inverse = inverse_bindings(bindings);
     let mut choose = |source: LowerRole| {
-        bindings
-            .get(&source)
+        workspace
+            .location(source)
+            .and_then(|location| bindings.get(&location))
             .and_then(|role| learner.evaluated(*role, work))
-            .and_then(|choice| target_lower(choice, &inverse))
+            .and_then(|choice| target_lower(choice, &inverse, workspace))
     };
     ProgramChoices {
         lookup: choose(LowerRole::Slot1),
@@ -896,6 +941,12 @@ fn enqueue(queue: &mut VecDeque<Spike>, work: &mut Work, event: Event) {
     work.spikes_enqueued += 1;
 }
 
+fn record_used_arrow(used_arrows: &mut Vec<usize>, arrow_id: usize) {
+    if !used_arrows.contains(&arrow_id) {
+        used_arrows.push(arrow_id);
+    }
+}
+
 fn dispatch_target(
     queue: &mut VecDeque<Spike>,
     work: &mut Work,
@@ -943,7 +994,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     enqueue(&mut queue, &mut work, Event::NoResult);
                     continue;
                 };
-                used_arrows.push(arrow_id);
+                record_used_arrow(&mut used_arrows, arrow_id);
                 if target != LowerRole::Slot2 {
                     enqueue(&mut queue, &mut work, Event::NoResult);
                     continue;
@@ -973,7 +1024,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     queue.clear();
                     continue;
                 };
-                used_arrows.push(arrow_id);
+                record_used_arrow(&mut used_arrows, arrow_id);
                 dispatch_target(&mut queue, &mut work, target, Some(identity));
             }
             Event::Current(identity) => {
@@ -985,7 +1036,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     queue.clear();
                     continue;
                 };
-                used_arrows.push(arrow_id);
+                record_used_arrow(&mut used_arrows, arrow_id);
                 dispatch_target(&mut queue, &mut work, target, current);
             }
             Event::NoResult => {
@@ -993,7 +1044,7 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
                     queue.clear();
                     continue;
                 };
-                used_arrows.push(arrow_id);
+                record_used_arrow(&mut used_arrows, arrow_id);
                 dispatch_target(&mut queue, &mut work, target, current);
             }
             Event::Answer(identity) => {
@@ -1019,9 +1070,13 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
     }
 }
 
-fn program_correct(learner: &ProgramLearner, bindings: &BTreeMap<LowerRole, usize>) -> bool {
+fn program_correct(
+    learner: &ProgramLearner,
+    workspace: &LowerWorkspace,
+    bindings: &BTreeMap<u64, usize>,
+) -> bool {
     let mut work = Work::default();
-    let choices = evaluated_choices(learner, bindings, &mut work);
+    let choices = evaluated_choices(learner, workspace, bindings, &mut work);
     [
         (LowerRole::Slot1, choices.lookup),
         (LowerRole::Result, choices.feedback),
@@ -1128,7 +1183,11 @@ fn credited_feedback(
     }
 }
 
-fn correct_arrow_count(learner: &ProgramLearner, bindings: &BTreeMap<LowerRole, usize>) -> usize {
+fn correct_arrow_count(
+    learner: &ProgramLearner,
+    workspace: &LowerWorkspace,
+    bindings: &BTreeMap<u64, usize>,
+) -> usize {
     let inverse = inverse_bindings(bindings);
     learner
         .arrows
@@ -1137,7 +1196,13 @@ fn correct_arrow_count(learner: &ProgramLearner, bindings: &BTreeMap<LowerRole, 
         .filter(|arrow| {
             let sources = inverse.get(&arrow.from);
             let targets = inverse.get(&arrow.to);
-            matches!((sources, targets), (Some(source), Some(target)) if source.len() == 1 && target.len() == 1 && source[0].correct_target() == Some(target[0]))
+            matches!((sources, targets), (Some(source), Some(target)) if
+                source.len() == 1
+                    && target.len() == 1
+                    && workspace
+                        .evaluator_role(source[0])
+                        .and_then(LowerRole::correct_target)
+                        == workspace.evaluator_role(target[0]))
         })
         .count()
 }
@@ -1180,7 +1245,7 @@ fn evaluate_learned(
                 + seed_index as u64 * 100_000
                 + *depth as u64 * 100
                 + repeat as u64;
-            let observations = role_observations(
+            let workspace = role_observations(
                 if arm == Arm::Symmetric {
                     Arm::Symmetric
                 } else {
@@ -1191,8 +1256,8 @@ fn evaluate_learned(
                 lifecycle,
                 &mut work,
             );
-            let bindings = role.bindings(&observations);
-            let canonical = role.bindings(&role_observations(
+            let bindings = role.bindings(&workspace.observations);
+            let canonical_workspace = role_observations(
                 if arm == Arm::Symmetric {
                     Arm::Symmetric
                 } else {
@@ -1202,14 +1267,20 @@ fn evaluate_learned(
                 &mut provenance_rng,
                 lifecycle,
                 &mut work,
-            ));
+            );
+            let canonical = role.bindings(&canonical_workspace.observations);
             for lower in LowerRole::ALL {
                 transfer_total += 1;
-                transfer_correct += usize::from(
-                    bindings.contains_key(&lower) && bindings.get(&lower) == canonical.get(&lower),
-                );
+                let observed_role = workspace
+                    .location(lower)
+                    .and_then(|location| bindings.get(&location));
+                let canonical_role = canonical_workspace
+                    .location(lower)
+                    .and_then(|location| canonical.get(&location));
+                transfer_correct +=
+                    usize::from(observed_role.is_some() && observed_role == canonical_role);
             }
-            let choices = evaluated_choices(program, &bindings, &mut work);
+            let choices = evaluated_choices(program, &workspace, &bindings, &mut work);
             let episode = chain_episode(&mut identities, &mut rng, *depth);
             let run = execute(&episode, choices);
             work.add(run.work);
@@ -1280,14 +1351,14 @@ fn run_learned_seed(
         let episode_id = domain_seed
             .wrapping_mul(1_000_000)
             .wrapping_add(episode_number as u64);
-        let observations =
+        let workspace =
             role_observations(arm, episode_id, &mut provenance_rng, lifecycle, &mut work);
         let before_comparisons = role.comparisons;
         let before_updates = role.updates;
-        role.observe(&observations);
+        role.observe(&workspace.observations);
         work.role_comparisons += role.comparisons - before_comparisons;
         work.role_updates += role.updates - before_updates;
-        let bindings = role.bindings(&observations);
+        let bindings = role.bindings(&workspace.observations);
         let roles = role.consolidated_roles();
         if first_roles.is_none() && roles.len() == LowerRole::ALL.len() {
             first_roles = Some(episode_number);
@@ -1296,7 +1367,7 @@ fn run_learned_seed(
         work.proposals = program.proposals as u64;
         let depth = depths[(episode_number - 1) % depths.len()];
         let episode = chain_episode(&mut identities, &mut episode_rng, depth);
-        let choices = learned_choices(&mut program, &bindings, &mut work);
+        let choices = learned_choices(&mut program, &workspace, &bindings, &mut work);
         let run = execute(&episode, choices);
         work.add(run.work);
         for arrow_id in &run.used_arrows {
@@ -1326,7 +1397,7 @@ fn run_learned_seed(
         let credit = credited_feedback(arm, actual_success, previous_success, &mut feedback_rng);
         previous_success = actual_success;
         program.feedback(credit, &mut work);
-        let topology_correct = program_correct(&program, &bindings);
+        let topology_correct = program_correct(&program, &workspace, &bindings);
         if competence.is_none()
             && roles.len() == LowerRole::ALL.len()
             && topology_correct
@@ -1360,7 +1431,7 @@ fn run_learned_seed(
     }
     let training_work = work;
     let mut canonical_work = Work::default();
-    let canonical_observations = role_observations(
+    let canonical_workspace = role_observations(
         if arm == Arm::Symmetric {
             Arm::Symmetric
         } else {
@@ -1371,7 +1442,7 @@ fn run_learned_seed(
         lifecycle,
         &mut canonical_work,
     );
-    let canonical_bindings = role.bindings(&canonical_observations);
+    let canonical_bindings = role.bindings(&canonical_workspace.observations);
     let before = permanent_fingerprint(&role, &program);
     let first_eval = evaluate_learned(arm, seed_index, &role, &program, smoke, lifecycle);
     let second_eval = evaluate_learned(arm, seed_index, &role, &program, smoke, lifecycle);
@@ -1393,7 +1464,11 @@ fn run_learned_seed(
         competence_episode: competence,
         learned_roles: role.consolidated_roles().len(),
         consolidated_arrows: program.consolidated_count(),
-        correct_program_arrows: correct_arrow_count(&program, &canonical_bindings),
+        correct_program_arrows: correct_arrow_count(
+            &program,
+            &canonical_workspace,
+            &canonical_bindings,
+        ),
         proposed_arrows: program.proposals,
         pruned_arrows: program.pruned,
         held_out_correct: first_eval.0,
@@ -2005,9 +2080,10 @@ mod tests {
         let lifecycle = Lifecycle::default();
         let mut rng = DeterministicRng::new(1);
         let mut work = Work::default();
-        let observations = role_observations(Arm::Symmetric, 1, &mut rng, &lifecycle, &mut work);
+        let workspace = role_observations(Arm::Symmetric, 1, &mut rng, &lifecycle, &mut work);
         assert_eq!(
-            observations
+            workspace
+                .observations
                 .iter()
                 .map(|item| item.signature)
                 .collect::<BTreeSet<_>>()
