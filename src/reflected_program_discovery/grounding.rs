@@ -1065,16 +1065,12 @@ fn evaluate_fixture(
     let integrated_before = permanent_fingerprint(&integrated.role, &integrated.program);
     let shuffled_before =
         permanent_fingerprint(&shuffled_terminal.role, &shuffled_terminal.program);
-    let random_program = randomized_program(
-        &integrated.program,
-        spec.domain ^ spec.seed_index as u64,
-    );
+    let random_program =
+        randomized_program(&integrated.program, spec.domain ^ spec.seed_index as u64);
     let oracle = oracle_program();
     let expected_roles = expected_role_ids(&integrated.role, lifecycle);
-    let mut identities =
-        IdentitySource::new(spec.domain ^ 0x1111_0000 ^ spec.seed_index as u64);
-    let mut chain_rng =
-        DeterministicRng::new(spec.domain ^ 0x2222_0000 ^ spec.seed_index as u64);
+    let mut identities = IdentitySource::new(spec.domain ^ 0x1111_0000 ^ spec.seed_index as u64);
+    let mut chain_rng = DeterministicRng::new(spec.domain ^ 0x2222_0000 ^ spec.seed_index as u64);
     let mut seen_lower = BTreeSet::new();
     let mut seen_activity = BTreeSet::new();
     let mut fresh_lower = true;
