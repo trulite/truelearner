@@ -730,7 +730,11 @@ fn execute_learned_grounded(
     let mut work = Rg0aWork::default();
     let mut shuffle_rng = DeterministicRng::new(shuffle_seed);
     let mut grounding = learned_grounding(machine, role, condition, &mut shuffle_rng, &mut work);
-    let false_bindings = grounding.cell_roles.iter().filter(|role| role.is_none()).count();
+    let false_bindings = grounding
+        .cell_roles
+        .iter()
+        .filter(|role| role.is_none())
+        .count();
     let ambiguous_bindings = grounding.ambiguous_roles;
     let mut router = GroundRouter::Reflected {
         program,
@@ -757,7 +761,11 @@ fn execute_oracle_grounded(
         ..Rg0aWork::default()
     };
     let mut grounding = oracle_grounding(episode, &mut work);
-    let false_bindings = grounding.cell_roles.iter().filter(|role| role.is_none()).count();
+    let false_bindings = grounding
+        .cell_roles
+        .iter()
+        .filter(|role| role.is_none())
+        .count();
     let ambiguous_bindings = grounding.ambiguous_roles;
     let mut router = GroundRouter::Reflected {
         program,
