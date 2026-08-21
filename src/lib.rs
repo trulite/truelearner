@@ -5,6 +5,7 @@ pub mod composition;
 pub mod consolidation;
 pub mod continuation;
 pub mod discovery;
+pub mod ffs_same0;
 pub mod full_fractal_scaling;
 pub mod generality;
 pub mod inertia;
