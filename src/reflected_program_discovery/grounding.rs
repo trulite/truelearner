@@ -7,6 +7,8 @@
 
 use super::*;
 use crate::research_runtime::{parallel_map_ordered, Frozen, HarnessMode};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 pub const RG0A_PROTOCOL: &str = "reflected-grounding-rg0a-v1";
 

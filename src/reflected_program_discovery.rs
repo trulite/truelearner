@@ -1,9 +1,8 @@
 //! RP0a: reuse P0-style program learning over anonymous provenance-derived roles.
 
 use std::cell::Cell;
-use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt::Write as _;
-use std::hash::{Hash, Hasher};
 use std::mem::size_of;
 
 use crate::binding::{BindingOutcome, IdentitySource, OpaqueId};
