@@ -1531,6 +1531,18 @@ arrows, and held-out execution was `512/512`. See the generated
 one reflected program-learning level only; economics and recursive reflection
 remain separate blocked gates.
 
+## RP0b: Reflected-program economics (preregistered)
+
+RP0b changes no learner capability. It reconstructs and freezes the eight RP0a
+positive programs, then compares fully counted direct lower execution with
+actual reflected invocation over identical read-only chains. Technical runtime
+reduction is decided before prices. Acquisition/carrying break-even is evaluated
+only if reflected runtime is strictly lower in every seed/depth cell.
+
+See the frozen
+[`protocol`](experiments/reflected_program_economics_protocol.md). Recursive F1
+remains blocked.
+
 ## Core runtime
 
 - `CELL`: local slow state + firing threshold
