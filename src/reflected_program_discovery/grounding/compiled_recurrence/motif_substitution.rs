@@ -1843,3 +1843,92 @@ mod tests {
         assert!(!report.claim_eligible);
     }
 }
+
+/// RE0's additive, acquisition-only observer. It calls the frozen acquisition
+/// path and exposes accounting fields; it never evaluates a held-out runtime
+/// cell or changes any learned/runtime behavior.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Re0AcquisitionMeasurement {
+    pub seed_index: usize,
+    pub rp0a_parity: bool,
+    pub rp0a_acquisition_work: u64,
+    pub rc0a_acquisition_work: u64,
+    pub rc0b_acquisition_work: u64,
+    pub persistent_installation_work: u64,
+    pub maintenance_work: u64,
+    pub rp0a_bytes: usize,
+    pub rc0a_bytes: usize,
+    pub rc0b_bytes: usize,
+    pub compiled_arrows: usize,
+    pub motif_count: usize,
+    pub shortcut_count: usize,
+    pub successful_motif_episodes: usize,
+    pub motif_fingerprint: u64,
+    pub permanent_state_unchanged: bool,
+    pub workspaces_created: usize,
+    pub workspaces_destroyed: usize,
+    pub maximum_live_workspaces: usize,
+}
+
+fn observe_re0_acquisition(
+    fixture: &Frozen<FrozenRp0aState>,
+    seed_index: usize,
+    rp0a_parity: bool,
+    rp0a_acquisition_work: u64,
+    domain: u64,
+    mut lifecycle_total: RcLifecycleTotals,
+) -> Re0AcquisitionMeasurement {
+    let lifecycle = Lifecycle::default();
+    let permanent_before = permanent_fingerprint(&fixture.role, &fixture.program);
+    let acquisition = acquire_motif(fixture, seed_index, domain, &lifecycle);
+    let permanent_state_unchanged =
+        permanent_before == permanent_fingerprint(&fixture.role, &fixture.program);
+    lifecycle_total.add(RcLifecycleTotals::read(&lifecycle));
+    let motif = acquisition.motif.as_ref();
+    Re0AcquisitionMeasurement {
+        seed_index,
+        rp0a_parity,
+        rp0a_acquisition_work,
+        rc0a_acquisition_work: acquisition.rc0a_acquisition_work.total(),
+        rc0b_acquisition_work: acquisition.work.total(),
+        persistent_installation_work: 0,
+        maintenance_work: 0,
+        rp0a_bytes: fixture.role.permanent_bytes() + fixture.program.permanent_bytes(),
+        rc0a_bytes: acquisition.dispatch.permanent_bytes(),
+        rc0b_bytes: motif.map_or(0, GroundedMotif::permanent_bytes),
+        compiled_arrows: acquisition.dispatch.len(),
+        motif_count: usize::from(motif.is_some()),
+        shortcut_count: motif.map_or(0, |earned| earned.shortcuts.len()),
+        successful_motif_episodes: acquisition.successful_episodes,
+        motif_fingerprint: motif.map_or(0, GroundedMotif::fingerprint),
+        permanent_state_unchanged,
+        workspaces_created: lifecycle_total.created,
+        workspaces_destroyed: lifecycle_total.destroyed,
+        maximum_live_workspaces: lifecycle_total.maximum_live,
+    }
+}
+
+pub fn measure_re0_development_acquisition() -> Re0AcquisitionMeasurement {
+    let fixture = development_fixture();
+    observe_re0_acquisition(
+        &fixture,
+        DEVELOPMENT_SEED_INDEX,
+        true,
+        0,
+        0xb200_0000_0000_0000 ^ 0xb100_0000,
+        RcLifecycleTotals::default(),
+    )
+}
+
+pub fn measure_re0_definitive_acquisition(seed_index: usize) -> Re0AcquisitionMeasurement {
+    assert!(seed_index < DEFINITIVE_SEEDS, "frozen RE0 seed");
+    let (fixture, parity, reconstruction_lifecycle) = reconstruct_rc0a_fixture(seed_index);
+    observe_re0_acquisition(
+        &fixture,
+        seed_index,
+        parity,
+        FROZEN_RP0A_ENDPOINTS[seed_index].acquisition_work,
+        0xb300_0000_0000_0000 ^ 0xb100_0000,
+        reconstruction_lifecycle,
+    )
+}
