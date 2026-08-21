@@ -1559,7 +1559,7 @@ remain blocked. See the immutable
 [`result`](results/rp0b_reflected_program_economics.md), and post-run
 [`audit`](results/rp0b_reflected_program_economics_audit.md).
 
-## RG0a: Reflected grounding (preregistered)
+## RG0a: Reflected grounding
 
 RG0a is a new functional gate over the frozen RP0a/RP0b state. It asks whether
 the frozen learned reflected program can bind its anonymous roles temporarily
@@ -1586,6 +1586,22 @@ claim eligible. See the transparent development-harness
 [`amendment`](experiments/reflected_grounding_development_amendment.md) and the
 pre-definitive implementation
 [`audit`](experiments/reflected_grounding_implementation_audit.md).
+
+The single definitive E2B run was a functional positive. All `14/14` gates
+passed. The frozen learned reflected programs answered `768/768` fresh
+continuations through temporary downward bindings, transferred `7680/7680`
+anonymous roles, and produced `98688/98688` learned-arrow-to-lower-spike
+deliveries. Direct lower route evaluation, direct-executor calls, pre-resolved
+routes, fallback, and oracle use were all zero in the integrated arm. Each of
+the five negative controls answered `0/768`.
+
+See the immutable
+[`trajectory`](results/rg0a_reflected_grounding.csv), generated
+[`result`](results/rg0a_reflected_grounding.md), and post-run
+[`audit`](results/rg0a_reflected_grounding_audit.md). This establishes grounded
+functional substitution, not economics: fully counted grounded work remained
+`9.37%` above CONCRETE across the mixed-depth matrix. RP0b remains negative and
+recursive F1 remains blocked.
 
 ## Core runtime
 
