@@ -965,6 +965,15 @@ struct FixtureEvaluation {
     fresh_activity_sources: bool,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct FixtureSpec<'a> {
+    seed_index: usize,
+    depths: &'a [usize],
+    queries_per_depth: usize,
+    full_controls: bool,
+    domain: u64,
+}
+
 fn expected_role_ids(learner: &RoleLearner, lifecycle: &Lifecycle) -> [Option<usize>; ROLE_COUNT] {
     std::array::from_fn(|ordinal| {
         let invocation = build_invocation(
@@ -1048,33 +1057,34 @@ fn synthetic_fixture(seed: u64, lifecycle: &Lifecycle) -> FrozenRp0aState {
 }
 
 fn evaluate_fixture(
-    seed_index: usize,
     integrated: &Frozen<FrozenRp0aState>,
     shuffled_terminal: &Frozen<FrozenRp0aState>,
-    depths: &[usize],
-    queries_per_depth: usize,
-    full_controls: bool,
-    domain: u64,
+    spec: FixtureSpec<'_>,
     lifecycle: &Lifecycle,
 ) -> FixtureEvaluation {
     let integrated_before = permanent_fingerprint(&integrated.role, &integrated.program);
     let shuffled_before =
         permanent_fingerprint(&shuffled_terminal.role, &shuffled_terminal.program);
-    let random_program = randomized_program(&integrated.program, domain ^ seed_index as u64);
+    let random_program = randomized_program(
+        &integrated.program,
+        spec.domain ^ spec.seed_index as u64,
+    );
     let oracle = oracle_program();
     let expected_roles = expected_role_ids(&integrated.role, lifecycle);
-    let mut identities = IdentitySource::new(domain ^ 0x1111_0000 ^ seed_index as u64);
-    let mut chain_rng = DeterministicRng::new(domain ^ 0x2222_0000 ^ seed_index as u64);
+    let mut identities =
+        IdentitySource::new(spec.domain ^ 0x1111_0000 ^ spec.seed_index as u64);
+    let mut chain_rng =
+        DeterministicRng::new(spec.domain ^ 0x2222_0000 ^ spec.seed_index as u64);
     let mut seen_lower = BTreeSet::new();
     let mut seen_activity = BTreeSet::new();
     let mut fresh_lower = true;
     let mut fresh_activity = true;
     let mut rows = Vec::new();
-    for depth in depths {
+    for depth in spec.depths {
         let mut depth_rows = Rg0aArm::ALL
             .into_iter()
             .filter(|arm| {
-                full_controls
+                spec.full_controls
                     || matches!(
                         arm,
                         Rg0aArm::Concrete
@@ -1083,13 +1093,14 @@ fn evaluate_fixture(
                             | Rg0aArm::Oracle
                     )
             })
-            .map(|arm| (arm, Rg0aRow::new(arm, seed_index, *depth)))
+            .map(|arm| (arm, Rg0aRow::new(arm, spec.seed_index, *depth)))
             .collect::<BTreeMap<_, _>>();
-        for repeat in 0..queries_per_depth {
+        for repeat in 0..spec.queries_per_depth {
             let _episode_workspace = lifecycle.enter();
             let chain = chain_episode(&mut identities, &mut chain_rng, *depth);
-            let episode_id = domain
-                .wrapping_add(seed_index as u64 * 1_000_000)
+            let episode_id = spec
+                .domain
+                .wrapping_add(spec.seed_index as u64 * 1_000_000)
                 .wrapping_add(*depth as u64 * 1_000)
                 .wrapping_add(repeat as u64);
             let episode = build_ground_episode(chain, episode_id, lifecycle);
@@ -1141,7 +1152,7 @@ fn evaluate_fixture(
                 None,
                 None,
             );
-            if full_controls {
+            if spec.full_controls {
                 let shuffled_bindings = execute_learned_grounded(
                     &branch.episode.machine,
                     &branch.permanent().role,
@@ -1278,7 +1289,7 @@ fn reconstruct_fixture(seed_index: usize) -> ReconstructedFixture {
     }
 }
 
-fn arm_rows<'a>(rows: &'a [Rg0aRow], arm: Rg0aArm) -> impl Iterator<Item = &'a Rg0aRow> {
+fn arm_rows(rows: &[Rg0aRow], arm: Rg0aArm) -> impl Iterator<Item = &Rg0aRow> {
     rows.iter().filter(move |row| row.arm == arm.name())
 }
 
@@ -1518,23 +1529,27 @@ fn run_development_harness(mode: HarnessMode) -> Rg0aReport {
         HarnessMode::Definitive => unreachable!("development harness only"),
     };
     let first = evaluate_fixture(
-        usize::MAX,
         &integrated,
         &shuffled,
-        depths,
-        queries,
-        full_controls,
-        0xcf00_0000,
+        FixtureSpec {
+            seed_index: usize::MAX,
+            depths,
+            queries_per_depth: queries,
+            full_controls,
+            domain: 0xcf00_0000,
+        },
         &lifecycle,
     );
     let second = evaluate_fixture(
-        usize::MAX,
         &integrated,
         &shuffled,
-        depths,
-        queries,
-        full_controls,
-        0xcf00_0000,
+        FixtureSpec {
+            seed_index: usize::MAX,
+            depths,
+            queries_per_depth: queries,
+            full_controls,
+            domain: 0xcf00_0000,
+        },
         &lifecycle,
     );
     let duplicate = first == second;
@@ -1560,23 +1575,27 @@ fn run_definitive_harness() -> Rg0aReport {
         let fixture = &reconstructed[seed_index];
         let local_lifecycle = Lifecycle::default();
         let first = evaluate_fixture(
-            seed_index,
             &fixture.integrated,
             &fixture.shuffled_terminal,
-            &RG0A_DEPTHS,
-            RG0A_QUERIES_PER_DEPTH,
-            true,
-            0xd000_0000_0000_0000,
+            FixtureSpec {
+                seed_index,
+                depths: &RG0A_DEPTHS,
+                queries_per_depth: RG0A_QUERIES_PER_DEPTH,
+                full_controls: true,
+                domain: 0xd000_0000_0000_0000,
+            },
             &local_lifecycle,
         );
         let second = evaluate_fixture(
-            seed_index,
             &fixture.integrated,
             &fixture.shuffled_terminal,
-            &RG0A_DEPTHS,
-            RG0A_QUERIES_PER_DEPTH,
-            true,
-            0xd000_0000_0000_0000,
+            FixtureSpec {
+                seed_index,
+                depths: &RG0A_DEPTHS,
+                queries_per_depth: RG0A_QUERIES_PER_DEPTH,
+                full_controls: true,
+                domain: 0xd000_0000_0000_0000,
+            },
             &local_lifecycle,
         );
         (
