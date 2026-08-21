@@ -921,8 +921,10 @@ fn execute(episode: &ChainEpisode, choices: ProgramChoices) -> Execution {
     let mut emitted = None;
     let mut fault = None;
     let mut used_arrows = Vec::new();
-    let mut work = Work::default();
-    work.spikes_enqueued = 1;
+    let mut work = Work {
+        spikes_enqueued: 1,
+        ..Work::default()
+    };
     let mut activity_limit_hit = false;
     while let Some(spike) = queue.pop_front() {
         work.spikes_dequeued += 1;
@@ -1204,7 +1206,7 @@ fn evaluate_learned(
             for lower in LowerRole::ALL {
                 transfer_total += 1;
                 transfer_correct += usize::from(
-                    bindings.get(&lower).is_some() && bindings.get(&lower) == canonical.get(&lower),
+                    bindings.contains_key(&lower) && bindings.get(&lower) == canonical.get(&lower),
                 );
             }
             let choices = evaluated_choices(program, &bindings, &mut work);
