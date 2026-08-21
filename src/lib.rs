@@ -13,6 +13,7 @@ pub mod local_plasticity;
 pub mod model_epistemic;
 pub mod program_discovery;
 pub mod reflected_program_discovery;
+pub mod research_runtime;
 pub mod request_roles;
 pub mod role_discovery;
 pub mod scaling;
