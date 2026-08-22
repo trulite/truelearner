@@ -2,7 +2,10 @@
 
 Protocol identifier: `ds6-cumulative-lifetime-gate-v1`
 
-Status: **PREREGISTERED BEFORE GATE IMPLEMENTATION OR EVIDENCE**.
+Status: **AMENDED BEFORE GATE IMPLEMENTATION OR EVIDENCE**.
+
+This pre-evidence amendment makes the contradiction discriminator explicit.
+No GATE learner code or seed has been executed.
 
 This is a development-readiness GATE. It cannot create M4 or authorize a
 definitive DS6 execution.
@@ -77,9 +80,13 @@ the organism path.
    `+2` through the same recurrence path. A physically removed record
    reacquires from strength `1` without a reinstatement mode.
 9. **Contradiction/history.** Changed causal signatures cannot execute stale
-   learned paths. Non-use under the changed regime spends old strength; if the
-   old lawful signature returns while still allocated it reuses and strengthens,
-   otherwise it reacquires ordinarily. No contradiction-specific delete exists.
+   learned paths. Repeated changed-regime activity builds the competing lawful
+   signature while ordinary non-use/pressure spends the old signature's
+   strength. Across matched contradiction exposures, old strength must be
+   nonincreasing and competing strength nondecreasing. If the old lawful
+   signature returns while still allocated it reuses and strengthens;
+   otherwise it reacquires ordinarily. No contradiction-specific decrement,
+   invalidation-memory update, delete, or lifetime branch exists.
 10. **Cumulative M3 preservation.** Every allocated lawful signature returns
     exact M3 spans, ordinary consequences, learned-use accounting, and natural
     quiescence on fresh renderings; removed signatures fall back to generic M3
@@ -108,4 +115,3 @@ Rust formatting, compilation, static audits, and non-seed unit tests occur in
 the dedicated E2B development sandbox. The GATE source, runner, and schema must
 be committed and tagged before its single execution. Seeds used here are
 forever excluded from a definitive matrix.
-
