@@ -26,6 +26,7 @@ pub mod internal_roles;
 pub mod iteration;
 pub mod local_plasticity;
 pub mod model_epistemic;
+pub mod organism;
 pub mod post_m6_ds4_arrival_initiation;
 pub mod post_m6_ds4_arrival_initiation_definitive;
 pub mod post_m7_ds5_closure_emission;
