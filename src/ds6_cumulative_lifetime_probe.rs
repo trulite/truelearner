@@ -196,7 +196,7 @@ macro_rules! ds6_m3_access {
 
             let no_tiers = true;
             let economy = life.records.len() < raw.records.len() && life.bytes() > 0;
-            let source = source_audit();
+            let source = source_ok();
             let checks = vec![
                 check("source/information audit", source),
                 check("single scalar lifecycle", no_tiers),
