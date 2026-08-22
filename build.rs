@@ -563,6 +563,24 @@ fn main() {
             "DS6_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/ds6_cumulative_lifetime_definitive_protocol.md",
         ),
+        (
+            "DS7_ACTIVATION_SHA256",
+            "experiments/ds7_cumulative_plasticity_allocation_activation_handoff.md",
+        ),
+        (
+            "DS7_AUDIT_SHA256",
+            "experiments/ds7_cumulative_plasticity_allocation_dependency_audit.md",
+        ),
+        (
+            "DS7_MANIFEST_SHA256",
+            "experiments/desupply_ds4_ds8_dependency_manifest.csv",
+        ),
+        ("DS7_P2_SHA256", "src/local_plasticity.rs"),
+        ("DS7_M4_SHA256", "src/ds6_cumulative_lifetime_probe.rs"),
+        (
+            "DS7_PROTOCOL_SHA256",
+            "experiments/ds7_cumulative_plasticity_allocation_probe_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
