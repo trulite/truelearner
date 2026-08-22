@@ -211,18 +211,18 @@ mod frozen_learning {
             .wrapping_mul(1_000_003)
             .wrapping_add(episode as u64 * 53)
             .wrapping_add(1 << 33);
-        let (root, arrows) = match variant % 4 {
-            0 => (0, [[0, 1], [1, 2]]),
-            1 => (0, [[0, 2], [2, 1]]),
-            2 => (1, [[1, 0], [0, 2]]),
-            _ => (2, [[2, 1], [1, 0]]),
-        };
         let first_tick = if immediate { 1 } else { MINIMUM_DELAY };
+        let ticks = match variant % 4 {
+            0 => [first_tick, first_tick + 1, first_tick + 2],
+            1 => [first_tick, first_tick + 1, first_tick + 3],
+            2 => [first_tick, first_tick + 2, first_tick + 3],
+            _ => [first_tick, first_tick + 2, first_tick + 4],
+        };
         let raw = RawConsequence {
             occurrences: [base, base + 1, base + 2],
-            ticks: [first_tick, first_tick + 1, first_tick + 2],
-            arrows,
-            root,
+            ticks,
+            arrows: [[0, 1], [1, 2]],
+            root: 0,
         };
         assert!(physical_consequence_exact(raw));
         raw
@@ -243,10 +243,13 @@ mod frozen_learning {
             }));
         }
         for arrow in raw.arrows {
+            let delay = raw.ticks[usize::from(arrow[1])]
+                .checked_sub(raw.ticks[usize::from(arrow[0])])
+                .expect("causal consequence arrow advances physical time");
             substrate.add_arrow(ArrowSpec {
                 from: ids[usize::from(arrow[0])],
                 to: ids[usize::from(arrow[1])],
-                delay: 1,
+                delay: i32::from(delay),
                 transient_delay: 0,
                 phase: 0,
                 coupling: 1,
@@ -521,5 +524,13 @@ mod tests {
     fn probe_composes_frozen_learning_with_physical_competition() {
         let report = run_probe();
         assert!(report.passed, "{report:#?}");
+    }
+
+    #[test]
+    fn probe_worlds_transfer_under_mirror_and_layout_change() {
+        let world_a = world_a(1_301_000_000, 1, true);
+        let world_b = world_b(1_303_000_000, true);
+        assert!(world_a.passed, "{world_a:#?}");
+        assert!(world_b.passed, "{world_b:#?}");
     }
 }
