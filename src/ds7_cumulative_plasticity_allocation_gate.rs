@@ -1,7 +1,7 @@
 //! Development-only cumulative DS7 retained-route GATE.
 
-pub const PROTOCOL: &str = "ds7-cumulative-plasticity-allocation-gate-v2";
-pub const PROTOCOL_COMMIT: &str = "12ada39";
+pub const PROTOCOL: &str = "ds7-cumulative-plasticity-allocation-gate-v3";
+pub const PROTOCOL_COMMIT: &str = "9aa6eda";
 pub const AUTHORITATIVE_M4: &str = "8db47281a7c9c97cbb52ced6fc3dcff0e7efa9b2";
 pub const SEEDS: [u64; 6] = [
     22_000_000, 22_500_000, 23_000_000, 23_500_000, 24_000_000, 24_500_000,
@@ -18,7 +18,7 @@ pub const FROZEN_MICRO_SHA256: &str =
 pub const FROZEN_RT0_SHA256: &str =
     "16ef4e2a691e22251d109860ac055c5a1ee78f586ad9335a375589336ad78ed0";
 pub const FROZEN_PROTOCOL_SHA256: &str =
-    "7f03c573fa6d5ad32f0401a1c8c260a844e9f943998a97fcc9a213a7636b61e3";
+    "324d328ed1ec1f20edfa3e5372a5fcefcca37d973e7b033f50cd2a0d26cfc9f5";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GateCell {
@@ -32,7 +32,12 @@ pub struct GateCell {
     pub always_open_admissions: usize,
     pub admission_reduction: f64,
     pub shuffled_reversal: bool,
-    pub withheld_removed: bool,
+    pub entry_resistance_correct: i32,
+    pub entry_resistance_shuffled: i32,
+    pub final_resistance_correct: i32,
+    pub final_resistance_shuffled: i32,
+    pub removed_correct: bool,
+    pub removed_shuffled: bool,
     pub stale_blocked: bool,
     pub repaired_correct: usize,
     pub repaired_total: usize,
@@ -201,7 +206,7 @@ mod frozen_allocator {
         withheld: Edge,
     ) -> bool {
         let edges = route_edges(route);
-        for index in 0..400u64 {
+        for index in 0..424u64 {
             if !path.proposals.contains_key(&withheld) {
                 return true;
             }
@@ -225,14 +230,18 @@ mod frozen_allocator {
         route: &[PhysicalEncounter],
         distractors: &[PhysicalEncounter],
         seed: u64,
-    ) -> (bool, bool, usize, bool) {
+    ) -> (i32, i32, i32, i32, bool, bool, bool, usize, bool) {
         let edges = route_edges(route);
         let withheld = edges[0];
         let mut correct = trained.clone();
         let mut shuffled = trained.clone();
         let swapped = shuffled.swap_values(route[0].snapshot(), distractors[0].snapshot());
+        let entry_correct = correct.proposal_resistance(withheld);
+        let entry_shuffled = shuffled.proposal_resistance(withheld);
         let removed_correct = age_without_one(&mut correct, route, distractors[0], withheld);
         let removed_shuffled = age_without_one(&mut shuffled, route, distractors[0], withheld);
+        let final_correct = correct.proposal_resistance(withheld);
+        let final_shuffled = shuffled.proposal_resistance(withheld);
         let stale_blocked = !correct.execute(withheld) && !shuffled.execute(withheld);
 
         correct.begin_event();
@@ -253,7 +262,12 @@ mod frozen_allocator {
         let shuffled_missing = shuffled.local_encounter(route[0]).is_none()
             && !shuffled.proposals.contains_key(&withheld);
         (
-            removed_correct && removed_shuffled,
+            entry_correct,
+            entry_shuffled,
+            final_correct,
+            final_shuffled,
+            removed_correct,
+            removed_shuffled,
             stale_blocked,
             repaired_correct,
             swapped && shuffled_missing,
@@ -298,8 +312,17 @@ mod frozen_allocator {
             && distractor_admissions <= (load + 7) / 8
             && admission_reduction >= 0.50;
         let shuffled_reversal = shuffled_reversal(&path, &route, &distractors);
-        let (withheld_removed, stale_blocked, repaired_correct, shuffled_repair_blocked) =
-            repair_comparison(&repair_base, &route, &distractors, seed);
+        let (
+            entry_resistance_correct,
+            entry_resistance_shuffled,
+            final_resistance_correct,
+            final_resistance_shuffled,
+            removed_correct,
+            removed_shuffled,
+            stale_blocked,
+            repaired_correct,
+            shuffled_repair_blocked,
+        ) = repair_comparison(&repair_base, &route, &distractors, seed);
         let retained_economy = path.proposals.len() < always_open_admissions
             && edges.iter().all(|edge| path.proposals.contains_key(edge))
             && path.prototype_resistance(route[0].snapshot()) > 0
@@ -331,7 +354,12 @@ mod frozen_allocator {
             && heldout_correct == 32
             && economy_pass
             && shuffled_reversal
-            && withheld_removed
+            && entry_resistance_correct == 105
+            && entry_resistance_shuffled == 105
+            && final_resistance_correct == 0
+            && final_resistance_shuffled == 0
+            && removed_correct
+            && removed_shuffled
             && stale_blocked
             && repaired_correct == 32
             && shuffled_repair_blocked
@@ -350,7 +378,12 @@ mod frozen_allocator {
             always_open_admissions,
             admission_reduction,
             shuffled_reversal,
-            withheld_removed,
+            entry_resistance_correct,
+            entry_resistance_shuffled,
+            final_resistance_correct,
+            final_resistance_shuffled,
+            removed_correct,
+            removed_shuffled,
             stale_blocked,
             repaired_correct,
             repaired_total: 32,
