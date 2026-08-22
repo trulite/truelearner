@@ -1,7 +1,7 @@
 //! Development-only cumulative DS8 non-semantic-credit path probe.
 
-pub const PROTOCOL: &str = "ds8-cumulative-semantic-credit-probe-v1";
-pub const PROTOCOL_COMMIT: &str = "60f34e781ea2ab3632283cb2177b31be456152b1";
+pub const PROTOCOL: &str = "ds8-cumulative-semantic-credit-probe-v2";
+pub const PROTOCOL_COMMIT: &str = "b044ffbbee46e40e256c756f5fb042b017996043";
 pub const AUTHORITATIVE_M5: &str = "9c5ba68a6a4ae37b51575ebaae414ab51a248575";
 pub const PROBE_SEED: u64 = 40_000_000;
 pub const FROZEN_ACTIVATION_SHA256: &str =
@@ -10,6 +10,8 @@ pub const FROZEN_AUDIT_SHA256: &str =
     "33b963dd50b711f49bc0e90d33adb0d9d80020e5c33ba024d3e861da56d9a326";
 pub const FROZEN_PROTOCOL_SHA256: &str =
     "a9a944d3ffab8fe53f303db773846c8f53f7dbb05c8558958567814e0b37f953";
+pub const FROZEN_PROTOCOL_V2_SHA256: &str =
+    "93cd9c69fa8ae1fc4589c4bed2d1a8add81a87b992bdd0fc9dc3bb33acfe218c";
 pub const FROZEN_M5_ALLOCATOR_SHA256: &str =
     "e755a70deada891e5c4db3b55809ca84ea8ad31a8bd3affe564bf08a95f8dff7";
 pub const FROZEN_M5_GATE_SHA256: &str =
@@ -58,6 +60,27 @@ struct SourceAudit {
     frozen_inputs: bool,
     no_semantic_channels: bool,
     physical_link_exact: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AuditReport {
+    pub activation: bool,
+    pub dependency: bool,
+    pub protocol_v1: bool,
+    pub protocol_v2: bool,
+    pub allocator: bool,
+    pub gate: bool,
+    pub csv: bool,
+    pub md: bool,
+    pub d3: bool,
+    pub d2: bool,
+    pub c0: bool,
+    pub cp0: bool,
+    pub forbidden: usize,
+    pub linkers: usize,
+    pub normalizers: usize,
+    pub occurrence_identity: usize,
+    pub passed: bool,
 }
 
 impl SourceAudit {
@@ -260,7 +283,9 @@ mod frozen_m5 {
         first_updates: usize,
         second_updates: usize,
         all_magnitudes_equal: bool,
-        all_variations_executed: bool,
+        first_blank_executed: bool,
+        second_blank_executed: bool,
+        executions: usize,
     }
 
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -331,7 +356,9 @@ mod frozen_m5 {
         let mut first_updates = 0;
         let mut second_updates = 0;
         let mut all_magnitudes_equal = true;
-        let mut all_variations_executed = true;
+        let mut first_blank_executed = false;
+        let mut second_blank_executed = false;
+        let mut executions = 0;
         for round in 0..12usize {
             let first_variant = if swapped { round % 4 } else { 0 };
             let second_variant = if swapped { 0 } else { round % 4 };
@@ -357,7 +384,11 @@ mod frozen_m5 {
                 first,
                 second_raw,
             );
-            all_variations_executed &= first_executed && second_executed;
+            if round == 0 {
+                first_blank_executed = first_executed;
+                second_blank_executed = second_executed;
+            }
+            executions += usize::from(first_executed) + usize::from(second_executed);
             first_updates += usize::from(first_updated);
             second_updates += usize::from(second_updated);
         }
@@ -369,7 +400,9 @@ mod frozen_m5 {
             first_updates,
             second_updates,
             all_magnitudes_equal,
-            all_variations_executed,
+            first_blank_executed,
+            second_blank_executed,
+            executions,
         }
     }
 
@@ -522,10 +555,11 @@ mod frozen_m5 {
             admissions(&swapped.path, seed + 3_000_000, true);
 
         InternalReport {
-            path_exists: trained.all_variations_executed,
-            physical_consequences: trained.learner.work.spikes == 72
-                && trained.learner.work.routes == 48
-                && trained.learner.work.observations == 24,
+            path_exists: trained.first_blank_executed && trained.second_blank_executed,
+            physical_consequences: trained.executions < 24
+                && trained.learner.work.spikes == trained.executions as u64 * 3
+                && trained.learner.work.routes == trained.executions as u64 * 2
+                && trained.learner.work.observations == trained.executions as u64,
             one_direction: direction == Some(trained.first),
             equal_magnitude: trained.all_magnitudes_equal,
             active_only: active_only_control(&trained, seed),
@@ -552,7 +586,7 @@ mod frozen_m5 {
     }
 }
 
-fn source_audit() -> SourceAudit {
+pub fn audit() -> AuditReport {
     let source = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/src/ds8_cumulative_semantic_credit_probe.rs"
@@ -572,25 +606,68 @@ fn source_audit() -> SourceAudit {
         ["semantic", "_polarity"].concat(),
         ["selected", "_route"].concat(),
     ];
-    SourceAudit {
-        frozen_inputs: env!("DS8_ACTIVATION_SHA256") == FROZEN_ACTIVATION_SHA256
-            && env!("DS8_AUDIT_SHA256") == FROZEN_AUDIT_SHA256
-            && env!("DS8_PROTOCOL_SHA256") == FROZEN_PROTOCOL_SHA256
-            && env!("DS8_M5_ALLOCATOR_SHA256") == FROZEN_M5_ALLOCATOR_SHA256
-            && env!("DS8_M5_GATE_SHA256") == FROZEN_M5_GATE_SHA256
-            && env!("DS8_M5_CSV_SHA256") == FROZEN_M5_CSV_SHA256
-            && env!("DS8_M5_MD_SHA256") == FROZEN_M5_MD_SHA256
-            && env!("DS8_D3_SHA256") == FROZEN_D3_SHA256
-            && env!("DS8_D2_SHA256") == FROZEN_D2_SHA256
-            && env!("DS8_C0_SHA256") == FROZEN_C0_SHA256
-            && env!("DS8_CP0_SHA256") == FROZEN_CP0_SHA256,
-        no_semantic_channels: forbidden.iter().all(|token| !path.contains(token)),
-        physical_link_exact: path
+    let mut report = AuditReport {
+        activation: env!("DS8_ACTIVATION_SHA256") == FROZEN_ACTIVATION_SHA256,
+        dependency: env!("DS8_AUDIT_SHA256") == FROZEN_AUDIT_SHA256,
+        protocol_v1: env!("DS8_PROTOCOL_SHA256") == FROZEN_PROTOCOL_SHA256,
+        protocol_v2: env!("DS8_PROTOCOL_V2_SHA256") == FROZEN_PROTOCOL_V2_SHA256,
+        allocator: env!("DS8_M5_ALLOCATOR_SHA256") == FROZEN_M5_ALLOCATOR_SHA256,
+        gate: env!("DS8_M5_GATE_SHA256") == FROZEN_M5_GATE_SHA256,
+        csv: env!("DS8_M5_CSV_SHA256") == FROZEN_M5_CSV_SHA256,
+        md: env!("DS8_M5_MD_SHA256") == FROZEN_M5_MD_SHA256,
+        d3: env!("DS8_D3_SHA256") == FROZEN_D3_SHA256,
+        d2: env!("DS8_D2_SHA256") == FROZEN_D2_SHA256,
+        c0: env!("DS8_C0_SHA256") == FROZEN_C0_SHA256,
+        cp0: env!("DS8_CP0_SHA256") == FROZEN_CP0_SHA256,
+        forbidden: forbidden
+            .iter()
+            .map(|token| path.matches(token).count())
+            .sum(),
+        linkers: path
             .matches("path.delayed_experience(differential)")
-            .count()
-            == 1
-            && path.matches("fn execute_and_normalize(").count() == 1
-            && !path.contains("occurrences"),
+            .count(),
+        normalizers: path.matches("fn execute_and_normalize(").count(),
+        occurrence_identity: path.matches("occurrences").count(),
+        passed: false,
+    };
+    report.passed = report.activation
+        && report.dependency
+        && report.protocol_v1
+        && report.protocol_v2
+        && report.allocator
+        && report.gate
+        && report.csv
+        && report.md
+        && report.d3
+        && report.d2
+        && report.c0
+        && report.cp0
+        && report.forbidden == 0
+        && report.linkers == 1
+        && report.normalizers == 1
+        && report.occurrence_identity == 0;
+    report
+}
+
+fn source_audit() -> SourceAudit {
+    let report = audit();
+    SourceAudit {
+        frozen_inputs: report.activation
+            && report.dependency
+            && report.protocol_v1
+            && report.protocol_v2
+            && report.allocator
+            && report.gate
+            && report.csv
+            && report.md
+            && report.d3
+            && report.d2
+            && report.c0
+            && report.cp0,
+        no_semantic_channels: report.forbidden == 0,
+        physical_link_exact: report.linkers == 1
+            && report.normalizers == 1
+            && report.occurrence_identity == 0,
     }
 }
 

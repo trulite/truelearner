@@ -763,6 +763,10 @@ fn main() {
             "experiments/ds8_cumulative_semantic_credit_probe_protocol.md",
         ),
         (
+            "DS8_PROTOCOL_V2_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_probe_protocol_v2.md",
+        ),
+        (
             "DS8_M5_ALLOCATOR_SHA256",
             "src/ds7_cumulative_plasticity_targeting_probe.rs",
         ),
