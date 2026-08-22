@@ -1,0 +1,7 @@
+mode,seed,roots,observations,consequence_spikes,consequence_routes,temporal_checks,affordance_comparisons,shape_comparisons,support_updates,direction_comparisons,direction_arrows,direction_spikes,direction_routes,cleanup_items,d3_primary_work,a1_work,persistent_bytes,temporary_peak_bytes,retained_occurrences,retained_handles,ds1_calls,ds1_updates,pass
+MICRO,100,2,16,48,32,16,29,29,16,2,1,1,1,4,179,389,208,192,0,0,0,0,PASS
+GATE,100,2,16,48,32,16,29,29,16,2,1,1,1,4,179,389,208,192,0,0,0,0,PASS
+GATE,101,2,16,48,32,16,29,29,16,2,1,1,1,4,179,390,208,192,0,0,0,0,PASS
+GATE,102,2,16,48,32,16,29,29,16,2,1,1,1,4,179,389,208,192,0,0,0,0,PASS
+GATE,103,2,16,48,32,16,29,29,16,2,1,1,1,4,179,390,208,192,0,0,0,0,PASS
+GATE,104,2,16,48,32,16,29,29,16,2,1,1,1,4,179,389,208,192,0,0,0,0,PASS
