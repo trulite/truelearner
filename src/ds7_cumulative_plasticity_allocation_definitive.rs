@@ -6,38 +6,30 @@ pub const READINESS_COMMIT: &str = "e7d153f334ddf2997c338d55a8aa63ffcc55a7e8";
 pub const AUTHORITATIVE_M4: &str = "8db47281a7c9c97cbb52ced6fc3dcff0e7efa9b2";
 
 pub const SEEDS: [u64; 16] = [
-    30_000_000, 30_500_000, 31_000_000, 31_500_000, 32_000_000, 32_500_000, 33_000_000,
-    33_500_000, 34_000_000, 34_500_000, 35_000_000, 35_500_000, 36_000_000, 36_500_000,
-    37_000_000, 37_500_000,
+    30_000_000, 30_500_000, 31_000_000, 31_500_000, 32_000_000, 32_500_000, 33_000_000, 33_500_000,
+    34_000_000, 34_500_000, 35_000_000, 35_500_000, 36_000_000, 36_500_000, 37_000_000, 37_500_000,
 ];
 pub const LOADS: [usize; 3] = [8, 32, 128];
 pub const CELL_NAMESPACE: u64 = 400_000;
 
 const TARGET_SHA256: &str = "f10f9d7b16106b6014767ff6188a6d556145ba3e5b4335e28de245c7622a7595";
 const ORDER_SHA256: &str = "609dc63ab8051316703899717fc30861d7a700d0ec60f205fa6d687ad478616d";
-const M4_HANDOFF_SHA256: &str =
-    "35bb33bddb014a08a0f1602520290bc1704032aefa3762052331434c88ef66ba";
+const M4_HANDOFF_SHA256: &str = "35bb33bddb014a08a0f1602520290bc1704032aefa3762052331434c88ef66ba";
 const M4_CSV_SHA256: &str = "5c4a2e2b021a26a4cc2161202dd9a62205d426ba361f90a69d00ceb3df470a83";
 const M4_MD_SHA256: &str = "c418f6b5fb5f8f3f83e385c75cd23fb8c88def3650ff80a13a491d0979944768";
-const M4_SOURCE_SHA256: &str =
-    "3d5659fb26ae804dee6122408f9d703ea1f226349772883075a42686ac3fd110";
-const ACTIVATION_SHA256: &str =
-    "f7290c939c54b78986596e937d4932335f995766f292c613eb522f552bb3e892";
-const DEPENDENCY_SHA256: &str =
-    "40305dd998b5fe80db9d4fcceee154288ea523f90bc57f26079025a7492b2509";
-const MANIFEST_SHA256: &str =
-    "138827ef5e9d761cd7cb58a672ed4a4776618d5eb56f5f4e88852ce18cb67504";
+const M4_SOURCE_SHA256: &str = "3d5659fb26ae804dee6122408f9d703ea1f226349772883075a42686ac3fd110";
+const ACTIVATION_SHA256: &str = "f7290c939c54b78986596e937d4932335f995766f292c613eb522f552bb3e892";
+const DEPENDENCY_SHA256: &str = "40305dd998b5fe80db9d4fcceee154288ea523f90bc57f26079025a7492b2509";
+const MANIFEST_SHA256: &str = "138827ef5e9d761cd7cb58a672ed4a4776618d5eb56f5f4e88852ce18cb67504";
 const P2_SHA256: &str = "704f757888d9b3bc89a5a3f5387f3422efb9dd4c746e3784506411b1da763b15";
 const PROBE_PROTOCOL_SHA256: &str =
     "78109beadb9b96164d7a259f88cb73710a10fd6cdf773b053922743c5d8c7044";
-const ALLOCATOR_SHA256: &str =
-    "e755a70deada891e5c4db3b55809ca84ea8ad31a8bd3affe564bf08a95f8dff7";
+const ALLOCATOR_SHA256: &str = "e755a70deada891e5c4db3b55809ca84ea8ad31a8bd3affe564bf08a95f8dff7";
 const PROBE_RUNNER_SHA256: &str =
     "74b2e93e439d5d07cb80a079b762dcd2cca7646bae94a70c930c0663b14b2305";
 const PROBE_RESULT_SHA256: &str =
     "93c11d30b9f3ebfbf6de68a315b3410275acc4031186eaa7e747a81f78a8ded4";
-const PROBE_AUDIT_SHA256: &str =
-    "b6d9f11fcb26d9702d95db989991558f3f86ca99dfe360b597b09a2b84d474f2";
+const PROBE_AUDIT_SHA256: &str = "b6d9f11fcb26d9702d95db989991558f3f86ca99dfe360b597b09a2b84d474f2";
 const MICRO_PROTOCOL_SHA256: &str =
     "1648b4a0e19a13c918a3c92ad221c93b7ae145a34c6e960e57fd9d0f91506eb9";
 const MICRO_SOURCE_SHA256: &str =
@@ -46,8 +38,7 @@ const MICRO_RUNNER_SHA256: &str =
     "e5042196e2f8c6dc238e17fc43c765ba9b612bf9ba0c0a5080be1005c3126114";
 const MICRO_RESULT_SHA256: &str =
     "fa3d0510e0d821d32b2e3dd8c5bc9f357fca653f6e96f7d9d6b8fa19e61a377b";
-const MICRO_AUDIT_SHA256: &str =
-    "bc4e2cd797fb31133b315d8844301ca9734835176713cced0b049508475e84ff";
+const MICRO_AUDIT_SHA256: &str = "bc4e2cd797fb31133b315d8844301ca9734835176713cced0b049508475e84ff";
 const DEVELOPMENT_HANDOFF_SHA256: &str =
     "e2cd6556b31c15457e6e0accf6b1369d0140378138fc063c417372da09fb3a1c";
 const HISTORICAL_V2_PROTOCOL_SHA256: &str =
@@ -56,26 +47,17 @@ const HISTORICAL_V2_SOURCE_SHA256: &str =
     "519b7049da1f3d412132860e8e21f48731186b2675ea5a35a4bdc2da2a09098e";
 const HISTORICAL_V2_RUNNER_SHA256: &str =
     "c2adb04e707acc6f375b66d29a1a28a06b060d21b1a5ac51820bdb29d7800a32";
-const V2_RESULT_SHA256: &str =
-    "cc0278c7476f50c505d7b8813c326203467b6b8b4e17c07f03188891750fccc9";
-const V2_AUDIT_SHA256: &str =
-    "9dbc561d7ec25ad9308df8285454e3b2a0f3c4dfcbb8502b1c1f98cd2cb2e58b";
-const COLLAPSE_SHA256: &str =
-    "10d35f4e0c29ead317ab3bd7254a83752877de582cb6f321b2676f187709e477";
+const V2_RESULT_SHA256: &str = "cc0278c7476f50c505d7b8813c326203467b6b8b4e17c07f03188891750fccc9";
+const V2_AUDIT_SHA256: &str = "9dbc561d7ec25ad9308df8285454e3b2a0f3c4dfcbb8502b1c1f98cd2cb2e58b";
+const COLLAPSE_SHA256: &str = "10d35f4e0c29ead317ab3bd7254a83752877de582cb6f321b2676f187709e477";
 const GATE_PROTOCOL_SHA256: &str =
     "324d328ed1ec1f20edfa3e5372a5fcefcca37d973e7b033f50cd2a0d26cfc9f5";
-const GATE_SOURCE_SHA256: &str =
-    "abaedd16717543270c5ed0ef2c8a16e3a4c0fed0215764443948c36d4adfa297";
-const GATE_RUNNER_SHA256: &str =
-    "606f1a3900f0f251da090ac9cfada39e35e5bfd0db301f0f945d4a3408cad97c";
-const GATE_RESULT_SHA256: &str =
-    "195827830258b36586d2311dc14b636b0d9b19404ce73cf2e5f2905e8f464baa";
-const GATE_AUDIT_SHA256: &str =
-    "50c82f70fb081c43991fff17ee7685aea451220454344a209fad10c3fae78f9b";
-const READINESS_SHA256: &str =
-    "41f1104f6b8fdf8d54a0b3420d3ede7899e1e606ad08ba7d7f48e62895e945fc";
-const PROTOCOL_SHA256: &str =
-    "85887e29737732fd98c7b578560b31cf0874c08210cd6e915c7e6fe06bd67f3f";
+const GATE_SOURCE_SHA256: &str = "abaedd16717543270c5ed0ef2c8a16e3a4c0fed0215764443948c36d4adfa297";
+const GATE_RUNNER_SHA256: &str = "606f1a3900f0f251da090ac9cfada39e35e5bfd0db301f0f945d4a3408cad97c";
+const GATE_RESULT_SHA256: &str = "195827830258b36586d2311dc14b636b0d9b19404ce73cf2e5f2905e8f464baa";
+const GATE_AUDIT_SHA256: &str = "50c82f70fb081c43991fff17ee7685aea451220454344a209fad10c3fae78f9b";
+const READINESS_SHA256: &str = "41f1104f6b8fdf8d54a0b3420d3ede7899e1e606ad08ba7d7f48e62895e945fc";
+const PROTOCOL_SHA256: &str = "85887e29737732fd98c7b578560b31cf0874c08210cd6e915c7e6fe06bd67f3f";
 
 #[allow(dead_code)]
 mod frozen_gate {
@@ -206,8 +188,7 @@ fn source_audit() -> SourceAudit {
             && env!("DS7_DEFINITIVE_M4_CSV_SHA256") == M4_CSV_SHA256
             && env!("DS7_DEFINITIVE_M4_MD_SHA256") == M4_MD_SHA256
             && env!("DS7_DEFINITIVE_M4_SOURCE_SHA256") == M4_SOURCE_SHA256,
-        activation_and_dependency: env!("DS7_DEFINITIVE_ACTIVATION_SHA256")
-            == ACTIVATION_SHA256
+        activation_and_dependency: env!("DS7_DEFINITIVE_ACTIVATION_SHA256") == ACTIVATION_SHA256
             && env!("DS7_DEFINITIVE_DEPENDENCY_SHA256") == DEPENDENCY_SHA256
             && env!("DS7_DEFINITIVE_MANIFEST_SHA256") == MANIFEST_SHA256
             && env!("DS7_DEFINITIVE_P2_SHA256") == P2_SHA256,
@@ -221,8 +202,7 @@ fn source_audit() -> SourceAudit {
             && env!("DS7_DEFINITIVE_MICRO_RUNNER_SHA256") == MICRO_RUNNER_SHA256
             && env!("DS7_DEFINITIVE_MICRO_RESULT_SHA256") == MICRO_RESULT_SHA256
             && env!("DS7_DEFINITIVE_MICRO_AUDIT_SHA256") == MICRO_AUDIT_SHA256
-            && env!("DS7_DEFINITIVE_DEVELOPMENT_HANDOFF_SHA256")
-                == DEVELOPMENT_HANDOFF_SHA256,
+            && env!("DS7_DEFINITIVE_DEVELOPMENT_HANDOFF_SHA256") == DEVELOPMENT_HANDOFF_SHA256,
         immutable_v2_negative: env!("DS7_DEFINITIVE_V2_RESULT_SHA256") == V2_RESULT_SHA256
             && env!("DS7_DEFINITIVE_V2_AUDIT_SHA256") == V2_AUDIT_SHA256
             && env!("DS7_DEFINITIVE_COLLAPSE_SHA256") == COLLAPSE_SHA256,
@@ -247,9 +227,9 @@ pub fn source_preflight(outputs_absent: bool) -> Preflight {
     let source = source_audit();
     let explicit_seeds = SEEDS
         == [
-            30_000_000, 30_500_000, 31_000_000, 31_500_000, 32_000_000, 32_500_000,
-            33_000_000, 33_500_000, 34_000_000, 34_500_000, 35_000_000, 35_500_000,
-            36_000_000, 36_500_000, 37_000_000, 37_500_000,
+            30_000_000, 30_500_000, 31_000_000, 31_500_000, 32_000_000, 32_500_000, 33_000_000,
+            33_500_000, 34_000_000, 34_500_000, 35_000_000, 35_500_000, 36_000_000, 36_500_000,
+            37_000_000, 37_500_000,
         ]
         && SEEDS.len() == 16;
     let explicit_loads = LOADS == [8, 32, 128] && LOADS.len() == 3;
@@ -335,7 +315,10 @@ fn run_cell(index: usize, seed: u64, load: usize) -> DefinitiveCell {
 
 pub fn run_definitive(outputs_absent: bool) -> DefinitiveReport {
     let preflight = source_preflight(outputs_absent);
-    assert!(preflight.passed, "definitive preflight must pass before any cell");
+    assert!(
+        preflight.passed,
+        "definitive preflight must pass before any cell"
+    );
     let mut cells = Vec::with_capacity(SEEDS.len() * LOADS.len());
     for seed in SEEDS {
         for load in LOADS {

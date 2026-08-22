@@ -661,10 +661,7 @@ fn main() {
             "DS7_DEFINITIVE_MANIFEST_SHA256",
             "experiments/desupply_ds4_ds8_dependency_manifest.csv",
         ),
-        (
-            "DS7_DEFINITIVE_P2_SHA256",
-            "src/local_plasticity.rs",
-        ),
+        ("DS7_DEFINITIVE_P2_SHA256", "src/local_plasticity.rs"),
         (
             "DS7_DEFINITIVE_PROBE_PROTOCOL_SHA256",
             "experiments/ds7_cumulative_plasticity_allocation_probe_protocol.md",
