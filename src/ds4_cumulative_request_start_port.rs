@@ -603,8 +603,7 @@ fn development_snapshot(
             ready_learners += 1;
             competence_episodes.push(episode);
         }
-        single_role_learners +=
-            usize::from(frozen_p4::ds4_request_role_count(&request) == 1);
+        single_role_learners += usize::from(frozen_p4::ds4_request_role_count(&request) == 1);
 
         let p4_before = frozen_p4::ds4_request_fingerprint(&request);
         let m3_before = frozen_m3::ds4_event_state(&event_gate);
@@ -616,13 +615,10 @@ fn development_snapshot(
             } else {
                 EventFixture::Relabelled
             };
-            let activity = frozen_m3::event_completion_activity(
-                &mut event_gate,
-                event_seed,
-                fixture,
-            );
-            relabelled_m3_transfer &= activity.completion_spikes > 0
-                && activity.learned_uses == activity.generic_spans;
+            let activity =
+                frozen_m3::event_completion_activity(&mut event_gate, event_seed, fixture);
+            relabelled_m3_transfer &=
+                activity.completion_spikes > 0 && activity.learned_uses == activity.generic_spans;
             let step = frozen_p4::activate_request_selection(
                 &mut request,
                 activity.completion_spikes,
@@ -651,16 +647,15 @@ fn development_snapshot(
             && no_event_before == frozen_p4::ds4_request_fingerprint(&request);
 
         let mut subthreshold_gate = frozen_m3::ds4_event_gate(cell_seed + 200_000, 1);
-        let subthreshold = subthreshold_gate.as_mut().map_or_else(
-            EventActivity::default,
-            |gate| {
+        let subthreshold = subthreshold_gate
+            .as_mut()
+            .map_or_else(EventActivity::default, |gate| {
                 frozen_m3::event_completion_activity(
                     gate,
                     cell_seed + 200_100,
                     EventFixture::Standard,
                 )
-            },
-        );
+            });
         let mut subthreshold_request =
             frozen_p4::ds4_request_session((cell_seed + 200_000) as usize);
         let subthreshold_step = frozen_p4::activate_request_selection(
@@ -693,13 +688,11 @@ fn development_snapshot(
         invalid_rejected_and_reentered &=
             invalid.completion_spikes == 0 && reentry.completion_spikes > 0;
 
-        let Some(mut symmetric_gate) = frozen_m3::ds4_event_gate(cell_seed + 300_000, 2)
-        else {
+        let Some(mut symmetric_gate) = frozen_m3::ds4_event_gate(cell_seed + 300_000, 2) else {
             all_gates_available = false;
             continue;
         };
-        let mut symmetric_request =
-            frozen_p4::ds4_request_session((cell_seed + 300_000) as usize);
+        let mut symmetric_request = frozen_p4::ds4_request_session((cell_seed + 300_000) as usize);
         let mut symmetric_functional = 0usize;
         for episode in 0..128usize {
             let activity = frozen_m3::event_completion_activity(
@@ -707,10 +700,8 @@ fn development_snapshot(
                 cell_seed + 301_000 + episode as u64,
                 EventFixture::Standard,
             );
-            let step = frozen_p4::ds4_symmetric_step(
-                &mut symmetric_request,
-                activity.completion_spikes,
-            );
+            let step =
+                frozen_p4::ds4_symmetric_step(&mut symmetric_request, activity.completion_spikes);
             symmetric_functional += usize::from(step.functional);
         }
         symmetric_rejected &= !frozen_p4::ds4_request_ready(&symmetric_request)
@@ -906,12 +897,13 @@ pub fn run(mode: HarnessMode) -> Report {
     let mut first = development_snapshot(base_seed, learner_count, held_out);
     let second = development_snapshot(base_seed, learner_count, held_out);
     let duplicate_deterministic = first == second;
-    if let Some(control) = first.controls.iter_mut().find(|control| control.number == 12) {
+    if let Some(control) = first
+        .controls
+        .iter_mut()
+        .find(|control| control.number == 12)
+    {
         control.passed &= duplicate_deterministic;
-        control.diagnostic = format!(
-            "{} duplicate={duplicate_deterministic}",
-            control.diagnostic
-        );
+        control.diagnostic = format!("{} duplicate={duplicate_deterministic}", control.diagnostic);
     }
     let source_ready = first.source.passed();
     let physical_path = first.m3_learned_uses > 0
