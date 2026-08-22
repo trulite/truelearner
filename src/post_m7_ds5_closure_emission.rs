@@ -51,6 +51,10 @@ pub const FROZEN_M6_SOURCE_SHA256: &str =
     "11b4229122b3e0788ca30c55579b91ffe07461de9a138860690134565fcf2ed6";
 pub const FROZEN_PROBE_V1_RESULT_SHA256: &str =
     "1e2faea63db4b165a4e35b3f9fdccccb373eecbe4b5c173102612593cf4716c4";
+pub const FROZEN_PROBE_RETRY_RESULT_SHA256: &str =
+    "c947e50e77fb56d696a53eb1b4f125f5710405fc708e1071d0056579cb52a085";
+pub const FROZEN_MICRO_RESULT_SHA256: &str =
+    "21c716c87b364e4611d11773d0ff4a914e0d19325ce3b90084be146d8c891e2c";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProbeV1Report {
@@ -631,6 +635,8 @@ pub struct SourceAudit {
     pub exact_m7: bool,
     pub protocol_frozen: bool,
     pub probe_negative_frozen: bool,
+    pub probe_retry_frozen: bool,
+    pub micro_frozen: bool,
     pub frozen_parts: bool,
     pub linker_exact: bool,
     pub information_boundary: bool,
@@ -642,6 +648,8 @@ impl SourceAudit {
         self.exact_m7
             && self.protocol_frozen
             && self.probe_negative_frozen
+            && self.probe_retry_frozen
+            && self.micro_frozen
             && self.frozen_parts
             && self.linker_exact
             && self.information_boundary
@@ -675,6 +683,9 @@ fn source_audit() -> SourceAudit {
         protocol_frozen: env!("POST_M7_DS5_PROTOCOL_SHA256") == FROZEN_PROTOCOL_SHA256,
         probe_negative_frozen: env!("POST_M7_DS5_PROBE_V1_RESULT_SHA256")
             == FROZEN_PROBE_V1_RESULT_SHA256,
+        probe_retry_frozen: env!("POST_M7_DS5_PROBE_RETRY_RESULT_SHA256")
+            == FROZEN_PROBE_RETRY_RESULT_SHA256,
+        micro_frozen: env!("POST_M7_DS5_MICRO_RESULT_SHA256") == FROZEN_MICRO_RESULT_SHA256,
         frozen_parts: frozen_parts_exact(),
         linker_exact: !linker.is_empty()
             && linker.matches("frozen_cumulative::differential").count() == 1

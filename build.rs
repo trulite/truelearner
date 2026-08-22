@@ -1135,6 +1135,14 @@ fn main() {
             "results/post_m7_ds5_closure_emission_probe_v1_negative.md",
         ),
         (
+            "POST_M7_DS5_PROBE_RETRY_RESULT_SHA256",
+            "results/post_m7_ds5_closure_emission_probe_retry.md",
+        ),
+        (
+            "POST_M7_DS5_MICRO_RESULT_SHA256",
+            "results/post_m7_ds5_closure_emission_micro.md",
+        ),
+        (
             "POST_M6_DS4_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/post_m6_ds4_arrival_initiation_definitive_protocol.md",
         ),
