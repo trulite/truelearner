@@ -190,9 +190,9 @@ mod frozen_learning {
     pub(super) fn develop(session: &mut Session, stable: [bool; 2], sweeps: usize) {
         for _ in 0..sweeps {
             begin_sweep(&mut session.stack);
-            for route in 0..2 {
+            for (route, stable_route) in stable.iter().copied().enumerate() {
                 for ordinal in 0..session.routes[route].len() {
-                    let variant = if stable[route] {
+                    let variant = if stable_route {
                         0
                     } else {
                         (session.episode * session.routes[route].len() + ordinal) % 4
@@ -222,29 +222,24 @@ mod frozen_learning {
     }
 
     pub(super) fn return_consequence(session: &mut Session, route: usize, variant: usize) -> usize {
-        let mut applications = 0;
-        for ordinal in 0..session.routes[route].len() {
-            let edge = session.routes[route][ordinal].0.edge();
-            if !session.stack.path.execute(edge) {
-                continue;
-            }
-            let raw = consequence(
-                session.seed + route as u64 * 100_000,
-                session.episode * 4 + ordinal,
-                variant,
-                false,
-            );
-            let applied = session.stack.learner.apply(
+        let closing = session.routes[route].len() - 1;
+        let edge = session.routes[route][closing].0.edge();
+        let executed = session.stack.path.execute(edge);
+        let applied = executed
+            && session.stack.learner.apply(
                 &mut session.stack.path,
-                session.routes[route][ordinal].0.snapshot(),
+                session.routes[route][closing].0.snapshot(),
                 session.routes[1 - route][0].0.snapshot(),
-                raw,
+                consequence(
+                    session.seed + route as u64 * 100_000,
+                    session.episode,
+                    variant,
+                    false,
+                ),
             );
-            applications += usize::from(applied);
-            session.stack.applications += usize::from(applied);
-        }
+        session.stack.applications += usize::from(applied);
         session.episode += 1;
-        applications
+        usize::from(applied)
     }
 
     pub(super) fn inspect(session: &Session) -> super::Landscape {
@@ -417,8 +412,8 @@ fn compete(live: [usize; 2], transient: usize, reverse_layout: bool) -> Competit
         (40, 1),
         (50, 1),
     ];
-    for route in 0..2 {
-        for supporter in 0..live[route] {
+    for (route, supporter_count) in live.iter().copied().enumerate() {
+        for supporter in 0..supporter_count {
             physical.push((100 + route as u64 * 100 + supporter as u64, 1));
         }
     }
