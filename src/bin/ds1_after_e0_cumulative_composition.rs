@@ -43,6 +43,24 @@ fn main() {
         report.invalidation_reopening,
         report.functional_recovery,
     );
+    println!(
+        "action_surface choose_defs={} choose_calls={} apply_defs={} apply_calls={} frozen_choice_defs={} frozen_choice_calls={} e0_proposals={} propagation_surfaces={} e0_bool_callbacks={} owned_reports={} exposed_action_pairs={} m0_execution_surfaces={} m0_ds1_compatible={} choice_to_execution={} post_action_consequence={}",
+        report.action_surface.ds1_choose_definitions,
+        report.action_surface.ds1_choose_reachable_calls,
+        report.action_surface.ds1_apply_consequence_definitions,
+        report.action_surface.ds1_apply_consequence_reachable_calls,
+        report.action_surface.ds1_frozen_choice_definitions,
+        report.action_surface.ds1_frozen_choice_read_only_calls,
+        report.action_surface.e0_candidate_proposal_sites,
+        report.action_surface.e0_propagation_observation_surfaces,
+        report.action_surface.e0_formation_bool_consequence_callbacks,
+        report.action_surface.composition_owned_report_surfaces,
+        report.action_surface.composition_exposed_action_pair_values,
+        report.action_surface.m0_correspondence_execution_surfaces,
+        report.action_surface.m0_ds1_compatible_execution_surfaces,
+        report.action_surface.ds1_choice_to_physical_execution_paths,
+        report.action_surface.natural_post_action_consequence_paths,
+    );
     for seed in &report.seeds {
         println!(
             "CUMULATIVE DS1 DEVELOPMENT seed={} E0-A={} E0-B={} DS1_consumed={} actual_actions={} action_execution=BLANK consequence=BLANK acquisition=BLANK transfer=BLANK invalidation=BLANK recovery=BLANK E0_persistent_bytes={} E0_temporary_peak_bytes={} DS1_read_only_invocations={}",

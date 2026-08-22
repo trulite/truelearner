@@ -48,6 +48,31 @@ boundary-ordering actions. Treating the learner's indices as routes or
 correctness would manufacture the missing prerequisite, so the attempt freezes
 at stage 4 without rescue.
 
+The parent-audit amendment replaces the original literal absence report with a
+source-derived `ActionSurfaceInventory`. Exact frozen source/type counts are:
+
+```text
+DS1 choose definitions/calls                 1 / 0
+DS1 apply_consequence definitions/calls      1 / 0
+DS1 frozen_choice definitions/read-only calls 1 / 1
+E0 candidate proposal sites                  1
+E0 propagation-observation surfaces          2
+E0 formation-only boolean callbacks           1
+owned composition report surfaces             2
+exported action-pair values                    0
+M0 correspondence execution signatures        3
+M0 DS1-compatible execution signatures        0
+DS1 choice-to-physical-execution paths         0
+natural post-action consequence paths          0
+```
+
+`actual_anonymous_actions_available` is now computed from these values. It is
+false only because the required reachable `choose`, exported pair, compatible
+execution signature, and choice-to-execution path are not jointly present.
+Focused tests fail if a compatible action pair, mapping, or consequence path
+appears while stage 4 still reports absent. The scientific first-collapse
+therefore remains stage 4 with a mechanically supported absence proof.
+
 ## MICRO/GATE and work
 
 Release MICRO seed `100` and release GATE seeds `100..104` passed the audit
@@ -81,7 +106,8 @@ cargo run --release --quiet --bin ds1_after_e0_cumulative_composition -- --micro
 cargo run --release --quiet --bin ds1_after_e0_cumulative_composition -- --gate
 ```
 
-Three focused library tests passed. `--definitive` rejected before calling the
+Five focused library tests passed after the parent-audit amendment.
+`--definitive` rejected before calling the
 harness with exit status 2. The digest of every existing file under `results/`
 was identical before and after rejection:
 `491a63c17ba35d768b630720063793a4db09686cfe7cb33694fd80ea63bbd4e4`.
@@ -115,5 +141,7 @@ Persistent sandbox `ij04oormcxmaks8eoz06i` was reused, reset to an
 - leak audit: `experiments/ds1_after_e0_cumulative_leak_audit.md`;
 - physical ledger:
   `experiments/ds1_after_e0_cumulative_physical_ledger.csv`;
+- parent-audit amendment:
+  `experiments/ds1_after_e0_cumulative_parent_audit_amendment.md`;
 - harness: `src/ds1_after_e0_cumulative_composition.rs`;
 - runner: `src/bin/ds1_after_e0_cumulative_composition.rs`.

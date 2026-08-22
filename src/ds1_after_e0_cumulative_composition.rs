@@ -23,6 +23,42 @@ pub const COLLAPSE_STAGE: &str =
     "4. actual anonymous boundary-ordering/action alternatives available from current substrate";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActionSurfaceInventory {
+    pub ds1_choose_definitions: usize,
+    pub ds1_choose_reachable_calls: usize,
+    pub ds1_apply_consequence_definitions: usize,
+    pub ds1_apply_consequence_reachable_calls: usize,
+    pub ds1_frozen_choice_definitions: usize,
+    pub ds1_frozen_choice_read_only_calls: usize,
+    pub e0_candidate_proposal_sites: usize,
+    pub e0_propagation_observation_surfaces: usize,
+    pub e0_formation_bool_consequence_callbacks: usize,
+    pub composition_owned_report_surfaces: usize,
+    pub composition_exposed_action_pair_values: usize,
+    pub m0_correspondence_execution_surfaces: usize,
+    pub m0_ds1_compatible_execution_surfaces: usize,
+    pub ds1_choice_to_physical_execution_paths: usize,
+    pub natural_post_action_consequence_paths: usize,
+}
+
+impl ActionSurfaceInventory {
+    pub fn actual_anonymous_actions_available(&self) -> bool {
+        self.ds1_choose_reachable_calls > 0
+            && self.composition_exposed_action_pair_values > 0
+            && self.m0_ds1_compatible_execution_surfaces > 0
+            && self.ds1_choice_to_physical_execution_paths > 0
+    }
+
+    fn supports_stage_four_absence(&self) -> bool {
+        !self.actual_anonymous_actions_available()
+            && self.composition_exposed_action_pair_values == 0
+            && self.m0_ds1_compatible_execution_surfaces == 0
+            && self.ds1_choice_to_physical_execution_paths == 0
+            && self.natural_post_action_consequence_paths == 0
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompositionLedger {
     pub e0_work: WorkLedger,
     pub e0_persistent_bytes: usize,
@@ -79,8 +115,110 @@ pub struct CompositionReport {
     pub first_collapse: String,
     pub frozen_ds1_sha256: String,
     pub ds_e0_source_sha256: String,
+    pub action_surface: ActionSurfaceInventory,
     pub seeds: Vec<SeedCompositionAudit>,
     pub audit_passed: bool,
+}
+
+fn function_signature<'a>(source: &'a str, name: &str) -> Option<&'a str> {
+    let marker = format!("fn {name}");
+    let start = source.find(&marker)?;
+    let tail = &source[start..];
+    let end = tail.find('{')?;
+    Some(tail[..end].trim())
+}
+
+fn struct_surface<'a>(source: &'a str, name: &str) -> Option<&'a str> {
+    let marker = format!("struct {name}");
+    let start = source.find(&marker)?;
+    let tail = &source[start..];
+    let open = tail.find('{')?;
+    let mut depth = 0usize;
+    for (offset, byte) in tail[open..].bytes().enumerate() {
+        match byte {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&tail[..open + offset + 1]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn exposed_pair_value_count(surface: &str) -> usize {
+    surface
+        .lines()
+        .filter(|line| {
+            let field_type = line.split_once(':').map(|(_, field_type)| field_type);
+            field_type.is_some_and(|field_type| {
+                let compact = field_type.split_whitespace().collect::<String>();
+                compact.contains(";2]")
+                    || compact.starts_with('(') && compact.matches(',').count() == 1
+            })
+        })
+        .count()
+}
+
+pub fn action_surface_inventory() -> ActionSurfaceInventory {
+    let e0 = include_str!("ds_e0_anonymous_event_formation.rs");
+    let m0 = include_str!("ffs_same0.rs");
+    let compiled = include_str!("ffs_same0/cs0a.rs");
+    let seed_report = struct_surface(e0, "SeedReport").expect("frozen SeedReport surface");
+    let gate_report = struct_surface(e0, "GateReport").expect("frozen GateReport surface");
+    let public_pair_values =
+        exposed_pair_value_count(seed_report) + exposed_pair_value_count(gate_report);
+    let m0_execution_signatures = [
+        function_signature(m0, "execute_resolution").expect("frozen M0 execution surface"),
+        function_signature(m0, "execute").expect("frozen M0 execution surface"),
+        function_signature(compiled, "execute_compiled_or_generic")
+            .expect("frozen compiled execution surface"),
+    ];
+    let compatible_m0_surfaces = m0_execution_signatures
+        .iter()
+        .filter(|signature| {
+            signature.contains("Neighborhood")
+                || signature.contains("choice: usize")
+                || signature.contains("[usize; 2]")
+        })
+        .count();
+    let choose_calls = e0.matches(".choose(").count();
+    let cross_mechanism_execution_edges = e0.matches("execute_compiled_or_generic(").count()
+        + e0.matches("execute_resolution(").count();
+    let choice_to_execution = choose_calls.min(cross_mechanism_execution_edges);
+    let apply_consequence_calls = e0.matches(".apply_consequence(").count();
+    let post_action_consequence = apply_consequence_calls.min(choice_to_execution);
+    ActionSurfaceInventory {
+        ds1_choose_definitions: e0.matches("fn choose(").count(),
+        ds1_choose_reachable_calls: choose_calls,
+        ds1_apply_consequence_definitions: e0.matches("fn apply_consequence(").count(),
+        ds1_apply_consequence_reachable_calls: apply_consequence_calls,
+        ds1_frozen_choice_definitions: e0.matches("fn frozen_choice(").count(),
+        ds1_frozen_choice_read_only_calls: e0.matches(".frozen_choice(").count(),
+        e0_candidate_proposal_sites: e0.matches("self.work.proposals += 1").count(),
+        e0_propagation_observation_surfaces: usize::from(
+            struct_surface(e0, "RawActivity")
+                .is_some_and(|surface| surface.contains("propagation: Vec<Propagation>")),
+        ) + usize::from(
+            struct_surface(e0, "Candidate")
+                .is_some_and(|surface| surface.contains("shape: RelationShape")),
+        ),
+        e0_formation_bool_consequence_callbacks: usize::from(
+            function_signature(e0, "acquire_episode")
+                .is_some_and(|signature| signature.contains("mut consequence: F"))
+                && e0.contains("F: FnMut(&[Occurrence; 3]) -> bool"),
+        ),
+        composition_owned_report_surfaces: usize::from(!seed_report.contains('&'))
+            + usize::from(!gate_report.contains('&')),
+        composition_exposed_action_pair_values: public_pair_values,
+        m0_correspondence_execution_surfaces: m0_execution_signatures.len(),
+        m0_ds1_compatible_execution_surfaces: compatible_m0_surfaces,
+        ds1_choice_to_physical_execution_paths: choice_to_execution,
+        natural_post_action_consequence_paths: post_action_consequence,
+    }
 }
 
 fn source_boundary_audit() -> bool {
@@ -105,13 +243,16 @@ fn source_boundary_audit() -> bool {
         && no_isolated_fixture
 }
 
-fn audit_seed(seed: &ds_e0::SeedReport) -> SeedCompositionAudit {
+fn audit_seed(
+    seed: &ds_e0::SeedReport,
+    action_surface: &ActionSurfaceInventory,
+) -> SeedCompositionAudit {
     SeedCompositionAudit {
         seed: seed.seed,
         e0_a_ready: seed.passed && seed.e0_a_formed == seed.e0_a_presentations,
         e0_b_ready: seed.passed && seed.e0_b_exact_copies == seed.e0_a_presentations * 6,
         ds1_neighborhood_consumed: seed.frozen_ds1_consumption_probe,
-        actual_anonymous_actions_available: false,
+        actual_anonymous_actions_available: action_surface.actual_anonymous_actions_available(),
         selected_action_physically_executed: None,
         route_contingent_consequence_returned: None,
         learner_acquired: None,
@@ -138,6 +279,7 @@ fn audit_seed(seed: &ds_e0::SeedReport) -> SeedCompositionAudit {
 }
 
 fn definitive_rejection() -> CompositionReport {
+    let action_surface = action_surface_inventory();
     CompositionReport {
         label: "CUMULATIVE DS1 DEVELOPMENT".to_string(),
         protocol: PROTOCOL.to_string(),
@@ -160,6 +302,7 @@ fn definitive_rejection() -> CompositionReport {
         first_collapse: "NOT RUN: definitive execution forbidden".to_string(),
         frozen_ds1_sha256: FROZEN_DS1_SHA256.to_string(),
         ds_e0_source_sha256: FROZEN_DS_E0_SOURCE_SHA256.to_string(),
+        action_surface,
         seeds: Vec::new(),
         audit_passed: false,
     }
@@ -170,12 +313,18 @@ pub fn run(mode: HarnessMode) -> CompositionReport {
         return definitive_rejection();
     }
     let source_ok = source_boundary_audit();
+    let action_surface = action_surface_inventory();
     let e0_report: GateReport = ds_e0::run(mode);
-    let seeds = e0_report.seeds.iter().map(audit_seed).collect::<Vec<_>>();
+    let seeds = e0_report
+        .seeds
+        .iter()
+        .map(|seed| audit_seed(seed, &action_surface))
+        .collect::<Vec<_>>();
     let e0_a_ready = e0_report.passed && seeds.iter().all(|seed| seed.e0_a_ready);
     let e0_b_ready = e0_a_ready && seeds.iter().all(|seed| seed.e0_b_ready);
     let ds1_consumed = e0_b_ready && seeds.iter().all(|seed| seed.ds1_neighborhood_consumed);
     let audit_passed = source_ok
+        && action_surface.supports_stage_four_absence()
         && ds1_consumed
         && seeds
             .iter()
@@ -205,6 +354,7 @@ pub fn run(mode: HarnessMode) -> CompositionReport {
         first_collapse: COLLAPSE_STAGE.to_string(),
         frozen_ds1_sha256: FROZEN_DS1_SHA256.to_string(),
         ds_e0_source_sha256: FROZEN_DS_E0_SOURCE_SHA256.to_string(),
+        action_surface,
         seeds,
         audit_passed,
     }
@@ -240,6 +390,43 @@ mod tests {
                 && seed.ledger.ordinary_consequence_work.is_none()
                 && seed.ledger.ds1_persistent_bytes.is_none()
         }));
+    }
+
+    #[test]
+    fn action_surface_mechanically_supports_stage_four_absence() {
+        let inventory = action_surface_inventory();
+        assert_eq!(inventory.ds1_choose_definitions, 1);
+        assert_eq!(inventory.ds1_choose_reachable_calls, 0);
+        assert_eq!(inventory.ds1_apply_consequence_definitions, 1);
+        assert_eq!(inventory.ds1_apply_consequence_reachable_calls, 0);
+        assert_eq!(inventory.ds1_frozen_choice_definitions, 1);
+        assert_eq!(inventory.ds1_frozen_choice_read_only_calls, 1);
+        assert_eq!(inventory.e0_candidate_proposal_sites, 1);
+        assert_eq!(inventory.e0_propagation_observation_surfaces, 2);
+        assert_eq!(inventory.e0_formation_bool_consequence_callbacks, 1);
+        assert_eq!(inventory.composition_owned_report_surfaces, 2);
+        assert_eq!(inventory.composition_exposed_action_pair_values, 0);
+        assert_eq!(inventory.m0_correspondence_execution_surfaces, 3);
+        assert_eq!(inventory.m0_ds1_compatible_execution_surfaces, 0);
+        assert_eq!(inventory.ds1_choice_to_physical_execution_paths, 0);
+        assert_eq!(inventory.natural_post_action_consequence_paths, 0);
+        assert!(inventory.supports_stage_four_absence());
+    }
+
+    #[test]
+    fn stage_four_cannot_report_absent_if_a_compatible_route_appears() {
+        let report = run(HarnessMode::Micro);
+        let inventory = &report.action_surface;
+        let compatible_surface_appeared = inventory.actual_anonymous_actions_available()
+            || inventory.composition_exposed_action_pair_values > 0
+            || inventory.m0_ds1_compatible_execution_surfaces > 0
+            || inventory.ds1_choice_to_physical_execution_paths > 0
+            || inventory.natural_post_action_consequence_paths > 0;
+        let stage_four_reports_absent = report
+            .seeds
+            .iter()
+            .all(|seed| !seed.actual_anonymous_actions_available);
+        assert!(!(compatible_surface_appeared && stage_four_reports_absent));
     }
 
     #[test]

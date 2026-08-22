@@ -42,8 +42,8 @@ over every frozen path is empty.
 
 | Source | SHA-256 before handoff metadata update |
 |---|---|
-| composition harness | `0c204dfdf5983bc80d4d0d6509ecdcc3d6eae30919bec093cb9d225c554bd466` |
-| composition runner | `4c811b53a6650b00e1a7d5e9e8d777af5c581c6eb3aec429f1ebad5a24265ccc` |
+| composition harness with parent-audit inventory | `a4deadedfde7b9896d64d0cacd41560441ea85cf3bda119a5d09aa3aaddcd7a0` |
+| composition runner with inventory report | `3dce1c2a85e1576b23e1eff8e1f9d453bd3ca6352205f989a56c93f2fedacaad` |
 | behavior-neutral library export | `6903e7d0d73a72c5e8b1673c84e767ea0aae71456b4ccc4d8ebcea2bf7f7b2ef` |
 | preregistration | `1b76adf6b34b15d29cbdd5e31730cf781d47641da624994dc642c7cf42cb74c3` |
 
@@ -51,3 +51,10 @@ The only call from the composition harness into the frozen mechanism is
 `ds_e0::run(mode)`. The resulting existing DS-E0 probe calls the frozen
 `frozen_choice(&neighborhood)` read-only. The new wiring never calls `choose`
 or `apply_consequence` because stage 4 is unavailable.
+
+The parent-audit amendment derives that unavailability from the exact included
+M0, compiled-M0, and DS-E0 sources. It extracts the frozen function signatures
+and public report struct surfaces, then counts definitions, method call sites,
+candidate/propagation surfaces, exposed pair values, compatible execution
+signatures, choice-to-execution edges, and post-action consequence edges. No
+M0 or DS-E0 source was modified to enable this inventory.

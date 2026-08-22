@@ -36,15 +36,29 @@ at stage 4 rather than manufacturing the actions those calls would require.
 - no evaluator truth used to create route-contingent consequence;
 - no synthesized route effects, acquisition history, or terminal wiring.
 
-The new source contains no evaluator callback or environment action call. Its
-per-seed action availability is the audited constant `false`; all causally
-later values are `Option::None` and render as blank. This constant reports an
-absence and cannot enter the frozen learner or create a decision.
+The new source contains no evaluator callback or environment action call.
+Per-seed action availability is derived from `ActionSurfaceInventory`; there
+is no literal `false` in `SeedCompositionAudit` construction. All causally
+later values are `Option::None` and render as blank.
+
+The inventory mechanically extracts exact frozen signatures and type surfaces.
+It distinguishes E0's formation callback
+`FnMut(&[Occurrence; 3]) -> bool` from a post-DS1-action consequence; the
+callback consumes a proposed current membership and returns only E0 formation
+credit. It also distinguishes M0's private `Resolution`/`ArrowStore` execution
+surface from a DS1 action surface: none of the three M0 execution signatures
+accepts `Neighborhood`, `choice: usize`, or an action pair. The only public E0
+composition outputs are two owned report structs with no borrowed action
+handle, callback, or pair value.
 
 The source audit checks that the frozen E0 source still contains exactly one
 serializer and the existing read-only probe, and that the new wiring contains
 no isolated-fixture/expected-action identifiers. External SHA-256 checks are
 the authoritative byte-continuity proof.
+
+Two focused amendment tests freeze the inventory counts and require that stage
+4 cannot report absence if an exported action pair, DS1-compatible M0 execution
+surface, choice-to-execution edge, or natural consequence edge appears.
 
 ## Non-claims
 
