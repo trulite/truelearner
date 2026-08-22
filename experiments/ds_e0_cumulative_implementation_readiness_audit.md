@@ -105,8 +105,10 @@ Broad legacy regression was not rerun: frozen/shared behavior source did not
 change. The only shared-file edit is one behavior-neutral module export in
 `src/lib.rs`; all M0 and frozen DS1 behavior sources retain their exact hashes.
 
-Dedicated E2B validation uses only
-`/Users/satya/.cache/truelearner/ds-e0-cumulative-e2b.json`; its persistent
-sandbox is reused or created, never killed, and left running. Exact remote
-commands and outcomes are appended only after validation, before the final
-readiness handoff tag.
+Dedicated E2B validation passed against exact clean readiness commit
+`e475e8dff19793733cd62af272a31fa290dd6ada` using only state file
+`/Users/satya/.cache/truelearner/ds-e0-cumulative-e2b.json`. Remote format,
+strict release Clippy, four focused library tests, the runner target, release
+MICRO, and release GATE passed. Persistent sandbox
+`iuujlzy4ygzqh9685ligf` was created for this dedicated state, was never killed,
+was reset to an 86,400-second timeout, and was left running.
