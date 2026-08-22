@@ -112,6 +112,10 @@ fn main() {
         Path::new("src/request_roles.rs"),
         &output.join("ds4_request_roles.rs"),
     );
+    composition_copy(
+        Path::new("src/ds4_cumulative_request_start_port.rs"),
+        &output.join("ds4_cumulative_request_start_port.rs"),
+    );
     fs::copy(
         "src/bin/ds_a0_anonymous_boundary_action_formation.rs",
         bin_output.join("ds_a0_anonymous_boundary_action_formation.rs"),
@@ -492,6 +496,22 @@ fn main() {
         (
             "DS4_PROTOCOL_SHA256",
             "experiments/ds4_cumulative_request_start_protocol.md",
+        ),
+        (
+            "DS4_DEFINITIVE_PARENT_SHA256",
+            "src/ds4_cumulative_request_start_port.rs",
+        ),
+        (
+            "DS4_DEFINITIVE_RUNNER_SHA256",
+            "src/bin/ds4_cumulative_request_start_port.rs",
+        ),
+        (
+            "DS4_DEFINITIVE_HANDOFF_SHA256",
+            "experiments/ds4_cumulative_request_start_development_handoff.md",
+        ),
+        (
+            "DS4_DEFINITIVE_PROTOCOL_SHA256",
+            "experiments/ds4_cumulative_request_start_definitive_protocol.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
