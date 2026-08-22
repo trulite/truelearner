@@ -1,6 +1,6 @@
 # Cumulative DS7 plasticity-allocation MICRO
 
-Protocol identifier: `ds7-cumulative-plasticity-allocation-micro-v2`.
+Protocol identifier: `ds7-cumulative-plasticity-allocation-micro-v3`.
 
 Status: **PREREGISTERED DEVELOPMENT MICRO; OUTCOME UNSPENT**.
 
@@ -9,6 +9,22 @@ execution: a frozen exploration period of eight permits exactly four
 exploratory admissions among 32 negative encounters, so the conjunctive bound
 is four and the corresponding minimum reduction is 40 percent. Version 1 is
 preserved at its tag and no evidence was spent under it.
+
+Version 3 freezes one mechanically forced M4 lifecycle completion found by the
+pre-execution long-history audit. The PROBE strengthened an encounter-value
+record when delayed experience wrote it, but did not count later gate
+consultation as use. In the 64-encounter MICRO this would erase a record while
+it was actively controlling admission. The only permitted mechanism delta is:
+
+```text
+local value record consulted by the gate
+  -> exact M4 recurrence increment (+2 scalar resistance)
+```
+
+The snapshot, representation, score, outcome update, admission threshold,
+exploration period, pressure period, and removal rule remain byte-identical.
+Versions 1 and 2 remain preserved at their tags; no MICRO evidence was spent
+under either.
 
 Exact positive PROBE result commit:
 `fa363fc5c0f8e4f56885f5165f3891de2279bf34`.
@@ -32,10 +48,11 @@ Frozen inputs:
 > and retarget through ordinary exploration when later physical experience
 > changes—without a supplied site policy or lifetime class?
 
-This MICRO may add measurement and histories only. It may not change the
-physical encounter snapshot, scalar lifecycle, prototype learner, value rule,
-eligibility path, admission rule, exploration period, or authoritative M4
-anchor frozen by the PROBE.
+Apart from the single read-as-use lifecycle linker frozen above, this MICRO may
+add measurement and histories only. It may not change the physical encounter
+snapshot, scalar increment/pressure/removal law, prototype learner, value
+score or update, eligibility path, admission rule, exploration period, or
+authoritative M4 anchor frozen by the PROBE.
 
 ## Frozen cells
 
