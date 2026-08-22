@@ -72,6 +72,27 @@ pub struct MicroReport {
     pub passed: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MatchedCell {
+    pub seed: u64,
+    pub recurrence_strengths: Vec<i32>,
+    pub disuse_strengths: Vec<i32>,
+    pub high_long_strength: i32,
+    pub low_short_strength: i32,
+    pub reuse_delta: i32,
+    pub fresh_layout_exact: bool,
+    pub controls: bool,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MatchedReport {
+    pub protocol: &'static str,
+    pub cells: Vec<MatchedCell>,
+    pub duplicate_exact: bool,
+    pub passed: bool,
+}
+
 macro_rules! ds6_m3_access {
     () => {
         #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -287,6 +308,15 @@ macro_rules! ds6_m3_access {
             }
         }
 
+        fn pressure_ticks(life: &mut ScalarLifecycle, seed: u64, ticks: usize) {
+            let target = life.completed / 4 + ticks;
+            let mut ordinal = 0u8;
+            while life.completed / 4 < target {
+                life.observe(event(seed + ordinal as u64, 120 + ordinal).0);
+                ordinal += 1;
+            }
+        }
+
         fn recurrence(life: &mut ScalarLifecycle, seed: u64, relation: u8, count: usize) {
             for ordinal in 0..count {
                 life.observe(event(seed + ordinal as u64, relation).0);
@@ -399,6 +429,106 @@ macro_rules! ds6_m3_access {
                 reacquired,
                 fresh_layout_exact,
                 economy,
+                controls,
+                passed,
+            }
+        }
+
+        pub(super) fn run_matched_cell(seed: u64, reverse: bool) -> super::MatchedCell {
+            let counts = [1usize, 2, 4, 8];
+            let mut recurrence_strengths = Vec::new();
+            let mut fresh_layout_exact = source_ok();
+            for (index, count) in counts.into_iter().enumerate() {
+                let relation = 10 + index as u8;
+                let mut life = ScalarLifecycle::new(true);
+                recurrence(&mut life, seed + index as u64 * 1_000, relation, count);
+                let key = event(seed + 20_000 + index as u64, relation).0;
+                pressure_ticks(&mut life, seed + 21_000 + index as u64 * 100, 4);
+                recurrence_strengths.push(life.strength(&key));
+                let relabelled = event((seed ^ 0x6d6d_0000) + index as u64, relation).0;
+                fresh_layout_exact &= key == relabelled;
+            }
+
+            let gaps = [2usize, 4, 8, 12];
+            let mut disuse_strengths = Vec::new();
+            for (index, ticks) in gaps.into_iter().enumerate() {
+                let relation = 20 + index as u8;
+                let mut life = ScalarLifecycle::new(true);
+                recurrence(&mut life, seed + 30_000 + index as u64 * 1_000, relation, 6);
+                let key = event(seed + 31_000 + index as u64, relation).0;
+                pressure_ticks(&mut life, seed + 32_000 + index as u64 * 100, ticks);
+                disuse_strengths.push(life.strength(&key));
+            }
+
+            let mut high_long = ScalarLifecycle::new(true);
+            recurrence(&mut high_long, seed + 40_000, 40, 8);
+            let high_key = event(seed + 40_100, 40).0;
+            pressure_ticks(&mut high_long, seed + 41_000, 8);
+            let high_long_strength = high_long.strength(&high_key);
+
+            let mut low_short = ScalarLifecycle::new(true);
+            recurrence(&mut low_short, seed + 42_000, 41, 2);
+            let low_key = event(seed + 42_100, 41).0;
+            pressure_ticks(&mut low_short, seed + 43_000, 2);
+            let low_short_strength = low_short.strength(&low_key);
+
+            let mut reused = ScalarLifecycle::new(true);
+            recurrence(&mut reused, seed + 44_000, 42, 6);
+            let reuse_key = event(seed + 44_100, 42).0;
+            pressure_ticks(&mut reused, seed + 45_000, 4);
+            let before_reuse = reused.strength(&reuse_key);
+            recurrence(&mut reused, seed + 46_000, 42, 1);
+            let reuse_delta = reused.strength(&reuse_key) - before_reuse;
+
+            let mut oneoffs = ScalarLifecycle::new(true);
+            for relation in 50u8..58 {
+                oneoffs.observe(event(seed + 50_000 + relation as u64, relation).0);
+            }
+            let oneoffs_removed = (50u8..58).all(|relation| {
+                !oneoffs.available(&event(seed + 51_000 + relation as u64, relation).0)
+            });
+            recurrence(&mut oneoffs, seed + 52_000, 50, 4);
+            let reacquired = oneoffs.available(&event(seed + 52_100, 50).0);
+
+            let mut contradicted = ScalarLifecycle::new(true);
+            recurrence(&mut contradicted, seed + 53_000, 60, 4);
+            let original = event(seed + 53_100, 60).0;
+            let (changed, broken) = broken_event(seed + 53_101, 60);
+            let stale_blocked = changed != original && !contradicted.available(&changed) && broken;
+
+            let mut no_pressure = ScalarLifecycle::new(false);
+            for relation in 70u8..78 {
+                no_pressure.observe(event(seed + 54_000 + relation as u64, relation).0);
+            }
+            let controls = oneoffs_removed
+                && reacquired
+                && stale_blocked
+                && no_pressure.records.len() == 8
+                && oneoffs.bytes() > 0;
+
+            if reverse {
+                fresh_layout_exact &= event(seed ^ 0xffff, 90).0 == event(seed, 90).0;
+            }
+            let recurrence_ordered = recurrence_strengths[0] <= recurrence_strengths[1]
+                && recurrence_strengths[1] < recurrence_strengths[2]
+                && recurrence_strengths[2] < recurrence_strengths[3];
+            let disuse_ordered = disuse_strengths.windows(2).all(|pair| pair[0] > pair[1])
+                && disuse_strengths[3] == 0;
+            let interaction_exact = high_long_strength == 5 && low_short_strength == 1;
+            let passed = recurrence_ordered
+                && disuse_ordered
+                && interaction_exact
+                && reuse_delta == 2
+                && fresh_layout_exact
+                && controls;
+            super::MatchedCell {
+                seed,
+                recurrence_strengths,
+                disuse_strengths,
+                high_long_strength,
+                low_short_strength,
+                reuse_delta,
+                fresh_layout_exact,
                 controls,
                 passed,
             }
@@ -535,6 +665,52 @@ pub fn render_micro(report: &MicroReport) -> String {
             cell.reacquired,
             cell.fresh_layout_exact,
             cell.economy,
+            cell.controls,
+            cell.passed
+        ));
+    }
+    text.push_str(&format!(
+        "\nDuplicate exact: `{}`.\n",
+        report.duplicate_exact
+    ));
+    text
+}
+
+fn matched_once() -> Vec<MatchedCell> {
+    vec![
+        frozen_m3::run_matched_cell(109_000, false),
+        frozen_m3::run_matched_cell(110_000, true),
+    ]
+}
+
+pub fn run_matched() -> MatchedReport {
+    let cells = matched_once();
+    let duplicate_exact = cells == matched_once();
+    let passed = duplicate_exact && cells.iter().all(|cell| cell.passed);
+    MatchedReport {
+        protocol: "ds6-cumulative-lifetime-matched-history-v1",
+        cells,
+        duplicate_exact,
+        passed,
+    }
+}
+
+pub fn render_matched(report: &MatchedReport) -> String {
+    let mut text = format!(
+        "# DS6 matched-history lifetime diagnostic result\n\nProtocol: `{}`.\n\nVerdict: **{}**.\n\n| seed | recurrence strengths 1/2/4/8 | disuse strengths 2/4/8/12 | high+long | low+short | reuse delta | fresh layout | controls | result |\n|---:|---|---|---:|---:|---:|:---:|:---:|:---:|\n",
+        report.protocol,
+        if report.passed { "PASS" } else { "FAIL" }
+    );
+    for cell in &report.cells {
+        text.push_str(&format!(
+            "| {} | {:?} | {:?} | {} | {} | {} | {} | {} | {} |\n",
+            cell.seed,
+            cell.recurrence_strengths,
+            cell.disuse_strengths,
+            cell.high_long_strength,
+            cell.low_short_strength,
+            cell.reuse_delta,
+            cell.fresh_layout_exact,
             cell.controls,
             cell.passed
         ));
