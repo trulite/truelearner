@@ -1,7 +1,5 @@
 //! Development-only cumulative DS8 non-semantic-credit path probe.
 
-use std::collections::BTreeMap;
-
 pub const PROTOCOL: &str = "ds8-cumulative-semantic-credit-probe-v1";
 pub const PROTOCOL_COMMIT: &str = "60f34e781ea2ab3632283cb2177b31be456152b1";
 pub const AUTHORITATIVE_M5: &str = "9c5ba68a6a4ae37b51575ebaae414ab51a248575";
@@ -266,27 +264,27 @@ mod frozen_m5 {
     }
 
     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-    struct InternalReport {
-        path_exists: bool,
-        physical_consequences: bool,
-        one_direction: bool,
-        equal_magnitude: bool,
-        active_only: bool,
-        abstention_controls: bool,
-        swapped_direction: bool,
-        learned_allocation: bool,
-        shuffled_control: bool,
-        fresh_transfer: bool,
-        first_updates: usize,
-        second_updates: usize,
-        first_admissions: usize,
-        second_admissions: usize,
-        shuffled_first_admissions: usize,
-        shuffled_second_admissions: usize,
-        swapped_first_admissions: usize,
-        swapped_second_admissions: usize,
-        consequence_spikes: u64,
-        consequence_routes: u64,
+    pub(super) struct InternalReport {
+        pub(super) path_exists: bool,
+        pub(super) physical_consequences: bool,
+        pub(super) one_direction: bool,
+        pub(super) equal_magnitude: bool,
+        pub(super) active_only: bool,
+        pub(super) abstention_controls: bool,
+        pub(super) swapped_direction: bool,
+        pub(super) learned_allocation: bool,
+        pub(super) shuffled_control: bool,
+        pub(super) fresh_transfer: bool,
+        pub(super) first_updates: usize,
+        pub(super) second_updates: usize,
+        pub(super) first_admissions: usize,
+        pub(super) second_admissions: usize,
+        pub(super) shuffled_first_admissions: usize,
+        pub(super) shuffled_second_admissions: usize,
+        pub(super) swapped_first_admissions: usize,
+        pub(super) swapped_second_admissions: usize,
+        pub(super) consequence_spikes: u64,
+        pub(super) consequence_routes: u64,
     }
 
     fn encounter_first(seed: u64, ordinal: u64, reverse_layout: bool) -> PhysicalEncounter {
