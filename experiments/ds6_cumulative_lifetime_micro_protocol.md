@@ -2,7 +2,16 @@
 
 Protocol identifier: `ds6-cumulative-lifetime-micro-v1`
 
-Status: **PREREGISTERED BEFORE MICRO IMPLEMENTATION OR EVIDENCE**.
+Status: **AMENDED BEFORE MICRO IMPLEMENTATION OR EVIDENCE**.
+
+This pre-evidence amendment narrows MICRO to one claim:
+
+> Does the exact same recurrence/use-versus-pressure mechanism produce
+> different physical lifetimes from different histories, without a lifetime
+> label?
+
+It adds explicit long-disuse, reuse-after-gap, contradiction-loss, and fresh
+identity/layout signatures. No MICRO learner code or seed has been executed.
 
 This is a two-seed development hardening step. It cannot create M4 or
 authorize a definitive run.
@@ -41,8 +50,11 @@ Each cell contains:
 
 - four useful signatures with recurrence counts `4, 6, 8, 10`;
 - sixteen one-off signatures;
+- one recurring signature followed by a short ordinary-activity gap and reuse;
+- one equally recurring signature followed by a long ordinary-activity gap;
 - two recurring signatures whose later causal continuation contradicts;
-- twelve ordinary intervening events with no target identity or cleanup cue;
+- twelve short-gap and twenty-four long-gap ordinary events with no target
+  identity or cleanup cue;
 - relabelled returns for every still-lawful useful signature;
 - reacquisition of two physically removed one-offs;
 - fresh occurrence handles, shapes, local times, consequences, and allocation
@@ -58,17 +70,46 @@ Both cells must pass all gates:
 1. exact M0--M3 ancestry and selected scalar-lifecycle source hashes;
 2. no lifetime class, structural tier, task boundary, rest/cleanup call,
    request/start, finish/output, correctness, or evaluator flow;
-3. all lawful useful signatures remain physically allocated and execute exact
-   M3 spans and ordinary consequences on relabelled return;
-4. all 32 one-off allocations physically disappear before return;
-5. changed causal signatures do not execute stale learned paths and generic
+3. recurrence-history ordering -- under the identical update law, more
+   frequently reused structures survive at least as much accumulated ordinary
+   pressure as less frequently reused structures;
+4. useful persistence -- lawful frequently reused signatures remain physically
+   allocated and execute exact M3 spans and consequences on relabelled return;
+5. one-off disappearance -- all 32 one-off allocations physically disappear
+   before return;
+6. disuse difference -- the short-gap signature survives, fires on return, and
+   is re-strengthened through the ordinary recurrence path, while the matched
+   long-unused signature eventually physically disappears;
+7. contradiction loss -- a contradicted signature loses strictly more scalar
+   retention strength than its equally recurrent non-contradicted match;
+   changed causal activity cannot execute the stale learned path and generic
    reopening remains functional;
-6. all four removed one-offs reacquire through the identical ordinary path;
-7. final persistent bytes and records are lower than paired keep-all;
-8. no-pressure over-retains, shuffled recurrence does not preserve useful
+8. reacquisition -- all four removed one-offs reacquire through the identical
+   ordinary path;
+9. final persistent bytes and records are lower than paired keep-all;
+10. no-pressure over-retains, shuffled recurrence does not preserve useful
    state, and boundary scheduling changes produce an exact snapshot;
-9. duplicate execution is byte-exact and all occurrence-local state is zero;
-10. the process writes a create-new Markdown artifact atomically before exit.
+11. fresh identity/layout -- reversing allocation and relabelling occurrence
+    handles, shapes, local times, consequences, and presentation order leaves
+    the history-relative survival ordering and behavior unchanged;
+12. duplicate execution is byte-exact and all occurrence-local state is zero;
+13. the process writes a create-new Markdown artifact atomically before exit.
+
+The following strings or equivalent organism-visible fields are forbidden in
+the lifecycle source and persistent record:
+
+```text
+TEMPORARY
+PERMANENT
+TTL
+expiry class
+evaluator delete
+retention oracle
+```
+
+The scalar may reach zero only through the same ordinary pressure update that
+acts on every record. The evaluator may observe when it disappears but may not
+delete it.
 
 There is no aggregate percentage threshold. First failure stops GATE
 eligibility but the complete MICRO cells and controls remain reported.
@@ -87,3 +128,7 @@ only mechanically missing connections already present in M3 or the selected
 arm; changing the scalar lifecycle requires a separately named diagnostic and
 cannot rescue this MICRO.
 
+If MICRO passes, GATE must test dynamic lifetime rather than only binary
+keep/delete: monotonically stronger recurrence histories must withstand
+strictly more accumulated physical pressure before deallocation. MICRO does
+not spend that larger robustness claim.
