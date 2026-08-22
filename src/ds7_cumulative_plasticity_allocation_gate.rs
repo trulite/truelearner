@@ -4,12 +4,7 @@ pub const PROTOCOL: &str = "ds7-cumulative-plasticity-allocation-gate-v2";
 pub const PROTOCOL_COMMIT: &str = "12ada39";
 pub const AUTHORITATIVE_M4: &str = "8db47281a7c9c97cbb52ced6fc3dcff0e7efa9b2";
 pub const SEEDS: [u64; 6] = [
-    22_000_000,
-    22_500_000,
-    23_000_000,
-    23_500_000,
-    24_000_000,
-    24_500_000,
+    22_000_000, 22_500_000, 23_000_000, 23_500_000, 24_000_000, 24_500_000,
 ];
 pub const LOADS: [usize; 3] = [8, 32, 128];
 pub const FROZEN_HANDOFF_SHA256: &str =
