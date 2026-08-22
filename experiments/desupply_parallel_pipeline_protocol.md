@@ -1,6 +1,6 @@
 # De-supply parallel research and cumulative-mainline protocol
 
-Protocol identifier: `desupply-parallel-pipeline-v1`
+Protocol identifier: `desupply-parallel-pipeline-v2`
 
 Status: campaign orchestration frozen after definitive IP0 and before any DS1
 cumulative implementation or definitive execution.
@@ -143,7 +143,59 @@ DS4-DS8 remain planned and scientifically blocked from cumulative claims.
 
 ### Isolated deliverables
 
-Each isolated lane may produce:
+An isolated lane is ready for a cumulative port only when it freezes all four
+parts of this handoff bundle:
+
+1. **Reconstruction mechanism**
+   - exact source commit and mechanism fingerprint;
+   - persistent learned-state schema and fingerprint;
+   - learner-visible evidence interface;
+   - compilation and invalidation lifecycle, when present.
+2. **Leak and negative controls**
+   - exact frozen control matrix and observable contract;
+   - source audit for forbidden channels;
+   - dynamic perturbation and covert-token audits;
+   - evidence that the removed scaffold was not restored by an adapter.
+3. **Dependency manifest**
+   - every still-supplied channel actually consumed by the mechanism;
+   - every evaluator-only channel used solely to test it;
+   - incidental implementation dependencies relevant to portability;
+   - explicitly absent channels and the audits establishing their absence;
+   - predicted risks when ported to the cumulative parent.
+4. **Physical ledger**
+   - acquisition, installation, mature runtime, maintenance/carrying, and
+     storage;
+   - work attribution by physical operation;
+   - any preregistered compilation/amortization trigger.
+
+The dependency manifest uses one row per dependency with the following fields:
+
+```text
+dependency name
+class: organism-visible hard | evaluator-only | incidental implementation | absent
+visibility and representation
+source/use site
+audit evidence
+necessary for isolated mechanism? yes/no/unknown
+expected effect if removed
+cumulative-port risk
+```
+
+The manifest must enumerate dependencies even when their use is scientifically
+legal in the isolated world. In particular:
+
+- DS1 records every dependence on supplied filler correspondence or equivalent
+  stable identity information;
+- DS2 records every dependence on supplied boundary, source/target,
+  consume/produce, input/output, or endpoint-role semantics;
+- DS3 records every dependence on supplied boundary roles, learner-visible
+  causal annotations, relation/container-adjacent grouping, or stable event
+  positions/endpoints.
+
+Silence is not evidence of absence. A claimed absent channel requires both a
+source audit and a relevant dynamic perturbation or leak probe.
+
+Within that four-part bundle, each isolated lane may produce:
 
 1. a frozen structural ablation and allowed-evidence contract;
 2. a generic reconstruction mechanism using existing physics;
@@ -154,7 +206,7 @@ Each isolated lane may produce:
 6. physical work attribution;
 7. a preregistered trigger for compilation or amortization, only if a repeated
    mature tax is physically present;
-8. an implementation-ready isolated freeze.
+8. an implementation-ready isolated freeze with the four handoff artifacts.
 
 An isolated lane may not:
 
@@ -174,14 +226,75 @@ M0 = identity-complete mainline at IP0
 
 M0 + DS1 cumulative definitive -> M1
 M1 + DS2 cumulative definitive -> M2
-M2 + DS3 cumulative definitive -> Wave-I representation mainline
-Wave-I mainline + full sparse FFS reintegration -> Wave-I FFS outcome
+M2 + DS3 cumulative definitive -> M3
+M3 + full sparse FFS reintegration -> Wave-I FFS outcome
 ```
+
+Every `Mn` is a separately frozen ancestor containing exactly the consecutive
+cumulative-positive prefix through DSn. Diagnostic descendants never replace
+an `Mn` ancestor and cannot advance the prefix.
 
 DS2 cumulative cannot begin until DS1 cumulative is frozen positive. DS3
 cumulative cannot begin until DS2 cumulative is frozen positive. The port may
 reuse an isolated mechanism and controls, but the cumulative implementation
 must consume the actual immediately preceding frozen parent.
+
+### Mechanical cumulative-port rule
+
+The cumulative question is composition, not renewed mechanism search:
+
+> Does the frozen isolated replacement operate on the immediately preceding
+> cumulative ancestor without restoring an earlier scaffold or adding a
+> semantic adapter?
+
+The isolated mechanism must be ported unchanged as far as possible. Its source
+commit, relevant source-file hashes, persistent-state schema, observable
+contract, and control-matrix fingerprint are recorded before porting.
+
+Permitted port changes are limited to:
+
+- wiring the frozen mechanism to the evidence that actually exists in the
+  cumulative parent;
+- evaluator-side reporting, artifact paths, matrix enumeration, and accounting
+  aggregation that cannot affect organism decisions;
+- purely mechanical type/module-path changes proven behavior-neutral.
+
+Any change to learner behavior, organism-visible evidence, inference,
+persistent representation, proposal/consolidation rules, compilation,
+grounding, invalidation, or fallback creates a new mechanism. It must not be
+reported as the unchanged cumulative port. A failed unchanged port is frozen
+as a dependency/compositional result before any new capability is considered.
+
+The cumulative port may not:
+
+- restore a removed channel under a new field, token, role, index, or adapter;
+- alter M0/M1/M2/M3 merely to preserve a downstream isolated dependency;
+- use evaluator truth to manufacture evidence missing from the parent;
+- tune a mechanism after seeing cumulative economics or definitive output.
+
+### Cumulative diagnostic matrix
+
+Every cumulative port evaluates and reports these stages independently and in
+this order:
+
+```text
+1. reconstruction
+2. functional recovery
+3. compilation / mature execution, when preregistered
+4. recursive compatibility
+5. whole-stack economics
+```
+
+The first failed stage is the cumulative collapse point. Later stages are
+`BLOCKED`, not negative, unless they can be evaluated without crossing the
+failed prerequisite. The result must compare this collapse point with the
+isolated result and identify the exact isolated-to-cumulative dependency delta.
+
+For DS1 specifically, the authoritative composition question is:
+
+> Does the frozen boundary-role replacement compose with M0 learned compiled
+> correspondence without restoring supplied filler equality or adding a new
+> adapter?
 
 ### Cumulative compatibility report
 
@@ -195,6 +308,9 @@ removed channels still absent
 work attribution change from isolated to cumulative
 new dependency edges revealed
 first cumulative collapse point
+isolated mechanism and control fingerprints
+permitted wiring changes made during port
+isolated-to-cumulative dependency-manifest delta
 ```
 
 If isolated passes and cumulative fails, record a compositional dependency;
