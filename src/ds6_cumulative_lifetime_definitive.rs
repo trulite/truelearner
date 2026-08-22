@@ -24,7 +24,10 @@ pub const SEEDS: [u64; 16] = [
 
 #[allow(dead_code)]
 mod frozen_development {
-    include!("ds6_cumulative_lifetime_probe.rs");
+    include!(concat!(
+        env!("OUT_DIR"),
+        "/ds6_cumulative_lifetime_frozen.rs"
+    ));
 
     pub(super) fn authority_cell(seed: u64) -> GateCell {
         frozen_m3::run_gate_cell(seed)
