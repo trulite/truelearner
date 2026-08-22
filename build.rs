@@ -257,6 +257,22 @@ fn main() {
             "DS_AC0_PROTOCOL_SHA256",
             "experiments/ds_ac0_selected_affordance_actuation_closure_protocol.md",
         ),
+        (
+            "DS2_RETRY_PRIOR_PROBE_SHA256",
+            "src/ds2_cumulative_m1_mechanistic_probe.rs",
+        ),
+        (
+            "DS2_RETRY_AC0_SHA256",
+            "src/ds_ac0_selected_affordance_actuation_closure.rs",
+        ),
+        (
+            "DS2_RETRY_AC0_READINESS_SHA256",
+            "experiments/ds_ac0_development_readiness_handoff.md",
+        ),
+        (
+            "DS2_RETRY_PROTOCOL_SHA256",
+            "experiments/ds2_after_ac0_mechanistic_retry_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
