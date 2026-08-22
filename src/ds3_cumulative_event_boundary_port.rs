@@ -393,7 +393,7 @@ struct Stream {
     organic_rows: usize,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct RenderOptions {
     flat_shape: Option<u8>,
     shape_xor: u8,
@@ -401,19 +401,6 @@ struct RenderOptions {
     reverse_time: bool,
     relabel: bool,
     reverse_allocation: bool,
-}
-
-impl Default for RenderOptions {
-    fn default() -> Self {
-        Self {
-            flat_shape: None,
-            shape_xor: 0,
-            consequence_delta: 0,
-            reverse_time: false,
-            relabel: false,
-            reverse_allocation: false,
-        }
-    }
 }
 
 fn relation_class(effect: &GlueEffect) -> u8 {
