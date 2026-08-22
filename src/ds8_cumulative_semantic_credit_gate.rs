@@ -202,11 +202,7 @@ mod frozen_linker {
                     &mut learner,
                     *encounter,
                     distractor_snapshot,
-                    raw_consequence(
-                        seed + 200_000,
-                        sweep * (load + 4) + load + index,
-                        variant,
-                    ),
+                    raw_consequence(seed + 200_000, sweep * (load + 4) + load + index, variant),
                 );
                 route_executions += usize::from(executed);
                 total_executions += usize::from(executed);
@@ -238,11 +234,7 @@ mod frozen_linker {
                         &mut learner,
                         *encounter,
                         distractor_snapshot,
-                        raw_consequence(
-                            seed + 300_000,
-                            sweep * 5 + index + 1,
-                            stable_variant,
-                        ),
+                        raw_consequence(seed + 300_000, sweep * 5 + index + 1, stable_variant),
                     );
                 }
             }
@@ -370,9 +362,8 @@ mod frozen_linker {
         let (route_admissions, distractor_admissions) =
             admission_sweep(&mut economy, &trained.route, &trained.distractors);
         let always_open_admissions = 4 + load;
-        let work_reduction = 1.0
-            - (route_admissions + distractor_admissions) as f64
-                / always_open_admissions as f64;
+        let work_reduction =
+            1.0 - (route_admissions + distractor_admissions) as f64 / always_open_admissions as f64;
 
         let raw_swapped = train(seed + 1_000_000, load, true);
         let mut raw_swapped_path = raw_swapped.path.clone();
@@ -389,11 +380,8 @@ mod frozen_linker {
             trained.route[0].snapshot(),
             trained.distractors[0].snapshot(),
         );
-        let shuffled_admissions = admission_sweep(
-            &mut value_shuffled,
-            &trained.route,
-            &trained.distractors,
-        );
+        let shuffled_admissions =
+            admission_sweep(&mut value_shuffled, &trained.route, &trained.distractors);
         let value_shuffle_reversal =
             shuffled && shuffled_admissions.0 <= 1 && shuffled_admissions.1 == load;
 
@@ -436,8 +424,7 @@ mod frozen_linker {
         let topology_identity_layout = trained.physical_exact
             && raw_swapped.physical_exact
             && trained.route[0].snapshot() == route(seed + 3_000_000, true)[0].snapshot();
-        let source_audit = env!("DS8_MICRO_LINKER_FRAGMENT_SHA256")
-            == super::FROZEN_LINKER_SHA256
+        let source_audit = env!("DS8_MICRO_LINKER_FRAGMENT_SHA256") == super::FROZEN_LINKER_SHA256
             && env!("DS8_GATE_MICRO_SOURCE_SHA256") == super::FROZEN_MICRO_SOURCE_SHA256
             && env!("DS8_GATE_MICRO_RESULT_SHA256") == super::FROZEN_MICRO_RESULT_SHA256
             && env!("DS8_GATE_MICRO_AUDIT_SHA256") == super::FROZEN_MICRO_AUDIT_SHA256
@@ -507,10 +494,8 @@ pub fn run() -> GateReport {
     let controls = micro.passed;
     let cells = run_cells(controls);
     let duplicate_exact = cells == run_cells(controls);
-    let passed = controls
-        && duplicate_exact
-        && cells.len() == 18
-        && cells.iter().all(|cell| cell.passed);
+    let passed =
+        controls && duplicate_exact && cells.len() == 18 && cells.iter().all(|cell| cell.passed);
     GateReport {
         protocol: PROTOCOL,
         cells,
