@@ -1,0 +1,17 @@
+row_type,protocol,stage,claim_eligible,M6_authoritative,M7_exists,family,condition,variant,target,target_supporters,competitor_supporters,winner,expected_winner,commitment_tick,duplicate_exact,permanent_fingerprint,start_fingerprint,trace_fingerprint,end_fingerprint,work,status,classification
+summary,ssa0-3-precommit-support-v1,MICRO,false,true,false,,,,,,,,,,,,,,,,PASS,CONTINUE,ORDERED_PASS
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,base_count4_early3,fresh,0,4,4,1,1,7,true,57ce2bc6b66b3215,6e53c6c084e8bd0f,b5ac5de2103b3d31,2ddaf17bc483e2de,387,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,count5_extra_early,fresh,0,5,4,0,0,6,true,152f13c282271e95,e6eef40cbbb804fb,ee9a05c9f97a6fd8,321110a45ec4fb77,464,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,count5_extra_late,fresh,0,5,4,1,1,7,true,776bfb005b86f241,b4b20e80fca7fbcf,62a6e4ed87c9f782,a6b6e8c7ae49cf49,460,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,base_count4_early3,fresh,1,4,4,0,0,7,true,36900496626dbf0d,8f59020094fe79f7,f9d910b0073efd41,1cfa5e7914353e3e,387,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,count5_extra_early,fresh,1,5,4,1,1,6,true,d262b319ce0d97ac,e502e9bffc465dd4,6cbb179359beceaa,bb9d6deabf28bfd8,462,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,count5_extra_late,fresh,1,5,4,0,0,7,true,bdb519d09c8a27b0,1076b6b289e40c20,9f20bd707a85bb20,99376272c7b3373e,460,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,base_count4_early3,fresh_permuted,0,4,4,1,1,7,true,d8766f37cdb505da,b643cb0f98120c29,381b0152603780e1,5a2a6587ac78955f,387,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,count5_extra_early,fresh_permuted,0,5,4,0,0,6,true,22e891c5480a2516,a3c253d9fcb576ad,784401b212dc3f28,4e68c04efa363e72,464,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,count5_extra_late,fresh_permuted,0,5,4,1,1,7,true,09d3f0e033e3b172,85d228ae160f6a69,e5ff7350903d9e72,1b8701ec7f0204b4,460,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,base_count4_early3,fresh_permuted,1,4,4,0,0,7,true,9c6e074cc0ef6fe2,7d30abdec380ea81,7d21b1cea4ca50b1,00408eb8123613ef,387,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,count5_extra_early,fresh_permuted,1,5,4,1,1,6,true,466342058f52ea15,c508c602bb797e8e,34e7ab012b9e5e3a,b44373bd7ac7f721,462,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,MICRO,false,true,false,crossed,count5_extra_late,fresh_permuted,1,5,4,0,0,7,true,4cc1f3ed5987ca29,2d33d233a791a722,2bb79c61cf1c4590,ba3f2cf98747a1a7,460,PASS,CONTINUE
+controls=ControlAudit { physics_byte_exact: true, forbidden_primitives_absent: true, duplicate_exact: true, fresh_route_identities: true, fresh_occurrence_identities: true, handle_allocation_layout: true, full_mirror: true, blocked_route_cannot_win: true, stale_route_cannot_win: true, independently_executable: true }
+causal temporal_distinction=true static_count_effect=false comparable_delivery_effect=true
+lineage frozen_parent=34277893201c1a72765b143de4b3da1912b6e3b6 authoritative_M6=aa4e22efd8a65b7694956a53cfaa970582695215 parent_protocol_sha256=92ff3f758977a575e2f8ca651f7a45756e15241a6d4bf829012a266bae9489fc parent_implementation_sha256=180b24f6b682ec5d274e44b0c680062d10b1f68b6fddeb4d857ec599b32f6299 parent_runner_sha256=fb693aa098e45617deefd5ae9b9de1003528d4b7fbfa87078545fbda5e90fa7f
