@@ -154,6 +154,15 @@ fn main() {
             "experiments/ds_d0_stage8b_discrimination_handoff.md",
         ),
         ("DS_D1_E0_SHA256", "src/ds_e0_anonymous_event_formation.rs"),
+        (
+            "DS_D2_D1_SOURCE_SHA256",
+            "src/ds_d1_stage8b_functional_sufficiency.rs",
+        ),
+        (
+            "DS_D2_D1_HANDOFF_SHA256",
+            "experiments/ds_d1_stage8b_functional_sufficiency_handoff.md",
+        ),
+        ("DS_D2_A1_SHA256", "src/ds_a1_affordance_multiplicity.rs"),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
