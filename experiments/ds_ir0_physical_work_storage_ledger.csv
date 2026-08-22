@@ -1,0 +1,5 @@
+case,gate_contexts,initial_generic_observe_calls_per_context,historical_support_observe_calls_per_context,post_freeze_historical_observe_calls,stale_groundings_per_context,temporary_route_invalidations,reopened_generic_observe_calls_per_context,reopened_executions,historical_return_executions,persistent_bytes,retained_occurrences,retained_handles
+changed signal,20,2,2,0,1,20,4,20,20,8,0,0
+compatible signal,20,2,2,0,1,0,0,0,20,8,0,0
+absent or ambiguous signal,20,2,2,0,0,0,0,0,20,8,0,0
+layout and handle permutation,20,2,2,0,1,20,4,20,20,8,0,0
