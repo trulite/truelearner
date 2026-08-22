@@ -272,7 +272,10 @@ mod frozen_linker {
         let Some(second_id) = path.encoder.recognized(second) else {
             return false;
         };
-        match (path.values.remove(&first_id), path.values.remove(&second_id)) {
+        match (
+            path.values.remove(&first_id),
+            path.values.remove(&second_id),
+        ) {
             (Some(value), None) => {
                 path.values.insert(second_id, value);
                 true
