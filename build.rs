@@ -92,6 +92,16 @@ fn main() {
             "DS1_A1_READINESS_SHA256",
             "experiments/ds_a1_development_readiness_handoff.md",
         ),
+        ("DS_R0_E0_SHA256", "src/ds_e0_anonymous_event_formation.rs"),
+        ("DS_R0_A1_SHA256", "src/ds_a1_affordance_multiplicity.rs"),
+        (
+            "DS_R0_PARENT_SHA256",
+            "src/ds1_after_e0_a0_a1_composition_retry.rs",
+        ),
+        (
+            "DS_R0_PARENT_HANDOFF_SHA256",
+            "experiments/ds1_after_e0_a0_a1_composition_collapse_handoff.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
