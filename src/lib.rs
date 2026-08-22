@@ -28,6 +28,7 @@ pub mod local_plasticity;
 pub mod model_epistemic;
 pub mod post_m6_ds4_arrival_initiation;
 pub mod post_m6_ds4_arrival_initiation_definitive;
+pub mod post_m7_ds5_closure_emission;
 pub mod program_discovery;
 pub mod reflected_program_discovery;
 pub mod request_roles;

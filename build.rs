@@ -1083,6 +1083,29 @@ fn main() {
             "experiments/post_m6_ds4_arrival_initiation_micro_handoff.md",
         ),
         (
+            "POST_M7_DS5_PROTOCOL_SHA256",
+            "experiments/post_m7_ds5_closure_emission_protocol.md",
+        ),
+        (
+            "POST_M7_DS5_M7_HANDOFF_SHA256",
+            "experiments/post_m6_ds4_arrival_initiation_authority_handoff.md",
+        ),
+        (
+            "POST_M7_DS5_M7_CSV_SHA256",
+            "results/post_m6_ds4_arrival_initiation_definitive.csv",
+        ),
+        (
+            "POST_M7_DS5_M7_MD_SHA256",
+            "results/post_m6_ds4_arrival_initiation_definitive.md",
+        ),
+        (
+            "POST_M7_DS5_M7_SOURCE_SHA256",
+            "src/post_m6_ds4_arrival_initiation.rs",
+        ),
+        ("POST_M7_DS5_V20_SOURCE_SHA256", "src/iteration.rs"),
+        ("POST_M7_DS5_V21_SOURCE_SHA256", "src/continuation.rs"),
+        ("POST_M7_DS5_V21B_RESULT_SHA256", "results/v21b_finish.md"),
+        (
             "POST_M6_DS4_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/post_m6_ds4_arrival_initiation_definitive_protocol.md",
         ),
