@@ -1,7 +1,7 @@
 //! Development-only cumulative DS8 non-semantic-credit GATE.
 
-pub const PROTOCOL: &str = "ds8-cumulative-semantic-credit-gate-v2";
-pub const PROTOCOL_COMMIT: &str = "726678785c1cd53e75ed1a2bf4e5d5d301703c0d";
+pub const PROTOCOL: &str = "ds8-cumulative-semantic-credit-gate-v3";
+pub const PROTOCOL_COMMIT: &str = "46e94c78b80f06dcd4494ba380d7281ed4b2fff5";
 pub const AUTHORITATIVE_M5: &str = "9c5ba68a6a4ae37b51575ebaae414ab51a248575";
 pub const SEEDS: [u64; 6] = [
     42_000_000, 42_500_000, 43_000_000, 43_500_000, 44_000_000, 44_500_000,
@@ -21,6 +21,8 @@ pub const FROZEN_PROTOCOL_SHA256: &str =
     "c65c08c59056cda39d3f93615da9be28ab12210d8c19b76de18dd8a0ef245b78";
 pub const FROZEN_PROTOCOL_V2_SHA256: &str =
     "93aacb0835588d5be343a60d30178a6d594984fce0e21f7af6c702d66825f80a";
+pub const FROZEN_PROTOCOL_V3_SHA256: &str =
+    "3d18d948879cb192159e4a894985f546eb3f0e98f217c893c3e2cf3094f828fc";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GateCell {
@@ -108,6 +110,10 @@ mod frozen_linker {
         }
     }
 
+    fn varying_variant(index: usize) -> usize {
+        (index + index / 4) % 4
+    }
+
     include!(concat!(
         env!("OUT_DIR"),
         "/ds8_cumulative_semantic_credit_linker_frozen.rs"
@@ -188,7 +194,7 @@ mod frozen_linker {
                 let variant = if swapped {
                     stable_variant
                 } else {
-                    (sweep * load + index) % 4
+                    varying_variant(sweep * load + index)
                 };
                 let (executed, _) = execute_update(
                     &mut path,
@@ -202,7 +208,7 @@ mod frozen_linker {
             }
             for (index, encounter) in route.iter().enumerate() {
                 let variant = if swapped {
-                    (sweep * 4 + index) % 4
+                    varying_variant(sweep * 4 + index)
                 } else {
                     stable_variant
                 };
@@ -235,7 +241,11 @@ mod frozen_linker {
                     &mut learner,
                     distractor,
                     route_snapshot,
-                    raw_consequence(seed + 300_000, sweep * 5, sweep % 4),
+                    raw_consequence(
+                        seed + 300_000,
+                        sweep * 5,
+                        varying_variant(sweep),
+                    ),
                 );
                 for (index, encounter) in route.iter().enumerate() {
                     let _ = execute_update(
@@ -446,7 +456,8 @@ mod frozen_linker {
             && env!("DS8_GATE_MICRO_AUDIT_SHA256") == super::FROZEN_MICRO_AUDIT_SHA256
             && env!("DS8_GATE_HANDOFF_SHA256") == super::FROZEN_HANDOFF_SHA256
             && env!("DS8_GATE_PROTOCOL_SHA256") == super::FROZEN_PROTOCOL_SHA256
-            && env!("DS8_GATE_PROTOCOL_V2_SHA256") == super::FROZEN_PROTOCOL_V2_SHA256;
+            && env!("DS8_GATE_PROTOCOL_V2_SHA256") == super::FROZEN_PROTOCOL_V2_SHA256
+            && env!("DS8_GATE_PROTOCOL_V3_SHA256") == super::FROZEN_PROTOCOL_V3_SHA256;
         let cumulative_m5 = controls;
         let passed = trained.blank_acquisition
             && trained.physical_exact

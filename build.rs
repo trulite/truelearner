@@ -872,6 +872,10 @@ fn main() {
             "DS8_GATE_PROTOCOL_V2_SHA256",
             "experiments/ds8_cumulative_semantic_credit_gate_protocol_v2.md",
         ),
+        (
+            "DS8_GATE_PROTOCOL_V3_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_gate_protocol_v3.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
