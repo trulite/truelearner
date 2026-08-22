@@ -340,24 +340,26 @@ mod frozen_ir0 {
 
 macro_rules! glue_ds3_access {
     () => {
-        pub(super) fn glue_default_boundary() -> BoundaryLearner {
-            BoundaryLearner::default()
+        pub(super) struct GlueBoundary(BoundaryLearner);
+
+        pub(super) fn glue_default_boundary() -> GlueBoundary {
+            GlueBoundary(BoundaryLearner::default())
         }
 
         pub(super) fn glue_evaluate(
-            learner: &mut BoundaryLearner,
+            learner: &mut GlueBoundary,
             observations: &[Observation],
             acquire: bool,
         ) -> Evaluation {
-            learner.evaluate(observations, acquire)
+            learner.0.evaluate(observations, acquire)
         }
 
-        pub(super) fn glue_chunk_count(learner: &BoundaryLearner) -> usize {
-            learner.chunks.len()
+        pub(super) fn glue_chunk_count(learner: &GlueBoundary) -> usize {
+            learner.0.chunks.len()
         }
 
-        pub(super) fn glue_persistent_bytes(learner: &BoundaryLearner) -> usize {
-            learner.persistent_bytes()
+        pub(super) fn glue_persistent_bytes(learner: &GlueBoundary) -> usize {
+            learner.0.persistent_bytes()
         }
 
         pub(super) fn glue_mechanism_source_audit() -> bool {
