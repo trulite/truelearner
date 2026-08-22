@@ -16,11 +16,13 @@ DS6,2,executable path,one evaluator-blind physical lifecycle controls retention 
 DS6,3,temporary state,state carries no supplied temporary or permanent class,src/ds6_cumulative_lifetime_port.rs,lifetime_class_absent,required,No implementation yet
 DS6,4,consequence edge,retention cost and later reuse are physically observable,src/ds3_event_boundary.rs,persistent_bytes|used_learned,required,M3 exposes both measurements but neither feeds its lifecycle
 DS6,5,update path,recurrence use disuse contradiction and local pressure alter persistence,src/ds3_event_boundary.rs,fn record|check_predictions,required,Recurrence consolidates and contradiction reopens execution but persistent removal is absent
-DS7,1,input relation,local co-activity propagation eligibility and competition,src/local_plasticity.rs,plastic|required,Isolated audit required
-DS7,2,executable path,proposal sites arise without supplied target policy,src/ds7_cumulative_plasticity_targeting_port.rs,local_proposal_formation,required,No implementation yet
-DS7,3,temporary state,eligibility is activity-derived and locally erased,src/ds_c0_anonymous_credit_coupling.rs,Eligibility|required,Potential parts-bin input only
-DS7,4,consequence edge,differential physical consequence returns to active proposal,src/ds_d2_differential_evidence.rs,Differential|required,Potential parts-bin input only
-DS7,5,update path,competition retains supported local proposals,src/ds_a1_affordance_multiplicity.rs,local_proposals|required,Potential parts-bin input only
+DS7,1,input relation,local co-activity exposes adjacent endpoints without evaluator site lists,src/local_plasticity.rs,PlasticNetwork::activate|required,READY in P2/AP0; historical endpoint classifier is forbidden
+DS7,2,lifecycle path,proposals encounter prototypes and value records obey learned M4 scalar use-pressure lifecycle,src/ds7_cumulative_plasticity_targeting_probe.rs,ScalarAllocation|required,FIRST ABSENT EDGE; historical probation_left and consolidated are forbidden
+DS7,3,executable path,proposal sites arise from physical encounter facts without supplied endpoint or target classes,src/ds7_cumulative_plasticity_targeting_probe.rs,PhysicalEncounter|local_proposal_formation|required,ABSENT; port P2.2 encoder after lifecycle repair
+DS7,4,temporary state,eligibility is activity-derived and locally erased,src/ds_c0_anonymous_credit_coupling.rs,Eligibility|required,READY parts-bin path
+DS7,5,consequence edge,differential physical consequence returns only to active proposal,src/ds_d2_differential_evidence.rs,Differential|required,READY parts-bin path; supplied DS8 polarity remains delayed only
+DS7,6,update path,learned encounter value changes future local plasticity allocation,src/local_plasticity.rs,AdaptiveEncounterGate|required,READY in P2.2 but not composed onto M4
+DS7,7,cumulative preservation,authoritative M4 behavior remains exact,src/ds7_cumulative_plasticity_targeting_probe.rs,cumulative_m4|required,UNPROBED
 DS8,1,input relation,evaluator-blind downstream physical consequence,src/ds_r0_anonymous_post_action_evidence_return.rs,evidence|required,Potential parts-bin input only
 DS8,2,executable path,physical consequence contrast reaches learning without correctness,src/ds_d3_anonymous_consequence_contrast.rs,contrast|required,Potential parts-bin input only
 DS8,3,temporary state,eligibility identifies only the physically active path,src/ds_c0_anonymous_credit_coupling.rs,Eligibility|required,Potential parts-bin input only
