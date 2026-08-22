@@ -91,9 +91,17 @@ not change.
 
 ## E2B validation
 
-Pending clean committed-snapshot validation using only dedicated state
-`/Users/satya/.cache/truelearner/ds1-after-e0-cumulative-e2b.json`. The
-persistent sandbox will be reused or created, never killed, and left running.
+Targeted E2B validation passed against exact clean implementation snapshot
+`bd856322cbb447cbec79dac0cd1122177ff5a2db` using only dedicated state
+`/Users/satya/.cache/truelearner/ds1-after-e0-cumulative-e2b.json`. Remote
+marked-learner hash verification, format, strict release Clippy, three focused
+library tests, the runner target, release MICRO, and release GATE passed. The
+remote `--definitive` rejection also exited 2 before the harness and preserved
+the exact results digest
+`491a63c17ba35d768b630720063793a4db09686cfe7cb33694fd80ea63bbd4e4`.
+
+Persistent sandbox `ij04oormcxmaks8eoz06i` was reused, reset to an
+86,400-second timeout, never killed, and left running.
 
 ## Artifacts
 
