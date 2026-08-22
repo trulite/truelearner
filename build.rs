@@ -44,6 +44,27 @@ fn composition_copy(source: &Path, destination: &Path) {
     println!("cargo:rerun-if-changed={}", source.display());
 }
 
+fn marked_copy(source: &Path, destination: &Path, begin: &str, end: &str) {
+    let text = fs::read_to_string(source).expect("marked source is readable");
+    let mut copying = false;
+    let mut output = String::new();
+    for line in text.split_inclusive('\n') {
+        if line.contains(begin) {
+            copying = true;
+            continue;
+        }
+        if line.contains(end) {
+            break;
+        }
+        if copying {
+            output.push_str(line);
+        }
+    }
+    assert!(copying && !output.is_empty(), "marked source body exists");
+    fs::write(destination, output).expect("marked include copy is writable");
+    println!("cargo:rerun-if-changed={}", source.display());
+}
+
 fn main() {
     let output = PathBuf::from(env::var_os("OUT_DIR").expect("Cargo supplies OUT_DIR"));
     let bin_output = output.join("bin");
@@ -119,6 +140,17 @@ fn main() {
     composition_copy(
         Path::new("src/ds8_cumulative_semantic_credit_probe.rs"),
         &output.join("ds8_cumulative_semantic_credit_probe_frozen.rs"),
+    );
+    let ds8_linker = output.join("ds8_cumulative_semantic_credit_linker_frozen.rs");
+    marked_copy(
+        Path::new("src/ds8_cumulative_semantic_credit_probe.rs"),
+        &ds8_linker,
+        "// DS8_ORGANISM_PATH_BEGIN",
+        "// DS8_ORGANISM_PATH_END",
+    );
+    println!(
+        "cargo:rustc-env=DS8_MICRO_LINKER_FRAGMENT_SHA256={}",
+        file_sha256(ds8_linker.to_str().expect("generated path is UTF-8"))
     );
     composition_copy(
         Path::new("src/ds3_cumulative_event_boundary_port.rs"),
@@ -791,6 +823,26 @@ fn main() {
         (
             "DS8_CP0_SHA256",
             "src/ds_cp0_consequence_probation_coupling.rs",
+        ),
+        (
+            "DS8_MICRO_PROBE_SHA256",
+            "src/ds8_cumulative_semantic_credit_probe.rs",
+        ),
+        (
+            "DS8_MICRO_RESULT_SHA256",
+            "results/ds8_cumulative_semantic_credit_probe_v2.md",
+        ),
+        (
+            "DS8_MICRO_AUDIT_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_probe_v2_result_audit.md",
+        ),
+        (
+            "DS8_MICRO_HANDOFF_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_probe_handoff.md",
+        ),
+        (
+            "DS8_MICRO_PROTOCOL_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_micro_protocol.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
