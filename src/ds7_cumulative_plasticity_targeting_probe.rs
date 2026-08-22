@@ -490,7 +490,10 @@ fn pattern_u(first_id: u64, second_id: u64) -> PhysicalEncounter {
 }
 
 fn source_audit() -> SourceAudit {
-    let source = include_str!("ds7_cumulative_plasticity_targeting_probe.rs");
+    let source = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/src/ds7_cumulative_plasticity_targeting_probe.rs"
+    ));
     let path = source
         .split("// DS7_ORGANISM_PATH_BEGIN")
         .nth(1)
