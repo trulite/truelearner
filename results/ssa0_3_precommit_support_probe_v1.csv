@@ -1,0 +1,11 @@
+row_type,protocol,stage,claim_eligible,M6_authoritative,M7_exists,family,condition,variant,target,target_supporters,competitor_supporters,winner,expected_winner,commitment_tick,duplicate_exact,permanent_fingerprint,start_fingerprint,trace_fingerprint,end_fingerprint,work,status,classification
+summary,ssa0-3-precommit-support-v1,PROBE,false,true,false,,,,,,,,,,,,,,,,PASS,CONTINUE,ORDERED_PASS
+case,ssa0-3-precommit-support-v1,PROBE,false,true,false,core,base,canonical,0,4,4,1,1,7,true,580ab62a98fc7f05,5ddca013a7d3c25f,824629112eb2a6c1,7afee0569c4ff88e,387,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,PROBE,false,true,false,core,extra_early,canonical,0,5,4,0,0,6,true,f148531a50ea7555,b49708c3e65d90fb,dfd16e67dbebeb88,accf6946b90ca697,464,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,PROBE,false,true,false,core,extra_late,canonical,0,5,4,1,1,7,true,09be96cd74d42301,4005c348de459fef,4acbdda1ac856012,6d76fa5b1a2400e9,460,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,PROBE,false,true,false,core,base,canonical,1,4,4,0,0,7,true,5be251edf4a8ebfd,9e952e952c645847,0552154513bbf511,9986c568354097ae,387,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,PROBE,false,true,false,core,extra_early,canonical,1,5,4,1,1,6,true,5d7a6cab202b158c,e8787fa90289fcb4,9e603f25839cbcda,6478eb2c5f4829d8,462,PASS,CONTINUE
+case,ssa0-3-precommit-support-v1,PROBE,false,true,false,core,extra_late,canonical,1,5,4,0,0,7,true,23a12ff7ba417550,190662ffddfb7fe0,d969046bd9633330,3e2be8582e87a99e,460,PASS,CONTINUE
+controls=ControlAudit { physics_byte_exact: true, forbidden_primitives_absent: true, duplicate_exact: true, fresh_route_identities: true, fresh_occurrence_identities: true, handle_allocation_layout: true, full_mirror: true, blocked_route_cannot_win: true, stale_route_cannot_win: true, independently_executable: true }
+causal temporal_distinction=true static_count_effect=false comparable_delivery_effect=true
+lineage frozen_parent=34277893201c1a72765b143de4b3da1912b6e3b6 authoritative_M6=aa4e22efd8a65b7694956a53cfaa970582695215 parent_protocol_sha256=92ff3f758977a575e2f8ca651f7a45756e15241a6d4bf829012a266bae9489fc parent_implementation_sha256=180b24f6b682ec5d274e44b0c680062d10b1f68b6fddeb4d857ec599b32f6299 parent_runner_sha256=fb693aa098e45617deefd5ae9b9de1003528d4b7fbfa87078545fbda5e90fa7f
