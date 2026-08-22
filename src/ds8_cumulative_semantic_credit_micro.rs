@@ -292,16 +292,12 @@ mod frozen_linker {
         let swapped_control = swapped_direction == Some(swapped.second)
             && swapped_first_admissions <= 1
             && swapped_second_admissions >= 7;
-        let shuffled_control = swap_complete
-            && shuffled_first_admissions <= 1
-            && shuffled_second_admissions >= 7;
-        let fresh_transfer = fresh.0 >= 7
-            && fresh.1 <= 1
-            && relabel_admissions.0 >= 7
-            && relabel_admissions.1 <= 1;
+        let shuffled_control =
+            swap_complete && shuffled_first_admissions <= 1 && shuffled_second_admissions >= 7;
+        let fresh_transfer =
+            fresh.0 >= 7 && fresh.1 <= 1 && relabel_admissions.0 >= 7 && relabel_admissions.1 <= 1;
         let controls = swapped_control && shuffled_control;
-        let source_audit = env!("DS8_MICRO_LINKER_FRAGMENT_SHA256")
-            == super::FROZEN_LINKER_SHA256
+        let source_audit = env!("DS8_MICRO_LINKER_FRAGMENT_SHA256") == super::FROZEN_LINKER_SHA256
             && env!("DS8_MICRO_PROBE_SHA256") == super::FROZEN_PROBE_SHA256
             && env!("DS8_MICRO_RESULT_SHA256") == super::FROZEN_RESULT_SHA256
             && env!("DS8_MICRO_AUDIT_SHA256") == super::FROZEN_AUDIT_SHA256
@@ -324,7 +320,11 @@ mod frozen_linker {
             && cumulative_m5;
         super::MicroCell {
             seed,
-            history: if interleaved { "interleaved" } else { "blocked" },
+            history: if interleaved {
+                "interleaved"
+            } else {
+                "blocked"
+            },
             blank_acquisition,
             executions: trained.executions,
             first_updates: trained.first_updates,
