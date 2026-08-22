@@ -1,0 +1,8 @@
+case,contexts,initial_observe_calls_per_context,additional_observe_calls_per_context,final_mature_templates,persistent_bytes,retained_occurrences,retained_handles
+physical unique D3 contrast,20,2,2,1,8,0,0
+reversed downstream history,20,2,2,1,8,0,0
+same downstream evidence,20,2,0,0,8,0,0
+variable downstream evidence,20,2,0,0,8,0,0
+shuffled downstream evidence,20,2,0,0,8,0,0
+suppressed direction execution,20,2,0,0,8,0,0
+removed direction source,20,2,0,0,8,0,0
