@@ -1,0 +1,7 @@
+mode,seed,e0_work,a1_work,r0_work,e0_persistent_bytes,a1_persistent_bytes,ds1_persistent_bytes,r0_persistent_bytes,temporary_peak_bytes,activity_pulses,activity_relations,spike_propagations,arrow_traversals,state_mutations,return_support_updates,temporary_relations,bridge_copies,ds1_updates,maintenance,carrying
+MICRO,100,99443,412,210,130,12,320,6,128,3,2,2,1,2,3,1,4,0,0,0
+GATE,100,154355,412,210,130,12,320,6,128,3,2,2,1,2,3,1,4,0,0,0
+GATE,101,154355,416,210,130,12,320,6,128,3,2,2,1,2,3,1,4,0,0,0
+GATE,102,154355,412,210,130,12,320,6,128,3,2,2,1,2,3,1,4,0,0,0
+GATE,103,154355,416,210,130,12,320,6,128,3,2,2,1,2,3,1,4,0,0,0
+GATE,104,154355,412,210,130,12,320,6,128,3,2,2,1,2,3,1,4,0,0,0
