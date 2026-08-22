@@ -1,8 +1,16 @@
 # Post-M6 DS4 physical-arrival initiation development protocol
 
-Protocol identifier: `post-m6-ds4-arrival-initiation-v1`.
+Protocol identifier: `post-m6-ds4-arrival-initiation-v2`.
 
-Status: **PREREGISTERED DEVELOPMENT TARGET; NO SUCCESSOR EVIDENCE SPENT**.
+Status: **PRE-EVIDENCE NAMESPACE AMENDMENT; NO SUCCESSOR EVIDENCE SPENT**.
+
+Protocol v1 was frozen at commit
+`c76f5884af42b400bd9d4cf76fc58b669f3899ef` before a complete comparison
+against the M6 definitive seed list exposed one collision: v1 retry seed
+`74_500_000` was already spent by the M6 matrix. Nothing was compiled or
+executed under v1. Version 2 changes only the development namespaces below;
+the scientific target, first collapse, permitted gate, stages, controls, and
+stopping rules are byte-identical to v1.
 
 This is a separately named successor from authoritative M6. It is not a
 rescue, amendment, rerun, or reinterpretation of the immutable cumulative DS4
@@ -109,10 +117,10 @@ Fresh Lane A namespaces are disjoint from the old DS4 and all M6 development
 and definitive populations:
 
 ```text
-PROBE v1 collapse  base seed 74_000_000; one blank learner
-PROBE retry        base seed 74_500_000; one blank learner
-MICRO              base seeds 75_000_000 and 75_500_000; 8 held-out each
-GATE               base seeds 76_000_000 through 78_500_000 by 500_000;
+PROBE v1 collapse  base seed 140_000_000; one blank learner
+PROBE retry        base seed 141_000_000; one blank learner
+MICRO              base seeds 142_000_000 and 142_500_000; 8 held-out each
+GATE               base seeds 144_000_000 through 146_500_000 by 500_000;
                    32 held-out each
 ```
 
