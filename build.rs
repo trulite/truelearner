@@ -117,6 +117,10 @@ fn main() {
         &output.join("ds7_cumulative_plasticity_allocation_gate_frozen.rs"),
     );
     composition_copy(
+        Path::new("src/ds8_cumulative_semantic_credit_probe.rs"),
+        &output.join("ds8_cumulative_semantic_credit_probe_frozen.rs"),
+    );
+    composition_copy(
         Path::new("src/ds3_cumulative_event_boundary_port.rs"),
         &output.join("ds3_cumulative_event_boundary_port.rs"),
     );
@@ -745,6 +749,41 @@ fn main() {
         (
             "DS7_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/ds7_cumulative_plasticity_allocation_definitive_protocol.md",
+        ),
+        (
+            "DS8_ACTIVATION_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_activation_handoff.md",
+        ),
+        (
+            "DS8_AUDIT_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_dependency_audit.md",
+        ),
+        (
+            "DS8_PROTOCOL_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_probe_protocol.md",
+        ),
+        (
+            "DS8_M5_ALLOCATOR_SHA256",
+            "src/ds7_cumulative_plasticity_targeting_probe.rs",
+        ),
+        (
+            "DS8_M5_GATE_SHA256",
+            "src/ds7_cumulative_plasticity_allocation_gate.rs",
+        ),
+        (
+            "DS8_M5_CSV_SHA256",
+            "results/ds7_cumulative_plasticity_allocation_definitive.csv",
+        ),
+        (
+            "DS8_M5_MD_SHA256",
+            "results/ds7_cumulative_plasticity_allocation_definitive.md",
+        ),
+        ("DS8_D3_SHA256", "src/ds_d3_anonymous_consequence_contrast.rs"),
+        ("DS8_D2_SHA256", "src/ds_d2_differential_evidence.rs"),
+        ("DS8_C0_SHA256", "src/ds_c0_anonymous_credit_coupling.rs"),
+        (
+            "DS8_CP0_SHA256",
+            "src/ds_cp0_consequence_probation_coupling.rs",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));

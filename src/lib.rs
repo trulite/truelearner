@@ -12,6 +12,7 @@ pub mod ds7_cumulative_plasticity_allocation_definitive;
 pub mod ds7_cumulative_plasticity_allocation_gate;
 pub mod ds7_cumulative_plasticity_allocation_micro;
 pub mod ds7_cumulative_plasticity_targeting_probe;
+pub mod ds8_cumulative_semantic_credit_probe;
 pub mod ds_e0_anonymous_event_formation;
 pub mod ffs_same0;
 pub mod full_fractal_scaling;
