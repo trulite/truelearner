@@ -1,0 +1,15 @@
+dependency,visibility,status,notes
+frozen E0 event structure,organism-visible,required,actual E0 output through frozen A1 lineage
+two frozen A1 executable routes,organism-visible,required,formed before DS-D2
+temporary counterfactual route traces,organism-visible,required,ordinary root-SPIKE propagation in isolated branches
+returned anonymous route activity,organism-visible,required,selected route physically re-executed
+local structural equality/coactivity,organism-visible,required,trace and relative activation comparison
+local temporal CELL/ARROW/SPIKE physics,organism-visible,required,forms and executes the temporary direction
+selected route index,evaluator-only,forbidden from formation,used only to score the resulting relation
+occurrence IDs,evaluator-only,forbidden from formation,normalized away by frozen A1 execution
+route roots and opaque handles,evaluator-only,forbidden from formation,not passed to DifferentialWorkspace
+good/bad or positive/negative,evaluator-only,absent,no polarity channel or field
+correct/incorrect or expected/unexpected,evaluator-only,absent,no semantic consequence channel
+frozen DS1,not invoked,blocked,zero calls and zero updates
+M0,authoritative,unchanged,DS-D2 has no prefix authority
+M1,absent,blocked,requires later unchanged-DS1 cumulative pass

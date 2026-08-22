@@ -1,0 +1,7 @@
+mode,seed,roots,selected,direction,trace_comparisons,activation_comparisons,alternatives_compared,arrows_formed,spike_firings,arrow_traversals,abstentions,ds_d2_work,a1_work,persistent_bytes,temporary_peak_bytes,ds1_calls,ds1_updates,pass
+MICRO,100,2,0,0,4,6,2,1,1,1,0,15,389,0,184,0,0,PASS
+GATE,100,2,0,0,4,6,2,1,1,1,0,15,389,0,184,0,0,PASS
+GATE,101,2,1,1,4,6,2,1,1,1,0,15,390,0,184,0,0,PASS
+GATE,102,2,0,0,4,6,2,1,1,1,0,15,389,0,184,0,0,PASS
+GATE,103,2,1,1,4,6,2,1,1,1,0,15,390,0,184,0,0,PASS
+GATE,104,2,0,0,4,6,2,1,1,1,0,15,389,0,184,0,0,PASS
