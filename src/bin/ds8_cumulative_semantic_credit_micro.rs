@@ -1,6 +1,20 @@
 use organism_v0::ds8_cumulative_semantic_credit_micro::run;
 
 fn main() {
+    if std::env::args().any(|argument| argument == "--audit") {
+        let actual = env!("DS8_MICRO_LINKER_FRAGMENT_SHA256");
+        let expected = organism_v0::ds8_cumulative_semantic_credit_micro::FROZEN_LINKER_SHA256;
+        println!(
+            "matched={} actual={} expected={}",
+            actual == expected,
+            actual,
+            expected,
+        );
+        if actual != expected {
+            std::process::exit(1);
+        }
+        return;
+    }
     let report = run();
     println!(
         "protocol={} passed={} duplicate_exact={} cells={}",

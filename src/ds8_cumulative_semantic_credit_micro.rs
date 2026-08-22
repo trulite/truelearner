@@ -1,7 +1,7 @@
 //! Development-only two-cell cumulative DS8 non-semantic-credit MICRO.
 
-pub const PROTOCOL: &str = "ds8-cumulative-semantic-credit-micro-v1";
-pub const PROTOCOL_COMMIT: &str = "e26f968ed75973ebc219c1d4597d79751331d92f";
+pub const PROTOCOL: &str = "ds8-cumulative-semantic-credit-micro-v2";
+pub const PROTOCOL_COMMIT: &str = "3bb075b715070a139643724615bdb04c4ea03721";
 pub const AUTHORITATIVE_M5: &str = "9c5ba68a6a4ae37b51575ebaae414ab51a248575";
 pub const SEEDS: [u64; 2] = [41_000_000, 41_500_000];
 pub const FROZEN_PROBE_SHA256: &str =
@@ -16,6 +16,8 @@ pub const FROZEN_HANDOFF_SHA256: &str =
     "2653b6db073e3241a4d98e223cbc545826b57ecf272f2bc073f58dac98060087";
 pub const FROZEN_PROTOCOL_SHA256: &str =
     "4c66a654607659cccd5e1692dcf3c491452cc394c6cdb9583f52de6ae71b433a";
+pub const FROZEN_PROTOCOL_V2_SHA256: &str =
+    "092eb5577e78b9cb6ee7dfac6050e76556390afc903a61d4b4f258b77e97cf8d";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MicroCell {
@@ -256,6 +258,41 @@ mod frozen_linker {
         (first_count, second_count)
     }
 
+    fn shuffle_values(
+        path: &mut PlasticityPath,
+        first: EncounterSnapshot,
+        second: EncounterSnapshot,
+    ) -> bool {
+        if path.swap_values(first, second) {
+            return true;
+        }
+        let Some(first_id) = path.encoder.recognized(first) else {
+            return false;
+        };
+        let Some(second_id) = path.encoder.recognized(second) else {
+            return false;
+        };
+        match (path.values.remove(&first_id), path.values.remove(&second_id)) {
+            (Some(value), None) => {
+                path.values.insert(second_id, value);
+                true
+            }
+            (None, Some(value)) => {
+                path.values.insert(first_id, value);
+                true
+            }
+            (first_value, second_value) => {
+                if let Some(value) = first_value {
+                    path.values.insert(first_id, value);
+                }
+                if let Some(value) = second_value {
+                    path.values.insert(second_id, value);
+                }
+                false
+            }
+        }
+    }
+
     pub(super) fn run_cell(seed: u64, interleaved: bool) -> super::MicroCell {
         let trained = train(seed, interleaved, false, true);
         let direction = trained
@@ -276,7 +313,7 @@ mod frozen_linker {
             admissions(&swapped.path, seed + 3_000_000, true);
 
         let mut shuffled = trained.path.clone();
-        let swap_complete = shuffled.swap_values(trained.first, trained.second);
+        let swap_complete = shuffle_values(&mut shuffled, trained.first, trained.second);
         let (shuffled_first_admissions, shuffled_second_admissions) =
             admissions(&shuffled, seed + 4_000_000, true);
 
@@ -302,7 +339,8 @@ mod frozen_linker {
             && env!("DS8_MICRO_RESULT_SHA256") == super::FROZEN_RESULT_SHA256
             && env!("DS8_MICRO_AUDIT_SHA256") == super::FROZEN_AUDIT_SHA256
             && env!("DS8_MICRO_HANDOFF_SHA256") == super::FROZEN_HANDOFF_SHA256
-            && env!("DS8_MICRO_PROTOCOL_SHA256") == super::FROZEN_PROTOCOL_SHA256;
+            && env!("DS8_MICRO_PROTOCOL_SHA256") == super::FROZEN_PROTOCOL_SHA256
+            && env!("DS8_MICRO_PROTOCOL_V2_SHA256") == super::FROZEN_PROTOCOL_V2_SHA256;
         let cumulative_probe = crate::ds8_cumulative_semantic_credit_probe::run();
         let cumulative_m5 = cumulative_probe.passed
             && cumulative_probe
