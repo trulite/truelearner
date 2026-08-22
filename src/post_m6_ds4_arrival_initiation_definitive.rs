@@ -27,47 +27,29 @@ pub const SEEDS: [u64; 16] = [
 pub const HELD_OUT_PER_CELL: usize = 64;
 pub const CELL_NAMESPACE: u64 = 6_300_000;
 
-const PROTOCOL_SHA256: &str =
-    "d454a9521fc05416f62155830914fa29de8e1358fb5fe70ce0bca0a0a613412e";
-const MECHANISM_SHA256: &str =
-    "67e170f12d7b7649a0a291ddfc16cd80e4b5c15564b65cd09c884f3e52b9ac5b";
+const PROTOCOL_SHA256: &str = "d454a9521fc05416f62155830914fa29de8e1358fb5fe70ce0bca0a0a613412e";
+const MECHANISM_SHA256: &str = "67e170f12d7b7649a0a291ddfc16cd80e4b5c15564b65cd09c884f3e52b9ac5b";
 const DEVELOPMENT_RUNNER_SHA256: &str =
     "0a7bc106fe5135c04c4e62aed8de77d50ba7b0756ea51548d391ce33c00796e2";
-const GATE_RESULT_SHA256: &str =
-    "d16b22930e18f5c58b6490ce24f41fc260c5f0afb84b589fb6a5c27ba73b97e0";
-const READINESS_SHA256: &str =
-    "db788154859f1b1038533738f4700caf00eb41e80ff6fb060a2a7d08ce0155c0";
+const GATE_RESULT_SHA256: &str = "d16b22930e18f5c58b6490ce24f41fc260c5f0afb84b589fb6a5c27ba73b97e0";
+const READINESS_SHA256: &str = "db788154859f1b1038533738f4700caf00eb41e80ff6fb060a2a7d08ce0155c0";
 const OLD_NEGATIVE_AUDIT_SHA256: &str =
     "009eb190df8df3faf327abc8567c0074e6fba76de76def4f8bacf14fc1ae7a56";
 
-const M0_CSV_SHA256: &str =
-    "7883f71918d48c4c622d7cd2d9dd7561f5954f7287f8bc6abb535f5a9f994a55";
-const M0_MD_SHA256: &str =
-    "a788106462498dd7581fcbd324d6fbc71a1ca0a46c3390a4d289ae180731edad";
-const M1_CSV_SHA256: &str =
-    "fede145a50bc059ffcd19a26dc65763843a83b1644c89bd44a3b27e8cd7cea27";
-const M1_MD_SHA256: &str =
-    "5971c78eb2688e9fb2d31e59b8d835000ece4923b84aef57d6a1ef48f9295bea";
-const M2_CSV_SHA256: &str =
-    "68d6dd31ca15e206b382f3ef6592804882eecfe09efd6696b8ed403dc6304159";
-const M2_MD_SHA256: &str =
-    "a67f6d0acc2dc01a8456922153b64b97ad2493f2e7bf50b4d5268533a134f2e1";
-const M3_CSV_SHA256: &str =
-    "ac8c0a6c9b7badfa263ceb054ffe59c11162b1ca256c56cc6df5f0d378179401";
-const M3_MD_SHA256: &str =
-    "ab77bd12b705b8620b6315260f8bb5b4df6efc961f1d20a0dd521af403e1ac5f";
-const M4_CSV_SHA256: &str =
-    "5c4a2e2b021a26a4cc2161202dd9a62205d426ba361f90a69d00ceb3df470a83";
-const M4_MD_SHA256: &str =
-    "c418f6b5fb5f8f3f83e385c75cd23fb8c88def3650ff80a13a491d0979944768";
-const M5_CSV_SHA256: &str =
-    "86d9f6e3a8ab4ad5c242e0d7c619d8eda99e0da47faff623f26c8c6835b9a99a";
-const M5_MD_SHA256: &str =
-    "a336633c73565261d357a67ca02df3047ffcaf88488153bb2f43b621818ba5f0";
-const M6_CSV_SHA256: &str =
-    "0cb9ba779fca1899cf030d30358fe9354cfb7b2cccf87f32df3f6ea9ddfe91e4";
-const M6_MD_SHA256: &str =
-    "6a5d938c3e021344b00f3a559593fee860b5f6cceb777c409ad8d59a2dd71872";
+const M0_CSV_SHA256: &str = "7883f71918d48c4c622d7cd2d9dd7561f5954f7287f8bc6abb535f5a9f994a55";
+const M0_MD_SHA256: &str = "a788106462498dd7581fcbd324d6fbc71a1ca0a46c3390a4d289ae180731edad";
+const M1_CSV_SHA256: &str = "fede145a50bc059ffcd19a26dc65763843a83b1644c89bd44a3b27e8cd7cea27";
+const M1_MD_SHA256: &str = "5971c78eb2688e9fb2d31e59b8d835000ece4923b84aef57d6a1ef48f9295bea";
+const M2_CSV_SHA256: &str = "68d6dd31ca15e206b382f3ef6592804882eecfe09efd6696b8ed403dc6304159";
+const M2_MD_SHA256: &str = "a67f6d0acc2dc01a8456922153b64b97ad2493f2e7bf50b4d5268533a134f2e1";
+const M3_CSV_SHA256: &str = "ac8c0a6c9b7badfa263ceb054ffe59c11162b1ca256c56cc6df5f0d378179401";
+const M3_MD_SHA256: &str = "ab77bd12b705b8620b6315260f8bb5b4df6efc961f1d20a0dd521af403e1ac5f";
+const M4_CSV_SHA256: &str = "5c4a2e2b021a26a4cc2161202dd9a62205d426ba361f90a69d00ceb3df470a83";
+const M4_MD_SHA256: &str = "c418f6b5fb5f8f3f83e385c75cd23fb8c88def3650ff80a13a491d0979944768";
+const M5_CSV_SHA256: &str = "86d9f6e3a8ab4ad5c242e0d7c619d8eda99e0da47faff623f26c8c6835b9a99a";
+const M5_MD_SHA256: &str = "a336633c73565261d357a67ca02df3047ffcaf88488153bb2f43b621818ba5f0";
+const M6_CSV_SHA256: &str = "0cb9ba779fca1899cf030d30358fe9354cfb7b2cccf87f32df3f6ea9ddfe91e4";
+const M6_MD_SHA256: &str = "6a5d938c3e021344b00f3a559593fee860b5f6cceb777c409ad8d59a2dd71872";
 
 #[allow(dead_code)]
 mod frozen_development {
@@ -107,7 +89,11 @@ mod frozen_development {
 
     pub(super) fn authority_source_audit() -> (bool, bool, bool) {
         let audit = source_audit();
-        (audit.passed(), audit.information_boundary, audit.lane_isolated)
+        (
+            audit.passed(),
+            audit.information_boundary,
+            audit.lane_isolated,
+        )
     }
 
     fn silent(step: frozen_request::Step) -> bool {
@@ -133,13 +119,8 @@ mod frozen_development {
                 control_seed + 10_000 + episode as u64,
                 ArrivalFixture::Standard,
             );
-            let _ = frozen_request::step(
-                &mut request,
-                &mut credit,
-                activity.completion,
-                true,
-                false,
-            );
+            let _ =
+                frozen_request::step(&mut request, &mut credit, activity.completion, true, false);
             if frozen_request::ready(&request) {
                 break;
             }
@@ -154,37 +135,22 @@ mod frozen_development {
             control_seed + 20_000,
             ArrivalFixture::MissingClose,
         );
-        let missing_step = frozen_request::step(
-            &mut request,
-            &mut credit,
-            missing.completion,
-            false,
-            false,
-        );
+        let missing_step =
+            frozen_request::step(&mut request, &mut credit, missing.completion, false, false);
         let invalid = frozen_pre_m6_ds4::arrival_activity(
             &mut event_gate,
             control_seed + 30_000,
             ArrivalFixture::InvalidTransition,
         );
-        let invalid_step = frozen_request::step(
-            &mut request,
-            &mut credit,
-            invalid.completion,
-            false,
-            false,
-        );
+        let invalid_step =
+            frozen_request::step(&mut request, &mut credit, invalid.completion, false, false);
         let reentry = frozen_pre_m6_ds4::arrival_activity(
             &mut event_gate,
             control_seed + 30_001,
             ArrivalFixture::Relabelled,
         );
-        let reentry_step = frozen_request::step(
-            &mut request,
-            &mut credit,
-            reentry.completion,
-            false,
-            false,
-        );
+        let reentry_step =
+            frozen_request::step(&mut request, &mut credit, reentry.completion, false, false);
 
         silent(stale)
             && missing.completion == 0
@@ -396,9 +362,7 @@ fn source_order_and_information_flow() -> bool {
     ];
     let request_clean = forbidden.iter().all(|word| !request.contains(word));
     let consequence_clean = forbidden.iter().all(|word| !consequence.contains(word));
-    let authority_clean = forbidden
-        .iter()
-        .all(|word| !authority_call.contains(word));
+    let authority_clean = forbidden.iter().all(|word| !authority_call.contains(word));
     let request_execution = request.find("execute_choice");
     let request_differential = request.find("apply_recurrence");
     let request_feedback = request.find("learner.feedback(choice.pattern_cell, true)");
@@ -409,7 +373,10 @@ fn source_order_and_information_flow() -> bool {
         && consequence_clean
         && authority_clean
         && request.matches("apply_recurrence").count() == 1
-        && request.matches("learner.feedback(choice.pattern_cell, true)").count() == 1
+        && request
+            .matches("learner.feedback(choice.pattern_cell, true)")
+            .count()
+            == 1
         && matches!(
             (request_execution, request_differential, request_feedback),
             (Some(execution), Some(differential), Some(feedback))
@@ -422,10 +389,12 @@ fn source_order_and_information_flow() -> bool {
         )
         && consequence.matches("gate.learner.apply").count() == 1
         && after_request.contains("run.outcome == BindingOutcome::Answer(episode.answer)")
-        && authority_call.matches("frozen_development::authority_observation").count() == 1
-        && authority_call.contains(
-            "frozen_development::authority_observation(seed, HELD_OUT_PER_CELL)",
-        )
+        && authority_call
+            .matches("frozen_development::authority_observation")
+            .count()
+            == 1
+        && authority_call
+            .contains("frozen_development::authority_observation(seed, HELD_OUT_PER_CELL)")
 }
 
 fn exact_m0_m6_artifacts() -> bool {
@@ -452,12 +421,10 @@ fn exact_m0_m6_artifacts() -> bool {
 fn source_audit() -> SourceAudit {
     let frozen = frozen_development::authority_source_audit();
     SourceAudit {
-        exact_frozen_mechanism: env!("POST_M6_DS4_DEFINITIVE_MECHANISM_SHA256")
-            == MECHANISM_SHA256
+        exact_frozen_mechanism: env!("POST_M6_DS4_DEFINITIVE_MECHANISM_SHA256") == MECHANISM_SHA256
             && frozen.0,
-        exact_development_lineage: env!(
-            "POST_M6_DS4_DEFINITIVE_DEVELOPMENT_RUNNER_SHA256"
-        ) == DEVELOPMENT_RUNNER_SHA256
+        exact_development_lineage: env!("POST_M6_DS4_DEFINITIVE_DEVELOPMENT_RUNNER_SHA256")
+            == DEVELOPMENT_RUNNER_SHA256
             && env!("POST_M6_DS4_DEFINITIVE_GATE_RESULT_SHA256") == GATE_RESULT_SHA256
             && env!("POST_M6_DS4_DEFINITIVE_READINESS_SHA256") == READINESS_SHA256,
         exact_original_negative: env!("POST_M6_DS4_OLD_NEGATIVE_CSV_SHA256")
@@ -467,11 +434,9 @@ fn source_audit() -> SourceAudit {
             && env!("POST_M6_DS4_DEFINITIVE_OLD_NEGATIVE_AUDIT_SHA256")
                 == OLD_NEGATIVE_AUDIT_SHA256,
         exact_m0_m6_artifacts: exact_m0_m6_artifacts(),
-        source_order_and_information_flow: source_order_and_information_flow()
-            && frozen.1,
+        source_order_and_information_flow: source_order_and_information_flow() && frozen.1,
         lane_b_isolated: frozen.2,
-        protocol_and_commits: env!("POST_M6_DS4_DEFINITIVE_PROTOCOL_SHA256")
-            == PROTOCOL_SHA256
+        protocol_and_commits: env!("POST_M6_DS4_DEFINITIVE_PROTOCOL_SHA256") == PROTOCOL_SHA256
             && PROTOCOL_COMMIT == "6ba5deee16c37362f99833d1c5afb53b4dee2a2f"
             && READINESS_COMMIT == "7c39cb4306c61b8e67119c91c3f9e3802dab9a39"
             && MECHANISM_COMMIT == "e11a6a7927d86bbe0fff5f55942a8b418de39de1"
@@ -543,10 +508,8 @@ fn run_cell(index: usize, seed: u64, source: &SourceAudit) -> DefinitiveCell {
     controls[10] &= source.source_order_and_information_flow && source.lane_b_isolated;
     controls[11] &= duplicate_exact;
 
-    let p0 = source.passed()
-        && first.source_passed
-        && first.information_boundary
-        && first.lane_isolated;
+    let p0 =
+        source.passed() && first.source_passed && first.information_boundary && first.lane_isolated;
     let p1 = first.learned_event_activity > 0
         && controls[0]
         && controls[1]
@@ -579,9 +542,10 @@ fn run_cell(index: usize, seed: u64, source: &SourceAudit) -> DefinitiveCell {
     let p6 = controls.iter().all(|passed| *passed);
     let p7 = duplicate_exact;
     let stages = [p0, p1, p2, p3, p4, p5, p6, p7];
-    let first_collapse = stages.iter().position(|passed| !passed).map_or(
-        "NONE",
-        |stage| {
+    let first_collapse = stages
+        .iter()
+        .position(|passed| !passed)
+        .map_or("NONE", |stage| {
             [
                 "P0 source and authority",
                 "P1 physical arrival and learned event requirement",
@@ -592,8 +556,7 @@ fn run_cell(index: usize, seed: u64, source: &SourceAudit) -> DefinitiveCell {
                 "P6 twelve controls",
                 "P7 exact duplicate physical execution",
             ][stage]
-        },
-    );
+        });
     DefinitiveCell {
         index,
         seed,
@@ -626,28 +589,20 @@ fn run_cell(index: usize, seed: u64, source: &SourceAudit) -> DefinitiveCell {
 
 fn summarize(preflight: &Preflight, cells: &[DefinitiveCell]) -> ClaimSummary {
     ClaimSummary {
-        blank_single_role_acquisition: cells
-            .iter()
-            .all(|cell| cell.p3_single_anonymous_role),
-        physical_arrival_and_event_required: cells
-            .iter()
-            .all(|cell| cell.p1_arrival_event_paths),
+        blank_single_role_acquisition: cells.iter().all(|cell| cell.p3_single_anonymous_role),
+        physical_arrival_and_event_required: cells.iter().all(|cell| cell.p1_arrival_event_paths),
         recurrence_and_delayed_consequence_required: cells
             .iter()
             .all(|cell| cell.p2_recurrence_consequence),
         invalid_paths_silent: cells
             .iter()
             .all(|cell| cell.p1_arrival_event_paths && cell.controls_passed == 12),
-        held_out_correct_explicit_quiescent: cells
-            .iter()
-            .all(|cell| cell.p4_held_out_transfer),
+        held_out_correct_explicit_quiescent: cells.iter().all(|cell| cell.p4_held_out_transfer),
         identity_layout_allocation_serialization_transfer: cells
             .iter()
             .all(|cell| cell.positions == 6 && cell.p4_held_out_transfer),
         evaluator_blind_information_flow: preflight.source.source_order_and_information_flow,
-        m3_p4_m6_nonplastic: cells
-            .iter()
-            .all(|cell| cell.p5_nonplastic_lifecycle),
+        m3_p4_m6_nonplastic: cells.iter().all(|cell| cell.p5_nonplastic_lifecycle),
         frozen_artifacts_exact: preflight.source.exact_frozen_mechanism
             && preflight.source.exact_development_lineage
             && preflight.source.exact_original_negative
