@@ -597,6 +597,30 @@ fn main() {
             "DS7_MICRO_PROTOCOL_SHA256",
             "experiments/ds7_cumulative_plasticity_allocation_micro_protocol.md",
         ),
+        (
+            "DS7_GATE_HANDOFF_SHA256",
+            "experiments/ds7_cumulative_plasticity_allocation_development_handoff.md",
+        ),
+        (
+            "DS7_GATE_MICRO_RESULT_SHA256",
+            "results/ds7_cumulative_plasticity_allocation_micro.md",
+        ),
+        (
+            "DS7_GATE_MICRO_AUDIT_SHA256",
+            "experiments/ds7_cumulative_plasticity_allocation_micro_result_audit.md",
+        ),
+        (
+            "DS7_GATE_MICRO_SHA256",
+            "src/ds7_cumulative_plasticity_allocation_micro.rs",
+        ),
+        (
+            "DS7_GATE_RT0_SHA256",
+            "src/ds_rt0_retained_direction_execution.rs",
+        ),
+        (
+            "DS7_GATE_PROTOCOL_SHA256",
+            "experiments/ds7_cumulative_plasticity_allocation_gate_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");

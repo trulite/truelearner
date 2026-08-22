@@ -8,6 +8,7 @@ pub mod discovery;
 pub mod ds1_after_e0_cumulative_composition;
 pub mod ds6_cumulative_lifetime_definitive;
 pub mod ds6_cumulative_lifetime_probe;
+pub mod ds7_cumulative_plasticity_allocation_gate;
 pub mod ds7_cumulative_plasticity_allocation_micro;
 pub mod ds7_cumulative_plasticity_targeting_probe;
 pub mod ds_e0_anonymous_event_formation;

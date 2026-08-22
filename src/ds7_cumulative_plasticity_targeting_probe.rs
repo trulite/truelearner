@@ -318,9 +318,12 @@ impl PlasticityPath {
         false
     }
 
-    fn encounter(&mut self, encounter: PhysicalEncounter) -> Option<Edge> {
+    fn begin_event(&mut self) {
         self.pressure_if_due();
         self.completed += 1;
+    }
+
+    fn local_encounter(&mut self, encounter: PhysicalEncounter) -> Option<Edge> {
         if !encounter.locally_active() {
             return None;
         }
@@ -341,6 +344,11 @@ impl PlasticityPath {
                 life: ScalarAllocation::new(),
             });
         Some(edge)
+    }
+
+    fn encounter(&mut self, encounter: PhysicalEncounter) -> Option<Edge> {
+        self.begin_event();
+        self.local_encounter(encounter)
     }
 
     fn execute(&mut self, edge: Edge) -> bool {
