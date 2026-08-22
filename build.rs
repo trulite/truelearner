@@ -1143,6 +1143,10 @@ fn main() {
             "results/post_m7_ds5_closure_emission_micro.md",
         ),
         (
+            "POST_M7_DS5_GATE_V1_RESULT_SHA256",
+            "results/post_m7_ds5_closure_emission_gate.md",
+        ),
+        (
             "POST_M6_DS4_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/post_m6_ds4_arrival_initiation_definitive_protocol.md",
         ),

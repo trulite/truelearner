@@ -55,6 +55,8 @@ pub const FROZEN_PROBE_RETRY_RESULT_SHA256: &str =
     "c947e50e77fb56d696a53eb1b4f125f5710405fc708e1071d0056579cb52a085";
 pub const FROZEN_MICRO_RESULT_SHA256: &str =
     "21c716c87b364e4611d11773d0ff4a914e0d19325ce3b90084be146d8c891e2c";
+pub const FROZEN_GATE_V1_RESULT_SHA256: &str =
+    "99f228f32a86c3f48b36d3e10a908955152ca7e8aa826e78c603e537676db876";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProbeV1Report {
@@ -547,6 +549,8 @@ struct PhysicalRun {
     consequences: usize,
     updates: usize,
     position: Option<usize>,
+    route_handle: Option<u64>,
+    allocation_reversed: bool,
     ambiguous: bool,
     cycle_blocked: bool,
     naturally_quiescent: bool,
@@ -572,6 +576,8 @@ fn execute(
     }
     let mut queue = VecDeque::from([episode.query]);
     let mut history = HashSet::new();
+    let route_handle = seed.rotate_left(17) ^ 0x000D_5505_EEDA_110C;
+    run.allocation_reversed = seed.is_multiple_of(2);
     while let Some(current) = queue.pop_front() {
         if !history.insert(current) {
             run.cycle_blocked = true;
@@ -579,7 +585,11 @@ fn execute(
         }
         run.attempts += 1;
         let mut successors = HashSet::new();
-        for cell in operation.lookup.temporary_identity_cells() {
+        let mut identity_cells = operation.lookup.temporary_identity_cells();
+        if run.allocation_reversed {
+            identity_cells.reverse();
+        }
+        for cell in identity_cells {
             run.physical_work += 1;
             if let Some(successor) = operation.lookup.compare_temporary_identity(current, cell) {
                 successors.insert(successor);
@@ -611,6 +621,7 @@ fn execute(
                 run.position = Some(step.position);
                 if let Some(crossing) = step.crossing {
                     run.crossings.push(crossing);
+                    run.route_handle = Some(route_handle);
                 }
             }
             1 => {
@@ -637,6 +648,7 @@ pub struct SourceAudit {
     pub probe_negative_frozen: bool,
     pub probe_retry_frozen: bool,
     pub micro_frozen: bool,
+    pub gate_v1_frozen: bool,
     pub frozen_parts: bool,
     pub linker_exact: bool,
     pub information_boundary: bool,
@@ -650,6 +662,7 @@ impl SourceAudit {
             && self.probe_negative_frozen
             && self.probe_retry_frozen
             && self.micro_frozen
+            && self.gate_v1_frozen
             && self.frozen_parts
             && self.linker_exact
             && self.information_boundary
@@ -686,6 +699,7 @@ fn source_audit() -> SourceAudit {
         probe_retry_frozen: env!("POST_M7_DS5_PROBE_RETRY_RESULT_SHA256")
             == FROZEN_PROBE_RETRY_RESULT_SHA256,
         micro_frozen: env!("POST_M7_DS5_MICRO_RESULT_SHA256") == FROZEN_MICRO_RESULT_SHA256,
+        gate_v1_frozen: env!("POST_M7_DS5_GATE_V1_RESULT_SHA256") == FROZEN_GATE_V1_RESULT_SHA256,
         frozen_parts: frozen_parts_exact(),
         linker_exact: !linker.is_empty()
             && linker.matches("frozen_cumulative::differential").count() == 1
@@ -723,6 +737,8 @@ struct Snapshot {
     quiescent: usize,
     positions: BTreeSet<usize>,
     depths: BTreeSet<usize>,
+    route_handles: BTreeSet<u64>,
+    allocation_layouts: BTreeSet<bool>,
     physical_work: u64,
     m7_nonplastic: bool,
     closure_nonplastic: bool,
@@ -749,6 +765,8 @@ fn snapshot(seeds: &[u64], held_out_per_learner: usize) -> Snapshot {
     let mut quiescent = 0;
     let mut positions = BTreeSet::new();
     let mut depths = BTreeSet::new();
+    let mut route_handles = BTreeSet::new();
+    let mut allocation_layouts = BTreeSet::new();
     let mut physical_work = 0;
     let mut m7_nonplastic = true;
     let mut closure_nonplastic = true;
@@ -836,6 +854,10 @@ fn snapshot(seeds: &[u64], held_out_per_learner: usize) -> Snapshot {
             if let Some(position) = run.position {
                 positions.insert(position);
             }
+            if let Some(handle) = run.route_handle {
+                route_handles.insert(handle);
+            }
+            allocation_layouts.insert(run.allocation_reversed);
             physical_work += run.physical_work;
             temporary_erased &= run.temporary_erased;
             control_results[1] &= run.premature == 0 && run.closures == 1;
@@ -965,7 +987,9 @@ fn snapshot(seeds: &[u64], held_out_per_learner: usize) -> Snapshot {
                 },
             )
             .crossings[0];
-        control_results[8] &= anonymous_role::ready(&path.role);
+        control_results[8] &= anonymous_role::ready(&path.role)
+            && route_handles.len() == held_out.len()
+            && allocation_layouts.len() == 2;
         control_results[9] &= source.information_boundary;
         control_results[10] &= m7_nonplastic && closure_nonplastic;
         control_results[11] &= source.lane_isolated;
@@ -1012,6 +1036,8 @@ fn snapshot(seeds: &[u64], held_out_per_learner: usize) -> Snapshot {
         quiescent,
         positions,
         depths,
+        route_handles,
+        allocation_layouts,
         physical_work,
         m7_nonplastic,
         closure_nonplastic,
@@ -1047,6 +1073,8 @@ pub struct DevelopmentReport {
     pub natural_quiescence: usize,
     pub positions: usize,
     pub depths: usize,
+    pub route_handles: usize,
+    pub allocation_layouts: usize,
     pub physical_work: u64,
     pub m7_nonplastic: bool,
     pub closure_nonplastic: bool,
@@ -1072,7 +1100,9 @@ fn report(mode: &'static str, seeds: &[u64], held_out: usize, full: bool) -> Dev
         || (first.correct == first.total
             && first.quiescent == first.total
             && first.positions.len() == 6
-            && first.depths.len() >= 6);
+            && first.depths.len() >= 6
+            && first.route_handles.len() == first.total
+            && first.allocation_layouts.len() == 2);
     let controls = !full
         || (first.controls.len() == 12 && first.controls.iter().all(|control| control.passed));
     let lifecycle = duplicate_exact
@@ -1130,6 +1160,8 @@ fn report(mode: &'static str, seeds: &[u64], held_out: usize, full: bool) -> Dev
         natural_quiescence: first.quiescent,
         positions: first.positions.len(),
         depths: first.depths.len(),
+        route_handles: first.route_handles.len(),
+        allocation_layouts: first.allocation_layouts.len(),
         physical_work: first.physical_work,
         m7_nonplastic: first.m7_nonplastic,
         closure_nonplastic: first.closure_nonplastic,
@@ -1171,6 +1203,8 @@ pub fn run_development(mode: HarnessMode) -> DevelopmentReport {
             natural_quiescence: 0,
             positions: 0,
             depths: 0,
+            route_handles: 0,
+            allocation_layouts: 0,
             physical_work: 0,
             m7_nonplastic: false,
             closure_nonplastic: false,

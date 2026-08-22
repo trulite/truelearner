@@ -46,6 +46,8 @@ fn print_development(report: DevelopmentReport) {
     );
     println!("- Serialization positions: `{}/6`", report.positions);
     println!("- Held-out depth classes: `{}`", report.depths);
+    println!("- Fresh route handles: `{}`", report.route_handles);
+    println!("- Allocation layouts: `{}/2`", report.allocation_layouts);
     println!("- Physical work: `{}`", report.physical_work);
     println!(
         "- Held-out non-plastic M7/closure: `{}/{}`",
