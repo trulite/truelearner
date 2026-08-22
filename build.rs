@@ -145,6 +145,15 @@ fn main() {
         ),
         ("DS_D0_C0_SHA256", "src/ds_c0_anonymous_credit_coupling.rs"),
         ("DS_D0_E0_SHA256", "src/ds_e0_anonymous_event_formation.rs"),
+        (
+            "DS_D1_D0_SOURCE_SHA256",
+            "src/ds_d0_stage8b_discrimination.rs",
+        ),
+        (
+            "DS_D1_D0_HANDOFF_SHA256",
+            "experiments/ds_d0_stage8b_discrimination_handoff.md",
+        ),
+        ("DS_D1_E0_SHA256", "src/ds_e0_anonymous_event_formation.rs"),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
