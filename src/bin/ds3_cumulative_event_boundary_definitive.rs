@@ -257,10 +257,14 @@ fn main() {
                 );
                 std::process::exit(2);
             }
-            eprintln!("DS3 definitive outcome begins with cell 0; the one-shot evidence is now spent");
+            eprintln!(
+                "DS3 definitive outcome begins with cell 0; the one-shot evidence is now spent"
+            );
             let report = definitive::run_definitive(true);
             if let Err(error) = write_definitive(&report, &csv_path, &md_path) {
-                eprintln!("definitive matrix completed but write-once serialization failed: {error}");
+                eprintln!(
+                    "definitive matrix completed but write-once serialization failed: {error}"
+                );
                 std::process::exit(3);
             }
             print_report(&report);
@@ -269,9 +273,7 @@ fn main() {
             }
         }
         _ => {
-            eprintln!(
-                "usage: ds3_cumulative_event_boundary_definitive [--audit|--definitive]"
-            );
+            eprintln!("usage: ds3_cumulative_event_boundary_definitive [--audit|--definitive]");
             std::process::exit(2)
         }
     }

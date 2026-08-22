@@ -1,10 +1,8 @@
 //! Write-once cumulative DS3 definitive matrix over the frozen development port.
 
 pub const PROTOCOL: &str = "ds3-cumulative-event-boundary-definitive-v2";
-pub const EXACT_DEVELOPMENT_PARENT: &str =
-    "8e24a1316327f0af40fa3e7c70ad940d2a3e203f";
-pub const AMENDED_PROTOCOL_COMMIT: &str =
-    "0094a8fbebd085a8ea4709f841cb15e295553450";
+pub const EXACT_DEVELOPMENT_PARENT: &str = "8e24a1316327f0af40fa3e7c70ad940d2a3e203f";
+pub const AMENDED_PROTOCOL_COMMIT: &str = "0094a8fbebd085a8ea4709f841cb15e295553450";
 pub const AUTHORITATIVE_M2: &str = "162a5b2082a8c1ac9ede45bc5178fecf3509b476";
 pub const FROZEN_PARENT_SHA256: &str =
     "c4fc7aca11a5925effeb5a84b90184a70da0f66da7c063d0f87ba46ca36addf3";
@@ -97,16 +95,11 @@ mod frozen_development {
             source_passed: gate.source.passed(),
             stages_ready: gate.stages.iter().all(|stage| stage == "READY"),
             controls_exact: gate.controls.len() == expected_controls.len()
-                && gate
-                    .controls
-                    .iter()
-                    .zip(expected_controls)
-                    .enumerate()
-                    .all(|(index, (control, expected))| {
-                        control.number == index + 1
-                            && control.name == *expected
-                            && control.passed
-                    }),
+                && gate.controls.iter().zip(expected_controls).enumerate().all(
+                    |(index, (control, expected))| {
+                        control.number == index + 1 && control.name == *expected && control.passed
+                    },
+                ),
             definitive_locked: locked.mode == "DEFINITIVE-FORBIDDEN"
                 && !locked.claim_eligible
                 && !locked.development_ready
@@ -143,30 +136,29 @@ mod frozen_development {
         }
     }
 
-    fn blocked_interruption_control(base_seed: u64, learner: &mut frozen_ds3::GlueBoundary) -> bool {
+    fn blocked_interruption_control(
+        base_seed: u64,
+        learner: &mut frozen_ds3::GlueBoundary,
+    ) -> bool {
         let mut stream = Stream::default();
         let mut occurrences = base_seed ^ 0xD3F4_0000;
-        let fixture = append_lifecycle(
-            &mut stream,
-            base_seed + 20_070,
-            0,
-            2,
-            RenderOptions::default(),
-            &mut occurrences,
-        ) && append_interruption(
-            &mut stream,
-            base_seed + 20_071,
-            0,
-            false,
-            &mut occurrences,
-        ) && append_lifecycle(
-            &mut stream,
-            base_seed + 20_072,
-            1,
-            3,
-            RenderOptions::default(),
-            &mut occurrences,
-        );
+        let fixture =
+            append_lifecycle(
+                &mut stream,
+                base_seed + 20_070,
+                0,
+                2,
+                RenderOptions::default(),
+                &mut occurrences,
+            ) && append_interruption(&mut stream, base_seed + 20_071, 0, false, &mut occurrences)
+                && append_lifecycle(
+                    &mut stream,
+                    base_seed + 20_072,
+                    1,
+                    3,
+                    RenderOptions::default(),
+                    &mut occurrences,
+                );
         if !fixture {
             return false;
         }
@@ -188,17 +180,16 @@ mod frozen_development {
         let mut candidate_comparisons = 0u64;
 
         for ordinal in 0..super::ACQUISITION_STREAMS {
-            let Some(stream) = standard_stream(base_seed + ordinal as u64, RenderOptions::default())
+            let Some(stream) =
+                standard_stream(base_seed + ordinal as u64, RenderOptions::default())
             else {
                 wiring_legal = false;
                 continue;
             };
-            wiring_legal &= stream_legal(&stream)
-                && stream.organic_rows == 6
-                && stream.expected.len() == 2;
+            wiring_legal &=
+                stream_legal(&stream) && stream.organic_rows == 6 && stream.expected.len() == 2;
             acquisition_m2_work += stream.m2_work;
-            let evaluation =
-                frozen_ds3::glue_evaluate(&mut learner, &stream.observations, true);
+            let evaluation = frozen_ds3::glue_evaluate(&mut learner, &stream.observations, true);
             acquisition_observations += evaluation.work.acquisition_observations;
             candidate_comparisons += evaluation.work.candidate_comparisons;
         }
@@ -223,11 +214,9 @@ mod frozen_development {
                 functional_adequacy = false;
                 continue;
             };
-            wiring_legal &= stream_legal(&stream)
-                && stream.organic_rows == 6
-                && stream.expected.len() == 2;
-            let evaluation =
-                frozen_ds3::glue_evaluate(&mut learner, &stream.observations, false);
+            wiring_legal &=
+                stream_legal(&stream) && stream.organic_rows == 6 && stream.expected.len() == 2;
+            let evaluation = frozen_ds3::glue_evaluate(&mut learner, &stream.observations, false);
             reconstructability &= exact_reconstruction(&evaluation, &stream);
             functional_adequacy &= consequence_parity(&evaluation, &stream);
             held_out_spans += evaluation.spans.len();
@@ -371,14 +360,11 @@ fn source_audit(results_tree_digest: bool) -> SourceAudit {
         parent_hash: env!("DS3_DEFINITIVE_PARENT_SHA256") == FROZEN_PARENT_SHA256,
         parent_handoff_hash: env!("DS3_DEFINITIVE_PARENT_HANDOFF_SHA256")
             == FROZEN_PARENT_HANDOFF_SHA256,
-        amended_protocol_hash: env!("DS3_DEFINITIVE_PROTOCOL_SHA256")
-            == FROZEN_PROTOCOL_SHA256,
-        exact_parent: EXACT_DEVELOPMENT_PARENT
-            == "8e24a1316327f0af40fa3e7c70ad940d2a3e203f",
+        amended_protocol_hash: env!("DS3_DEFINITIVE_PROTOCOL_SHA256") == FROZEN_PROTOCOL_SHA256,
+        exact_parent: EXACT_DEVELOPMENT_PARENT == "8e24a1316327f0af40fa3e7c70ad940d2a3e203f",
         exact_protocol_commit: AMENDED_PROTOCOL_COMMIT
             == "0094a8fbebd085a8ea4709f841cb15e295553450",
-        exact_authoritative_m2: AUTHORITATIVE_M2
-            == "162a5b2082a8c1ac9ede45bc5178fecf3509b476",
+        exact_authoritative_m2: AUTHORITATIVE_M2 == "162a5b2082a8c1ac9ede45bc5178fecf3509b476",
         exact_matrix: DEFINITIVE_CELLS == 16
             && ACQUISITION_STREAMS == 8
             && HELD_OUT_STREAMS == 16
@@ -492,12 +478,7 @@ pub fn run_audit(results_tree_digest: bool) -> Report {
 
 pub fn run_definitive(results_tree_digest: bool) -> Report {
     let seeds = (0..DEFINITIVE_CELLS)
-        .map(|cell_id| {
-            (
-                cell_id,
-                BASE_SEED_START + cell_id as u64 * BASE_SEED_STRIDE,
-            )
-        })
+        .map(|cell_id| (cell_id, BASE_SEED_START + cell_id as u64 * BASE_SEED_STRIDE))
         .collect::<Vec<_>>();
     run_matrix("DEFINITIVE", true, &seeds, results_tree_digest)
 }
