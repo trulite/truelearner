@@ -45,6 +45,33 @@ pub struct ProbeReport {
     pub duplicate_exact: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MicroCell {
+    pub seed: u64,
+    pub history_ordered: bool,
+    pub useful_survived: usize,
+    pub useful_total: usize,
+    pub oneoffs_removed: usize,
+    pub oneoffs_total: usize,
+    pub short_gap_survived_and_strengthened: bool,
+    pub long_gap_disappeared: bool,
+    pub contradiction_lost_advantage: bool,
+    pub stale_path_blocked: bool,
+    pub reacquired: usize,
+    pub fresh_layout_exact: bool,
+    pub economy: bool,
+    pub controls: bool,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MicroReport {
+    pub protocol: &'static str,
+    pub cells: Vec<MicroCell>,
+    pub duplicate_exact: bool,
+    pub passed: bool,
+}
+
 macro_rules! ds6_m3_access {
     () => {
         #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -89,6 +116,10 @@ macro_rules! ds6_m3_access {
                     .keys()
                     .map(|key| 2 * key.roles.len() + 2 + std::mem::size_of::<i32>())
                     .sum()
+            }
+
+            fn strength(&self, key: &ChunkSignature) -> i32 {
+                self.records.get(key).copied().unwrap_or(0)
             }
         }
 
@@ -249,6 +280,129 @@ macro_rules! ds6_m3_access {
                 && env!("DS6_AUDIT_SHA256") == super::FROZEN_AUDIT_SHA256
                 && env!("DS6_PROTOCOL_SHA256") == super::FROZEN_PROTOCOL_SHA256
         }
+
+        fn pressure_activity(life: &mut ScalarLifecycle, seed: u64, count: u8) {
+            for ordinal in 0..count {
+                life.observe(event(seed + ordinal as u64, 100 + ordinal).0);
+            }
+        }
+
+        fn recurrence(life: &mut ScalarLifecycle, seed: u64, relation: u8, count: usize) {
+            for ordinal in 0..count {
+                life.observe(event(seed + ordinal as u64, relation).0);
+            }
+        }
+
+        pub(super) fn run_micro_cell(seed: u64, reverse: bool) -> super::MicroCell {
+            let mut life = ScalarLifecycle::new(true);
+            let mut raw = KeepAll::default();
+            let mut schedule = vec![(10u8, 4usize), (11, 6), (12, 8), (13, 10)];
+            if reverse {
+                schedule.reverse();
+            }
+            for (relation, count) in &schedule {
+                for ordinal in 0..*count {
+                    let key = event(seed + *relation as u64 * 100 + ordinal as u64, *relation).0;
+                    life.observe(key.clone());
+                    raw.observe(key);
+                }
+            }
+            let useful = (10u8..14)
+                .map(|relation| event(seed + 20_000 + relation as u64, relation).0)
+                .collect::<Vec<_>>();
+            let before = useful
+                .iter()
+                .map(|key| life.strength(key))
+                .collect::<Vec<_>>();
+            for relation in 20u8..36 {
+                let key = event(seed + 30_000 + relation as u64, relation).0;
+                life.observe(key.clone());
+                raw.observe(key);
+            }
+            let useful_survived = useful.iter().filter(|key| life.available(key)).count();
+            let history_ordered = before.windows(2).all(|pair| pair[0] <= pair[1]);
+            let oneoffs_removed = (20u8..36)
+                .filter(|relation| {
+                    !life.available(&event(seed + 31_000 + *relation as u64, *relation).0)
+                })
+                .count();
+
+            let mut short = ScalarLifecycle::new(true);
+            recurrence(&mut short, seed + 40_000, 40, 4);
+            let gap_key = event(seed + 41_000, 40).0;
+            pressure_activity(&mut short, seed + 42_000, 12);
+            let short_before = short.strength(&gap_key);
+            recurrence(&mut short, seed + 43_000, 40, 1);
+            let short_gap_survived_and_strengthened =
+                short_before > 0 && short.strength(&gap_key) > short_before;
+
+            let mut long = ScalarLifecycle::new(true);
+            recurrence(&mut long, seed + 44_000, 41, 4);
+            let long_key = event(seed + 45_000, 41).0;
+            pressure_activity(&mut long, seed + 46_000, 24);
+            let long_gap_disappeared = !long.available(&long_key);
+
+            let mut contradicted = ScalarLifecycle::new(true);
+            let mut matched = ScalarLifecycle::new(true);
+            recurrence(&mut contradicted, seed + 50_000, 50, 4);
+            recurrence(&mut matched, seed + 50_000, 50, 4);
+            let original = event(seed + 51_000, 50).0;
+            let (changed, broken) = broken_event(seed + 51_001, 50);
+            pressure_activity(&mut contradicted, seed + 52_000, 8);
+            recurrence(&mut matched, seed + 53_000, 50, 4);
+            let contradiction_lost_advantage =
+                contradicted.strength(&original) < matched.strength(&original);
+            let stale_path_blocked = changed != original && !contradicted.available(&changed) && broken;
+
+            let removed = [20u8, 21u8];
+            let mut reacquired = 0;
+            for relation in removed {
+                let key = event(seed + 60_000 + relation as u64, relation).0;
+                if !life.available(&key) {
+                    recurrence(&mut life, seed + 61_000 + relation as u64 * 10, relation, 4);
+                    reacquired += usize::from(life.available(&key));
+                }
+            }
+
+            let mut no_pressure = ScalarLifecycle::new(false);
+            for relation in 20u8..36 {
+                no_pressure.observe(event(seed + 70_000 + relation as u64, relation).0);
+            }
+            let controls = no_pressure.records.len() == 16 && oneoffs_removed == 16;
+            let fresh_layout_exact = useful.iter().all(|key| {
+                let relation = key.relation;
+                *key == event(seed ^ 0x5a5a_5a5a, relation).0
+            });
+            let economy = life.records.len() < raw.records.len() && life.bytes() > 0;
+            let passed = history_ordered
+                && useful_survived == useful.len()
+                && oneoffs_removed == 16
+                && short_gap_survived_and_strengthened
+                && long_gap_disappeared
+                && contradiction_lost_advantage
+                && stale_path_blocked
+                && reacquired == 2
+                && fresh_layout_exact
+                && economy
+                && controls;
+            super::MicroCell {
+                seed,
+                history_ordered,
+                useful_survived,
+                useful_total: useful.len(),
+                oneoffs_removed,
+                oneoffs_total: 16,
+                short_gap_survived_and_strengthened,
+                long_gap_disappeared,
+                contradiction_lost_advantage,
+                stale_path_blocked,
+                reacquired,
+                fresh_layout_exact,
+                economy,
+                controls,
+                passed,
+            }
+        }
     };
 }
 
@@ -339,6 +493,54 @@ pub fn print_report(report: &ProbeReport) {
         report.duplicate_exact,
         report.diagnostic_complete
     );
+}
+
+fn micro_once() -> Vec<MicroCell> {
+    vec![
+        frozen_m3::run_micro_cell(107_000, false),
+        frozen_m3::run_micro_cell(108_000, true),
+    ]
+}
+
+pub fn run_micro() -> MicroReport {
+    let cells = micro_once();
+    let duplicate_exact = cells == micro_once();
+    let passed = duplicate_exact && cells.iter().all(|cell| cell.passed);
+    MicroReport {
+        protocol: "ds6-cumulative-lifetime-micro-v1",
+        cells,
+        duplicate_exact,
+        passed,
+    }
+}
+
+pub fn render_micro(report: &MicroReport) -> String {
+    let mut text = format!(
+        "# DS6 cumulative lifetime MICRO result\n\nProtocol: `{}`.\n\nVerdict: **{}**.\n\n| seed | useful | one-offs removed | short gap | long gap | contradiction | stale blocked | reacquired | fresh layout | economy | controls | result |\n|---:|---:|---:|:---:|:---:|:---:|:---:|---:|:---:|:---:|:---:|:---:|\n",
+        report.protocol,
+        if report.passed { "PASS" } else { "FAIL" }
+    );
+    for cell in &report.cells {
+        text.push_str(&format!(
+            "| {} | {}/{} | {}/{} | {} | {} | {} | {} | {}/2 | {} | {} | {} | {} |\n",
+            cell.seed,
+            cell.useful_survived,
+            cell.useful_total,
+            cell.oneoffs_removed,
+            cell.oneoffs_total,
+            cell.short_gap_survived_and_strengthened,
+            cell.long_gap_disappeared,
+            cell.contradiction_lost_advantage,
+            cell.stale_path_blocked,
+            cell.reacquired,
+            cell.fresh_layout_exact,
+            cell.economy,
+            cell.controls,
+            cell.passed
+        ));
+    }
+    text.push_str(&format!("\nDuplicate exact: `{}`.\n", report.duplicate_exact));
+    text
 }
 
 #[cfg(test)]
