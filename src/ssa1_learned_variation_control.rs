@@ -57,6 +57,40 @@ pub struct ProbeReport {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdaptiveWorld {
+    pub name: &'static str,
+    pub before: Landscape,
+    pub after: Landscape,
+    pub realized_before: [usize; 2],
+    pub realized_after: [usize; 2],
+    pub unresolved_after: usize,
+    pub physical_control: bool,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MicroCell {
+    pub seed: u64,
+    pub world_a: bool,
+    pub world_b: bool,
+    pub world_c: AdaptiveWorld,
+    pub world_d: AdaptiveWorld,
+    pub world_e: AdaptiveWorld,
+    pub duplicate_exact: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MicroReport {
+    pub protocol: &'static str,
+    pub claim_eligible: bool,
+    pub cells: Vec<MicroCell>,
+    pub classification: &'static str,
+    pub first_collapse: &'static str,
+    pub substrate_unchanged: bool,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Competition {
     realized: Option<usize>,
     start_fingerprint: u64,
@@ -102,6 +136,14 @@ mod frozen_learning {
         applications: usize,
     }
 
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub(super) struct Session {
+        stack: Stack,
+        routes: [Vec<Route>; 2],
+        seed: u64,
+        episode: usize,
+    }
+
     impl Default for Stack {
         fn default() -> Self {
             Self {
@@ -136,6 +178,88 @@ mod frozen_learning {
         [first, second]
     }
 
+    pub(super) fn session(seed: u64, swap_patterns: bool) -> Session {
+        Session {
+            stack: Stack::default(),
+            routes: routes(seed, swap_patterns),
+            seed,
+            episode: 0,
+        }
+    }
+
+    pub(super) fn develop(session: &mut Session, stable: [bool; 2], sweeps: usize) {
+        for _ in 0..sweeps {
+            begin_sweep(&mut session.stack);
+            for route in 0..2 {
+                for ordinal in 0..session.routes[route].len() {
+                    let variant = if stable[route] {
+                        0
+                    } else {
+                        (session.episode * session.routes[route].len() + ordinal) % 4
+                    };
+                    let _ = experience(
+                        &mut session.stack,
+                        session.routes[route][ordinal],
+                        session.routes[1 - route][0],
+                        session.seed + route as u64 * 100_000,
+                        session.episode * 8 + route * 4 + ordinal,
+                        variant,
+                    );
+                }
+            }
+            session.episode += 1;
+        }
+    }
+
+    pub(super) fn offer(session: &mut Session) -> [usize; 2] {
+        session.stack.path.begin_event();
+        for route in &session.routes {
+            for encounter in route {
+                let _ = session.stack.path.local_encounter(encounter.0);
+            }
+        }
+        live_supporters(&session.stack, &session.routes)
+    }
+
+    pub(super) fn return_consequence(session: &mut Session, route: usize, variant: usize) -> usize {
+        let mut applications = 0;
+        for ordinal in 0..session.routes[route].len() {
+            let edge = session.routes[route][ordinal].0.edge();
+            if !session.stack.path.execute(edge) {
+                continue;
+            }
+            let raw = consequence(
+                session.seed + route as u64 * 100_000,
+                session.episode * 4 + ordinal,
+                variant,
+                false,
+            );
+            let applied = session.stack.learner.apply(
+                &mut session.stack.path,
+                session.routes[route][ordinal].0.snapshot(),
+                session.routes[1 - route][0].0.snapshot(),
+                raw,
+            );
+            applications += usize::from(applied);
+            session.stack.applications += usize::from(applied);
+        }
+        session.episode += 1;
+        applications
+    }
+
+    pub(super) fn inspect(session: &Session) -> super::Landscape {
+        landscape(&session.stack, &session.routes)
+    }
+
+    fn live_supporters(stack: &Stack, routes: &[Vec<Route>; 2]) -> [usize; 2] {
+        routes.each_ref().map(|route| {
+            route
+                .iter()
+                .filter(|route| stack.path.proposals.contains_key(&route.0.edge()))
+                .count()
+        })
+    }
+
     pub(super) fn begin_sweep(stack: &mut Stack) {
         stack.path.begin_event();
     }
@@ -166,12 +290,7 @@ mod frozen_learning {
     }
 
     pub(super) fn landscape(stack: &Stack, routes: &[Vec<Route>; 2]) -> super::Landscape {
-        let live_supporters = routes.each_ref().map(|route| {
-            route
-                .iter()
-                .filter(|route| stack.path.proposals.contains_key(&route.0.edge()))
-                .count()
-        });
+        let live_supporters = live_supporters(stack, routes);
         let mut admission_path = stack.path.clone();
         admission_path.begin_event();
         let admissions = routes.each_ref().map(|route| {
@@ -394,29 +513,11 @@ fn train_world(
     stable: [bool; 2],
     swap_patterns: bool,
 ) -> (Landscape, [Vec<frozen_learning::Route>; 2]) {
+    let mut session = frozen_learning::session(seed, swap_patterns);
+    frozen_learning::develop(&mut session, stable, PROBE_DEVELOPMENT_SWEEPS);
+    let landscape = frozen_learning::inspect(&session);
     let routes = frozen_learning::routes(seed, swap_patterns);
-    let mut stack = frozen_learning::Stack::default();
-    for sweep in 0..PROBE_DEVELOPMENT_SWEEPS {
-        frozen_learning::begin_sweep(&mut stack);
-        for route in 0..2 {
-            for ordinal in 0..routes[route].len() {
-                let variant = if stable[route] {
-                    0
-                } else {
-                    (sweep * routes[route].len() + ordinal) % 4
-                };
-                let _ = frozen_learning::experience(
-                    &mut stack,
-                    routes[route][ordinal],
-                    routes[1 - route][0],
-                    seed + route as u64 * 100_000,
-                    sweep * 8 + route * 4 + ordinal,
-                    variant,
-                );
-            }
-        }
-    }
-    (frozen_learning::landscape(&stack, &routes), routes)
+    (landscape, routes)
 }
 
 fn realizations(landscape: &Landscape, reverse_layout: bool) -> ([usize; 2], usize, bool) {
@@ -517,6 +618,268 @@ pub fn run_probe() -> ProbeReport {
     }
 }
 
+fn world_c(seed: u64) -> AdaptiveWorld {
+    let mut session = frozen_learning::session(seed, false);
+    frozen_learning::develop(&mut session, [true, false], PROBE_DEVELOPMENT_SWEEPS);
+    let before = frozen_learning::inspect(&session);
+    let (realized_before, _, _) = realizations(&before, false);
+
+    for episode in 0..1_024usize {
+        let live = frozen_learning::offer(&mut session);
+        let physical = compete(live, episode, false);
+        if let Some(route) = physical.realized {
+            let variant = if route == 0 { episode % 4 } else { 0 };
+            let _ = frozen_learning::return_consequence(&mut session, route, variant);
+        }
+    }
+    let after = frozen_learning::inspect(&session);
+    let (realized_after, unresolved_after, duplicate_exact) = realizations(&after, false);
+
+    let mut stationary = frozen_learning::session(seed + 10_000_000, false);
+    frozen_learning::develop(
+        &mut stationary,
+        [true, false],
+        PROBE_DEVELOPMENT_SWEEPS + 1_024,
+    );
+    let stationary = frozen_learning::inspect(&stationary);
+    let physical_control = stationary.live_supporters[0] == 4
+        && stationary.live_supporters[1] < FIRING_THRESHOLD as usize;
+    let passed = before.live_supporters[0] == 4
+        && before.live_supporters[1] < FIRING_THRESHOLD as usize
+        && after.live_supporters[1] >= FIRING_THRESHOLD as usize
+        && realized_after[1] > 0
+        && duplicate_exact
+        && physical_control;
+    AdaptiveWorld {
+        name: "C-repetition-reduces-consequence",
+        before,
+        after,
+        realized_before,
+        realized_after,
+        unresolved_after,
+        physical_control,
+        passed,
+    }
+}
+
+fn second_stage_resolution(context: usize, observation: bool) -> (Option<usize>, bool) {
+    let mut substrate = Substrate::new();
+    let source = substrate.add_cell(cell(10_000, 1));
+    let contenders = [
+        substrate.add_cell(cell(10_020, FIRING_THRESHOLD)),
+        substrate.add_cell(cell(10_030, FIRING_THRESHOLD)),
+    ];
+    let effects = [
+        substrate.add_cell(cell(10_040, 1)),
+        substrate.add_cell(cell(10_050, 1)),
+    ];
+    for route in 0..2 {
+        for ordinal in 0..3usize {
+            let relay = substrate.add_cell(cell(10_100 + route as u64 * 100 + ordinal as u64, 1));
+            substrate.add_arrow(ArrowSpec {
+                from: source,
+                to: relay,
+                delay: [1, 3, 5][ordinal],
+                transient_delay: 0,
+                phase: 0,
+                coupling: 1,
+                generation: 1,
+                resistance: 16,
+            });
+            substrate.add_arrow(ArrowSpec {
+                from: relay,
+                to: contenders[route],
+                delay: 0,
+                transient_delay: 0,
+                phase: 0,
+                coupling: 1,
+                generation: 1,
+                resistance: 16,
+            });
+        }
+        substrate.add_arrow(ArrowSpec {
+            from: contenders[route],
+            to: effects[route],
+            delay: 0,
+            transient_delay: 0,
+            phase: 0,
+            coupling: 1,
+            generation: 1,
+            resistance: 16,
+        });
+        substrate.add_arrow(ArrowSpec {
+            from: contenders[route],
+            to: contenders[1 - route],
+            delay: 0,
+            transient_delay: 0,
+            phase: -100,
+            coupling: INHIBITION,
+            generation: 1,
+            resistance: 16,
+        });
+    }
+    substrate.enter(SpikeInput {
+        arrival_tick: 0,
+        phase: 0,
+        origin_physical: 9_999,
+        target: source,
+        impulse: 1,
+    });
+    if observation {
+        substrate.enter(SpikeInput {
+            arrival_tick: 6,
+            phase: -10,
+            origin_physical: 20_000 + context as u64,
+            target: contenders[context],
+            impulse: 1,
+        });
+    }
+    let execution = substrate.propagate();
+    let realized = [10_040, 10_050]
+        .iter()
+        .position(|effect| execution.fired.contains(effect));
+    (realized, execution.naturally_quiescent)
+}
+
+fn world_d(seed: u64) -> AdaptiveWorld {
+    let (useful, _) = train_world(seed, [true, false], false);
+    let (inert, _) = train_world(seed + 1_000_000, [false, false], true);
+    let (realized_after, unresolved_after, duplicate_exact) = realizations(&useful, false);
+    let (realized_before, _, inert_exact) = realizations(&inert, true);
+    let stage_one = compete(useful.live_supporters, 0, false);
+    let observation_returned = stage_one.realized == Some(0);
+    let first = second_stage_resolution(0, observation_returned);
+    let second = second_stage_resolution(1, observation_returned);
+    let absent_first = second_stage_resolution(0, false);
+    let absent_second = second_stage_resolution(1, false);
+    let physical_control = first == (Some(0), true)
+        && second == (Some(1), true)
+        && absent_first == (None, true)
+        && absent_second == (None, true);
+    let passed = useful.live_supporters[0] == 4
+        && useful.live_supporters[1] < FIRING_THRESHOLD as usize
+        && inert.live_supporters == [4, 4]
+        && realized_after[0] == 8
+        && realized_before[0] > 0
+        && realized_before[1] > 0
+        && observation_returned
+        && physical_control
+        && duplicate_exact
+        && inert_exact;
+    AdaptiveWorld {
+        name: "D-evidence-return-changes-later-resolution",
+        before: inert,
+        after: useful,
+        realized_before,
+        realized_after,
+        unresolved_after,
+        physical_control,
+        passed,
+    }
+}
+
+fn world_e(seed: u64) -> AdaptiveWorld {
+    let mut exploiting = frozen_learning::session(seed, false);
+    let mut last = None;
+    let mut repeated = 0usize;
+    for episode in 0..512usize {
+        let live = frozen_learning::offer(&mut exploiting);
+        let physical = compete(live, 0, episode.is_multiple_of(2));
+        if let Some(route) = physical.realized {
+            if last == Some(route) {
+                repeated += 1;
+            } else {
+                last = Some(route);
+                repeated = 0;
+            }
+            let variant = if repeated == 0 { 0 } else { repeated % 4 };
+            let _ = frozen_learning::return_consequence(&mut exploiting, route, variant);
+        }
+    }
+    let after = frozen_learning::inspect(&exploiting);
+    let (realized_after, unresolved_after, duplicate_exact) = realizations(&after, false);
+
+    let (control, _) = train_world(seed + 1_000_000, [true, false], true);
+    let (realized_before, _, control_exact) = realizations(&control, true);
+    let physical_control = control.live_supporters[0] == 4
+        && control.live_supporters[1] < FIRING_THRESHOLD as usize
+        && realized_before[0] == 8;
+    let passed = after.live_supporters == [4, 4]
+        && realized_after[0] > 0
+        && realized_after[1] > 0
+        && unresolved_after == 0
+        && physical_control
+        && duplicate_exact
+        && control_exact;
+    AdaptiveWorld {
+        name: "E-exploitable-fixed-history",
+        before: control,
+        after,
+        realized_before,
+        realized_after,
+        unresolved_after,
+        physical_control,
+        passed,
+    }
+}
+
+fn micro_cell(seed: u64) -> MicroCell {
+    let world_a = world_a(seed, (seed as usize) % 2, seed.is_multiple_of(2)).passed;
+    let world_b = world_b(seed + 100_000, !seed.is_multiple_of(2)).passed;
+    let world_c = world_c(seed + 200_000);
+    let world_d = world_d(seed + 300_000);
+    let world_e = world_e(seed + 400_000);
+    MicroCell {
+        seed,
+        world_a,
+        world_b,
+        world_c,
+        world_d,
+        world_e,
+        duplicate_exact: true,
+    }
+}
+
+pub fn run_micro() -> MicroReport {
+    let seeds = [1_400_000_000, 1_410_000_001];
+    let first = seeds.map(micro_cell).to_vec();
+    let second = seeds.map(micro_cell).to_vec();
+    let duplicate_exact = first == second;
+    let core = first.iter().all(|cell| cell.world_a && cell.world_b);
+    let adaptive_reemergence = first.iter().all(|cell| cell.world_c.passed);
+    let d = first.iter().all(|cell| cell.world_d.passed);
+    let e = first.iter().all(|cell| cell.world_e.passed);
+    let classification = if core && adaptive_reemergence && d && e {
+        "A — full learned variation control"
+    } else if core && adaptive_reemergence && e {
+        "B — consequence-conditioned landscape control"
+    } else if core {
+        "C — collapse/preservation only"
+    } else {
+        "D — no learned landscape control"
+    };
+    let first_collapse = if !core {
+        "A/B collapse-preservation"
+    } else if !adaptive_reemergence {
+        "C adaptive re-emergence"
+    } else if !d {
+        "D evidence gathering"
+    } else if !e {
+        "E exploitable predictability"
+    } else {
+        "NONE"
+    };
+    MicroReport {
+        protocol: PROTOCOL,
+        claim_eligible: false,
+        cells: first,
+        classification,
+        first_collapse,
+        substrate_unchanged: true,
+        passed: duplicate_exact && core,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -533,5 +896,12 @@ mod tests {
         let world_b = world_b(1_303_000_000, true);
         assert!(world_a.passed, "{world_a:#?}");
         assert!(world_b.passed, "{world_b:#?}");
+    }
+
+    #[test]
+    #[ignore = "explicit two-seed SSA1 MICRO"]
+    fn micro_reaches_a_frozen_development_classification() {
+        let report = run_micro();
+        assert!(report.passed, "{report:#?}");
     }
 }
