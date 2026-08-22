@@ -1,0 +1,10 @@
+stage,before_ir0,after_ir0,status
+0 exact lineage and fingerprints,READY,READY,unchanged
+1 causal/source/target annotations absent,READY,READY,unchanged
+2 M1 learned interaction path,READY,READY,unchanged
+3 selected A1 actuation,READY,READY,unchanged
+4 physically contingent aftermath,READY,READY,unchanged
+5 proposal/probation activation,READY,READY,unchanged
+6 differential probation support,READY,READY,unchanged
+7 retained executable direction,READY,READY,unchanged
+8 invalidation and generic reopening,COLLAPSE,READY,IR0 uniquely closes missing local path

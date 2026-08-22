@@ -1,0 +1,33 @@
+# Cumulative DS2-after-IR0 fingerprints
+
+```text
+exact parent commit
+2e2c5cb718f2e4c92a68e3cfd8cb5dca0b047dce
+
+protocol commit
+92bb0c2cdca1a4e00361ed8134d231f985bf63bf
+
+implementation commit
+6465e645a41224fcf55172bb429caaab90eded95
+
+authoritative M1
+16a1002b59bf0dbc23a6b6bf03572efca53b33ce
+
+frozen prior retry SHA-256
+50490f57a77426bb8b8460d8279988a4bcfb9a3f3d450b19e7e89796a4f6f10b
+
+frozen IR0 SHA-256
+f81cc694f2d6d9e43cb04e8d1a1db301687e6644899665ae470abed1f9e4a7dc
+
+frozen IR0 readiness SHA-256
+b3b7557d70462fad01a775b4e8c790ac02a0d231ec3e757f975ae02160af65b6
+
+protocol SHA-256
+34bde1c9d351446721b75531489b03991285a9d977549776184cf2cab2e35b7f
+
+retry source SHA-256
+d426e0553b9e106ab03c4e02c0f332df40392fcd491c2f4de036699d812a5559
+
+runner SHA-256
+f9c9e73810a5ef47dfdc117a609ad77a4439778c873f99de26931c880b1b2127
+```

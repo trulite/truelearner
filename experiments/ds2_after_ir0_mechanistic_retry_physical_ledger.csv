@@ -1,0 +1,15 @@
+measure,gate_total
+IR0 seeds,5
+contexts per seed,4
+changed lifecycles,20
+stale temporary routes invalidated,20
+invalidated route abstentions,20
+generic inference reopenings,20
+reopened changed-route executions,20
+compatible current-signal preservations,20
+ambiguous or absent-signal preservations,20
+historical return executions,20
+historical reacquisition calls,0
+persistent bytes per retained asset,8
+retained occurrence fields,0
+retained opaque-handle fields,0
