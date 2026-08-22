@@ -68,6 +68,10 @@ fn main() {
         Path::new("src/ds_r0_anonymous_post_action_evidence_return.rs"),
         &output.join("ds_r0_anonymous_post_action_evidence_return.rs"),
     );
+    composition_copy(
+        Path::new("src/ds_d2_differential_evidence.rs"),
+        &output.join("ds_d2_differential_evidence.rs"),
+    );
     fs::copy(
         "src/bin/ds_a0_anonymous_boundary_action_formation.rs",
         bin_output.join("ds_a0_anonymous_boundary_action_formation.rs"),
@@ -163,6 +167,21 @@ fn main() {
             "experiments/ds_d1_stage8b_functional_sufficiency_handoff.md",
         ),
         ("DS_D2_A1_SHA256", "src/ds_a1_affordance_multiplicity.rs"),
+        ("DS1_D2_D2_SHA256", "src/ds_d2_differential_evidence.rs"),
+        (
+            "DS1_D2_D2_HANDOFF_SHA256",
+            "experiments/ds_d2_differential_evidence_handoff.md",
+        ),
+        ("DS1_D2_C0_SHA256", "src/ds_c0_anonymous_credit_coupling.rs"),
+        (
+            "DS1_D2_C0_READINESS_SHA256",
+            "experiments/ds_c0_development_readiness_handoff.md",
+        ),
+        ("DS1_D2_E0_SHA256", "src/ds_e0_anonymous_event_formation.rs"),
+        (
+            "DS1_D2_PROTOCOL_AMENDMENT_SHA256",
+            "experiments/ds1_after_d2_cumulative_composition_retry_protocol_amendment.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
