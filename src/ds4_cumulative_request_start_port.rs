@@ -56,11 +56,8 @@ macro_rules! ds4_m3_access {
             let mut learner = frozen_ds3::glue_default_boundary();
             for episode in 0..acquisition {
                 let stream = standard_stream(seed + episode as u64, RenderOptions::default())?;
-                let evaluation = frozen_ds3::glue_evaluate(
-                    &mut learner,
-                    &stream.observations,
-                    true,
-                );
+                let evaluation =
+                    frozen_ds3::glue_evaluate(&mut learner, &stream.observations, true);
                 if !stream_legal(&stream)
                     || !exact_reconstruction(&evaluation, &stream)
                     || !consequence_parity(&evaluation, &stream)
@@ -77,9 +74,7 @@ macro_rules! ds4_m3_access {
             fixture: super::EventFixture,
         ) -> super::EventActivity {
             let stream = match fixture {
-                super::EventFixture::Standard => {
-                    standard_stream(seed, RenderOptions::default())
-                }
+                super::EventFixture::Standard => standard_stream(seed, RenderOptions::default()),
                 super::EventFixture::Relabelled => standard_stream(
                     seed,
                     RenderOptions {
@@ -118,11 +113,8 @@ macro_rules! ds4_m3_access {
             let Some(stream) = stream else {
                 return super::EventActivity::default();
             };
-            let evaluation = frozen_ds3::glue_evaluate(
-                &mut gate.learner,
-                &stream.observations,
-                false,
-            );
+            let evaluation =
+                frozen_ds3::glue_evaluate(&mut gate.learner, &stream.observations, false);
             let learned_complete = !evaluation.spans.is_empty()
                 && evaluation.used_learned == evaluation.spans.len()
                 && exact_reconstruction(&evaluation, &stream)
@@ -259,10 +251,7 @@ macro_rules! ds4_p4_access {
         // DS4_LINKER_END
 
         pub(super) fn ds4_request_ready(session: &Ds4RequestSession) -> bool {
-            session
-                .learner
-                .target_role(request_signature(0))
-                .is_some()
+            session.learner.target_role(request_signature(0)).is_some()
         }
 
         pub(super) fn ds4_request_fingerprint(session: &Ds4RequestSession) -> u64 {
@@ -331,8 +320,7 @@ fn source_audit() -> SourceAudit {
     SourceAudit {
         authoritative_m3: AUTHORITATIVE_M3 == "ffcdfe8b36fc62348b7ebcb09aaf4797f6146ba8",
         m3_port_hash: env!("DS4_M3_PORT_SHA256") == FROZEN_M3_PORT_SHA256,
-        m3_definitive_hash: env!("DS4_M3_DEFINITIVE_SHA256")
-            == FROZEN_M3_DEFINITIVE_SHA256,
+        m3_definitive_hash: env!("DS4_M3_DEFINITIVE_SHA256") == FROZEN_M3_DEFINITIVE_SHA256,
         m3_result_hashes: env!("DS4_M3_RESULT_CSV_SHA256") == FROZEN_M3_RESULT_CSV_SHA256
             && env!("DS4_M3_RESULT_MD_SHA256") == FROZEN_M3_RESULT_MD_SHA256,
         p4_hash: env!("DS4_P4_SHA256") == FROZEN_P4_SHA256,
@@ -378,11 +366,8 @@ pub fn run_probe() -> ProbeReport {
     let activity = event_gate.as_mut().map_or_default(|gate| {
         frozen_m3::event_completion_activity(gate, 94_100, EventFixture::Standard)
     });
-    let step = frozen_p4::activate_request_selection(
-        &mut request,
-        activity.completion_spikes,
-        true,
-    );
+    let step =
+        frozen_p4::activate_request_selection(&mut request, activity.completion_spikes, true);
     let no_event = frozen_p4::activate_request_selection(&mut request, 0, false);
     let path_exists = source.passed()
         && activity.learned_uses > 0
