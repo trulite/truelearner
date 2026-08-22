@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::mem::size_of;
 
 pub mod cs0a;
+pub mod same1;
 
 pub const FFS_SAME0_PROTOCOL: &str = "ffs-same0-learned-correspondence-v1";
 pub const MAX_PROMOTIONS: usize = 6;

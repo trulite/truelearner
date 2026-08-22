@@ -12,8 +12,8 @@ const DEFINITIVE_SEEDS: usize = 8;
 const MICRO_EPISODES: usize = 2;
 const GATE_EPISODES: usize = 8;
 const DEFINITIVE_EPISODES: usize = 16;
-const COMPILED_EVIDENCE_PER_MOTIF: usize = 3;
-const SUBTHRESHOLD_EVIDENCE_PER_MOTIF: usize = 2;
+pub(super) const COMPILED_EVIDENCE_PER_MOTIF: usize = 3;
+pub(super) const SUBTHRESHOLD_EVIDENCE_PER_MOTIF: usize = 2;
 const TEST_DEPTH: usize = 32;
 const TEST_POPULATION: usize = 64;
 
@@ -64,18 +64,18 @@ struct CompiledCorrespondenceRoute {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct CompiledCorrespondenceStore {
+pub(super) struct CompiledCorrespondenceStore {
     routes: BTreeMap<RelationMotif, CompiledCorrespondenceRoute>,
 }
 
 // END PERSISTENT COMPILED CORRESPONDENCE
 
 impl CompiledCorrespondenceStore {
-    fn len(&self) -> usize {
+    pub(super) fn len(&self) -> usize {
         self.routes.len()
     }
 
-    fn persistent_bytes(&self) -> usize {
+    pub(super) fn persistent_bytes(&self) -> usize {
         self.routes.len()
             * (size_of::<u32>()
                 + size_of::<CompiledRouteKey>()
@@ -83,7 +83,7 @@ impl CompiledCorrespondenceStore {
                 + size_of::<i32>())
     }
 
-    fn fingerprint(&self) -> u64 {
+    pub(super) fn fingerprint(&self) -> u64 {
         hash_values(self.routes.values().flat_map(|route| {
             [
                 route.id as u64,
@@ -223,7 +223,7 @@ impl Cs0aWork {
             + self.generic_reopenings
     }
 
-    fn add(&mut self, other: Self) {
+    pub(super) fn add(&mut self, other: Self) {
         self.same0.add(other.same0);
         self.compiled_candidate_comparisons += other.compiled_candidate_comparisons;
         self.compiled_proposals += other.compiled_proposals;
@@ -247,11 +247,11 @@ struct CompiledCandidate {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct CompiledAcquisition {
-    store: CompiledCorrespondenceStore,
-    work: Cs0aWork,
-    proposed: usize,
-    consolidated: usize,
+pub(super) struct CompiledAcquisition {
+    pub(super) store: CompiledCorrespondenceStore,
+    pub(super) work: Cs0aWork,
+    pub(super) proposed: usize,
+    pub(super) consolidated: usize,
 }
 
 fn key_for(rule: &CorrespondenceRule) -> CompiledRouteKey {
@@ -264,7 +264,7 @@ fn key_for(rule: &CorrespondenceRule) -> CompiledRouteKey {
     }
 }
 
-fn acquire_compiled(
+pub(super) fn acquire_compiled(
     rules: &RuleStore,
     seed: usize,
     population: usize,
@@ -358,11 +358,11 @@ fn acquire_compiled(
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct CsExecution {
-    execution: Execution,
-    work: Cs0aWork,
-    used_compiled: bool,
-    reopened_generic: bool,
+pub(super) struct CsExecution {
+    pub(super) execution: Execution,
+    pub(super) work: Cs0aWork,
+    pub(super) used_compiled: bool,
+    pub(super) reopened_generic: bool,
 }
 
 fn execute_generic(
@@ -384,7 +384,7 @@ fn execute_generic(
     }
 }
 
-fn execute_compiled_or_generic(
+pub(super) fn execute_compiled_or_generic(
     arrows: &ArrowStore,
     roots: &[ArrowId],
     rules: &RuleStore,
@@ -509,7 +509,7 @@ struct CellResult {
     controls: Vec<Cs0aControl>,
 }
 
-fn changed_parent_rules(rules: &RuleStore) -> RuleStore {
+pub(super) fn changed_parent_rules(rules: &RuleStore) -> RuleStore {
     let mut changed = rules.clone();
     let mut work = Same0Work::default();
     for shape in 0..2 {
@@ -863,7 +863,7 @@ fn run_cell(seed: usize, episodes: usize, evidence_episodes: usize) -> CellResul
     }
 }
 
-fn persistent_source_audit() -> bool {
+pub(super) fn persistent_source_audit() -> bool {
     let source = include_str!("cs0a.rs");
     let persistent = source
         .split_once("// BEGIN PERSISTENT COMPILED CORRESPONDENCE")
