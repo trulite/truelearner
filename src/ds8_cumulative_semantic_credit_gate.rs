@@ -435,8 +435,8 @@ mod frozen_linker {
             .iter()
             .filter(|edge| trained.path.proposals.contains_key(edge))
             .count();
-        let retained_economy = retained_proposals < always_open_admissions
-            && retained_route_edges == edges.len();
+        let retained_economy =
+            retained_proposals < always_open_admissions && retained_route_edges == edges.len();
         let topology_identity_layout = trained.physical_exact
             && raw_swapped.physical_exact
             && trained.route[0].snapshot() == route(seed + 3_000_000, true)[0].snapshot();
