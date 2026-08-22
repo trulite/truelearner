@@ -729,7 +729,7 @@ fn run_cell(seed: usize, episodes: usize, evidence_episodes: usize) -> CellResul
     let historical = row(&rows, Cs0aArm::HistoricalReturn);
     let fingerprint = compiled.store.fingerprint();
     let source_audit = persistent_source_audit();
-    let controls = vec![
+    let mut controls = vec![
         control(
             seed,
             "compiled-only-after-threshold",
@@ -836,6 +836,16 @@ fn run_cell(seed: usize, episodes: usize, evidence_episodes: usize) -> CellResul
             fingerprint,
         ),
     ];
+    controls.extend(
+        correspondence_controls(seed, evidence_episodes)
+            .into_iter()
+            .map(|parent| Cs0aControl {
+                seed,
+                name: format!("inherited-{}", parent.name),
+                passed: parent.passed,
+                diagnostic: parent.diagnostic,
+            }),
+    );
     CellResult {
         acquisition: Cs0aAcquisitionResult {
             seed,
