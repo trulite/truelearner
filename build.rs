@@ -113,6 +113,10 @@ fn main() {
         &output.join("ds4_request_roles.rs"),
     );
     composition_copy(
+        Path::new("src/request_roles.rs"),
+        &output.join("request_roles.rs"),
+    );
+    composition_copy(
         Path::new("src/ds4_cumulative_request_start_port.rs"),
         &output.join("ds4_cumulative_request_start_port.rs"),
     );

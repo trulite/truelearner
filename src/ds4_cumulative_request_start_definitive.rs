@@ -1,7 +1,5 @@
 //! Write-once DS4 cumulative request/start definitive matrix.
 
-use crate::research_runtime::HarnessMode;
-
 pub const PROTOCOL: &str = "ds4-cumulative-request-start-definitive-v1";
 pub const EXACT_DEVELOPMENT_PARENT: &str = "3a82adc23fd179058f01d5004e894833f1cad0f4";
 pub const AUTHORITATIVE_M3: &str = "ffcdfe8b36fc62348b7ebcb09aaf4797f6146ba8";
