@@ -51,7 +51,7 @@ fn main() {
         report.first_collapse.as_deref().unwrap_or("NONE"),
     );
     println!(
-        "source semantic_opcodes={} evaluator_selection={} hidden_executor={} DS1_choose_calls={} DS1_apply_calls={} post_action_consequence_paths={} executors={} bridge_constructors={} frozen_sources_untouched={}",
+        "source semantic_opcodes={} evaluator_selection={} hidden_executor={} DS1_choose_calls={} DS1_apply_calls={} post_action_consequence_paths={} executors={} bridge_constructors={} route_installers={} preassembled_route_fields={} frozen_sources_untouched={}",
         report.source_audit.semantic_opcode_sites,
         report.source_audit.evaluator_selection_sites,
         report.source_audit.hidden_executor_sites,
@@ -60,17 +60,22 @@ fn main() {
         report.source_audit.post_action_consequence_paths,
         report.source_audit.executor_definitions,
         report.source_audit.bridge_constructor_definitions,
+        report.source_audit.route_installer_definitions,
+        report.source_audit.preassembled_route_cell_fields,
         report.source_audit.frozen_sources_untouched,
     );
     for seed in &report.seeds {
         println!(
-            "seed={} acquisition={} evaluation={} templates={} fingerprint={:016x} formed_routes={} handles={} one_to_one_roots={} physical_paths={} arrow_steps={} distinct_effect_pairs={} DS1_choose={} DS1_apply={} consequence_paths={} controls={} persistent_bytes={} temporary_peak_bytes={} physical_work={}",
+            "seed={} acquisition={} evaluation={} templates={} fingerprint={:016x} preformation_event_roots={} formed_routes={} installed_cells={} installed_arrows={} handles={} one_to_one_roots={} physical_paths={} arrow_steps={} distinct_effect_pairs={} DS1_choose={} DS1_apply={} consequence_paths={} controls={} persistent_bytes={} temporary_peak_bytes={} physical_work={}",
             seed.seed,
             seed.acquisition_episodes,
             seed.evaluation_episodes,
             seed.templates,
             seed.learner_fingerprint,
+            seed.preformation_event_roots,
             seed.formed_routes,
+            seed.installed_route_cells,
+            seed.installed_route_arrows,
             seed.exposed_handles,
             seed.one_to_one_roots,
             seed.physical_execution_paths,
@@ -83,6 +88,45 @@ fn main() {
             seed.work.persistent_bytes,
             seed.work.temporary_peak_bytes,
             seed.work.physical_work(),
+        );
+        println!(
+            "work seed={} raw_observations={} coactivity_paths={} support_updates={} template_comparisons={} cells_installed={} arrows_installed={} arrow_traversals={} spike_propagations={} state_mutations={} bridge_copies={} generation_validations={} cleanup={} maintenance={} carrying={}",
+            seed.seed,
+            seed.work.raw_propagation_observations,
+            seed.work.coactivity_paths,
+            seed.work.support_updates,
+            seed.work.template_comparisons,
+            seed.work.route_cells_installed,
+            seed.work.route_arrows_installed,
+            seed.work.arrow_traversals,
+            seed.work.spike_propagations,
+            seed.work.state_mutations,
+            seed.work.bridge_reference_copies,
+            seed.work.generation_validations,
+            seed.work.cleanup_items,
+            seed.work.maintenance_work,
+            seed.work.carrying_work,
+        );
+        println!(
+            "controls seed={} fresh_disjoint={} relabel={} allocation_layout={} handle_permutation={} distractors={} shuffled_coactivity={} shuffled_propagation={} removed_route={} timing_transfer={} symmetric_unranked={} no_plasticity={} unsupported={} stale={} cleanup={} distinct_effects={} baseline_empty={} installed_before_bridge={}",
+            seed.seed,
+            seed.controls.fresh_disjoint,
+            seed.controls.relabel,
+            seed.controls.allocation_layout,
+            seed.controls.handle_permutation,
+            seed.controls.distractor_interleaving,
+            seed.controls.shuffled_coactivity,
+            seed.controls.shuffled_propagation,
+            seed.controls.removed_route_lawful,
+            seed.controls.timing_transfer,
+            seed.controls.symmetric_unranked,
+            seed.controls.no_plasticity_no_routes,
+            seed.controls.unsupported_no_routes,
+            seed.controls.stale_invalidation_removal,
+            seed.controls.cleanup_zero_retained,
+            seed.controls.independent_distinct_effects,
+            seed.controls.baseline_has_no_event_routes,
+            seed.controls.learner_installs_before_bridge,
         );
     }
     println!(

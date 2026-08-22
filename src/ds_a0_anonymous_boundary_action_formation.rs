@@ -1,10 +1,11 @@
 //! DS-A0 development-only anonymous executable-route formation gate.
 //!
-//! Routes arise by local traversal of episode CELL/ARROW structure over an
-//! already-formed DS-E0 temporary membership. The bridge copies opaque root
-//! references only; execution uses one ordinary SPIKE propagation path.
+//! Raw spikes and propagation observations are not executable routes. Supported
+//! coactivity causes local plasticity to install fresh episode CELL/ARROW
+//! structures. A bridge copies their opaque roots; execution injects one SPIKE
+//! at a root and follows the live adjacency stored in the substrate.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::mem::size_of;
 
 use crate::research_runtime::HarnessMode;
@@ -27,12 +28,10 @@ struct Occurrence(u32);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct CellId(u16);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct ArrowId(u16);
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Cell {
     occurrence: Occurrence,
+    binding: Option<CellId>,
     tick: i16,
     generation: u16,
     activation: u16,
@@ -45,7 +44,25 @@ struct Arrow {
     live: bool,
 }
 
-/// The already-formed DS-E0 episode-local membership and relative support.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ObservedSpike {
+    cell: CellId,
+    tick: i16,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ObservedPropagation {
+    endpoints: [CellId; 2],
+}
+
+/// Ordinary activity history. It cannot be traversed by the route executor.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct RawActivity {
+    spikes: Vec<ObservedSpike>,
+    propagation: Vec<ObservedPropagation>,
+}
+
+/// Already-learned DS-E0 episode membership and relative support.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct EventFrame {
     members: [CellId; 3],
@@ -58,6 +75,7 @@ struct TemporarySubstrate {
     cells: Vec<Cell>,
     arrows: Vec<Arrow>,
     event: EventFrame,
+    raw: RawActivity,
     padding: Vec<u8>,
 }
 
@@ -72,19 +90,15 @@ struct SupportEvidence {
     episodes: u16,
 }
 
-#[derive(Clone, Debug, Default)]
-struct RouteLearner {
-    templates: BTreeMap<RouteTemplate, SupportEvidence>,
-    work: WorkLedger,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ObservedPath {
+    cells: [CellId; 3],
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct RouteInstance {
-    root: ArrowId,
-    arrows: [ArrowId; 2],
-    cells: [CellId; 3],
-    arrow_generations: [u16; 2],
-    cell_generations: [u16; 3],
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct RouteRoot {
+    cell: CellId,
+    generation: u16,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -93,8 +107,7 @@ struct OpaqueHandle(u32);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct BridgeEntry {
     handle: OpaqueHandle,
-    route_index: u16,
-    root: ArrowId,
+    root: RouteRoot,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -104,7 +117,7 @@ struct ActionBridge {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PhysicalExecution {
-    trace: [CellId; 3],
+    trace: Vec<CellId>,
     state: Vec<u16>,
     arrow_steps: u64,
     spike_propagations: u64,
@@ -113,10 +126,12 @@ struct PhysicalExecution {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct WorkLedger {
-    pub adjacency_observations: u64,
-    pub coactivity_support_updates: u64,
+    pub raw_propagation_observations: u64,
+    pub coactivity_paths: u64,
+    pub support_updates: u64,
     pub template_comparisons: u64,
-    pub route_instantiations: u64,
+    pub route_cells_installed: u64,
+    pub route_arrows_installed: u64,
     pub arrow_traversals: u64,
     pub spike_propagations: u64,
     pub state_mutations: u64,
@@ -131,10 +146,12 @@ pub struct WorkLedger {
 
 impl WorkLedger {
     pub fn physical_work(&self) -> u64 {
-        self.adjacency_observations
-            + self.coactivity_support_updates
+        self.raw_propagation_observations
+            + self.coactivity_paths
+            + self.support_updates
             + self.template_comparisons
-            + self.route_instantiations
+            + self.route_cells_installed
+            + self.route_arrows_installed
             + self.arrow_traversals
             + self.spike_propagations
             + self.state_mutations
@@ -146,10 +163,12 @@ impl WorkLedger {
     }
 
     fn absorb(&mut self, other: &Self) {
-        self.adjacency_observations += other.adjacency_observations;
-        self.coactivity_support_updates += other.coactivity_support_updates;
+        self.raw_propagation_observations += other.raw_propagation_observations;
+        self.coactivity_paths += other.coactivity_paths;
+        self.support_updates += other.support_updates;
         self.template_comparisons += other.template_comparisons;
-        self.route_instantiations += other.route_instantiations;
+        self.route_cells_installed += other.route_cells_installed;
+        self.route_arrows_installed += other.route_arrows_installed;
         self.arrow_traversals += other.arrow_traversals;
         self.spike_propagations += other.spike_propagations;
         self.state_mutations += other.state_mutations;
@@ -163,44 +182,136 @@ impl WorkLedger {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+struct RouteLearner {
+    templates: BTreeMap<RouteTemplate, SupportEvidence>,
+    work: WorkLedger,
+}
+
+fn member(event: &EventFrame, cell: CellId) -> bool {
+    event.members.contains(&cell)
+}
+
+/// Discover recurrent coactivity in raw observations, never executable ARROWs.
+fn observed_paths(
+    event: &EventFrame,
+    raw: &RawActivity,
+    work: &mut WorkLedger,
+) -> Vec<ObservedPath> {
+    let mut paths = Vec::new();
+    for (first_index, first) in raw.propagation.iter().enumerate() {
+        work.raw_propagation_observations += 1;
+        if !member(event, first.endpoints[0]) || !member(event, first.endpoints[1]) {
+            continue;
+        }
+        for (second_index, second) in raw.propagation.iter().enumerate() {
+            work.raw_propagation_observations += 1;
+            if first_index == second_index
+                || first.endpoints[1] != second.endpoints[0]
+                || first.endpoints[0] == second.endpoints[1]
+                || !member(event, second.endpoints[1])
+            {
+                continue;
+            }
+            work.coactivity_paths += 1;
+            paths.push(ObservedPath {
+                cells: [first.endpoints[0], first.endpoints[1], second.endpoints[1]],
+            });
+        }
+    }
+    paths
+}
+
+fn route_template(raw: &RawActivity, path: &ObservedPath) -> RouteTemplate {
+    let tick = |cell: CellId| {
+        raw.spikes
+            .iter()
+            .find(|spike| spike.cell == cell)
+            .expect("observed path cells fired")
+            .tick
+    };
+    let ticks = path.cells.map(tick);
+    RouteTemplate {
+        temporal_deltas: [
+            (ticks[1] - ticks[0]).clamp(i16::from(i8::MIN), i16::from(i8::MAX)) as i8,
+            (ticks[2] - ticks[1]).clamp(i16::from(i8::MIN), i16::from(i8::MAX)) as i8,
+        ],
+        local_incidence: [1, 2, 1],
+    }
+}
+
 impl RouteLearner {
     fn observe_episode(&mut self, substrate: &TemporarySubstrate, plasticity: bool, reverse: bool) {
         if !plasticity {
             return;
         }
-        let mut discovered = discover_routes(substrate, &mut self.work);
+        let mut paths = observed_paths(&substrate.event, &substrate.raw, &mut self.work);
         if reverse {
-            discovered.reverse();
+            paths.reverse();
         }
-        let episode_shapes = discovered
+        let episode_templates = paths
             .iter()
-            .map(|route| route_template(substrate, route))
+            .map(|path| route_template(&substrate.raw, path))
             .collect::<BTreeSet<_>>();
-        for template in episode_shapes {
+        for template in episode_templates {
             self.work.template_comparisons += self.templates.len() as u64;
-            self.work.coactivity_support_updates += 1;
+            self.work.support_updates += 1;
             self.templates.entry(template).or_default().episodes += 1;
         }
         self.work.persistent_bytes =
             self.templates.len() * (size_of::<RouteTemplate>() + size_of::<SupportEvidence>());
     }
 
-    fn instantiate(&mut self, substrate: &TemporarySubstrate) -> Vec<RouteInstance> {
-        let discovered = discover_routes(substrate, &mut self.work);
-        let mut instances = Vec::new();
-        for route in discovered {
-            let template = route_template(substrate, &route);
+    /// Supported coactivity installs actual episode-local CELL/ARROW chains.
+    fn form_routes(
+        &mut self,
+        substrate: &mut TemporarySubstrate,
+        plasticity: bool,
+    ) -> Vec<RouteRoot> {
+        if !plasticity {
+            return Vec::new();
+        }
+        let paths = observed_paths(&substrate.event, &substrate.raw, &mut self.work);
+        let mut roots = Vec::new();
+        for path in paths {
+            let template = route_template(&substrate.raw, &path);
             self.work.template_comparisons += self.templates.len() as u64;
-            if self
+            if !self
                 .templates
                 .get(&template)
                 .is_some_and(|support| support.episodes >= SUPPORT_EPISODES)
             {
-                self.work.route_instantiations += 1;
-                instances.push(route);
+                continue;
             }
+            let first_cell = substrate.cells.len();
+            for bound in path.cells {
+                let bound_cell = substrate.cells[usize::from(bound.0)];
+                substrate.cells.push(Cell {
+                    occurrence: bound_cell.occurrence,
+                    binding: Some(bound),
+                    tick: bound_cell.tick,
+                    generation: 1,
+                    activation: 0,
+                });
+                self.work.route_cells_installed += 1;
+            }
+            for offset in 0..2 {
+                substrate.arrows.push(Arrow {
+                    endpoints: [
+                        CellId((first_cell + offset) as u16),
+                        CellId((first_cell + offset + 1) as u16),
+                    ],
+                    generation: 1,
+                    live: true,
+                });
+                self.work.route_arrows_installed += 1;
+            }
+            roots.push(RouteRoot {
+                cell: CellId(first_cell as u16),
+                generation: 1,
+            });
         }
-        instances
+        roots
     }
 
     fn fingerprint(&self) -> u64 {
@@ -221,138 +332,91 @@ impl RouteLearner {
     }
 }
 
-fn is_member(event: &EventFrame, cell: CellId) -> bool {
-    event.members.contains(&cell)
-}
-
-/// Ordinary local adjacency traversal. No desired route list enters here.
-fn discover_routes(substrate: &TemporarySubstrate, work: &mut WorkLedger) -> Vec<RouteInstance> {
-    let mut routes = Vec::new();
-    for (first_index, first) in substrate.arrows.iter().enumerate() {
-        work.adjacency_observations += 1;
-        if !first.live
-            || !is_member(&substrate.event, first.endpoints[0])
-            || !is_member(&substrate.event, first.endpoints[1])
-        {
-            continue;
-        }
-        for (second_index, second) in substrate.arrows.iter().enumerate() {
-            work.adjacency_observations += 1;
-            if !second.live
-                || first_index == second_index
-                || first.endpoints[1] != second.endpoints[0]
-                || first.endpoints[0] == second.endpoints[1]
-                || !is_member(&substrate.event, second.endpoints[1])
-            {
-                continue;
-            }
-            let cells = [first.endpoints[0], first.endpoints[1], second.endpoints[1]];
-            let arrows = [ArrowId(first_index as u16), ArrowId(second_index as u16)];
-            routes.push(RouteInstance {
-                root: arrows[0],
-                arrows,
-                cells,
-                arrow_generations: [first.generation, second.generation],
-                cell_generations: cells.map(|cell| substrate.cells[usize::from(cell.0)].generation),
-            });
-        }
+fn root_valid(substrate: &TemporarySubstrate, root: RouteRoot, work: &mut WorkLedger) -> bool {
+    work.generation_validations += 1;
+    let Some(cell) = substrate.cells.get(usize::from(root.cell.0)) else {
+        return false;
+    };
+    if cell.generation != root.generation || cell.binding.is_none() {
+        return false;
     }
-    routes
+    work.generation_validations += substrate.arrows.len() as u64;
+    substrate
+        .arrows
+        .iter()
+        .any(|arrow| arrow.live && arrow.endpoints[0] == root.cell && arrow.generation > 0)
 }
 
-fn route_template(substrate: &TemporarySubstrate, route: &RouteInstance) -> RouteTemplate {
-    let ticks = route
-        .cells
-        .map(|cell| substrate.cells[usize::from(cell.0)].tick);
-    RouteTemplate {
-        temporal_deltas: [
-            (ticks[1] - ticks[0]).clamp(i16::from(i8::MIN), i16::from(i8::MAX)) as i8,
-            (ticks[2] - ticks[1]).clamp(i16::from(i8::MIN), i16::from(i8::MAX)) as i8,
-        ],
-        local_incidence: [1, 2, 1],
-    }
+fn remove_stale(substrate: &TemporarySubstrate, roots: &mut Vec<RouteRoot>, work: &mut WorkLedger) {
+    roots.retain(|root| root_valid(substrate, *root, work));
 }
 
-fn route_valid(
-    substrate: &TemporarySubstrate,
-    route: &RouteInstance,
-    work: &mut WorkLedger,
-) -> bool {
-    for (offset, arrow_id) in route.arrows.iter().enumerate() {
-        work.generation_validations += 1;
-        let arrow = &substrate.arrows[usize::from(arrow_id.0)];
-        if !arrow.live || arrow.generation != route.arrow_generations[offset] {
-            return false;
-        }
-    }
-    for (offset, cell_id) in route.cells.iter().enumerate() {
-        work.generation_validations += 1;
-        if substrate.cells[usize::from(cell_id.0)].generation != route.cell_generations[offset] {
-            return false;
-        }
-    }
-    true
-}
-
-fn remove_stale(
-    substrate: &TemporarySubstrate,
-    routes: &mut Vec<RouteInstance>,
-    work: &mut WorkLedger,
-) {
-    routes.retain(|route| route_valid(substrate, route, work));
-}
-
-/// Mechanical reference copy over already-existing route roots.
-fn expose_routes(routes: &[RouteInstance], permuted: bool, work: &mut WorkLedger) -> ActionBridge {
-    let mut indices = (0..routes.len()).collect::<Vec<_>>();
+/// Mechanical reference copy over already-installed roots.
+fn expose_routes(roots: &[RouteRoot], permuted: bool, work: &mut WorkLedger) -> ActionBridge {
+    let mut copied = roots.to_vec();
     if permuted {
-        indices.reverse();
+        copied.reverse();
     }
-    let entries = indices
+    let entries = copied
         .into_iter()
         .enumerate()
-        .map(|(slot, route_index)| {
+        .map(|(slot, root)| {
             work.bridge_reference_copies += 1;
             BridgeEntry {
                 handle: OpaqueHandle((slot as u32).wrapping_mul(2_654_435_761)),
-                route_index: route_index as u16,
-                root: routes[route_index].root,
+                root,
             }
         })
         .collect();
     ActionBridge { entries }
 }
 
-/// The single handle-to-root-to-ordinary-propagation path.
+/// Resolve handle to root, inject a SPIKE, then follow live substrate ARROWs.
 fn execute_handle(
     frozen_start: &TemporarySubstrate,
-    routes: &[RouteInstance],
     bridge: &ActionBridge,
     handle: OpaqueHandle,
     work: &mut WorkLedger,
 ) -> Option<PhysicalExecution> {
-    let entry = bridge.entries.iter().find(|entry| entry.handle == handle)?;
-    let route = routes.get(usize::from(entry.route_index))?;
-    if entry.root != route.root || !route_valid(frozen_start, route, work) {
+    let root = bridge
+        .entries
+        .iter()
+        .find(|entry| entry.handle == handle)?
+        .root;
+    if !root_valid(frozen_start, root, work) {
         return None;
     }
     let mut branch = frozen_start.clone();
-    for cell_id in route.cells {
+    let mut queue = VecDeque::from([root.cell]);
+    let mut visited = BTreeSet::new();
+    let mut trace = Vec::new();
+    let mut arrow_steps = 0u64;
+    while let Some(cell_id) = queue.pop_front() {
+        if !visited.insert(cell_id) {
+            continue;
+        }
+        let cell = branch.cells.get_mut(usize::from(cell_id.0))?;
+        cell.activation += 1;
+        trace.push(cell_id);
         work.spike_propagations += 1;
         work.state_mutations += 1;
-        branch.cells[usize::from(cell_id.0)].activation += 1;
+        for arrow in &branch.arrows {
+            if arrow.live && arrow.generation > 0 && arrow.endpoints[0] == cell_id {
+                arrow_steps += 1;
+                work.arrow_traversals += 1;
+                queue.push_back(arrow.endpoints[1]);
+            }
+        }
     }
-    for arrow_id in route.arrows {
-        let arrow = branch.arrows[usize::from(arrow_id.0)];
-        work.arrow_traversals += 1;
-        debug_assert!(arrow.live);
+    if arrow_steps == 0 {
+        return None;
     }
     Some(PhysicalExecution {
-        trace: route.cells,
+        trace,
         state: branch.cells.iter().map(|cell| cell.activation).collect(),
-        arrow_steps: route.arrows.len() as u64,
-        spike_propagations: route.cells.len() as u64,
-        state_mutations: route.cells.len() as u64,
+        arrow_steps,
+        spike_propagations: visited.len() as u64,
+        state_mutations: visited.len() as u64,
     })
 }
 
@@ -362,8 +426,8 @@ struct FixtureOptions {
     allocation: bool,
     layout_padding: bool,
     shifted_timing: bool,
-    shuffled_arrows: bool,
-    removed_arrow: bool,
+    shuffled_observations: bool,
+    removed_observation: bool,
     symmetric: bool,
 }
 
@@ -389,6 +453,7 @@ fn fixture(seed: u64, episode: usize, options: FixtureOptions) -> TemporarySubst
     let cells = order
         .map(|logical| Cell {
             occurrence: occurrences[logical],
+            binding: None,
             tick: ticks[logical],
             generation: 1,
             activation: 0,
@@ -402,26 +467,11 @@ fn fixture(seed: u64, episode: usize, options: FixtureOptions) -> TemporarySubst
                 .expect("fixture occurrence exists") as u16,
         )
     };
-    let mut physical_edges = vec![[0, 1], [1, 2], [0, 2], [2, 1], [3, 4], [4, 5]];
-    if options.removed_arrow {
-        physical_edges.remove(2);
-    }
-    let mut arrows = physical_edges
-        .into_iter()
-        .map(|edge| Arrow {
-            endpoints: [cell_for(edge[0]), cell_for(edge[1])],
-            generation: 1,
-            live: true,
-        })
-        .collect::<Vec<_>>();
-    if options.shuffled_arrows {
-        arrows.reverse();
-    }
     let members = [cell_for(0), cell_for(1), cell_for(2)];
     let member_ticks = members.map(|cell| cells[usize::from(cell.0)].tick);
+    let learned_event_edges = [[0, 1], [1, 2], [0, 2], [2, 1]];
     let mut relative_temporal = [0i8; 9];
     let mut relative_propagation = [0i8; 9];
-    let learned_event_edges = [[0, 1], [1, 2], [0, 2], [2, 1]];
     for first in 0..3 {
         for second in 0..3 {
             relative_temporal[first * 3 + second] = (member_ticks[second] - member_ticks[first])
@@ -432,13 +482,44 @@ fn fixture(seed: u64, episode: usize, options: FixtureOptions) -> TemporarySubst
             }
         }
     }
+    let mut observed_edges = vec![[0, 1], [1, 2], [0, 2], [2, 1], [3, 4], [4, 5]];
+    if options.removed_observation {
+        observed_edges.remove(2);
+    }
+    let mut propagation = observed_edges
+        .into_iter()
+        .map(|edge| ObservedPropagation {
+            endpoints: [cell_for(edge[0]), cell_for(edge[1])],
+        })
+        .collect::<Vec<_>>();
+    if options.shuffled_observations {
+        propagation.reverse();
+    }
+    let spikes = (0..6)
+        .map(|logical| ObservedSpike {
+            cell: cell_for(logical),
+            tick: ticks[logical],
+        })
+        .collect();
+    let basal_arrows = [[cell_for(3), cell_for(4)], [cell_for(4), cell_for(5)]]
+        .into_iter()
+        .map(|endpoints| Arrow {
+            endpoints,
+            generation: 1,
+            live: true,
+        })
+        .collect();
     TemporarySubstrate {
         cells,
-        arrows,
+        arrows: basal_arrows,
         event: EventFrame {
             members,
             relative_temporal,
             relative_propagation,
+        },
+        raw: RawActivity {
+            spikes,
+            propagation,
         },
         padding: vec![0; usize::from(options.layout_padding) * 257],
     }
@@ -453,6 +534,20 @@ fn event_support_fingerprint(event: &EventFrame) -> u64 {
             hash ^= *value as i64 as u64;
             hash.wrapping_mul(0x100_0000_01b3)
         })
+}
+
+fn event_executable_roots(substrate: &TemporarySubstrate) -> usize {
+    substrate
+        .event
+        .members
+        .iter()
+        .filter(|member_cell| {
+            substrate
+                .arrows
+                .iter()
+                .any(|arrow| arrow.live && arrow.endpoints[0] == **member_cell)
+        })
+        .count()
 }
 
 fn acquire(
@@ -488,6 +583,8 @@ pub struct ControlAudit {
     pub stale_invalidation_removal: bool,
     pub cleanup_zero_retained: bool,
     pub independent_distinct_effects: bool,
+    pub baseline_has_no_event_routes: bool,
+    pub learner_installs_before_bridge: bool,
 }
 
 impl ControlAudit {
@@ -507,6 +604,8 @@ impl ControlAudit {
             && self.stale_invalidation_removal
             && self.cleanup_zero_retained
             && self.independent_distinct_effects
+            && self.baseline_has_no_event_routes
+            && self.learner_installs_before_bridge
     }
 }
 
@@ -520,6 +619,8 @@ pub struct SourceAudit {
     pub post_action_consequence_paths: usize,
     pub executor_definitions: usize,
     pub bridge_constructor_definitions: usize,
+    pub route_installer_definitions: usize,
+    pub preassembled_route_cell_fields: usize,
     pub frozen_sources_untouched: bool,
 }
 
@@ -533,6 +634,8 @@ impl SourceAudit {
             && self.post_action_consequence_paths == 0
             && self.executor_definitions == 1
             && self.bridge_constructor_definitions == 1
+            && self.route_installer_definitions == 1
+            && self.preassembled_route_cell_fields == 0
             && self.frozen_sources_untouched
     }
 }
@@ -545,9 +648,9 @@ fn count_fragments(source: &str, fragments: &[String]) -> usize {
 }
 
 fn source_audit() -> SourceAudit {
-    let source = include_str!("ds_a0_anonymous_boundary_action_formation.rs");
+    let implementation = include_str!("ds_a0_anonymous_boundary_action_formation.rs");
     let runner = include_str!("bin/ds_a0_anonymous_boundary_action_formation.rs");
-    let joined = [source, runner].concat();
+    let joined = [implementation, runner].concat();
     let semantic_fragments = [
         ["sw", "ap"].concat(),
         ["ke", "ep"].concat(),
@@ -564,7 +667,7 @@ fn source_audit() -> SourceAudit {
     ];
     let hidden_fragments = [
         ["match ", "handle"].concat(),
-        ["match ", "route.root"].concat(),
+        ["match ", "root.cell"].concat(),
     ];
     SourceAudit {
         semantic_opcode_sites: count_fragments(&joined, &semantic_fragments),
@@ -575,8 +678,18 @@ fn source_audit() -> SourceAudit {
             .matches(&[".apply_", "consequence("].concat())
             .count(),
         post_action_consequence_paths: 0,
-        executor_definitions: source.matches(&["fn execute_", "handle("].concat()).count(),
-        bridge_constructor_definitions: source.matches(&["fn expose_", "routes("].concat()).count(),
+        executor_definitions: implementation
+            .matches(&["fn execute_", "handle("].concat())
+            .count(),
+        bridge_constructor_definitions: implementation
+            .matches(&["fn expose_", "routes("].concat())
+            .count(),
+        route_installer_definitions: implementation
+            .matches(&["fn form_", "routes("].concat())
+            .count(),
+        preassembled_route_cell_fields: implementation
+            .matches(&["struct Route", "Instance"].concat())
+            .count(),
         frozen_sources_untouched: crate::ds_e0_anonymous_event_formation::FROZEN_DS1_LEARNER_SHA256
             == FROZEN_DS1_LEARNER_SHA256
             && FROZEN_DS_E0_SHA256
@@ -593,7 +706,10 @@ pub struct SeedAudit {
     pub evaluation_episodes: usize,
     pub templates: usize,
     pub learner_fingerprint: u64,
+    pub preformation_event_roots: usize,
     pub formed_routes: usize,
+    pub installed_route_cells: usize,
+    pub installed_route_arrows: usize,
     pub exposed_handles: usize,
     pub one_to_one_roots: usize,
     pub physical_execution_paths: usize,
@@ -628,7 +744,10 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
     let (mut no_plasticity, _) = acquire(seed, acquisition_episodes, false, false);
     let mut unsupported = RouteLearner::default();
     let mut evaluation_occurrences = BTreeSet::new();
+    let mut preformation_event_roots = 0usize;
     let mut formed_routes = 0usize;
+    let mut installed_route_cells = 0usize;
+    let mut installed_route_arrows = 0usize;
     let mut exposed_handles = 0usize;
     let mut one_to_one_roots = 0usize;
     let mut physical_execution_paths = 0usize;
@@ -644,45 +763,46 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
     let mut symmetric_ok = true;
     let mut distractor_ok = true;
     let mut stale_ok = true;
+    let mut baseline_empty = true;
+    let mut installed_before_bridge = true;
     let mut work = WorkLedger::default();
 
     for episode in 0..evaluation_episodes {
         let ordinal = acquisition_episodes + 100 + episode;
-        let baseline = fixture(seed, ordinal, FixtureOptions::default());
+        let mut baseline = fixture(seed, ordinal, FixtureOptions::default());
         evaluation_occurrences.extend(baseline.cells.iter().map(|cell| cell.occurrence));
-        let routes = learner.instantiate(&baseline);
-        formed_routes += routes.len();
-        distractor_ok &= routes.iter().all(|route| {
-            route
-                .cells
-                .iter()
-                .all(|cell| baseline.event.members.contains(cell))
+        let basal_cells = baseline.cells.len();
+        let basal_arrows = baseline.arrows.len();
+        let existing = event_executable_roots(&baseline);
+        preformation_event_roots += existing;
+        baseline_empty &= existing == 0;
+        let roots = learner.form_routes(&mut baseline, true);
+        formed_routes += roots.len();
+        installed_route_cells += baseline.cells.len() - basal_cells;
+        installed_route_arrows += baseline.arrows.len() - basal_arrows;
+        installed_before_bridge &= roots.len() == 2
+            && baseline.cells.len() == basal_cells + roots.len() * 3
+            && baseline.arrows.len() == basal_arrows + roots.len() * 2;
+        distractor_ok &= roots.iter().all(|root| {
+            baseline.cells[usize::from(root.cell.0)]
+                .binding
+                .is_some_and(|bound| baseline.event.members.contains(&bound))
         });
-        let bridge = expose_routes(&routes, false, &mut learner.work);
-        let permuted_bridge = expose_routes(&routes, true, &mut learner.work);
+        let bridge = expose_routes(&roots, false, &mut learner.work);
+        let permuted_bridge = expose_routes(&roots, true, &mut learner.work);
         exposed_handles += bridge.entries.len();
         let unique_roots = bridge
             .entries
             .iter()
             .map(|entry| entry.root)
             .collect::<BTreeSet<_>>();
-        let unique_route_refs = bridge
-            .entries
-            .iter()
-            .map(|entry| entry.route_index)
-            .collect::<BTreeSet<_>>();
-        if unique_roots.len() == bridge.entries.len()
-            && unique_route_refs.len() == routes.len()
-            && bridge.entries.len() == routes.len()
-        {
+        if unique_roots.len() == bridge.entries.len() && bridge.entries.len() == roots.len() {
             one_to_one_roots += bridge.entries.len();
         }
         let effects = bridge
             .entries
             .iter()
-            .filter_map(|entry| {
-                execute_handle(&baseline, &routes, &bridge, entry.handle, &mut learner.work)
-            })
+            .filter_map(|entry| execute_handle(&baseline, &bridge, entry.handle, &mut learner.work))
             .collect::<Vec<_>>();
         physical_execution_paths += effects.len();
         arrow_path_steps += effects.iter().map(|effect| effect.arrow_steps).sum::<u64>();
@@ -700,21 +820,15 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
             .entries
             .iter()
             .filter_map(|entry| {
-                execute_handle(
-                    &baseline,
-                    &routes,
-                    &permuted_bridge,
-                    entry.handle,
-                    &mut learner.work,
-                )
-                .map(|effect| effect.state)
+                execute_handle(&baseline, &permuted_bridge, entry.handle, &mut learner.work)
+                    .map(|effect| effect.state)
             })
             .collect::<Vec<_>>();
         ordinary_states.sort();
         permuted_states.sort();
         all_permuted_equal &= ordinary_states == permuted_states;
 
-        let relabeled = fixture(
+        let mut relabeled = fixture(
             seed,
             ordinal,
             FixtureOptions {
@@ -722,8 +836,8 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
                 ..FixtureOptions::default()
             },
         );
-        relabel_ok &= learner.instantiate(&relabeled).len() == routes.len();
-        let allocated = fixture(
+        relabel_ok &= learner.form_routes(&mut relabeled, true).len() == roots.len();
+        let mut allocated = fixture(
             seed,
             ordinal,
             FixtureOptions {
@@ -732,29 +846,29 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
                 ..FixtureOptions::default()
             },
         );
-        allocation_layout_ok &= learner.instantiate(&allocated).len() == routes.len();
-        let shuffled = fixture(
+        allocation_layout_ok &= learner.form_routes(&mut allocated, true).len() == roots.len();
+        let mut shuffled = fixture(
             seed,
             ordinal,
             FixtureOptions {
-                shuffled_arrows: true,
+                shuffled_observations: true,
                 ..FixtureOptions::default()
             },
         );
-        shuffled_propagation_ok &= learner.instantiate(&shuffled).len() == routes.len();
-        let removed = fixture(
+        shuffled_propagation_ok &= learner.form_routes(&mut shuffled, true).len() == roots.len();
+        let mut removed = fixture(
             seed,
             ordinal,
             FixtureOptions {
-                removed_arrow: true,
+                removed_observation: true,
                 ..FixtureOptions::default()
             },
         );
-        let removed_routes = learner.instantiate(&removed);
+        let removed_roots = learner.form_routes(&mut removed, true);
         removed_ok &= event_support_fingerprint(&baseline.event)
             == event_support_fingerprint(&removed.event)
-            && removed_routes.len() + 1 == routes.len();
-        let shifted = fixture(
+            && removed_roots.len() + 1 == roots.len();
+        let mut shifted = fixture(
             seed,
             ordinal,
             FixtureOptions {
@@ -762,8 +876,8 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
                 ..FixtureOptions::default()
             },
         );
-        timing_ok &= learner.instantiate(&shifted).len() == routes.len();
-        let symmetric = fixture(
+        timing_ok &= learner.form_routes(&mut shifted, true).len() == roots.len();
+        let mut symmetric = fixture(
             seed,
             ordinal,
             FixtureOptions {
@@ -771,45 +885,53 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
                 ..FixtureOptions::default()
             },
         );
-        symmetric_ok &= symmetric_learner.instantiate(&symmetric).len() == routes.len();
+        symmetric_ok &= symmetric_learner.form_routes(&mut symmetric, true).len() == roots.len();
 
         let mut stale_substrate = baseline.clone();
-        let mut stale_routes = routes.clone();
-        if let Some(root) = stale_routes.first().map(|route| route.root) {
-            stale_substrate.arrows[usize::from(root.0)].generation += 1;
-            remove_stale(&stale_substrate, &mut stale_routes, &mut learner.work);
-            stale_ok &= stale_routes.len() + 1 == routes.len();
+        let mut stale_roots = roots.clone();
+        if let Some(root) = stale_roots.first().copied() {
+            stale_substrate.cells[usize::from(root.cell.0)].generation += 1;
+            remove_stale(&stale_substrate, &mut stale_roots, &mut learner.work);
+            stale_ok &= stale_roots.len() + 1 == roots.len();
         } else {
             stale_ok = false;
         }
     }
 
-    let unsupported_fixture = fixture(seed, acquisition_episodes + 900, FixtureOptions::default());
-    let no_plasticity_no_routes = no_plasticity.instantiate(&unsupported_fixture).is_empty();
-    let unsupported_no_routes = unsupported.instantiate(&unsupported_fixture).is_empty();
+    let raw_only = fixture(seed, acquisition_episodes + 900, FixtureOptions::default());
+    let mut no_plasticity_substrate = raw_only.clone();
+    let no_plasticity_no_routes = no_plasticity
+        .form_routes(&mut no_plasticity_substrate, false)
+        .is_empty()
+        && event_executable_roots(&no_plasticity_substrate) == 0;
+    let mut unsupported_substrate = raw_only;
+    let unsupported_no_routes = unsupported
+        .form_routes(&mut unsupported_substrate, true)
+        .is_empty()
+        && event_executable_roots(&unsupported_substrate) == 0;
 
     let mut cleanup_substrate =
         fixture(seed, acquisition_episodes + 901, FixtureOptions::default());
-    let mut cleanup_routes = learner.instantiate(&cleanup_substrate);
-    let mut cleanup_bridge = expose_routes(&cleanup_routes, false, &mut learner.work);
+    let mut cleanup_roots = learner.form_routes(&mut cleanup_substrate, true);
+    let mut cleanup_bridge = expose_routes(&cleanup_roots, false, &mut learner.work);
     learner.work.cleanup_items += (cleanup_substrate.cells.len()
         + cleanup_substrate.arrows.len()
-        + cleanup_routes.len()
+        + cleanup_roots.len()
         + cleanup_bridge.entries.len()) as u64;
     cleanup_bridge.entries.clear();
-    cleanup_routes.clear();
+    cleanup_roots.clear();
     cleanup_substrate.cells.clear();
     cleanup_substrate.arrows.clear();
+    cleanup_substrate.raw.spikes.clear();
+    cleanup_substrate.raw.propagation.clear();
     cleanup_substrate.event.members = [CellId(0); 3];
     cleanup_substrate.padding.clear();
     let cleanup_zero = cleanup_bridge.entries.is_empty()
-        && cleanup_routes.is_empty()
+        && cleanup_roots.is_empty()
         && cleanup_substrate.cells.is_empty()
         && cleanup_substrate.arrows.is_empty()
-        && learner
-            .templates
-            .keys()
-            .all(|template| size_of_val(template) == size_of::<RouteTemplate>());
+        && cleanup_substrate.raw.spikes.is_empty()
+        && cleanup_substrate.raw.propagation.is_empty();
 
     work.absorb(&learner.work);
     work.absorb(&coactivity_learner.work);
@@ -818,9 +940,9 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
     work.absorb(&unsupported.work);
     work.temporary_peak_bytes = work.temporary_peak_bytes.max(
         size_of::<TemporarySubstrate>()
-            + 6 * size_of::<Cell>()
+            + 12 * size_of::<Cell>()
             + 6 * size_of::<Arrow>()
-            + 2 * size_of::<RouteInstance>()
+            + 2 * size_of::<RouteRoot>()
             + 2 * size_of::<BridgeEntry>()
             + 257,
     );
@@ -841,11 +963,16 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
         stale_invalidation_removal: stale_ok,
         cleanup_zero_retained: cleanup_zero,
         independent_distinct_effects: all_distinct,
+        baseline_has_no_event_routes: baseline_empty && preformation_event_roots == 0,
+        learner_installs_before_bridge: installed_before_bridge,
     };
     let templates = learner.templates.len();
     let fingerprint = learner.fingerprint();
     let passed = templates >= 2
+        && preformation_event_roots == 0
         && formed_routes == evaluation_episodes * 2
+        && installed_route_cells == formed_routes * 3
+        && installed_route_arrows == formed_routes * 2
         && exposed_handles == formed_routes
         && one_to_one_roots == exposed_handles
         && physical_execution_paths == exposed_handles
@@ -859,7 +986,10 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
         evaluation_episodes,
         templates,
         learner_fingerprint: fingerprint,
+        preformation_event_roots,
         formed_routes,
+        installed_route_cells,
+        installed_route_arrows,
         exposed_handles,
         one_to_one_roots,
         physical_execution_paths,
@@ -935,14 +1065,17 @@ pub fn run(mode: HarnessMode) -> GateReport {
         .iter()
         .map(|seed| audit_seed(*seed, acquisition_episodes, evaluation_episodes))
         .collect::<Vec<_>>();
-
-    let a1 = seed_audits
-        .iter()
-        .all(|seed| seed.templates >= 2 && seed.work.coactivity_support_updates > 0);
+    let a1 = seed_audits.iter().all(|seed| {
+        seed.templates >= 2
+            && seed.work.support_updates > 0
+            && seed.preformation_event_roots == 0
+            && seed.controls.learner_installs_before_bridge
+    });
     let a2 = a1
-        && seed_audits
-            .iter()
-            .all(|seed| seed.formed_routes == seed.evaluation_episodes * 2);
+        && seed_audits.iter().all(|seed| {
+            seed.formed_routes == seed.evaluation_episodes * 2
+                && seed.installed_route_arrows == seed.formed_routes * 2
+        });
     let a3 = a2
         && seed_audits.iter().all(|seed| {
             seed.physical_execution_paths == seed.exposed_handles
@@ -1051,50 +1184,60 @@ mod tests {
     }
 
     #[test]
-    fn every_handle_executes_an_existing_root_with_a_distinct_effect() {
+    fn plasticity_installs_routes_before_bridge_and_root_spikes_traverse_them() {
         let (mut learner, _) = acquire(100, 16, true, false);
-        let substrate = fixture(100, 999, FixtureOptions::default());
-        let routes = learner.instantiate(&substrate);
-        let bridge = expose_routes(&routes, true, &mut learner.work);
+        let mut substrate = fixture(100, 999, FixtureOptions::default());
+        assert_eq!(event_executable_roots(&substrate), 0);
+        let basal_cells = substrate.cells.len();
+        let basal_arrows = substrate.arrows.len();
+        let roots = learner.form_routes(&mut substrate, true);
+        assert_eq!(roots.len(), 2);
+        assert_eq!(substrate.cells.len(), basal_cells + 6);
+        assert_eq!(substrate.arrows.len(), basal_arrows + 4);
+        let bridge = expose_routes(&roots, true, &mut learner.work);
         let effects = bridge
             .entries
             .iter()
             .map(|entry| {
-                execute_handle(
-                    &substrate,
-                    &routes,
-                    &bridge,
-                    entry.handle,
-                    &mut learner.work,
-                )
-                .expect("existing route")
+                execute_handle(&substrate, &bridge, entry.handle, &mut learner.work)
+                    .expect("installed root propagates")
             })
             .collect::<Vec<_>>();
-        assert_eq!(routes.len(), 2);
-        assert_eq!(bridge.entries.len(), routes.len());
         assert_ne!(effects[0], effects[1]);
-        assert!(effects.iter().all(|effect| effect.arrow_steps > 0));
+        assert!(effects.iter().all(|effect| effect.arrow_steps == 2));
     }
 
     #[test]
-    fn controls_remove_or_invalidate_routes_lawfully() {
+    fn identical_raw_activity_without_plastic_formation_has_no_routes() {
         let (mut learner, _) = acquire(100, 16, true, false);
-        let complete = fixture(100, 999, FixtureOptions::default());
-        let removed = fixture(
+        let mut substrate = fixture(100, 999, FixtureOptions::default());
+        let roots = learner.form_routes(&mut substrate, false);
+        assert!(roots.is_empty());
+        assert_eq!(event_executable_roots(&substrate), 0);
+        assert!(expose_routes(&roots, false, &mut learner.work)
+            .entries
+            .is_empty());
+    }
+
+    #[test]
+    fn removal_and_staleness_change_installed_root_inventory() {
+        let (mut learner, _) = acquire(100, 16, true, false);
+        let mut complete = fixture(100, 999, FixtureOptions::default());
+        let mut reduced = fixture(
             100,
             999,
             FixtureOptions {
-                removed_arrow: true,
+                removed_observation: true,
                 ..FixtureOptions::default()
             },
         );
-        assert_eq!(learner.instantiate(&complete).len(), 2);
-        assert_eq!(learner.instantiate(&removed).len(), 1);
-        let mut routes = learner.instantiate(&complete);
-        let mut stale = complete;
-        stale.arrows[usize::from(routes[0].root.0)].live = false;
-        remove_stale(&stale, &mut routes, &mut learner.work);
-        assert_eq!(routes.len(), 1);
+        let roots = learner.form_routes(&mut complete, true);
+        assert_eq!(roots.len(), 2);
+        assert_eq!(learner.form_routes(&mut reduced, true).len(), 1);
+        let mut stale_roots = roots;
+        complete.cells[usize::from(stale_roots[0].cell.0)].generation += 1;
+        remove_stale(&complete, &mut stale_roots, &mut learner.work);
+        assert_eq!(stale_roots.len(), 1);
     }
 
     #[test]
