@@ -87,7 +87,12 @@ mod frozen_m5 {
         root: u8,
     }
 
-    fn raw_consequence(seed: u64, episode: usize, variant: usize, immediate: bool) -> RawConsequence {
+    fn raw_consequence(
+        seed: u64,
+        episode: usize,
+        variant: usize,
+        immediate: bool,
+    ) -> RawConsequence {
         let base = seed
             .wrapping_mul(1_000_003)
             .wrapping_add(episode as u64 * 53)
@@ -333,12 +338,12 @@ mod frozen_m5 {
             let first_variant = if swapped { round % 4 } else { 0 };
             let second_variant = if swapped { 0 } else { round % 4 };
             let first_raw = raw_consequence(seed + 100_000, round * 2, first_variant, false);
-            let second_raw =
-                raw_consequence(seed + 100_000, round * 2 + 1, second_variant, false);
+            let second_raw = raw_consequence(seed + 100_000, round * 2 + 1, second_variant, false);
             let mut work = ConsequenceWork::default();
             let first_shape = execute_and_normalize(first_raw, &mut work);
             let second_shape = execute_and_normalize(second_raw, &mut work);
-            all_magnitudes_equal &= first_shape.as_ref().map(ConsequenceShape::magnitude) == Some(3)
+            all_magnitudes_equal &= first_shape.as_ref().map(ConsequenceShape::magnitude)
+                == Some(3)
                 && second_shape.as_ref().map(ConsequenceShape::magnitude) == Some(3);
             let (first_executed, first_updated) = episode(
                 &mut path,
@@ -375,19 +380,31 @@ mod frozen_m5 {
         let mut first = 0;
         let mut second = 0;
         for ordinal in 100..108u64 {
-            first += usize::from(path.encounter(encounter_first(seed, ordinal, reverse_layout)).is_some());
-            second +=
-                usize::from(path.encounter(encounter_second(seed, ordinal, reverse_layout)).is_some());
+            first += usize::from(
+                path.encounter(encounter_first(seed, ordinal, reverse_layout))
+                    .is_some(),
+            );
+            second += usize::from(
+                path.encounter(encounter_second(seed, ordinal, reverse_layout))
+                    .is_some(),
+            );
         }
         (first, second)
     }
 
-    fn equal_and_shuffled_abstain(seed: u64, first: EncounterSnapshot, second: EncounterSnapshot) -> bool {
+    fn equal_and_shuffled_abstain(
+        seed: u64,
+        first: EncounterSnapshot,
+        second: EncounterSnapshot,
+    ) -> bool {
         let mut equal = ConsequenceLearner::default();
         let mut shuffled = ConsequenceLearner::default();
         for round in 0..8usize {
             let _ = equal.observe(first, raw_consequence(seed + 300_000, round * 2, 0, false));
-            let _ = equal.observe(second, raw_consequence(seed + 300_000, round * 2 + 1, 1, false));
+            let _ = equal.observe(
+                second,
+                raw_consequence(seed + 300_000, round * 2 + 1, 1, false),
+            );
             let _ = shuffled.observe(
                 first,
                 raw_consequence(seed + 400_000, round * 2, round % 4, false),
@@ -397,8 +414,7 @@ mod frozen_m5 {
                 raw_consequence(seed + 400_000, round * 2 + 1, (round + 2) % 4, false),
             );
         }
-        equal.direction([first, second]).is_none()
-            && shuffled.direction([first, second]).is_none()
+        equal.direction([first, second]).is_none() && shuffled.direction([first, second]).is_none()
     }
 
     fn active_only_control(trained: &Trained, seed: u64) -> bool {
@@ -571,7 +587,10 @@ fn source_audit() -> SourceAudit {
             && env!("DS8_C0_SHA256") == FROZEN_C0_SHA256
             && env!("DS8_CP0_SHA256") == FROZEN_CP0_SHA256,
         no_semantic_channels: forbidden.iter().all(|token| !path.contains(token)),
-        physical_link_exact: path.matches("path.delayed_experience(differential)").count() == 1
+        physical_link_exact: path
+            .matches("path.delayed_experience(differential)")
+            .count()
+            == 1
             && path.matches("fn execute_and_normalize(").count() == 1
             && !path.contains("occurrences"),
     }
@@ -587,10 +606,16 @@ fn run_once() -> ProbeReport {
     let m5 = crate::ds7_cumulative_plasticity_allocation_gate::run();
     let m5_exact = m5.passed
         && m5.cells.len() == 18
-        && m5.cells.iter().all(|cell| cell.cumulative_m4 && cell.passed);
+        && m5
+            .cells
+            .iter()
+            .all(|cell| cell.cumulative_m4 && cell.passed);
     let checks = vec![
         check("variation before consequence", internal.path_exists),
-        check("physical delayed consequences", internal.physical_consequences),
+        check(
+            "physical delayed consequences",
+            internal.physical_consequences,
+        ),
         check("one differential contrast", internal.one_direction),
         check("equal consequence magnitude", internal.equal_magnitude),
         check("active eligibility only", internal.active_only),

@@ -778,7 +778,10 @@ fn main() {
             "DS8_M5_MD_SHA256",
             "results/ds7_cumulative_plasticity_allocation_definitive.md",
         ),
-        ("DS8_D3_SHA256", "src/ds_d3_anonymous_consequence_contrast.rs"),
+        (
+            "DS8_D3_SHA256",
+            "src/ds_d3_anonymous_consequence_contrast.rs",
+        ),
         ("DS8_D2_SHA256", "src/ds_d2_differential_evidence.rs"),
         ("DS8_C0_SHA256", "src/ds_c0_anonymous_credit_coupling.rs"),
         (
