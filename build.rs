@@ -522,10 +522,7 @@ fn main() {
             "experiments/ds4_cumulative_request_start_definitive_protocol.md",
         ),
         ("DS6_M3_SHA256", "src/ds3_event_boundary.rs"),
-        (
-            "DS6_TARGET_SHA256",
-            "experiments/ds4_ds8_target_freeze.md",
-        ),
+        ("DS6_TARGET_SHA256", "experiments/ds4_ds8_target_freeze.md"),
         (
             "DS6_ORDER_SHA256",
             "experiments/desupply_sprint_order_amendment_after_ds4_negative.md",
