@@ -41,6 +41,7 @@ struct EvaluatedExecution {
 pub struct AffordanceFingerprint {
     pub exact_complete_state_replay: bool,
     pub early_support_changes_trajectory: bool,
+    pub late_support_physically_visible: bool,
     pub late_support_is_inert: bool,
     pub same_count_different_early_support_differs: bool,
     pub different_count_same_early_support_matches: bool,
@@ -55,6 +56,7 @@ impl AffordanceFingerprint {
     pub fn passed(&self) -> bool {
         self.exact_complete_state_replay
             && self.early_support_changes_trajectory
+            && self.late_support_physically_visible
             && self.late_support_is_inert
             && self.same_count_different_early_support_differs
             && self.different_count_same_early_support_matches
@@ -217,6 +219,11 @@ pub fn replay_affordance_law() -> AffordanceFingerprint {
         exact_complete_state_replay: exact_first == exact_second,
         early_support_changes_trajectory: exact_first.realized == Some(0)
             && early.realized == Some(1),
+        late_support_physically_visible: late.execution.trace.len()
+            > exact_first.execution.trace.len()
+            && late.execution.trace.iter().any(|entry| {
+                entry.tick == 8 && entry.target_physical == 30 && entry.impulse == 1 && !entry.fired
+            }),
         late_support_is_inert: same_realization_and_effect_trace(&exact_first, &late),
         same_count_different_early_support_differs: early.realized != late.realized,
         different_count_same_early_support_matches: late.realized == more_late.realized,
