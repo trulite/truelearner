@@ -535,6 +535,30 @@ fn main() {
             "DS6_PROTOCOL_SHA256",
             "experiments/ds6_cumulative_lifetime_probe_protocol.md",
         ),
+        (
+            "DS6_DEFINITIVE_DEVELOPMENT_SHA256",
+            "src/ds6_cumulative_lifetime_probe.rs",
+        ),
+        (
+            "DS6_DEFINITIVE_HANDOFF_SHA256",
+            "experiments/ds6_cumulative_lifetime_development_handoff.md",
+        ),
+        (
+            "DS6_DEFINITIVE_M3_HANDOFF_SHA256",
+            "experiments/m3_cumulative_event_boundary_authoritative_handoff.md",
+        ),
+        (
+            "DS6_DEFINITIVE_M3_CSV_SHA256",
+            "results/ds3_cumulative_event_boundary_definitive.csv",
+        ),
+        (
+            "DS6_DEFINITIVE_M3_MD_SHA256",
+            "results/ds3_cumulative_event_boundary_definitive.md",
+        ),
+        (
+            "DS6_DEFINITIVE_PROTOCOL_SHA256",
+            "experiments/ds6_cumulative_lifetime_definitive_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
