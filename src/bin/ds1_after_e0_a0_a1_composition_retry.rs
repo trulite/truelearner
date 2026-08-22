@@ -43,7 +43,7 @@ fn main() {
     println!("source={:?}", report.source);
     for seed in &report.seeds {
         println!(
-            "seed={} E0_target={} E0_exact={} same_event={} A1_candidates={} A1_templates={} A1_roots={} A1_structural={} A1_effects={} A1_handles={} choice_arity={} choice={:?} choose_calls={} selected_executions={} selected_spikes={} selected_arrows={} selected_mutations={} post_choice_events={} apply_updates={} controls={} E0_work={} A1_work={} DS1_work={} E0_bytes={} A1_bytes={} DS1_bytes={} temporary_peak={}",
+            "seed={} E0_target={} E0_exact={} same_event={} A1_candidates={} A1_templates={} A1_roots={} A1_structural={} A1_effects={} A1_handles={} choice_arity={} choice={:?} choose_calls={} selected_executions={} selected_spikes={} selected_arrows={} selected_mutations={} post_choice_events={} apply_updates={} controls={} E0_work={} A1_work_primary={} A1_work_permuted={} DS1_work={} E0_bytes={} A1_bytes={} DS1_bytes={} temporary_peak={}",
             seed.seed,
             seed.e0.actual_target_events,
             seed.e0.exact_export_copy && seed.e0.exact_neighborhood_copy,
@@ -65,7 +65,8 @@ fn main() {
             seed.paths.runtime_apply_updates,
             seed.controls.passed_through_stage_six(),
             seed.e0.physical_work,
-            seed.a1.organism_work + seed.permuted_a1.organism_work,
+            seed.a1.organism_work,
+            seed.permuted_a1.organism_work,
             seed.choice.comparisons
                 + seed.choice.candidate_evaluations
                 + seed.choice.proposals
