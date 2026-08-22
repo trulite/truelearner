@@ -384,6 +384,22 @@ fn main() {
             "DS_IR0_PROTOCOL_SHA256",
             "experiments/ds_ir0_dependency_invalidation_reopening_protocol.md",
         ),
+        (
+            "DS2_IR0_RETRY_PRIOR_SHA256",
+            "src/ds2_after_rt0_mechanistic_retry.rs",
+        ),
+        (
+            "DS2_IR0_RETRY_IR0_SHA256",
+            "src/ds_ir0_dependency_invalidation_reopening.rs",
+        ),
+        (
+            "DS2_IR0_RETRY_READINESS_SHA256",
+            "experiments/ds_ir0_development_readiness_handoff.md",
+        ),
+        (
+            "DS2_IR0_RETRY_PROTOCOL_SHA256",
+            "experiments/ds2_after_ir0_mechanistic_retry_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
