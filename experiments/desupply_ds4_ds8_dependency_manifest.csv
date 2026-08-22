@@ -11,11 +11,11 @@ DS5,2,executable path,learned closure selects output emission without finish mea
 DS5,3,temporary state,current local value survives through closure,src/continuation.rs,current|required,No evaluator answer identity
 DS5,4,consequence edge,emission and quiescence produce ordinary downstream effects,src/continuation.rs,explicit_answer|queue,required,Host finish branch remains forbidden
 DS5,5,update path,closure route changes from still-supplied DS8 credit,src/continuation.rs,feedback|required,Isolated only until M4
-DS6,1,input relation,ordinary recurrence use disuse contradiction and storage pressure,src/consolidation.rs,consolid|required,Lifetime derivation remains unresolved
+DS6,1,input relation,ordinary recurrence and learned-use activity reach M3 state,src/ds3_event_boundary.rs,support|used_learned,required,M3 has recurrence and use; disuse and pressure do not yet reach persistence
 DS6,2,executable path,one evaluator-blind physical lifecycle controls retention and erasure,src/ds6_cumulative_lifetime_port.rs,physical_lifecycle,required,No implementation yet
 DS6,3,temporary state,state carries no supplied temporary or permanent class,src/ds6_cumulative_lifetime_port.rs,lifetime_class_absent,required,No implementation yet
-DS6,4,consequence edge,retention cost and later reuse are physically observable,src/identity_prior_economics.rs,retention|required,Potential parts-bin input only
-DS6,5,update path,history and local pressure alter persistence,src/ds_ir0_dependency_invalidation_reopening.rs,historical|required,Potential parts-bin input only
+DS6,4,consequence edge,retention cost and later reuse are physically observable,src/ds3_event_boundary.rs,persistent_bytes|used_learned,required,M3 exposes both measurements but neither feeds its lifecycle
+DS6,5,update path,recurrence use disuse contradiction and local pressure alter persistence,src/ds3_event_boundary.rs,fn record|check_predictions,required,Recurrence consolidates and contradiction reopens execution but persistent removal is absent
 DS7,1,input relation,local co-activity propagation eligibility and competition,src/local_plasticity.rs,plastic|required,Isolated audit required
 DS7,2,executable path,proposal sites arise without supplied target policy,src/ds7_cumulative_plasticity_targeting_port.rs,local_proposal_formation,required,No implementation yet
 DS7,3,temporary state,eligibility is activity-derived and locally erased,src/ds_c0_anonymous_credit_coupling.rs,Eligibility|required,Potential parts-bin input only
