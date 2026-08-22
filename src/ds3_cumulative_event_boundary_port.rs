@@ -131,7 +131,10 @@ macro_rules! glue_a1_access {
                     return None;
                 }
                 let template = proposals[0].template;
-                let before = learner.templates.get(&template).map_or(0, |support| support.count);
+                let before = learner
+                    .templates
+                    .get(&template)
+                    .map_or(0, |support| support.count);
                 let observed = learner.observe(&substrate, true);
                 let after = learner.templates.get(&template)?.count;
                 if observed != 1 || after != before + 1 {
@@ -412,10 +415,9 @@ impl Default for RenderOptions {
 }
 
 fn relation_class(effect: &GlueEffect) -> u8 {
-    effect
-        .trace
-        .iter()
-        .fold(17u8, |value, member| value.wrapping_mul(31).wrapping_add(*member))
+    effect.trace.iter().fold(17u8, |value, member| {
+        value.wrapping_mul(31).wrapping_add(*member)
+    })
 }
 
 fn propagation_class(effect: &GlueEffect) -> u8 {
@@ -630,9 +632,7 @@ fn stream_legal(stream: &Stream) -> bool {
     for row in &stream.observations {
         let pairing = match row.boundary_role {
             BoundaryRole::Open | BoundaryRole::Singleton => row.causal_link == CausalLink::Reset,
-            BoundaryRole::Continue | BoundaryRole::Close => {
-                row.causal_link == CausalLink::Continue
-            }
+            BoundaryRole::Continue | BoundaryRole::Close => row.causal_link == CausalLink::Continue,
             BoundaryRole::Interrupt => row.causal_link == CausalLink::Broken,
         };
         if !pairing {
@@ -833,7 +833,11 @@ fn run_probe(seed: u64, acquisition_episodes: usize, held_out: usize) -> Probe {
                 exact_reconstruction(&first, &flat_stream)
                     && exact_reconstruction(&second, &regrouped)
                     && observed_spans(&first) != observed_spans(&second),
-                format!("standard_spans={} regrouped_spans={}", first.spans.len(), second.spans.len()),
+                format!(
+                    "standard_spans={} regrouped_spans={}",
+                    first.spans.len(),
+                    second.spans.len()
+                ),
             )
         }
         _ => (false, "organic regrouping fixture unavailable".to_string()),
@@ -868,7 +872,11 @@ fn run_probe(seed: u64, acquisition_episodes: usize, held_out: usize) -> Probe {
     let control3 = regrouped_ok && stream_legal(&regrouped) && {
         let evaluation = frozen_ds3::glue_evaluate(&mut learner, &regrouped.observations, false);
         exact_reconstruction(&evaluation, &regrouped)
-            && regrouped.expected.iter().map(|span| span.end - span.start + 1).collect::<Vec<_>>()
+            && regrouped
+                .expected
+                .iter()
+                .map(|span| span.end - span.start + 1)
+                .collect::<Vec<_>>()
                 == vec![1, 3]
     };
 
@@ -907,20 +915,8 @@ fn run_probe(seed: u64, acquisition_episodes: usize, held_out: usize) -> Probe {
     let control7 = source.passed();
 
     // C8: actual IR0 mismatch invalidates, abstains, generically reopens, and executes.
-    let ir0_changed = frozen_ir0::glue_lifecycle(
-        seed + 20_030,
-        M2_ACQUISITION,
-        0,
-        true,
-        false,
-    );
-    let ir0_layout = frozen_ir0::glue_lifecycle(
-        seed + 20_031,
-        M2_ACQUISITION,
-        1,
-        true,
-        true,
-    );
+    let ir0_changed = frozen_ir0::glue_lifecycle(seed + 20_030, M2_ACQUISITION, 0, true, false);
+    let ir0_layout = frozen_ir0::glue_lifecycle(seed + 20_031, M2_ACQUISITION, 1, true, true);
     let control8 = [ir0_changed.as_ref(), ir0_layout.as_ref()]
         .into_iter()
         .flatten()
@@ -955,14 +951,10 @@ fn run_probe(seed: u64, acquisition_episodes: usize, held_out: usize) -> Probe {
         &mut subthreshold_occurrences,
     );
     if subthreshold_fixture {
-        let _ = frozen_ds3::glue_evaluate(
-            &mut subthreshold_learner,
-            &subthreshold.observations,
-            true,
-        );
+        let _ =
+            frozen_ds3::glue_evaluate(&mut subthreshold_learner, &subthreshold.observations, true);
     }
-    let control9 = subthreshold_fixture
-        && frozen_ds3::glue_chunk_count(&subthreshold_learner) == 0;
+    let control9 = subthreshold_fixture && frozen_ds3::glue_chunk_count(&subthreshold_learner) == 0;
 
     // C10: probation without threshold-crossing installation has no Close and fails closed.
     let mut missing_close = Stream::default();
@@ -975,14 +967,10 @@ fn run_probe(seed: u64, acquisition_episodes: usize, held_out: usize) -> Probe {
         RenderOptions::default(),
         &mut missing_occurrences,
     );
-    let missing_evaluation = frozen_ds3::glue_evaluate(
-        &mut subthreshold_learner,
-        &missing_close.observations,
-        true,
-    );
-    let control10 = missing_fixture
-        && missing_close.expected.is_empty()
-        && missing_evaluation.spans.is_empty();
+    let missing_evaluation =
+        frozen_ds3::glue_evaluate(&mut subthreshold_learner, &missing_close.observations, true);
+    let control10 =
+        missing_fixture && missing_close.expected.is_empty() && missing_evaluation.spans.is_empty();
 
     // C11: evaluator-only negative mutation. This stream is never acquired.
     let mut invalid_transition = standard_stream(seed + 20_060, RenderOptions::default());
@@ -1008,18 +996,85 @@ fn run_probe(seed: u64, acquisition_episodes: usize, held_out: usize) -> Probe {
     });
 
     let controls = vec![
-        control(1, "identical-local-shapes-different-grouping", control1, grouping_diagnostic),
-        control(2, "different-shapes-same-functional-span", control2, "surface shape relabelling preserves learned cuts"),
-        control(3, "boundary-shifts", control3, "organic retained-use and probation signals move span lengths to [1,3]"),
-        control(4, "interruptions-and-reentry", control4, "AC0 abstention interrupts; only a new opening completes"),
-        control(5, "shuffled-timing-relabeled-consequences", control5, "clock and consequence relabellings are not grouping keys"),
-        control(6, "fresh-identities-and-allocation", control6, "fresh E0 identities and reverse allocation reuse learned signatures"),
-        control(7, "leak-source-audit", control7, format!("source={source:?}")),
-        control(8, "invalidation-generic-reopening-reacquisition", control8, "IR0 mismatch invalidates, abstains, reopens, and executes"),
-        control(9, "subthreshold-recurrence", control9, format!("chunks={}", frozen_ds3::glue_chunk_count(&subthreshold_learner))),
-        control(10, "missing-close", control10, format!("completed={}", missing_evaluation.spans.len())),
-        control(11, "invalid-causal-transition", control11, "reset without opening is a control-only mutation and fails closed"),
-        control(12, "held-out-population", control12, format!("acquisition={} held_out={}", acquisition_seeds.len(), held_out_seeds.len())),
+        control(
+            1,
+            "identical-local-shapes-different-grouping",
+            control1,
+            grouping_diagnostic,
+        ),
+        control(
+            2,
+            "different-shapes-same-functional-span",
+            control2,
+            "surface shape relabelling preserves learned cuts",
+        ),
+        control(
+            3,
+            "boundary-shifts",
+            control3,
+            "organic retained-use and probation signals move span lengths to [1,3]",
+        ),
+        control(
+            4,
+            "interruptions-and-reentry",
+            control4,
+            "AC0 abstention interrupts; only a new opening completes",
+        ),
+        control(
+            5,
+            "shuffled-timing-relabeled-consequences",
+            control5,
+            "clock and consequence relabellings are not grouping keys",
+        ),
+        control(
+            6,
+            "fresh-identities-and-allocation",
+            control6,
+            "fresh E0 identities and reverse allocation reuse learned signatures",
+        ),
+        control(
+            7,
+            "leak-source-audit",
+            control7,
+            format!("source={source:?}"),
+        ),
+        control(
+            8,
+            "invalidation-generic-reopening-reacquisition",
+            control8,
+            "IR0 mismatch invalidates, abstains, reopens, and executes",
+        ),
+        control(
+            9,
+            "subthreshold-recurrence",
+            control9,
+            format!(
+                "chunks={}",
+                frozen_ds3::glue_chunk_count(&subthreshold_learner)
+            ),
+        ),
+        control(
+            10,
+            "missing-close",
+            control10,
+            format!("completed={}", missing_evaluation.spans.len()),
+        ),
+        control(
+            11,
+            "invalid-causal-transition",
+            control11,
+            "reset without opening is a control-only mutation and fails closed",
+        ),
+        control(
+            12,
+            "held-out-population",
+            control12,
+            format!(
+                "acquisition={} held_out={}",
+                acquisition_seeds.len(),
+                held_out_seeds.len()
+            ),
+        ),
     ];
 
     Probe {
@@ -1119,8 +1174,8 @@ pub fn run(mode: HarnessMode) -> Report {
         && first.held_out_used_learned >= held_out * ROUTES
         && first.persistent_bytes > 0
         && first.chunk_count >= ROUTES;
-    let controls_passed = first.controls.len() == 12
-        && first.controls.iter().all(|control| control.passed);
+    let controls_passed =
+        first.controls.len() == 12 && first.controls.iter().all(|control| control.passed);
     let ready = [
         first.source.passed(),
         first.wiring_legal,
