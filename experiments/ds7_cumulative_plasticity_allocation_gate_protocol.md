@@ -1,6 +1,6 @@
 # Cumulative DS7 learned plasticity-allocation GATE
 
-Protocol identifier: `ds7-cumulative-plasticity-allocation-gate-v2`.
+Protocol identifier: `ds7-cumulative-plasticity-allocation-gate-v3`.
 
 Status: **PREREGISTERED DEVELOPMENT GATE; OUTCOME UNSPENT**.
 
@@ -21,6 +21,14 @@ encounter`, so prior behavior is unchanged. This batching changes no snapshot,
 proposal, representation, value, admission, eligibility, scalar increment,
 pressure period, or removal law. Version 1 is preserved at its tag and no GATE
 evidence was spent under it.
+
+Version 3 is the separately frozen retry after the immutable v2 negative. The
+v2 collapse handoff proves that route-edge resistance entered the withholding
+phase at 105, while the arbitrary 400-event cap supplied only 100 pressure
+ticks and left resistance 5 in both branches. The only permitted retry delta
+is a fixed 424-event withholding window, which contains the 105th pressure
+boundary at event 417. Instrumentation must report correct and shuffled entry,
+final resistance, and removal separately. No organism mechanism changes.
 
 Exact development-readiness commit:
 `9e7d197e2915fa0c550160d2cdd3dbb04884f168`.
