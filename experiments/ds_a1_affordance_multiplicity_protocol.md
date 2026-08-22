@@ -108,19 +108,27 @@ adjacency are one structural affordance; later duplicates are rejected from the
 root inventory and reclaimed. Different allocations or opaque route identities
 do not create distinctness.
 
-Each structurally unique root is then executed independently from an identical
-frozen temporary start. The evaluator normalizes the execution to its current
-bound-member trace and observable temporary E0-relative activation state. This
-post-hoc trace/effect cannot feed learning, ranking, formation, installation,
-structural deduplication, or the bridge. A counted affordance must have a
-nonempty normalized effect distinct from every other counted affordance.
-Effect-equivalent routes count once; the later duplicate is rejected from the
-counted bridge inventory. Thus all of these count as one or are rejected:
+Every structurally unique root proceeds unchanged to the bridge. The bridge
+copies all and only those structurally unique roots one-to-one before any
+execution-derived effect comparison exists. The evaluator then executes every
+exposed root independently from an identical frozen temporary start and
+normalizes the execution to its current bound-member trace and observable
+temporary E0-relative activation state. This post-hoc trace/effect cannot feed
+learning, ranking, formation, installation, structural deduplication, bridge
+construction, bridge membership, or handle assignment. A passing gate requires
+every exposed affordance to have a nonempty normalized effect distinct from
+every other exposed affordance. If two structurally unique exposed roots have
+the same normalized effect, stage 6 collapses; the evaluator reports the
+duplicate-effect diagnostic but does not prune, select, replace, or alter any
+root or bridge entry. Thus organism-side structural duplicates count once or
+are rejected before bridge, while effect duplicates remain exposed and fail:
 
 - multiple handles to one root;
 - copied roots with identical normalized live adjacency;
-- different allocated identities with the same bound-member trace/effect; and
-- structurally different routes with the same normalized observable effect.
+- different allocated identities with the same normalized live adjacency are
+  structurally deduplicated before bridge; and
+- structurally different routes with the same normalized observable effect are
+  all bridged and cause stage 6 collapse.
 
 The resulting affordance multiset must be invariant under bijective occurrence
 relabeling, allocation order, memory layout, proposal observation order, route
@@ -128,13 +136,14 @@ installation order, and handle permutation.
 
 ## Opaque bridge boundary
 
-Only after installation, structural deduplication, and independent post-hoc
-effect distinctness evaluation may the bridge copy the accepted pre-existing
-root references one-to-one into fresh opaque handles. The bridge may permute
-references, but cannot create, execute, interpret, rank, label, or repair a
-route. Every bridge entry has one unique live root; every accepted root has one
-entry. Effect fingerprints and normalized traces are evaluator evidence and are
-not stored in bridge entries.
+Only after installation and organism-side structural deduplication may the
+bridge copy every structurally unique pre-existing root reference one-to-one
+into fresh opaque handles. The bridge necessarily precedes independent post-hoc
+execution and effect distinctness evaluation. It may permute references, but
+cannot create, execute, interpret, rank, label, repair, prune, or select a
+route. Every bridge entry has one unique live root; every structurally unique
+root has one entry. Effect fingerprints and normalized traces are evaluator
+evidence, are not stored in bridge entries, and cannot change bridge membership.
 
 The bridge exposes exactly the accepted physical roots, whatever their count.
 It receives neither a minimum nor an expected count. No handle or route identity
@@ -197,8 +206,11 @@ evidence.
 8. removing one underlying current-member coactivity/variation relation causes
    lawful reduction in unique affordance count, with no evaluator replacement;
 9. duplicate proposal evidence for one normalized route remains one affordance;
-10. two roots/copies of one normalized live route count once or are rejected;
-11. two routes with one normalized effect count once or are rejected;
+10. two roots/copies of one normalized live route count once or are rejected
+    by organism-side structural deduplication before bridge;
+11. two structurally unique routes with one normalized effect remain exposed
+    one-to-one and mechanically force a stage-6 failure diagnostic without
+    changing the bridge;
 12. stale generation removes only the affected affordance;
 13. an ambiguous/symmetric case remains present and unranked;
 14. extra distractor occurrences/propagations do not become event affordances;
