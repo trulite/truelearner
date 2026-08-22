@@ -1024,6 +1024,30 @@ fn main() {
             "DS8_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/ds8_cumulative_semantic_credit_definitive_protocol.md",
         ),
+        (
+            "POST_M6_DS4_PROTOCOL_SHA256",
+            "experiments/post_m6_ds4_arrival_initiation_protocol.md",
+        ),
+        (
+            "POST_M6_DS4_M6_CSV_SHA256",
+            "results/ds8_cumulative_semantic_credit_definitive.csv",
+        ),
+        (
+            "POST_M6_DS4_M6_MD_SHA256",
+            "results/ds8_cumulative_semantic_credit_definitive.md",
+        ),
+        (
+            "POST_M6_DS4_M6_HANDOFF_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_authority_handoff.md",
+        ),
+        (
+            "POST_M6_DS4_OLD_NEGATIVE_CSV_SHA256",
+            "results/ds4_cumulative_request_start_definitive.csv",
+        ),
+        (
+            "POST_M6_DS4_OLD_NEGATIVE_MD_SHA256",
+            "results/ds4_cumulative_request_start_definitive.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
