@@ -1,0 +1,17 @@
+index,seed,competence_episode,m7_competence_episode,m7_activations,selections,consequences,updates,m6_observations,crossings,held_out_correct,held_out_total,quiescent,positions,depths,route_handles,allocation_layouts,physical_work,controls_passed,p0_source_authority,p1_initiation_structural_closure,p2_single_closure_role,p3_exact_current_crossing,p4_quiescent_lifecycle,p5_transfer,p6_controls,p7_duplicate_exact,first_collapse,passed
+0,1000123457,21,17,85,21,6,3,6,70,64,64,64,6,7,64,2,104035,12,true,true,true,true,true,true,true,true,NONE,true
+1,1010123457,33,19,97,33,6,3,6,70,64,64,64,6,7,64,2,115017,12,true,true,true,true,true,true,true,true,NONE,true
+2,1020123457,21,13,85,21,6,3,6,70,64,64,64,6,7,64,2,104035,12,true,true,true,true,true,true,true,true,NONE,true
+3,1030123457,19,45,83,19,6,3,6,70,64,64,64,6,7,64,2,102193,12,true,true,true,true,true,true,true,true,NONE,true
+4,1040123457,17,17,81,17,6,3,6,70,64,64,64,6,7,64,2,100349,12,true,true,true,true,true,true,true,true,NONE,true
+5,1050123457,31,25,95,31,6,3,6,70,64,64,64,6,7,64,2,113205,12,true,true,true,true,true,true,true,true,NONE,true
+6,1060123457,21,31,85,21,6,3,6,70,64,64,64,6,7,64,2,104035,12,true,true,true,true,true,true,true,true,NONE,true
+7,1070123457,105,15,169,105,6,3,6,70,64,64,64,6,7,64,2,181091,12,true,true,true,true,true,true,true,true,NONE,true
+8,1080123457,9,15,73,9,6,3,6,70,64,64,64,6,7,64,2,93023,12,true,true,true,true,true,true,true,true,NONE,true
+9,1090123457,29,23,93,29,6,3,6,70,64,64,64,6,7,64,2,111363,12,true,true,true,true,true,true,true,true,NONE,true
+10,1100123457,25,23,89,25,6,3,6,70,64,64,64,6,7,64,2,107731,12,true,true,true,true,true,true,true,true,NONE,true
+11,1110123457,55,25,119,55,6,3,6,70,64,64,64,6,7,64,2,135241,12,true,true,true,true,true,true,true,true,NONE,true
+12,1120123457,21,13,85,21,6,3,6,70,64,64,64,6,7,64,2,104035,12,true,true,true,true,true,true,true,true,NONE,true
+13,1130123457,15,25,79,15,6,3,6,70,64,64,64,6,7,64,2,98561,12,true,true,true,true,true,true,true,true,NONE,true
+14,1140123457,21,17,85,21,6,3,6,70,64,64,64,6,7,64,2,104035,12,true,true,true,true,true,true,true,true,NONE,true
+15,1150123457,61,21,125,61,6,3,6,70,64,64,64,6,7,64,2,140715,12,true,true,true,true,true,true,true,true,NONE,true
