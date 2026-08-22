@@ -1,8 +1,26 @@
 # Cumulative DS7 learned plasticity-allocation GATE
 
-Protocol identifier: `ds7-cumulative-plasticity-allocation-gate-v1`.
+Protocol identifier: `ds7-cumulative-plasticity-allocation-gate-v2`.
 
 Status: **PREREGISTERED DEVELOPMENT GATE; OUTCOME UNSPENT**.
+
+Version 2 freezes one pre-execution load-scaling linker. Authoritative M4
+applies pressure on completed physical event propagation, not once per local
+candidate inside an event. The PROBE and MICRO used one encounter per event,
+where those clocks were identical. Loaded GATE events require the explicit
+equivalent batching:
+
+```text
+begin one physical event          -> one event-clock update
+visit its local encounters        -> zero additional event-clock updates
+complete event                    -> pressure follows the frozen M4 period
+```
+
+The existing single-encounter call remains exactly `begin event + one local
+encounter`, so prior behavior is unchanged. This batching changes no snapshot,
+proposal, representation, value, admission, eligibility, scalar increment,
+pressure period, or removal law. Version 1 is preserved at its tag and no GATE
+evidence was spent under it.
 
 Exact development-readiness commit:
 `9e7d197e2915fa0c550160d2cdd3dbb04884f168`.
@@ -137,4 +155,3 @@ FAIL freezes the first failed phase. Mechanical path absence may be repaired
 and retried under a new protocol. A new persistent representation, semantic
 site choice, or multiple equally supported allocation laws is a scientific
 stop.
-
