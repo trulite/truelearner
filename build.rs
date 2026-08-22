@@ -224,6 +224,26 @@ fn main() {
             "DS1_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/ds1_boundary_role_cumulative_definitive_protocol.md",
         ),
+        (
+            "DS2_M1_DEFINITIVE_CORE_SHA256",
+            "src/ds1_boundary_role_cumulative_definitive.rs",
+        ),
+        (
+            "DS2_M1_PARENT_SHA256",
+            "src/ds1_after_d3_cumulative_composition_retry.rs",
+        ),
+        (
+            "DS2_M1_RESULT_CSV_SHA256",
+            "results/ds1_boundary_role_cumulative_definitive.csv",
+        ),
+        (
+            "DS2_M1_RESULT_MD_SHA256",
+            "results/ds1_boundary_role_cumulative_definitive.md",
+        ),
+        (
+            "DS2_M1_PROTOCOL_SHA256",
+            "experiments/ds2_cumulative_m1_mechanistic_probe_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
