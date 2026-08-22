@@ -325,6 +325,14 @@ fn marked<'a>(source: &'a str, begin: &str, end: &str) -> &'a str {
         .unwrap_or_default()
 }
 
+fn marked_last<'a>(source: &'a str, begin: &str, end: &str) -> &'a str {
+    source
+        .rsplit(begin)
+        .next()
+        .and_then(|tail| tail.split(end).next())
+        .unwrap_or_default()
+}
+
 fn source_order_and_information_flow() -> bool {
     let mechanism = include_str!("post_m6_ds4_arrival_initiation.rs");
     let request = marked(
@@ -342,7 +350,7 @@ fn source_order_and_information_flow() -> bool {
         .nth(1)
         .unwrap_or_default();
     let authority = include_str!("post_m6_ds4_arrival_initiation_definitive.rs");
-    let authority_call = marked(
+    let authority_call = marked_last(
         authority,
         "// POST_M6_DS4_AUTHORITY_CELL_CALL_BEGIN",
         "// POST_M6_DS4_AUTHORITY_CELL_CALL_END",
