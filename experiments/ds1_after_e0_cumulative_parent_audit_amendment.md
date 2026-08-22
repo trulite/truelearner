@@ -64,9 +64,16 @@ harness, and the results digest remains unchanged.
 
 ## Validation and freeze
 
-Local targeted validation: PASS. Clean committed-snapshot E2B validation:
-PENDING before the amendment tag. The dedicated persistent sandbox will be
-reused, never killed, and left running.
+Local targeted validation: PASS. Clean committed-snapshot E2B validation also
+passed against exact amendment implementation commit
+`0d6f476834323202317e888eb044b8c588bf5cd0`. Remote marked-learner hash,
+format, strict release Clippy, five focused tests, runner target, release
+MICRO/GATE, and definitive rejection passed. The remote rejection exited 2 and
+preserved results digest
+`491a63c17ba35d768b630720063793a4db09686cfe7cb33694fd80ea63bbd4e4`.
+
+Dedicated persistent sandbox `ij04oormcxmaks8eoz06i` was reused, reset to an
+86,400-second timeout, never killed, and left running.
 
 Scientific first-collapse: **unchanged at stage 4**. This amendment strengthens
 only the evidence supporting absence; it adds no action, mapping, consequence,

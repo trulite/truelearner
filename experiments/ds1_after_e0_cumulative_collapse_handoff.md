@@ -118,9 +118,9 @@ not change.
 ## E2B validation
 
 Targeted E2B validation passed against exact clean implementation snapshot
-`bd856322cbb447cbec79dac0cd1122177ff5a2db` using only dedicated state
+`0d6f476834323202317e888eb044b8c588bf5cd0` using only dedicated state
 `/Users/satya/.cache/truelearner/ds1-after-e0-cumulative-e2b.json`. Remote
-marked-learner hash verification, format, strict release Clippy, three focused
+marked-learner hash verification, format, strict release Clippy, five focused
 library tests, the runner target, release MICRO, and release GATE passed. The
 remote `--definitive` rejection also exited 2 before the harness and preserved
 the exact results digest
