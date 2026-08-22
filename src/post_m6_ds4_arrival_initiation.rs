@@ -279,10 +279,7 @@ mod frozen_m6 {
     }
 
     // POST_M6_DS4_GATE_BEGIN
-    pub(super) fn apply_recurrence(
-        gate: &mut CreditGate,
-        recurrent_activity: bool,
-    ) -> bool {
+    pub(super) fn apply_recurrence(gate: &mut CreditGate, recurrent_activity: bool) -> bool {
         let ordinal = gate.episode as u64;
         gate.episode += 1;
         let active_encounter = productive(gate.seed, ordinal, ordinal.is_multiple_of(2));
@@ -339,7 +336,10 @@ mod frozen_m6 {
             } else {
                 episode % 4
             };
-            let _ = learner.observe(first, raw(seed + 200_000, episode * 2, first_variant, false));
+            let _ = learner.observe(
+                first,
+                raw(seed + 200_000, episode * 2, first_variant, false),
+            );
             let _ = learner.observe(
                 second,
                 raw(seed + 200_000, episode * 2 + 1, second_variant, false),
@@ -385,10 +385,7 @@ mod frozen_m6 {
             let mut learner = ConsequenceLearner::default();
             for episode in 0..8usize {
                 let _ = learner.observe(first, raw(seed + 3_100_000, episode * 2, 0, false));
-                let _ = learner.observe(
-                    second,
-                    raw(seed + 3_100_000, episode * 2 + 1, 1, false),
-                );
+                let _ = learner.observe(second, raw(seed + 3_100_000, episode * 2 + 1, 1, false));
             }
             learner.direction([first, second]).is_none()
         };
@@ -501,9 +498,8 @@ mod frozen_request {
         let selected = choice.pattern_cell.is_some();
         let run = execute_choice(&episode, &choice, session.roles, session.program);
         let recurrent_activity = run.used.len() > 2;
-        let differential = acquire
-            && selected
-            && super::frozen_m6::apply_recurrence(credit, recurrent_activity);
+        let differential =
+            acquire && selected && super::frozen_m6::apply_recurrence(credit, recurrent_activity);
         if differential {
             session.learner.feedback(choice.pattern_cell, true);
         }
@@ -656,7 +652,7 @@ struct Snapshot {
 }
 
 fn snapshot(seeds: &[u64], held_out_per_learner: usize) -> Snapshot {
-    use frozen_pre_m6_ds4::{ArrivalFixture, ArrivalActivity};
+    use frozen_pre_m6_ds4::{ArrivalActivity, ArrivalFixture};
 
     let source = source_audit();
     let mut ready = 0;
@@ -703,13 +699,8 @@ fn snapshot(seeds: &[u64], held_out_per_learner: usize) -> Snapshot {
                 event_seed,
                 ArrivalFixture::Standard,
             );
-            let step = frozen_request::step(
-                &mut request,
-                &mut credit,
-                activity.completion,
-                true,
-                false,
-            );
+            let step =
+                frozen_request::step(&mut request, &mut credit, activity.completion, true, false);
             learned_event_activity += activity.learned;
             selections += step.selected;
             recurrences += step.recurrence;
@@ -740,19 +731,11 @@ fn snapshot(seeds: &[u64], held_out_per_learner: usize) -> Snapshot {
             } else {
                 ArrivalFixture::Relabelled
             };
-            let activity = frozen_pre_m6_ds4::arrival_activity(
-                &mut event_gate,
-                event_seed,
-                fixture,
-            );
+            let activity =
+                frozen_pre_m6_ds4::arrival_activity(&mut event_gate, event_seed, fixture);
             fresh_transfer &= activity.completion > 0 && activity.learned == activity.generic;
-            let step = frozen_request::step(
-                &mut request,
-                &mut credit,
-                activity.completion,
-                false,
-                false,
-            );
+            let step =
+                frozen_request::step(&mut request, &mut credit, activity.completion, false, false);
             held_out_correct += usize::from(step.functional);
             explicit += usize::from(step.explicit);
             quiescent += usize::from(step.quiescent);
@@ -774,13 +757,11 @@ fn snapshot(seeds: &[u64], held_out_per_learner: usize) -> Snapshot {
             && no_arrival_step.updates == 0;
 
         let mut weak_gate = frozen_pre_m6_ds4::arrival_gate(seed + 200_000, 1);
-        let weak = weak_gate.as_mut().map_or(ArrivalActivity::default(), |gate| {
-            frozen_pre_m6_ds4::arrival_activity(
-                gate,
-                seed + 200_100,
-                ArrivalFixture::Standard,
-            )
-        });
+        let weak = weak_gate
+            .as_mut()
+            .map_or(ArrivalActivity::default(), |gate| {
+                frozen_pre_m6_ds4::arrival_activity(gate, seed + 200_100, ArrivalFixture::Standard)
+            });
         let mut weak_request = frozen_request::session((seed + 200_000) as usize);
         let mut weak_credit = frozen_m6::credit_gate(seed + 200_000);
         let weak_step = frozen_request::step(
@@ -811,13 +792,10 @@ fn snapshot(seeds: &[u64], held_out_per_learner: usize) -> Snapshot {
             seed + 220_001,
             ArrivalFixture::Standard,
         );
-        invalid_and_reentry &= missing.completion == 0
-            && invalid.completion == 0
-            && reentry.completion > 0;
+        invalid_and_reentry &=
+            missing.completion == 0 && invalid.completion == 0 && reentry.completion > 0;
 
-        let Some(mut symmetric_event) =
-            frozen_pre_m6_ds4::arrival_gate(seed + 300_000, 2)
-        else {
+        let Some(mut symmetric_event) = frozen_pre_m6_ds4::arrival_gate(seed + 300_000, 2) else {
             symmetric_rejected = false;
             continue;
         };

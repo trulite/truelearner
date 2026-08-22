@@ -30,9 +30,18 @@ fn print_development(report: DevelopmentReport) {
         "- Mean competence episode: `{:.3}`",
         report.average_competence_millis as f64 / 1_000.0
     );
-    println!("- Learned event activity: `{}`", report.learned_event_activity);
-    println!("- Selection/recurrence: `{}/{}`", report.selections, report.recurrences);
-    println!("- Consequence/update: `{}/{}`", report.consequences, report.updates);
+    println!(
+        "- Learned event activity: `{}`",
+        report.learned_event_activity
+    );
+    println!(
+        "- Selection/recurrence: `{}/{}`",
+        report.selections, report.recurrences
+    );
+    println!(
+        "- Consequence/update: `{}/{}`",
+        report.consequences, report.updates
+    );
     println!("- M6 observations: `{}`", report.credit_observations);
     println!(
         "- Held-out correct/explicit/quiescent/total: `{}/{}/{}/{}`",
