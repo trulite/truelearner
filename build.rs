@@ -1,6 +1,29 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
+
+fn file_sha256(path: &str) -> String {
+    let output = Command::new("sha256sum")
+        .arg(path)
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .or_else(|| {
+            Command::new("shasum")
+                .args(["-a", "256", path])
+                .output()
+                .ok()
+                .filter(|output| output.status.success())
+        })
+        .expect("a SHA-256 utility is available");
+    String::from_utf8(output.stdout)
+        .expect("SHA-256 output is UTF-8")
+        .split_whitespace()
+        .next()
+        .expect("SHA-256 output contains a digest")
+        .to_string()
+}
 
 fn composition_copy(source: &Path, destination: &Path) {
     let text = fs::read_to_string(source).expect("frozen composition source is readable");
@@ -39,4 +62,18 @@ fn main() {
     )
     .expect("frozen A0 runner audit copy is writable");
     println!("cargo:rerun-if-changed=src/bin/ds_a0_anonymous_boundary_action_formation.rs");
+    for (name, path) in [
+        ("DS_A1_E0_SHA256", "src/ds_e0_anonymous_event_formation.rs"),
+        (
+            "DS_A1_A0_SHA256",
+            "src/ds_a0_anonymous_boundary_action_formation.rs",
+        ),
+        (
+            "DS_A1_PRIOR_SHA256",
+            "src/ds1_after_e0_a0_composition_retry.rs",
+        ),
+    ] {
+        println!("cargo:rustc-env={name}={}", file_sha256(path));
+        println!("cargo:rerun-if-changed={path}");
+    }
 }
