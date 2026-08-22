@@ -1,0 +1,10 @@
+stage,dependency,status,evidence
+0,frozen lineage,ready,all fingerprints match
+1,no causal or endpoint annotation,ready,zero semantic adapters
+2,M1 interaction and boundary roles,ready,unchanged prior stage
+3,choice to physical route,ready,unchanged AC0 stage
+4,route-contingent aftermath,ready,unchanged AC0 stage
+5,aftermath to probation,ready,unchanged AP0 stage
+6,downstream contrast to differential support,ready,20/20 plus 20/20 reversed
+7,retained installation execution and fresh transfer,collapse,zero post-contrast install or retained transfer edges
+8,invalidation and reopening,blocked,stage 7 absent
