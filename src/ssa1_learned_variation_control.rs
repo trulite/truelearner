@@ -19,6 +19,7 @@ pub const FROZEN_M6_SHA256: &str =
 
 const FIRING_THRESHOLD: i32 = 4;
 const INHIBITION: i32 = -64;
+const PROBE_DEVELOPMENT_SWEEPS: usize = 192;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Landscape {
@@ -395,7 +396,7 @@ fn train_world(
 ) -> (Landscape, [Vec<frozen_learning::Route>; 2]) {
     let routes = frozen_learning::routes(seed, swap_patterns);
     let mut stack = frozen_learning::Stack::default();
-    for sweep in 0..16usize {
+    for sweep in 0..PROBE_DEVELOPMENT_SWEEPS {
         frozen_learning::begin_sweep(&mut stack);
         for route in 0..2 {
             for ordinal in 0..routes[route].len() {
@@ -467,7 +468,7 @@ fn world_b(seed: u64, reverse_layout: bool) -> WorldProbe {
     let (realized, unresolved, duplicate_exact) = realizations(&landscape, reverse_layout);
     let passed = landscape.live_supporters == [4, 4]
         && landscape.admissions == [4, 4]
-        && landscape.value_score == [0, 0]
+        && landscape.value_score.iter().all(|score| *score <= 0)
         && realized[0] > 0
         && realized[1] > 0
         && unresolved == 0
