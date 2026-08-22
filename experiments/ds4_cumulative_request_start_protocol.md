@@ -2,11 +2,18 @@
 
 Protocol identifier: `ds4-cumulative-request-start-v1`
 
-Status: **PREREGISTERED DEVELOPMENT PROTOCOL; NO DS4 EVIDENCE SPENT**.
+Status: **AMENDED BEFORE DEVELOPMENT EVIDENCE; NO DS4 EVIDENCE SPENT**.
 
 This protocol governs PROBE, MICRO, and GATE only. It cannot create M4 and it
 does not authorize a definitive DS4 execution. A separate definitive matrix
 must be frozen after development readiness.
+
+Pre-evidence amendment: the frozen M3 port exposes chunk count and persistent
+bytes but deliberately does not expose its private persistent map. Therefore
+the non-plasticity check below freezes those complete public summaries plus the
+byte-audited `acquire=false` call path, rather than adding a new M3 fingerprint
+accessor. P4 retains its existing exact fingerprint. No target, linker, seed,
+stage, or pass threshold changed.
 
 ## Frozen question
 
@@ -159,8 +166,10 @@ to its first missing physical edge under the frozen sprint policy.
     the DS4 linker carry no evaluator answer, request/start signal, stable
     occurrence identity, or truth-derived key. Evaluator/harness names in the
     byte-frozen source are not organism-visible values.
-11. **Held-out non-plasticity.** M3 and P4 persistent fingerprints are
-    unchanged across every held-out episode; temporary state returns to zero.
+11. **Held-out non-plasticity.** M3 chunk count and persistent bytes and the
+    exact P4 fingerprint are unchanged across every held-out episode; M3 is
+    called only through its frozen `acquire=false` path and temporary state
+    returns to zero.
 12. **Duplicate and disjoint population.** Duplicate execution is byte-exact;
     acquisition and held-out namespaces are disjoint and no development seed
     is claim-eligible.
