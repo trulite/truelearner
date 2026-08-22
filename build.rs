@@ -521,6 +521,23 @@ fn main() {
             "DS4_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/ds4_cumulative_request_start_definitive_protocol.md",
         ),
+        ("DS6_M3_SHA256", "src/ds3_event_boundary.rs"),
+        (
+            "DS6_TARGET_SHA256",
+            "experiments/ds4_ds8_target_freeze.md",
+        ),
+        (
+            "DS6_ORDER_SHA256",
+            "experiments/desupply_sprint_order_amendment_after_ds4_negative.md",
+        ),
+        (
+            "DS6_AUDIT_SHA256",
+            "experiments/ds6_cumulative_lifetime_dependency_audit.md",
+        ),
+        (
+            "DS6_PROTOCOL_SHA256",
+            "experiments/ds6_cumulative_lifetime_probe_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");

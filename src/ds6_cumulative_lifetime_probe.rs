@@ -5,6 +5,14 @@ pub const PROTOCOL_COMMIT: &str = "24e658ad84b88100ac81ad76ab17035b755d6687";
 pub const AUTHORITATIVE_M3: &str = "ffcdfe8b36fc62348b7ebcb09aaf4797f6146ba8";
 pub const FROZEN_M3_SHA256: &str =
     "a8d8fe060b497c7a6b5f9a5a88b7ed2292dc8a729a8781f599547b6027efc0a0";
+pub const FROZEN_TARGET_SHA256: &str =
+    "f10f9d7b16106b6014767ff6188a6d556145ba3e5b4335e28de245c7622a7595";
+pub const FROZEN_ORDER_SHA256: &str =
+    "609dc63ab8051316703899717fc30861d7a700d0ec60f205fa6d687ad478616d";
+pub const FROZEN_AUDIT_SHA256: &str =
+    "5d896fad16a4a38847de470a6a69f4cea5cd6f4fee5e71900a31d125be45b983";
+pub const FROZEN_PROTOCOL_SHA256: &str =
+    "dd2fa0cf33acde8592be5c92e31f2aa3a883ebff222eb10af95d7c9dc2ad6ead";
 pub const PROBE_SEED: u64 = 106_000;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -235,6 +243,11 @@ macro_rules! ds6_m3_access {
 
         pub(super) fn source_ok() -> bool {
             source_audit()
+                && env!("DS6_M3_SHA256") == super::FROZEN_M3_SHA256
+                && env!("DS6_TARGET_SHA256") == super::FROZEN_TARGET_SHA256
+                && env!("DS6_ORDER_SHA256") == super::FROZEN_ORDER_SHA256
+                && env!("DS6_AUDIT_SHA256") == super::FROZEN_AUDIT_SHA256
+                && env!("DS6_PROTOCOL_SHA256") == super::FROZEN_PROTOCOL_SHA256
         }
     };
 }
