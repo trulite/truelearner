@@ -80,7 +80,11 @@ fn csv(report: &definitive::Report) -> String {
             cell.m3_nonplastic.to_string(),
             cell.duplicate_deterministic.to_string(),
         ];
-        fields.extend(cell.controls.iter().map(|control| control.passed.to_string()));
+        fields.extend(
+            cell.controls
+                .iter()
+                .map(|control| control.passed.to_string()),
+        );
         output.push_str(&fields.join(","));
         output.push('\n');
     }

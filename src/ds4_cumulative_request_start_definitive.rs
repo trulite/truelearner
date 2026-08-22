@@ -63,10 +63,8 @@ macro_rules! ds4_definitive_access {
             let duplicate_deterministic = first == second;
             if let Some(control) = first.controls.iter_mut().find(|row| row.number == 12) {
                 control.passed &= duplicate_deterministic;
-                control.diagnostic = format!(
-                    "{} duplicate={duplicate_deterministic}",
-                    control.diagnostic
-                );
+                control.diagnostic =
+                    format!("{} duplicate={duplicate_deterministic}", control.diagnostic);
             }
             let source_ready = first.source.passed();
             let physical_path = first.m3_learned_uses > 0
@@ -83,8 +81,8 @@ macro_rules! ds4_definitive_access {
                 && first.explicit_answers == 32
                 && first.queues_empty == 32
                 && first.request_positions.len() == 6;
-            let controls_ready = first.controls.len() == 12
-                && first.controls.iter().all(|control| control.passed);
+            let controls_ready =
+                first.controls.len() == 12 && first.controls.iter().all(|control| control.passed);
             let lifecycle_ready = duplicate_deterministic
                 && first.m3_physical_work > 0
                 && first.p4_nonplastic
@@ -265,7 +263,11 @@ pub fn run_definitive(results_tree_frozen: bool) -> Report {
     let passed = source.passed()
         && cells.len() == CELLS
         && cells.iter().all(|cell| cell.passed)
-        && cells.iter().map(|cell| cell.held_out_correct).sum::<usize>() == 512
+        && cells
+            .iter()
+            .map(|cell| cell.held_out_correct)
+            .sum::<usize>()
+            == 512
         && cells
             .iter()
             .flat_map(|cell| &cell.controls)
