@@ -1,0 +1,7 @@
+stage,before_d2,after_d2,status,interpretation
+direction reaches DS1,0,32/32 per GATE seed,RESOLVED,D2 is interface-sufficient
+DS1 updates,0,32/32 per GATE seed,RESOLVED,plasticity path is reachable
+strength divergence,0,4/4 patterns,RESOLVED,updates are structurally discriminative
+correctly mature patterns,0,2/4,COLLAPSE,divergence is only partly aligned with boundary role
+held-out reconstruction,0,8/16,COLLAPSE,self-attribution does not generalize to role adequacy
+M1,absent,absent,BLOCKED,cumulative boundary-role de-supply has not passed

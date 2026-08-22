@@ -1,0 +1,7 @@
+mode,seed,acquisition,d2_directions,physical_directions,ds1_updates,patterns,divergent_patterns,correctly_mature_patterns,heldout_episodes,heldout_attempts,heldout_successes,heldout_abstentions,d2_work,learner_work,persistent_learner_bytes,first_collapse,pass
+MICRO,100,16,16,16,16,4,4,2,8,8,4,0,240,102,320,11,PASS
+GATE,100,32,32,32,32,4,4,2,16,16,8,0,480,182,320,11,PASS
+GATE,101,32,32,32,32,4,4,2,16,16,8,0,480,182,320,11,PASS
+GATE,102,32,32,32,32,4,4,2,16,16,8,0,480,182,320,11,PASS
+GATE,103,32,32,32,32,4,4,2,16,16,8,0,480,182,320,11,PASS
+GATE,104,32,32,32,32,4,4,2,16,16,8,0,480,182,320,11,PASS
