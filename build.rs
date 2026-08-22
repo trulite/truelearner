@@ -80,6 +80,10 @@ fn main() {
         Path::new("src/ds1_after_d3_cumulative_composition_retry.rs"),
         &output.join("ds1_after_d3_cumulative_composition_retry.rs"),
     );
+    composition_copy(
+        Path::new("src/ds_cp0_consequence_probation_coupling.rs"),
+        &output.join("ds_cp0_consequence_probation_coupling.rs"),
+    );
     fs::copy(
         "src/bin/ds_a0_anonymous_boundary_action_formation.rs",
         bin_output.join("ds_a0_anonymous_boundary_action_formation.rs"),
@@ -329,6 +333,19 @@ fn main() {
         (
             "DS2_CP0_RETRY_PROTOCOL_SHA256",
             "experiments/ds2_after_cp0_mechanistic_retry_protocol.md",
+        ),
+        (
+            "DS_RT0_CP0_SHA256",
+            "src/ds_cp0_consequence_probation_coupling.rs",
+        ),
+        ("DS_RT0_A1_SHA256", "src/ds_a1_affordance_multiplicity.rs"),
+        (
+            "DS_RT0_PARENT_SHA256",
+            "experiments/ds2_after_cp0_mechanistic_retry_collapse_handoff.md",
+        ),
+        (
+            "DS_RT0_PROTOCOL_SHA256",
+            "experiments/ds_rt0_retained_direction_execution_protocol.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
