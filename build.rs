@@ -424,14 +424,8 @@ fn main() {
             "DS2_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/ds2_cumulative_causal_direction_definitive_protocol.md",
         ),
-        (
-            "DS3_CUM_MECHANISM_SHA256",
-            "src/ds3_event_boundary.rs",
-        ),
-        (
-            "DS3_CUM_A1_SHA256",
-            "src/ds_a1_affordance_multiplicity.rs",
-        ),
+        ("DS3_CUM_MECHANISM_SHA256", "src/ds3_event_boundary.rs"),
+        ("DS3_CUM_A1_SHA256", "src/ds_a1_affordance_multiplicity.rs"),
         (
             "DS3_CUM_AC0_SHA256",
             "src/ds_ac0_selected_affordance_actuation_closure.rs",

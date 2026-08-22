@@ -423,11 +423,11 @@ fn propagation_class(effect: &GlueEffect) -> u8 {
 }
 
 fn consequence(effect: &GlueEffect, delta: u8) -> u8 {
-    effect
+    (effect
         .activation
         .iter()
         .fold(0u32, |total, value| total + u32::from(*value))
-        .min(255) as u8
+        .min(255) as u8)
         .wrapping_add(delta)
 }
 
