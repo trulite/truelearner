@@ -363,9 +363,11 @@ pub fn run_probe() -> ProbeReport {
     let source = source_audit();
     let mut event_gate = frozen_m3::ds4_event_gate(94_000, 2);
     let mut request = frozen_p4::ds4_request_session(94_000);
-    let activity = event_gate.as_mut().map_or_else(EventActivity::default, |gate| {
-        frozen_m3::event_completion_activity(gate, 94_100, EventFixture::Standard)
-    });
+    let activity = event_gate
+        .as_mut()
+        .map_or_else(EventActivity::default, |gate| {
+            frozen_m3::event_completion_activity(gate, 94_100, EventFixture::Standard)
+        });
     let step =
         frozen_p4::activate_request_selection(&mut request, activity.completion_spikes, true);
     let no_event = frozen_p4::activate_request_selection(&mut request, 0, false);
