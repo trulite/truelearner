@@ -848,6 +848,26 @@ fn main() {
             "DS8_MICRO_PROTOCOL_V2_SHA256",
             "experiments/ds8_cumulative_semantic_credit_micro_protocol_v2.md",
         ),
+        (
+            "DS8_GATE_MICRO_SOURCE_SHA256",
+            "src/ds8_cumulative_semantic_credit_micro.rs",
+        ),
+        (
+            "DS8_GATE_MICRO_RESULT_SHA256",
+            "results/ds8_cumulative_semantic_credit_micro_v2.md",
+        ),
+        (
+            "DS8_GATE_MICRO_AUDIT_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_micro_v2_result_audit.md",
+        ),
+        (
+            "DS8_GATE_HANDOFF_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_development_handoff.md",
+        ),
+        (
+            "DS8_GATE_PROTOCOL_SHA256",
+            "experiments/ds8_cumulative_semantic_credit_gate_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
