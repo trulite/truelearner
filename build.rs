@@ -100,6 +100,10 @@ fn main() {
         Path::new("src/ds3_event_boundary.rs"),
         &output.join("ds3_event_boundary.rs"),
     );
+    composition_copy(
+        Path::new("src/ds3_cumulative_event_boundary_port.rs"),
+        &output.join("ds3_cumulative_event_boundary_port.rs"),
+    );
     fs::copy(
         "src/bin/ds_a0_anonymous_boundary_action_formation.rs",
         bin_output.join("ds_a0_anonymous_boundary_action_formation.rs"),
@@ -441,6 +445,18 @@ fn main() {
         (
             "DS3_CUM_EXPECTATION_SHA256",
             "experiments/ds3_cumulative_event_boundary_expectation_freeze.md",
+        ),
+        (
+            "DS3_DEFINITIVE_PARENT_SHA256",
+            "src/ds3_cumulative_event_boundary_port.rs",
+        ),
+        (
+            "DS3_DEFINITIVE_PARENT_HANDOFF_SHA256",
+            "experiments/ds3_cumulative_event_boundary_development_handoff.md",
+        ),
+        (
+            "DS3_DEFINITIVE_PROTOCOL_SHA256",
+            "experiments/ds3_cumulative_event_boundary_definitive_protocol.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
