@@ -18,22 +18,8 @@ pub const FROZEN_PROTOCOL_SHA256: &str =
     "a870a6e3d8021fb7fd8561d2a02929cd59a7c1d5ea508693384f835d27f61716";
 
 pub const SEEDS: [u64; 16] = [
-    8_000_000,
-    8_500_000,
-    9_000_000,
-    9_500_000,
-    10_000_000,
-    10_500_000,
-    11_000_000,
-    11_500_000,
-    12_000_000,
-    12_500_000,
-    13_000_000,
-    13_500_000,
-    14_000_000,
-    14_500_000,
-    15_000_000,
-    15_500_000,
+    8_000_000, 8_500_000, 9_000_000, 9_500_000, 10_000_000, 10_500_000, 11_000_000, 11_500_000,
+    12_000_000, 12_500_000, 13_000_000, 13_500_000, 14_000_000, 14_500_000, 15_000_000, 15_500_000,
 ];
 
 #[allow(dead_code)]
@@ -100,26 +86,12 @@ pub struct DefinitiveReport {
 fn source_audit() -> SourceAudit {
     let explicit = SEEDS
         == [
-            8_000_000,
-            8_500_000,
-            9_000_000,
-            9_500_000,
-            10_000_000,
-            10_500_000,
-            11_000_000,
-            11_500_000,
-            12_000_000,
-            12_500_000,
-            13_000_000,
-            13_500_000,
-            14_000_000,
-            14_500_000,
-            15_000_000,
-            15_500_000,
+            8_000_000, 8_500_000, 9_000_000, 9_500_000, 10_000_000, 10_500_000, 11_000_000,
+            11_500_000, 12_000_000, 12_500_000, 13_000_000, 13_500_000, 14_000_000, 14_500_000,
+            15_000_000, 15_500_000,
         ];
     SourceAudit {
-        development: env!("DS6_DEFINITIVE_DEVELOPMENT_SHA256")
-            == FROZEN_DEVELOPMENT_SHA256,
+        development: env!("DS6_DEFINITIVE_DEVELOPMENT_SHA256") == FROZEN_DEVELOPMENT_SHA256,
         handoff: env!("DS6_DEFINITIVE_HANDOFF_SHA256") == FROZEN_HANDOFF_SHA256,
         m3_handoff: env!("DS6_DEFINITIVE_M3_HANDOFF_SHA256") == FROZEN_M3_HANDOFF_SHA256,
         m3_results: env!("DS6_DEFINITIVE_M3_CSV_SHA256") == FROZEN_M3_CSV_SHA256
@@ -130,7 +102,6 @@ fn source_audit() -> SourceAudit {
             && SEEDS[0] >= 8_000_000,
     }
 }
-
 fn run_cells() -> Vec<DefinitiveCell> {
     SEEDS
         .iter()
@@ -238,4 +209,3 @@ pub fn markdown(report: &DefinitiveReport) -> String {
     ));
     text
 }
-
