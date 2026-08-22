@@ -5,6 +5,7 @@ pub mod composition;
 pub mod consolidation;
 pub mod continuation;
 pub mod discovery;
+pub mod ds1_after_e0_cumulative_composition;
 pub mod ds_e0_anonymous_event_formation;
 pub mod ffs_same0;
 pub mod full_fractal_scaling;
