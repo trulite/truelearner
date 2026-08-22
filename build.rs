@@ -314,6 +314,22 @@ fn main() {
             "DS_CP0_PROTOCOL_SHA256",
             "experiments/ds_cp0_consequence_probation_coupling_protocol.md",
         ),
+        (
+            "DS2_CP0_RETRY_PRIOR_SHA256",
+            "src/ds2_after_ap0_mechanistic_retry.rs",
+        ),
+        (
+            "DS2_CP0_RETRY_CP0_SHA256",
+            "src/ds_cp0_consequence_probation_coupling.rs",
+        ),
+        (
+            "DS2_CP0_RETRY_READINESS_SHA256",
+            "experiments/ds_cp0_development_readiness_handoff.md",
+        ),
+        (
+            "DS2_CP0_RETRY_PROTOCOL_SHA256",
+            "experiments/ds2_after_cp0_mechanistic_retry_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
