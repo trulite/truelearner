@@ -4,6 +4,9 @@
 //! byte-identical composition copies. This module closes only the physical
 //! M3-completion-to-P4-selection edge and supplies development probes.
 
+use crate::research_runtime::HarnessMode;
+use std::collections::BTreeSet;
+
 pub const PROTOCOL: &str = "ds4-cumulative-request-start-v1";
 pub const AUTHORITATIVE_M3: &str = "ffcdfe8b36fc62348b7ebcb09aaf4797f6146ba8";
 pub const FROZEN_P4_COMMIT: &str = "51cf918e0b6eda77ccef6386ff1150db42cea6fd";
@@ -42,6 +45,12 @@ struct EventActivity {
     generic_spans: usize,
     learned_uses: usize,
     physical_work: u64,
+    chunks: usize,
+    persistent_bytes: usize,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct EventState {
     chunks: usize,
     persistent_bytes: usize,
 }
@@ -140,6 +149,13 @@ macro_rules! ds4_m3_access {
         pub(super) fn ds4_m3_source_ok() -> bool {
             source_audit().passed()
         }
+
+        pub(super) fn ds4_event_state(gate: &Ds4EventGate) -> super::EventState {
+            super::EventState {
+                chunks: frozen_ds3::glue_chunk_count(&gate.learner),
+                persistent_bytes: frozen_ds3::glue_persistent_bytes(&gate.learner),
+            }
+        }
     };
 }
 
@@ -160,6 +176,8 @@ struct RequestStep {
     selected_from_occurrence: bool,
     pre_answer_trace: bool,
     functional: bool,
+    explicit_answer: bool,
+    queue_empty: bool,
     target_position: usize,
 }
 
@@ -245,10 +263,50 @@ macro_rules! ds4_p4_access {
                 selected_from_occurrence,
                 pre_answer_trace: choice.pre_answer_trace,
                 functional,
+                explicit_answer: run.explicit_answer,
+                queue_empty: run.queue_empty,
                 target_position: encoded.target_position,
             }
         }
         // DS4_LINKER_END
+
+        pub(super) fn ds4_symmetric_step(
+            session: &mut Ds4RequestSession,
+            completion_spikes: usize,
+        ) -> super::RequestStep {
+            let episode = chain_episode(&mut session.identities, &mut session.rng, 1);
+            let encoded = request_encoding(
+                &mut session.identities,
+                &mut session.rng,
+                episode.target_request,
+                RequestEncodingFamily::Symmetric,
+            );
+            session.learner.observe(&encoded.occurrences);
+            if completion_spikes == 0 {
+                return super::RequestStep {
+                    target_position: encoded.target_position,
+                    ..super::RequestStep::default()
+                };
+            }
+            let choice = session.learner.choose(&encoded.occurrences);
+            let selected = choice.pattern_cell.is_some();
+            let run = execute_choice(&episode, &choice, session.roles, session.program);
+            let functional = run.outcome == BindingOutcome::Answer(episode.answer)
+                && run.explicit_answer
+                && run.queue_empty;
+            session.learner.feedback(choice.pattern_cell, false);
+            super::RequestStep {
+                selection_activations: usize::from(selected),
+                execution_activations: usize::from(selected),
+                update_activations: usize::from(selected),
+                selected_from_occurrence: matches!(choice.outcome, BindingOutcome::Answer(_)),
+                pre_answer_trace: choice.pre_answer_trace,
+                functional,
+                explicit_answer: run.explicit_answer,
+                queue_empty: run.queue_empty,
+                target_position: encoded.target_position,
+            }
+        }
 
         pub(super) fn ds4_request_ready(session: &Ds4RequestSession) -> bool {
             session.learner.target_role(request_signature(0)).is_some()
@@ -256,6 +314,10 @@ macro_rules! ds4_p4_access {
 
         pub(super) fn ds4_request_fingerprint(session: &Ds4RequestSession) -> u64 {
             session.learner.fingerprint()
+        }
+
+        pub(super) fn ds4_request_role_count(session: &Ds4RequestSession) -> usize {
+            session.learner.consolidated_cells().len()
         }
 
         pub(super) fn ds4_p4_persistent_state_ok() -> bool {
@@ -408,6 +470,543 @@ pub fn run_probe() -> ProbeReport {
     }
 }
 
+const STAGES: [&str; 6] = [
+    "P0 frozen-source audit",
+    "P1 physical initiation path",
+    "P2 learned request acquisition",
+    "P3 held-out functional transfer",
+    "P4 controls 1-12",
+    "P5 determinism, work, and lifecycle",
+];
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ControlResult {
+    pub number: usize,
+    pub name: &'static str,
+    pub passed: bool,
+    pub diagnostic: String,
+}
+
+fn control(
+    number: usize,
+    name: &'static str,
+    passed: bool,
+    diagnostic: impl Into<String>,
+) -> ControlResult {
+    ControlResult {
+        number,
+        name,
+        passed,
+        diagnostic: diagnostic.into(),
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DevelopmentSnapshot {
+    source: SourceAudit,
+    learner_count: usize,
+    ready_learners: usize,
+    single_role_learners: usize,
+    competence_episodes: Vec<usize>,
+    m3_learned_uses: usize,
+    completion_activity: usize,
+    selection_activations: usize,
+    execution_activations: usize,
+    update_activations: usize,
+    m3_physical_work: u64,
+    held_out_correct: usize,
+    held_out_total: usize,
+    explicit_answers: usize,
+    queues_empty: usize,
+    request_positions: BTreeSet<usize>,
+    p4_nonplastic: bool,
+    m3_nonplastic: bool,
+    acquisition_seeds: BTreeSet<u64>,
+    held_out_seeds: BTreeSet<u64>,
+    controls: Vec<ControlResult>,
+}
+
+fn development_snapshot(
+    base_seed: u64,
+    learner_count: usize,
+    held_out_per_learner: usize,
+) -> DevelopmentSnapshot {
+    let source = source_audit();
+    let mut ready_learners = 0usize;
+    let mut single_role_learners = 0usize;
+    let mut competence_episodes = Vec::new();
+    let mut m3_learned_uses = 0usize;
+    let mut completion_activity = 0usize;
+    let mut selection_activations = 0usize;
+    let mut execution_activations = 0usize;
+    let mut update_activations = 0usize;
+    let mut m3_physical_work = 0u64;
+    let mut held_out_correct = 0usize;
+    let held_out_total = learner_count * held_out_per_learner;
+    let mut explicit_answers = 0usize;
+    let mut queues_empty = 0usize;
+    let mut request_positions = BTreeSet::new();
+    let mut p4_nonplastic = true;
+    let mut m3_nonplastic = true;
+    let mut acquisition_seeds = BTreeSet::new();
+    let mut held_out_seeds = BTreeSet::new();
+    let mut learned_event_required = true;
+    let mut subthreshold_rejected = true;
+    let mut missing_close_rejected = true;
+    let mut invalid_rejected_and_reentered = true;
+    let mut relabelled_m3_transfer = true;
+    let mut symmetric_rejected = true;
+    let mut all_pre_answer = true;
+    let mut all_selected_from_occurrence = true;
+    let mut all_gates_available = true;
+
+    for learner_index in 0..learner_count {
+        let cell_seed = base_seed + learner_index as u64 * 10_000;
+        acquisition_seeds.insert(cell_seed);
+        acquisition_seeds.insert(cell_seed + 1);
+        let Some(mut event_gate) = frozen_m3::ds4_event_gate(cell_seed, 2) else {
+            all_gates_available = false;
+            continue;
+        };
+        let mut request = frozen_p4::ds4_request_session(cell_seed as usize);
+
+        let mut competence = None;
+        for episode in 1..=4_000usize {
+            let event_seed = cell_seed + 1_000 + episode as u64;
+            acquisition_seeds.insert(event_seed);
+            let activity = frozen_m3::event_completion_activity(
+                &mut event_gate,
+                event_seed,
+                EventFixture::Standard,
+            );
+            let step = frozen_p4::activate_request_selection(
+                &mut request,
+                activity.completion_spikes,
+                true,
+            );
+            m3_learned_uses += activity.learned_uses;
+            completion_activity += activity.completion_spikes;
+            selection_activations += step.selection_activations;
+            execution_activations += step.execution_activations;
+            update_activations += step.update_activations;
+            m3_physical_work += activity.physical_work;
+            if step.selection_activations > 0 {
+                all_pre_answer &= step.pre_answer_trace;
+                all_selected_from_occurrence &= step.selected_from_occurrence;
+            }
+            if frozen_p4::ds4_request_ready(&request) {
+                competence = Some(episode);
+                break;
+            }
+        }
+        if let Some(episode) = competence {
+            ready_learners += 1;
+            competence_episodes.push(episode);
+        }
+        single_role_learners +=
+            usize::from(frozen_p4::ds4_request_role_count(&request) == 1);
+
+        let p4_before = frozen_p4::ds4_request_fingerprint(&request);
+        let m3_before = frozen_m3::ds4_event_state(&event_gate);
+        for held_out in 0..held_out_per_learner {
+            let event_seed = cell_seed + 100_000 + held_out as u64;
+            held_out_seeds.insert(event_seed);
+            let fixture = if held_out.is_multiple_of(2) {
+                EventFixture::Standard
+            } else {
+                EventFixture::Relabelled
+            };
+            let activity = frozen_m3::event_completion_activity(
+                &mut event_gate,
+                event_seed,
+                fixture,
+            );
+            relabelled_m3_transfer &= activity.completion_spikes > 0
+                && activity.learned_uses == activity.generic_spans;
+            let step = frozen_p4::activate_request_selection(
+                &mut request,
+                activity.completion_spikes,
+                false,
+            );
+            request_positions.insert(step.target_position);
+            held_out_correct += usize::from(step.functional);
+            explicit_answers += usize::from(step.explicit_answer);
+            queues_empty += usize::from(step.queue_empty);
+            all_pre_answer &= step.pre_answer_trace;
+            all_selected_from_occurrence &= step.selected_from_occurrence;
+            m3_learned_uses += activity.learned_uses;
+            completion_activity += activity.completion_spikes;
+            selection_activations += step.selection_activations;
+            execution_activations += step.execution_activations;
+            m3_physical_work += activity.physical_work;
+        }
+        p4_nonplastic &= p4_before == frozen_p4::ds4_request_fingerprint(&request);
+        m3_nonplastic &= m3_before == frozen_m3::ds4_event_state(&event_gate);
+
+        let no_event_before = frozen_p4::ds4_request_fingerprint(&request);
+        let no_event = frozen_p4::activate_request_selection(&mut request, 0, false);
+        learned_event_required &= no_event.selection_activations == 0
+            && no_event.execution_activations == 0
+            && no_event.update_activations == 0
+            && no_event_before == frozen_p4::ds4_request_fingerprint(&request);
+
+        let mut subthreshold_gate = frozen_m3::ds4_event_gate(cell_seed + 200_000, 1);
+        let subthreshold = subthreshold_gate.as_mut().map_or_else(
+            EventActivity::default,
+            |gate| {
+                frozen_m3::event_completion_activity(
+                    gate,
+                    cell_seed + 200_100,
+                    EventFixture::Standard,
+                )
+            },
+        );
+        let mut subthreshold_request =
+            frozen_p4::ds4_request_session((cell_seed + 200_000) as usize);
+        let subthreshold_step = frozen_p4::activate_request_selection(
+            &mut subthreshold_request,
+            subthreshold.completion_spikes,
+            false,
+        );
+        subthreshold_rejected &= subthreshold.generic_spans > 0
+            && subthreshold.learned_uses == 0
+            && subthreshold.completion_spikes == 0
+            && subthreshold_step.selection_activations == 0;
+
+        let missing = frozen_m3::event_completion_activity(
+            &mut event_gate,
+            cell_seed + 210_000,
+            EventFixture::MissingClose,
+        );
+        missing_close_rejected &= missing.generic_spans == 0 && missing.completion_spikes == 0;
+
+        let invalid = frozen_m3::event_completion_activity(
+            &mut event_gate,
+            cell_seed + 220_000,
+            EventFixture::InvalidTransition,
+        );
+        let reentry = frozen_m3::event_completion_activity(
+            &mut event_gate,
+            cell_seed + 220_001,
+            EventFixture::Standard,
+        );
+        invalid_rejected_and_reentered &=
+            invalid.completion_spikes == 0 && reentry.completion_spikes > 0;
+
+        let Some(mut symmetric_gate) = frozen_m3::ds4_event_gate(cell_seed + 300_000, 2)
+        else {
+            all_gates_available = false;
+            continue;
+        };
+        let mut symmetric_request =
+            frozen_p4::ds4_request_session((cell_seed + 300_000) as usize);
+        let mut symmetric_functional = 0usize;
+        for episode in 0..128usize {
+            let activity = frozen_m3::event_completion_activity(
+                &mut symmetric_gate,
+                cell_seed + 301_000 + episode as u64,
+                EventFixture::Standard,
+            );
+            let step = frozen_p4::ds4_symmetric_step(
+                &mut symmetric_request,
+                activity.completion_spikes,
+            );
+            symmetric_functional += usize::from(step.functional);
+        }
+        symmetric_rejected &= !frozen_p4::ds4_request_ready(&symmetric_request)
+            && frozen_p4::ds4_request_role_count(&symmetric_request) == 0
+            && symmetric_functional == 0;
+    }
+
+    let seed_disjoint = acquisition_seeds.is_disjoint(&held_out_seeds);
+    let controls = vec![
+        control(
+            1,
+            "learned-event-required",
+            learned_event_required,
+            "zero completion activity yields zero selection/execution/update",
+        ),
+        control(
+            2,
+            "subthreshold-m3",
+            subthreshold_rejected,
+            "generic spans with zero learned use do not activate P4",
+        ),
+        control(
+            3,
+            "missing-close",
+            missing_close_rejected,
+            "incomplete M3 candidates produce no completion activity",
+        ),
+        control(
+            4,
+            "invalid-transition-and-reentry",
+            invalid_rejected_and_reentered,
+            "invalid event is silent and a later valid event reenters",
+        ),
+        control(
+            5,
+            "fresh-m3-identities-and-allocation",
+            relabelled_m3_transfer,
+            "relabelled/reallocated M3 streams retain learned completion",
+        ),
+        control(
+            6,
+            "fresh-request-serialization",
+            request_positions.len() == 6,
+            format!("positions={:?}", request_positions),
+        ),
+        control(
+            7,
+            "symmetric-impossible-requests",
+            symmetric_rejected,
+            "identical request signatures form no stable role",
+        ),
+        control(
+            8,
+            "pre-answer-information-flow",
+            all_pre_answer,
+            "every selected trace precedes recurrence and terminal update",
+        ),
+        control(
+            9,
+            "no-separate-target-channel",
+            all_selected_from_occurrence,
+            "every selected opaque identity is recovered from an occurrence",
+        ),
+        control(
+            10,
+            "frozen-source-leak-audit",
+            source.passed(),
+            format!("source={source:?}"),
+        ),
+        control(
+            11,
+            "held-out-non-plasticity",
+            p4_nonplastic && m3_nonplastic,
+            format!("p4={p4_nonplastic} m3={m3_nonplastic}"),
+        ),
+    ];
+
+    DevelopmentSnapshot {
+        source,
+        learner_count,
+        ready_learners,
+        single_role_learners,
+        competence_episodes,
+        m3_learned_uses,
+        completion_activity,
+        selection_activations,
+        execution_activations,
+        update_activations,
+        m3_physical_work,
+        held_out_correct,
+        held_out_total,
+        explicit_answers,
+        queues_empty,
+        request_positions,
+        p4_nonplastic,
+        m3_nonplastic,
+        acquisition_seeds,
+        held_out_seeds,
+        controls: controls
+            .into_iter()
+            .chain(std::iter::once(control(
+                12,
+                "disjoint-development-population",
+                seed_disjoint && all_gates_available,
+                format!(
+                    "acquisition={} held_out={} gates={all_gates_available}",
+                    acquisition_seeds.len(),
+                    held_out_seeds.len()
+                ),
+            )))
+            .collect(),
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Report {
+    pub label: String,
+    pub protocol: String,
+    pub mode: String,
+    pub claim_eligible: bool,
+    pub development_ready: bool,
+    pub m3_authoritative: bool,
+    pub m4_exists: bool,
+    pub source: SourceAudit,
+    pub stages: [String; 6],
+    pub first_collapse_stage: Option<usize>,
+    pub first_collapse: String,
+    pub learner_count: usize,
+    pub ready_learners: usize,
+    pub single_role_learners: usize,
+    pub average_competence_episode_millis: u64,
+    pub held_out_correct: usize,
+    pub held_out_total: usize,
+    pub explicit_answers: usize,
+    pub queues_empty: usize,
+    pub request_positions: usize,
+    pub m3_learned_uses: usize,
+    pub completion_activity: usize,
+    pub selection_activations: usize,
+    pub execution_activations: usize,
+    pub update_activations: usize,
+    pub m3_physical_work: u64,
+    pub duplicate_deterministic: bool,
+    pub p4_nonplastic: bool,
+    pub m3_nonplastic: bool,
+    pub controls: Vec<ControlResult>,
+}
+
+fn forbidden_report() -> Report {
+    Report {
+        label: "DS4 CUMULATIVE DEFINITIVE FORBIDDEN".to_string(),
+        protocol: PROTOCOL.to_string(),
+        mode: "DEFINITIVE-FORBIDDEN".to_string(),
+        claim_eligible: false,
+        development_ready: false,
+        m3_authoritative: true,
+        m4_exists: false,
+        source: source_audit(),
+        stages: std::array::from_fn(|_| "BLOCKED".to_string()),
+        first_collapse_stage: None,
+        first_collapse: "separate definitive matrix preregistration required".to_string(),
+        learner_count: 0,
+        ready_learners: 0,
+        single_role_learners: 0,
+        average_competence_episode_millis: 0,
+        held_out_correct: 0,
+        held_out_total: 0,
+        explicit_answers: 0,
+        queues_empty: 0,
+        request_positions: 0,
+        m3_learned_uses: 0,
+        completion_activity: 0,
+        selection_activations: 0,
+        execution_activations: 0,
+        update_activations: 0,
+        m3_physical_work: 0,
+        duplicate_deterministic: false,
+        p4_nonplastic: false,
+        m3_nonplastic: false,
+        controls: Vec::new(),
+    }
+}
+
+pub fn run(mode: HarnessMode) -> Report {
+    if mode == HarnessMode::Definitive {
+        return forbidden_report();
+    }
+    let (mode_name, base_seed, learner_count, held_out) = match mode {
+        HarnessMode::Micro => ("MICRO", 95_000, 2, 8),
+        HarnessMode::Gate => ("GATE", 96_000, 6, 32),
+        HarnessMode::Definitive => unreachable!(),
+    };
+    let mut first = development_snapshot(base_seed, learner_count, held_out);
+    let second = development_snapshot(base_seed, learner_count, held_out);
+    let duplicate_deterministic = first == second;
+    if let Some(control) = first.controls.iter_mut().find(|control| control.number == 12) {
+        control.passed &= duplicate_deterministic;
+        control.diagnostic = format!(
+            "{} duplicate={duplicate_deterministic}",
+            control.diagnostic
+        );
+    }
+    let source_ready = first.source.passed();
+    let physical_path = first.m3_learned_uses > 0
+        && first.completion_activity > 0
+        && first.selection_activations > 0
+        && first.execution_activations > 0
+        && first.update_activations > 0;
+    let request_ready = first.ready_learners == learner_count
+        && first.single_role_learners == learner_count
+        && first.competence_episodes.len() == learner_count;
+    let functional_transfer = first.held_out_correct == first.held_out_total
+        && first.explicit_answers == first.held_out_total
+        && first.queues_empty == first.held_out_total;
+    let controls_ready = first.controls.len() == 12
+        && first.controls.iter().all(|control| control.passed)
+        && duplicate_deterministic;
+    let lifecycle_ready = duplicate_deterministic
+        && first.m3_physical_work > 0
+        && first.p4_nonplastic
+        && first.m3_nonplastic
+        && first.acquisition_seeds.is_disjoint(&first.held_out_seeds);
+    let ready = [
+        source_ready,
+        physical_path,
+        request_ready,
+        functional_transfer,
+        controls_ready,
+        lifecycle_ready,
+    ];
+    let first_collapse_stage = ready.iter().position(|value| !value);
+    let stages = std::array::from_fn(|stage| match first_collapse_stage {
+        None => "READY".to_string(),
+        Some(collapse) if stage < collapse => "READY".to_string(),
+        Some(collapse) if stage == collapse => format!("COLLAPSE: {}", STAGES[stage]),
+        Some(_) => "BLOCKED".to_string(),
+    });
+    let first_collapse = first_collapse_stage
+        .map(|stage| {
+            if stage == 4 {
+                first
+                    .controls
+                    .iter()
+                    .find(|control| !control.passed)
+                    .map(|control| format!("P4/control {} {}", control.number, control.name))
+                    .unwrap_or_else(|| STAGES[stage].to_string())
+            } else {
+                STAGES[stage].to_string()
+            }
+        })
+        .unwrap_or_else(|| "NONE".to_string());
+    let development_ready = first_collapse_stage.is_none();
+    let competence_total = first.competence_episodes.iter().sum::<usize>() as u64;
+    let competence_count = first.competence_episodes.len() as u64;
+    Report {
+        label: if development_ready {
+            "DS4 CUMULATIVE DEVELOPMENT READY".to_string()
+        } else {
+            format!("DS4 CUMULATIVE COLLAPSE AT {first_collapse}")
+        },
+        protocol: PROTOCOL.to_string(),
+        mode: mode_name.to_string(),
+        claim_eligible: false,
+        development_ready,
+        m3_authoritative: true,
+        m4_exists: false,
+        source: first.source,
+        stages,
+        first_collapse_stage,
+        first_collapse,
+        learner_count,
+        ready_learners: first.ready_learners,
+        single_role_learners: first.single_role_learners,
+        average_competence_episode_millis: if competence_count == 0 {
+            0
+        } else {
+            competence_total * 1_000 / competence_count
+        },
+        held_out_correct: first.held_out_correct,
+        held_out_total: first.held_out_total,
+        explicit_answers: first.explicit_answers,
+        queues_empty: first.queues_empty,
+        request_positions: first.request_positions.len(),
+        m3_learned_uses: first.m3_learned_uses,
+        completion_activity: first.completion_activity,
+        selection_activations: first.selection_activations,
+        execution_activations: first.execution_activations,
+        update_activations: first.update_activations,
+        m3_physical_work: first.m3_physical_work,
+        duplicate_deterministic,
+        p4_nonplastic: first.p4_nonplastic,
+        m3_nonplastic: first.m3_nonplastic,
+        controls: first.controls,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -420,5 +1019,22 @@ mod tests {
         assert_eq!(report.no_event_selection, 0);
         assert_eq!(report.no_event_execution, 0);
         assert_eq!(report.no_event_update, 0);
+    }
+
+    #[test]
+    fn micro_is_development_only_and_ordered() {
+        let report = run(HarnessMode::Micro);
+        assert!(!report.claim_eligible && report.m3_authoritative && !report.m4_exists);
+        assert!(report.development_ready, "{report:#?}");
+        assert_eq!(report.controls.len(), 12);
+        assert_eq!(report.held_out_correct, report.held_out_total);
+    }
+
+    #[test]
+    fn definitive_remains_locked() {
+        let report = run(HarnessMode::Definitive);
+        assert!(!report.claim_eligible);
+        assert!(!report.development_ready);
+        assert!(!report.m4_exists);
     }
 }
