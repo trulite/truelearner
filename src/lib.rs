@@ -8,6 +8,7 @@ pub mod discovery;
 pub mod ffs_same0;
 pub mod full_fractal_scaling;
 pub mod generality;
+pub mod identity_prior_economics;
 pub mod inertia;
 pub mod internal_roles;
 pub mod iteration;
