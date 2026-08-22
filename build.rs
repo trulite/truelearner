@@ -347,6 +347,22 @@ fn main() {
             "DS_RT0_PROTOCOL_SHA256",
             "experiments/ds_rt0_retained_direction_execution_protocol.md",
         ),
+        (
+            "DS2_RT0_RETRY_PRIOR_SHA256",
+            "src/ds2_after_cp0_mechanistic_retry.rs",
+        ),
+        (
+            "DS2_RT0_RETRY_RT0_SHA256",
+            "src/ds_rt0_retained_direction_execution.rs",
+        ),
+        (
+            "DS2_RT0_RETRY_READINESS_SHA256",
+            "experiments/ds_rt0_development_readiness_handoff.md",
+        ),
+        (
+            "DS2_RT0_RETRY_PROTOCOL_SHA256",
+            "experiments/ds2_after_rt0_mechanistic_retry_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
