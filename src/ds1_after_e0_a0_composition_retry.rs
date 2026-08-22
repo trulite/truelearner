@@ -63,6 +63,7 @@ pub struct E0CompositionEvidence {
     pub support_exports: usize,
     pub temporary_formations: u64,
     pub serializations: u64,
+    pub physical_work: u64,
     pub persistent_bytes: usize,
     pub temporary_bytes: usize,
 }
@@ -239,6 +240,7 @@ macro_rules! e0_composition_access {
                     support_exports: support_presentations,
                     temporary_formations: formation.work.temporary_formations - before_formations,
                     serializations: formation.work.serializations - before_serializations,
+                    physical_work: formation.work.organism_work(),
                     persistent_bytes: formation.persistent_bytes(),
                     temporary_bytes: size_of::<EventRelations>()
                         + size_of::<Neighborhood>()

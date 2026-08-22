@@ -53,11 +53,12 @@ fn main() {
     );
     for seed in &report.seeds {
         println!(
-            "seed={} E0_shapes={} E0_formed={} serialized={} A0_templates={} roots={} handles={} unique_roots={} prechoice_effects={} distinct_effects={} choice={:?} mature={} runtime_choose={} selected_executions={} arrow_steps={} spikes={} mutations={} apply_updates={} consequence_events={} permutation_control={:?} persistent_bytes={} temporary_peak_bytes={} physical_work={}",
+            "seed={} E0_shapes={} E0_formed={} serialized={} E0_work={} A0_templates={} roots={} handles={} unique_roots={} prechoice_effects={} distinct_effects={} choice={:?} mature={} runtime_choose={} selected_executions={} arrow_steps={} spikes={} mutations={} apply_updates={} consequence_events={} permutation_control={:?} persistent_bytes={} temporary_peak_bytes={} A0_work={}",
             seed.seed,
             seed.e0.learned_shapes,
             seed.e0.learned_event_formed,
             seed.e0.serializations,
+            seed.e0.physical_work,
             seed.a0.templates,
             seed.a0.prebridge_roots,
             seed.a0.handles,
