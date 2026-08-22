@@ -158,8 +158,8 @@ fn wrapper_information_boundary() -> bool {
         "/src/ds7_cumulative_plasticity_allocation_definitive.rs"
     ));
     let cell_call = source
-        .split("// DS7_AUTHORITY_CELL_CALL_BEGIN")
-        .nth(1)
+        .rsplit("// DS7_AUTHORITY_CELL_CALL_BEGIN")
+        .next()
         .and_then(|text| text.split("// DS7_AUTHORITY_CELL_CALL_END").next())
         .unwrap_or_default();
     let forbidden = [
