@@ -64,8 +64,8 @@ macro_rules! composition_d3_access {
             let direction = learner
                 .form_direction([Some(&routes.affordances[0]), Some(&routes.affordances[1])]);
             let physical = learner.execute_direction();
-            let work = learner.work.organism_work();
             let cleanup = learner.cleanup_temporary();
+            let work = learner.work.organism_work();
             Some(super::D3Probe {
                 roots: routes.roots,
                 direction,
