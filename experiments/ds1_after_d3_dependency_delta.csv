@@ -1,0 +1,14 @@
+dependency,after_D2,after_D3,result
+anonymous E0 event,available,available,unchanged frozen input
+two executable A1 affordances,available,available,32/32 per GATE seed
+action ownership and immediate attribution,available,available,unchanged prerequisite
+route-independent delayed consequence contrast,absent,available,32/32 D3 directions per seed
+direction physically executable,D2 self-attribution only,D3 downstream direction,32/32 per seed
+frozen DS1 updates,32/32 self-confirming,32/32 consequence-discriminating,reachable in both
+correctly mature patterns,2/4,4/4,D3 removes self-confirmation failure
+held-out recovery,8/16,16/16,zero abstentions
+reversed-world learning,not applicable,4/4 reversed and 0/4 original,follows consequence law
+evaluator role during acquisition,absent,absent,source-audited zero edges
+semantic polarity or correctness,absent,absent,no supplied semantic channel
+cumulative status,M1 absent,M1 development ancestor,authoritative claim pending definitive
+
