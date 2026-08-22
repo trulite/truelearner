@@ -1064,6 +1064,14 @@ fn main() {
             "POST_M6_DS4_PROBE_HANDOFF_SHA256",
             "experiments/post_m6_ds4_arrival_initiation_probe_handoff.md",
         ),
+        (
+            "POST_M6_DS4_MICRO_RESULT_SHA256",
+            "results/post_m6_ds4_arrival_initiation_micro.md",
+        ),
+        (
+            "POST_M6_DS4_MICRO_HANDOFF_SHA256",
+            "experiments/post_m6_ds4_arrival_initiation_micro_handoff.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
