@@ -939,9 +939,7 @@ pub fn render_matched(report: &MatchedReport) -> String {
 }
 
 fn gate_once() -> Vec<GateCell> {
-    (111_000..=116_000)
-        .map(frozen_m3::run_gate_cell)
-        .collect()
+    (111_000..=116_000).map(frozen_m3::run_gate_cell).collect()
 }
 
 pub fn run_gate() -> GateReport {
