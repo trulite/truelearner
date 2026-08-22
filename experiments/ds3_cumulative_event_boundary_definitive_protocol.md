@@ -1,6 +1,13 @@
 # DS3 cumulative event-boundary definitive protocol
 
-Status: **PREREGISTERED; SINGLE DEFINITIVE OUTCOME UNSPENT**.
+Status: **AMENDED AND PREREGISTERED; SINGLE DEFINITIVE OUTCOME UNSPENT**.
+
+Amendment scope: before any definitive implementation or execution, the
+original authority clause was narrowed to remove a research-management
+decision from the scientific outcome. The matrix, seeds, controls, accounting,
+pass/fail conditions, write-once discipline, and no-rescue rule are unchanged.
+The original protocol tag remains historical and unmoved; the amended commit
+receives a new tag.
 
 Exact frozen development parent:
 `8e24a1316327f0af40fa3e7c70ad940d2a3e203f` /
@@ -189,7 +196,7 @@ The matrix is conjunctive across all sixteen cells. A positive requires:
 
 There is no majority, aggregate, or confidence-threshold pass.
 
-## Authority and program transition
+## Authority and next cumulative eligibility
 
 If and only if the complete matrix passes, the result authorizes a separate
 outcome audit and authoritative handoff declaring:
@@ -206,45 +213,16 @@ M3
   + learned event organization
 ```
 
-The same handoff must formally close the **bootstrapping de-supply phase as the
-main program** and open the **capability scaling phase**. This is a programmatic
-threshold supported by the cumulative chain:
-
-```text
-anonymous occurrences
--> correspondence
--> functional roles
--> causal direction
--> event organization
-```
-
-The authorized program split after a positive is frozen as:
-
-```text
-MAIN CAPABILITY-SCALING PROGRAM
-  scaling
-  language
-  generativity
-  stochastic affordances / when randomness is useful
-  tool use
-  longer-horizon learning
-  compute / memory scaling
-
-PARALLEL MINIMALITY PROGRAM
-  request/start
-  finish/answer
-  lifetime/persistence
-  plasticity targeting
-  semantic credit
-```
-
-Further de-supply continues, but it no longer blocks capability scaling.
+The same handoff makes cumulative DS4 eligible to port onto M3. Program
+priorities after M3 are outside the evidentiary scope of this matrix. A DS3
+positive neither requires nor forbids capability scaling, a de-supply sprint,
+or any other research-management sequence.
 
 If any stage, control, cell, exact accounting value, or audit fails, the result
 is **CUMULATIVE NEGATIVE** at the first collapse. M2 remains authoritative,
-M3 remains absent, and the program-phase transition is not authorized. No
-tuning, rescue, threshold change, mechanism change, second matrix, or rerun may
-repair the lane.
+M3 remains absent, and cumulative DS4 is not eligible. No tuning, rescue,
+threshold change, mechanism change, second matrix, or rerun may repair the
+lane.
 
 ## Implementation and execution discipline
 
@@ -278,7 +256,7 @@ repair the lane.
   `results/ds3_cumulative_event_boundary_definitive.md`.
 - Preserve every pre-existing result byte-for-byte, download the two write-once
   artifacts unchanged, and record their SHA-256 digests.
-- The outcome audit and M3/program-transition handoff are interpretation-only
+- The outcome audit and M3/DS4-eligibility handoff are interpretation-only
   descendants of the write-once artifacts. They may not alter the artifacts or
   implementation.
 
