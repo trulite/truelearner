@@ -182,6 +182,19 @@ fn main() {
             "DS1_D2_PROTOCOL_AMENDMENT_SHA256",
             "experiments/ds1_after_d2_cumulative_composition_retry_protocol_amendment.md",
         ),
+        ("DS_D3_D2_SHA256", "src/ds_d2_differential_evidence.rs"),
+        (
+            "DS_D3_D2_HANDOFF_SHA256",
+            "experiments/ds_d2_differential_evidence_handoff.md",
+        ),
+        (
+            "DS_D3_PARENT_RETRY_SHA256",
+            "src/ds1_after_d2_cumulative_composition_retry.rs",
+        ),
+        (
+            "DS_D3_PARENT_HANDOFF_SHA256",
+            "experiments/ds1_after_d2_cumulative_composition_collapse_handoff.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
