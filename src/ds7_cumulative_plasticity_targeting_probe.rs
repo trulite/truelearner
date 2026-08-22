@@ -447,7 +447,12 @@ fn endpoint(
     }
 }
 
-fn pattern_p(first_id: u64, second_id: u64, first_place: u8, second_place: u8) -> PhysicalEncounter {
+fn pattern_p(
+    first_id: u64,
+    second_id: u64,
+    first_place: u8,
+    second_place: u8,
+) -> PhysicalEncounter {
     PhysicalEncounter {
         first_id,
         second_id,
@@ -458,7 +463,12 @@ fn pattern_p(first_id: u64, second_id: u64, first_place: u8, second_place: u8) -
     }
 }
 
-fn pattern_n(first_id: u64, second_id: u64, first_place: u8, second_place: u8) -> PhysicalEncounter {
+fn pattern_n(
+    first_id: u64,
+    second_id: u64,
+    first_place: u8,
+    second_place: u8,
+) -> PhysicalEncounter {
     PhysicalEncounter {
         first_id,
         second_id,
@@ -506,9 +516,9 @@ fn source_audit() -> SourceAudit {
             && env!("DS7_M4_SHA256") == FROZEN_M4_SHA256
             && env!("DS7_PROTOCOL_SHA256") == FROZEN_PROTOCOL_SHA256,
         no_forbidden_fields: forbidden.iter().all(|word| !path.contains(word)),
-        delayed_boundary: path.contains(
-            "fn encounter(&mut self, encounter: PhysicalEncounter) -> Option<Edge>",
-        ) && path.contains("fn delayed_experience(&mut self, supported: bool) -> bool"),
+        delayed_boundary: path
+            .contains("fn encounter(&mut self, encounter: PhysicalEncounter) -> Option<Edge>")
+            && path.contains("fn delayed_experience(&mut self, supported: bool) -> bool"),
     }
 }
 
@@ -606,7 +616,10 @@ fn run_once() -> ProbeReport {
         check("blank recurring prototypes", blank_recruited),
         check("proposal before delayed outcome", pre_outcome_proposals),
         check("local coactivity controls", no_coactivity && outside_radius),
-        check("active eligibility only", inactive_feedback_blocked && active_only),
+        check(
+            "active eligibility only",
+            inactive_feedback_blocked && active_only,
+        ),
         check("learned selective allocation", selective),
         check("shuffled value control", shuffled_control),
         check("fresh identity and layout", fresh_layout_exact),
@@ -644,7 +657,9 @@ pub fn run() -> ProbeReport {
         expected.duplicate_exact = false;
         expected == second
     };
-    first.checks.push(check("duplicate exact", first.duplicate_exact));
+    first
+        .checks
+        .push(check("duplicate exact", first.duplicate_exact));
     if !first.duplicate_exact {
         first.first_collapse = "duplicate exact";
         first.passed = false;
