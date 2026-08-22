@@ -647,6 +647,27 @@ fn count_fragments(source: &str, fragments: &[String]) -> usize {
         .sum()
 }
 
+fn function_body<'a>(source: &'a str, name: &str) -> Option<&'a str> {
+    let marker = ["fn ", name].concat();
+    let start = source.find(&marker)?;
+    let tail = &source[start..];
+    let open = tail.find('{')?;
+    let mut depth = 0usize;
+    for (offset, byte) in tail[open..].bytes().enumerate() {
+        match byte {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&tail[open..=open + offset]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 fn source_audit() -> SourceAudit {
     let implementation = include_str!("ds_a0_anonymous_boundary_action_formation.rs");
     let runner = include_str!("bin/ds_a0_anonymous_boundary_action_formation.rs");
@@ -669,15 +690,27 @@ fn source_audit() -> SourceAudit {
         ["match ", "handle"].concat(),
         ["match ", "root.cell"].concat(),
     ];
+    let ds1_choose_calls = joined.matches(&[".cho", "ose("].concat()).count();
+    let ds1_apply_calls = joined
+        .matches(&[".apply_", "consequence("].concat())
+        .count();
+    let executor = function_body(implementation, "execute_handle")
+        .expect("owned root executor remains auditable");
+    let executor_sink_fragments = [
+        ["conse", "quence"].concat(),
+        ["cred", "it"].concat(),
+        ["rew", "ard"].concat(),
+        ["term", "inal"].concat(),
+    ];
+    let post_action_consequence_paths =
+        count_fragments(executor, &executor_sink_fragments) + ds1_apply_calls;
     SourceAudit {
         semantic_opcode_sites: count_fragments(&joined, &semantic_fragments),
         evaluator_selection_sites: count_fragments(&joined, &evaluator_fragments),
         hidden_executor_sites: count_fragments(&joined, &hidden_fragments),
-        ds1_choose_calls: joined.matches(&[".cho", "ose("].concat()).count(),
-        ds1_apply_calls: joined
-            .matches(&[".apply_", "consequence("].concat())
-            .count(),
-        post_action_consequence_paths: 0,
+        ds1_choose_calls,
+        ds1_apply_calls,
+        post_action_consequence_paths,
         executor_definitions: implementation
             .matches(&["fn execute_", "handle("].concat())
             .count(),
@@ -723,7 +756,12 @@ pub struct SeedAudit {
     pub passed: bool,
 }
 
-fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize) -> SeedAudit {
+fn audit_seed(
+    seed: u64,
+    acquisition_episodes: usize,
+    evaluation_episodes: usize,
+    source_audit: &SourceAudit,
+) -> SeedAudit {
     let (mut learner, acquisition_occurrences) = acquire(seed, acquisition_episodes, true, false);
     let (coactivity_learner, _) = acquire(seed, acquisition_episodes, true, true);
     let mut symmetric_learner = RouteLearner::default();
@@ -995,9 +1033,9 @@ fn audit_seed(seed: u64, acquisition_episodes: usize, evaluation_episodes: usize
         physical_execution_paths,
         arrow_path_steps,
         distinct_effect_pairs,
-        ds1_choose_calls: 0,
-        ds1_apply_calls: 0,
-        post_action_consequence_paths: 0,
+        ds1_choose_calls: source_audit.ds1_choose_calls,
+        ds1_apply_calls: source_audit.ds1_apply_calls,
+        post_action_consequence_paths: source_audit.post_action_consequence_paths,
         controls,
         work,
         passed,
@@ -1063,7 +1101,14 @@ pub fn run(mode: HarnessMode) -> GateReport {
     let source_audit = source_audit();
     let seed_audits = seeds
         .iter()
-        .map(|seed| audit_seed(*seed, acquisition_episodes, evaluation_episodes))
+        .map(|seed| {
+            audit_seed(
+                *seed,
+                acquisition_episodes,
+                evaluation_episodes,
+                &source_audit,
+            )
+        })
         .collect::<Vec<_>>();
     let a1 = seed_audits.iter().all(|seed| {
         seed.templates >= 2
@@ -1246,5 +1291,20 @@ mod tests {
         assert!(!report.claim_eligible);
         assert!(report.seeds.is_empty());
         assert!(!report.passed);
+    }
+
+    #[test]
+    fn forbidden_calls_and_sinks_are_derived_from_owned_source() {
+        let audit = source_audit();
+        assert_eq!(audit.ds1_choose_calls, 0);
+        assert_eq!(audit.ds1_apply_calls, 0);
+        assert_eq!(audit.post_action_consequence_paths, 0);
+        assert!(audit.passed());
+        let report = run(HarnessMode::Micro);
+        assert!(report.seeds.iter().all(|seed| {
+            seed.ds1_choose_calls == audit.ds1_choose_calls
+                && seed.ds1_apply_calls == audit.ds1_apply_calls
+                && seed.post_action_consequence_paths == audit.post_action_consequence_paths
+        }));
     }
 }
