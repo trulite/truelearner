@@ -285,6 +285,22 @@ fn main() {
             "DS_AP0_PROTOCOL_SHA256",
             "experiments/ds_ap0_aftermath_plasticity_activation_protocol.md",
         ),
+        (
+            "DS2_AP0_RETRY_PRIOR_SHA256",
+            "src/ds2_after_ac0_mechanistic_retry.rs",
+        ),
+        (
+            "DS2_AP0_RETRY_AP0_SHA256",
+            "src/ds_ap0_aftermath_plasticity_activation.rs",
+        ),
+        (
+            "DS2_AP0_RETRY_READINESS_SHA256",
+            "experiments/ds_ap0_development_readiness_handoff.md",
+        ),
+        (
+            "DS2_AP0_RETRY_PROTOCOL_SHA256",
+            "experiments/ds2_after_ap0_mechanistic_retry_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
