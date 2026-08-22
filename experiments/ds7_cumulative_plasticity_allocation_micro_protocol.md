@@ -1,8 +1,14 @@
 # Cumulative DS7 plasticity-allocation MICRO
 
-Protocol identifier: `ds7-cumulative-plasticity-allocation-micro-v1`.
+Protocol identifier: `ds7-cumulative-plasticity-allocation-micro-v2`.
 
 Status: **PREREGISTERED DEVELOPMENT MICRO; OUTCOME UNSPENT**.
+
+Version 2 corrects the unsampled economy arithmetic before implementation or
+execution: a frozen exploration period of eight permits exactly four
+exploratory admissions among 32 negative encounters, so the conjunctive bound
+is four and the corresponding minimum reduction is 40 percent. Version 1 is
+preserved at its tag and no evidence was spent under it.
 
 Exact positive PROBE result commit:
 `fa363fc5c0f8e4f56885f5165f3891de2279bf34`.
@@ -71,9 +77,10 @@ Each cell passes only if:
 
 - P and N proposals both arose before their first delayed outcome;
 - active-trace-only updates produced positive P and negative N value;
-- learned evaluation admits all 32 P encounters and no more than one of 32 N
-  encounters (the one allowance is deterministic exploration);
-- learned proposal admissions are at least 45 percent lower than the
+- learned evaluation admits all 32 P encounters and no more than four of 32 N
+  encounters (exactly four are permitted by the frozen exploration period of
+  eight; fewer may occur if lifecycle pressure removes the representation);
+- learned proposal admissions are at least 40 percent lower than the
   always-open baseline;
 - shuffling learned values reverses P/N admission;
 - after history reversal, N reaches positive value solely through ordinary
@@ -93,4 +100,3 @@ establish M5 or authorize a definitive run.
 FAIL freezes the exact failed phase. Mechanical absence may be repaired at
 that edge under a new protocol. A new representation, semantic site choice,
 or multiple equally supported allocation laws is a scientific stop.
-
