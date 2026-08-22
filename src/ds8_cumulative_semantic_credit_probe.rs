@@ -23,7 +23,7 @@ pub const FROZEN_M5_MD_SHA256: &str =
 pub const FROZEN_D3_SHA256: &str =
     "a13f39c86b2c67d225530e7b17cdacd71f452a45be3b2c9942814c0748267f6d";
 pub const FROZEN_D2_SHA256: &str =
-    "ac257b53e28b0dbcfd4cbcb7ca855086d1de5812a07029f4b2405fda2a6da8f";
+    "ac257b53e28b0bdbcfd4cbcb7ca855086d1de5812a07029f4b2405fda2a6da8f";
 pub const FROZEN_C0_SHA256: &str =
     "5c8d00189593ca2f7efb47165efddf85111259f90433a016e5822b5b9578aed2";
 pub const FROZEN_CP0_SHA256: &str =
