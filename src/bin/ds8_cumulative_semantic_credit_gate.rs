@@ -11,7 +11,7 @@ fn main() {
     );
     for cell in report.cells {
         println!(
-            "seed={} load={} passed={} acquired={} physical={} heldout={}/{} admission={}/{} reduction={:.2}% raw_swap={} value_shuffle={} resistance={}->{} removed={} stale={} repaired={}/{} economy={} controls={} source={} m5={}",
+            "seed={} load={} passed={} acquired={} physical={} heldout={}/{} admission={}/{} reduction={:.2}% raw_swap={} value_shuffle={} resistance={}->{} removed={} stale={} repair_steps={}/{}/{} repair_state={}/{} repaired={}/{} retained={}/{} economy={} controls={} source={} m5={}",
             cell.seed,
             cell.load,
             cell.passed,
@@ -28,8 +28,15 @@ fn main() {
             cell.final_resistance,
             cell.removed,
             cell.stale_blocked,
+            cell.repair_admitted,
+            cell.repair_executed,
+            cell.repair_applied,
+            cell.post_age_prototype_resistance,
+            cell.post_age_value_resistance,
             cell.repaired,
             cell.repaired_total,
+            cell.retained_proposals,
+            cell.retained_route_edges,
             cell.retained_economy,
             cell.controls,
             cell.source_audit,

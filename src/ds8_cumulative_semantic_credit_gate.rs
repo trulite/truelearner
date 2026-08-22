@@ -1,7 +1,7 @@
 //! Development-only cumulative DS8 non-semantic-credit GATE.
 
-pub const PROTOCOL: &str = "ds8-cumulative-semantic-credit-gate-v1";
-pub const PROTOCOL_COMMIT: &str = "a45fc51fed2e4a589e25ed0ef41b3cc80ec04fb7";
+pub const PROTOCOL: &str = "ds8-cumulative-semantic-credit-gate-v2";
+pub const PROTOCOL_COMMIT: &str = "726678785c1cd53e75ed1a2bf4e5d5d301703c0d";
 pub const AUTHORITATIVE_M5: &str = "9c5ba68a6a4ae37b51575ebaae414ab51a248575";
 pub const SEEDS: [u64; 6] = [
     42_000_000, 42_500_000, 43_000_000, 43_500_000, 44_000_000, 44_500_000,
@@ -19,6 +19,8 @@ pub const FROZEN_HANDOFF_SHA256: &str =
     "91feb6e878fae6f8155dd3f9ea5107ec5e8d1fceab6cea460b23808d537e29da";
 pub const FROZEN_PROTOCOL_SHA256: &str =
     "c65c08c59056cda39d3f93615da9be28ab12210d8c19b76de18dd8a0ef245b78";
+pub const FROZEN_PROTOCOL_V2_SHA256: &str =
+    "93aacb0835588d5be343a60d30178a6d594984fce0e21f7af6c702d66825f80a";
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GateCell {
@@ -38,8 +40,15 @@ pub struct GateCell {
     pub final_resistance: i32,
     pub removed: bool,
     pub stale_blocked: bool,
+    pub repair_admitted: bool,
+    pub repair_executed: bool,
+    pub repair_applied: bool,
+    pub post_age_prototype_resistance: i32,
+    pub post_age_value_resistance: i32,
     pub repaired: usize,
     pub repaired_total: usize,
+    pub retained_proposals: usize,
+    pub retained_route_edges: usize,
     pub retained_economy: bool,
     pub topology_identity_layout: bool,
     pub controls: bool,
@@ -238,6 +247,7 @@ mod frozen_linker {
                     );
                 }
             }
+            path.begin_event();
         }
         Trained {
             path,
@@ -397,18 +407,21 @@ mod frozen_linker {
         );
         let final_resistance = repair.proposal_resistance(withheld);
         let stale_blocked = !repair.execute(withheld);
+        let post_age_prototype_resistance =
+            repair.prototype_resistance(trained.route[0].snapshot());
+        let post_age_value_resistance = repair.value_resistance(trained.route[0].snapshot());
         repair.begin_event();
         let repaired_edge = repair.local_encounter(trained.route[0]);
-        let repaired_once = repaired_edge.is_some_and(|edge| {
-            repair.execute(edge)
-                && repair_learner.apply(
-                    &mut repair,
-                    trained.route[0].snapshot(),
-                    trained.distractors[0].snapshot(),
-                    raw_consequence(seed + 900_000, 0, (seed as usize / 500_000) % 4),
-                )
-        });
-        let repaired = if repaired_once {
+        let repair_admitted = repaired_edge.is_some();
+        let repair_executed = repaired_edge.is_some_and(|edge| repair.execute(edge));
+        let repair_applied = repair_executed
+            && repair_learner.apply(
+                &mut repair,
+                trained.route[0].snapshot(),
+                trained.distractors[0].snapshot(),
+                raw_consequence(seed + 900_000, 0, (seed as usize / 500_000) % 4),
+            );
+        let repaired = if repair_applied {
             heldout(&mut repair, &edges, seed + 2_000_000)
         } else {
             0
@@ -417,10 +430,13 @@ mod frozen_linker {
         let economy_pass = route_admissions == 4
             && distractor_admissions <= load.div_ceil(8)
             && work_reduction >= 0.50;
-        let retained_economy = trained.path.proposals.len() < always_open_admissions
-            && edges
-                .iter()
-                .all(|edge| trained.path.proposals.contains_key(edge));
+        let retained_proposals = trained.path.proposals.len();
+        let retained_route_edges = edges
+            .iter()
+            .filter(|edge| trained.path.proposals.contains_key(edge))
+            .count();
+        let retained_economy = retained_proposals < always_open_admissions
+            && retained_route_edges == edges.len();
         let topology_identity_layout = trained.physical_exact
             && raw_swapped.physical_exact
             && trained.route[0].snapshot() == route(seed + 3_000_000, true)[0].snapshot();
@@ -429,7 +445,8 @@ mod frozen_linker {
             && env!("DS8_GATE_MICRO_RESULT_SHA256") == super::FROZEN_MICRO_RESULT_SHA256
             && env!("DS8_GATE_MICRO_AUDIT_SHA256") == super::FROZEN_MICRO_AUDIT_SHA256
             && env!("DS8_GATE_HANDOFF_SHA256") == super::FROZEN_HANDOFF_SHA256
-            && env!("DS8_GATE_PROTOCOL_SHA256") == super::FROZEN_PROTOCOL_SHA256;
+            && env!("DS8_GATE_PROTOCOL_SHA256") == super::FROZEN_PROTOCOL_SHA256
+            && env!("DS8_GATE_PROTOCOL_V2_SHA256") == super::FROZEN_PROTOCOL_V2_SHA256;
         let cumulative_m5 = controls;
         let passed = trained.blank_acquisition
             && trained.physical_exact
@@ -464,8 +481,15 @@ mod frozen_linker {
             final_resistance,
             removed,
             stale_blocked,
+            repair_admitted,
+            repair_executed,
+            repair_applied,
+            post_age_prototype_resistance,
+            post_age_value_resistance,
             repaired,
             repaired_total: 32,
+            retained_proposals,
+            retained_route_edges,
             retained_economy,
             topology_identity_layout,
             controls,
