@@ -101,6 +101,10 @@ fn main() {
         &output.join("ds3_event_boundary.rs"),
     );
     composition_copy(
+        Path::new("src/ds3_event_boundary.rs"),
+        &output.join("ds6_ds3_event_boundary.rs"),
+    );
+    composition_copy(
         Path::new("src/ds3_cumulative_event_boundary_port.rs"),
         &output.join("ds3_cumulative_event_boundary_port.rs"),
     );
