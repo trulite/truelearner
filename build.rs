@@ -145,6 +145,16 @@ fn main() {
         Path::new("src/ds8_cumulative_semantic_credit_gate.rs"),
         &output.join("ds8_cumulative_semantic_credit_gate_frozen.rs"),
     );
+    composition_copy(
+        Path::new("src/post_m6_ds4_arrival_initiation.rs"),
+        &output.join("post_m6_ds4_arrival_initiation_frozen.rs"),
+    );
+    fs::copy(
+        "src/post_m6_ds4_arrival_initiation.rs",
+        output.join("post_m6_ds4_arrival_initiation.rs"),
+    )
+    .expect("exact post-M6 DS4 source audit copy is writable");
+    println!("cargo:rerun-if-changed=src/post_m6_ds4_arrival_initiation.rs");
     let ds8_linker = output.join("ds8_cumulative_semantic_credit_linker_frozen.rs");
     marked_copy(
         Path::new("src/ds8_cumulative_semantic_credit_probe.rs"),
@@ -1071,6 +1081,78 @@ fn main() {
         (
             "POST_M6_DS4_MICRO_HANDOFF_SHA256",
             "experiments/post_m6_ds4_arrival_initiation_micro_handoff.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_PROTOCOL_SHA256",
+            "experiments/post_m6_ds4_arrival_initiation_definitive_protocol.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_MECHANISM_SHA256",
+            "src/post_m6_ds4_arrival_initiation.rs",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_DEVELOPMENT_RUNNER_SHA256",
+            "src/bin/post_m6_ds4_arrival_initiation.rs",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_GATE_RESULT_SHA256",
+            "results/post_m6_ds4_arrival_initiation_gate.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_READINESS_SHA256",
+            "experiments/post_m6_ds4_arrival_initiation_development_readiness.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_OLD_NEGATIVE_AUDIT_SHA256",
+            "experiments/ds4_cumulative_request_start_definitive_result_audit.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M0_CSV_SHA256",
+            "results/ffs_same1_compiled_correspondence.csv",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M0_MD_SHA256",
+            "results/ffs_same1_compiled_correspondence.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M1_CSV_SHA256",
+            "results/ds1_boundary_role_cumulative_definitive.csv",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M1_MD_SHA256",
+            "results/ds1_boundary_role_cumulative_definitive.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M2_CSV_SHA256",
+            "results/ds2_cumulative_causal_direction_definitive.csv",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M2_MD_SHA256",
+            "results/ds2_cumulative_causal_direction_definitive.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M3_CSV_SHA256",
+            "results/ds3_cumulative_event_boundary_definitive.csv",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M3_MD_SHA256",
+            "results/ds3_cumulative_event_boundary_definitive.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M4_CSV_SHA256",
+            "results/ds6_cumulative_lifetime_definitive.csv",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M4_MD_SHA256",
+            "results/ds6_cumulative_lifetime_definitive.md",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M5_CSV_SHA256",
+            "results/ds7_cumulative_plasticity_allocation_definitive.csv",
+        ),
+        (
+            "POST_M6_DS4_DEFINITIVE_M5_MD_SHA256",
+            "results/ds7_cumulative_plasticity_allocation_definitive.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
