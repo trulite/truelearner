@@ -93,6 +93,31 @@ pub struct MatchedReport {
     pub passed: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GateCell {
+    pub seed: u64,
+    pub recurrence_ordering: bool,
+    pub pressure_ordering: bool,
+    pub lifetimes: Vec<usize>,
+    pub dynamic_lifetime: bool,
+    pub crossed_tradeoff: bool,
+    pub interleaving_invariant: bool,
+    pub load_behavior: bool,
+    pub gap_reuse: bool,
+    pub contradiction_history: bool,
+    pub cumulative_m3: bool,
+    pub controls: bool,
+    pub passed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GateReport {
+    pub protocol: &'static str,
+    pub cells: Vec<GateCell>,
+    pub duplicate_exact: bool,
+    pub passed: bool,
+}
+
 macro_rules! ds6_m3_access {
     () => {
         #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -157,6 +182,15 @@ macro_rules! ds6_m3_access {
 
         fn event(seed: u64, relation: u8) -> (ChunkSignature, bool) {
             let stream = fixture(seed, &[3], &[7, 7, 7], relation);
+            let key = signature(&stream.observations);
+            let mut generic = BoundaryLearner::default();
+            let evaluation = generic.evaluate(&stream.observations, false);
+            (key, evaluation.spans == supplied(&stream))
+        }
+
+        fn event_len(seed: u64, relation: u8, length: usize) -> (ChunkSignature, bool) {
+            let shapes = vec![7; length];
+            let stream = fixture(seed, &[length], &shapes, relation);
             let key = signature(&stream.observations);
             let mut generic = BoundaryLearner::default();
             let evaluation = generic.evaluate(&stream.observations, false);
@@ -533,6 +567,188 @@ macro_rules! ds6_m3_access {
                 passed,
             }
         }
+
+        fn strength_after(seed: u64, recurrences: usize, ticks: usize) -> i32 {
+            let mut life = ScalarLifecycle::new(true);
+            recurrence(&mut life, seed, 10, recurrences);
+            let key = event(seed + 900, 10).0;
+            pressure_ticks(&mut life, seed + 1_000, ticks);
+            life.strength(&key)
+        }
+
+        fn deallocation_ticks(seed: u64, recurrences: usize) -> usize {
+            let mut life = ScalarLifecycle::new(true);
+            recurrence(&mut life, seed, 11, recurrences);
+            let key = event(seed + 900, 11).0;
+            let mut ticks = 0;
+            while life.available(&key) && ticks < 64 {
+                pressure_ticks(&mut life, seed + 2_000 + ticks as u64 * 10, 1);
+                ticks += 1;
+            }
+            ticks
+        }
+
+        pub(super) fn run_gate_cell(seed: u64) -> super::GateCell {
+            let recurrence_counts = [1usize, 2, 4, 8, 16];
+            let pressure_counts = [0usize, 2, 4, 8, 12, 16];
+            let mut grid = Vec::new();
+            for (row, recurrences) in recurrence_counts.into_iter().enumerate() {
+                let strengths = pressure_counts
+                    .into_iter()
+                    .enumerate()
+                    .map(|(column, ticks)| {
+                        strength_after(
+                            seed + row as u64 * 10_000 + column as u64 * 500,
+                            recurrences,
+                            ticks,
+                        )
+                    })
+                    .collect::<Vec<_>>();
+                grid.push(strengths);
+            }
+            let recurrence_ordering = (0..pressure_counts.len()).all(|column| {
+                let values = grid.iter().map(|row| row[column]).collect::<Vec<_>>();
+                values.windows(2).all(|pair| pair[0] <= pair[1])
+                    && values[1..].windows(2).all(|pair| {
+                        pair[0] == 0 || pair[1] == 0 || pair[0] < pair[1]
+                    })
+            });
+            let pressure_ordering = grid.iter().all(|row| {
+                row.windows(2).all(|pair| pair[0] >= pair[1])
+                    && row.windows(2).all(|pair| pair[0] == 0 || pair[0] > pair[1])
+            });
+            let lifetimes = recurrence_counts
+                .into_iter()
+                .enumerate()
+                .map(|(index, count)| deallocation_ticks(seed + 100_000 + index as u64 * 5_000, count))
+                .collect::<Vec<_>>();
+            let dynamic_lifetime = lifetimes.windows(2).all(|pair| pair[0] <= pair[1])
+                && lifetimes[1..].windows(2).all(|pair| pair[0] < pair[1]);
+
+            let crossed = [
+                (strength_after(seed + 130_000, 4, 8), strength_after(seed + 131_000, 2, 2)),
+                (strength_after(seed + 132_000, 8, 16), strength_after(seed + 133_000, 4, 4)),
+                (strength_after(seed + 134_000, 16, 16), strength_after(seed + 135_000, 8, 16)),
+            ];
+            let crossed_tradeoff = crossed
+                .iter()
+                .all(|(left, right)| (*left == 0) != (*right == 0));
+
+            let mut ascending = ScalarLifecycle::new(true);
+            let mut descending = ScalarLifecycle::new(true);
+            recurrence(&mut ascending, seed + 140_000, 70, 8);
+            recurrence(&mut descending, seed + 140_000, 70, 8);
+            for ordinal in 0..32u8 {
+                ascending.observe(event(seed + 141_000 + ordinal as u64, 80 + ordinal).0);
+                descending.observe(event(seed + 141_000 + ordinal as u64, 111 - ordinal).0);
+            }
+            let target = event(seed + 142_000, 70).0;
+            let interleaving_invariant = ascending.strength(&target) == descending.strength(&target)
+                && ascending.records.len() == descending.records.len();
+
+            let mut load_behavior = true;
+            for (index, load) in [8u8, 32, 128].into_iter().enumerate() {
+                let mut life = ScalarLifecycle::new(true);
+                recurrence(&mut life, seed + 150_000 + index as u64 * 10_000, 71, 8);
+                let load_target = event(seed + 151_000 + index as u64, 71).0;
+                for ordinal in 0..load {
+                    life.observe(event(seed + 152_000 + ordinal as u64, 80 + ordinal).0);
+                }
+                let expected = (13 - i32::from(load) / 4).max(0);
+                load_behavior &= life.strength(&load_target) == expected;
+                load_behavior &= (0..load).all(|ordinal| {
+                    !life.available(&event(seed + 153_000 + ordinal as u64, 80 + ordinal).0)
+                });
+            }
+
+            let mut gap = ScalarLifecycle::new(true);
+            recurrence(&mut gap, seed + 160_000, 72, 8);
+            let gap_key = event(seed + 160_900, 72).0;
+            let mut gap_reuse = true;
+            for (index, ticks) in [2usize, 4, 8].into_iter().enumerate() {
+                let mut branch = gap.clone();
+                pressure_ticks(&mut branch, seed + 161_000 + index as u64 * 1_000, ticks);
+                let before = branch.strength(&gap_key);
+                recurrence(&mut branch, seed + 162_000 + index as u64 * 1_000, 72, 1);
+                gap_reuse &= before > 0 && branch.strength(&gap_key) == before + 2;
+            }
+            let mut removed = ScalarLifecycle::new(true);
+            recurrence(&mut removed, seed + 163_000, 73, 2);
+            let removed_key = event(seed + 163_900, 73).0;
+            pressure_ticks(&mut removed, seed + 164_000, 4);
+            gap_reuse &= !removed.available(&removed_key);
+            recurrence(&mut removed, seed + 165_000, 73, 1);
+            gap_reuse &= removed.strength(&removed_key) == 1;
+
+            let old_key = event_len(seed + 170_000, 74, 3).0;
+            let changed_key = event_len(seed + 170_001, 74, 2).0;
+            let mut old_base = ScalarLifecycle::new(true);
+            for ordinal in 0..8 {
+                old_base.observe(event_len(seed + 171_000 + ordinal, 74, 3).0);
+            }
+            let mut old_strengths = Vec::new();
+            let mut changed_strengths = Vec::new();
+            let mut contradiction_history = old_key != changed_key;
+            for (index, exposure) in [0usize, 2, 4, 8, 16].into_iter().enumerate() {
+                let mut branch = old_base.clone();
+                for ordinal in 0..exposure {
+                    branch.observe(event_len(seed + 172_000 + ordinal as u64, 74, 2).0);
+                }
+                old_strengths.push(branch.strength(&old_key));
+                changed_strengths.push(branch.strength(&changed_key));
+                contradiction_history &= !branch.available(&event_len(seed + 173_000, 74, 4).0);
+                if index + 1 == 5 {
+                    let before = branch.strength(&old_key);
+                    branch.observe(event_len(seed + 174_000, 74, 3).0);
+                    contradiction_history &= branch.strength(&old_key)
+                        == if before > 0 { before + 2 } else { 1 };
+                }
+            }
+            contradiction_history &= old_strengths.windows(2).all(|pair| pair[0] >= pair[1]);
+            contradiction_history &= changed_strengths.windows(2).all(|pair| pair[0] <= pair[1]);
+
+            let cumulative_m3 = (10u8..18).all(|relation| {
+                event(seed ^ 0xa5a5_0000, relation).1
+                    && event(seed ^ 0x5a5a_0000, relation).0 == event(seed, relation).0
+            });
+            let mut keep_all = ScalarLifecycle::new(false);
+            for relation in 20u8..52 {
+                keep_all.observe(event(seed + 180_000 + relation as u64, relation).0);
+            }
+            let mut shuffled = ScalarLifecycle::new(true);
+            for relation in 20u8..52 {
+                shuffled.observe(event(seed + 181_000 + relation as u64, relation).0);
+            }
+            let controls = keep_all.records.len() == 32
+                && shuffled.records.is_empty()
+                && keep_all.bytes() > shuffled.bytes();
+            let passed = source_ok()
+                && recurrence_ordering
+                && pressure_ordering
+                && dynamic_lifetime
+                && crossed_tradeoff
+                && interleaving_invariant
+                && load_behavior
+                && gap_reuse
+                && contradiction_history
+                && cumulative_m3
+                && controls;
+            super::GateCell {
+                seed,
+                recurrence_ordering,
+                pressure_ordering,
+                lifetimes,
+                dynamic_lifetime,
+                crossed_tradeoff,
+                interleaving_invariant,
+                load_behavior,
+                gap_reuse,
+                contradiction_history,
+                cumulative_m3,
+                controls,
+                passed,
+            }
+        }
     };
 }
 
@@ -711,6 +927,54 @@ pub fn render_matched(report: &MatchedReport) -> String {
             cell.low_short_strength,
             cell.reuse_delta,
             cell.fresh_layout_exact,
+            cell.controls,
+            cell.passed
+        ));
+    }
+    text.push_str(&format!(
+        "\nDuplicate exact: `{}`.\n",
+        report.duplicate_exact
+    ));
+    text
+}
+
+fn gate_once() -> Vec<GateCell> {
+    (111_000..=116_000)
+        .map(frozen_m3::run_gate_cell)
+        .collect()
+}
+
+pub fn run_gate() -> GateReport {
+    let cells = gate_once();
+    let duplicate_exact = cells == gate_once();
+    let passed = duplicate_exact && cells.iter().all(|cell| cell.passed);
+    GateReport {
+        protocol: "ds6-cumulative-lifetime-gate-v1",
+        cells,
+        duplicate_exact,
+        passed,
+    }
+}
+
+pub fn render_gate(report: &GateReport) -> String {
+    let mut text = format!(
+        "# DS6 cumulative learned-lifetime GATE result\n\nProtocol: `{}`.\n\nVerdict: **{}**.\n\n| seed | recurrence | pressure | lifetimes 1/2/4/8/16 | crossed | interleaving | loads | reuse | contradiction | M3 | controls | result |\n|---:|:---:|:---:|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n",
+        report.protocol,
+        if report.passed { "PASS" } else { "FAIL" }
+    );
+    for cell in &report.cells {
+        text.push_str(&format!(
+            "| {} | {} | {} | {:?} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            cell.seed,
+            cell.recurrence_ordering,
+            cell.pressure_ordering,
+            cell.lifetimes,
+            cell.crossed_tradeoff,
+            cell.interleaving_invariant,
+            cell.load_behavior,
+            cell.gap_reuse,
+            cell.contradiction_history,
+            cell.cumulative_m3,
             cell.controls,
             cell.passed
         ));
