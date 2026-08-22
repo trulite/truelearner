@@ -31,6 +31,10 @@ pub const FROZEN_PROBE_V1_RESULT_SHA256: &str =
     "46dac216ed3977ec8d12821af1b5b69d93f6932e20364c4d4c1b5809b3fba9c1";
 pub const FROZEN_PROBE_V1_AUDIT_SHA256: &str =
     "660ba16162153ed909e3c28476282647bd0b3d8b8414663575efe8795db4d504";
+pub const FROZEN_PROBE_RETRY_RESULT_SHA256: &str =
+    "4720e0558fb0241ec893fa451c097c384d7e246a1efe3488a375e3077415f7fa";
+pub const FROZEN_PROBE_HANDOFF_SHA256: &str =
+    "bef1c81f4dc48e1fcbe463d1518dad6fec14a5c32fa43f1b4ac82146a56abb07";
 pub const FROZEN_M3_SHA256: &str =
     "c4fc7aca11a5925effeb5a84b90184a70da0f66da7c063d0f87ba46ca36addf3";
 pub const FROZEN_P4_SHA256: &str =
@@ -541,6 +545,7 @@ pub struct SourceAudit {
     pub exact_m6: bool,
     pub immutable_old_negative: bool,
     pub frozen_probe_v1_negative: bool,
+    pub frozen_probe_retry: bool,
     pub frozen_mechanisms: bool,
     pub protocol_frozen: bool,
     pub linker_exact: bool,
@@ -553,6 +558,7 @@ impl SourceAudit {
         self.exact_m6
             && self.immutable_old_negative
             && self.frozen_probe_v1_negative
+            && self.frozen_probe_retry
             && self.frozen_mechanisms
             && self.protocol_frozen
             && self.linker_exact
@@ -594,6 +600,9 @@ fn source_audit() -> SourceAudit {
         frozen_probe_v1_negative: env!("POST_M6_DS4_PROBE_V1_RESULT_SHA256")
             == FROZEN_PROBE_V1_RESULT_SHA256
             && env!("POST_M6_DS4_PROBE_V1_AUDIT_SHA256") == FROZEN_PROBE_V1_AUDIT_SHA256,
+        frozen_probe_retry: env!("POST_M6_DS4_PROBE_RETRY_RESULT_SHA256")
+            == FROZEN_PROBE_RETRY_RESULT_SHA256
+            && env!("POST_M6_DS4_PROBE_HANDOFF_SHA256") == FROZEN_PROBE_HANDOFF_SHA256,
         frozen_mechanisms: env!("DS4_M3_PORT_SHA256") == FROZEN_M3_SHA256
             && env!("DS4_P4_SHA256") == FROZEN_P4_SHA256
             && env!("DS8_M5_ALLOCATOR_SHA256") == FROZEN_M5_SHA256
