@@ -1,0 +1,7 @@
+mode,seed,e0_work,a1_work,r0_primary_work,r0_parent_audit_work,c0_primary_work,c0_control_work,c0_persistent_bytes,c0_temporary_peak_bytes,couplings,polarity_fields,ds1_updates,stage_9_strength_work,stage_10_heldout_work,maintenance,carrying
+MICRO,100,99443,412,51,210,18,183,0,40,1,0,0,BLOCKED,BLOCKED,0,0
+GATE,100,154355,412,51,210,18,183,0,40,1,0,0,BLOCKED,BLOCKED,0,0
+GATE,101,154355,416,51,210,18,183,0,40,1,0,0,BLOCKED,BLOCKED,0,0
+GATE,102,154355,412,51,210,18,183,0,40,1,0,0,BLOCKED,BLOCKED,0,0
+GATE,103,154355,416,51,210,18,183,0,40,1,0,0,BLOCKED,BLOCKED,0,0
+GATE,104,154355,412,51,210,18,183,0,40,1,0,0,BLOCKED,BLOCKED,0,0
