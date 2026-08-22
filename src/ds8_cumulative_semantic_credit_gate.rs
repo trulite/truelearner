@@ -241,11 +241,7 @@ mod frozen_linker {
                     &mut learner,
                     distractor,
                     route_snapshot,
-                    raw_consequence(
-                        seed + 300_000,
-                        sweep * 5,
-                        varying_variant(sweep),
-                    ),
+                    raw_consequence(seed + 300_000, sweep * 5, varying_variant(sweep)),
                 );
                 for (index, encounter) in route.iter().enumerate() {
                     let _ = execute_update(
