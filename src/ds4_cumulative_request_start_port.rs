@@ -977,11 +977,9 @@ pub fn run(mode: HarnessMode) -> Report {
         learner_count,
         ready_learners: first.ready_learners,
         single_role_learners: first.single_role_learners,
-        average_competence_episode_millis: if competence_count == 0 {
-            0
-        } else {
-            competence_total * 1_000 / competence_count
-        },
+        average_competence_episode_millis: (competence_total * 1_000)
+            .checked_div(competence_count)
+            .unwrap_or(0),
         held_out_correct: first.held_out_correct,
         held_out_total: first.held_out_total,
         explicit_answers: first.explicit_answers,
