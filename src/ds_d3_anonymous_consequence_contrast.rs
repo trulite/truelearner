@@ -696,12 +696,13 @@ fn audit_seed(seed: u64, acquisition: usize) -> SeedReport {
         CONSEQUENCE_DELAY,
     ) && immediate.evidence.is_empty();
 
+    let mut removed = primary.clone();
     let alternatives = if recurrent_slot == 0 {
         [None, Some(&routes.affordances[1])]
     } else {
         [Some(&routes.affordances[0]), None]
     };
-    let removed_route_invalidates = primary.form_direction(alternatives).is_none();
+    let removed_route_invalidates = removed.form_direction(alternatives).is_none();
 
     let temporary_cleanup = primary.cleanup_temporary()
         && same.cleanup_temporary()
@@ -713,6 +714,7 @@ fn audit_seed(seed: u64, acquisition: usize) -> SeedReport {
         && shuffled.cleanup_temporary()
         && reversed.cleanup_temporary()
         && immediate.cleanup_temporary();
+    let removed_cleanup = removed.cleanup_temporary();
 
     let controls = Controls {
         immediate_effects_distinct,
@@ -729,7 +731,7 @@ fn audit_seed(seed: u64, acquisition: usize) -> SeedReport {
         immediate_timing_rejected,
         removed_route_invalidates,
         physical_direction_executes,
-        temporary_cleanup,
+        temporary_cleanup: temporary_cleanup && removed_cleanup,
     };
     let observations = primary
         .evidence
