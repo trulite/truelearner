@@ -1105,6 +1105,35 @@ fn main() {
         ("POST_M7_DS5_V20_SOURCE_SHA256", "src/iteration.rs"),
         ("POST_M7_DS5_V21_SOURCE_SHA256", "src/continuation.rs"),
         ("POST_M7_DS5_V21B_RESULT_SHA256", "results/v21b_finish.md"),
+        ("POST_M7_DS5_V20_RESULT_SHA256", "results/v20_iteration.md"),
+        (
+            "POST_M7_DS5_V21A_RESULT_SHA256",
+            "results/v21a_continuation.md",
+        ),
+        (
+            "POST_M7_DS5_BOUNDARY_SOURCE_SHA256",
+            "src/ds_a0_anonymous_boundary_action_formation.rs",
+        ),
+        (
+            "POST_M7_DS5_CLOSURE_SOURCE_SHA256",
+            "src/ds_ac0_selected_affordance_actuation_closure.rs",
+        ),
+        (
+            "POST_M7_DS5_RETURN_SOURCE_SHA256",
+            "src/ds_r0_anonymous_post_action_evidence_return.rs",
+        ),
+        (
+            "POST_M7_DS5_M5_SOURCE_SHA256",
+            "src/ds7_cumulative_plasticity_targeting_probe.rs",
+        ),
+        (
+            "POST_M7_DS5_M6_SOURCE_SHA256",
+            "src/ds8_cumulative_semantic_credit_probe.rs",
+        ),
+        (
+            "POST_M7_DS5_PROBE_V1_RESULT_SHA256",
+            "results/post_m7_ds5_closure_emission_probe_v1_negative.md",
+        ),
         (
             "POST_M6_DS4_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/post_m6_ds4_arrival_initiation_definitive_protocol.md",
