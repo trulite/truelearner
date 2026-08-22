@@ -61,6 +61,10 @@ fn main() {
         &output.join("ds_a1_affordance_multiplicity.rs"),
     );
     composition_copy(
+        Path::new("src/ds_ac0_selected_affordance_actuation_closure.rs"),
+        &output.join("ds_ac0_selected_affordance_actuation_closure.rs"),
+    );
+    composition_copy(
         Path::new("src/ds1_after_e0_a0_composition_retry.rs"),
         &output.join("ds1_after_e0_a0_composition_retry.rs"),
     );
@@ -91,6 +95,10 @@ fn main() {
     composition_copy(
         Path::new("src/ds_ir0_dependency_invalidation_reopening.rs"),
         &output.join("ds_ir0_dependency_invalidation_reopening.rs"),
+    );
+    composition_copy(
+        Path::new("src/ds3_event_boundary.rs"),
+        &output.join("ds3_event_boundary.rs"),
     );
     fs::copy(
         "src/bin/ds_a0_anonymous_boundary_action_formation.rs",
@@ -415,6 +423,30 @@ fn main() {
         (
             "DS2_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/ds2_cumulative_causal_direction_definitive_protocol.md",
+        ),
+        (
+            "DS3_CUM_MECHANISM_SHA256",
+            "src/ds3_event_boundary.rs",
+        ),
+        (
+            "DS3_CUM_A1_SHA256",
+            "src/ds_a1_affordance_multiplicity.rs",
+        ),
+        (
+            "DS3_CUM_AC0_SHA256",
+            "src/ds_ac0_selected_affordance_actuation_closure.rs",
+        ),
+        (
+            "DS3_CUM_IR0_SHA256",
+            "src/ds_ir0_dependency_invalidation_reopening.rs",
+        ),
+        (
+            "DS3_CUM_PROTOCOL_SHA256",
+            "experiments/ds3_cumulative_event_boundary_protocol.md",
+        ),
+        (
+            "DS3_CUM_EXPECTATION_SHA256",
+            "experiments/ds3_cumulative_event_boundary_expectation_freeze.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
