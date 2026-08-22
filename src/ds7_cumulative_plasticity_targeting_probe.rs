@@ -304,12 +304,11 @@ impl PlasticityPath {
         if !self.has_positive_value() {
             return true;
         }
-        if self
-            .values
-            .get(&representation)
-            .is_some_and(|record| record.score() >= VALUE_THRESHOLD)
-        {
-            return true;
+        if let Some(record) = self.values.get_mut(&representation) {
+            record.life.reused();
+            if record.score() >= VALUE_THRESHOLD {
+                return true;
+            }
         }
         self.exploration_clock += 1;
         if self.exploration_clock.is_multiple_of(EXPLORATION_PERIOD) {

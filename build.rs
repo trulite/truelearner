@@ -109,6 +109,10 @@ fn main() {
         &output.join("ds6_cumulative_lifetime_frozen.rs"),
     );
     composition_copy(
+        Path::new("src/ds7_cumulative_plasticity_targeting_probe.rs"),
+        &output.join("ds7_cumulative_plasticity_targeting_probe_frozen.rs"),
+    );
+    composition_copy(
         Path::new("src/ds3_cumulative_event_boundary_port.rs"),
         &output.join("ds3_cumulative_event_boundary_port.rs"),
     );
@@ -580,6 +584,18 @@ fn main() {
         (
             "DS7_PROTOCOL_SHA256",
             "experiments/ds7_cumulative_plasticity_allocation_probe_protocol.md",
+        ),
+        (
+            "DS7_MICRO_PROBE_RESULT_SHA256",
+            "results/ds7_cumulative_plasticity_allocation_probe.md",
+        ),
+        (
+            "DS7_MICRO_PROBE_AUDIT_SHA256",
+            "experiments/ds7_cumulative_plasticity_allocation_probe_result_audit.md",
+        ),
+        (
+            "DS7_MICRO_PROTOCOL_SHA256",
+            "experiments/ds7_cumulative_plasticity_allocation_micro_protocol.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
