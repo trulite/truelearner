@@ -539,7 +539,10 @@ pub fn render_micro(report: &MicroReport) -> String {
             cell.passed
         ));
     }
-    text.push_str(&format!("\nDuplicate exact: `{}`.\n", report.duplicate_exact));
+    text.push_str(&format!(
+        "\nDuplicate exact: `{}`.\n",
+        report.duplicate_exact
+    ));
     text
 }
 
