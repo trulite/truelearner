@@ -76,6 +76,10 @@ fn main() {
         Path::new("src/ds_d3_anonymous_consequence_contrast.rs"),
         &output.join("ds_d3_anonymous_consequence_contrast.rs"),
     );
+    composition_copy(
+        Path::new("src/ds1_after_d3_cumulative_composition_retry.rs"),
+        &output.join("ds1_after_d3_cumulative_composition_retry.rs"),
+    );
     fs::copy(
         "src/bin/ds_a0_anonymous_boundary_action_formation.rs",
         bin_output.join("ds_a0_anonymous_boundary_action_formation.rs"),
@@ -208,6 +212,18 @@ fn main() {
             "experiments/ds_d3_development_readiness_handoff.md",
         ),
         ("DS1_D3_E0_SHA256", "src/ds_e0_anonymous_event_formation.rs"),
+        (
+            "DS1_DEFINITIVE_PARENT_SHA256",
+            "src/ds1_after_d3_cumulative_composition_retry.rs",
+        ),
+        (
+            "DS1_DEFINITIVE_PARENT_HANDOFF_SHA256",
+            "experiments/ds1_after_d3_cumulative_composition_handoff.md",
+        ),
+        (
+            "DS1_DEFINITIVE_PROTOCOL_SHA256",
+            "experiments/ds1_boundary_role_cumulative_definitive_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
