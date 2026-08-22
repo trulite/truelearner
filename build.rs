@@ -104,6 +104,14 @@ fn main() {
         Path::new("src/ds3_cumulative_event_boundary_port.rs"),
         &output.join("ds3_cumulative_event_boundary_port.rs"),
     );
+    composition_copy(
+        Path::new("src/ds3_cumulative_event_boundary_port.rs"),
+        &output.join("ds4_m3_cumulative_event_boundary_port.rs"),
+    );
+    composition_copy(
+        Path::new("src/request_roles.rs"),
+        &output.join("ds4_request_roles.rs"),
+    );
     fs::copy(
         "src/bin/ds_a0_anonymous_boundary_action_formation.rs",
         bin_output.join("ds_a0_anonymous_boundary_action_formation.rs"),
@@ -457,6 +465,33 @@ fn main() {
         (
             "DS3_DEFINITIVE_PROTOCOL_SHA256",
             "experiments/ds3_cumulative_event_boundary_definitive_protocol.md",
+        ),
+        (
+            "DS4_M3_PORT_SHA256",
+            "src/ds3_cumulative_event_boundary_port.rs",
+        ),
+        (
+            "DS4_M3_DEFINITIVE_SHA256",
+            "src/ds3_cumulative_event_boundary_definitive.rs",
+        ),
+        (
+            "DS4_M3_RESULT_CSV_SHA256",
+            "results/ds3_cumulative_event_boundary_definitive.csv",
+        ),
+        (
+            "DS4_M3_RESULT_MD_SHA256",
+            "results/ds3_cumulative_event_boundary_definitive.md",
+        ),
+        ("DS4_P4_SHA256", "src/request_roles.rs"),
+        ("DS4_P4_RESULT_CSV_SHA256", "results/p4_request_roles.csv"),
+        ("DS4_P4_RESULT_MD_SHA256", "results/p4_request_roles.md"),
+        (
+            "DS4_TARGET_FREEZE_SHA256",
+            "experiments/ds4_ds8_target_freeze.md",
+        ),
+        (
+            "DS4_PROTOCOL_SHA256",
+            "experiments/ds4_cumulative_request_start_protocol.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
