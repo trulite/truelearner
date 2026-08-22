@@ -1,0 +1,17 @@
+index,seed,competence_episode,learned_event_activity,selections,recurrences,consequences,updates,credit_observations,held_out_correct,held_out_total,explicit,quiescent,positions,physical_work,controls_passed,p0_source_authority,p1_arrival_event_paths,p2_recurrence_consequence,p3_single_anonymous_role,p4_held_out_transfer,p5_nonplastic_lifecycle,p6_controls,p7_duplicate_exact,first_collapse,passed
+0,700123457,19,166,83,70,6,3,6,64,64,64,64,6,73289,12,true,true,true,true,true,true,true,true,NONE,true
+1,710123457,17,162,81,70,6,3,6,64,64,64,64,6,71523,12,true,true,true,true,true,true,true,true,NONE,true
+2,720123457,31,190,95,70,6,3,6,64,64,64,64,6,83885,12,true,true,true,true,true,true,true,true,NONE,true
+3,730123457,27,182,91,70,6,3,6,64,64,64,64,6,80353,12,true,true,true,true,true,true,true,true,NONE,true
+4,740123457,33,194,97,70,6,3,6,64,64,64,64,6,85651,12,true,true,true,true,true,true,true,true,NONE,true
+5,750123457,15,158,79,70,6,3,6,64,64,64,64,6,69757,12,true,true,true,true,true,true,true,true,NONE,true
+6,760123457,17,162,81,70,6,3,6,64,64,64,64,6,71523,12,true,true,true,true,true,true,true,true,NONE,true
+7,770123457,41,210,105,70,6,3,6,64,64,64,64,6,92715,12,true,true,true,true,true,true,true,true,NONE,true
+8,780123457,29,186,93,70,6,3,6,64,64,64,64,6,82119,12,true,true,true,true,true,true,true,true,NONE,true
+9,790123457,29,186,93,70,6,3,6,64,64,64,64,6,82119,12,true,true,true,true,true,true,true,true,NONE,true
+10,800123457,17,162,81,70,6,3,6,64,64,64,64,6,71523,12,true,true,true,true,true,true,true,true,NONE,true
+11,810123457,17,162,81,70,6,3,6,64,64,64,64,6,71523,12,true,true,true,true,true,true,true,true,NONE,true
+12,820123457,23,174,87,70,6,3,6,64,64,64,64,6,76821,12,true,true,true,true,true,true,true,true,NONE,true
+13,830123457,23,174,87,70,6,3,6,64,64,64,64,6,76821,12,true,true,true,true,true,true,true,true,NONE,true
+14,840123457,25,178,89,70,6,3,6,64,64,64,64,6,78587,12,true,true,true,true,true,true,true,true,NONE,true
+15,850123457,17,162,81,70,6,3,6,64,64,64,64,6,71523,12,true,true,true,true,true,true,true,true,NONE,true
