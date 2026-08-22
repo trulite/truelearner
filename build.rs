@@ -153,6 +153,10 @@ fn main() {
         Path::new("src/post_m7_ds5_closure_emission.rs"),
         &output.join("post_m7_ds5_closure_emission_frozen.rs"),
     );
+    composition_copy(
+        Path::new("src/ssa1_learned_variation_control.rs"),
+        &output.join("ssa1_learned_variation_control_frozen.rs"),
+    );
     fs::copy(
         "src/post_m7_ds5_closure_emission.rs",
         output.join("post_m7_ds5_closure_emission.rs"),

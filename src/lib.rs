@@ -38,6 +38,7 @@ pub mod research_runtime;
 pub mod role_discovery;
 pub mod scaling;
 pub mod search_value;
+pub mod ssa1_c1_adaptation_under_experience;
 pub mod ssa1_learned_variation_control;
 pub mod stability;
 pub mod tracking;
