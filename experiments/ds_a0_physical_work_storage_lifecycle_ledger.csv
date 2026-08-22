@@ -1,0 +1,8 @@
+mode,seed,acquisition,evaluation,templates,preformation_event_roots,primary_routes,primary_installed_cells,primary_installed_arrows,handles,physical_paths,arrow_path_steps,distinct_effect_pairs,raw_observations,coactivity_paths,support_updates,template_comparisons,all_arm_cells_installed,all_arm_arrows_installed,arrow_traversals,spike_propagations,state_mutations,bridge_copies,generation_validations,cleanup_items,maintenance,carrying,persistent_bytes,temporary_peak_bytes,total_work
+MICRO,100,16,8,2,0,16,48,32,16,16,32,8,3100,204,80,333,318,212,64,96,96,34,288,22,0,0,14,665,4847
+GATE,100,32,16,2,0,32,96,64,32,32,64,16,6140,404,160,669,630,420,128,192,192,66,576,22,0,0,14,665,9599
+GATE,101,32,16,2,0,32,96,64,32,32,64,16,6140,404,160,669,630,420,128,192,192,66,576,22,0,0,14,665,9599
+GATE,102,32,16,2,0,32,96,64,32,32,64,16,6140,404,160,669,630,420,128,192,192,66,576,22,0,0,14,665,9599
+GATE,103,32,16,2,0,32,96,64,32,32,64,16,6140,404,160,669,630,420,128,192,192,66,576,22,0,0,14,665,9599
+GATE,104,32,16,2,0,32,96,64,32,32,64,16,6140,404,160,669,630,420,128,192,192,66,576,22,0,0,14,665,9599
+GATE_TOTAL,100-104,160,80,10,0,160,480,320,160,160,320,80,30700,2020,800,3345,3150,2100,640,960,960,330,2880,110,0,0,70,,47995
