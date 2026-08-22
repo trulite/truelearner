@@ -1140,4 +1140,18 @@ mod tests {
         assert!(report.controls.iter().all(|control| control.passed));
         assert!(!report.claim_eligible && !report.ds5_eligible);
     }
+
+    #[test]
+    fn gate_reaches_development_readiness_without_authority() {
+        let report = run_development(HarnessMode::Gate);
+        assert!(report.development_ready, "{report:#?}");
+        assert_eq!(report.ready_learners, 6);
+        assert_eq!(report.held_out_correct, 192);
+        assert_eq!(report.explicit, 192);
+        assert_eq!(report.quiescent, 192);
+        assert_eq!(report.positions, 6);
+        assert!(report.controls.iter().all(|control| control.passed));
+        assert!(report.duplicate_exact);
+        assert!(!report.claim_eligible && report.m6_authoritative && !report.m7_exists);
+    }
 }
