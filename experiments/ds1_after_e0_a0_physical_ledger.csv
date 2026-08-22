@@ -1,0 +1,8 @@
+mode,seed,e0_primary_work,a0_ordinary_arm_work,a0_permuted_control_work,composition_work_total,e0_persistent_bytes,a0_persistent_bytes_per_arm,ds1_persistent_bytes,primary_persistent_bytes,temporary_peak_bytes,e0_formations,e0_serializations,a0_templates,a0_roots,a0_route_cells,a0_route_arrows,handles,prechoice_effects_per_arm,selected_executions,consequence_visibility_events,ds1_updates,maintenance,carrying
+MICRO,100,68600,87,87,68774,130,7,0,137,336,4,1,1,1,3,2,1,1,0,0,0,0,0
+GATE,100,123512,87,87,123686,130,7,0,137,336,4,1,1,1,3,2,1,1,0,0,0,0,0
+GATE,101,123512,87,87,123686,130,7,0,137,336,4,1,1,1,3,2,1,1,0,0,0,0,0
+GATE,102,123512,87,87,123686,130,7,0,137,336,4,1,1,1,3,2,1,1,0,0,0,0,0
+GATE,103,123512,87,87,123686,130,7,0,137,336,4,1,1,1,3,2,1,1,0,0,0,0,0
+GATE,104,123512,87,87,123686,130,7,0,137,336,4,1,1,1,3,2,1,1,0,0,0,0,0
+GATE_TOTAL,100..104,617560,435,435,618430,650,35,0,685,336,20,5,5,5,15,10,5,5,0,0,0,0,0
