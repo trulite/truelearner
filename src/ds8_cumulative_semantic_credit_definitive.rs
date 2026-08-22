@@ -28,14 +28,10 @@ pub const CELL_NAMESPACE: u64 = 3_100_000;
 
 const M5_ALLOCATOR_SHA256: &str =
     "e755a70deada891e5c4db3b55809ca84ea8ad31a8bd3affe564bf08a95f8dff7";
-const M5_CSV_SHA256: &str =
-    "86d9f6e3a8ab4ad5c242e0d7c619d8eda99e0da47faff623f26c8c6835b9a99a";
-const M5_MD_SHA256: &str =
-    "a336633c73565261d357a67ca02df3047ffcaf88488153bb2f43b621818ba5f0";
-const ACTIVATION_SHA256: &str =
-    "6e3064a1609390933cda4afdc374579cd23316bb24b833c2024ac14d7138e458";
-const DEPENDENCY_SHA256: &str =
-    "33b963dd50b711f49bc0e90d33adb0d9d80020e5c33ba024d3e861da56d9a326";
+const M5_CSV_SHA256: &str = "86d9f6e3a8ab4ad5c242e0d7c619d8eda99e0da47faff623f26c8c6835b9a99a";
+const M5_MD_SHA256: &str = "a336633c73565261d357a67ca02df3047ffcaf88488153bb2f43b621818ba5f0";
+const ACTIVATION_SHA256: &str = "6e3064a1609390933cda4afdc374579cd23316bb24b833c2024ac14d7138e458";
+const DEPENDENCY_SHA256: &str = "33b963dd50b711f49bc0e90d33adb0d9d80020e5c33ba024d3e861da56d9a326";
 const PROBE_PROTOCOL_SHA256: &str =
     "a9a944d3ffab8fe53f303db773846c8f53f7dbb05c8558958567814e0b37f953";
 const PROBE_PROTOCOL_V2_SHA256: &str =
@@ -46,8 +42,7 @@ const PROBE_RUNNER_SHA256: &str =
     "421332e41ad42388187fcadf67e3685605e4a7f5c58c1e2528d08b5059dfc2ce";
 const PROBE_RESULT_SHA256: &str =
     "a1acd9c35cb5da4ab1c9aa341926dae6d8d8cb5e10e216be2089879328d8404d";
-const PROBE_AUDIT_SHA256: &str =
-    "00f788e2b3a6930fed7ec69626062f5d6631167002a179cc96e7499d5280502a";
+const PROBE_AUDIT_SHA256: &str = "00f788e2b3a6930fed7ec69626062f5d6631167002a179cc96e7499d5280502a";
 const PROBE_HANDOFF_SHA256: &str =
     "2653b6db073e3241a4d98e223cbc545826b57ecf272f2bc073f58dac98060087";
 const PROBE_V1_RESULT_SHA256: &str =
@@ -64,8 +59,7 @@ const MICRO_RUNNER_SHA256: &str =
     "a94817865d1a1172e436fe615b496caeabdeb6a7a9a1dd895eeb41dcc256ad46";
 const MICRO_RESULT_SHA256: &str =
     "d225ea316bd492df5025088615b8650c7cb5476b9b90cbe5b3e826b22129a894";
-const MICRO_AUDIT_SHA256: &str =
-    "a316da1a1d327ed417e5b07ee3c0099dcc00d72af00fb65479e0e4d52e3b064b";
+const MICRO_AUDIT_SHA256: &str = "a316da1a1d327ed417e5b07ee3c0099dcc00d72af00fb65479e0e4d52e3b064b";
 const DEVELOPMENT_HANDOFF_SHA256: &str =
     "91feb6e878fae6f8155dd3f9ea5107ec5e8d1fceab6cea460b23808d537e29da";
 const MICRO_V1_RESULT_SHA256: &str =
@@ -78,14 +72,10 @@ const GATE_PROTOCOL_V2_SHA256: &str =
     "93aacb0835588d5be343a60d30178a6d594984fce0e21f7af6c702d66825f80a";
 const GATE_PROTOCOL_V3_SHA256: &str =
     "3d18d948879cb192159e4a894985f546eb3f0e98f217c893c3e2cf3094f828fc";
-const GATE_SOURCE_SHA256: &str =
-    "19c9051d15023c5b88559cba4ee3b3eb55686d1a68e083ca260a4a65629e8f30";
-const GATE_RUNNER_SHA256: &str =
-    "7e31925ce8122ea35f0c86243b4998fbe19a1319724e70c8c7293b7dad11ef6a";
-const GATE_RESULT_SHA256: &str =
-    "3505fdd3627085ea92fc512abd2726124a167ae041f3af3d9081a18fe042c996";
-const GATE_AUDIT_SHA256: &str =
-    "ebbbe3655ea14c3a7985cdbbffa48b844d3eb9e9a7adbd963a584e2f0f743d16";
+const GATE_SOURCE_SHA256: &str = "19c9051d15023c5b88559cba4ee3b3eb55686d1a68e083ca260a4a65629e8f30";
+const GATE_RUNNER_SHA256: &str = "7e31925ce8122ea35f0c86243b4998fbe19a1319724e70c8c7293b7dad11ef6a";
+const GATE_RESULT_SHA256: &str = "3505fdd3627085ea92fc512abd2726124a167ae041f3af3d9081a18fe042c996";
+const GATE_AUDIT_SHA256: &str = "ebbbe3655ea14c3a7985cdbbffa48b844d3eb9e9a7adbd963a584e2f0f743d16";
 const GATE_V1_RESULT_SHA256: &str =
     "399b725cd823d6e086f8e7cbfa098c57c73e2296798afef503fd75eabf132343";
 const GATE_V1_AUDIT_SHA256: &str =
@@ -94,12 +84,9 @@ const GATE_V2_RESULT_SHA256: &str =
     "8bdedbad412376188c20ebbc887404c9f67e04ce5184162ec4a6a1576e61df9e";
 const GATE_V2_AUDIT_SHA256: &str =
     "7aedfb788d1e5ed502560dbafb95051c20fe67db6a5111fab96142097fe70f9d";
-const READINESS_SHA256: &str =
-    "c1e122159dab69478a396eba3da9607cb349cd8e54c1c8260e6f091458489c6d";
-const PROTOCOL_SHA256: &str =
-    "fc22fd12c737f61de877fe6fa3f092bee7364cb11c70b6554e485301aedfef07";
-const LINKER_SHA256: &str =
-    "1f68f7e943f37c42d29f16fe26f0d851a59361ed4c1f4273a82d0537f935d343";
+const READINESS_SHA256: &str = "c1e122159dab69478a396eba3da9607cb349cd8e54c1c8260e6f091458489c6d";
+const PROTOCOL_SHA256: &str = "fc22fd12c737f61de877fe6fa3f092bee7364cb11c70b6554e485301aedfef07";
+const LINKER_SHA256: &str = "1f68f7e943f37c42d29f16fe26f0d851a59361ed4c1f4273a82d0537f935d343";
 
 #[allow(dead_code)]
 mod frozen_gate {
@@ -337,8 +324,7 @@ fn source_audit() -> SourceAudit {
             && env!("DS8_DEFINITIVE_MICRO_RUNNER_SHA256") == MICRO_RUNNER_SHA256
             && env!("DS8_DEFINITIVE_MICRO_RESULT_SHA256") == MICRO_RESULT_SHA256
             && env!("DS8_DEFINITIVE_MICRO_AUDIT_SHA256") == MICRO_AUDIT_SHA256
-            && env!("DS8_DEFINITIVE_DEVELOPMENT_HANDOFF_SHA256")
-                == DEVELOPMENT_HANDOFF_SHA256,
+            && env!("DS8_DEFINITIVE_DEVELOPMENT_HANDOFF_SHA256") == DEVELOPMENT_HANDOFF_SHA256,
         gate_lineage: env!("DS8_DEFINITIVE_GATE_PROTOCOL_SHA256") == GATE_PROTOCOL_SHA256
             && env!("DS8_DEFINITIVE_GATE_PROTOCOL_V2_SHA256") == GATE_PROTOCOL_V2_SHA256
             && env!("DS8_DEFINITIVE_GATE_PROTOCOL_V3_SHA256") == GATE_PROTOCOL_V3_SHA256
@@ -494,7 +480,11 @@ fn run_cell(index: usize, seed: u64, load: usize, controls: bool) -> DefinitiveC
     }
 }
 
-fn summarize_claims(preflight: &Preflight, controls: bool, cells: &[DefinitiveCell]) -> ClaimSummary {
+fn summarize_claims(
+    preflight: &Preflight,
+    controls: bool,
+    cells: &[DefinitiveCell],
+) -> ClaimSummary {
     ClaimSummary {
         blank_acquisition: cells.iter().all(|cell| cell.blank_acquisition),
         physical_accounting: cells.iter().all(|cell| cell.physical_exact),
@@ -531,9 +521,7 @@ fn summarize_claims(preflight: &Preflight, controls: bool, cells: &[DefinitiveCe
             && preflight.layout_balanced
             && cells.iter().all(|cell| cell.topology_identity_layout),
         positive_controls_and_m5: controls
-            && cells
-                .iter()
-                .all(|cell| cell.controls && cell.cumulative_m5),
+            && cells.iter().all(|cell| cell.controls && cell.cumulative_m5),
         zero_semantic_or_covert_credit: preflight.source.linker_exact
             && preflight.source.information_boundary
             && cells.iter().all(|cell| cell.source_audit),
@@ -557,10 +545,8 @@ pub fn run_definitive(outputs_absent: bool, staging_absent: bool) -> DefinitiveR
         }
     }
     let claims = summarize_claims(&preflight, controls, &cells);
-    let passed = controls
-        && cells.len() == 48
-        && cells.iter().all(|cell| cell.passed)
-        && claims.passed();
+    let passed =
+        controls && cells.len() == 48 && cells.iter().all(|cell| cell.passed) && claims.passed();
     DefinitiveReport {
         protocol: PROTOCOL,
         preflight,

@@ -77,9 +77,7 @@ fn main() {
             }
         }
         _ => {
-            eprintln!(
-                "usage: ds8_cumulative_semantic_credit_definitive [--audit|--definitive]"
-            );
+            eprintln!("usage: ds8_cumulative_semantic_credit_definitive [--audit|--definitive]");
             std::process::exit(2);
         }
     }
