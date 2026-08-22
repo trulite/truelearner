@@ -55,9 +55,7 @@ pub fn run_probe_v1() -> ProbeV1Report {
     let semantic_feedback_calls = linker
         .matches("learner.feedback(choice.pattern_cell, functional)")
         .count();
-    let m6_differential_links = linker
-        .matches("delayed_experience(differential)")
-        .count();
+    let m6_differential_links = linker.matches("delayed_experience(differential)").count();
     let exact_m6 = AUTHORITATIVE_M6 == "aa4e22efd8a65b7694956a53cfaa970582695215"
         && env!("POST_M6_DS4_M6_CSV_SHA256") == FROZEN_M6_CSV_SHA256
         && env!("POST_M6_DS4_M6_MD_SHA256") == FROZEN_M6_MD_SHA256
@@ -65,8 +63,7 @@ pub fn run_probe_v1() -> ProbeV1Report {
     let immutable_old_negative = env!("POST_M6_DS4_OLD_NEGATIVE_CSV_SHA256")
         == FROZEN_OLD_NEGATIVE_CSV_SHA256
         && env!("POST_M6_DS4_OLD_NEGATIVE_MD_SHA256") == FROZEN_OLD_NEGATIVE_MD_SHA256;
-    let protocol_frozen =
-        env!("POST_M6_DS4_PROTOCOL_SHA256") == FROZEN_PROTOCOL_SHA256;
+    let protocol_frozen = env!("POST_M6_DS4_PROTOCOL_SHA256") == FROZEN_PROTOCOL_SHA256;
     let physical_arrival_path = old.path_exists
         && old.learned_m3_uses > 0
         && old.completion_activity > 0
