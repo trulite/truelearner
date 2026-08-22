@@ -1,7 +1,7 @@
 //! Write-once definitive authority over the byte-frozen post-M6 DS4 mechanism.
 
-pub const PROTOCOL: &str = "post-m6-ds4-arrival-initiation-definitive-v1";
-pub const PROTOCOL_COMMIT: &str = "6ba5deee16c37362f99833d1c5afb53b4dee2a2f";
+pub const PROTOCOL: &str = "post-m6-ds4-arrival-initiation-definitive-v2";
+pub const PROTOCOL_COMMIT: &str = "5fb002397b5f80ba1b6fa586b432861f37893d21";
 pub const READINESS_COMMIT: &str = "7c39cb4306c61b8e67119c91c3f9e3802dab9a39";
 pub const MECHANISM_COMMIT: &str = "e11a6a7927d86bbe0fff5f55942a8b418de39de1";
 pub const AUTHORITATIVE_M6: &str = "aa4e22efd8a65b7694956a53cfaa970582695215";
@@ -27,7 +27,7 @@ pub const SEEDS: [u64; 16] = [
 pub const HELD_OUT_PER_CELL: usize = 64;
 pub const CELL_NAMESPACE: u64 = 6_300_000;
 
-const PROTOCOL_SHA256: &str = "d454a9521fc05416f62155830914fa29de8e1358fb5fe70ce0bca0a0a613412e";
+const PROTOCOL_SHA256: &str = "ac8e32b23cf55bd84f6b7d050d3694b348540dc8f75993a33834f3e9062f6b72";
 const MECHANISM_SHA256: &str = "67e170f12d7b7649a0a291ddfc16cd80e4b5c15564b65cd09c884f3e52b9ac5b";
 const DEVELOPMENT_RUNNER_SHA256: &str =
     "0a7bc106fe5135c04c4e62aed8de77d50ba7b0756ea51548d391ce33c00796e2";
@@ -437,7 +437,7 @@ fn source_audit() -> SourceAudit {
         source_order_and_information_flow: source_order_and_information_flow() && frozen.1,
         lane_b_isolated: frozen.2,
         protocol_and_commits: env!("POST_M6_DS4_DEFINITIVE_PROTOCOL_SHA256") == PROTOCOL_SHA256
-            && PROTOCOL_COMMIT == "6ba5deee16c37362f99833d1c5afb53b4dee2a2f"
+            && PROTOCOL_COMMIT == "5fb002397b5f80ba1b6fa586b432861f37893d21"
             && READINESS_COMMIT == "7c39cb4306c61b8e67119c91c3f9e3802dab9a39"
             && MECHANISM_COMMIT == "e11a6a7927d86bbe0fff5f55942a8b418de39de1"
             && AUTHORITATIVE_M6 == "aa4e22efd8a65b7694956a53cfaa970582695215",
