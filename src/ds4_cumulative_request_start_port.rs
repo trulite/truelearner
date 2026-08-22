@@ -710,6 +710,8 @@ fn development_snapshot(
     }
 
     let seed_disjoint = acquisition_seeds.is_disjoint(&held_out_seeds);
+    let acquisition_seed_count = acquisition_seeds.len();
+    let held_out_seed_count = held_out_seeds.len();
     let controls = vec![
         control(
             1,
@@ -808,8 +810,7 @@ fn development_snapshot(
                 seed_disjoint && all_gates_available,
                 format!(
                     "acquisition={} held_out={} gates={all_gates_available}",
-                    acquisition_seeds.len(),
-                    held_out_seeds.len()
+                    acquisition_seed_count, held_out_seed_count
                 ),
             )))
             .collect(),
