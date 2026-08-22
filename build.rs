@@ -56,6 +56,14 @@ fn main() {
         Path::new("src/ds_a0_anonymous_boundary_action_formation.rs"),
         &output.join("ds_a0_anonymous_boundary_action_formation.rs"),
     );
+    composition_copy(
+        Path::new("src/ds_a1_affordance_multiplicity.rs"),
+        &output.join("ds_a1_affordance_multiplicity.rs"),
+    );
+    composition_copy(
+        Path::new("src/ds1_after_e0_a0_composition_retry.rs"),
+        &output.join("ds1_after_e0_a0_composition_retry.rs"),
+    );
     fs::copy(
         "src/bin/ds_a0_anonymous_boundary_action_formation.rs",
         bin_output.join("ds_a0_anonymous_boundary_action_formation.rs"),
@@ -71,6 +79,18 @@ fn main() {
         (
             "DS_A1_PRIOR_SHA256",
             "src/ds1_after_e0_a0_composition_retry.rs",
+        ),
+        ("DS1_A1_E0_SHA256", "src/ds_e0_anonymous_event_formation.rs"),
+        (
+            "DS1_A1_A0_SHA256",
+            "src/ds_a0_anonymous_boundary_action_formation.rs",
+        ),
+        ("DS1_A1_A1_SHA256", "src/ds_a1_affordance_multiplicity.rs"),
+        ("DS1_A1_M0_SHA256", "src/ffs_same0.rs"),
+        ("DS1_A1_COMPILED_M0_SHA256", "src/ffs_same0/cs0a.rs"),
+        (
+            "DS1_A1_READINESS_SHA256",
+            "experiments/ds_a1_development_readiness_handoff.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
