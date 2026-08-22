@@ -55,11 +55,7 @@ mod frozen_probe {
             .map_or(0, |record| record.score())
     }
 
-    fn present(
-        path: &mut PlasticityPath,
-        encounter: PhysicalEncounter,
-        supported: bool,
-    ) -> bool {
+    fn present(path: &mut PlasticityPath, encounter: PhysicalEncounter, supported: bool) -> bool {
         let Some(edge) = path.encounter(encounter) else {
             return false;
         };
@@ -152,18 +148,13 @@ mod frozen_probe {
         let always_open_admissions = 64;
         let learned_admissions = productive_admissions + unproductive_admissions;
         let reduction = 1.0 - learned_admissions as f64 / always_open_admissions as f64;
-        let economy_pass = productive_admissions == 32
-            && unproductive_admissions <= 4
-            && reduction >= 0.40;
+        let economy_pass =
+            productive_admissions == 32 && unproductive_admissions <= 4 && reduction >= 0.40;
 
         let mut shuffled = path.clone();
         let swap = shuffled.swap_values(p_snapshot, n_snapshot);
-        let shuffled_p = shuffled
-            .encounter(seeded_p(seed, 1_000, true))
-            .is_some();
-        let shuffled_n = shuffled
-            .encounter(seeded_n(seed, 1_000, true))
-            .is_some();
+        let shuffled_p = shuffled.encounter(seeded_p(seed, 1_000, true)).is_some();
+        let shuffled_n = shuffled.encounter(seeded_n(seed, 1_000, true)).is_some();
         let shuffled_reversal = swap && !shuffled_p && shuffled_n;
 
         let p_before = path.prototype_resistance(p_snapshot);
@@ -177,24 +168,18 @@ mod frozen_probe {
                 let _ = path.execute_and_observe(edge, true);
             }
             if reversal_opportunities % 4 == 0 {
-                if let Some(edge) = path.encounter(seeded_p(
-                    seed,
-                    3_000 + reversal_opportunities as u64,
-                    true,
-                )) {
+                if let Some(edge) =
+                    path.encounter(seeded_p(seed, 3_000 + reversal_opportunities as u64, true))
+                {
                     let _ = path.execute_and_observe(edge, true);
                 }
             }
         }
         let reversal_explorations = path.exploration_admissions - exploration_before;
         let exploration_clock_before = path.exploration_clock;
-        let direct_n = path
-            .encounter(seeded_n(seed, 4_000, true))
-            .is_some();
+        let direct_n = path.encounter(seeded_n(seed, 4_000, true)).is_some();
         let direct_without_exploration = path.exploration_clock == exploration_clock_before;
-        let direct_p = path
-            .encounter(seeded_p(seed, 4_001, true))
-            .is_some();
+        let direct_p = path.encounter(seeded_p(seed, 4_001, true)).is_some();
         let retargeted = reversal_opportunities <= 96
             && reversal_explorations > 0
             && score(&path, n_snapshot) >= VALUE_THRESHOLD
@@ -238,7 +223,11 @@ mod frozen_probe {
             && cumulative_m4;
         super::MicroCell {
             seed,
-            history: if interleaved { "interleaved" } else { "blocked" },
+            history: if interleaved {
+                "interleaved"
+            } else {
+                "blocked"
+            },
             acquisition,
             productive_admissions,
             unproductive_admissions,
