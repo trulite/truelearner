@@ -1,8 +1,20 @@
 # Post-M6 DS4 arrival-initiation definitive protocol
 
-Protocol identifier: `post-m6-ds4-arrival-initiation-definitive-v1`.
+Protocol identifier: `post-m6-ds4-arrival-initiation-definitive-v2`.
 
-Status: **PREREGISTERED BEFORE AUTHORITY IMPLEMENTATION OR EVIDENCE**.
+Status: **PRE-EVIDENCE CLIPPY-ALLOWANCE CORRECTION; NO DEFINITIVE EVIDENCE SPENT**.
+
+Version 1 was frozen at commit
+`6ba5deee16c37362f99833d1c5afb53b4dee2a2f` before authority implementation.
+Its first no-cell validation compiled successfully and then stopped at strict
+Clippy because the command named `manual_range_contains` instead of the
+documented byte-frozen M5/M6 `derivable_impls` Rust 1.97 style allowance. No
+test, audit mode, learner, positive control, definitive seed/cell, evidence
+marker, or artifact executed. Version 2 corrects only that lint allowance
+name. The scientific question, matrix, order, seeds, derived namespaces,
+controls, thresholds, conjunction, commands other than this lint name,
+evidence boundary, failure semantics, sandbox/state, and atomic paths are
+unchanged.
 
 This protocol authorizes exactly one future definitive authority matrix and no
 other claim-eligible execution. The authority implementation must first be
@@ -288,7 +300,7 @@ The exact remote no-cell validation sequence is:
 ```text
 cargo fmt --all -- --check
 cargo check --bin post_m6_ds4_arrival_initiation_definitive
-cargo clippy --release --bin post_m6_ds4_arrival_initiation_definitive -- -D warnings -A clippy::manual-is-multiple-of -A clippy::manual-range-contains -A clippy::manual-div-ceil
+cargo clippy --release --bin post_m6_ds4_arrival_initiation_definitive -- -D warnings -A clippy::derivable-impls -A clippy::manual-is-multiple-of -A clippy::manual-div-ceil
 cargo test --release post_m6_ds4_arrival_initiation_definitive::tests:: --lib
 cargo test --release --bin post_m6_ds4_arrival_initiation_definitive
 cargo run --release --bin post_m6_ds4_arrival_initiation_definitive -- --audit
