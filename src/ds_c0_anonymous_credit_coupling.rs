@@ -210,6 +210,18 @@ impl CouplingWork {
             + self.spike_deliveries
             + self.cleanup
     }
+
+    fn absorb(&mut self, other: &Self) {
+        self.pulse_observations += other.pulse_observations;
+        self.propagation_observations += other.propagation_observations;
+        self.temporal_comparisons += other.temporal_comparisons;
+        self.propagation_traversals += other.propagation_traversals;
+        self.cell_creations += other.cell_creations;
+        self.expiry_checks += other.expiry_checks;
+        self.arrow_formations += other.arrow_formations;
+        self.spike_deliveries += other.spike_deliveries;
+        self.cleanup += other.cleanup;
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -571,10 +583,12 @@ pub struct SeedAudit {
     pub coupling_polarity_fields: usize,
     pub evidence_fields: usize,
     pub controls: Controls,
-    pub work: CouplingWork,
+    pub primary_work: CouplingWork,
+    pub total_c0_work: CouplingWork,
     pub e0_work: u64,
     pub a1_work: u64,
-    pub r0_work: u64,
+    pub r0_primary_work: u64,
+    pub r0_parent_audit_work: u64,
     pub c0_persistent_bytes: usize,
     pub temporary_peak_bytes: usize,
     pub stage_ready: [bool; 9],
@@ -782,7 +796,24 @@ fn audit_seed(
         cleanup,
     };
     let stage_eight = stage_seven && source.passed() && controls.passed();
-    let work = workspace.work.clone();
+    let primary_work = workspace.work.clone();
+    let mut total_c0_work = CouplingWork::default();
+    for control_work in [
+        &workspace.work,
+        &relabeled.work,
+        &layout.work,
+        &permuted.work,
+        &interleaved.work,
+        &ambiguous.work,
+        &distractor_workspace.work,
+        &none.work,
+        &no_evidence_workspace.work,
+        &stale_workspace.work,
+        &shuffled_workspace.work,
+        &missing_workspace.work,
+    ] {
+        total_c0_work.absorb(control_work);
+    }
     SeedAudit {
         seed,
         roots: primary.roots,
@@ -795,10 +826,12 @@ fn audit_seed(
         coupling_polarity_fields: 0,
         evidence_fields: 4,
         controls,
-        work,
+        primary_work,
+        total_c0_work,
         e0_work: primary.e0_work,
         a1_work: primary.a1_work,
-        r0_work: primary.r0_work,
+        r0_primary_work: primary.r0_work,
+        r0_parent_audit_work: r0_control.return_work.organism_work(),
         c0_persistent_bytes: 0,
         temporary_peak_bytes: size_of::<EligibilityCell>() + size_of::<CouplingArrow>(),
         stage_ready: [

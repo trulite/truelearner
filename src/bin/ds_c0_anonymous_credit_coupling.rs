@@ -42,7 +42,7 @@ fn main() {
     );
     for seed in &report.seeds {
         println!(
-            "seed={} roots={} handles={} choice={} choose_calls={} DS1_updates={} eligibility={} couplings={} polarity_fields={} evidence_fields={} controls={} C0_work={} E0_work={} A1_work={} R0_work={} persistent_bytes={} temporary_peak={}",
+            "seed={} roots={} handles={} choice={} choose_calls={} DS1_updates={} eligibility={} couplings={} polarity_fields={} evidence_fields={} controls={} C0_primary_work={} C0_total_control_work={} E0_work={} A1_work={} R0_primary_work={} R0_parent_audit_work={} persistent_bytes={} temporary_peak={}",
             seed.seed,
             seed.roots,
             seed.handles,
@@ -54,16 +54,18 @@ fn main() {
             seed.coupling_polarity_fields,
             seed.evidence_fields,
             seed.controls.passed(),
-            seed.work.organism_work(),
+            seed.primary_work.organism_work(),
+            seed.total_c0_work.organism_work(),
             seed.e0_work,
             seed.a1_work,
-            seed.r0_work,
+            seed.r0_primary_work,
+            seed.r0_parent_audit_work,
             seed.c0_persistent_bytes,
             seed.temporary_peak_bytes
         );
         println!(
-            "seed={} controls={:?} work={:?}",
-            seed.seed, seed.controls, seed.work
+            "seed={} controls={:?} primary_work={:?} total_c0_work={:?}",
+            seed.seed, seed.controls, seed.primary_work, seed.total_c0_work
         );
     }
     println!(
