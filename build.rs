@@ -149,6 +149,19 @@ fn main() {
         Path::new("src/post_m6_ds4_arrival_initiation.rs"),
         &output.join("post_m6_ds4_arrival_initiation_frozen.rs"),
     );
+    composition_copy(
+        Path::new("src/post_m7_ds5_closure_emission.rs"),
+        &output.join("post_m7_ds5_closure_emission_frozen.rs"),
+    );
+    fs::copy(
+        "src/post_m7_ds5_closure_emission.rs",
+        output.join("post_m7_ds5_closure_emission.rs"),
+    )
+    .expect("exact post-M7 DS5 source audit copy is writable");
+    println!("cargo:rerun-if-changed=src/post_m7_ds5_closure_emission.rs");
+    fs::copy("src/continuation.rs", output.join("continuation.rs"))
+        .expect("exact continuation source audit copy is writable");
+    println!("cargo:rerun-if-changed=src/continuation.rs");
     fs::copy(
         "src/post_m6_ds4_arrival_initiation.rs",
         output.join("post_m6_ds4_arrival_initiation.rs"),
@@ -1217,6 +1230,165 @@ fn main() {
         (
             "POST_M6_DS4_DEFINITIVE_M5_MD_SHA256",
             "results/ds7_cumulative_plasticity_allocation_definitive.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_PROTOCOL_SHA256",
+            "experiments/post_m7_ds5_closure_emission_definitive_protocol.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_MECHANISM_SHA256",
+            "src/post_m7_ds5_closure_emission.rs",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_DEVELOPMENT_RUNNER_SHA256",
+            "src/bin/post_m7_ds5_closure_emission.rs",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_DEVELOPMENT_PROTOCOL_SHA256",
+            "experiments/post_m7_ds5_closure_emission_protocol.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_PROBE_V1_SHA256",
+            "results/post_m7_ds5_closure_emission_probe_v1_negative.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_PROBE_RETRY_SHA256",
+            "results/post_m7_ds5_closure_emission_probe_retry.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_MICRO_SHA256",
+            "results/post_m7_ds5_closure_emission_micro.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_GATE_V1_SHA256",
+            "results/post_m7_ds5_closure_emission_gate.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_GATE_V2_SHA256",
+            "results/post_m7_ds5_closure_emission_gate_v2.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_READINESS_SHA256",
+            "experiments/post_m7_ds5_closure_emission_development_readiness.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M7_SOURCE_SHA256",
+            "src/post_m6_ds4_arrival_initiation.rs",
+        ),
+        ("POST_M7_DS5_DEFINITIVE_V20_SHA256", "src/iteration.rs"),
+        ("POST_M7_DS5_DEFINITIVE_V21_SHA256", "src/continuation.rs"),
+        (
+            "POST_M7_DS5_DEFINITIVE_M3_PORT_SHA256",
+            "src/ds3_cumulative_event_boundary_port.rs",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M3_FIXTURE_SHA256",
+            "src/ds4_cumulative_request_start_port.rs",
+        ),
+        ("POST_M7_DS5_DEFINITIVE_P4_SHA256", "src/request_roles.rs"),
+        (
+            "POST_M7_DS5_DEFINITIVE_M4_SHA256",
+            "src/ds6_cumulative_lifetime_probe.rs",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M5_SHA256",
+            "src/ds7_cumulative_plasticity_targeting_probe.rs",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M6_SHA256",
+            "src/ds8_cumulative_semantic_credit_probe.rs",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_BOUNDARY_SHA256",
+            "src/ds_a0_anonymous_boundary_action_formation.rs",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_CLOSURE_SHA256",
+            "src/ds_ac0_selected_affordance_actuation_closure.rs",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_RETURN_SHA256",
+            "src/ds_r0_anonymous_post_action_evidence_return.rs",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_V20_RESULT_SHA256",
+            "results/v20_iteration.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_V21A_RESULT_SHA256",
+            "results/v21a_continuation.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_V21B_RESULT_SHA256",
+            "results/v21b_finish.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M0_CSV_SHA256",
+            "results/ffs_same1_compiled_correspondence.csv",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M0_MD_SHA256",
+            "results/ffs_same1_compiled_correspondence.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M1_CSV_SHA256",
+            "results/ds1_boundary_role_cumulative_definitive.csv",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M1_MD_SHA256",
+            "results/ds1_boundary_role_cumulative_definitive.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M2_CSV_SHA256",
+            "results/ds2_cumulative_causal_direction_definitive.csv",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M2_MD_SHA256",
+            "results/ds2_cumulative_causal_direction_definitive.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M3_CSV_SHA256",
+            "results/ds3_cumulative_event_boundary_definitive.csv",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M3_MD_SHA256",
+            "results/ds3_cumulative_event_boundary_definitive.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M4_CSV_SHA256",
+            "results/ds6_cumulative_lifetime_definitive.csv",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M4_MD_SHA256",
+            "results/ds6_cumulative_lifetime_definitive.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M5_CSV_SHA256",
+            "results/ds7_cumulative_plasticity_allocation_definitive.csv",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M5_MD_SHA256",
+            "results/ds7_cumulative_plasticity_allocation_definitive.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M6_CSV_SHA256",
+            "results/ds8_cumulative_semantic_credit_definitive.csv",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M6_MD_SHA256",
+            "results/ds8_cumulative_semantic_credit_definitive.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M7_CSV_SHA256",
+            "results/post_m6_ds4_arrival_initiation_definitive.csv",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M7_MD_SHA256",
+            "results/post_m6_ds4_arrival_initiation_definitive.md",
+        ),
+        (
+            "POST_M7_DS5_DEFINITIVE_M7_HANDOFF_SHA256",
+            "experiments/post_m6_ds4_arrival_initiation_authority_handoff.md",
         ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
