@@ -301,6 +301,19 @@ fn main() {
             "DS2_AP0_RETRY_PROTOCOL_SHA256",
             "experiments/ds2_after_ap0_mechanistic_retry_protocol.md",
         ),
+        (
+            "DS_CP0_D3_SHA256",
+            "src/ds_d3_anonymous_consequence_contrast.rs",
+        ),
+        ("DS_CP0_A1_SHA256", "src/ds_a1_affordance_multiplicity.rs"),
+        (
+            "DS_CP0_PARENT_SHA256",
+            "experiments/ds2_after_ap0_mechanistic_retry_collapse_handoff.md",
+        ),
+        (
+            "DS_CP0_PROTOCOL_SHA256",
+            "experiments/ds_cp0_consequence_probation_coupling_protocol.md",
+        ),
     ] {
         println!("cargo:rustc-env={name}={}", file_sha256(path));
         println!("cargo:rerun-if-changed={path}");
