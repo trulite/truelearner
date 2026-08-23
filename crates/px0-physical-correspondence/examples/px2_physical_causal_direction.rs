@@ -21,8 +21,15 @@ const PROBE_V1_AUDIT_SHA256: &str =
     "45c6f331fe7d29403314495f9db532ef85ec03b4d6f32469d3d8f3d995982cb8";
 const PROBE_V2_PROTOCOL_SHA256: &str =
     "4a8278c6f5cc42f996dfa662176d3c56204b822ae83f8608e84b0186a9ecac0f";
-const RESULT_CSV: &str = "results/px2_physical_causal_direction_trace_sufficiency_probe_v2.csv";
-const RESULT_MD: &str = "results/px2_physical_causal_direction_trace_sufficiency_probe_v2.md";
+const PROBE_V2_SHA256: &str = "50ee980884107a6b84ec6c9724b6eeb14faadbd1bdbb2caad435ea79eda83fcd";
+const PROBE_V2_AUDIT_SHA256: &str =
+    "825aa0a190fb7da3934adb403b9187e8aa4634c0ed5bc70670c67e4422ae1194";
+const PROBE_HANDOFF_SHA256: &str =
+    "f11f6b98e63b7da817cbcc7b7f0accf66fe313394c4ddbd2274dd960b6355473";
+const MICRO_PROTOCOL_SHA256: &str =
+    "bfc51f7c4cb1cd675b04c25c3538f1e29e2022c97b01cac5dbc3e32e549249df";
+const RESULT_CSV: &str = "results/px2_physical_causal_direction_trace_sufficiency_micro_v1.csv";
+const RESULT_MD: &str = "results/px2_physical_causal_direction_trace_sufficiency_micro_v1.md";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Scenario {
@@ -84,6 +91,66 @@ impl Scenario {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Stratum {
+    name: &'static str,
+    side_spacing: i32,
+    first_experience: i64,
+    experience_spacing: i64,
+    heldout_gap: i64,
+    postgap_gap: i64,
+    mirror: bool,
+    reverse_allocation: bool,
+    reverse_arrival: bool,
+}
+
+const STRATA: [Stratum; 4] = [
+    Stratum {
+        name: "S0",
+        side_spacing: 40,
+        first_experience: 66,
+        experience_spacing: 12,
+        heldout_gap: 20,
+        postgap_gap: 60,
+        mirror: false,
+        reverse_allocation: false,
+        reverse_arrival: false,
+    },
+    Stratum {
+        name: "S1",
+        side_spacing: 40,
+        first_experience: 68,
+        experience_spacing: 12,
+        heldout_gap: 24,
+        postgap_gap: 64,
+        mirror: true,
+        reverse_allocation: true,
+        reverse_arrival: true,
+    },
+    Stratum {
+        name: "S2",
+        side_spacing: 32,
+        first_experience: 66,
+        experience_spacing: 11,
+        heldout_gap: 18,
+        postgap_gap: 52,
+        mirror: false,
+        reverse_allocation: true,
+        reverse_arrival: false,
+    },
+    Stratum {
+        name: "S3",
+        side_spacing: 56,
+        first_experience: 70,
+        experience_spacing: 13,
+        heldout_gap: 28,
+        postgap_gap: 72,
+        mirror: true,
+        reverse_allocation: false,
+        reverse_arrival: true,
+    },
+];
+
 #[derive(Clone)]
 struct World {
     substrate: PlasticSubstrate,
@@ -130,6 +197,7 @@ struct Metrics {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ResultRow {
+    stratum: &'static str,
     scenario: Scenario,
     metrics: Metrics,
     duplicate_exact: bool,
@@ -138,8 +206,8 @@ struct ResultRow {
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args != ["--probe"] {
-        eprintln!("PX2 trace-sufficiency development requires --probe");
+    if args != ["--micro"] {
+        eprintln!("PX2 trace-sufficiency development requires --micro");
         std::process::exit(2);
     }
     assert!(
@@ -148,21 +216,26 @@ fn main() {
     );
     assert!(!Path::new(RESULT_CSV).exists(), "PX2 PROBE CSV exists");
     assert!(!Path::new(RESULT_MD).exists(), "PX2 PROBE report exists");
-    eprintln!("PX2_PHYSICAL_CAUSAL_DIRECTION_TRACE_SUFFICIENCY_PROBE_V2_EVIDENCE");
+    eprintln!("PX2_PHYSICAL_CAUSAL_DIRECTION_TRACE_SUFFICIENCY_MICRO_V1_EVIDENCE");
 
     let mut rows = Vec::new();
-    for (ordinal, scenario) in Scenario::ALL.into_iter().enumerate() {
-        let namespace = 0xf200_0000 + ordinal as u64 * 0x0100_0000;
-        let first = run_world(namespace, scenario);
-        let second = run_world(namespace, scenario);
-        let duplicate_exact = first == second;
-        let passed = probe_passed(scenario, &first) && duplicate_exact;
-        rows.push(ResultRow {
-            scenario,
-            metrics: first,
-            duplicate_exact,
-            passed,
-        });
+    for (stratum_ordinal, stratum) in STRATA.into_iter().enumerate() {
+        for (scenario_ordinal, scenario) in Scenario::ALL.into_iter().enumerate() {
+            let namespace = 0x1_0200_0000
+                + stratum_ordinal as u64 * 0x0100_0000
+                + scenario_ordinal as u64 * 0x0010_0000;
+            let first = run_world(namespace, scenario, stratum);
+            let second = run_world(namespace, scenario, stratum);
+            let duplicate_exact = first == second;
+            let passed = probe_passed(scenario, &first) && duplicate_exact;
+            rows.push(ResultRow {
+                stratum: stratum.name,
+                scenario,
+                metrics: first,
+                duplicate_exact,
+                passed,
+            });
+        }
     }
 
     write_new(RESULT_CSV, &csv(&rows));
@@ -186,16 +259,30 @@ fn source_audit() -> bool {
         && sha256(
             "experiments/px2_physical_causal_direction_trace_sufficiency_probe_v2_protocol.md",
         ) == PROBE_V2_PROTOCOL_SHA256
+        && sha256("results/px2_physical_causal_direction_trace_sufficiency_probe_v2.csv")
+            == PROBE_V2_SHA256
+        && sha256(
+            "experiments/px2_physical_causal_direction_trace_sufficiency_probe_v2_result_audit.md",
+        ) == PROBE_V2_AUDIT_SHA256
+        && sha256("experiments/px2_physical_causal_direction_trace_sufficiency_handoff.md")
+            == PROBE_HANDOFF_SHA256
+        && sha256("experiments/px2_physical_causal_direction_trace_sufficiency_micro_protocol.md")
+            == MICRO_PROTOCOL_SHA256
 }
 
-fn run_world(namespace: u64, scenario: Scenario) -> Metrics {
-    let mut world = build_world(namespace, scenario.return_enabled());
+fn run_world(namespace: u64, scenario: Scenario, stratum: Stratum) -> Metrics {
+    let mut world = build_world(namespace, scenario.return_enabled(), stratum);
     let mut work = WorkLedger::default();
     let mut training_quiescent = true;
+    let arrival_order = if stratum.reverse_arrival {
+        [1, 0]
+    } else {
+        [0, 1]
+    };
 
     for experience in 0..ACQUISITION {
         let tick = experience as i64 * 16;
-        for side in 0..SIDES {
+        for side in arrival_order {
             enter_many(
                 &mut world.substrate,
                 world.arrivals[side],
@@ -241,8 +328,8 @@ fn run_world(namespace: u64, scenario: Scenario) -> Metrics {
     let mut training_effects = [0usize; SIDES];
     let mut arrival_firings = 0usize;
     for experience in 0..EXPERIENCES {
-        let tick = 66 + experience as i64 * 12;
-        for side in 0..SIDES {
+        let tick = stratum.first_experience + experience as i64 * stratum.experience_spacing;
+        for side in arrival_order {
             enter_many(
                 &mut world.substrate,
                 world.arrivals[side],
@@ -297,8 +384,18 @@ fn run_world(namespace: u64, scenario: Scenario) -> Metrics {
         }
     });
     let training_extra_arrival_firings = arrival_firings.saturating_sub(EXPERIENCES * SIDES);
-    let heldout = measure_execution(&world, 170);
-    let postgap = measure_execution(&world, 210);
+    let last_experience_tick =
+        stratum.first_experience + (EXPERIENCES as i64 - 1) * stratum.experience_spacing;
+    let heldout = measure_execution(
+        &world,
+        last_experience_tick + stratum.heldout_gap,
+        arrival_order,
+    );
+    let postgap = measure_execution(
+        &world,
+        last_experience_tick + stratum.postgap_gap,
+        arrival_order,
+    );
     let fingerprint = world.substrate.complete_fingerprint();
 
     Metrics {
@@ -319,92 +416,70 @@ fn run_world(namespace: u64, scenario: Scenario) -> Metrics {
     }
 }
 
-fn build_world(namespace: u64, return_enabled: bool) -> World {
+fn build_world(namespace: u64, return_enabled: bool, stratum: Stratum) -> World {
     let mut substrate = PlasticSubstrate::new();
-    let arrivals = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
-            arrival_physical(namespace, side),
-            side as i32 * 40,
-            0,
-            4,
-        ))
-    });
-    let correspondence_ends = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
+    let mut arrivals = [None; SIDES];
+    let mut correspondence_ends = [None; SIDES];
+    let mut continuations = [None; SIDES];
+    let mut consequences = [None; SIDES];
+    let mut traces = [None; SIDES];
+    let mut outside = [None; SIDES];
+    let mut acquisition_drivers = [None; SIDES];
+    let mut participation_drivers = [None; SIDES];
+    let mut independent_drivers = [None; SIDES];
+    let mut gates = [None; SIDES];
+    let allocation_order = if stratum.reverse_allocation {
+        [1, 0]
+    } else {
+        [0, 1]
+    };
+    for side in allocation_order {
+        let slot = if stratum.mirror {
+            SIDES - 1 - side
+        } else {
+            side
+        };
+        let base = slot as i32 * stratum.side_spacing;
+        arrivals[side] =
+            Some(substrate.add_cell(cell(arrival_physical(namespace, side), base, 0, 4)));
+        correspondence_ends[side] = Some(substrate.add_cell(cell(
             correspondence_physical(namespace, side),
-            side as i32 * 40 + 2,
+            base + 2,
             0,
             2,
-        ))
-    });
-    let continuations = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
-            continuation_physical(namespace, side),
-            side as i32 * 40 + 8,
-            0,
-            2,
-        ))
-    });
-    let consequences = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
-            consequence_physical(namespace, side),
-            side as i32 * 40 + 10,
-            0,
-            2,
-        ))
-    });
-    let traces: [CellId; SIDES] = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
-            trace_physical(namespace, side),
-            side as i32 * 40 + 16,
-            0,
-            2,
-        ))
-    });
-    let outside: [CellId; SIDES] = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
-            namespace + 60 + side as u64,
-            1_000 + side as i32 * 40,
-            1,
-            1,
-        ))
-    });
-    let acquisition_drivers = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
-            namespace + 70 + side as u64,
-            1_100 + side as i32 * 40,
-            0,
-            1,
-        ))
-    });
-    let participation_drivers = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
-            namespace + 80 + side as u64,
-            1_200 + side as i32 * 40,
-            0,
-            1,
-        ))
-    });
-    let independent_drivers = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
-            namespace + 90 + side as u64,
-            1_300 + side as i32 * 40,
-            0,
-            1,
-        ))
-    });
-    let gates: [CellId; SIDES] = std::array::from_fn(|side| {
-        substrate.add_cell(cell(
-            namespace + 100 + side as u64,
-            1_400 + side as i32 * 40,
-            0,
-            1,
-        ))
-    });
+        )));
+        continuations[side] =
+            Some(substrate.add_cell(cell(continuation_physical(namespace, side), base + 8, 0, 2)));
+        consequences[side] =
+            Some(substrate.add_cell(cell(consequence_physical(namespace, side), base + 10, 0, 2)));
+        traces[side] =
+            Some(substrate.add_cell(cell(trace_physical(namespace, side), base + 16, 0, 2)));
+        outside[side] =
+            Some(substrate.add_cell(cell(namespace + 60 + side as u64, 1_000 + base, 1, 1)));
+        acquisition_drivers[side] =
+            Some(substrate.add_cell(cell(namespace + 70 + side as u64, 1_100 + base, 0, 1)));
+        participation_drivers[side] =
+            Some(substrate.add_cell(cell(namespace + 80 + side as u64, 1_200 + base, 0, 1)));
+        independent_drivers[side] =
+            Some(substrate.add_cell(cell(namespace + 90 + side as u64, 1_300 + base, 0, 1)));
+        gates[side] =
+            Some(substrate.add_cell(cell(namespace + 100 + side as u64, 1_400 + base, 0, 1)));
+    }
+    let arrivals = arrivals.map(|value| value.expect("arrival"));
+    let correspondence_ends = correspondence_ends.map(|value| value.expect("correspondence"));
+    let continuations = continuations.map(|value| value.expect("continuation"));
+    let consequences = consequences.map(|value| value.expect("consequence"));
+    let traces = traces.map(|value| value.expect("trace"));
+    let outside = outside.map(|value| value.expect("outside"));
+    let acquisition_drivers = acquisition_drivers.map(|value| value.expect("acquisition driver"));
+    let participation_drivers =
+        participation_drivers.map(|value| value.expect("participation driver"));
+    let independent_drivers = independent_drivers.map(|value| value.expect("independent driver"));
+    let gates = gates.map(|value| value.expect("gate"));
     let context = substrate.add_cell(cell(namespace + 110, 1_500, 0, 1));
     let hub = substrate.add_cell(cell(namespace + 111, 1_600, 0, 1));
 
-    for side in 0..SIDES {
+    for side in allocation_order {
         substrate.add_arrow(arrow(
             acquisition_drivers[side],
             correspondence_ends[side],
@@ -446,10 +521,10 @@ fn build_world(namespace: u64, return_enabled: bool) -> World {
     }
 }
 
-fn measure_execution(world: &World, tick: i64) -> ExecutionMetrics {
+fn measure_execution(world: &World, tick: i64, arrival_order: [usize; SIDES]) -> ExecutionMetrics {
     let mut clone = world.clone();
     clone.substrate.advance_time(tick);
-    for side in 0..SIDES {
+    for side in arrival_order {
         enter_many(
             &mut clone.substrate,
             clone.arrivals[side],
@@ -690,11 +765,12 @@ fn pair_usize(values: [usize; SIDES]) -> String {
 
 fn csv(rows: &[ResultRow]) -> String {
     let mut output = String::from(
-        "scenario,correspondence_resistance,directional_resistance,training_continuation_firings,training_consequence_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_effects,training_extra_arrival_firings,heldout_continuation_firings,heldout_consequence_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_extra_arrival_firings,postgap_extra_arrival_firings,training_quiescent,heldout_quiescent,postgap_quiescent,work,fingerprint,duplicate_exact,passed\n",
+        "stratum,scenario,correspondence_resistance,directional_resistance,training_continuation_firings,training_consequence_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_effects,training_extra_arrival_firings,heldout_continuation_firings,heldout_consequence_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_extra_arrival_firings,postgap_extra_arrival_firings,training_quiescent,heldout_quiescent,postgap_quiescent,work,fingerprint,duplicate_exact,passed\n",
     );
     for row in rows {
         let value = &row.metrics;
         let fields = vec![
+            row.stratum.to_string(),
             row.scenario.name().to_string(),
             pair_u32(value.correspondence_resistance),
             pair_u32(value.directional_resistance),
@@ -731,7 +807,7 @@ fn csv(rows: &[ResultRow]) -> String {
 fn markdown(rows: &[ResultRow]) -> String {
     let passed = rows.iter().all(|row| row.passed);
     let mut output = format!(
-        "# PX2 physical causal direction trace-sufficiency PROBE v2\n\nOutcome: **{}** (`{}/{}` worlds).\n\n| world | continuation fire | consequence fire | trace arrival/fire | local return | directional resistance | held-out continuation/consequence | held-out trace arrival/fire | held-out local/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
+        "# PX2 physical causal direction trace-sufficiency MICRO v1\n\nOutcome: **{}** (`{}/{}` cells).\n\n| stratum | world | continuation fire | consequence fire | trace arrival/fire | local return | directional resistance | held-out continuation/consequence | held-out trace arrival/fire | held-out local/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
         if passed { "POSITIVE" } else { "NEGATIVE" },
         rows.iter().filter(|row| row.passed).count(),
         rows.len(),
@@ -739,7 +815,8 @@ fn markdown(rows: &[ResultRow]) -> String {
     for row in rows {
         let value = &row.metrics;
         output.push_str(&format!(
-            "| {} | `{}` | `{}` | `{}/{}` | `{}` | `{}` | `{}/{}` | `{}/{}` | `{}/{}` | `{}` | `{}/{}/{}` | `{}/{}/{}` | {} | {} |\n",
+            "| {} | {} | `{}` | `{}` | `{}/{}` | `{}` | `{}` | `{}/{}` | `{}/{}` | `{}/{}` | `{}` | `{}/{}/{}` | `{}/{}/{}` | {} | {} |\n",
+            row.stratum,
             row.scenario.name(),
             pair_usize(value.training_continuation_firings),
             pair_usize(value.training_consequence_firings),
