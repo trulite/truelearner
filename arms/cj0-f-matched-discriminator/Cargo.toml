@@ -1,0 +1,4 @@
+[workspace]
+members = ["candidate-b", "candidate-e", "comparator"]
+resolver = "2"
+

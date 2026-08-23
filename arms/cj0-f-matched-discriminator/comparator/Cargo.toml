@@ -1,0 +1,14 @@
+[package]
+name = "cj0-f-matched-discriminator"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+cj0-f-candidate-b = { path = "../candidate-b" }
+cj0-f-candidate-e = { path = "../candidate-e" }
+
+[[bin]]
+name = "cj0-f-matched-discriminator"
+path = "src/main.rs"
+
