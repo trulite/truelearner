@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use px0_physical_correspondence::{
-    ArrowSpec, CellId, CellSpec, Execution, PlasticSubstrate, SpikeInput, WorkLedger,
+    ArrowSpec, CellId, CellSpec, Execution, PlasticSubstrate, SpikeInput,
 };
 use std::collections::BTreeSet;
 use std::env;
