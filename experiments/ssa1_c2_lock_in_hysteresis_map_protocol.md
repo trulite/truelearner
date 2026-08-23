@@ -104,8 +104,10 @@ For both schedules, measure after cumulative B-opportunity budgets:
 0, 4, 16, 64, 1,024, 10,000
 ```
 
-At H=`16, 32, 192`, extend one frozen trajectory to `60,000` B
-opportunities.
+At H=`16, 32, 192`, extend E0 to `60,000` B-only opportunities and E1 to
+`30,000` paired opportunities. E1 can produce two B executions per pair after
+B dominates, so 30,000 pairs keep every frozen single-shape counter below its
+capacity.
 Budgets are cumulative within a trajectory so the experiment does not replay
 shorter prefixes merely for accounting.
 
@@ -175,10 +177,12 @@ Pre-execution source audit found that each M6 normalized consequence-shape
 count is stored as `u16`. A 100,000-repeat single-shape trajectory would
 therefore overflow the frozen representation. The protocol must not widen the
 field, split a physical shape for accounting, or rely on release-mode integer
-wraparound. `60,000` is the maximum preregistered empirical anchor. Behavior
-beyond it may be inferred only when an exact source-and-runtime invariant makes
-the additional count causally irrelevant; otherwise the result stops at the
-capacity boundary.
+wraparound. E0 may use 60,000 opportunities because it produces at most one B
+observation per opportunity. E1 is capped at 30,000 pairs because B may also
+win the paired A opportunity, producing at most 60,000 B observations.
+Behavior beyond these anchors may be inferred only when an exact
+source-and-runtime invariant makes the additional count causally irrelevant;
+otherwise the result stops at the capacity boundary.
 
 The evaluator may label this edge only after comparing the recorded physical
 states. The label cannot enter the organism.
@@ -201,7 +205,8 @@ and M6 evidence has no ordinary pressure/decay path
 
 If every premise is established from frozen source and runtime counters, the
 result may classify the state as absorbing for this preregistered ordinary
-counterexperience class, rather than merely “not reversed by 60,000.” It may
+counterexperience class, rather than merely “not reversed at the safe
+anchor.” It may
 not generalize to untested consequence structures or environments.
 
 ## Development stages
@@ -224,7 +229,7 @@ Two fresh seeds and mirrors:
 
 - full H grid;
 - E through `10,000`;
-- E=`60,000` anchors at H=`16, 32, 192`;
+- E0=`60,000` and E1=`30,000` anchors at H=`16, 32, 192`;
 - full S and T grids;
 - exact duplicate checkpoints.
 
@@ -245,7 +250,7 @@ No definitive execution is authorized by development readiness.
   experience, and the reversal remains independently executable after
   background removal. E0 and E1 are reported separately.
 - **B — moving but uncrossed barrier:** mature internal states move
-  monotonically toward B through 60,000 observations without crossing, and no
+  monotonically toward B through the safe anchors without crossing, and no
   exact frozen invariant prevents eventual reversal.
 - **C — absorbing credit state:** B executes and M6 observes it, but mature M6
   credit reaches a non-decaying abstention invariant; M5 receives no later
