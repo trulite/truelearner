@@ -1,0 +1,11 @@
+stage,predictor,discovery_total,discovery_predicted,discovery_correct,discovery_accuracy_bp,discovery_coverage_bp,heldout_total,heldout_predicted,heldout_correct,heldout_accuracy_bp,heldout_coverage_bp,minimum_cell_accuracy_bp,latest_available_episode,qualifies
+PROBE,P0-ratio-majority,24,24,16,6666,10000,24,24,6,2500,10000,2500,0,false
+PROBE,P1-first-application,24,24,6,2500,10000,24,24,2,833,10000,833,1,false
+PROBE,P2-first-4-balance,24,18,0,0,7500,24,24,2,833,10000,833,9425,false
+PROBE,P3-first-8-balance,24,18,8,3333,7500,24,22,4,1666,9166,1666,9429,false
+PROBE,P4-first-16-balance,24,18,8,3333,7500,24,22,4,1666,9166,1666,10502,false
+PROBE,P5-gap-before-opposition,24,18,0,0,7500,24,24,2,833,10000,833,9425,false
+PROBE,P6-longest-run-first-90,24,18,10,4166,7500,24,20,6,2500,8333,2500,16498,false
+PROBE,P7-gap-after-episode-90,24,24,6,2500,10000,24,24,2,833,10000,833,90,false
+PROBE,P8-structural-commitment,24,24,24,10000,10000,24,24,24,10000,10000,10000,18000,true
+PROBE,P9-composite-tuple,24,18,18,7500,7500,24,22,22,9166,9166,9166,17941,false
