@@ -20,9 +20,14 @@ const PROBE_NEGATIVE_SHA256: &str =
     "f45958a07021d0f116a7a77cfdb543d1b08c40ca7b57f675b3f028bbf6f6efaf";
 const PROBE_HANDOFF_SHA256: &str =
     "7a32288f4f8e6f3c6cde26cb73af1ba4bfdb5256a04a90b587f0278bf7b3a985";
-const PROTOCOL_SHA256: &str = "934dcd65a34d5bccb29915c814e8a7873db745b1136ac388c33d19db497860eb";
-const RESULT_CSV: &str = "results/px1_recurrent_role_stability_diagnostic_v1.csv";
-const RESULT_MD: &str = "results/px1_recurrent_role_stability_diagnostic_v1.md";
+const V1_PROTOCOL_SHA256: &str = "934dcd65a34d5bccb29915c814e8a7873db745b1136ac388c33d19db497860eb";
+const V1_OPERATIONAL_NEGATIVE_SHA256: &str =
+    "b2b24b7d44eaa896dab1361b522e442d268c180daba441fa51e8e91255142133";
+const V1_OPERATIONAL_HANDOFF_SHA256: &str =
+    "56d8681bdb70da50c9e6af6aa9e094d7ee5455d9d39994e70d390f1ba659a693";
+const V2_PROTOCOL_SHA256: &str = "c8523cf39861f8779233739151431b408caefef903846090bfe90dbc46261881";
+const RESULT_CSV: &str = "results/px1_recurrent_role_stability_diagnostic_v2.csv";
+const RESULT_MD: &str = "results/px1_recurrent_role_stability_diagnostic_v2.md";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Arm {
@@ -207,6 +212,12 @@ impl ArmResult {
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
+    if args == ["--codec-check"] {
+        assert!(source_audit(), "frozen PX0/PX1 inputs must remain exact");
+        codec_preflight();
+        println!("PX1_V2_CODEC_ROUNDTRIP_EXACT");
+        return;
+    }
     if args.len() == 2 && args[0] == "--arm" {
         let arm = Arm::parse(&args[1]).expect("known arm");
         println!("{}", run_arm(arm).encode());
@@ -217,9 +228,10 @@ fn main() {
         std::process::exit(2);
     }
     assert!(source_audit(), "frozen PX0/PX1 inputs must remain exact");
+    codec_preflight();
     assert!(!Path::new(RESULT_CSV).exists(), "diagnostic CSV exists");
     assert!(!Path::new(RESULT_MD).exists(), "diagnostic report exists");
-    eprintln!("PX1_RECURRENT_ROLE_STABILITY_DEVELOPMENT_EVIDENCE");
+    eprintln!("PX1_RECURRENT_ROLE_STABILITY_V2_DEVELOPMENT_EVIDENCE");
     let results = run_parallel();
     write_new(RESULT_CSV, &csv(&results));
     write_new(RESULT_MD, &markdown(&results));
@@ -234,7 +246,49 @@ fn source_audit() -> bool {
         && sha256("experiments/px1_physical_boundary_roles_probe_v1_collapse_handoff.md")
             == PROBE_HANDOFF_SHA256
         && sha256("experiments/px1_recurrent_role_stability_diagnostic_protocol.md")
-            == PROTOCOL_SHA256
+            == V1_PROTOCOL_SHA256
+        && sha256("results/px1_recurrent_role_stability_diagnostic_v1_operational_negative.md")
+            == V1_OPERATIONAL_NEGATIVE_SHA256
+        && sha256("experiments/px1_recurrent_role_stability_diagnostic_v1_operational_handoff.md")
+            == V1_OPERATIONAL_HANDOFF_SHA256
+        && sha256("experiments/px1_recurrent_role_stability_diagnostic_v2_protocol.md")
+            == V2_PROTOCOL_SHA256
+}
+
+fn codec_preflight() {
+    let metrics = WorldMetrics {
+        role_resistance: [2, 0],
+        effects: [1, 0],
+        source_returns: 16,
+        site_returns: 8,
+        extra_source_firings: 0,
+        brake_resistance: [2, 0],
+        brake_firings: 8,
+        role_formed: true,
+        productive_recurrence: true,
+        duplicate_exact: true,
+        naturally_quiescent: false,
+        work: WorkLedger {
+            state_updates: 17,
+            ..WorkLedger::default()
+        },
+        fingerprint: 19,
+    };
+    let sample = ArmResult {
+        arm: Arm::Margin,
+        completed: true,
+        timed_out: false,
+        primary: Some(metrics.clone()),
+        transfer: Some(WorldMetrics {
+            role_resistance: [0, 2],
+            brake_resistance: [0, 2],
+            ..metrics
+        }),
+        passed: false,
+    };
+    let encoded = sample.encode();
+    let decoded = ArmResult::decode(&encoded).expect("decode numeric boolean codec sample");
+    assert_eq!(decoded.encode(), encoded, "codec round trip must be exact");
 }
 
 fn run_parallel() -> Vec<ArmResult> {
@@ -729,8 +783,8 @@ fn work_from_total(total: u64) -> WorkLedger {
 
 fn parse_bool(value: &str) -> Option<bool> {
     match value {
-        "true" => Some(true),
-        "false" => Some(false),
+        "true" | "1" => Some(true),
+        "false" | "0" => Some(false),
         _ => None,
     }
 }
@@ -781,7 +835,7 @@ fn markdown(results: &[ArmResult]) -> String {
         _ => "MULTIPLE PHYSICAL ARMS SUPPORTED; SCIENTIFIC AMBIGUITY REMAINS",
     };
     let mut text = format!(
-        "# PX1 recurrent role-stability diagnostic v1\n\nClassification: **{classification}**.\n\n- completed arms: `{}/4`\n- timed-out arms: `{}`\n- passing arms: `{passed}/4`\n- PX1 authoritative: `false`\n- definitive evidence executed: `false`\n\n",
+        "# PX1 recurrent role-stability diagnostic v2\n\nClassification: **{classification}**.\n\n- completed arms: `{}/4`\n- timed-out arms: `{}`\n- passing arms: `{passed}/4`\n- PX1 authoritative: `false`\n- definitive evidence executed: `false`\n\n",
         results.iter().filter(|result| result.completed).count(),
         results.iter().filter(|result| result.timed_out).count(),
     );
