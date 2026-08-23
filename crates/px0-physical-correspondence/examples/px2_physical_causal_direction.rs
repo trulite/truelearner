@@ -2,7 +2,7 @@ use px0_physical_correspondence::{
     ArrowId, ArrowSpec, CellId, CellSpec, Execution, PlasticSubstrate, SpikeInput, WorkLedger,
 };
 use std::env;
-use std::fs::OpenOptions;
+use std::fs::{rename, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
@@ -56,6 +56,21 @@ const H1_AUDIT_SHA256: &str = "c1c3c6dd80265d5e864fa7c346b8effde8e4a522a0826067c
 const O1_PROTOCOL_SHA256: &str = "5381e8dcc25e2ade38ec9b9c2332ef05a09532cb46b7b2748ac214b6b3aac32d";
 const O1_CSV: &str = "results/px2_o1_post_forgetting_opportunity_window_v1.csv";
 const O1_REPORT_MD: &str = "results/px2_o1_post_forgetting_opportunity_window_v1.md";
+const O1_SOURCE_SHA256: &str = "af0c781eb0b53a7e972497ab4e247e8db2c74b5cf61e06e4de82a8da7be74151";
+const O1_CSV_SHA256: &str = "4794a4715f00261a7441c602f60f144dded9d7e28d62336f1a41e40242c9dd2a";
+const O1_REPORT_SHA256: &str = "0483898eb11c35650df168363f296756383367e40e6eb789ff2820d95a7a66cb";
+const O1_AUDIT_SHA256: &str = "0b19aa3eb3a83f40087393920edd995a02c4a2e9a416c15c07b9591d2dd0d126";
+const BOUNDARY_HANDOFF_SHA256: &str =
+    "f9a28eff7bef80b9beadf9d610f94c46bcb2ec4da9c29a06a91115e1abe363bd";
+const DEFINITIVE_PROTOCOL_SHA256: &str =
+    "d55a33c76b3a2f5f9421e85147e116e8a67ef99e9401f630cecccd065f519cd2";
+const RESULT_CSV: &str = "results/px2_physical_causal_direction_definitive.csv";
+const RESULT_MD: &str = "results/px2_physical_causal_direction_definitive.md";
+const STAGING_CSV: &str = "results/.px2_physical_causal_direction_definitive.csv.staging";
+const STAGING_MD: &str = "results/.px2_physical_causal_direction_definitive.md.staging";
+const DEFINITIVE_SEEDS: usize = 16;
+const DEFINITIVE_NAMESPACE_BASE: u64 = 0x5_4200_0000;
+const O1_FIRST_OBSERVED_DEAD_WAIT: i64 = 30;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -87,6 +102,16 @@ impl Scenario {
         Self::InterleavedReverseFirst,
         Self::LifecycleForwardToReverse,
         Self::LifecycleReverseToForward,
+    ];
+
+    const DEFINITIVE: [Self; 7] = [
+        Self::Forward,
+        Self::Reverse,
+        Self::CorrelationOnly,
+        Self::BlockedReturn,
+        Self::Joint,
+        Self::AdversarialForward,
+        Self::AdversarialReverse,
     ];
 
     fn name(self) -> &'static str {
@@ -188,6 +213,19 @@ impl Scenario {
 
     fn return_enabled(self) -> bool {
         self != Self::BlockedReturn
+    }
+
+    fn schedule_class(self) -> &'static str {
+        match self {
+            Self::Forward | Self::BlockedReturn | Self::AdversarialForward => "forward*24",
+            Self::Reverse | Self::AdversarialReverse => "reverse*24",
+            Self::CorrelationOnly => "no-traversal*24",
+            Self::Joint => "joint*24",
+            Self::InterleavedForwardFirst => "forward/reverse-alternating*12",
+            Self::InterleavedReverseFirst => "reverse/forward-alternating*12",
+            Self::LifecycleForwardToReverse => "forward*24;forget;reverse*24",
+            Self::LifecycleReverseToForward => "reverse*24;forget;forward*24",
+        }
     }
 }
 
@@ -331,6 +369,51 @@ struct ResultRow {
     passed: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DefinitiveRow {
+    seed: usize,
+    stratum: &'static str,
+    scenario: Scenario,
+    namespace: u64,
+    arrival_order: &'static str,
+    first_use_delay: i64,
+    opportunity_dead_boundary: i64,
+    metrics: Metrics,
+    duplicate_exact: bool,
+    claims: Claims,
+    passed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Claims {
+    p0: bool,
+    p1: bool,
+    p2: bool,
+    p3: bool,
+    p4: bool,
+    p5: bool,
+    p6: bool,
+    p7: bool,
+    p8: bool,
+    p9: bool,
+}
+
+impl Claims {
+    fn count(&self) -> usize {
+        [
+            self.p0, self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8,
+            self.p9,
+        ]
+        .into_iter()
+        .filter(|value| *value)
+        .count()
+    }
+
+    fn all(&self) -> bool {
+        self.count() == 10
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct TrainingMetrics {
     continuation_firings: [usize; SIDES],
@@ -440,6 +523,7 @@ struct H1Row {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 struct O1Metrics {
     wait: i64,
     old_side: usize,
@@ -471,6 +555,7 @@ struct O1Metrics {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 struct O1Row {
     stratum: &'static str,
     mirror: &'static str,
@@ -480,51 +565,73 @@ struct O1Row {
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args != ["--o1-opportunity-window-diagnostic"] {
-        eprintln!("PX2-O1 development requires --o1-opportunity-window-diagnostic");
+    let preflight = args == ["--preflight"];
+    let definitive = args == ["--definitive"];
+    if !preflight && !definitive {
+        eprintln!("PX2 authority requires --preflight or --definitive");
         std::process::exit(2);
     }
     assert!(
         source_audit(),
-        "authoritative PX0/PX1 inputs must remain exact"
+        "frozen PX0/PX1/PX2 inputs must remain exact"
     );
-    for path in [O1_CSV, O1_REPORT_MD] {
-        assert!(!Path::new(path).exists(), "PX2-O1 result exists");
+    for path in [RESULT_CSV, RESULT_MD, STAGING_CSV, STAGING_MD] {
+        assert!(
+            !Path::new(path).exists(),
+            "authority artifact exists: {path}"
+        );
     }
-    eprintln!("PX2_O1_POST_FORGETTING_OPPORTUNITY_WINDOW_DIAGNOSTIC_V1_EVIDENCE");
+    if preflight {
+        println!("PX2_PHYSICAL_CAUSAL_DIRECTION_DEFINITIVE_PREFLIGHT_OK");
+        return;
+    }
+    eprintln!("PX2_PHYSICAL_CAUSAL_DIRECTION_DEFINITIVE_EVIDENCE_SPENT");
 
     let mut rows = Vec::new();
-    for (stratum_ordinal, stratum) in STRATA.into_iter().enumerate() {
-        let diagnostic_stratum = Stratum {
-            distractor_load: 0,
-            parallel_paths: 1,
-            ..stratum
-        };
-        for (mirror_ordinal, old_side) in [0usize, 1].into_iter().enumerate() {
-            for (wait_ordinal, wait) in [0i64, 5, 10, 20, 30].into_iter().enumerate() {
-                let namespace = 0x3_4200_0000
-                    + stratum_ordinal as u64 * 0x1000_0000
-                    + mirror_ordinal as u64 * 0x0500_0000
-                    + wait_ordinal as u64 * 0x0100_0000;
-                let first = run_o1(namespace, diagnostic_stratum, old_side, wait);
-                let second = run_o1(namespace, diagnostic_stratum, old_side, wait);
-                let duplicate_exact = first == second;
-                rows.push(O1Row {
-                    stratum: diagnostic_stratum.name,
-                    mirror: if old_side == 0 {
-                        "forward-to-reverse"
-                    } else {
-                        "reverse-to-forward"
-                    },
-                    metrics: first,
-                    duplicate_exact,
-                });
-            }
+    for seed in 0..DEFINITIVE_SEEDS {
+        let stratum = STRATA[seed % STRATA.len()];
+        for (scenario_ordinal, scenario) in Scenario::DEFINITIVE.into_iter().enumerate() {
+            let namespace = definitive_namespace(seed, scenario_ordinal);
+            let first = run_world(namespace, scenario, stratum);
+            let second = run_world(namespace, scenario, stratum);
+            let duplicate_exact = first == second;
+            let claims = definitive_claims(
+                namespace,
+                definitive_namespace(seed, scenario_ordinal),
+                scenario,
+                stratum,
+                &first,
+                duplicate_exact,
+            );
+            let passed = claims.all();
+            rows.push(DefinitiveRow {
+                seed,
+                stratum: stratum.name,
+                scenario,
+                namespace,
+                arrival_order: if stratum.reverse_arrival {
+                    "reverse"
+                } else {
+                    "normal"
+                },
+                first_use_delay: stratum.first_experience - (ACQUISITION as i64 - 1) * 16,
+                opportunity_dead_boundary: O1_FIRST_OBSERVED_DEAD_WAIT,
+                metrics: first,
+                duplicate_exact,
+                claims,
+                passed,
+            });
         }
     }
 
-    write_new(O1_CSV, &o1_csv(&rows));
-    write_new(O1_REPORT_MD, &o1_markdown(&rows));
+    publish_results(&definitive_csv(&rows), &definitive_markdown(&rows));
+    if rows.iter().any(|row| !row.passed) {
+        std::process::exit(1);
+    }
+}
+
+fn definitive_namespace(seed: usize, scenario_ordinal: usize) -> u64 {
+    DEFINITIVE_NAMESPACE_BASE + seed as u64 * 0x1000_0000 + scenario_ordinal as u64 * 0x0100_0000
 }
 
 fn source_audit() -> bool {
@@ -591,6 +698,18 @@ fn source_audit() -> bool {
             == H1_AUDIT_SHA256
         && sha256("experiments/px2_o1_post_forgetting_opportunity_window_diagnostic_protocol.md")
             == O1_PROTOCOL_SHA256
+        && git_sha256(
+            "px2-o1-post-forgetting-opportunity-window-implementation-v1",
+            "crates/px0-physical-correspondence/examples/px2_physical_causal_direction.rs",
+        ) == O1_SOURCE_SHA256
+        && sha256(O1_CSV) == O1_CSV_SHA256
+        && sha256(O1_REPORT_MD) == O1_REPORT_SHA256
+        && sha256("experiments/px2_o1_post_forgetting_opportunity_window_v1_result_audit.md")
+            == O1_AUDIT_SHA256
+        && sha256("experiments/px2_physical_causal_direction_boundary_diagnostics_handoff.md")
+            == BOUNDARY_HANDOFF_SHA256
+        && sha256("experiments/px2_physical_causal_direction_definitive_protocol.md")
+            == DEFINITIVE_PROTOCOL_SHA256
 }
 
 #[allow(dead_code)]
@@ -728,6 +847,7 @@ fn run_h1(namespace: u64, stratum: Stratum, schedule_kind: ScheduleKind) -> H1Me
     }
 }
 
+#[allow(dead_code)]
 fn run_o1(namespace: u64, stratum: Stratum, old_side: usize, wait: i64) -> O1Metrics {
     let new_side = 1 - old_side;
     let mut world = build_world(namespace, true, stratum);
@@ -1485,6 +1605,107 @@ fn measure_execution(world: &World, tick: i64, arrival_order: [usize; SIDES]) ->
     }
 }
 
+fn definitive_claims(
+    namespace: u64,
+    expected_namespace: u64,
+    scenario: Scenario,
+    stratum: Stratum,
+    metrics: &Metrics,
+    duplicate_exact: bool,
+) -> Claims {
+    let participants = std::array::from_fn(|side| {
+        (0..EXPERIENCES)
+            .filter(|experience| scenario.participants(*experience)[side])
+            .count()
+    });
+    let expected_mature = scenario.expected_mature();
+    let expected_effects = expected_mature.map(usize::from);
+    let expected_live_paths =
+        expected_mature.map(|mature| if mature { stratum.parallel_paths } else { 0 });
+    let return_physics = if scenario.return_enabled() {
+        metrics.training_trace_firings == metrics.training_consequence_firings
+            && metrics.training_local_returns == metrics.training_trace_firings
+            && (0..SIDES).all(|side| {
+                metrics.training_trace_arrivals[side] >= metrics.training_trace_firings[side]
+            })
+    } else {
+        metrics.training_trace_firings == [0, 0] && metrics.training_local_returns == [0, 0]
+    };
+    let maturation_exact = metrics.directional_live_paths == expected_live_paths
+        && (0..SIDES).all(|side| {
+            if expected_mature[side] {
+                metrics.directional_min_resistance[side] > 3
+                    && metrics.directional_max_resistance[side]
+                        >= metrics.directional_min_resistance[side]
+            } else {
+                metrics.directional_min_resistance[side] == 0
+                    && metrics.directional_max_resistance[side] == 0
+            }
+        });
+    let heldout_exact = metrics.heldout.continuation_firings == [1, 1]
+        && metrics.heldout.consequence_firings == expected_effects
+        && metrics.heldout.trace_firings == expected_effects
+        && metrics.heldout.local_returns == expected_effects
+        && metrics.heldout.effects == expected_effects
+        && metrics.postgap.effects == expected_effects;
+    let negative_controls = match scenario {
+        Scenario::CorrelationOnly => {
+            metrics.training_continuation_firings == [0, 0]
+                && metrics.directional_live_paths == [0, 0]
+                && metrics.heldout.effects == [0, 0]
+                && metrics.postgap.effects == [0, 0]
+        }
+        Scenario::BlockedReturn => {
+            metrics.training_continuation_firings == [EXPERIENCES, 0]
+                && metrics.training_trace_firings == [0, 0]
+                && metrics.training_local_returns == [0, 0]
+                && metrics.directional_live_paths == [0, 0]
+                && metrics.heldout.effects == [0, 0]
+                && metrics.postgap.effects == [0, 0]
+        }
+        _ => true,
+    };
+    let adversarial_control = match scenario {
+        Scenario::AdversarialForward => {
+            metrics.training_continuation_firings == [EXPERIENCES, 0]
+                && metrics.training_consequence_firings[1]
+                    >= metrics.training_consequence_firings[0] * (ADVERSARIAL_EXTRA + 1)
+                && metrics.directional_live_paths == [stratum.parallel_paths, 0]
+                && metrics.heldout.effects == [1, 0]
+        }
+        Scenario::AdversarialReverse => {
+            metrics.training_continuation_firings == [0, EXPERIENCES]
+                && metrics.training_consequence_firings[0]
+                    >= metrics.training_consequence_firings[1] * (ADVERSARIAL_EXTRA + 1)
+                && metrics.directional_live_paths == [0, stratum.parallel_paths]
+                && metrics.heldout.effects == [0, 1]
+        }
+        _ => true,
+    };
+    Claims {
+        p0: namespace == expected_namespace
+            && (DEFINITIVE_NAMESPACE_BASE..DEFINITIVE_NAMESPACE_BASE + 0x10_0000_0000)
+                .contains(&namespace),
+        p1: metrics
+            .correspondence_resistance
+            .iter()
+            .all(|resistance| *resistance > 1),
+        p2: metrics.training_continuation_firings == participants,
+        p3: return_physics && metrics.training_effects == metrics.training_consequence_firings,
+        p4: maturation_exact,
+        p5: heldout_exact,
+        p6: negative_controls,
+        p7: adversarial_control,
+        p8: metrics.training_extra_arrival_firings == 0
+            && metrics.heldout.extra_arrival_firings == 0
+            && metrics.postgap.extra_arrival_firings == 0,
+        p9: metrics.training_quiescent
+            && metrics.heldout.quiescent
+            && metrics.postgap.quiescent
+            && duplicate_exact,
+    }
+}
+
 #[allow(dead_code)]
 fn gate_passed(scenario: Scenario, stratum: Stratum, metrics: &Metrics) -> bool {
     let effective = scenario.lifecycle_reacquisition().unwrap_or(scenario);
@@ -1959,6 +2180,7 @@ fn h1_markdown(rows: &[H1Row]) -> String {
     output
 }
 
+#[allow(dead_code)]
 fn o1_expected_effect(side: usize) -> [usize; SIDES] {
     if side == 0 {
         [1, 0]
@@ -1967,6 +2189,7 @@ fn o1_expected_effect(side: usize) -> [usize; SIDES] {
     }
 }
 
+#[allow(dead_code)]
 fn o1_classification(rows: &[O1Row]) -> &'static str {
     let controlled = rows.iter().all(|row| {
         let value = &row.metrics;
@@ -2030,6 +2253,7 @@ fn o1_classification(rows: &[O1Row]) -> &'static str {
     }
 }
 
+#[allow(dead_code)]
 fn o1_csv(rows: &[O1Row]) -> String {
     let mut output = String::from(
         "stratum,mirror,wait,old_side,new_side,initial_effects,old_direction_stale,old_correspondence_stale,stale_effects,fresh_correspondence,fresh_direction_ids,proposal_tick,first_use_tick,preuse_live,preuse_resistance,first_continuation_firings,first_candidate_traversed,first_consequence_firings,first_trace_firings,first_local_returns,postfirst_resistance,final_live,final_resistance,heldout_effects,postgap_effects,source_refiring,quiescent,work,fingerprint,duplicate_exact\n",
@@ -2074,6 +2298,7 @@ fn o1_csv(rows: &[O1Row]) -> String {
     output
 }
 
+#[allow(dead_code)]
 fn o1_markdown(rows: &[O1Row]) -> String {
     let mut output = format!(
         "# PX2-O1 post-forgetting opportunity-window diagnostic v1\n\nClassification: **{}**.\n\nCells: `{}`; duplicate-exact: `{}`.\n\n| stratum | mirror | wait | pre-use live | pre-use resistance | traversed | consequence | trace/return | post-first resistance | final resistance | held-out | post-gap | replay |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
@@ -2103,6 +2328,113 @@ fn o1_markdown(rows: &[O1Row]) -> String {
     }
     output.push_str(
         "\nThe substrate law is unchanged. This diagnostic does not repair GATE v1, advance PX2, or unblock PX3.\n",
+    );
+    output
+}
+
+fn definitive_csv(rows: &[DefinitiveRow]) -> String {
+    let mut output = String::from(
+        "seed,stratum,scenario,namespace,schedule_class,arrival_order,first_use_delay,o1_first_observed_dead_wait,correspondence_resistance,directional_live_paths,directional_min_resistance,directional_max_resistance,training_continuation_firings,training_consequence_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_effects,training_distractor_firings,training_source_refiring,heldout_continuation_firings,heldout_consequence_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_source_refiring,postgap_source_refiring,training_quiescent,heldout_quiescent,postgap_quiescent,work,fingerprint,duplicate_exact,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,passed\n",
+    );
+    for row in rows {
+        let value = &row.metrics;
+        let fields = vec![
+            row.seed.to_string(),
+            row.stratum.to_string(),
+            row.scenario.name().to_string(),
+            format!("{:#x}", row.namespace),
+            row.scenario.schedule_class().to_string(),
+            row.arrival_order.to_string(),
+            row.first_use_delay.to_string(),
+            row.opportunity_dead_boundary.to_string(),
+            pair_u32(value.correspondence_resistance),
+            pair_usize(value.directional_live_paths),
+            pair_u32(value.directional_min_resistance),
+            pair_u32(value.directional_max_resistance),
+            pair_usize(value.training_continuation_firings),
+            pair_usize(value.training_consequence_firings),
+            pair_usize(value.training_trace_arrivals),
+            pair_usize(value.training_trace_firings),
+            pair_usize(value.training_local_returns),
+            pair_usize(value.training_effects),
+            value.training_distractor_firings.to_string(),
+            value.training_extra_arrival_firings.to_string(),
+            pair_usize(value.heldout.continuation_firings),
+            pair_usize(value.heldout.consequence_firings),
+            pair_usize(value.heldout.trace_arrivals),
+            pair_usize(value.heldout.trace_firings),
+            pair_usize(value.heldout.local_returns),
+            pair_usize(value.heldout.effects),
+            pair_usize(value.postgap.effects),
+            value.heldout.extra_arrival_firings.to_string(),
+            value.postgap.extra_arrival_firings.to_string(),
+            value.training_quiescent.to_string(),
+            value.heldout.quiescent.to_string(),
+            value.postgap.quiescent.to_string(),
+            value.work.total().to_string(),
+            value.fingerprint.to_string(),
+            row.duplicate_exact.to_string(),
+            row.claims.p0.to_string(),
+            row.claims.p1.to_string(),
+            row.claims.p2.to_string(),
+            row.claims.p3.to_string(),
+            row.claims.p4.to_string(),
+            row.claims.p5.to_string(),
+            row.claims.p6.to_string(),
+            row.claims.p7.to_string(),
+            row.claims.p8.to_string(),
+            row.claims.p9.to_string(),
+            row.passed.to_string(),
+        ];
+        output.push_str(&fields.join(","));
+        output.push('\n');
+    }
+    output
+}
+
+fn definitive_markdown(rows: &[DefinitiveRow]) -> String {
+    let passed = rows.iter().all(|row| row.passed);
+    let mut output = format!(
+        "# PX2 physical causal direction definitive result\n\nOutcome: **{}** (`{}/{}` cells; `{}/{}` claims).\n\n| seed | stratum | world | schedule/order | first-use/dead-boundary | traversal | consequence | trace/return | live paths | resistance min/max | held-out/post-gap | source refire train/held/post | quiescent train/held/post | replay | claims | pass |\n|---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
+        if passed { "PASS" } else { "FAIL" },
+        rows.iter().filter(|row| row.passed).count(),
+        rows.len(),
+        rows.iter().map(|row| row.claims.count()).sum::<usize>(),
+        rows.len() * 10,
+    );
+    for row in rows {
+        let value = &row.metrics;
+        output.push_str(&format!(
+            "| {} | {} | {} | `{}/{}` | `{}/{}` | `{}` | `{}` | `{}/{}` | `{}` | `{}/{}` | `{}/{}` | `{}/{}/{}` | `{}/{}/{}` | {} | {}/10 | {} |\n",
+            row.seed,
+            row.stratum,
+            row.scenario.name(),
+            row.scenario.schedule_class(),
+            row.arrival_order,
+            row.first_use_delay,
+            row.opportunity_dead_boundary,
+            pair_usize(value.training_continuation_firings),
+            pair_usize(value.training_consequence_firings),
+            pair_usize(value.training_trace_firings),
+            pair_usize(value.training_local_returns),
+            pair_usize(value.directional_live_paths),
+            pair_u32(value.directional_min_resistance),
+            pair_u32(value.directional_max_resistance),
+            pair_usize(value.heldout.effects),
+            pair_usize(value.postgap.effects),
+            value.training_extra_arrival_firings,
+            value.heldout.extra_arrival_firings,
+            value.postgap.extra_arrival_firings,
+            value.training_quiescent,
+            value.heldout.quiescent,
+            value.postgap.quiescent,
+            row.duplicate_exact,
+            row.claims.count(),
+            row.passed,
+        ));
+    }
+    output.push_str(
+        "\nEvery physical stage and P0–P9 is serialized separately. Schedule/order, first-use delay, the O1 opportunity boundary, and final resistance are observations rather than symmetry requirements. PX0/PX1/PX2 physics changed: `false`.\n",
     );
     output
 }
@@ -2211,6 +2543,7 @@ fn markdown(rows: &[ResultRow]) -> String {
     output
 }
 
+#[allow(dead_code)]
 fn write_new(path: &str, contents: &str) {
     let mut file = OpenOptions::new()
         .write(true)
@@ -2220,4 +2553,23 @@ fn write_new(path: &str, contents: &str) {
     file.write_all(contents.as_bytes())
         .expect("write PX2 GATE artifact");
     file.sync_all().expect("sync PX2 GATE artifact");
+}
+
+fn write_staging(path: &str, contents: &str) {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .expect("create PX2 authority staging artifact");
+    file.write_all(contents.as_bytes())
+        .expect("write PX2 authority staging artifact");
+    file.sync_all()
+        .expect("sync PX2 authority staging artifact");
+}
+
+fn publish_results(csv_contents: &str, md_contents: &str) {
+    write_staging(STAGING_CSV, csv_contents);
+    write_staging(STAGING_MD, md_contents);
+    rename(STAGING_CSV, RESULT_CSV).expect("publish PX2 authority CSV");
+    rename(STAGING_MD, RESULT_MD).expect("publish PX2 authority report");
 }
