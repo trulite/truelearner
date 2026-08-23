@@ -12,6 +12,7 @@ const LOCAL_RETURN_STRENGTH: u32 = 3;
 const UNSUPPORTED_USE_PRESSURE: u32 = 1;
 const ORDINARY_PRESSURE_PERIOD: i64 = 10;
 const LOCAL_VARIATION_RADIUS: i32 = 2;
+const COUPLING_PLASTICITY_CEILING: u32 = 16;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CellId(usize);
@@ -411,8 +412,9 @@ impl PlasticSubstrate {
                 && arrow.from == cell
                 && arrow.eligible_until.is_some_and(|end| tick <= end)
             {
+                let prior_resistance = arrow.resistance;
                 arrow.resistance = arrow.resistance.saturating_add(LOCAL_RETURN_STRENGTH);
-                if arrow.coupling > 0 {
+                if prior_resistance <= COUPLING_PLASTICITY_CEILING && arrow.coupling > 0 {
                     arrow.coupling = arrow.coupling.saturating_add(1).min(2);
                 }
                 arrow.eligible_until = None;
