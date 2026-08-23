@@ -1,0 +1,13 @@
+scenario,mirror,namespace,initial_fingerprint,after_trigger_fingerprint,trigger_firings,b_firings,closure_firings,transient_firings,output_firings,positive_state_arrivals,negative_arrivals,negative_arrival_tick,closure_arrival_tick,output_tick,trigger_quiescent,final_quiescent,complete_fingerprint,permanent_fingerprint,work,physical_deallocations,persistent_bytes,duplicate_exact,passed
+b-absent-through-closure,false,0x621000000,0x18dea1bccb7987cb,0x82d8321c0d3f6c8e,1,0,1,1,1,2,0,-1,2,2,true,true,0xa75261d3f2b19266,0xd7b55cb96aa6d1fb,46,0,496,true,true
+b-in-window,false,0x621100000,0x6b3668610b04319b,0xd9b4ec7f93893ffe,1,1,1,0,0,2,1,1,2,-1,true,true,0xaee049e76b732288,0x4f6798500bd9b06b,47,0,496,true,true
+b-at-closure-before-arrival,false,0x621200000,0x80b4f7a74383da1f,0xfe44f19f6f0a9992,1,1,1,0,0,2,1,2,2,-1,true,true,0xe3635bcd93cf0cd1,0x41d783d73048194f,48,0,496,true,true
+b-after-closure,false,0x621300000,0x35f434e8ae3e3d26,0xac150f474c1793e7,1,1,1,1,1,2,1,3,2,2,true,true,0x6abc5efda97c27b2,0x16ef6da7e34d6ff3,66,0,496,true,true
+b-blocked,false,0x621400000,0xb912cf8cc4029e58,0x165415832ada4fd9,1,1,1,1,1,2,0,-1,2,2,true,true,0xc6051dcc5ec0bc94,0xfc094ca22db448c8,56,0,496,true,true
+b-stale,false,0x621500000,0xc74df2fe06e814b9,0x4ed6c29fa47192e4,1,1,1,1,1,2,0,-1,2,2,true,true,0x1730c06dd6af3a30,0xb2c489c78267391a,71,1,496,true,true
+b-absent-through-closure,true,0x622000000,0x73a6623a2d52d941,0x2904f95462b0b0bc,1,0,1,1,1,2,0,-1,2,2,true,true,0x261a0d39fd7216a0,0xb8ee01480aec9581,46,0,496,true,true
+b-in-window,true,0x622100000,0xdd59679184cd3791,0x24d1a1a9387eedcc,1,1,1,0,0,2,1,1,2,-1,true,true,0xc1027603cc59dc16,0xd18fe666cc47d0f1,47,0,496,true,true
+b-at-closure-before-arrival,true,0x622200000,0x45bca3d7c8b65625,0x4ecad7dfac97c7a0,1,1,1,0,0,2,1,2,2,-1,true,true,0xcadb53d7bce501ff,0x6c60610e1ed42fa5,48,0,496,true,true
+b-after-closure,true,0x622300000,0xcd04e1078ff6ed18,0x8170560583034b69,1,1,1,1,1,2,1,3,2,2,true,true,0xfba0cb860fab45e4,0xabede55287a98f81,66,0,496,true,true
+b-blocked,true,0x622400000,0x5f082f624ed4e266,0xfbc57314ae561297,1,1,1,1,1,2,0,-1,2,2,true,true,0x60cda311c2314a2e,0x638f14199845e066,56,0,496,true,true
+b-stale,true,0x622500000,0xbd59e6675757e6e3,0x55c85f9854481486,1,1,1,1,1,2,0,-1,2,2,true,true,0x37023f23574a368e,0x298f6ee444a79c9c,71,1,496,true,true
