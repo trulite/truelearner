@@ -1,0 +1,5 @@
+arm,namespace,training_arrival_firings,training_execution_firings,training_boundary_firings,return_deliveries,candidate_total,candidate_live,candidate_max_coupling,candidate_max_resistance,held_out_deliveries,held_out_arrival_firings,held_out_execution_firings,held_out_boundary_firings,held_out_crossings,naturally_quiescent,duplicate_exact,work,persistent_bytes_before,persistent_bytes_after,permanent_fingerprint,complete_fingerprint,passed
+learned-return,0x7a1000000000,4,3,3,4,1,1,2,9,3,1,1,1,1,true,true,145,208,272,10051874146100183369,9976364566344909110,true
+unreturned,0x7a1000100000,4,0,0,0,5,1,1,1,2,1,0,0,0,true,true,92,208,528,9239664169501533929,6817192186280536003,true
+subthreshold,0x7a1000200000,4,3,3,4,1,1,2,9,1,0,0,0,0,true,true,124,208,272,6016217929331636841,3980137776221724946,true
+absent,0x7a1000300000,4,3,3,4,1,1,2,9,0,0,0,0,0,true,true,120,208,272,14690071422084756249,15608903620525564692,true
