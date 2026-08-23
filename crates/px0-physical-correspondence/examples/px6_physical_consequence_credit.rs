@@ -9,18 +9,18 @@ use std::process::Command;
 
 const SIDES: usize = 2;
 const PRESENTATIONS: usize = 24;
-const NAMESPACE_BASE: u64 = 0x6_4200_0000;
+const NAMESPACE_BASE: u64 = 0x6_6200_0000;
 const SUBSTRATE_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
-const PROTOCOL_SHA256: &str = "44377a6165ae563595a96413eb1bdaaa3470eeaf83e3d7338c1ea2f062e24440";
-const MICRO_IMPLEMENTATION_SHA256: &str =
-    "77c9108519fc5e4e61cfc5bd3436130a56b5dd0fa0800bb8a5caf168bde20cb4";
-const MICRO_CSV_SHA256: &str = "0444507fdb78e0a0d12bf08d80294aeb177087fe2c256a6f5dc67c2636d4a903";
-const MICRO_AUDIT_SHA256: &str = "0480e5f1479ff0fd8a10ff39d69e1bacf7fd80e0920b3f1f8cb2e83be3fba574";
+const PROTOCOL_SHA256: &str = "f42c7acd859f8793d546eeed9b639bb269585bc9ae63afe3b2bb571ff4ec0fa5";
+const V1_IMPLEMENTATION_SHA256: &str =
+    "5057697a0f8d4f1ce964425b64351ca7d4cb76749e46c8263ae7683b46fcc289";
+const V1_CSV_SHA256: &str = "3ed470ef06f7d2fc7297adbe9fc615e862adf5e3d81cb1d7c80ebcbfd9cd9686";
+const V1_AUDIT_SHA256: &str = "f19f4e1958c9c930649ee848fe2c4a535332325611c3991cb8562192c3a5add6";
 const FROZEN_PARENT: &str = "2fbee861a0aeed335d3ffa8f9095ca28f2ac6129";
-const RESULT_CSV: &str = "results/px6_physical_consequence_credit_gate_v1.csv";
-const RESULT_MD: &str = "results/px6_physical_consequence_credit_gate_v1.md";
-const STAGING_CSV: &str = "results/.px6_physical_consequence_credit_gate_v1.csv.staging";
-const STAGING_MD: &str = "results/.px6_physical_consequence_credit_gate_v1.md.staging";
+const RESULT_CSV: &str = "results/px6_physical_consequence_credit_gate_v2.csv";
+const RESULT_MD: &str = "results/px6_physical_consequence_credit_gate_v2.md";
+const STAGING_CSV: &str = "results/.px6_physical_consequence_credit_gate_v2.csv.staging";
+const STAGING_MD: &str = "results/.px6_physical_consequence_credit_gate_v2.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Stratum {
@@ -179,6 +179,8 @@ struct World {
     substrate: PlasticSubstrate,
     namespace: u64,
     entries: [CellId; SIDES],
+    participants: [CellId; SIDES],
+    proposal_targets: [CellId; SIDES],
     training_drivers: [CellId; SIDES],
     correlation_drivers: [CellId; SIDES],
     context: CellId,
@@ -197,6 +199,7 @@ struct Metrics {
     resistance_after: [u32; SIDES],
     live_after: [bool; SIDES],
     heldout_crossings: [usize; SIDES],
+    fresh_live_paths: [usize; SIDES],
     distractor_firings: usize,
     naturally_quiescent: bool,
     persistent_bytes: usize,
@@ -217,9 +220,9 @@ struct Row {
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
     let preflight = args == ["--preflight"];
-    let gate = args == ["--gate"];
+    let gate = args == ["--gate-v2"];
     if !preflight && !gate {
-        eprintln!("PX6 development GATE requires --preflight or --gate");
+        eprintln!("PX6 development GATE v2 requires --preflight or --gate-v2");
         std::process::exit(2);
     }
     assert!(source_audit(), "frozen PX2 parent or protocol changed");
@@ -230,11 +233,11 @@ fn main() {
         );
     }
     if preflight {
-        println!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_PREFLIGHT_OK");
+        println!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_V2_PREFLIGHT_OK");
         return;
     }
 
-    eprintln!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_EVIDENCE_SPENT");
+    eprintln!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_V2_EVIDENCE_SPENT");
     let mut rows = Vec::new();
     for (stratum_ordinal, stratum) in STRATA.into_iter().enumerate() {
         for (world_ordinal, kind) in WorldKind::ALL.into_iter().enumerate() {
@@ -264,14 +267,15 @@ fn main() {
 
 fn source_audit() -> bool {
     sha256("crates/px0-physical-correspondence/src/lib.rs") == SUBSTRATE_SHA256
-        && sha256("experiments/px6_physical_consequence_credit_gate_protocol.md") == PROTOCOL_SHA256
+        && sha256("experiments/px6_physical_consequence_credit_gate_v2_protocol.md")
+            == PROTOCOL_SHA256
         && git_sha256(
-            "px6-physical-consequence-credit-micro-implementation-v1",
+            "px6-physical-consequence-credit-gate-implementation-v1",
             "crates/px0-physical-correspondence/examples/px6_physical_consequence_credit.rs",
-        ) == MICRO_IMPLEMENTATION_SHA256
-        && sha256("results/px6_physical_consequence_credit_micro_v1.csv") == MICRO_CSV_SHA256
-        && sha256("experiments/px6_physical_consequence_credit_micro_result_audit.md")
-            == MICRO_AUDIT_SHA256
+        ) == V1_IMPLEMENTATION_SHA256
+        && sha256("results/px6_physical_consequence_credit_gate_v1.csv") == V1_CSV_SHA256
+        && sha256("experiments/px6_physical_consequence_credit_gate_v1_negative_audit.md")
+            == V1_AUDIT_SHA256
         && git_rev("px2-physical-causal-direction-authoritative^{commit}") == FROZEN_PARENT
         && !cargo_manifest().contains("ds8")
 }
@@ -285,6 +289,7 @@ fn build_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> World {
     let mut substrate = PlasticSubstrate::new();
     let mut entries = [None; SIDES];
     let mut participants = [None; SIDES];
+    let mut proposal_targets = [None; SIDES];
     let mut consequences = [None; SIDES];
     let mut traces = [None; SIDES];
     let mut outside = [None; SIDES];
@@ -302,6 +307,8 @@ fn build_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> World {
         entries[side] = Some(substrate.add_cell(cell(namespace + side as u64, base, 0, 1)));
         participants[side] =
             Some(substrate.add_cell(cell(namespace + 10 + side as u64, base + 8, 0, 2)));
+        proposal_targets[side] =
+            Some(substrate.add_cell(cell(namespace + 80 + side as u64, base + 9, 0, 1)));
         consequences[side] =
             Some(substrate.add_cell(cell(namespace + 20 + side as u64, base + 16, 0, 2)));
         traces[side] =
@@ -315,6 +322,7 @@ fn build_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> World {
     }
     let entries = entries.map(Option::unwrap);
     let participants = participants.map(Option::unwrap);
+    let proposal_targets = proposal_targets.map(Option::unwrap);
     let consequences = consequences.map(Option::unwrap);
     let traces = traces.map(Option::unwrap);
     let outside = outside.map(Option::unwrap);
@@ -350,6 +358,13 @@ fn build_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> World {
             correlation_drivers[side],
             consequences[side],
             1 + stratum.candidate_delay,
+            2,
+            0,
+        ));
+        substrate.add_arrow(stable(
+            proposal_targets[side],
+            consequences[side],
+            stratum.candidate_delay - 1,
             2,
             0,
         ));
@@ -395,6 +410,8 @@ fn build_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> World {
         substrate,
         namespace,
         entries,
+        participants,
+        proposal_targets,
         training_drivers,
         correlation_drivers,
         context,
@@ -417,6 +434,21 @@ fn run_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> Metrics {
     for presentation in 0..PRESENTATIONS {
         let participants = kind.participants(presentation);
         let tick = stratum.first_tick + presentation as i64 * stratum.presentation_spacing;
+        let delayed_side = match kind {
+            WorldKind::LeftThenRight if presentation == PRESENTATIONS / 2 => Some(1),
+            WorldKind::RightThenLeft if presentation == PRESENTATIONS / 2 => Some(0),
+            _ => None,
+        };
+        if let Some(side) = delayed_side {
+            for ordinal in 0..2 {
+                enter(
+                    &mut world.substrate,
+                    world.participants[side],
+                    tick - 3,
+                    namespace + 0x60_000 + side as u64 * 0x10 + ordinal,
+                );
+            }
+        }
         let arrival_order = if stratum.reverse_arrivals {
             [1, 0]
         } else {
@@ -483,15 +515,31 @@ fn run_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> Metrics {
         metrics.naturally_quiescent &= run.naturally_quiescent;
     }
 
-    metrics.resistance_after = std::array::from_fn(|side| {
-        if world.substrate.arrow_is_live(world.candidates[side]) {
-            world.substrate.arrow_resistance(world.candidates[side])
-        } else {
-            0
-        }
+    metrics.fresh_live_paths = std::array::from_fn(|side| {
+        world
+            .substrate
+            .arrows_between(world.participants[side], world.proposal_targets[side])
+            .into_iter()
+            .filter(|arrow| world.substrate.arrow_is_live(*arrow))
+            .count()
     });
-    metrics.live_after =
-        std::array::from_fn(|side| world.substrate.arrow_is_live(world.candidates[side]));
+    metrics.resistance_after = std::array::from_fn(|side| {
+        let direct = world
+            .substrate
+            .arrow_is_live(world.candidates[side])
+            .then(|| world.substrate.arrow_resistance(world.candidates[side]))
+            .unwrap_or(0);
+        let fresh = world
+            .substrate
+            .arrows_between(world.participants[side], world.proposal_targets[side])
+            .into_iter()
+            .filter(|arrow| world.substrate.arrow_is_live(*arrow))
+            .map(|arrow| world.substrate.arrow_resistance(arrow))
+            .max()
+            .unwrap_or(0);
+        direct.max(fresh)
+    });
+    metrics.live_after = metrics.resistance_after.map(|value| value > 0);
     let heldout_tick = stratum.first_tick + PRESENTATIONS as i64 * stratum.presentation_spacing + 4;
     metrics.heldout_crossings = heldout(&world, heldout_tick, stratum.reverse_arrivals);
     metrics.fingerprint = world.substrate.complete_fingerprint();
@@ -524,11 +572,22 @@ fn heldout(world: &World, tick: i64, reverse_arrivals: bool) -> [usize; SIDES] {
 
 fn evaluate(kind: WorldKind, stratum: Stratum, metrics: &Metrics, duplicate_exact: bool) -> bool {
     let expected_live = kind.expected_live();
-    let expected_traversals = std::array::from_fn(|side| {
+    let mut expected_traversals = std::array::from_fn(|side| {
         (0..PRESENTATIONS)
             .filter(|presentation| kind.participants(*presentation)[side])
             .count()
     });
+    let expected_fresh = match kind {
+        WorldKind::LeftThenRight => {
+            expected_traversals[1] += 1;
+            [0, 1]
+        }
+        WorldKind::RightThenLeft => {
+            expected_traversals[0] += 1;
+            [1, 0]
+        }
+        _ => [0, 0],
+    };
     let expected_heldout = expected_live.map(usize::from);
     let expected_returns = match kind {
         WorldKind::CrossedReturn => [0, metrics.consequence_firings[0]],
@@ -538,6 +597,8 @@ fn evaluate(kind: WorldKind, stratum: Stratum, metrics: &Metrics, duplicate_exac
     let expected_downstream = match kind {
         WorldKind::LeftOverload => [PRESENTATIONS, PRESENTATIONS * 3],
         WorldKind::RightOverload => [PRESENTATIONS * 3, PRESENTATIONS],
+        WorldKind::LeftThenRight => [PRESENTATIONS, PRESENTATIONS + 1],
+        WorldKind::RightThenLeft => [PRESENTATIONS + 1, PRESENTATIONS],
         _ => [PRESENTATIONS, PRESENTATIONS],
     };
 
@@ -545,6 +606,18 @@ fn evaluate(kind: WorldKind, stratum: Stratum, metrics: &Metrics, duplicate_exac
         WorldKind::CrossedReturn | WorldKind::NoReturn => {
             (1..PRESENTATIONS).contains(&metrics.consequence_firings[0])
                 && metrics.consequence_firings[1] == PRESENTATIONS
+                && metrics.trace_firings == metrics.consequence_firings
+                && metrics.outward_crossings == metrics.consequence_firings
+        }
+        WorldKind::LeftDominant => {
+            metrics.consequence_firings[0] == PRESENTATIONS
+                && (1..PRESENTATIONS).contains(&metrics.consequence_firings[1])
+                && metrics.trace_firings == metrics.consequence_firings
+                && metrics.outward_crossings == metrics.consequence_firings
+        }
+        WorldKind::RightDominant => {
+            metrics.consequence_firings[1] == PRESENTATIONS
+                && (1..PRESENTATIONS).contains(&metrics.consequence_firings[0])
                 && metrics.trace_firings == metrics.consequence_firings
                 && metrics.outward_crossings == metrics.consequence_firings
         }
@@ -574,6 +647,7 @@ fn evaluate(kind: WorldKind, stratum: Stratum, metrics: &Metrics, duplicate_exac
             }
         })
         && metrics.heldout_crossings == expected_heldout
+        && metrics.fresh_live_paths == expected_fresh
         && metrics.distractor_firings == stratum.distractor_load * PRESENTATIONS
         && metrics.naturally_quiescent
         && global_return_work_exact
@@ -656,12 +730,12 @@ fn add_work(total: &mut WorkLedger, value: &WorkLedger) {
 
 fn csv(rows: &[Row]) -> String {
     let mut out = String::from(
-        "stratum,world,namespace,traversals,consequence_firings,trace_firings,return_arrivals,outward_crossings,resistance_before,resistance_after,live_after,heldout_crossings,distractor_firings,quiescent,local_return_updates,pressure_updates,deallocations,work,persistent_bytes,fingerprint,duplicate_exact,passed\n",
+        "stratum,world,namespace,traversals,consequence_firings,trace_firings,return_arrivals,outward_crossings,resistance_before,resistance_after,live_after,heldout_crossings,fresh_live_paths,distractor_firings,quiescent,local_return_updates,pressure_updates,deallocations,work,persistent_bytes,fingerprint,duplicate_exact,passed\n",
     );
     for row in rows {
         let m = &row.metrics;
         out.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
             row.stratum,
             row.world.name(),
             row.namespace,
@@ -674,6 +748,7 @@ fn csv(rows: &[Row]) -> String {
             pair_u32(m.resistance_after),
             pair_bool(m.live_after),
             pair_usize(m.heldout_crossings),
+            pair_usize(m.fresh_live_paths),
             m.distractor_firings,
             m.naturally_quiescent,
             m.work.local_return_updates,
@@ -697,13 +772,13 @@ fn markdown(rows: &[Row]) -> String {
         .map(|row| row.metrics.persistent_bytes)
         .sum::<usize>();
     let mut out = format!(
-        "# PX6 physical consequence-credit no-new-mechanism GATE v1\n\nOutcome: **{passed}/{} cells passed**. Authority: **absent**.\n\nFrozen parent: `{FROZEN_PARENT}`. Active substrate SHA-256: `{SUBSTRATE_SHA256}`.\n\nTotal measured work: `{work}`. Aggregate per-cell persistent storage: `{storage}` bytes.\n\n| stratum | world | traversal | downstream | return arrivals | resistance after | live | held-out | distractors | work | replay | pass |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|:---:|\n",
+        "# PX6 physical consequence-credit no-new-mechanism GATE v2\n\nOutcome: **{passed}/{} cells passed**. Authority: **absent**.\n\nFrozen parent: `{FROZEN_PARENT}`. Active substrate SHA-256: `{SUBSTRATE_SHA256}`.\n\nTotal measured work: `{work}`. Aggregate per-cell persistent storage: `{storage}` bytes.\n\n| stratum | world | traversal | downstream | return arrivals | resistance after | live | held-out | fresh paths | distractors | work | replay | pass |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---:|:---:|\n",
         rows.len()
     );
     for row in rows {
         let m = &row.metrics;
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             row.stratum,
             row.world.name(),
             pair_usize(m.traversals),
@@ -712,6 +787,7 @@ fn markdown(rows: &[Row]) -> String {
             pair_u32(m.resistance_after),
             pair_bool(m.live_after),
             pair_usize(m.heldout_crossings),
+            pair_usize(m.fresh_live_paths),
             m.distractor_firings,
             m.work.total(),
             row.duplicate_exact,
