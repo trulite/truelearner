@@ -8,19 +8,19 @@ use std::path::Path;
 use std::process::Command;
 
 const SIDES: usize = 2;
-const PRESENTATIONS: usize = 8;
-const NAMESPACE_BASE: u64 = 0x6_2200_0000;
+const PRESENTATIONS: usize = 24;
+const NAMESPACE_BASE: u64 = 0x6_4200_0000;
 const SUBSTRATE_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
-const PROTOCOL_SHA256: &str = "df6675c5c4de9948136b418447fe91264858ddb8273baf65d682d08646e204bc";
-const PROBE_IMPLEMENTATION_SHA256: &str =
-    "c5c21029f8be8abc90d6e1bd810e838484146945ebf71a5eacef43ca656ce681";
-const PROBE_CSV_SHA256: &str = "7a5a90ceda8f668ea83eeb2bd46f6e523f10b8f2530932fe58a166558ffab50f";
-const PROBE_AUDIT_SHA256: &str = "04dd5a23b8ef14db6b11d8c820e4e094e2725d48b6783f42b925d59a6523f9c2";
+const PROTOCOL_SHA256: &str = "44377a6165ae563595a96413eb1bdaaa3470eeaf83e3d7338c1ea2f062e24440";
+const MICRO_IMPLEMENTATION_SHA256: &str =
+    "77c9108519fc5e4e61cfc5bd3436130a56b5dd0fa0800bb8a5caf168bde20cb4";
+const MICRO_CSV_SHA256: &str = "0444507fdb78e0a0d12bf08d80294aeb177087fe2c256a6f5dc67c2636d4a903";
+const MICRO_AUDIT_SHA256: &str = "0480e5f1479ff0fd8a10ff39d69e1bacf7fd80e0920b3f1f8cb2e83be3fba574";
 const FROZEN_PARENT: &str = "2fbee861a0aeed335d3ffa8f9095ca28f2ac6129";
-const RESULT_CSV: &str = "results/px6_physical_consequence_credit_micro_v1.csv";
-const RESULT_MD: &str = "results/px6_physical_consequence_credit_micro_v1.md";
-const STAGING_CSV: &str = "results/.px6_physical_consequence_credit_micro_v1.csv.staging";
-const STAGING_MD: &str = "results/.px6_physical_consequence_credit_micro_v1.md.staging";
+const RESULT_CSV: &str = "results/px6_physical_consequence_credit_gate_v1.csv";
+const RESULT_MD: &str = "results/px6_physical_consequence_credit_gate_v1.md";
+const STAGING_CSV: &str = "results/.px6_physical_consequence_credit_gate_v1.csv.staging";
+const STAGING_MD: &str = "results/.px6_physical_consequence_credit_gate_v1.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Stratum {
@@ -32,48 +32,53 @@ struct Stratum {
     mirror: bool,
     reverse_allocation: bool,
     reverse_arrivals: bool,
+    distractor_load: usize,
 }
 
 const STRATA: [Stratum; 4] = [
     Stratum {
-        name: "S0",
-        side_spacing: 40,
+        name: "G0",
+        side_spacing: 44,
         candidate_delay: 1,
         first_tick: 2,
-        presentation_spacing: 14,
+        presentation_spacing: 20,
         mirror: false,
         reverse_allocation: false,
         reverse_arrivals: false,
+        distractor_load: 0,
     },
     Stratum {
-        name: "S1",
-        side_spacing: 52,
+        name: "G1",
+        side_spacing: 60,
         candidate_delay: 2,
         first_tick: 3,
-        presentation_spacing: 15,
+        presentation_spacing: 21,
         mirror: true,
         reverse_allocation: true,
         reverse_arrivals: true,
+        distractor_load: 8,
     },
     Stratum {
-        name: "S2",
-        side_spacing: 64,
+        name: "G2",
+        side_spacing: 72,
         candidate_delay: 1,
         first_tick: 4,
-        presentation_spacing: 16,
+        presentation_spacing: 22,
         mirror: false,
         reverse_allocation: true,
         reverse_arrivals: false,
+        distractor_load: 24,
     },
     Stratum {
-        name: "S3",
-        side_spacing: 76,
+        name: "G3",
+        side_spacing: 88,
         candidate_delay: 2,
         first_tick: 5,
-        presentation_spacing: 17,
+        presentation_spacing: 23,
         mirror: true,
         reverse_allocation: false,
         reverse_arrivals: true,
+        distractor_load: 48,
     },
 ];
 
@@ -87,16 +92,28 @@ enum WorldKind {
     Correlation,
     CrossedReturn,
     NoReturn,
+    LeftDominant,
+    RightDominant,
+    LeftThenRight,
+    RightThenLeft,
+    LeftOverload,
+    RightOverload,
 }
 
 impl WorldKind {
-    const ALL: [Self; 6] = [
+    const ALL: [Self; 12] = [
         Self::Left,
         Self::Right,
         Self::Both,
         Self::Correlation,
         Self::CrossedReturn,
         Self::NoReturn,
+        Self::LeftDominant,
+        Self::RightDominant,
+        Self::LeftThenRight,
+        Self::RightThenLeft,
+        Self::LeftOverload,
+        Self::RightOverload,
     ];
 
     fn name(self) -> &'static str {
@@ -107,24 +124,52 @@ impl WorldKind {
             Self::Correlation => "correlation",
             Self::CrossedReturn => "crossed-return",
             Self::NoReturn => "no-return",
+            Self::LeftDominant => "left-dominant",
+            Self::RightDominant => "right-dominant",
+            Self::LeftThenRight => "left-then-right",
+            Self::RightThenLeft => "right-then-left",
+            Self::LeftOverload => "left-observational-overload",
+            Self::RightOverload => "right-observational-overload",
         }
     }
 
-    fn participants(self) -> [bool; SIDES] {
+    fn participants(self, presentation: usize) -> [bool; SIDES] {
         match self {
-            Self::Left | Self::CrossedReturn | Self::NoReturn => [true, false],
-            Self::Right => [false, true],
+            Self::Left | Self::CrossedReturn | Self::NoReturn | Self::LeftOverload => [true, false],
+            Self::Right | Self::RightOverload => [false, true],
             Self::Both => [true, true],
             Self::Correlation => [false, false],
+            Self::LeftDominant => [true, presentation.is_multiple_of(4)],
+            Self::RightDominant => [presentation.is_multiple_of(4), true],
+            Self::LeftThenRight => [
+                presentation < PRESENTATIONS / 2,
+                presentation >= PRESENTATIONS / 2,
+            ],
+            Self::RightThenLeft => [
+                presentation >= PRESENTATIONS / 2,
+                presentation < PRESENTATIONS / 2,
+            ],
         }
     }
 
     fn expected_live(self) -> [bool; SIDES] {
         match self {
-            Self::Left => [true, false],
-            Self::Right => [false, true],
+            Self::Left | Self::LeftDominant | Self::RightThenLeft | Self::LeftOverload => {
+                [true, false]
+            }
+            Self::Right | Self::RightDominant | Self::LeftThenRight | Self::RightOverload => {
+                [false, true]
+            }
             Self::Both => [true, true],
             Self::Correlation | Self::CrossedReturn | Self::NoReturn => [false, false],
+        }
+    }
+
+    fn overloaded_side(self) -> Option<usize> {
+        match self {
+            Self::LeftOverload => Some(1),
+            Self::RightOverload => Some(0),
+            _ => None,
         }
     }
 }
@@ -138,6 +183,7 @@ struct World {
     correlation_drivers: [CellId; SIDES],
     context: CellId,
     candidates: [ArrowId; SIDES],
+    distractor_drivers: Vec<CellId>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -151,6 +197,7 @@ struct Metrics {
     resistance_after: [u32; SIDES],
     live_after: [bool; SIDES],
     heldout_crossings: [usize; SIDES],
+    distractor_firings: usize,
     naturally_quiescent: bool,
     persistent_bytes: usize,
     work: WorkLedger,
@@ -170,9 +217,9 @@ struct Row {
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
     let preflight = args == ["--preflight"];
-    let micro = args == ["--micro"];
-    if !preflight && !micro {
-        eprintln!("PX6 development MICRO requires --preflight or --micro");
+    let gate = args == ["--gate"];
+    if !preflight && !gate {
+        eprintln!("PX6 development GATE requires --preflight or --gate");
         std::process::exit(2);
     }
     assert!(source_audit(), "frozen PX2 parent or protocol changed");
@@ -183,11 +230,11 @@ fn main() {
         );
     }
     if preflight {
-        println!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_MICRO_PREFLIGHT_OK");
+        println!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_PREFLIGHT_OK");
         return;
     }
 
-    eprintln!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_MICRO_EVIDENCE_SPENT");
+    eprintln!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_EVIDENCE_SPENT");
     let mut rows = Vec::new();
     for (stratum_ordinal, stratum) in STRATA.into_iter().enumerate() {
         for (world_ordinal, kind) in WorldKind::ALL.into_iter().enumerate() {
@@ -197,7 +244,7 @@ fn main() {
             let metrics = run_world(namespace, kind, stratum);
             let duplicate = run_world(namespace, kind, stratum);
             let duplicate_exact = metrics == duplicate;
-            let passed = evaluate(kind, &metrics, duplicate_exact);
+            let passed = evaluate(kind, stratum, &metrics, duplicate_exact);
             rows.push(Row {
                 stratum: stratum.name,
                 world: kind,
@@ -217,15 +264,14 @@ fn main() {
 
 fn source_audit() -> bool {
     sha256("crates/px0-physical-correspondence/src/lib.rs") == SUBSTRATE_SHA256
-        && sha256("experiments/px6_physical_consequence_credit_micro_protocol.md")
-            == PROTOCOL_SHA256
+        && sha256("experiments/px6_physical_consequence_credit_gate_protocol.md") == PROTOCOL_SHA256
         && git_sha256(
-            "px6-physical-consequence-credit-probe-v2-implementation",
+            "px6-physical-consequence-credit-micro-implementation-v1",
             "crates/px0-physical-correspondence/examples/px6_physical_consequence_credit.rs",
-        ) == PROBE_IMPLEMENTATION_SHA256
-        && sha256("results/px6_physical_consequence_credit_probe_v2.csv") == PROBE_CSV_SHA256
-        && sha256("experiments/px6_physical_consequence_credit_probe_v2_result_audit.md")
-            == PROBE_AUDIT_SHA256
+        ) == MICRO_IMPLEMENTATION_SHA256
+        && sha256("results/px6_physical_consequence_credit_micro_v1.csv") == MICRO_CSV_SHA256
+        && sha256("experiments/px6_physical_consequence_credit_micro_result_audit.md")
+            == MICRO_AUDIT_SHA256
         && git_rev("px2-physical-causal-direction-authoritative^{commit}") == FROZEN_PARENT
         && !cargo_manifest().contains("ds8")
 }
@@ -275,6 +321,20 @@ fn build_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> World {
     let training_drivers = training_drivers.map(Option::unwrap);
     let correlation_drivers = correlation_drivers.map(Option::unwrap);
     let context = substrate.add_cell(cell(namespace + 70, 1_400, 0, 1));
+    let mut distractor_drivers = Vec::new();
+    for ordinal in 0..stratum.distractor_load {
+        let position = 10_000 + ordinal as i32 * 4;
+        let driver =
+            substrate.add_cell(cell(namespace + 1_000 + ordinal as u64 * 2, position, 0, 1));
+        let sink = substrate.add_cell(cell(
+            namespace + 1_001 + ordinal as u64 * 2,
+            position + 1,
+            0,
+            1,
+        ));
+        substrate.add_arrow(stable(driver, sink, 1, 1, 0));
+        distractor_drivers.push(driver);
+    }
 
     for side in allocation_order {
         substrate.add_arrow(stable(entries[side], participants[side], 1, 1, 0));
@@ -300,7 +360,16 @@ fn build_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> World {
     }
 
     match kind {
-        WorldKind::Left | WorldKind::Right | WorldKind::Both | WorldKind::Correlation => {
+        WorldKind::Left
+        | WorldKind::Right
+        | WorldKind::Both
+        | WorldKind::Correlation
+        | WorldKind::LeftDominant
+        | WorldKind::RightDominant
+        | WorldKind::LeftThenRight
+        | WorldKind::RightThenLeft
+        | WorldKind::LeftOverload
+        | WorldKind::RightOverload => {
             for side in 0..SIDES {
                 substrate.add_arrow(stable(traces[side], participants[side], 1, 1, 0));
             }
@@ -330,12 +399,12 @@ fn build_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> World {
         correlation_drivers,
         context,
         candidates,
+        distractor_drivers,
     }
 }
 
 fn run_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> Metrics {
     let mut world = build_world(namespace, kind, stratum);
-    let participants = kind.participants();
     let resistance_before =
         std::array::from_fn(|side| world.substrate.arrow_resistance(world.candidates[side]));
     let mut metrics = Metrics {
@@ -346,6 +415,7 @@ fn run_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> Metrics {
     };
 
     for presentation in 0..PRESENTATIONS {
+        let participants = kind.participants(presentation);
         let tick = stratum.first_tick + presentation as i64 * stratum.presentation_spacing;
         let arrival_order = if stratum.reverse_arrivals {
             [1, 0]
@@ -375,6 +445,28 @@ fn run_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> Metrics {
                 );
             }
         }
+        if let Some(side) = kind.overloaded_side() {
+            for extra in 1..=2 {
+                enter(
+                    &mut world.substrate,
+                    world.correlation_drivers[side],
+                    tick + extra as i64 * 6,
+                    namespace
+                        + 0x40_000
+                        + presentation as u64 * 0x100
+                        + extra as u64 * 0x10
+                        + side as u64,
+                );
+            }
+        }
+        for (ordinal, driver) in world.distractor_drivers.iter().copied().enumerate() {
+            enter(
+                &mut world.substrate,
+                driver,
+                tick + 3,
+                namespace + 0x50_000 + presentation as u64 * 0x100 + ordinal as u64,
+            );
+        }
         let run = world.substrate.propagate();
         for side in 0..SIDES {
             metrics.traversals[side] += firings(&run, physical(world.namespace, 10, side));
@@ -384,6 +476,9 @@ fn run_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> Metrics {
                 .saturating_sub(2 * usize::from(participants[side]));
             metrics.outward_crossings[side] += crossings(&run, physical(world.namespace, 20, side));
         }
+        metrics.distractor_firings += (0..stratum.distractor_load)
+            .map(|ordinal| firings(&run, namespace + 1_001 + ordinal as u64 * 2))
+            .sum::<usize>();
         add_work(&mut metrics.work, &run.work);
         metrics.naturally_quiescent &= run.naturally_quiescent;
     }
@@ -427,18 +522,23 @@ fn heldout(world: &World, tick: i64, reverse_arrivals: bool) -> [usize; SIDES] {
     std::array::from_fn(|side| crossings(&run, physical(clone.namespace, 20, side)))
 }
 
-fn evaluate(kind: WorldKind, metrics: &Metrics, duplicate_exact: bool) -> bool {
-    let participants = kind.participants();
+fn evaluate(kind: WorldKind, stratum: Stratum, metrics: &Metrics, duplicate_exact: bool) -> bool {
     let expected_live = kind.expected_live();
-    let expected_traversals = participants.map(|value| usize::from(value) * PRESENTATIONS);
+    let expected_traversals = std::array::from_fn(|side| {
+        (0..PRESENTATIONS)
+            .filter(|presentation| kind.participants(*presentation)[side])
+            .count()
+    });
     let expected_heldout = expected_live.map(usize::from);
     let expected_returns = match kind {
-        WorldKind::Left => [PRESENTATIONS, PRESENTATIONS],
-        WorldKind::Right => [PRESENTATIONS, PRESENTATIONS],
-        WorldKind::Both => [PRESENTATIONS, PRESENTATIONS],
-        WorldKind::Correlation => [PRESENTATIONS, PRESENTATIONS],
         WorldKind::CrossedReturn => [0, metrics.consequence_firings[0]],
         WorldKind::NoReturn => [0, 0],
+        _ => metrics.consequence_firings,
+    };
+    let expected_downstream = match kind {
+        WorldKind::LeftOverload => [PRESENTATIONS, PRESENTATIONS * 3],
+        WorldKind::RightOverload => [PRESENTATIONS * 3, PRESENTATIONS],
+        _ => [PRESENTATIONS, PRESENTATIONS],
     };
 
     let downstream_exact = match kind {
@@ -449,18 +549,16 @@ fn evaluate(kind: WorldKind, metrics: &Metrics, duplicate_exact: bool) -> bool {
                 && metrics.outward_crossings == metrics.consequence_firings
         }
         _ => {
-            metrics.consequence_firings == [PRESENTATIONS, PRESENTATIONS]
-                && metrics.trace_firings == [PRESENTATIONS, PRESENTATIONS]
-                && metrics.outward_crossings == [PRESENTATIONS, PRESENTATIONS]
+            metrics.consequence_firings == expected_downstream
+                && metrics.trace_firings == expected_downstream
+                && metrics.outward_crossings == expected_downstream
         }
     };
     let global_return_work_exact = match kind {
-        WorldKind::Left | WorldKind::Right | WorldKind::Both => {
-            metrics.work.local_return_updates > 0
-        }
         WorldKind::Correlation | WorldKind::CrossedReturn | WorldKind::NoReturn => {
             metrics.work.local_return_updates == 0
         }
+        _ => metrics.work.local_return_updates > 0,
     };
 
     metrics.traversals == expected_traversals
@@ -476,6 +574,7 @@ fn evaluate(kind: WorldKind, metrics: &Metrics, duplicate_exact: bool) -> bool {
             }
         })
         && metrics.heldout_crossings == expected_heldout
+        && metrics.distractor_firings == stratum.distractor_load * PRESENTATIONS
         && metrics.naturally_quiescent
         && global_return_work_exact
         && metrics.persistent_bytes > 0
@@ -557,12 +656,12 @@ fn add_work(total: &mut WorkLedger, value: &WorkLedger) {
 
 fn csv(rows: &[Row]) -> String {
     let mut out = String::from(
-        "stratum,world,namespace,traversals,consequence_firings,trace_firings,return_arrivals,outward_crossings,resistance_before,resistance_after,live_after,heldout_crossings,quiescent,local_return_updates,pressure_updates,deallocations,work,persistent_bytes,fingerprint,duplicate_exact,passed\n",
+        "stratum,world,namespace,traversals,consequence_firings,trace_firings,return_arrivals,outward_crossings,resistance_before,resistance_after,live_after,heldout_crossings,distractor_firings,quiescent,local_return_updates,pressure_updates,deallocations,work,persistent_bytes,fingerprint,duplicate_exact,passed\n",
     );
     for row in rows {
         let m = &row.metrics;
         out.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
             row.stratum,
             row.world.name(),
             row.namespace,
@@ -575,6 +674,7 @@ fn csv(rows: &[Row]) -> String {
             pair_u32(m.resistance_after),
             pair_bool(m.live_after),
             pair_usize(m.heldout_crossings),
+            m.distractor_firings,
             m.naturally_quiescent,
             m.work.local_return_updates,
             m.work.ordinary_pressure_updates,
@@ -597,13 +697,13 @@ fn markdown(rows: &[Row]) -> String {
         .map(|row| row.metrics.persistent_bytes)
         .sum::<usize>();
     let mut out = format!(
-        "# PX6 physical consequence-credit no-new-mechanism MICRO v1\n\nOutcome: **{passed}/{} cells passed**.\n\nFrozen parent: `{FROZEN_PARENT}`. Active substrate SHA-256: `{SUBSTRATE_SHA256}`.\n\nTotal measured work: `{work}`. Aggregate per-cell persistent storage: `{storage}` bytes.\n\n| stratum | world | traversal | downstream | return arrivals | resistance after | live | held-out | work | replay | pass |\n|---|---|---:|---:|---:|---:|---:|---:|---:|:---:|:---:|\n",
+        "# PX6 physical consequence-credit no-new-mechanism GATE v1\n\nOutcome: **{passed}/{} cells passed**. Authority: **absent**.\n\nFrozen parent: `{FROZEN_PARENT}`. Active substrate SHA-256: `{SUBSTRATE_SHA256}`.\n\nTotal measured work: `{work}`. Aggregate per-cell persistent storage: `{storage}` bytes.\n\n| stratum | world | traversal | downstream | return arrivals | resistance after | live | held-out | distractors | work | replay | pass |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|:---:|:---:|\n",
         rows.len()
     );
     for row in rows {
         let m = &row.metrics;
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             row.stratum,
             row.world.name(),
             pair_usize(m.traversals),
@@ -612,6 +712,7 @@ fn markdown(rows: &[Row]) -> String {
             pair_u32(m.resistance_after),
             pair_bool(m.live_after),
             pair_usize(m.heldout_crossings),
+            m.distractor_firings,
             m.work.total(),
             row.duplicate_exact,
             row.passed,
