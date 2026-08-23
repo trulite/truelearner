@@ -257,10 +257,11 @@ fn expected(
 ) {
     let z4 = [0; 4];
     let z6 = [0; 6];
+    let z6i = [0_i32; 6];
     let i1 = [1; 6];
     let c100 = [100; 6];
     match k {
-        Kind::ReturnOnly => (z4, z6, z6, z6, [1; 6], i1, c100),
+        Kind::ReturnOnly => (z4, z6, z6i, z6, [1; 6], i1, c100),
         Kind::Real | Kind::Real21 | Kind::Real44 => (
             [1, 1, 0, 0],
             [1, 0, 0, 0, 0, 0],
@@ -288,7 +289,7 @@ fn expected(
             [0, 1, 1, 1, 1, 1],
             c100,
         ),
-        Kind::NoAbConsequence => (z4, z6, z6, [1; 6], [1; 6], i1, c100),
+        Kind::NoAbConsequence => (z4, z6, z6i, [1; 6], [1; 6], i1, c100),
         Kind::Swap => (
             [1, 1, 0, 0],
             [1, 0, 0, 0, 0, 0],
