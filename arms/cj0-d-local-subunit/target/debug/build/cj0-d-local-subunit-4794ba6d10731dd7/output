@@ -1,2 +1,0 @@
-cargo:rerun-if-changed=../../crates/px0-physical-correspondence/src/lib.rs
-cargo:rerun-if-changed=build.rs
