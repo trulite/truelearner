@@ -14,7 +14,8 @@ struct Fixture {
     sources: [CellId; N],
     probes: [CellId; N],
     contenders: [CellId; N],
-    gates: [CellId; N],
+    backgrounds: [CellId; N],
+    supports: [CellId; N],
 }
 
 #[derive(Clone, Debug)]
@@ -85,6 +86,8 @@ fn build(namespace: u64, reverse: bool) -> Fixture {
     let mut probes = [None; N];
     let mut contenders = [None; N];
     let mut gates = [None; N];
+    let mut backgrounds = [None; N];
+    let mut supports = [None; N];
     let order = if reverse { [2, 1, 0] } else { [0, 1, 2] };
     for index in order {
         let position = index as i32 * 10;
@@ -96,17 +99,33 @@ fn build(namespace: u64, reverse: bool) -> Fixture {
             Some(substrate.add_cell(cell(namespace + 30 + index as u64, position + 2, 0, 2)));
         gates[index] =
             Some(substrate.add_cell(cell(namespace + 40 + index as u64, position + 4, -1, 2)));
+        backgrounds[index] = Some(substrate.add_cell(cell(
+            namespace + 50 + index as u64,
+            200 + index as i32 * 10,
+            -2,
+            1,
+        )));
+        supports[index] = Some(substrate.add_cell(cell(
+            namespace + 60 + index as u64,
+            300 + index as i32 * 10,
+            -2,
+            1,
+        )));
     }
     let sources = sources.map(|value| value.expect("source allocated"));
     let probes = probes.map(|value| value.expect("probe allocated"));
     let contenders = contenders.map(|value| value.expect("contender allocated"));
     let gates = gates.map(|value| value.expect("gate allocated"));
+    let backgrounds = backgrounds.map(|value| value.expect("background allocated"));
+    let supports = supports.map(|value| value.expect("support allocated"));
     let veto = substrate.add_cell(cell(namespace + 100, 100, 0, 2));
     let accumulator = substrate.add_cell(cell(namespace + 101, 101, 0, 1));
     let outside = substrate.add_cell(cell(namespace + 102, 102, 1, 1));
     for index in order {
         substrate.add_arrow(arrow(probes[index], gates[index], 1, 1));
         substrate.add_arrow(arrow(gates[index], sources[index], 1, 1));
+        substrate.add_arrow(arrow(backgrounds[index], probes[index], 1, 1));
+        substrate.add_arrow(arrow(supports[index], gates[index], 2, 1));
         substrate.add_arrow(arrow(contenders[index], veto, 0, 1));
         substrate.add_arrow(arrow(contenders[index], accumulator, 2, 1));
     }
@@ -117,7 +136,8 @@ fn build(namespace: u64, reverse: bool) -> Fixture {
         sources,
         probes,
         contenders,
-        gates,
+        backgrounds,
+        supports,
     }
 }
 
@@ -141,19 +161,19 @@ fn experience(
             });
         }
         fixture.substrate.enter(SpikeInput {
-            arrival_tick: tick + 1,
+            arrival_tick: tick,
             phase: 0,
             origin_physical: namespace + 0x100 + *index as u64,
-            target: fixture.probes[*index],
+            target: fixture.backgrounds[*index],
             impulse: 1,
         });
     }
     for index in supported {
         fixture.substrate.enter(SpikeInput {
-            arrival_tick: tick + 2,
+            arrival_tick: tick,
             phase: 0,
             origin_physical: namespace + 0x200 + *index as u64,
-            target: fixture.gates[*index],
+            target: fixture.supports[*index],
             impulse: 1,
         });
     }
