@@ -2,10 +2,10 @@ use px0_physical_correspondence::{
     ArrowId, ArrowSpec, CellId, CellSpec, Execution, PlasticSubstrate, SpikeInput,
 };
 use std::env;
-use std::fs::{rename, OpenOptions};
+use std::fs::{read_to_string, rename, OpenOptions};
 use std::io::Write;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 const PX2_PARENT: &str = "2fbee861a0aeed335d3ffa8f9095ca28f2ac6129";
 const PX0_SOURCE_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
@@ -22,6 +22,13 @@ const PROBE_MD_SHA256: &str = "18f32ae350fafbba7585e0fa99b00aee12e281b1c9b9a9108
 const PROBE_AUDIT_SHA256: &str = "c3efcbe6d14929ae470c3a909e596fea55ff70aba1539a494bde9bac684bd81e";
 const MICRO_PROTOCOL_SHA256: &str =
     "1f18bb049bd08e8268af2d61358f20c771babeb7ded594d812cc77e05c077d96";
+const PROBE_BLOCK_SHA256: &str = "41d75cbd90687eaee43b8f6aa5e27d157781eb6a6b71bbe7b5a1aa248e23f57a";
+const MICRO_BLOCK_SHA256: &str = "6c010caac4a87c8d5a7f852a5204bce197c9be52c0d121d00c08ea768db5ef9e";
+const MICRO_CSV_SHA256: &str = "690be8f361b25dcf4d2f43b167589cdcf2a7ef2263d838cb96c3b6dd78a50dc3";
+const MICRO_MD_SHA256: &str = "215736054211a4c283e6d0ba4ddc14887e05fb39eb875ae8aed612aa45ad9a3d";
+const MICRO_AUDIT_SHA256: &str = "ae7344d9dc9f1816140d0ec4ea7dcfdc9697ec2bfd4f65e5ca8a41a6b2a8b5a4";
+const GATE_PROTOCOL_SHA256: &str =
+    "3fbf23dcf06bdec17fb0dbacfa3ad1de1591c5151ac2e008a5232778da064ec9";
 
 const PROBE_CSV: &str = "results/px7_physical_arrival_initiation_probe_v1.csv";
 const PROBE_MD: &str = "results/px7_physical_arrival_initiation_probe_v1.md";
@@ -33,6 +40,13 @@ const MICRO_MD: &str = "results/px7_physical_arrival_initiation_micro_v1.md";
 const MICRO_STAGING_CSV: &str = "results/.px7_physical_arrival_initiation_micro_v1.csv.staging";
 const MICRO_STAGING_MD: &str = "results/.px7_physical_arrival_initiation_micro_v1.md.staging";
 const MICRO_NAMESPACE: u64 = 0x7b20_0000_0000;
+const GATE_CSV: &str = "results/px7_physical_arrival_initiation_development_gate_v1.csv";
+const GATE_MD: &str = "results/px7_physical_arrival_initiation_development_gate_v1.md";
+const GATE_STAGING_CSV: &str =
+    "results/.px7_physical_arrival_initiation_development_gate_v1.csv.staging";
+const GATE_STAGING_MD: &str =
+    "results/.px7_physical_arrival_initiation_development_gate_v1.md.staging";
+const GATE_NAMESPACE: u64 = 0x7c30_0000_0000;
 const TRAINING_OCCURRENCES: usize = 4;
 const OCCURRENCE_SPACING: i64 = 10;
 const RETURN_OFFSET: i64 = 3;
@@ -227,6 +241,65 @@ struct MicroRow {
     passed: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GateCell {
+    Micro(MicroCase),
+    Probe(Arm),
+}
+
+impl GateCell {
+    const ALL: [Self; 12] = [
+        Self::Micro(MicroCase::M0),
+        Self::Micro(MicroCase::M1),
+        Self::Micro(MicroCase::M2),
+        Self::Micro(MicroCase::M3),
+        Self::Micro(MicroCase::M4),
+        Self::Micro(MicroCase::M7),
+        Self::Micro(MicroCase::M5),
+        Self::Micro(MicroCase::M6),
+        Self::Probe(Arm::LearnedReturn),
+        Self::Probe(Arm::Unreturned),
+        Self::Probe(Arm::Subthreshold),
+        Self::Probe(Arm::Absent),
+    ];
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Micro(case) => case.name(),
+            Self::Probe(Arm::LearnedReturn) => "P-learned-return",
+            Self::Probe(Arm::Unreturned) => "P-unreturned",
+            Self::Probe(Arm::Subthreshold) => "P-subthreshold",
+            Self::Probe(Arm::Absent) => "P-absent",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct GateRow {
+    cell: &'static str,
+    family: &'static str,
+    namespace: u64,
+    coupling: u32,
+    resistance: u32,
+    held_out_source: usize,
+    held_out_execution: usize,
+    held_out_boundary: usize,
+    followup_source: usize,
+    followup_execution: usize,
+    followup_boundary: usize,
+    crossings: usize,
+    followup_crossings: usize,
+    background_firings: usize,
+    quiescent: bool,
+    duplicate_exact: bool,
+    work: u64,
+    persistent_bytes_before: usize,
+    persistent_bytes_after: usize,
+    permanent_fingerprint: u64,
+    complete_fingerprint: u64,
+    passed: bool,
+}
+
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
     match args.as_slice() {
@@ -236,8 +309,8 @@ fn main() {
                 "frozen parent and protocol hashes must be exact"
             );
             assert!(
-                micro_result_paths_absent(),
-                "MICRO result and staging paths must be absent"
+                gate_result_paths_absent(),
+                "GATE result and staging paths must be absent"
             );
             assert!(
                 namespace_is_fresh(),
@@ -247,8 +320,11 @@ fn main() {
         }
         [value] if value == "--probe" => execute_probe(),
         [value] if value == "--micro" => execute_micro(),
+        [value] if value == "--development-gate" => execute_gate(),
         _ => {
-            eprintln!("PX7 development harness requires --preflight or --probe");
+            eprintln!(
+                "PX7 development harness requires --preflight, --probe, --micro, or --development-gate"
+            );
             std::process::exit(2);
         }
     }
@@ -329,6 +405,41 @@ fn execute_micro() {
     );
 }
 
+fn execute_gate() {
+    assert!(
+        source_audit(),
+        "all frozen laws, blocks, and artifacts must be exact"
+    );
+    assert!(
+        gate_result_paths_absent(),
+        "GATE result and staging paths must be absent"
+    );
+    assert!(
+        namespace_is_fresh(),
+        "namespace ranges must remain disjoint"
+    );
+    eprintln!("PX7_PHYSICAL_ARRIVAL_INITIATION_DEVELOPMENT_GATE_EVIDENCE_SPENT");
+
+    let rows = GateCell::ALL
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(ordinal, cell)| gate_row(cell, GATE_NAMESPACE + ordinal as u64 * 0x0010_0000))
+        .collect::<Vec<_>>();
+    let passed = rows.iter().all(|row| row.passed);
+
+    write_staging(GATE_STAGING_CSV, &gate_csv(&rows));
+    write_staging(GATE_STAGING_MD, &gate_markdown(&rows, passed));
+    rename(GATE_STAGING_CSV, GATE_CSV).expect("GATE CSV atomic rename succeeds");
+    rename(GATE_STAGING_MD, GATE_MD).expect("GATE report atomic rename succeeds");
+    println!(
+        "PX7 physical arrival initiation development GATE {} ({}/{})",
+        if passed { "PASS" } else { "FAIL" },
+        rows.iter().filter(|row| row.passed).count(),
+        rows.len()
+    );
+}
+
 fn source_audit() -> bool {
     sha256("crates/px0-physical-correspondence/src/lib.rs") == PX0_SOURCE_SHA256
         && sha256("crates/frozen-organism-v1-physics/src/substrate.rs") == RETAINED_SOURCE_SHA256
@@ -346,6 +457,20 @@ fn source_audit() -> bool {
             == PROBE_AUDIT_SHA256
         && sha256("experiments/px7_physical_arrival_initiation_micro_protocol.md")
             == MICRO_PROTOCOL_SHA256
+        && sha256(MICRO_CSV) == MICRO_CSV_SHA256
+        && sha256(MICRO_MD) == MICRO_MD_SHA256
+        && sha256("experiments/px7_physical_arrival_initiation_micro_v1_result_audit.md")
+            == MICRO_AUDIT_SHA256
+        && sha256("experiments/px7_physical_arrival_initiation_development_gate_protocol.md")
+            == GATE_PROTOCOL_SHA256
+        && marked_block_sha256(
+            "PX7_NO_NEW_MECHANISM_EXECUTION_BEGIN",
+            "PX7_NO_NEW_MECHANISM_EXECUTION_END",
+        ) == PROBE_BLOCK_SHA256
+        && marked_block_sha256(
+            "PX7_MICRO_NO_NEW_MECHANISM_EXECUTION_BEGIN",
+            "PX7_MICRO_NO_NEW_MECHANISM_EXECUTION_END",
+        ) == MICRO_BLOCK_SHA256
 }
 
 fn probe_result_paths_absent() -> bool {
@@ -360,12 +485,21 @@ fn micro_result_paths_absent() -> bool {
         .all(|path| !Path::new(path).exists())
 }
 
+fn gate_result_paths_absent() -> bool {
+    [GATE_CSV, GATE_MD, GATE_STAGING_CSV, GATE_STAGING_MD]
+        .iter()
+        .all(|path| !Path::new(path).exists())
+}
+
 fn namespace_is_fresh() -> bool {
     PROBE_NAMESPACE == 0x7a10_0000_0000
         && Arm::PROBE.len() == 4
         && MICRO_NAMESPACE == 0x7b20_0000_0000
         && MicroCase::ALL.len() == 8
         && MICRO_NAMESPACE > PROBE_NAMESPACE + 4 * 0x0010_0000
+        && GATE_NAMESPACE == 0x7c30_0000_0000
+        && GateCell::ALL.len() == 12
+        && GATE_NAMESPACE > MICRO_NAMESPACE + 8 * 0x0010_0000
         && PROBE_NAMESPACE > 0x000f_ffff_ffff
 }
 
@@ -554,6 +688,67 @@ fn build_world(namespace: u64) -> World {
     }
 }
 // PX7_NO_NEW_MECHANISM_EXECUTION_END
+
+fn gate_row(cell: GateCell, namespace: u64) -> GateRow {
+    match cell {
+        GateCell::Micro(case) => {
+            let row = run_micro_duplicate(case, namespace);
+            let o = row.observation;
+            GateRow {
+                cell: cell.name(),
+                family: "hardened",
+                namespace,
+                coupling: o.candidate_max_coupling,
+                resistance: o.candidate_max_resistance,
+                held_out_source: o.held_out_source_firings,
+                held_out_execution: o.held_out_execution_firings,
+                held_out_boundary: o.held_out_boundary_firings,
+                followup_source: o.followup_source_firings,
+                followup_execution: o.followup_execution_firings,
+                followup_boundary: o.followup_boundary_firings,
+                crossings: o.held_out_crossings,
+                followup_crossings: o.followup_crossings,
+                background_firings: o.background_firings,
+                quiescent: o.naturally_quiescent,
+                duplicate_exact: row.duplicate_exact,
+                work: o.work,
+                persistent_bytes_before: o.persistent_bytes_before,
+                persistent_bytes_after: o.persistent_bytes_after,
+                permanent_fingerprint: o.permanent_fingerprint,
+                complete_fingerprint: o.complete_fingerprint,
+                passed: row.passed,
+            }
+        }
+        GateCell::Probe(arm) => {
+            let row = run_duplicate(arm, namespace);
+            let o = row.observation;
+            GateRow {
+                cell: cell.name(),
+                family: "compact-control",
+                namespace,
+                coupling: o.candidate_max_coupling,
+                resistance: o.candidate_max_resistance,
+                held_out_source: o.held_out_arrival_firings,
+                held_out_execution: o.held_out_execution_firings,
+                held_out_boundary: o.held_out_boundary_firings,
+                followup_source: 0,
+                followup_execution: 0,
+                followup_boundary: 0,
+                crossings: o.held_out_crossings,
+                followup_crossings: 0,
+                background_firings: 0,
+                quiescent: o.naturally_quiescent,
+                duplicate_exact: row.duplicate_exact,
+                work: o.work,
+                persistent_bytes_before: o.persistent_bytes_before,
+                persistent_bytes_after: o.persistent_bytes_after,
+                permanent_fingerprint: o.permanent_fingerprint,
+                complete_fingerprint: o.complete_fingerprint,
+                passed: row.passed,
+            }
+        }
+    }
+}
 
 #[derive(Clone)]
 struct MicroWorld {
@@ -1021,6 +1216,75 @@ fn micro_markdown(rows: &[MicroRow], passed: bool) -> String {
     out
 }
 
+fn gate_csv(rows: &[GateRow]) -> String {
+    let mut out = String::from(
+        "cell,family,namespace,coupling,resistance,held_out_source,held_out_execution,held_out_boundary,followup_source,followup_execution,followup_boundary,crossings,followup_crossings,background_firings,quiescent,duplicate_exact,work,persistent_bytes_before,persistent_bytes_after,permanent_fingerprint,complete_fingerprint,passed\n",
+    );
+    for row in rows {
+        out.push_str(&format!(
+            "{},{},{:#x},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            row.cell,
+            row.family,
+            row.namespace,
+            row.coupling,
+            row.resistance,
+            row.held_out_source,
+            row.held_out_execution,
+            row.held_out_boundary,
+            row.followup_source,
+            row.followup_execution,
+            row.followup_boundary,
+            row.crossings,
+            row.followup_crossings,
+            row.background_firings,
+            row.quiescent,
+            row.duplicate_exact,
+            row.work,
+            row.persistent_bytes_before,
+            row.persistent_bytes_after,
+            row.permanent_fingerprint,
+            row.complete_fingerprint,
+            row.passed
+        ));
+    }
+    out
+}
+
+fn gate_markdown(rows: &[GateRow], passed: bool) -> String {
+    let mut out = format!(
+        "# PX7 physical arrival initiation development GATE result\n\nVerdict: **{} DEVELOPMENT GATE**. Authority remains absent; this was not a definitive matrix.\n\nFrozen parent: `{PX2_PARENT}`. No PROBE or MICRO evidence cell was rerun.\n\n| cell | family | coupling/resistance | held-out source/execution/boundary | follow-up source/execution/boundary | crossings | background | quiescent | duplicate | work | bytes before/after | result |\n|---|---|---|---|---|---|---:|:---:|:---:|---:|---|:---:|\n",
+        if passed { "PASS" } else { "FAIL" }
+    );
+    for row in rows {
+        out.push_str(&format!(
+            "| {} | {} | {}/{} | {}/{}/{} | {}/{}/{} | {}/{} | {} | {} | {} | {} | {}/{} | {} |\n",
+            row.cell,
+            row.family,
+            row.coupling,
+            row.resistance,
+            row.held_out_source,
+            row.held_out_execution,
+            row.held_out_boundary,
+            row.followup_source,
+            row.followup_execution,
+            row.followup_boundary,
+            row.crossings,
+            row.followup_crossings,
+            row.background_firings,
+            row.quiescent,
+            row.duplicate_exact,
+            row.work,
+            row.persistent_bytes_before,
+            row.persistent_bytes_after,
+            if row.passed { "PASS" } else { "FAIL" }
+        ));
+    }
+    out.push_str(
+        "\nOrganism-visible execution used only the frozen physical laws and actual CELL/ARROW/SPIKE state. This result can support only a development-readiness unchanged-port handoff.\n",
+    );
+    out
+}
+
 fn write_staging(path: &str, contents: &str) {
     let mut file = OpenOptions::new()
         .write(true)
@@ -1038,6 +1302,49 @@ fn sha256(path: &str) -> String {
         .output()
         .expect("shasum is available");
     assert!(output.status.success(), "hash input exists: {path}");
+    String::from_utf8(output.stdout)
+        .expect("hash output is UTF-8")
+        .split_whitespace()
+        .next()
+        .expect("hash output contains digest")
+        .to_string()
+}
+
+fn marked_block_sha256(begin: &str, end: &str) -> String {
+    let text = read_to_string(
+        "crates/px0-physical-correspondence/examples/px7_physical_arrival_initiation.rs",
+    )
+    .expect("PX7 harness source is readable");
+    let begin_marker = format!("// {begin}\n");
+    let end_marker = format!("// {end}");
+    let line_start = text.find(&begin_marker).expect("marked block begin exists");
+    let end_at = text[line_start..]
+        .find(&end_marker)
+        .map(|index| line_start + index + end_marker.len())
+        .expect("marked block end exists");
+    let line_end = text[end_at..]
+        .find('\n')
+        .map_or(text.len(), |index| end_at + index + 1);
+    sha256_bytes(&text.as_bytes()[line_start..line_end])
+}
+
+fn sha256_bytes(bytes: &[u8]) -> String {
+    let mut child = Command::new("shasum")
+        .args(["-a", "256"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("shasum is available");
+    child
+        .stdin
+        .take()
+        .expect("hash stdin is piped")
+        .write_all(bytes)
+        .expect("marked block hash input writes");
+    let output = child
+        .wait_with_output()
+        .expect("marked block hash completes");
+    assert!(output.status.success(), "marked block hash succeeds");
     String::from_utf8(output.stdout)
         .expect("hash output is UTF-8")
         .split_whitespace()
