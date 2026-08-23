@@ -173,7 +173,10 @@ fn audit() {
             "experiments/px3_d1_r3_downstream_participation_attribution_result_audit_v1.md",
             R3_AUDIT,
         ),
-        ("experiments/px3_integrated_micro_reversal_protocol_v1.md", PROTOCOL),
+        (
+            "experiments/px3_integrated_micro_reversal_protocol_v1.md",
+            PROTOCOL,
+        ),
     ] {
         assert_eq!(sha(path), expected, "frozen input changed: {path}");
     }
@@ -219,10 +222,7 @@ fn run(seed: u64) -> Row {
     expose(&mut world, 0, 11, &mut initial_log);
     expose(&mut world, 5, 15, &mut initial_log);
     let initial_after_train = current_resistance(&world);
-    let initial_candidates = [
-        only_historical(&world, 0),
-        only_historical(&world, 5),
-    ];
+    let initial_candidates = [only_historical(&world, 0), only_historical(&world, 5)];
     let old_ids = initial_candidates.map(|arrow| format!("{arrow:?}"));
     let old_generations = initial_candidates.map(|arrow| world.substrate.arrow_generation(arrow));
     let initial_proposals = initial_log.work.local_structural_proposals;
@@ -239,7 +239,8 @@ fn run(seed: u64) -> Row {
     let forgetting_work = world.substrate.advance_time(70);
     let proposals_during_forgetting = forgetting_work.local_structural_proposals;
     add_work(&mut full_work, &forgetting_work);
-    let old_after_forgetting = initial_candidates.map(|arrow| world.substrate.arrow_resistance(arrow));
+    let old_after_forgetting =
+        initial_candidates.map(|arrow| world.substrate.arrow_resistance(arrow));
     let old_live_after_forgetting =
         initial_candidates.map(|arrow| world.substrate.arrow_is_live(arrow));
     assert_eq!(world.substrate.arrow_count(), arrow_count_before_forgetting);
@@ -280,10 +281,13 @@ fn run(seed: u64) -> Row {
     let initial_opportunity =
         six(|pair| fires(&initial_log.trace, physical(namespace, 100 + pair as u64)));
     let initial_p = six(|pair| fires(&initial_log.trace, physical(namespace, 200 + pair as u64)));
-    let initial_candidate_crossings = six(|pair| candidate_crossings(&initial_log, namespace, pair));
+    let initial_candidate_crossings =
+        six(|pair| candidate_crossings(&initial_log, namespace, pair));
     let initial_candidate_impulse = six(|pair| candidate_impulse(&initial_log, namespace, pair));
-    let initial_effect = six(|pair| fires(&initial_log.trace, physical(namespace, 300 + pair as u64)));
-    let initial_p_trace = six(|pair| fires(&initial_log.trace, physical(namespace, 400 + pair as u64)));
+    let initial_effect =
+        six(|pair| fires(&initial_log.trace, physical(namespace, 300 + pair as u64)));
+    let initial_p_trace =
+        six(|pair| fires(&initial_log.trace, physical(namespace, 400 + pair as u64)));
     let initial_effect_trace =
         six(|pair| fires(&initial_log.trace, physical(namespace, 600 + pair as u64)));
     let initial_attribution =
@@ -294,12 +298,10 @@ fn run(seed: u64) -> Row {
         four(|side| fires(&reversed_log.trace, physical(namespace, 30 + side as u64)));
     let reversed_opportunity =
         six(|pair| fires(&reversed_log.trace, physical(namespace, 100 + pair as u64)));
-    let reversed_p =
-        six(|pair| fires(&reversed_log.trace, physical(namespace, 200 + pair as u64)));
+    let reversed_p = six(|pair| fires(&reversed_log.trace, physical(namespace, 200 + pair as u64)));
     let reversed_candidate_crossings =
         six(|pair| candidate_crossings(&reversed_log, namespace, pair));
-    let reversed_candidate_impulse =
-        six(|pair| candidate_impulse(&reversed_log, namespace, pair));
+    let reversed_candidate_impulse = six(|pair| candidate_impulse(&reversed_log, namespace, pair));
     let reversed_effect =
         six(|pair| fires(&reversed_log.trace, physical(namespace, 300 + pair as u64)));
     let reversed_p_trace =
@@ -437,7 +439,11 @@ fn passes(row: &Row) -> bool {
 fn build(namespace: u64, mirror: bool) -> World {
     let mut substrate = PlasticSubstrate::new();
     let participant_order = if mirror { [3, 2, 1, 0] } else { [0, 1, 2, 3] };
-    let pair_order = if mirror { [5, 4, 3, 2, 1, 0] } else { [0, 1, 2, 3, 4, 5] };
+    let pair_order = if mirror {
+        [5, 4, 3, 2, 1, 0]
+    } else {
+        [0, 1, 2, 3, 4, 5]
+    };
 
     let mut sources = [None; 4];
     let mut outlets = [None; 4];
@@ -607,20 +613,8 @@ fn expose(world: &mut World, pair: usize, start: i64, log: &mut Log) {
             100 + index as i32,
         );
     }
-    pulse(
-        &mut world.substrate,
-        world.context,
-        start + 1,
-        1,
-        500,
-    );
-    pulse(
-        &mut world.substrate,
-        world.global_return,
-        start + 3,
-        1,
-        600,
-    );
+    pulse(&mut world.substrate, world.context, start + 1, 1, 500);
+    pulse(&mut world.substrate, world.global_return, start + 3, 1, 600);
     log.execution(world.substrate.propagate());
 }
 
@@ -756,13 +750,7 @@ fn fixed(from: CellId, to: CellId, delay: i64, coupling: i32) -> ArrowSpec {
     }
 }
 
-fn pulse(
-    substrate: &mut PlasticSubstrate,
-    target: CellId,
-    tick: i64,
-    impulse: i32,
-    phase: i32,
-) {
+fn pulse(substrate: &mut PlasticSubstrate, target: CellId, tick: i64, impulse: i32, phase: i32) {
     substrate.enter(SpikeInput {
         arrival_tick: tick,
         phase,
@@ -921,23 +909,43 @@ fn report(rows: &[Row]) -> String {
 }
 
 fn join_usize(values: &[usize]) -> String {
-    values.iter().map(usize::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_i32(values: &[i32]) -> String {
-    values.iter().map(i32::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(i32::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_u32(values: &[u32]) -> String {
-    values.iter().map(u32::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_u64(values: &[u64]) -> String {
-    values.iter().map(u64::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(u64::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_bool(values: &[bool]) -> String {
-    values.iter().map(bool::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(bool::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn absent(paths: &[&str]) {
