@@ -637,13 +637,12 @@ fn enter_genuine<L: Law>(
     trigger: usize,
     target: usize,
     base: u64,
-    threshold: i32,
-    coupling: i32,
-    spacing: i64,
+    timing_and_matter: (i64, i32, i32, i64),
 ) -> usize {
+    let (base_tick, threshold, coupling, spacing) = timing_and_matter;
     let prime = (threshold - coupling).max(1);
-    let trigger_tick = spacing.max(0);
-    let prime_tick = (-spacing).max(0);
+    let trigger_tick = base_tick.saturating_add(spacing.max(0));
+    let prime_tick = base_tick.saturating_add((-spacing).max(0));
     law.enter(prime_tick, 0, base + 601, target, prime);
     law.enter(trigger_tick, 1, base + 602, trigger, 1);
     2
@@ -673,9 +672,7 @@ fn run_gated<L: Law>(spec: &RowSpec) -> RunMetrics {
             trigger,
             target,
             base,
-            spec.threshold,
-            spec.coupling,
-            spec.spacing,
+            (0, spec.threshold, spec.coupling, spec.spacing),
         ),
         _ => unreachable!("gated runner received wrong row"),
     };
@@ -710,9 +707,7 @@ fn run_gated<L: Law>(spec: &RowSpec) -> RunMetrics {
             trigger,
             target,
             base,
-            spec.threshold,
-            spec.coupling,
-            0,
+            (2, spec.threshold, spec.coupling, 0),
         );
         metrics.temporary_peak_count = metrics.temporary_peak_count.max(entered);
         let heldout = law.propagate();
@@ -1659,5 +1654,28 @@ mod tests {
         };
         assert!(execute::<LawB>(&spec).row_pass);
         assert!(execute::<LawE>(&spec).row_pass);
+    }
+
+    #[test]
+    fn heldout_reuse_uses_current_absolute_tick_for_both_laws() {
+        let spec = RowSpec {
+            row_id: "unit-reuse".to_string(),
+            stage: Stage::Probe,
+            family: Family::Control,
+            kind: Kind::GatedReuse,
+            seed: 993,
+            mirror: false,
+            reverse_insertion: false,
+            threshold: 2,
+            coupling: 1,
+            load: 0,
+            spacing: 0,
+            train_spacing: 0,
+            allocation: 2,
+            expected_effect: true,
+            genuine: true,
+        };
+        assert!(execute::<LawB>(&spec).heldout_reuse);
+        assert!(execute::<LawE>(&spec).heldout_reuse);
     }
 }
