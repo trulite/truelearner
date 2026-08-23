@@ -174,8 +174,10 @@ none is authorized or attempted.
   `1ae7592134db8692a95b2ca38d837306c5021f79df9e2ddf9f5e32b6d660631d`;
 - current diff from the frozen start contains added paths only; no
   authoritative or frozen path changed;
-- focused tests: `4` pass; strict focused Clippy: pass; broad workspace tests:
-  pass; refusal and no-CELL preflight: pass;
+- focused arm formatting, check, `4` tests, and strict Clippy: pass; refusal and
+  no-CELL preflight: pass;
+- a redundant broad workspace-suite validation was operationally cancelled by
+  the coordinator; it was not restarted and supplies no scientific evidence;
 - candidate-law forbidden-vocabulary scan: zero hits; tracked nested Cargo
   target files: zero; staging files: zero;
 - every published CSV has exactly `30` columns and no malformed row;
