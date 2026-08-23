@@ -23,8 +23,70 @@ const V1_NEGATIVE_AUDIT_SHA256: &str =
     "53ebee871ff068e222fd5a9049203b59e94a67acf8935c96b5800d9f467d417b";
 const RETRY_PROTOCOL_SHA256: &str =
     "e7365d73b086815c6531c1f1d35594a902687000018393e1225d1f1f0d0a364c";
-const RESULT_CSV: &str = "results/px1_pt1_attributed_margin_stability_probe_retry_v1.csv";
-const RESULT_MD: &str = "results/px1_pt1_attributed_margin_stability_probe_retry_v1.md";
+const POSITIVE_PROBE_SHA256: &str =
+    "cda4bf6750abb40f7b3798e84c0b6f39527704a02c69b133896ce51c3925420b";
+const MICRO_PROTOCOL_SHA256: &str =
+    "3c3e0d968e247988cb34f5ecac602c2c1af634758060afdf577b6aad927df829";
+const RESULT_CSV: &str = "results/px1_pt1_attributed_margin_stability_micro_v1.csv";
+const RESULT_MD: &str = "results/px1_pt1_attributed_margin_stability_micro_v1.md";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Scenario {
+    SupportA,
+    SupportB,
+    NoSupport,
+    BlockedReturn,
+    ReturnWithoutEffect,
+    Joint,
+}
+
+impl Scenario {
+    const ALL: [Self; 6] = [
+        Self::SupportA,
+        Self::SupportB,
+        Self::NoSupport,
+        Self::BlockedReturn,
+        Self::ReturnWithoutEffect,
+        Self::Joint,
+    ];
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::SupportA => "support-a",
+            Self::SupportB => "support-b",
+            Self::NoSupport => "no-support",
+            Self::BlockedReturn => "blocked-return",
+            Self::ReturnWithoutEffect => "return-without-effect",
+            Self::Joint => "joint",
+        }
+    }
+
+    fn supported(self) -> [bool; SIDES] {
+        match self {
+            Self::SupportA | Self::BlockedReturn => [true, false],
+            Self::SupportB => [false, true],
+            Self::Joint => [true, true],
+            Self::NoSupport | Self::ReturnWithoutEffect => [false, false],
+        }
+    }
+
+    fn expected_mature(self) -> [bool; SIDES] {
+        match self {
+            Self::SupportA => [true, false],
+            Self::SupportB => [false, true],
+            Self::Joint => [true, true],
+            Self::NoSupport | Self::BlockedReturn | Self::ReturnWithoutEffect => [false, false],
+        }
+    }
+
+    fn return_enabled(self) -> bool {
+        self != Self::BlockedReturn
+    }
+
+    fn external_return(self) -> bool {
+        self == Self::ReturnWithoutEffect
+    }
+}
 
 #[derive(Clone)]
 struct World {
@@ -37,6 +99,19 @@ struct World {
     acquisition_drivers: [CellId; SIDES],
     support_drivers: [CellId; SIDES],
     context: CellId,
+    hub: CellId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ExecutionMetrics {
+    branch_firings: [usize; SIDES],
+    outlet_firings: [usize; SIDES],
+    trace_arrivals: [usize; SIDES],
+    trace_firings: [usize; SIDES],
+    local_returns: [usize; SIDES],
+    effects: [usize; SIDES],
+    extra_source_firings: usize,
+    quiescent: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -49,6 +124,11 @@ struct Metrics {
     trace_firings: [usize; SIDES],
     local_returns: [usize; SIDES],
     extra_source_firings: usize,
+    heldout_branch_firings: [usize; SIDES],
+    heldout_outlet_firings: [usize; SIDES],
+    heldout_trace_arrivals: [usize; SIDES],
+    heldout_trace_firings: [usize; SIDES],
+    heldout_local_returns: [usize; SIDES],
     heldout_effects: [usize; SIDES],
     postgap_effects: [usize; SIDES],
     heldout_extra_source_firings: usize,
@@ -56,8 +136,8 @@ struct Metrics {
     heldout_quiescent: bool,
     postgap_quiescent: bool,
     correspondence_acquired: bool,
-    role_formed: bool,
-    productive_recurrence: bool,
+    maturation_exact: bool,
+    postgap_exact: bool,
     naturally_quiescent: bool,
     work: WorkLedger,
     fingerprint: u64,
@@ -65,6 +145,8 @@ struct Metrics {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ResultRow {
+    scenario: Scenario,
+    transfer: bool,
     metrics: Metrics,
     duplicate_exact: bool,
     passed: bool,
@@ -72,28 +154,38 @@ struct ResultRow {
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args != ["--probe"] {
-        eprintln!("PX1-PT1 requires --probe; MICRO/GATE/definitive execution is forbidden");
+    if args != ["--micro"] {
+        eprintln!("PX1-PT1 requires --micro; GATE/definitive execution is forbidden");
         std::process::exit(2);
     }
     assert!(
         source_audit(),
         "frozen PX0/PT0/PT1 inputs must remain exact"
     );
-    assert!(!Path::new(RESULT_CSV).exists(), "PT1 PROBE CSV exists");
-    assert!(!Path::new(RESULT_MD).exists(), "PT1 PROBE report exists");
-    eprintln!("PX1_PT1_ATTRIBUTED_MARGIN_STABILITY_PROBE_RETRY_EVIDENCE");
-    let first = run_world(0x7100_0000, 0, false, false);
-    let second = run_world(0x7100_0000, 0, false, false);
-    let duplicate_exact = first == second;
-    let passed = probe_passed(&first) && duplicate_exact;
-    let row = ResultRow {
-        metrics: first,
-        duplicate_exact,
-        passed,
-    };
-    write_new(RESULT_CSV, &csv(&row));
-    write_new(RESULT_MD, &markdown(&row));
+    assert!(!Path::new(RESULT_CSV).exists(), "PT1 MICRO CSV exists");
+    assert!(!Path::new(RESULT_MD).exists(), "PT1 MICRO report exists");
+    eprintln!("PX1_PT1_ATTRIBUTED_MARGIN_STABILITY_MICRO_EVIDENCE");
+
+    let mut rows = Vec::new();
+    for (ordinal, scenario) in Scenario::ALL.into_iter().enumerate() {
+        for transfer in [false, true] {
+            let namespace =
+                0x8100_0000 + ordinal as u64 * 0x0100_0000 + u64::from(transfer) * 0x0080_0000;
+            let first = run_world(namespace, scenario, transfer, transfer);
+            let second = run_world(namespace, scenario, transfer, transfer);
+            let duplicate_exact = first == second;
+            let passed = micro_passed(scenario, &first) && duplicate_exact;
+            rows.push(ResultRow {
+                scenario,
+                transfer,
+                metrics: first,
+                duplicate_exact,
+                passed,
+            });
+        }
+    }
+    write_new(RESULT_CSV, &csv(&rows));
+    write_new(RESULT_MD, &markdown(&rows));
 }
 
 fn source_audit() -> bool {
@@ -112,10 +204,14 @@ fn source_audit() -> bool {
             == V1_NEGATIVE_AUDIT_SHA256
         && sha256("experiments/px1_pt1_attributed_margin_stability_probe_retry_protocol.md")
             == RETRY_PROTOCOL_SHA256
+        && sha256("results/px1_pt1_attributed_margin_stability_probe_retry_v1.csv")
+            == POSITIVE_PROBE_SHA256
+        && sha256("experiments/px1_pt1_attributed_margin_stability_micro_protocol.md")
+            == MICRO_PROTOCOL_SHA256
 }
 
-fn run_world(namespace: u64, supported: usize, mirror: bool, reverse: bool) -> Metrics {
-    let mut world = build_world(namespace, mirror, reverse);
+fn run_world(namespace: u64, scenario: Scenario, mirror: bool, reverse: bool) -> Metrics {
+    let mut world = build_world(namespace, mirror, reverse, scenario.return_enabled());
     let mut work = WorkLedger::default();
     let mut naturally_quiescent = true;
 
@@ -176,13 +272,26 @@ fn run_world(namespace: u64, supported: usize, mirror: bool, reverse: bool) -> M
                 namespace + 0x3_000 + exposure as u64 * 0x100 + side as u64 * 0x10,
             );
         }
-        enter_many(
-            &mut world.substrate,
-            world.support_drivers[supported],
-            tick,
-            1,
-            namespace + 0x4_000 + exposure as u64 * 0x100,
-        );
+        for (side, supported) in scenario.supported().into_iter().enumerate() {
+            if supported {
+                enter_many(
+                    &mut world.substrate,
+                    world.support_drivers[side],
+                    tick,
+                    1,
+                    namespace + 0x4_000 + exposure as u64 * 0x100 + side as u64 * 0x10,
+                );
+            }
+        }
+        if scenario.external_return() {
+            enter_many(
+                &mut world.substrate,
+                world.hub,
+                tick + 5,
+                1,
+                namespace + 0x4_800 + exposure as u64 * 0x100,
+            );
+        }
         let run = world.substrate.propagate();
         for side in 0..SIDES {
             branch_firings[side] += trace_firings_at(&run, branch_physical(namespace, side));
@@ -209,17 +318,21 @@ fn run_world(namespace: u64, supported: usize, mirror: bool, reverse: bool) -> M
         }
     });
     let correspondence_acquired = correspondence_resistance.iter().all(|value| *value > 1);
-    let role_formed =
-        continuation_resistance[supported] > 2 && continuation_resistance[1 - supported] == 0;
+    let expected_mature = scenario.expected_mature();
+    let maturation_exact = (0..SIDES).all(|side| {
+        if expected_mature[side] {
+            continuation_resistance[side] > 3
+        } else {
+            continuation_resistance[side] == 0
+        }
+    });
 
-    let (heldout_effects, heldout_extra_source_firings, heldout_quiescent) =
-        measure_execution(&world, 170);
-    let (postgap_effects, postgap_extra_source_firings, postgap_quiescent) =
-        measure_execution(&world, 210);
-    let productive_recurrence = postgap_effects[supported] == 1
-        && postgap_effects[1 - supported] == 0
-        && postgap_extra_source_firings == 0
-        && postgap_quiescent;
+    let heldout = measure_execution(&world, 170);
+    let postgap = measure_execution(&world, 210);
+    let expected_effects = expected_mature.map(usize::from);
+    let postgap_exact = postgap.effects == expected_effects
+        && postgap.extra_source_firings == 0
+        && postgap.quiescent;
     let fingerprint = world.substrate.complete_fingerprint();
 
     Metrics {
@@ -231,22 +344,27 @@ fn run_world(namespace: u64, supported: usize, mirror: bool, reverse: bool) -> M
         trace_firings,
         local_returns,
         extra_source_firings,
-        heldout_effects,
-        postgap_effects,
-        heldout_extra_source_firings,
-        postgap_extra_source_firings,
-        heldout_quiescent,
-        postgap_quiescent,
+        heldout_branch_firings: heldout.branch_firings,
+        heldout_outlet_firings: heldout.outlet_firings,
+        heldout_trace_arrivals: heldout.trace_arrivals,
+        heldout_trace_firings: heldout.trace_firings,
+        heldout_local_returns: heldout.local_returns,
+        heldout_effects: heldout.effects,
+        postgap_effects: postgap.effects,
+        heldout_extra_source_firings: heldout.extra_source_firings,
+        postgap_extra_source_firings: postgap.extra_source_firings,
+        heldout_quiescent: heldout.quiescent,
+        postgap_quiescent: postgap.quiescent,
         correspondence_acquired,
-        role_formed,
-        productive_recurrence,
+        maturation_exact,
+        postgap_exact,
         naturally_quiescent,
         work,
         fingerprint,
     }
 }
 
-fn build_world(namespace: u64, mirror: bool, reverse: bool) -> World {
+fn build_world(namespace: u64, mirror: bool, reverse: bool, return_enabled: bool) -> World {
     let mut substrate = PlasticSubstrate::new();
     let mut sources = [None; SIDES];
     let mut endpoints = [None; SIDES];
@@ -306,7 +424,9 @@ fn build_world(namespace: u64, mirror: bool, reverse: bool) -> World {
         substrate.add_arrow(arrow(support_drivers[side], outlets[side], 4, 1));
         substrate.add_arrow(arrow(context, branches[side], 3, 1));
         substrate.add_arrow(arrow(outlets[side], traces[side], 1, 1));
-        substrate.add_arrow(arrow(outlets[side], hub, 1, 1));
+        if return_enabled {
+            substrate.add_arrow(arrow(outlets[side], hub, 1, 1));
+        }
         substrate.add_arrow(arrow(outlets[side], outside[side], 0, 1));
         substrate.add_arrow(arrow(traces[side], branches[side], 1, 1));
         substrate.add_arrow(arrow(hub, traces[side], 0, 1));
@@ -322,10 +442,11 @@ fn build_world(namespace: u64, mirror: bool, reverse: bool) -> World {
         acquisition_drivers,
         support_drivers,
         context,
+        hub,
     }
 }
 
-fn measure_execution(world: &World, tick: i64) -> ([usize; SIDES], usize, bool) {
+fn measure_execution(world: &World, tick: i64) -> ExecutionMetrics {
     let mut clone = world.clone();
     clone.substrate.advance_time(tick);
     for side in 0..SIDES {
@@ -345,33 +466,114 @@ fn measure_execution(world: &World, tick: i64) -> ([usize; SIDES], usize, bool) 
         clone.namespace + 0x6_000,
     );
     let run = clone.substrate.propagate();
+    let branch_firings =
+        std::array::from_fn(|side| trace_firings_at(&run, branch_physical(clone.namespace, side)));
+    let outlet_firings =
+        std::array::from_fn(|side| trace_firings_at(&run, outlet_physical(clone.namespace, side)));
+    let trace_arrivals = std::array::from_fn(|side| {
+        trace_arrivals_at_tick(&run, trace_physical(clone.namespace, side), tick + 5)
+    });
+    let trace_firings =
+        std::array::from_fn(|side| trace_firings_at(&run, trace_physical(clone.namespace, side)));
+    let local_returns = std::array::from_fn(|side| {
+        trace_arrivals_at_tick(&run, branch_physical(clone.namespace, side), tick + 6)
+    });
     let effects = std::array::from_fn(|side| outward_effects(&run, clone.namespace, side));
     let source_firings = (0..SIDES)
         .map(|side| trace_firings_at(&run, source_physical(clone.namespace, side)))
         .sum::<usize>();
-    (
+    ExecutionMetrics {
+        branch_firings,
+        outlet_firings,
+        trace_arrivals,
+        trace_firings,
+        local_returns,
         effects,
-        source_firings.saturating_sub(SIDES),
-        run.naturally_quiescent,
-    )
+        extra_source_firings: source_firings.saturating_sub(SIDES),
+        quiescent: run.naturally_quiescent,
+    }
 }
 
-fn probe_passed(metrics: &Metrics) -> bool {
+fn expected_training(scenario: Scenario) -> TrainingExpectation {
+    match scenario {
+        Scenario::SupportA => TrainingExpectation {
+            branches: [EXPOSURES, 0],
+            outlets: [EXPOSURES, 0],
+            trace_arrivals: [EXPOSURES * 2, EXPOSURES],
+            trace_firings: [EXPOSURES, 0],
+            local_returns: [EXPOSURES, 0],
+        },
+        Scenario::SupportB => TrainingExpectation {
+            branches: [0, EXPOSURES],
+            outlets: [0, EXPOSURES],
+            trace_arrivals: [EXPOSURES, EXPOSURES * 2],
+            trace_firings: [0, EXPOSURES],
+            local_returns: [0, EXPOSURES],
+        },
+        Scenario::NoSupport => TrainingExpectation::default(),
+        Scenario::BlockedReturn => TrainingExpectation {
+            branches: [EXPOSURES, 0],
+            outlets: [EXPOSURES, 0],
+            trace_arrivals: [EXPOSURES, 0],
+            trace_firings: [0, 0],
+            local_returns: [0, 0],
+        },
+        Scenario::ReturnWithoutEffect => TrainingExpectation {
+            branches: [0, 0],
+            outlets: [0, 0],
+            trace_arrivals: [EXPOSURES, EXPOSURES],
+            trace_firings: [0, 0],
+            local_returns: [0, 0],
+        },
+        Scenario::Joint => TrainingExpectation {
+            branches: [EXPOSURES, EXPOSURES],
+            outlets: [EXPOSURES, EXPOSURES],
+            trace_arrivals: [EXPOSURES * 2, EXPOSURES * 2],
+            trace_firings: [EXPOSURES, EXPOSURES],
+            local_returns: [EXPOSURES, EXPOSURES],
+        },
+    }
+}
+
+#[derive(Default)]
+struct TrainingExpectation {
+    branches: [usize; SIDES],
+    outlets: [usize; SIDES],
+    trace_arrivals: [usize; SIDES],
+    trace_firings: [usize; SIDES],
+    local_returns: [usize; SIDES],
+}
+
+fn expected_heldout_trace_arrivals(expected_mature: [bool; SIDES]) -> [usize; SIDES] {
+    let mature_count = expected_mature.into_iter().filter(|value| *value).count();
+    expected_mature.map(|mature| mature_count + usize::from(mature))
+}
+
+fn micro_passed(scenario: Scenario, metrics: &Metrics) -> bool {
+    let training = expected_training(scenario);
+    let expected_mature = scenario.expected_mature();
+    let expected_effects = expected_mature.map(usize::from);
+    let expected_trace_arrivals = expected_heldout_trace_arrivals(expected_mature);
     metrics.correspondence_acquired
-        && metrics.role_formed
-        && metrics.branch_firings == [EXPOSURES, 0]
-        && metrics.outlet_firings == [EXPOSURES, 0]
-        && metrics.trace_arrivals == [EXPOSURES * 2, EXPOSURES]
-        && metrics.trace_firings == [EXPOSURES, 0]
-        && metrics.local_returns == [EXPOSURES, 0]
+        && metrics.maturation_exact
+        && metrics.branch_firings == training.branches
+        && metrics.outlet_firings == training.outlets
+        && metrics.trace_arrivals == training.trace_arrivals
+        && metrics.trace_firings == training.trace_firings
+        && metrics.local_returns == training.local_returns
         && metrics.extra_source_firings == 0
-        && metrics.heldout_effects == [1, 0]
-        && metrics.postgap_effects == [1, 0]
+        && metrics.heldout_branch_firings == [1, 1]
+        && metrics.heldout_outlet_firings == expected_effects
+        && metrics.heldout_trace_arrivals == expected_trace_arrivals
+        && metrics.heldout_trace_firings == expected_effects
+        && metrics.heldout_local_returns == expected_effects
+        && metrics.heldout_effects == expected_effects
+        && metrics.postgap_effects == expected_effects
         && metrics.heldout_extra_source_firings == 0
         && metrics.postgap_extra_source_firings == 0
         && metrics.heldout_quiescent
         && metrics.postgap_quiescent
-        && metrics.productive_recurrence
+        && metrics.postgap_exact
         && metrics.naturally_quiescent
 }
 
@@ -505,58 +707,89 @@ fn pair_usize(values: [usize; SIDES]) -> String {
     format!("{}|{}", values[0], values[1])
 }
 
-fn csv(row: &ResultRow) -> String {
-    let value = &row.metrics;
-    format!(
-        "correspondence_resistance,continuation_resistance,branch_firings,outlet_firings,trace_arrivals,trace_firings,local_returns,extra_source_firings,heldout_effects,postgap_effects,heldout_extra_source_firings,postgap_extra_source_firings,heldout_quiescent,postgap_quiescent,correspondence_acquired,role_formed,productive_recurrence,training_quiescent,duplicate_exact,work,fingerprint,passed\n{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
-        pair_u32(value.correspondence_resistance),
-        pair_u32(value.continuation_resistance),
-        pair_usize(value.branch_firings),
-        pair_usize(value.outlet_firings),
-        pair_usize(value.trace_arrivals),
-        pair_usize(value.trace_firings),
-        pair_usize(value.local_returns),
-        value.extra_source_firings,
-        pair_usize(value.heldout_effects),
-        pair_usize(value.postgap_effects),
-        value.heldout_extra_source_firings,
-        value.postgap_extra_source_firings,
-        value.heldout_quiescent,
-        value.postgap_quiescent,
-        value.correspondence_acquired,
-        value.role_formed,
-        value.productive_recurrence,
-        value.naturally_quiescent,
-        row.duplicate_exact,
-        value.work.total(),
-        value.fingerprint,
-        row.passed,
-    )
+fn csv(rows: &[ResultRow]) -> String {
+    let mut output = String::from(
+        "scenario,transfer,correspondence_resistance,continuation_resistance,training_branch_firings,training_outlet_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_extra_source_firings,heldout_branch_firings,heldout_outlet_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_extra_source_firings,postgap_extra_source_firings,heldout_quiescent,postgap_quiescent,correspondence_acquired,maturation_exact,postgap_exact,training_quiescent,duplicate_exact,work,fingerprint,passed\n",
+    );
+    for row in rows {
+        let value = &row.metrics;
+        output.push_str(&format!(
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            row.scenario.name(),
+            row.transfer,
+            pair_u32(value.correspondence_resistance),
+            pair_u32(value.continuation_resistance),
+            pair_usize(value.branch_firings),
+            pair_usize(value.outlet_firings),
+            pair_usize(value.trace_arrivals),
+            pair_usize(value.trace_firings),
+            pair_usize(value.local_returns),
+            value.extra_source_firings,
+            pair_usize(value.heldout_branch_firings),
+            pair_usize(value.heldout_outlet_firings),
+            pair_usize(value.heldout_trace_arrivals),
+            pair_usize(value.heldout_trace_firings),
+            pair_usize(value.heldout_local_returns),
+            pair_usize(value.heldout_effects),
+            pair_usize(value.postgap_effects),
+            value.heldout_extra_source_firings,
+            value.postgap_extra_source_firings,
+            value.heldout_quiescent,
+            value.postgap_quiescent,
+            value.correspondence_acquired,
+            value.maturation_exact,
+            value.postgap_exact,
+            value.naturally_quiescent,
+            row.duplicate_exact,
+            value.work.total(),
+            value.fingerprint,
+            row.passed,
+        ));
+    }
+    output
 }
 
-fn markdown(row: &ResultRow) -> String {
-    let value = &row.metrics;
-    format!(
-        "# PX1-PT1 attributed-margin stability PROBE retry v1\n\nOutcome: **{}**.\n\n| clause | value |\n|---|---:|\n| PX0 correspondence resistance | `{}` |\n| continuation resistance | `{}` |\n| branch firings | `{}` |\n| outlet firings | `{}` |\n| trace arrivals | `{}` |\n| trace firings | `{}` |\n| local branch returns | `{}` |\n| training extra source firings | `{}` |\n| held-out effects | `{}` |\n| post-gap effects | `{}` |\n| held-out extra source firings | `{}` |\n| post-gap extra source firings | `{}` |\n| training/held-out/post-gap quiescence | `{}/{}/{}` |\n| productive recurrence | `{}` |\n| duplicate exact | `{}` |\n\nPX0 changed: `false`. PX1 authoritative: `false`. Definitive evidence executed: `false`.\n",
-        if row.passed { "POSITIVE" } else { "NEGATIVE" },
-        pair_u32(value.correspondence_resistance),
-        pair_u32(value.continuation_resistance),
-        pair_usize(value.branch_firings),
-        pair_usize(value.outlet_firings),
-        pair_usize(value.trace_arrivals),
-        pair_usize(value.trace_firings),
-        pair_usize(value.local_returns),
-        value.extra_source_firings,
-        pair_usize(value.heldout_effects),
-        pair_usize(value.postgap_effects),
-        value.heldout_extra_source_firings,
-        value.postgap_extra_source_firings,
-        value.naturally_quiescent,
-        value.heldout_quiescent,
-        value.postgap_quiescent,
-        value.productive_recurrence,
-        row.duplicate_exact,
-    )
+fn markdown(rows: &[ResultRow]) -> String {
+    let passed = rows.iter().all(|row| row.passed);
+    let mut output = format!(
+        "# PX1-PT1 attributed-margin stability MICRO v1\n\nOutcome: **{}** (`{}/{}` cells).\n\n| scenario | transfer | train branch | train outlet | train trace arrival/fire | train local return | resistance | held-out branch/outlet | held-out trace arrival/fire | held-out local return/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
+        if passed { "POSITIVE" } else { "NEGATIVE" },
+        rows.iter().filter(|row| row.passed).count(),
+        rows.len(),
+    );
+    for row in rows {
+        let value = &row.metrics;
+        output.push_str(&format!(
+            "| {} | {} | `{}` | `{}` | `{}/{}` | `{}` | `{}` | `{}/{}` | `{}/{}` | `{}/{}` | `{}` | `{}/{}/{}` | `{}/{}/{}` | {} | {} |\n",
+            row.scenario.name(),
+            row.transfer,
+            pair_usize(value.branch_firings),
+            pair_usize(value.outlet_firings),
+            pair_usize(value.trace_arrivals),
+            pair_usize(value.trace_firings),
+            pair_usize(value.local_returns),
+            pair_u32(value.continuation_resistance),
+            pair_usize(value.heldout_branch_firings),
+            pair_usize(value.heldout_outlet_firings),
+            pair_usize(value.heldout_trace_arrivals),
+            pair_usize(value.heldout_trace_firings),
+            pair_usize(value.heldout_local_returns),
+            pair_usize(value.heldout_effects),
+            pair_usize(value.postgap_effects),
+            value.extra_source_firings,
+            value.heldout_extra_source_firings,
+            value.postgap_extra_source_firings,
+            value.naturally_quiescent,
+            value.heldout_quiescent,
+            value.postgap_quiescent,
+            row.duplicate_exact,
+            row.passed,
+        ));
+    }
+    output.push_str(
+        "\nEvery physical stage is serialized separately. PX0 changed: `false`. PX1 authoritative: `false`. Definitive evidence executed: `false`.\n",
+    );
+    output
 }
 
 fn write_new(path: &str, contents: &str) {
