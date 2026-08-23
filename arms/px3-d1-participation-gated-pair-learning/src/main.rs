@@ -20,8 +20,7 @@ const PX3_NEGATIVE_MD_SHA256: &str =
     "6c41f4433ea3d3a58f1befa52b966926f4c2f2df5b5d1eec48e889c2c86748d3";
 const PX3_NEGATIVE_AUDIT_SHA256: &str =
     "001f24f480ff9267616433171179b787f4affeb8b3aed01bbf251b7dd51cb382";
-const D1_PROTOCOL_SHA256: &str =
-    "8da3c6ca5b5b548233662eacd20d6263f25c35411a48e392f4bd30403c08785f";
+const D1_PROTOCOL_SHA256: &str = "8da3c6ca5b5b548233662eacd20d6263f25c35411a48e392f4bd30403c08785f";
 const EXECUTION_PROTOCOL_SHA256: &str =
     "2258cd30e8fcf04fb7ac9942f1beffeeb4110243623eeb88cb26cda02c5a78bf";
 
@@ -313,11 +312,25 @@ fn run(seed: u64, scenario: Scenario) -> Row {
             log.execution(world.substrate.propagate());
         }
         Kind::AAlone | Kind::A4Alone => {
-            expose(&mut world, 2, [true, false, false, false], true, false, &mut log);
+            expose(
+                &mut world,
+                2,
+                [true, false, false, false],
+                true,
+                false,
+                &mut log,
+            );
             scheduled[0] = 1;
         }
         Kind::ARepeated => {
-            expose(&mut world, 2, [true, false, false, false], true, true, &mut log);
+            expose(
+                &mut world,
+                2,
+                [true, false, false, false],
+                true,
+                true,
+                &mut log,
+            );
             scheduled[0] = 2;
         }
         Kind::ALateB => {
@@ -328,18 +341,39 @@ fn run(seed: u64, scenario: Scenario) -> Row {
             scheduled = [1, 1, 0, 0];
         }
         Kind::AbOneReturn | Kind::AbNoReturn => {
-            expose(&mut world, 2, [true, true, false, false], true, false, &mut log);
+            expose(
+                &mut world,
+                2,
+                [true, true, false, false],
+                true,
+                false,
+                &mut log,
+            );
             scheduled = [1, 1, 0, 0];
         }
         Kind::AbRecurrent11
         | Kind::AbRecurrent21
         | Kind::AbRecurrent44
         | Kind::AbRecurrentHeldout => {
-            expose(&mut world, 2, [true, true, false, false], true, false, &mut log);
+            expose(
+                &mut world,
+                2,
+                [true, true, false, false],
+                true,
+                false,
+                &mut log,
+            );
             resistance_after_first = candidate_resistance(&world);
             log.work(world.substrate.advance_time(11));
             resistance_before_second = candidate_resistance(&world);
-            expose(&mut world, 11, [true, true, false, false], true, false, &mut log);
+            expose(
+                &mut world,
+                11,
+                [true, true, false, false],
+                true,
+                false,
+                &mut log,
+            );
             scheduled = [2, 2, 0, 0];
         }
         Kind::D1rLateA => {
@@ -464,9 +498,8 @@ fn core_passes(row: &Row, scenario: Scenario) -> bool {
     }
     let (scheduled, actual, opportunities, candidates, candidate_impulse, consequences, returns) =
         expectations(scenario.kind);
-    let raw_impulse = four(|side| {
-        i32::try_from(actual[side]).expect("small count") * scenario.couplings[side]
-    });
+    let raw_impulse =
+        four(|side| i32::try_from(actual[side]).expect("small count") * scenario.couplings[side]);
     let initial = [1; 6];
     let dormant = [1; 6];
     let dead = [0; 6];
@@ -535,13 +568,31 @@ fn expectations(
         Kind::DormantBaseline => ([0; 4], [0; 4], [0; 6], [0; 6], [0; 6], [0; 6], [0; 6]),
         Kind::ReturnOnly => ([0; 4], [0; 4], [0; 6], [0; 6], [0; 6], [0; 6], [1; 6]),
         Kind::AAlone | Kind::A4Alone => (
-            [1, 0, 0, 0], [1, 0, 0, 0], [0; 6], [0; 6], [0; 6], [0; 6], [0; 6],
+            [1, 0, 0, 0],
+            [1, 0, 0, 0],
+            [0; 6],
+            [0; 6],
+            [0; 6],
+            [0; 6],
+            [0; 6],
         ),
         Kind::ARepeated => (
-            [2, 0, 0, 0], [1, 0, 0, 0], [0; 6], [0; 6], [0; 6], [0; 6], [0; 6],
+            [2, 0, 0, 0],
+            [1, 0, 0, 0],
+            [0; 6],
+            [0; 6],
+            [0; 6],
+            [0; 6],
+            [0; 6],
         ),
         Kind::ALateB => (
-            [1, 1, 0, 0], [1, 1, 0, 0], [0; 6], [0; 6], [0; 6], [0; 6], [0; 6],
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [0; 6],
+            [0; 6],
+            [0; 6],
+            [0; 6],
+            [0; 6],
         ),
         Kind::AbOneReturn => (
             [1, 1, 0, 0],
@@ -644,7 +695,12 @@ fn build_world(namespace: u64, couplings: [i32; 4], return_enabled: bool) -> Wor
     let px3_hub = substrate.add_cell(cell(px3_hub_physical(namespace), 40_000, 80, 1));
 
     for side in 0..4 {
-        substrate.add_arrow(fixed_arrow(sources[side], outlets[side], 0, couplings[side]));
+        substrate.add_arrow(fixed_arrow(
+            sources[side],
+            outlets[side],
+            0,
+            couplings[side],
+        ));
         substrate.add_arrow(fixed_arrow(outlets[side], traces[side], 1, 1));
         substrate.add_arrow(fixed_arrow(outlets[side], px1_hub, 1, 1));
         substrate.add_arrow(fixed_arrow(px1_hub, traces[side], 0, 1));
@@ -1032,24 +1088,43 @@ fn report(rows: &[Row]) -> String {
 }
 
 fn join_i32(values: &[i32]) -> String {
-    values.iter().map(i32::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(i32::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_u32(values: &[u32]) -> String {
-    values.iter().map(u32::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_usize(values: &[usize]) -> String {
-    values.iter().map(usize::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_bool(values: &[bool]) -> String {
-    values.iter().map(bool::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(bool::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn require_absent(paths: &[&str]) {
     for path in paths {
-        assert!(!Path::new(path).exists(), "artifact path must be absent: {path}");
+        assert!(
+            !Path::new(path).exists(),
+            "artifact path must be absent: {path}"
+        );
     }
 }
 
