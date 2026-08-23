@@ -1,0 +1,3 @@
+arm,old_dead,fresh_initial_created,fresh_current,current_effects,unsupported_effects,unsupported_first_crossing_tick,unsupported_trace_entries,unsupported_firings,initial_gate_firings,initial_delayed_returns,initial_max_candidate_impulse,initial_max_resistance,initial_eventually_dead,current_max_candidate_impulse,duplicate_exact,naturally_quiescent,passed_target
+fresh-short-two-direct,true,true,2,1,0,-1,6,3,0,0,1,1,true,2,true,true,true
+fresh-threshold-three-mirror,true,true,2,1,0,-1,7,3,0,0,1,1,true,2,true,true,true

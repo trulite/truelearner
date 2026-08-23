@@ -16,6 +16,7 @@ is blocked.
 - [PX0 physical correspondence development readiness](experiments/px0_physical_correspondence_development_readiness.md)
 - [PX0-R generic post-deallocation reproposal development readiness](experiments/px0_r_generic_physical_correspondence_reproposal_development_readiness.md)
 - [PX0 definitive negative result audit](experiments/px0_physical_correspondence_definitive_result_audit.md)
+- [PX0-P1 return-free proposal result audit](experiments/px0_p1_return_free_proposal_control_result_audit.md)
 - `crates/frozen-organism-v1-physics`: standalone retained-physics crate with
   no dependency on the historical experiment surface
 - `./scripts/verify_frozen_organism_v1_cleanup.sh`: cleanup, isolation, and
