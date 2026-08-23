@@ -12,9 +12,13 @@ const AUTHORITY_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db
 const PROTOCOL_SHA256: &str = "940dc88e8a3f70c9dd7a9bc0eb42b1367273d4caea5bed50112bdc4ffce5d195";
 const RETRY_PROTOCOL_SHA256: &str =
     "a4c4d3c7e0f1e3d5998b108e0f7225ebabe434d9246a16ebb4c0df28f83e9aa3";
+const FIXTURE_PROTOCOL_SHA256: &str =
+    "2e25dd77d2eb50eb2c5a6492e32bdd1c59bd647cb0b2e6975742412768bc455e";
 const PROTOCOL: &str = "experiments/cj0_d_local_subunit_development_protocol_v1.md";
 const RETRY_PROTOCOL: &str =
     "experiments/cj0_d_local_subunit_probe_v2_timing_correction_protocol.md";
+const FIXTURE_PROTOCOL: &str =
+    "experiments/cj0_d_local_subunit_probe_v3_fixture_correction_protocol.md";
 const AUTHORITY: &str = "crates/px0-physical-correspondence/src/lib.rs";
 
 const ROUTES: usize = 4;
@@ -630,7 +634,12 @@ fn run_silence_control(
     if matches!(control, Control::Stale) {
         advance(&mut matter, 30, &mut total);
     }
-    for round in 0..4 {
+    let rounds = if matches!(control, Control::Stale) {
+        1
+    } else {
+        4
+    };
+    for round in 0..rounds {
         let base = if matches!(control, Control::Stale) {
             30
         } else {
@@ -662,7 +671,7 @@ fn run_silence_control(
     }
     let silence = sum(&total.outward) == 0 && total.local_firings == [0; SITES];
     let expected_events = match control {
-        Control::Joint if returns => 1,
+        Control::Joint if returns && weak && spacing <= 2 => 1,
         Control::Stale => 1,
         Control::Joint => 4,
         _ => 0,
@@ -1457,6 +1466,7 @@ fn source_audit() -> bool {
         && sha256(AUTHORITY) == AUTHORITY_SHA256
         && sha256(PROTOCOL) == PROTOCOL_SHA256
         && sha256(RETRY_PROTOCOL) == RETRY_PROTOCOL_SHA256
+        && sha256(FIXTURE_PROTOCOL) == FIXTURE_PROTOCOL_SHA256
         && Path::new("arms/cj0-d-local-subunit/build.rs").exists()
 }
 
@@ -1481,7 +1491,7 @@ fn command_output(program: &str, args: &[&str]) -> String {
 }
 
 fn artifact_paths(stage: &str) -> (String, String, String, String) {
-    let version = if stage == "probe" { "v2" } else { "v1" };
+    let version = if stage == "probe" { "v3" } else { "v1" };
     (
         format!("results/cj0_d_local_subunit_{stage}_{version}.csv"),
         format!("results/cj0_d_local_subunit_{stage}_{version}.md"),
@@ -1553,7 +1563,8 @@ fn write_atomic(stage: &str, rows: &[StageRow], pass: bool, classification: &str
         .create_new(true)
         .open(&staging_report)
         .expect("create report staging");
-    writeln!(report_file, "# CJ0-D local-subunit {stage} v1\n").expect("report");
+    let version = if stage == "probe" { "v3" } else { "v1" };
+    writeln!(report_file, "# CJ0-D local-subunit {stage} {version}\n").expect("report");
     writeln!(report_file, "Status: **{classification}**.\n").expect("report");
     writeln!(report_file, "- conjunctive pass: `{pass}`").expect("report");
     writeln!(report_file, "- serialized rows: `{}`", rows.len()).expect("report");
@@ -1575,7 +1586,7 @@ fn write_atomic(stage: &str, rows: &[StageRow], pass: bool, classification: &str
     )
     .expect("report");
     writeln!(report_file, "- protocol SHA-256: `{PROTOCOL_SHA256}`\n").expect("report");
-    writeln!(report_file, "No definitive or authority execution occurred. See the CSV for every physical stage and clause.").expect("report");
+    writeln!(report_file, "No execution beyond the development stages occurred. See the CSV for every physical stage and clause.").expect("report");
     report_file.sync_all().expect("sync report");
     rename(staging_csv, csv).expect("publish CSV");
     rename(staging_report, report).expect("publish report");
