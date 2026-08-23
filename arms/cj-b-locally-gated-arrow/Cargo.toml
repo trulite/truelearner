@@ -1,0 +1,14 @@
+[package]
+name = "cj-b-locally-gated-arrow"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+
+[[bin]]
+name = "probe"
+path = "src/bin/probe.rs"
+
