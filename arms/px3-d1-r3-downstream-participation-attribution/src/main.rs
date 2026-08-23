@@ -19,10 +19,8 @@ const SEEDS: [u64; 2] = [3201, 3209];
 const PAIRS: [(usize, usize); 6] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
 const CSV: &str = "results/px3_d1_r3_downstream_participation_attribution_v1.csv";
 const MD: &str = "results/px3_d1_r3_downstream_participation_attribution_v1.md";
-const CSV_STAGE: &str =
-    "results/.px3_d1_r3_downstream_participation_attribution_v1.csv.staging";
-const MD_STAGE: &str =
-    "results/.px3_d1_r3_downstream_participation_attribution_v1.md.staging";
+const CSV_STAGE: &str = "results/.px3_d1_r3_downstream_participation_attribution_v1.csv.staging";
+const MD_STAGE: &str = "results/.px3_d1_r3_downstream_participation_attribution_v1.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Kind {
@@ -53,10 +51,7 @@ impl Scenario {
         Self::new("ab-real-no-return", Kind::NoReturn),
         Self::new("ab-real-late-return", Kind::LateReturn),
         Self::new("ab-then-cd-two-completed", Kind::TwoCompleted),
-        Self::new(
-            "ab-suprathreshold-return-control",
-            Kind::Suprathreshold,
-        ),
+        Self::new("ab-suprathreshold-return-control", Kind::Suprathreshold),
     ];
 
     const fn new(name: &'static str, kind: Kind) -> Self {
@@ -201,11 +196,9 @@ fn run(seed: u64, scenario: Scenario) -> Row {
     let execution = world.substrate.propagate();
 
     let source = four(|index| fires(&execution, physical(namespace, 10 + index as u64)));
-    let primitive_trace =
-        four(|index| fires(&execution, physical(namespace, 30 + index as u64)));
+    let primitive_trace = four(|index| fires(&execution, physical(namespace, 30 + index as u64)));
     let opportunity = six(|index| fires(&execution, physical(namespace, 100 + index as u64)));
-    let candidate_source =
-        six(|index| fires(&execution, physical(namespace, 200 + index as u64)));
+    let candidate_source = six(|index| fires(&execution, physical(namespace, 200 + index as u64)));
     let candidate_crossings = six(|index| {
         crosses(
             &execution,
@@ -351,52 +344,163 @@ fn passes(row: &Row, kind: Kind) -> bool {
     let hundred6 = [100; 6];
     let ab4 = [4, 1, 1, 1, 1, 1];
     let ab = [1, 0, 0, 0, 0, 0];
-    let (source, primitive, opportunity, p, candidate, candidate_impulse, effect, p_trace,
-        effect_trace, p_to_m, effect_to_m, global_to_m, attribution, credit, credit_impulse,
-        candidate_r, connector_r) = match kind {
+    let (
+        source,
+        primitive,
+        opportunity,
+        p,
+        candidate,
+        candidate_impulse,
+        effect,
+        p_trace,
+        effect_trace,
+        p_to_m,
+        effect_to_m,
+        global_to_m,
+        attribution,
+        credit,
+        credit_impulse,
+        candidate_r,
+        connector_r,
+    ) = match kind {
         Kind::ReturnOnly => (
-            z4, z4, z6, z6, z6, z6i, z6, z6, z6, z6, z6, one6, z6, z6, z6i,
-            one6, hundred6,
+            z4, z4, z6, z6, z6, z6i, z6, z6, z6, z6, z6, one6, z6, z6, z6i, one6, hundred6,
         ),
         Kind::RealSubthreshold => (
-            [1, 1, 0, 0], [1, 1, 0, 0], ab, ab, ab, [1, 0, 0, 0, 0, 0], ab,
-            ab, ab, ab, ab, one6, ab, ab, [1, 0, 0, 0, 0, 0], ab4, hundred6,
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            ab,
+            ab,
+            ab,
+            [1, 0, 0, 0, 0, 0],
+            ab,
+            ab,
+            ab,
+            ab,
+            ab,
+            one6,
+            ab,
+            ab,
+            [1, 0, 0, 0, 0, 0],
+            ab4,
+            hundred6,
         ),
         Kind::BlockedLateA => (
-            [2, 1, 0, 0], [2, 1, 0, 0], ab, ab, ab, [1, 0, 0, 0, 0, 0], z6,
-            ab, z6, ab, z6, one6, z6, z6, z6i, one6,
+            [2, 1, 0, 0],
+            [2, 1, 0, 0],
+            ab,
+            ab,
+            ab,
+            [1, 0, 0, 0, 0, 0],
+            z6,
+            ab,
+            z6,
+            ab,
+            z6,
+            one6,
+            z6,
+            z6,
+            z6i,
+            one6,
             [103, 100, 100, 100, 100, 100],
         ),
         Kind::BlockedEffect => (
-            [1, 1, 0, 0], [1, 1, 0, 0], ab, ab, ab, [1, 0, 0, 0, 0, 0], z6,
-            ab, z6, ab, z6, one6, z6, z6, z6i, one6, hundred6,
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            ab,
+            ab,
+            ab,
+            [1, 0, 0, 0, 0, 0],
+            z6,
+            ab,
+            z6,
+            ab,
+            z6,
+            one6,
+            z6,
+            z6,
+            z6i,
+            one6,
+            hundred6,
         ),
         Kind::IndependentEffect => (
-            z4, z4, z6, z6, z6, z6i, one6, z6, one6, z6, one6, one6, z6, z6,
-            z6i, one6, hundred6,
+            z4, z4, z6, z6, z6, z6i, one6, z6, one6, z6, one6, one6, z6, z6, z6i, one6, hundred6,
         ),
         Kind::NoReturn => (
-            [1, 1, 0, 0], [1, 1, 0, 0], ab, ab, ab, [1, 0, 0, 0, 0, 0], ab,
-            ab, ab, ab, ab, z6, z6, z6, z6i, one6, hundred6,
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            ab,
+            ab,
+            ab,
+            [1, 0, 0, 0, 0, 0],
+            ab,
+            ab,
+            ab,
+            ab,
+            ab,
+            z6,
+            z6,
+            z6,
+            z6i,
+            one6,
+            hundred6,
         ),
         Kind::LateReturn => (
-            [1, 1, 0, 0], [1, 1, 0, 0], ab, ab, ab, [1, 0, 0, 0, 0, 0], ab,
-            ab, ab, ab, ab, one6, z6, z6, z6i, [0, 1, 1, 1, 1, 1], hundred6,
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            ab,
+            ab,
+            ab,
+            [1, 0, 0, 0, 0, 0],
+            ab,
+            ab,
+            ab,
+            ab,
+            ab,
+            one6,
+            z6,
+            z6,
+            z6i,
+            [0, 1, 1, 1, 1, 1],
+            hundred6,
         ),
         Kind::TwoCompleted => (
-            [1; 4], [1; 4], [1, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 1], [2; 6], [1, 0, 0, 0, 0, 1],
-            [1, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 1], [4, 1, 1, 1, 1, 4],
+            [1; 4],
+            [1; 4],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [2; 6],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [1, 0, 0, 0, 0, 1],
+            [4, 1, 1, 1, 1, 4],
             hundred6,
         ),
         Kind::Suprathreshold => (
-            [1, 1, 0, 0], [1, 1, 0, 0], ab, [2, 0, 0, 0, 0, 0],
-            [2, 0, 0, 0, 0, 0], [3, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0],
-            [2, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0],
-            [2, 0, 0, 0, 0, 0], one6, ab, ab, [2, 0, 0, 0, 0, 0],
-            [3, 1, 1, 1, 1, 1], hundred6,
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            ab,
+            [2, 0, 0, 0, 0, 0],
+            [2, 0, 0, 0, 0, 0],
+            [3, 0, 0, 0, 0, 0],
+            [2, 0, 0, 0, 0, 0],
+            [2, 0, 0, 0, 0, 0],
+            [2, 0, 0, 0, 0, 0],
+            [2, 0, 0, 0, 0, 0],
+            [2, 0, 0, 0, 0, 0],
+            one6,
+            ab,
+            ab,
+            [2, 0, 0, 0, 0, 0],
+            [3, 1, 1, 1, 1, 1],
+            hundred6,
         ),
     };
 
@@ -425,7 +529,11 @@ fn passes(row: &Row, kind: Kind) -> bool {
 fn build(namespace: u64, mirror: bool, attribution_coupling: i32) -> World {
     let mut substrate = PlasticSubstrate::new();
     let participant_order = if mirror { [3, 2, 1, 0] } else { [0, 1, 2, 3] };
-    let pair_order = if mirror { [5, 4, 3, 2, 1, 0] } else { [0, 1, 2, 3, 4, 5] };
+    let pair_order = if mirror {
+        [5, 4, 3, 2, 1, 0]
+    } else {
+        [0, 1, 2, 3, 4, 5]
+    };
 
     let mut sources = [None; 4];
     let mut outlets = [None; 4];
@@ -546,16 +654,10 @@ fn build(namespace: u64, mirror: bool, attribution_coupling: i32) -> World {
         let (left, right) = PAIRS[index];
         substrate.add_arrow(fixed(traces[left], opportunities[index], 0, 1));
         substrate.add_arrow(fixed(traces[right], opportunities[index], 0, 1));
-        connectors[index] = Some(substrate.add_arrow(fixed(
-            opportunities[index],
-            candidate_sources[index],
-            0,
-            2,
-        )));
-        candidates[index] = Some(substrate.add_arrow(weak(
-            candidate_sources[index],
-            effects[index],
-        )));
+        connectors[index] =
+            Some(substrate.add_arrow(fixed(opportunities[index], candidate_sources[index], 0, 2)));
+        candidates[index] =
+            Some(substrate.add_arrow(weak(candidate_sources[index], effects[index])));
         substrate.add_arrow(fixed(context, effects[index], 2, 1));
         substrate.add_arrow(fixed(effect_driver, effects[index], 0, 2));
 
@@ -570,11 +672,7 @@ fn build(namespace: u64, mirror: bool, attribution_coupling: i32) -> World {
         substrate.add_arrow(fixed(effect_traces[index], attributions[index], 0, 1));
 
         substrate.add_arrow(fixed(global_return, attributions[index], 0, 1));
-        let coupling = if index == 0 {
-            attribution_coupling
-        } else {
-            1
-        };
+        let coupling = if index == 0 { attribution_coupling } else { 1 };
         substrate.add_arrow(fixed(
             attributions[index],
             candidate_sources[index],
@@ -601,13 +699,7 @@ fn pulse_pair(world: &mut World, sides: [usize; 2], tick: i64) {
 }
 
 fn pulse_source(world: &mut World, side: usize, tick: i64, phase: i32) {
-    pulse(
-        &mut world.substrate,
-        world.sources[side],
-        tick,
-        1,
-        phase,
-    );
+    pulse(&mut world.substrate, world.sources[side], tick, 1, phase);
 }
 
 fn pulse_context(world: &mut World, tick: i64, phase: i32) {
