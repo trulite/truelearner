@@ -1,0 +1,8 @@
+name,passed,effects,proposals,deallocations,arrows,work,diagnostic
+initial-physical-acquisition,true,1,10,6,30,2305,"local adjacency formed the first retained correspondence"
+full-deallocation-no-resurrection,true,0,0,2,30,30,"time and pressure alone created no proposal and revived no old arrow"
+renewed-activity-forms-fresh-identity,true,0,4,0,34,421,"fresh arrows arose from current adjacency; dead arrows stayed dead"
+opposite-return-reacquires-opposite-correspondence,true,1,8,8,44,3280,"new physical return, not historical identity, selected the survivor"
+absent-return-retains-nothing,true,0,16,16,38,1469,"fresh opportunities without return never became outward correspondence"
+ambiguous-return-no-privileged-reacquisition,true,0,4,0,24,2913,"equal physical return retained both alternatives but emitted no arbitrary winner"
+complete-state-replay-exact,true,0,2,0,46,304,"complete physical duplicates remained exact"
