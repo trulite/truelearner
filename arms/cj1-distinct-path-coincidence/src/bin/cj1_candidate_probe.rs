@@ -128,7 +128,10 @@ struct Row {
 }
 
 fn main() {
-    assert_eq!(sha256("../../crates/px0-physical-correspondence/src/lib.rs"), PX0_SHA256);
+    assert_eq!(
+        sha256("../../crates/px0-physical-correspondence/src/lib.rs"),
+        PX0_SHA256
+    );
     assert_eq!(
         sha256("../../experiments/cj1_distinct_path_coincidence_development_protocol_v1.md"),
         PARENT_PROTOCOL_SHA256
@@ -240,7 +243,11 @@ fn build_world(namespace: u64, scenario: Scenario) -> World {
     let shared = substrate.add_cell(cell(namespace + 40, 70, -1, 2));
     let locus = substrate.add_cell(cell(namespace + 50, 100, 0, 2));
     let effect = substrate.add_cell(cell(namespace + 60, 200, 1, 1));
-    let coupling_a = if scenario == Scenario::MatureOnePath { 2 } else { 1 };
+    let coupling_a = if scenario == Scenario::MatureOnePath {
+        2
+    } else {
+        1
+    };
     if scenario == Scenario::TwoOriginsSharedPath {
         substrate.add_arrow(arrow(sources[0], shared, 1));
         substrate.add_arrow(arrow(sources[1], shared, 1));
@@ -255,7 +262,13 @@ fn build_world(namespace: u64, scenario: Scenario) -> World {
         substrate.add_arrow(arrow(sources[2], locus, 1));
     }
     substrate.add_arrow(arrow(locus, effect, 1));
-    World { substrate, namespace, sources, shared, locus }
+    World {
+        substrate,
+        namespace,
+        sources,
+        shared,
+        locus,
+    }
 }
 
 fn enter_schedule(world: &mut World, scenario: Scenario, base: i64) -> i32 {
@@ -321,11 +334,24 @@ fn heldout(world: &World, scenario: Scenario) -> usize {
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
-    CellSpec { physical_id, position, region, threshold, resistance: 100 }
+    CellSpec {
+        physical_id,
+        position,
+        region,
+        threshold,
+        resistance: 100,
+    }
 }
 
 fn arrow(from: CellId, to: CellId, coupling: i32) -> ArrowSpec {
-    ArrowSpec { from, to, delay: 0, phase: 0, coupling, resistance: 100 }
+    ArrowSpec {
+        from,
+        to,
+        delay: 0,
+        phase: 0,
+        coupling,
+        resistance: 100,
+    }
 }
 
 fn physical(world: &World, cell: CellId) -> u64 {
@@ -361,7 +387,10 @@ fn effects(run: &Execution, namespace: u64) -> usize {
 
 fn require_absent(paths: &[&str]) {
     for path in paths {
-        assert!(!Path::new(path).exists(), "artifact path must be absent: {path}");
+        assert!(
+            !Path::new(path).exists(),
+            "artifact path must be absent: {path}"
+        );
     }
 }
 
@@ -372,12 +401,29 @@ fn csv(rows: &[Row]) -> String {
     for row in rows {
         text.push_str(&format!(
             "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
-            row.seed, row.scenario, row.entered_impulse, row.source_firings, row.traversals,
-            row.carried_impulse, row.trace_writes, row.trace_closes, row.locus_arrivals,
-            row.local_contribution, row.locus_firings, row.effects, row.expected_effect,
-            row.heldout_effects, row.work, row.persistent_bytes, row.temporary_peak_lower_bound,
-            row.deallocations, row.complete_fingerprint, row.permanent_fingerprint,
-            row.quiescent, row.replay_equal, row.passed,
+            row.seed,
+            row.scenario,
+            row.entered_impulse,
+            row.source_firings,
+            row.traversals,
+            row.carried_impulse,
+            row.trace_writes,
+            row.trace_closes,
+            row.locus_arrivals,
+            row.local_contribution,
+            row.locus_firings,
+            row.effects,
+            row.expected_effect,
+            row.heldout_effects,
+            row.work,
+            row.persistent_bytes,
+            row.temporary_peak_lower_bound,
+            row.deallocations,
+            row.complete_fingerprint,
+            row.permanent_fingerprint,
+            row.quiescent,
+            row.replay_equal,
+            row.passed,
         ));
     }
     text
@@ -426,7 +472,10 @@ fn publish(staging: &str, destination: &str, contents: &str) {
 }
 
 fn sha256(path: &str) -> String {
-    let output = Command::new("sha256sum").arg(path).output().expect("run sha256sum");
+    let output = Command::new("sha256sum")
+        .arg(path)
+        .output()
+        .expect("run sha256sum");
     assert!(output.status.success(), "hash {path}");
     String::from_utf8(output.stdout)
         .expect("utf8 hash")
@@ -446,7 +495,11 @@ mod tests {
         assert_eq!(SEEDS.len() * Scenario::ALL.len(), 26);
         let keys = SEEDS
             .iter()
-            .flat_map(|seed| Scenario::ALL.iter().map(move |scenario| (*seed, scenario.name())))
+            .flat_map(|seed| {
+                Scenario::ALL
+                    .iter()
+                    .map(move |scenario| (*seed, scenario.name()))
+            })
             .collect::<BTreeSet<_>>();
         assert_eq!(keys.len(), 26);
     }

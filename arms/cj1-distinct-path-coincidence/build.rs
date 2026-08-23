@@ -3,8 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const FROZEN_PX0_SHA256: &str =
-    "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
+const FROZEN_PX0_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
 
 fn main() {
     let manifest = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("manifest directory"));
@@ -54,17 +53,24 @@ fn main() {
                     serial: self.next_serial,
                     arrow: Some((arrow_id, arrow.generation)),
                 });"#;
-    assert_eq!(source.matches(old).count(), 1, "candidate traversal block drift");
+    assert_eq!(
+        source.matches(old).count(),
+        1,
+        "candidate traversal block drift"
+    );
     let source = source.replace(old, new);
 
     let source = source.replacen("#![forbid(unsafe_code)]\n", "", 1);
     let inherited_docs = "//! Experimental substrate-native CELL/ARROW/SPIKE physics for PX0.\n//!\n//! Active state contains only cells, arrows, spikes, and local physical\n//! timing. The module contains no evaluator types and has no dependency on the\n//! historical mechanism suite.\n\n";
-    assert_eq!(source.matches(inherited_docs).count(), 1, "PX0 header drift");
+    assert_eq!(
+        source.matches(inherited_docs).count(),
+        1,
+        "PX0 header drift"
+    );
     let source = source.replacen(inherited_docs, "", 1);
 
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("build output"));
-    fs::write(out.join("candidate_substrate.rs"), source)
-        .expect("write isolated candidate law");
+    fs::write(out.join("candidate_substrate.rs"), source).expect("write isolated candidate law");
 }
 
 fn sha256_file(path: &Path) -> String {
