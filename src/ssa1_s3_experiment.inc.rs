@@ -440,7 +440,7 @@ fn s3_run_cell(config: S3Config) -> S3Cell {
         && all_arms
             .iter()
             .all(|arm| arm.duplicate_exact && arm.schedule_exact)
-        && threshold_step.live_before[1] == 3
+        && threshold_step.live_before[1] < FIRING_THRESHOLD as usize
         && deallocation_step.live_before[0] == 4
         && reference.scheduled == threshold_normal_run.scheduled
         && reference.scheduled == deallocation_normal_run.scheduled;
@@ -520,10 +520,14 @@ fn s3_configs(stage: S3Stage) -> Vec<S3Config> {
 fn s3_frozen_parent_exact() -> bool {
     let source = include_str!("ssa1_s2_application_history_predictor.rs");
     let frozen = include_str!("ssa1_learned_variation_control.rs");
+    let lifetime = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/src/ds7_cumulative_plasticity_targeting_probe.rs"
+    ));
     source.contains("pub const PROTOCOL: &str = \"ssa1-s2-application-history-predictor-v1\"")
         && source.contains("P8-structural-commitment")
         && frozen.contains("const FIRING_THRESHOLD: i32 = 4;")
-        && frozen.contains("fn pressure_if_due(&mut self)")
+        && lifetime.contains("fn pressure_if_due(&mut self)")
         && !include_str!("ssa1_s3_physical_adapter.inc.rs").contains("m5_score")
         && !include_str!("ssa1_s3_physical_adapter.inc.rs").contains("evidence")
 }

@@ -193,7 +193,7 @@ fn main() {
     };
     fs::create_dir_all("results").expect("results directory is writable");
     let stem = format!(
-        "ssa1_s3_structural_commitment_causality_{}",
+        "ssa1_s3_structural_commitment_causality_{}_v2",
         report.stage.to_ascii_lowercase()
     );
     write_atomic(Path::new(&format!("results/{stem}.md")), &markdown(&report));
