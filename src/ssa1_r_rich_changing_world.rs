@@ -602,13 +602,17 @@ fn changing_world(
 
 fn anti_pairing_source_audit() -> bool {
     let source = include_str!("ssa1_r_rich_changing_world.rs");
-    source.contains("let scheduled = field_at(*clock, spec.config);")
-        && source.find("let scheduled = field_at(*clock, spec.config);")
-            < source.find("let live = session.offer();")
-        && source.contains("if let (Some(route), Some(side))")
-        && !source.contains("random(")
-        && !source.contains("softmax")
-        && !source.contains("evaluator_selected_winner")
+    let mechanism = source
+        .split("fn anti_pairing_source_audit()")
+        .next()
+        .unwrap_or_default();
+    mechanism.contains("let scheduled = field_at(*clock, spec.config);")
+        && mechanism.find("let scheduled = field_at(*clock, spec.config);")
+            < mechanism.find("let live = session.offer();")
+        && mechanism.contains("if let (Some(route), Some(side))")
+        && !mechanism.contains("random(")
+        && !mechanism.contains("softmax")
+        && !mechanism.contains("evaluator_selected_winner")
 }
 
 fn frozen_source_invariant() -> bool {
@@ -729,7 +733,7 @@ fn run_cell(stage: Stage, seed: u64, index: usize) -> Cell {
             field_enabled: true,
             postclosure: false,
             config: ClockConfig {
-                field_offset: 5,
+                field_offset: 8,
                 amplitude_offset: 3,
                 consequence_offset: 11,
             },

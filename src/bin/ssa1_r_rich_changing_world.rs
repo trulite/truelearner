@@ -188,10 +188,13 @@ fn main() {
             std::process::exit(2);
         }
     };
-    let stem = format!(
-        "results/ssa1_r_rich_changing_world_{}",
-        report.stage.to_ascii_lowercase()
-    );
+    let result_name = match report.stage {
+        "PROBE" => "probe_retry_v2",
+        "MICRO" => "micro_v1",
+        "GATE" => "gate_v1",
+        _ => unreachable!("known development stage"),
+    };
+    let stem = format!("results/ssa1_r_rich_changing_world_{result_name}");
     let markdown = markdown(&report);
     write_atomic(Path::new(&format!("{stem}.md")), &markdown);
     write_atomic(Path::new(&format!("{stem}.csv")), &csv(&report));
