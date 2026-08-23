@@ -9,21 +9,25 @@ use std::process::Command;
 
 const ROUTES: usize = 4;
 const SITES: usize = 6;
-const ROUNDS: usize = 6;
+const REINFORCEMENTS: usize = 5;
+const OCCURRENCES: usize = 2 + REINFORCEMENTS;
 const SOURCE_THRESHOLD: usize = 2;
 const AUTHORITATIVE_COMMIT: &str = "2fbee861a0aeed335d3ffa8f9095ca28f2ac6129";
 const AUTHORITY_TAG: &str = "px2-physical-causal-direction-authoritative";
 const AUTHORITY_SOURCE_SHA256: &str =
     "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
-const PROTOCOL_SHA256: &str = "aab8b7ed8eb8b96b6dd3b8fef95775d77cf797c1b2329284f93997a6c9db6236";
+const V1_PROTOCOL_SHA256: &str = "aab8b7ed8eb8b96b6dd3b8fef95775d77cf797c1b2329284f93997a6c9db6236";
+const V1_INVALID_SHA256: &str = "96c0816e6310661243bb1abd04452128d24f0aabe3ca46906297c1d84b2d0f23";
+const V1_INVALID_COMMIT: &str = "62e8774466bfeaa214302fe95b61960c1085d0b7";
+const V2_PROTOCOL_SHA256: &str = "0f2918c94f79a1f300240fde0b6a2f1c5adb3c0f334aa27dd01e679b8c56a5c1";
 const PX3_NEGATIVE: &str = "873094497ff6eb74363191dc5edc479c7d66de72";
 const ARM_A_NEGATIVE: &str = "26aa795377c47ecf6fd28232865d5404408b6df9";
 const ARM_B_NEGATIVE: &str = "82c0433329cf85bf3fe261661acd033011000656";
 const ARM_C_NEGATIVE: &str = "5feb9b4c4755ed40d58ffc9cb8769d5523ea46f0";
-const RESULT_CSV: &str = "results/cj0_a_coincidence_threshold_probe_v1.csv";
-const RESULT_MD: &str = "results/cj0_a_coincidence_threshold_probe_v1.md";
-const STAGING_CSV: &str = "results/.cj0_a_coincidence_threshold_probe_v1.csv.staging";
-const STAGING_MD: &str = "results/.cj0_a_coincidence_threshold_probe_v1.md.staging";
+const RESULT_CSV: &str = "results/cj0_a_coincidence_threshold_probe_v2.csv";
+const RESULT_MD: &str = "results/cj0_a_coincidence_threshold_probe_v2.md";
+const STAGING_CSV: &str = "results/.cj0_a_coincidence_threshold_probe_v2.csv.staging";
+const STAGING_MD: &str = "results/.cj0_a_coincidence_threshold_probe_v2.md.staging";
 const SOURCE_PATH: &str =
     "crates/px0-physical-correspondence/examples/cj0_a_coincidence_threshold.rs";
 
@@ -196,9 +200,9 @@ struct Row {
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
     let preflight = args == ["--preflight"];
-    let probe = args == ["--probe"];
+    let probe = args == ["--probe-v2"];
     if !preflight && !probe {
-        eprintln!("CJ0-A requires --preflight or --probe");
+        eprintln!("CJ0-A requires --preflight or --probe-v2");
         std::process::exit(2);
     }
     assert!(source_audit(), "frozen source/lineage audit failed");
@@ -209,11 +213,11 @@ fn main() {
         );
     }
     if preflight {
-        println!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V1_PREFLIGHT_OK");
+        println!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V2_PREFLIGHT_OK");
         return;
     }
 
-    eprintln!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V1_EVIDENCE_SPENT");
+    eprintln!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V2_EVIDENCE_SPENT");
     let mut rows = Vec::new();
     for variant in VARIANTS {
         let first = run_replica(variant);
@@ -231,7 +235,7 @@ fn main() {
     let passed = rows.iter().all(|row| row.claims.all());
     publish(&csv(&rows), &markdown(&rows, passed));
     if !passed {
-        eprintln!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V1_FROZEN_NEGATIVE");
+        eprintln!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V2_FROZEN_NEGATIVE");
         std::process::exit(1);
     }
 }
@@ -448,20 +452,24 @@ fn train_at(matter: &mut Matter, first: [usize; 2], second: [usize; 2], start: i
         quiescent: true,
         ..Activity::default()
     };
-    for round in 0..ROUNDS {
-        let base = start + round as i64 * 20;
-        for repetition in 0..2 {
-            let serial =
-                matter.namespace + 0x10_0000 + round as u64 * 0x1000 + repetition as u64 * 0x100;
-            let value = activate(matter, &first, base + repetition, serial);
-            add_activity(&mut total, value);
-        }
-        for repetition in 0..2 {
-            let serial =
-                matter.namespace + 0x20_0000 + round as u64 * 0x1000 + repetition as u64 * 0x100;
-            let value = activate(matter, &second, base + 8 + repetition, serial);
-            add_activity(&mut total, value);
-        }
+    for repetition in 0..2 {
+        let serial = matter.namespace + 0x10_0000 + repetition as u64 * 0x100;
+        let value = activate(matter, &first, start + repetition, serial);
+        add_activity(&mut total, value);
+    }
+    for repetition in 0..2 {
+        let serial = matter.namespace + 0x20_0000 + repetition as u64 * 0x100;
+        let value = activate(matter, &second, start + 8 + repetition, serial);
+        add_activity(&mut total, value);
+    }
+    for reinforcement in 0..REINFORCEMENTS {
+        let offset = 20 + reinforcement as i64 * 20;
+        let first_serial = matter.namespace + 0x30_0000 + reinforcement as u64 * 0x1000;
+        let second_serial = matter.namespace + 0x40_0000 + reinforcement as u64 * 0x1000;
+        let first_value = activate(matter, &first, start + offset, first_serial);
+        add_activity(&mut total, first_value);
+        let second_value = activate(matter, &second, start + offset + 8, second_serial);
+        add_activity(&mut total, second_value);
     }
     total
 }
@@ -600,7 +608,7 @@ fn run_replica(variant: Variant) -> Metrics {
 
     let controls = controls(variant);
     add_work(&mut work, &controls.work);
-    let expected_port_firings = ROUNDS * 2 * 3;
+    let expected_port_firings = OCCURRENCES * 3;
     let source_refirings = training
         .port_firings
         .iter()
@@ -618,7 +626,7 @@ fn run_replica(variant: Variant) -> Metrics {
         && controls.quiescent;
 
     Metrics {
-        route_occurrences: [ROUNDS * 2; ROUTES],
+        route_occurrences: [OCCURRENCES; ROUTES],
         training_port_firings: training.port_firings,
         training_site_firings: training.site_firings,
         training_effects: training.effects,
@@ -873,7 +881,13 @@ fn add_work(total: &mut WorkLedger, value: &WorkLedger) {
 
 fn source_audit() -> bool {
     sha256("crates/px0-physical-correspondence/src/lib.rs") == AUTHORITY_SOURCE_SHA256
-        && sha256("experiments/cj0_a_coincidence_threshold_probe_v1_protocol.md") == PROTOCOL_SHA256
+        && sha256("experiments/cj0_a_coincidence_threshold_probe_v1_protocol.md")
+            == V1_PROTOCOL_SHA256
+        && sha256("experiments/cj0_a_coincidence_threshold_probe_v1_invalid_audit.md")
+            == V1_INVALID_SHA256
+        && rev_parse("cj0-a-coincidence-threshold-probe-v1-invalid^{commit}") == V1_INVALID_COMMIT
+        && sha256("experiments/cj0_a_coincidence_threshold_probe_v2_protocol.md")
+            == V2_PROTOCOL_SHA256
         && rev_parse("HEAD^{commit}") != AUTHORITATIVE_COMMIT
         && rev_parse(&format!("{AUTHORITY_TAG}^{{commit}}")) == AUTHORITATIVE_COMMIT
         && rev_parse("px3-physical-event-boundaries-frozen-negative-handoff-v1^{commit}")
@@ -1002,7 +1016,7 @@ fn markdown(rows: &[Row], passed: bool) -> String {
         .map(|row| row.metrics.persistent_bytes)
         .sum::<usize>();
     let mut out = format!(
-        "# CJ0 Arm A coincidence-threshold CELL PROBE v1\n\n- Classification: `{classification}`\n- Candidate law added: `none`\n- Authoritative source changed: `false`\n- Rows passed: `{}/{}`\n- Ledgered work: `{total_work}`\n- Final persistent matter across primary executions: `{total_storage}` bytes\n\n| replica | initial discriminator | repeated singleton | reversal old/new | claims | first failure | duplicate |\n|---|---:|---:|---:|---:|---:|---:|\n",
+        "# CJ0 Arm A coincidence-threshold CELL PROBE v2\n\n- Classification: `{classification}`\n- Candidate law added: `none`\n- Authoritative source changed: `false`\n- Rows passed: `{}/{}`\n- Ledgered work: `{total_work}`\n- Final persistent matter across primary executions: `{total_storage}` bytes\n\n| replica | initial discriminator | repeated singleton | reversal old/new | claims | first failure | duplicate |\n|---|---:|---:|---:|---:|---:|---:|\n",
         rows.iter().filter(|row| row.claims.all()).count(),
         rows.len(),
     );
