@@ -3,6 +3,13 @@
 Status: implementation plan; no Harness v0 scientific evidence has been
 spent.
 
+H0 update: extraction PROBE v1 is frozen negative. The authoritative cumulative
+mechanism has no mechanically extractable continuous anonymous-arrival path;
+its blank construction, update, and transient lifecycle remain fixture-bound.
+H1 and all world work are blocked pending a separately authorized integration
+research program. See
+[the H0 negative](../results/h0_frozen_organism_extraction_probe_v1_negative.md).
+
 ## Fixed scientific boundary
 
 The starting organism is Frozen Organism v1: authoritative M8 plus the
