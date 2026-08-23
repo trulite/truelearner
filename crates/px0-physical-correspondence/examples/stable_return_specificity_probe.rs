@@ -2,7 +2,8 @@ use px0_physical_correspondence::{
     ArrowId, ArrowSpec, CellId, CellSpec, Execution, PlasticSubstrate, SpikeInput,
 };
 use std::env;
-use std::fs;
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 const N: usize = 3;
@@ -45,6 +46,73 @@ enum Mode {
     Probe,
     Micro,
     Gate,
+    D2,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct D2Config {
+    index: usize,
+    namespace: u64,
+    initial: usize,
+    current: usize,
+    spacing: i64,
+    stride: i32,
+    distractor_load: usize,
+    incidental_form: usize,
+    reverse_allocation: bool,
+    mirrored_layout: bool,
+    device_order: [usize; DEVICES],
+}
+
+#[derive(Debug)]
+struct D2Trajectory {
+    cell: usize,
+    context: usize,
+    form: usize,
+    stable_opportunity: usize,
+    stable_completed: usize,
+    stable_completed_cumulative: usize,
+    sparse_opportunity: usize,
+    sparse_completed: usize,
+    sparse_completed_cumulative: usize,
+    stable_resistance: u32,
+    sparse_resistance: u32,
+    stable_live_arrows: usize,
+    sparse_live_arrows: usize,
+    b_probe_effect: usize,
+    a_probe_effect: usize,
+    b_executable_contexts: usize,
+    deallocations: u64,
+    queue_comparisons: u64,
+    work: u64,
+}
+
+#[derive(Debug)]
+struct D2Cell {
+    config: D2Config,
+    prefix_ok: bool,
+    stable_opportunities: usize,
+    stable_completed: usize,
+    sparse_opportunities: usize,
+    sparse_completed: usize,
+    stable_final_resistance: u32,
+    sparse_final_resistance: u32,
+    first_b_execution_context: isize,
+    b_executable_contexts: usize,
+    final_b_effects: usize,
+    final_a_effects: usize,
+    first_deallocation_context: isize,
+    stable_deallocation_delay: i64,
+    sparse_deallocation_delay: i64,
+    proposals: u64,
+    deallocations: u64,
+    queue_comparisons: u64,
+    work: u64,
+    diagnostic_probe_work: u64,
+    complete_fingerprint: u64,
+    permanent_fingerprint: u64,
+    duplicate_exact: bool,
+    naturally_quiescent: bool,
 }
 
 #[derive(Debug)]
@@ -108,12 +176,19 @@ fn main() {
             }
             "--micro" => mode = Mode::Micro,
             "--gate" => mode = Mode::Gate,
-            "--definitive" => {
+            "--d2" => mode = Mode::D2,
+            "--definitive" | "--definitive-v2" | "--definitive-v3" => {
                 eprintln!("PX0-S is development-only; definitive execution is forbidden");
                 std::process::exit(2);
             }
             other => panic!("unknown argument: {other}"),
         }
+    }
+
+    let output_prefix = output_prefix.expect("development output prefix is required");
+    if mode == Mode::D2 {
+        let completed = run_d2(&output_prefix);
+        std::process::exit(if completed { 0 } else { 1 });
     }
 
     let probe_arms = vec![
@@ -360,6 +435,7 @@ fn main() {
         Mode::Probe => probe_arms,
         Mode::Micro => micro_arms,
         Mode::Gate => gate_arms,
+        Mode::D2 => unreachable!("D2 exits before legacy arm selection"),
     };
     let mut results = Vec::new();
     let mut contexts = Vec::new();
@@ -372,6 +448,7 @@ fn main() {
         Mode::Probe => 0xb80_0000,
         Mode::Micro => 0xcf0_0000,
         Mode::Gate => 0xe80_0000,
+        Mode::D2 => unreachable!("D2 exits before legacy controls"),
     };
     let mut controls = vec![
         run_recurring_control("recurring-route-0-direct", control_base, 0, 1, false),
@@ -393,14 +470,7 @@ fn main() {
         ));
     }
     let passed = results.iter().all(|row| row.passed) && controls.iter().all(|row| row.passed);
-    write_results(
-        &output_prefix.expect("development output prefix is required"),
-        &results,
-        &controls,
-        &contexts,
-        passed,
-        mode,
-    );
+    write_results(&output_prefix, &results, &controls, &contexts, passed, mode);
     if !passed {
         std::process::exit(1);
     }
@@ -547,6 +617,122 @@ fn build(namespace: u64, mirror: bool, stride: i32, distractor_load: usize) -> F
     }
 }
 
+fn build_d2(config: D2Config) -> Fixture {
+    let mut substrate = PlasticSubstrate::new();
+    let mut sources = [None; N];
+    let mut probes = [None; N];
+    let mut contenders = [None; N];
+    let mut gates = [None; N];
+    let mut backgrounds = [None; N];
+    let mut supports = [[None; DEVICES]; N];
+    let mut incidental_drivers = [None; N];
+    let support_delays = [1, 2, 3, 4];
+    let order = if config.reverse_allocation {
+        [2, 1, 0]
+    } else {
+        [0, 1, 2]
+    };
+
+    for route in order {
+        let slot = if config.mirrored_layout {
+            N - 1 - route
+        } else {
+            route
+        };
+        let position = slot as i32 * config.stride;
+        sources[route] =
+            Some(substrate.add_cell(cell(config.namespace + 10 + route as u64, position, 0, 2)));
+        probes[route] = Some(substrate.add_cell(cell(
+            config.namespace + 20 + route as u64,
+            position + 1,
+            -1,
+            2,
+        )));
+        contenders[route] = Some(substrate.add_cell(cell(
+            config.namespace + 30 + route as u64,
+            position + 2,
+            0,
+            2,
+        )));
+        gates[route] = Some(substrate.add_cell(cell(
+            config.namespace + 40 + route as u64,
+            position + 4,
+            -1,
+            2,
+        )));
+        backgrounds[route] = Some(substrate.add_cell(cell(
+            config.namespace + 50 + route as u64,
+            2_000 + route as i32 * 10,
+            -2,
+            1,
+        )));
+        incidental_drivers[route] = Some(substrate.add_cell(cell(
+            config.namespace + 60 + route as u64,
+            position + 6,
+            -2,
+            2,
+        )));
+        for (device, support) in supports[route].iter_mut().enumerate() {
+            *support = Some(substrate.add_cell(cell(
+                config.namespace + 100 + route as u64 * 10 + device as u64,
+                3_000 + route as i32 * 100 + device as i32 * 11,
+                -2,
+                1,
+            )));
+        }
+        for distractor in 0..config.distractor_load {
+            substrate.add_cell(cell(
+                config.namespace + 1_000 + route as u64 * 100 + distractor as u64,
+                position + 5 + (distractor % 3) as i32,
+                -3,
+                2,
+            ));
+        }
+    }
+
+    let sources = sources.map(|value| value.expect("source allocated"));
+    let probes = probes.map(|value| value.expect("probe allocated"));
+    let contenders = contenders.map(|value| value.expect("contender allocated"));
+    let gates = gates.map(|value| value.expect("gate allocated"));
+    let backgrounds = backgrounds.map(|value| value.expect("background allocated"));
+    let supports = supports.map(|route| route.map(|value| value.expect("support allocated")));
+    let incidental_drivers =
+        incidental_drivers.map(|value| value.expect("incidental driver allocated"));
+    let veto = substrate.add_cell(cell(config.namespace + 900, 5_000, 0, 2));
+    let accumulator = substrate.add_cell(cell(config.namespace + 901, 5_001, 0, 1));
+    let outside = substrate.add_cell(cell(config.namespace + 902, 5_002, 1, 1));
+
+    for route in order {
+        substrate.add_arrow(arrow(probes[route], gates[route], 1, 1));
+        substrate.add_arrow(arrow(gates[route], sources[route], 1, 1));
+        substrate.add_arrow(arrow(backgrounds[route], probes[route], 1, 1));
+        for device in 0..DEVICES {
+            substrate.add_arrow(arrow(
+                supports[route][device],
+                gates[route],
+                support_delays[device],
+                1,
+            ));
+        }
+        substrate.add_arrow(arrow(contenders[route], veto, 0, 1));
+        substrate.add_arrow(arrow(contenders[route], accumulator, 2, 1));
+    }
+    substrate.add_arrow(arrow(veto, accumulator, 1, -4));
+    substrate.add_arrow(arrow(accumulator, outside, 0, 1));
+
+    Fixture {
+        substrate,
+        namespace: config.namespace,
+        sources,
+        probes,
+        contenders,
+        backgrounds,
+        supports,
+        support_delays,
+        incidental_drivers,
+    }
+}
+
 fn enter_twice(fixture: &mut Fixture, target: CellId, tick: i64, origin: u64) {
     for ordinal in 0..2 {
         fixture.substrate.enter(SpikeInput {
@@ -665,6 +851,630 @@ fn max_live_resistance(fixture: &Fixture, route: usize) -> u32 {
         .map(|arrow| fixture.substrate.arrow_resistance(arrow))
         .max()
         .unwrap_or(0)
+}
+
+fn live_variable_count(fixture: &Fixture, route: usize) -> usize {
+    variable_ids(fixture, route)
+        .into_iter()
+        .filter(|arrow| fixture.substrate.arrow_is_live(*arrow))
+        .count()
+}
+
+fn d2_enter_twice(fixture: &mut Fixture, target: CellId, tick: i64, origin: u64, reverse: bool) {
+    let phases = if reverse { [1, 0] } else { [0, 1] };
+    for (ordinal, phase) in phases.into_iter().enumerate() {
+        fixture.substrate.enter(SpikeInput {
+            arrival_tick: tick,
+            phase,
+            origin_physical: origin + ordinal as u64,
+            target,
+            impulse: 1,
+        });
+    }
+}
+
+fn d2_activate_candidates(
+    fixture: &mut Fixture,
+    routes: &[usize],
+    tick: i64,
+    origin: u64,
+    reverse: bool,
+) {
+    let ordered = if reverse {
+        routes.iter().rev().copied().collect::<Vec<_>>()
+    } else {
+        routes.to_vec()
+    };
+    for route in ordered {
+        d2_enter_twice(
+            fixture,
+            fixture.sources[route],
+            tick,
+            origin + route as u64 * 16,
+            reverse,
+        );
+        fixture.substrate.enter(SpikeInput {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: origin + 0x100 + route as u64,
+            target: fixture.backgrounds[route],
+            impulse: 1,
+        });
+    }
+}
+
+fn d2_supported_experience(
+    fixture: &mut Fixture,
+    route: usize,
+    tick: i64,
+    origin: u64,
+    reverse: bool,
+) -> Execution {
+    d2_activate_candidates(fixture, &[0, 1, 2], tick, origin, reverse);
+    activate_support(fixture, route, 1, tick + 2, origin + 0x200);
+    fixture.substrate.propagate()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn d2_context(
+    fixture: &mut Fixture,
+    stable: usize,
+    sparse: usize,
+    spare: usize,
+    device: usize,
+    sparse_active: bool,
+    elsewhere_active: bool,
+    base: i64,
+    origin: u64,
+    reverse: bool,
+) -> Execution {
+    d2_activate_candidates(fixture, &[stable, sparse, spare], base + 2, origin, reverse);
+    activate_support(fixture, stable, device, base + 4, origin + 0x200);
+    if sparse_active {
+        d2_enter_twice(
+            fixture,
+            fixture.incidental_drivers[sparse],
+            base + 2,
+            origin + 0x300,
+            reverse,
+        );
+    }
+    if elsewhere_active {
+        d2_enter_twice(
+            fixture,
+            fixture.incidental_drivers[spare],
+            base + 2,
+            origin + 0x400,
+            !reverse,
+        );
+    }
+    fixture.substrate.propagate()
+}
+
+fn d2_held_out(
+    fixture: &mut Fixture,
+    route: usize,
+    tick: i64,
+    origin: u64,
+    reverse: bool,
+) -> Execution {
+    d2_activate_candidates(fixture, &[route], tick, origin, reverse);
+    fixture.substrate.propagate()
+}
+
+fn route_deallocation_delay(mut fixture: Fixture, route: usize, start_tick: i64) -> i64 {
+    for step in 1..=200 {
+        let delay = step * 10;
+        fixture.substrate.advance_time(start_tick + delay);
+        if live_variable_count(&fixture, route) == 0 {
+            return delay;
+        }
+    }
+    -1
+}
+
+fn d2_configs() -> Vec<D2Config> {
+    let spacings = [13, 15, 17, 19];
+    let strides = [24, 25, 27, 28];
+    let loads = [32, 36, 44, 48];
+    let mut configs = Vec::new();
+    for (spacing_index, spacing) in spacings.into_iter().enumerate() {
+        for (stride_index, stride) in strides.into_iter().enumerate() {
+            for (load_index, distractor_load) in loads.into_iter().enumerate() {
+                for orientation in 0..4 {
+                    let index = configs.len();
+                    let initial = index % N;
+                    let current = (initial + 1) % N;
+                    let incidental_form =
+                        (spacing_index + 2 * stride_index + load_index + orientation) % DEVICES;
+                    let rotation = (index + incidental_form) % DEVICES;
+                    let mut device_order = [0, 1, 2, 3];
+                    device_order.rotate_left(rotation);
+                    if orientation.is_multiple_of(2) {
+                        device_order.reverse();
+                    }
+                    configs.push(D2Config {
+                        index,
+                        namespace: 0x1_4000_0000 + index as u64 * 0x8_0000,
+                        initial,
+                        current,
+                        spacing,
+                        stride,
+                        distractor_load,
+                        incidental_form,
+                        reverse_allocation: orientation >= 2,
+                        mirrored_layout: orientation % 2 == 1,
+                        device_order,
+                    });
+                }
+            }
+        }
+    }
+    configs
+}
+
+fn run_d2_cell(config: D2Config) -> (D2Cell, Vec<D2Trajectory>) {
+    let spare = 3 - config.initial - config.current;
+    let mut fixture = build_d2(config);
+    let mut naturally_quiescent = true;
+    let mut proposals = 0u64;
+    let mut deallocations = 0u64;
+    let mut queue_comparisons = 0u64;
+    let mut work = 0u64;
+    for presentation in 0usize..4 {
+        let run = d2_supported_experience(
+            &mut fixture,
+            config.initial,
+            presentation as i64 * config.spacing,
+            config.namespace + 0x1_000 + presentation as u64 * 0x100,
+            config.reverse_allocation ^ presentation.is_multiple_of(2),
+        );
+        proposals += run.work.local_structural_proposals;
+        deallocations += run.work.physical_deallocations;
+        queue_comparisons += run.work.queue_comparisons;
+        work += run.work.total();
+        naturally_quiescent &= run.naturally_quiescent;
+    }
+    let old_ids = variable_ids(&fixture, config.initial);
+    let acquired = old_ids.len() == 2
+        && old_ids
+            .iter()
+            .all(|arrow| fixture.substrate.arrow_is_live(*arrow));
+    let initial_run = d2_supported_experience(
+        &mut fixture,
+        config.initial,
+        4 * config.spacing,
+        config.namespace + 0x2_000,
+        !config.reverse_allocation,
+    );
+    proposals += initial_run.work.local_structural_proposals;
+    deallocations += initial_run.work.physical_deallocations;
+    queue_comparisons += initial_run.work.queue_comparisons;
+    work += initial_run.work.total();
+    naturally_quiescent &= initial_run.naturally_quiescent;
+    let survival_tick = 4 * config.spacing + 20;
+    let pressure = fixture.substrate.advance_time(survival_tick);
+    deallocations += pressure.physical_deallocations;
+    work += pressure.total();
+    let same_live_before = old_ids
+        .iter()
+        .all(|arrow| fixture.substrate.arrow_is_live(*arrow));
+    let survival_run = d2_supported_experience(
+        &mut fixture,
+        config.initial,
+        survival_tick,
+        config.namespace + 0x2_800,
+        config.reverse_allocation,
+    );
+    proposals += survival_run.work.local_structural_proposals;
+    deallocations += survival_run.work.physical_deallocations;
+    queue_comparisons += survival_run.work.queue_comparisons;
+    work += survival_run.work.total();
+    naturally_quiescent &= survival_run.naturally_quiescent;
+    let same_live_after = old_ids
+        .iter()
+        .all(|arrow| fixture.substrate.arrow_is_live(*arrow));
+    let forgetting = fixture.substrate.advance_time(300);
+    deallocations += forgetting.physical_deallocations;
+    work += forgetting.total();
+    let old_dead = old_ids.iter().all(|arrow| {
+        !fixture.substrate.arrow_is_live(*arrow) && fixture.substrate.arrow_resistance(*arrow) == 0
+    });
+    let stale_run = d2_held_out(
+        &mut fixture,
+        config.initial,
+        300,
+        config.namespace + 0x3_000,
+        !config.reverse_allocation,
+    );
+    proposals += stale_run.work.local_structural_proposals;
+    deallocations += stale_run.work.physical_deallocations;
+    queue_comparisons += stale_run.work.queue_comparisons;
+    work += stale_run.work.total();
+    naturally_quiescent &= stale_run.naturally_quiescent;
+    let prefix_ok = acquired
+        && effects(&initial_run) == 1
+        && same_live_before
+        && same_live_after
+        && effects(&survival_run) == 1
+        && old_dead
+        && effects(&stale_run) == 0;
+
+    let dense_start = 300 + config.spacing;
+    let mut stable_completed = 0usize;
+    let mut sparse_completed = 0usize;
+    let mut sparse_opportunities = 0usize;
+    let mut b_executable_contexts = 0usize;
+    let mut first_b_execution_context = -1isize;
+    let mut first_deallocation_context = -1isize;
+    let mut diagnostic_probe_work = 0u64;
+    let mut trajectory = Vec::new();
+    let mut context = 0usize;
+    let mut forms = Vec::new();
+    for _ in 0..8 {
+        forms.extend(0..DEVICES);
+    }
+    forms.extend((0..DEVICES).filter(|form| *form != config.incidental_form));
+    for form in forms {
+        let sparse_opportunity =
+            usize::from(context < 8 * DEVICES && form == config.incidental_form);
+        sparse_opportunities += sparse_opportunity;
+        let base = dense_start + context as i64 * config.spacing;
+        let run = d2_context(
+            &mut fixture,
+            config.current,
+            config.initial,
+            spare,
+            config.device_order[form],
+            sparse_opportunity == 1,
+            form == (config.incidental_form + 3) % DEVICES,
+            base,
+            config.namespace + 0x4_000 + context as u64 * 0x100,
+            config.reverse_allocation ^ context.is_multiple_of(2),
+        );
+        let stable_here = delayed_returns(&fixture, config.current, base, &run);
+        let sparse_here = delayed_returns(&fixture, config.initial, base, &run);
+        stable_completed += stable_here;
+        sparse_completed += sparse_here;
+        proposals += run.work.local_structural_proposals;
+        deallocations += run.work.physical_deallocations;
+        queue_comparisons += run.work.queue_comparisons;
+        work += run.work.total();
+        naturally_quiescent &= run.naturally_quiescent;
+        if first_deallocation_context < 0 && run.work.physical_deallocations > 0 {
+            first_deallocation_context = context as isize;
+        }
+        let probe_tick = base + 7;
+        let mut b_probe_fixture = fixture.clone();
+        let mut a_probe_fixture = fixture.clone();
+        let b_probe = d2_held_out(
+            &mut b_probe_fixture,
+            config.current,
+            probe_tick,
+            config.namespace + 0x10_000 + context as u64 * 0x100,
+            config.reverse_allocation,
+        );
+        let a_probe = d2_held_out(
+            &mut a_probe_fixture,
+            config.initial,
+            probe_tick,
+            config.namespace + 0x20_000 + context as u64 * 0x100,
+            !config.reverse_allocation,
+        );
+        diagnostic_probe_work += b_probe.work.total() + a_probe.work.total();
+        let b_probe_effect = effects(&b_probe);
+        let a_probe_effect = effects(&a_probe);
+        if b_probe_effect == 1 {
+            if first_b_execution_context < 0 {
+                first_b_execution_context = context as isize;
+            }
+            b_executable_contexts += 1;
+        }
+        naturally_quiescent &= b_probe.naturally_quiescent && a_probe.naturally_quiescent;
+        trajectory.push(D2Trajectory {
+            cell: config.index,
+            context,
+            form,
+            stable_opportunity: 1,
+            stable_completed: stable_here,
+            stable_completed_cumulative: stable_completed,
+            sparse_opportunity,
+            sparse_completed: sparse_here,
+            sparse_completed_cumulative: sparse_completed,
+            stable_resistance: max_live_resistance(&fixture, config.current),
+            sparse_resistance: max_live_resistance(&fixture, config.initial),
+            stable_live_arrows: live_variable_count(&fixture, config.current),
+            sparse_live_arrows: live_variable_count(&fixture, config.initial),
+            b_probe_effect,
+            a_probe_effect,
+            b_executable_contexts,
+            deallocations: run.work.physical_deallocations,
+            queue_comparisons: run.work.queue_comparisons,
+            work: run.work.total(),
+        });
+        context += 1;
+    }
+
+    let stable_final_resistance = max_live_resistance(&fixture, config.current);
+    let sparse_final_resistance = max_live_resistance(&fixture, config.initial);
+    let final_tick = dense_start + context as i64 * config.spacing;
+    let mut b_first_fixture = fixture.clone();
+    let mut b_second_fixture = fixture.clone();
+    let mut a_fixture = fixture.clone();
+    let b_first = d2_held_out(
+        &mut b_first_fixture,
+        config.current,
+        final_tick,
+        config.namespace + 0x30_000,
+        config.reverse_allocation,
+    );
+    let b_second = d2_held_out(
+        &mut b_second_fixture,
+        config.current,
+        final_tick,
+        config.namespace + 0x30_000,
+        config.reverse_allocation,
+    );
+    let a_final = d2_held_out(
+        &mut a_fixture,
+        config.initial,
+        final_tick,
+        config.namespace + 0x40_000,
+        !config.reverse_allocation,
+    );
+    diagnostic_probe_work += b_first.work.total() + b_second.work.total() + a_final.work.total();
+    naturally_quiescent &=
+        b_first.naturally_quiescent && b_second.naturally_quiescent && a_final.naturally_quiescent;
+    let duplicate_exact = b_first == b_second
+        && b_first_fixture.substrate.complete_fingerprint()
+            == b_second_fixture.substrate.complete_fingerprint();
+    let stable_deallocation_delay =
+        route_deallocation_delay(fixture.clone(), config.current, final_tick);
+    let sparse_deallocation_delay =
+        route_deallocation_delay(fixture.clone(), config.initial, final_tick);
+
+    (
+        D2Cell {
+            config,
+            prefix_ok,
+            stable_opportunities: context,
+            stable_completed,
+            sparse_opportunities,
+            sparse_completed,
+            stable_final_resistance,
+            sparse_final_resistance,
+            first_b_execution_context,
+            b_executable_contexts,
+            final_b_effects: effects(&b_first),
+            final_a_effects: effects(&a_final),
+            first_deallocation_context,
+            stable_deallocation_delay,
+            sparse_deallocation_delay,
+            proposals,
+            deallocations,
+            queue_comparisons,
+            work,
+            diagnostic_probe_work,
+            complete_fingerprint: fixture.substrate.complete_fingerprint(),
+            permanent_fingerprint: fixture.substrate.permanent_fingerprint(),
+            duplicate_exact,
+            naturally_quiescent,
+        },
+        trajectory,
+    )
+}
+
+fn run_d2(prefix: &Path) -> bool {
+    let cell_path = prefix.with_extension("cells.csv");
+    let trajectory_path = prefix.with_extension("trajectory.csv");
+    let report_path = prefix.with_extension("md");
+    if cell_path.exists() || trajectory_path.exists() || report_path.exists() {
+        eprintln!("PX0-D2 write-once outputs already exist");
+        return false;
+    }
+    let mut cells = Vec::new();
+    let mut trajectories = Vec::new();
+    for config in d2_configs() {
+        let (cell, trajectory) = run_d2_cell(config);
+        cells.push(cell);
+        trajectories.extend(trajectory);
+    }
+    let integrity = cells.len() == 256
+        && cells
+            .iter()
+            .all(|cell| cell.prefix_ok && cell.duplicate_exact && cell.naturally_quiescent)
+        && trajectories.len() == 256 * 35;
+    let accounting_gaps = cells
+        .iter()
+        .filter(|cell| cell.stable_completed < cell.stable_opportunities)
+        .count();
+    let behavior_breakdowns = cells
+        .iter()
+        .filter(|cell| cell.final_b_effects != 1 || cell.final_a_effects != 0)
+        .count();
+    let resistance_boundaries = cells
+        .iter()
+        .filter(|cell| {
+            cell.final_b_effects == 1
+                && (cell.stable_final_resistance <= cell.sparse_final_resistance
+                    || cell.stable_deallocation_delay <= cell.sparse_deallocation_delay)
+        })
+        .count();
+    let classification = if !integrity {
+        "D2-E — SCIENTIFIC AMBIGUITY"
+    } else if behavior_breakdowns > 0 {
+        "D2-C — SPECIFICITY BREAKDOWN"
+    } else if resistance_boundaries > 0 {
+        "D2-B — RESISTANCE-SEPARATION BOUNDARY"
+    } else if accounting_gaps > 0 {
+        "D2-A — ACCOUNTING-ONLY BOUNDARY"
+    } else {
+        "D2-D — NO NEARBY BOUNDARY"
+    };
+    write_d2_results(
+        &cell_path,
+        &trajectory_path,
+        &report_path,
+        &cells,
+        &trajectories,
+        classification,
+        accounting_gaps,
+        resistance_boundaries,
+        behavior_breakdowns,
+        integrity,
+    );
+    integrity
+}
+
+#[allow(clippy::too_many_arguments)]
+fn write_d2_results(
+    cell_path: &Path,
+    trajectory_path: &Path,
+    report_path: &Path,
+    cells: &[D2Cell],
+    trajectories: &[D2Trajectory],
+    classification: &str,
+    accounting_gaps: usize,
+    resistance_boundaries: usize,
+    behavior_breakdowns: usize,
+    integrity: bool,
+) {
+    let mut cell_csv = String::from(
+        "index,namespace,initial,current,spacing,stride,distractor_load,incidental_form,reverse_allocation,mirrored_layout,device_order,stable_opportunities,stable_completed,sparse_opportunities,sparse_completed,stable_final_resistance,sparse_final_resistance,first_b_execution_context,b_executable_contexts,final_b_effects,final_a_effects,first_deallocation_context,stable_deallocation_delay,sparse_deallocation_delay,proposals,deallocations,queue_comparisons,work,diagnostic_probe_work,complete_fingerprint,permanent_fingerprint,prefix_ok,duplicate_exact,naturally_quiescent\n",
+    );
+    for cell in cells {
+        let config = cell.config;
+        let fields = vec![
+            config.index.to_string(),
+            format!("0x{:x}", config.namespace),
+            config.initial.to_string(),
+            config.current.to_string(),
+            config.spacing.to_string(),
+            config.stride.to_string(),
+            config.distractor_load.to_string(),
+            config.incidental_form.to_string(),
+            config.reverse_allocation.to_string(),
+            config.mirrored_layout.to_string(),
+            format!(
+                "{}-{}-{}-{}",
+                config.device_order[0],
+                config.device_order[1],
+                config.device_order[2],
+                config.device_order[3]
+            ),
+            cell.stable_opportunities.to_string(),
+            cell.stable_completed.to_string(),
+            cell.sparse_opportunities.to_string(),
+            cell.sparse_completed.to_string(),
+            cell.stable_final_resistance.to_string(),
+            cell.sparse_final_resistance.to_string(),
+            cell.first_b_execution_context.to_string(),
+            cell.b_executable_contexts.to_string(),
+            cell.final_b_effects.to_string(),
+            cell.final_a_effects.to_string(),
+            cell.first_deallocation_context.to_string(),
+            cell.stable_deallocation_delay.to_string(),
+            cell.sparse_deallocation_delay.to_string(),
+            cell.proposals.to_string(),
+            cell.deallocations.to_string(),
+            cell.queue_comparisons.to_string(),
+            cell.work.to_string(),
+            cell.diagnostic_probe_work.to_string(),
+            cell.complete_fingerprint.to_string(),
+            cell.permanent_fingerprint.to_string(),
+            cell.prefix_ok.to_string(),
+            cell.duplicate_exact.to_string(),
+            cell.naturally_quiescent.to_string(),
+        ];
+        cell_csv.push_str(&fields.join(","));
+        cell_csv.push('\n');
+    }
+    let mut trajectory_csv = String::from(
+        "cell,context,form,stable_opportunity,stable_completed,stable_completed_cumulative,sparse_opportunity,sparse_completed,sparse_completed_cumulative,stable_resistance,sparse_resistance,stable_live_arrows,sparse_live_arrows,b_probe_effect,a_probe_effect,b_executable_contexts,deallocations,queue_comparisons,work\n",
+    );
+    for row in trajectories {
+        trajectory_csv.push_str(&format!(
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            row.cell,
+            row.context,
+            row.form,
+            row.stable_opportunity,
+            row.stable_completed,
+            row.stable_completed_cumulative,
+            row.sparse_opportunity,
+            row.sparse_completed,
+            row.sparse_completed_cumulative,
+            row.stable_resistance,
+            row.sparse_resistance,
+            row.stable_live_arrows,
+            row.sparse_live_arrows,
+            row.b_probe_effect,
+            row.a_probe_effect,
+            row.b_executable_contexts,
+            row.deallocations,
+            row.queue_comparisons,
+            row.work,
+        ));
+    }
+    let total_stable_opportunities = cells
+        .iter()
+        .map(|cell| cell.stable_opportunities)
+        .sum::<usize>();
+    let total_stable_completed = cells
+        .iter()
+        .map(|cell| cell.stable_completed)
+        .sum::<usize>();
+    let total_sparse_opportunities = cells
+        .iter()
+        .map(|cell| cell.sparse_opportunities)
+        .sum::<usize>();
+    let total_sparse_completed = cells
+        .iter()
+        .map(|cell| cell.sparse_completed)
+        .sum::<usize>();
+    let total_work = cells.iter().map(|cell| cell.work).sum::<u64>();
+    let report = format!(
+        "# PX0-D2 dense-corner diagnostic result\n\nClassification: **{classification}**.\n\n- cells: `{}`\n- trajectory rows: `{}`\n- stable opportunities/completed: `{}/{}`\n- sparse opportunities/completed: `{}/{}`\n- accounting-gap cells: `{}`\n- resistance-boundary cells: `{}`\n- behavioral-breakdown cells: `{}`\n- integrity: `{}`\n- main-path work: `{}`\n\nPX0 remains non-authoritative. No v3 authority execution is authorized.\n",
+        cells.len(),
+        trajectories.len(),
+        total_stable_completed,
+        total_stable_opportunities,
+        total_sparse_completed,
+        total_sparse_opportunities,
+        accounting_gaps,
+        resistance_boundaries,
+        behavior_breakdowns,
+        integrity,
+        total_work,
+    );
+    atomic_write_new(cell_path, &cell_csv);
+    atomic_write_new(trajectory_path, &trajectory_csv);
+    atomic_write_new(report_path, &report);
+}
+
+fn atomic_write_new(path: &Path, contents: &str) {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).expect("create D2 result directory");
+    }
+    let staging = path.with_extension(format!(
+        "{}.staging",
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .unwrap_or("result")
+    ));
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&staging)
+        .expect("create-new D2 staging artifact");
+    file.write_all(contents.as_bytes())
+        .expect("write D2 staging artifact");
+    file.sync_all().expect("sync D2 staging artifact");
+    fs::hard_link(&staging, path).expect("publish D2 artifact without replacement");
+    fs::remove_file(&staging).expect("remove D2 staging link");
+    File::open(path.parent().unwrap_or_else(|| Path::new(".")))
+        .and_then(|directory| directory.sync_all())
+        .expect("sync D2 result directory");
 }
 
 fn run_specificity_arm(arm: Arm) -> (ResultRow, Vec<ContextRow>) {
@@ -1135,6 +1945,7 @@ fn write_results(
             Mode::Probe => "PROBE retry v2",
             Mode::Micro => "MICRO v1",
             Mode::Gate => "GATE v1",
+            Mode::D2 => unreachable!("D2 uses its own report"),
         },
         if passed {
             "PX0-S-A — STABLE RETURN SPECIFICITY POSITIVE"
