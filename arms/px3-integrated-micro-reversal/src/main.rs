@@ -145,10 +145,7 @@ fn main() {
 
 fn evidence() {
     eprintln!("PX3_INTEGRATED_MICRO_REVERSAL_EVIDENCE");
-    let rows = SEEDS
-        .into_iter()
-        .map(|seed| replay(seed))
-        .collect::<Vec<_>>();
+    let rows = SEEDS.into_iter().map(replay).collect::<Vec<_>>();
     assert_eq!(rows.len(), 2);
     publish(CSV_STAGE, CSV, &csv(&rows));
     publish(MD_STAGE, MD, &report(&rows));
