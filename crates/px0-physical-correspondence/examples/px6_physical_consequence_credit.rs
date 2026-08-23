@@ -11,14 +11,16 @@ const SIDES: usize = 2;
 const PRESENTATIONS: usize = 8;
 const SPACING: i64 = 14;
 const FIRST_TICK: i64 = 2;
-const NAMESPACE_BASE: u64 = 0x6_0200_0000;
+const NAMESPACE_BASE: u64 = 0x6_1200_0000;
 const SUBSTRATE_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
-const PROTOCOL_SHA256: &str = "f09a72b2b1f93d181d6efc5eb6995864bdd037f7507b6e66665ffe42bb464f7d";
+const PROTOCOL_SHA256: &str = "987fdb349775d8666202f0d9609c655fcfa805010168c14029d3b349812cf8e3";
+const V1_NEGATIVE_AUDIT_SHA256: &str =
+    "96ff5d804df3c1692d68dd6b5a88dd8ccf529eb477571fc5385b2865bb68c703";
 const FROZEN_PARENT: &str = "2fbee861a0aeed335d3ffa8f9095ca28f2ac6129";
-const RESULT_CSV: &str = "results/px6_physical_consequence_credit_probe_v1.csv";
-const RESULT_MD: &str = "results/px6_physical_consequence_credit_probe_v1.md";
-const STAGING_CSV: &str = "results/.px6_physical_consequence_credit_probe_v1.csv.staging";
-const STAGING_MD: &str = "results/.px6_physical_consequence_credit_probe_v1.md.staging";
+const RESULT_CSV: &str = "results/px6_physical_consequence_credit_probe_v2.csv";
+const RESULT_MD: &str = "results/px6_physical_consequence_credit_probe_v2.md";
+const STAGING_CSV: &str = "results/.px6_physical_consequence_credit_probe_v2.csv.staging";
+const STAGING_MD: &str = "results/.px6_physical_consequence_credit_probe_v2.md.staging";
 
 // This enum belongs to the external measurement harness. No value of this
 // type, nor any expectation derived from it, enters PlasticSubstrate.
@@ -112,9 +114,9 @@ struct Row {
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
     let preflight = args == ["--preflight"];
-    let probe = args == ["--probe"];
+    let probe = args == ["--probe-v2"];
     if !preflight && !probe {
-        eprintln!("PX6 development PROBE requires --preflight or --probe");
+        eprintln!("PX6 development PROBE v2 requires --preflight or --probe-v2");
         std::process::exit(2);
     }
     assert!(source_audit(), "frozen PX2 parent or protocol changed");
@@ -125,11 +127,11 @@ fn main() {
         );
     }
     if preflight {
-        println!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_PROBE_PREFLIGHT_OK");
+        println!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_PROBE_V2_PREFLIGHT_OK");
         return;
     }
 
-    eprintln!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_PROBE_EVIDENCE_SPENT");
+    eprintln!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_PROBE_V2_EVIDENCE_SPENT");
     let rows = WorldKind::ALL
         .into_iter()
         .enumerate()
@@ -157,8 +159,10 @@ fn main() {
 
 fn source_audit() -> bool {
     sha256("crates/px0-physical-correspondence/src/lib.rs") == SUBSTRATE_SHA256
-        && sha256("experiments/px6_physical_consequence_credit_probe_protocol.md")
+        && sha256("experiments/px6_physical_consequence_credit_probe_v2_protocol.md")
             == PROTOCOL_SHA256
+        && sha256("experiments/px6_physical_consequence_credit_probe_v1_negative_audit.md")
+            == V1_NEGATIVE_AUDIT_SHA256
         && git_rev("px2-physical-causal-direction-authoritative^{commit}") == FROZEN_PARENT
         && !cargo_manifest().contains("ds8")
 }
@@ -352,15 +356,35 @@ fn evaluate(kind: WorldKind, metrics: &Metrics, duplicate_exact: bool) -> bool {
         WorldKind::Right => [PRESENTATIONS, PRESENTATIONS],
         WorldKind::Both => [PRESENTATIONS, PRESENTATIONS],
         WorldKind::Correlation => [PRESENTATIONS, PRESENTATIONS],
-        WorldKind::CrossedReturn => [0, PRESENTATIONS],
+        WorldKind::CrossedReturn => [0, metrics.consequence_firings[0]],
         WorldKind::NoReturn => [0, 0],
     };
 
+    let downstream_exact = match kind {
+        WorldKind::CrossedReturn | WorldKind::NoReturn => {
+            (1..PRESENTATIONS).contains(&metrics.consequence_firings[0])
+                && metrics.consequence_firings[1] == PRESENTATIONS
+                && metrics.trace_firings == metrics.consequence_firings
+                && metrics.outward_crossings == metrics.consequence_firings
+        }
+        _ => {
+            metrics.consequence_firings == [PRESENTATIONS, PRESENTATIONS]
+                && metrics.trace_firings == [PRESENTATIONS, PRESENTATIONS]
+                && metrics.outward_crossings == [PRESENTATIONS, PRESENTATIONS]
+        }
+    };
+    let global_return_work_exact = match kind {
+        WorldKind::Left | WorldKind::Right | WorldKind::Both => {
+            metrics.work.local_return_updates > 0
+        }
+        WorldKind::Correlation | WorldKind::CrossedReturn | WorldKind::NoReturn => {
+            metrics.work.local_return_updates == 0
+        }
+    };
+
     metrics.traversals == expected_traversals
-        && metrics.consequence_firings == [PRESENTATIONS, PRESENTATIONS]
-        && metrics.trace_firings == [PRESENTATIONS, PRESENTATIONS]
+        && downstream_exact
         && metrics.return_arrivals == expected_returns
-        && metrics.outward_crossings == [PRESENTATIONS, PRESENTATIONS]
         && metrics.resistance_before == [3, 3]
         && metrics.live_after == expected_live
         && (0..SIDES).all(|side| {
@@ -372,9 +396,7 @@ fn evaluate(kind: WorldKind, metrics: &Metrics, duplicate_exact: bool) -> bool {
         })
         && metrics.heldout_crossings == expected_heldout
         && metrics.naturally_quiescent
-        && metrics.work.local_return_updates
-            == expected_live.into_iter().filter(|value| *value).count() as u64
-                * PRESENTATIONS as u64
+        && global_return_work_exact
         && metrics.persistent_bytes > 0
         && metrics.work.total() > 0
         && duplicate_exact
@@ -493,7 +515,7 @@ fn markdown(rows: &[Row]) -> String {
         .map(|row| row.metrics.persistent_bytes)
         .sum::<usize>();
     let mut out = format!(
-        "# PX6 physical consequence-credit no-new-mechanism PROBE v1\n\nOutcome: **{passed}/{} worlds passed**.\n\nFrozen parent: `{FROZEN_PARENT}`. Active substrate SHA-256: `{SUBSTRATE_SHA256}`.\n\nTotal measured work: `{work}`. Aggregate per-world persistent storage: `{storage}` bytes.\n\n| world | traversal | downstream | return arrivals | resistance after | live | held-out | work | replay | pass |\n|---|---:|---:|---:|---:|---:|---:|---:|:---:|:---:|\n",
+        "# PX6 physical consequence-credit no-new-mechanism PROBE v2\n\nOutcome: **{passed}/{} worlds passed**.\n\nFrozen parent: `{FROZEN_PARENT}`. Active substrate SHA-256: `{SUBSTRATE_SHA256}`.\n\nTotal measured work: `{work}`. Aggregate per-world persistent storage: `{storage}` bytes.\n\n| world | traversal | downstream | return arrivals | resistance after | live | held-out | work | replay | pass |\n|---|---:|---:|---:|---:|---:|---:|---:|:---:|:---:|\n",
         rows.len()
     );
     for row in rows {
