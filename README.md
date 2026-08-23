@@ -1,15 +1,18 @@
 # organism-v0
 
-## Current state: Frozen Organism v1
+## Current state: frozen mechanisms, not yet a continuous organism
 
-The architecture-discovery program is complete at authoritative M8. New work
-must use the frozen post-M8 contract and may vary experience, environment,
-capacity, internal work, and developmental time; it may not add cognitive
-architecture.
+The architecture-discovery program is complete at authoritative M8, but H0 and
+I0 established that the cumulative mechanism suite is not yet one blank,
+self-contained continuous runtime. `Frozen Organism v1` remains a target
+specification until a common physical realization exists. Harness/world work
+is blocked.
 
 - [Final substrate contract](docs/final_substrate_contract.md)
 - [M0--M8 learned machinery ledger](docs/learned_machinery_ledger.md)
 - [Developmental Harness v0 implementation plan](docs/developmental_harness_v0_plan.md)
+- [H0 extraction negative](results/h0_frozen_organism_extraction_probe_v1_negative.md)
+- [I0 continuous-integration negative](results/i0_continuous_physical_integration_probe_v1_negative.md)
 - `crates/frozen-organism-v1-physics`: standalone retained-physics crate with
   no dependency on the historical experiment surface
 - `./scripts/verify_frozen_organism_v1_cleanup.sh`: cleanup, isolation, and

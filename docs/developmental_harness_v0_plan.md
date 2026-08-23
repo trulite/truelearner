@@ -6,9 +6,14 @@ spent.
 H0 update: extraction PROBE v1 is frozen negative. The authoritative cumulative
 mechanism has no mechanically extractable continuous anonymous-arrival path;
 its blank construction, update, and transient lifecycle remain fixture-bound.
-H1 and all world work are blocked pending a separately authorized integration
-research program. See
-[the H0 negative](../results/h0_frozen_organism_extraction_probe_v1_negative.md).
+I0 continuous-integration PROBE v1 is also frozen negative (`I0-C`): the
+mechanisms do not consume the retained physical substrate and require
+experiment-specific structured inputs that an anonymous bus/scheduler cannot
+derive without a new representation. H1 and all world work remain blocked
+pending separately authorized mechanism-physicalization or representation
+research. See
+[the H0 negative](../results/h0_frozen_organism_extraction_probe_v1_negative.md)
+and [the I0 negative](../results/i0_continuous_physical_integration_probe_v1_negative.md).
 
 ## Fixed scientific boundary
 

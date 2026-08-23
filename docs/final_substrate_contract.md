@@ -1,6 +1,8 @@
-# Final organism substrate contract
+# Final retained-substrate contract
 
-Status: **post-M8 consolidation contract**.
+Status: **post-M8 retained-physics contract**. H0 and I0 subsequently
+established that this physics plus the M0--M8 mechanism suite has not yet been
+realized as one continuous organism.
 
 This contract freezes the candidate minimal physical substrate. It does not
 add an `M9`, reinterpret any M0--M8 result, or merge the separately established
@@ -70,7 +72,7 @@ not retained physics.
 
 ## Freeze boundary
 
-The frozen organism specification is the conjunction of two independent
+The target organism specification is the conjunction of two independent
 authorities:
 
 ```text
@@ -84,6 +86,10 @@ SSA0.3 causal-window authority
 M8 is `m8-cumulative-closure-emission-authoritative`, commit
 `4ba88b6ed03b8e012231363fa6e3c29ea41308bb`. The M0--M8 ladder is complete;
 no DS9 is created or authorized by consolidation.
+
+This conjunction specifies required mechanisms and execution physics. It does
+not, after the H0/I0 negatives, claim that a blank continuously integrated
+implementation already exists.
 
 ## Clean implementation boundary
 
