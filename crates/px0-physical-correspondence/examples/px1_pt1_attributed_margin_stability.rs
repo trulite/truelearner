@@ -2,7 +2,7 @@ use px0_physical_correspondence::{
     ArrowId, ArrowSpec, CellId, CellSpec, Execution, PlasticSubstrate, SpikeInput, WorkLedger,
 };
 use std::env;
-use std::fs::OpenOptions;
+use std::fs::{rename, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
@@ -37,8 +37,16 @@ const MICRO_V2_AUDIT_SHA256: &str =
     "4603cf59c0e28fc3cd2d238107840285a234155ea750127bcf58db20a10497d3";
 const GATE_PROTOCOL_SHA256: &str =
     "75c0e60a64255d18f350d2912cb3c48cb9652225edce15b17f400297d0710b67";
-const RESULT_CSV: &str = "results/px1_pt1_attributed_margin_stability_gate_v1.csv";
-const RESULT_MD: &str = "results/px1_pt1_attributed_margin_stability_gate_v1.md";
+const GATE_SHA256: &str = "1b75fb15972e226d4cb047c69925f9d5452601b3b15be17434aedb5b37935ebf";
+const GATE_AUDIT_SHA256: &str = "32d01b3c3bb5b101d51865e0367509556bb34ca80bc5054589fdbffce0e2a84a";
+const READINESS_SHA256: &str = "8d08350ecbd03ba336447f5cb24c28120f57f08448d057e8d2542d5d4690da75";
+const DEFINITIVE_PROTOCOL_SHA256: &str =
+    "166cabd14f3c1d53830fc673530cb6d7c0f32125468c4120ace04025e7586bef";
+const RESULT_CSV: &str = "results/px1_physical_boundary_roles_definitive.csv";
+const RESULT_MD: &str = "results/px1_physical_boundary_roles_definitive.md";
+const STAGING_CSV: &str = "results/.px1_physical_boundary_roles_definitive.csv.staging";
+const STAGING_MD: &str = "results/.px1_physical_boundary_roles_definitive.md.staging";
+const DEFINITIVE_SEEDS: usize = 16;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Scenario {
@@ -223,48 +231,96 @@ struct Metrics {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ResultRow {
+    seed: usize,
     stratum: &'static str,
     scenario: Scenario,
     metrics: Metrics,
     duplicate_exact: bool,
+    claims: Claims,
     passed: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Claims {
+    p0: bool,
+    p1: bool,
+    p2: bool,
+    p3: bool,
+    p4: bool,
+    p5: bool,
+    p6: bool,
+    p7: bool,
+    p8: bool,
+    p9: bool,
+    p10: bool,
+    p11: bool,
+    p12: bool,
+}
+
+impl Claims {
+    fn all(&self) -> bool {
+        self.count() == 13
+    }
+
+    fn count(&self) -> usize {
+        [
+            self.p0, self.p1, self.p2, self.p3, self.p4, self.p5, self.p6, self.p7, self.p8,
+            self.p9, self.p10, self.p11, self.p12,
+        ]
+        .into_iter()
+        .filter(|value| *value)
+        .count()
+    }
 }
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args != ["--gate"] {
-        eprintln!("PX1-PT1 requires --gate; definitive execution is forbidden");
+    let preflight = args == ["--preflight"];
+    let definitive = args == ["--definitive"];
+    if !preflight && !definitive {
+        eprintln!("PX1 authority requires --preflight or --definitive");
         std::process::exit(2);
     }
     assert!(
         source_audit(),
         "frozen PX0/PT0/PT1 inputs must remain exact"
     );
-    assert!(!Path::new(RESULT_CSV).exists(), "PT1 GATE CSV exists");
-    assert!(!Path::new(RESULT_MD).exists(), "PT1 GATE report exists");
-    eprintln!("PX1_PT1_ATTRIBUTED_MARGIN_STABILITY_GATE_V1_EVIDENCE");
+    for path in [RESULT_CSV, RESULT_MD, STAGING_CSV, STAGING_MD] {
+        assert!(
+            !Path::new(path).exists(),
+            "authority artifact exists: {path}"
+        );
+    }
+    if preflight {
+        println!("PX1_PHYSICAL_BOUNDARY_ROLES_DEFINITIVE_PREFLIGHT_OK");
+        return;
+    }
+    eprintln!("PX1_PHYSICAL_BOUNDARY_ROLES_DEFINITIVE_EVIDENCE_SPENT");
 
     let mut rows = Vec::new();
-    for (stratum_ordinal, stratum) in STRATA.into_iter().enumerate() {
+    for seed in 0..DEFINITIVE_SEEDS {
+        let stratum = STRATA[seed % STRATA.len()];
         for (scenario_ordinal, scenario) in Scenario::ALL.into_iter().enumerate() {
-            let namespace = 0xa100_0000
-                + stratum_ordinal as u64 * 0x0100_0000
+            let namespace = 0xd100_0000_0000
+                + seed as u64 * 0x0100_0000
                 + scenario_ordinal as u64 * 0x0010_0000;
             let first = run_world(namespace, scenario, stratum);
             let second = run_world(namespace, scenario, stratum);
             let duplicate_exact = first == second;
-            let passed = micro_passed(scenario, &first) && duplicate_exact;
+            let claims = definitive_claims(scenario, &first, duplicate_exact);
+            let passed = claims.all();
             rows.push(ResultRow {
+                seed,
                 stratum: stratum.name,
                 scenario,
                 metrics: first,
                 duplicate_exact,
+                claims,
                 passed,
             });
         }
     }
-    write_new(RESULT_CSV, &csv(&rows));
-    write_new(RESULT_MD, &markdown(&rows));
+    publish_results(&csv(&rows), &markdown(&rows));
 }
 
 fn source_audit() -> bool {
@@ -297,6 +353,13 @@ fn source_audit() -> bool {
             == MICRO_V2_AUDIT_SHA256
         && sha256("experiments/px1_pt1_attributed_margin_stability_gate_protocol.md")
             == GATE_PROTOCOL_SHA256
+        && sha256("results/px1_pt1_attributed_margin_stability_gate_v1.csv") == GATE_SHA256
+        && sha256("experiments/px1_pt1_attributed_margin_stability_gate_result_audit.md")
+            == GATE_AUDIT_SHA256
+        && sha256("experiments/px1_physical_boundary_roles_development_readiness.md")
+            == READINESS_SHA256
+        && sha256("experiments/px1_physical_boundary_roles_definitive_protocol.md")
+            == DEFINITIVE_PROTOCOL_SHA256
 }
 
 fn run_world(namespace: u64, scenario: Scenario, stratum: Stratum) -> Metrics {
@@ -651,45 +714,68 @@ fn expected_heldout_trace_arrivals(expected_mature: [bool; SIDES]) -> [usize; SI
     expected_mature.map(|mature| shared_return + usize::from(mature))
 }
 
-fn training_passed(scenario: Scenario, metrics: &Metrics) -> bool {
+fn branch_outlet_passed(scenario: Scenario, metrics: &Metrics) -> bool {
     if scenario == Scenario::BlockedReturn {
         metrics.branch_firings == [EXPOSURES, 0]
             && metrics.outlet_firings[0] > 0
             && metrics.outlet_firings[1] == 0
-            && metrics.trace_arrivals == metrics.outlet_firings
-            && metrics.trace_firings == [0, 0]
-            && metrics.local_returns == [0, 0]
     } else {
         let expected = expected_training(scenario);
-        metrics.branch_firings == expected.branches
-            && metrics.outlet_firings == expected.outlets
-            && metrics.trace_arrivals == expected.trace_arrivals
-            && metrics.trace_firings == expected.trace_firings
-            && metrics.local_returns == expected.local_returns
+        metrics.branch_firings == expected.branches && metrics.outlet_firings == expected.outlets
     }
 }
 
-fn micro_passed(scenario: Scenario, metrics: &Metrics) -> bool {
+fn trace_arrivals_passed(scenario: Scenario, metrics: &Metrics) -> bool {
+    if scenario == Scenario::BlockedReturn {
+        metrics.trace_arrivals == metrics.outlet_firings
+    } else {
+        metrics.trace_arrivals == expected_training(scenario).trace_arrivals
+    }
+}
+
+fn trace_firings_passed(scenario: Scenario, metrics: &Metrics) -> bool {
+    if scenario == Scenario::BlockedReturn {
+        metrics.trace_firings == [0, 0]
+    } else {
+        metrics.trace_firings == expected_training(scenario).trace_firings
+    }
+}
+
+fn local_returns_passed(scenario: Scenario, metrics: &Metrics) -> bool {
+    if scenario == Scenario::BlockedReturn {
+        metrics.local_returns == [0, 0]
+    } else {
+        metrics.local_returns == expected_training(scenario).local_returns
+    }
+}
+
+fn definitive_claims(scenario: Scenario, metrics: &Metrics, duplicate_exact: bool) -> Claims {
     let expected_mature = scenario.expected_mature();
     let expected_effects = expected_mature.map(usize::from);
     let expected_trace_arrivals = expected_heldout_trace_arrivals(expected_mature);
-    metrics.correspondence_acquired
-        && metrics.maturation_exact
-        && training_passed(scenario, metrics)
-        && metrics.extra_source_firings == 0
-        && metrics.heldout_branch_firings == [1, 1]
-        && metrics.heldout_outlet_firings == expected_effects
-        && metrics.heldout_trace_arrivals == expected_trace_arrivals
-        && metrics.heldout_trace_firings == expected_effects
-        && metrics.heldout_local_returns == expected_effects
-        && metrics.heldout_effects == expected_effects
-        && metrics.postgap_effects == expected_effects
-        && metrics.heldout_extra_source_firings == 0
-        && metrics.postgap_extra_source_firings == 0
-        && metrics.heldout_quiescent
-        && metrics.postgap_quiescent
-        && metrics.postgap_exact
-        && metrics.naturally_quiescent
+    Claims {
+        p0: true,
+        p1: metrics.correspondence_acquired,
+        p2: branch_outlet_passed(scenario, metrics),
+        p3: trace_arrivals_passed(scenario, metrics),
+        p4: trace_firings_passed(scenario, metrics),
+        p5: local_returns_passed(scenario, metrics),
+        p6: metrics.maturation_exact,
+        p7: metrics.heldout_branch_firings == [1, 1]
+            && metrics.heldout_outlet_firings == expected_effects,
+        p8: metrics.heldout_trace_arrivals == expected_trace_arrivals
+            && metrics.heldout_trace_firings == expected_effects,
+        p9: metrics.heldout_local_returns == expected_effects
+            && metrics.heldout_effects == expected_effects,
+        p10: metrics.postgap_effects == expected_effects,
+        p11: metrics.extra_source_firings == 0
+            && metrics.heldout_extra_source_firings == 0
+            && metrics.postgap_extra_source_firings == 0,
+        p12: metrics.naturally_quiescent
+            && metrics.heldout_quiescent
+            && metrics.postgap_quiescent
+            && duplicate_exact,
+    }
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
@@ -824,14 +910,14 @@ fn pair_usize(values: [usize; SIDES]) -> String {
 
 fn csv(rows: &[ResultRow]) -> String {
     let mut output = String::from(
-        "stratum,scenario,correspondence_resistance,continuation_resistance,training_branch_firings,training_outlet_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_extra_source_firings,heldout_branch_firings,heldout_outlet_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_extra_source_firings,postgap_extra_source_firings,heldout_quiescent,postgap_quiescent,correspondence_acquired,maturation_exact,postgap_exact,training_quiescent,duplicate_exact,work,fingerprint,passed\n",
+        "seed,stratum,scenario,correspondence_resistance,continuation_resistance,training_branch_firings,training_outlet_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_extra_source_firings,heldout_branch_firings,heldout_outlet_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_extra_source_firings,postgap_extra_source_firings,heldout_quiescent,postgap_quiescent,correspondence_acquired,maturation_exact,postgap_exact,training_quiescent,duplicate_exact,work,fingerprint,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,passed\n",
     );
     for row in rows {
         let value = &row.metrics;
-        output.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
-            row.stratum,
-            row.scenario.name(),
+        let fields = vec![
+            row.seed.to_string(),
+            row.stratum.to_string(),
+            row.scenario.name().to_string(),
             pair_u32(value.correspondence_resistance),
             pair_u32(value.continuation_resistance),
             pair_usize(value.branch_firings),
@@ -839,7 +925,7 @@ fn csv(rows: &[ResultRow]) -> String {
             pair_usize(value.trace_arrivals),
             pair_usize(value.trace_firings),
             pair_usize(value.local_returns),
-            value.extra_source_firings,
+            value.extra_source_firings.to_string(),
             pair_usize(value.heldout_branch_firings),
             pair_usize(value.heldout_outlet_firings),
             pair_usize(value.heldout_trace_arrivals),
@@ -847,19 +933,34 @@ fn csv(rows: &[ResultRow]) -> String {
             pair_usize(value.heldout_local_returns),
             pair_usize(value.heldout_effects),
             pair_usize(value.postgap_effects),
-            value.heldout_extra_source_firings,
-            value.postgap_extra_source_firings,
-            value.heldout_quiescent,
-            value.postgap_quiescent,
-            value.correspondence_acquired,
-            value.maturation_exact,
-            value.postgap_exact,
-            value.naturally_quiescent,
-            row.duplicate_exact,
-            value.work.total(),
-            value.fingerprint,
-            row.passed,
-        ));
+            value.heldout_extra_source_firings.to_string(),
+            value.postgap_extra_source_firings.to_string(),
+            value.heldout_quiescent.to_string(),
+            value.postgap_quiescent.to_string(),
+            value.correspondence_acquired.to_string(),
+            value.maturation_exact.to_string(),
+            value.postgap_exact.to_string(),
+            value.naturally_quiescent.to_string(),
+            row.duplicate_exact.to_string(),
+            value.work.total().to_string(),
+            value.fingerprint.to_string(),
+            row.claims.p0.to_string(),
+            row.claims.p1.to_string(),
+            row.claims.p2.to_string(),
+            row.claims.p3.to_string(),
+            row.claims.p4.to_string(),
+            row.claims.p5.to_string(),
+            row.claims.p6.to_string(),
+            row.claims.p7.to_string(),
+            row.claims.p8.to_string(),
+            row.claims.p9.to_string(),
+            row.claims.p10.to_string(),
+            row.claims.p11.to_string(),
+            row.claims.p12.to_string(),
+            row.passed.to_string(),
+        ];
+        output.push_str(&fields.join(","));
+        output.push('\n');
     }
     output
 }
@@ -867,17 +968,21 @@ fn csv(rows: &[ResultRow]) -> String {
 fn markdown(rows: &[ResultRow]) -> String {
     let passed = rows.iter().all(|row| row.passed);
     let mut output = format!(
-        "# PX1-PT1 attributed-margin stability GATE v1\n\nOutcome: **{}** (`{}/{}` cells).\n\n| stratum | scenario | train branch | train outlet | train trace arrival/fire | train local return | resistance | held-out branch/outlet | held-out trace arrival/fire | held-out local return/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
+        "# PX1 physical boundary roles definitive result\n\nOutcome: **{}** (`{}/{}` cells; `{}/{}` claims).\n\n| seed | stratum | scenario | claims | train branch/outlet | train trace arrival/fire | train local return | resistance | held-out branch/outlet | held-out trace arrival/fire | held-out local return/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
         if passed { "POSITIVE" } else { "NEGATIVE" },
         rows.iter().filter(|row| row.passed).count(),
         rows.len(),
+        rows.iter().map(|row| row.claims.count()).sum::<usize>(),
+        rows.len() * 13,
     );
     for row in rows {
         let value = &row.metrics;
         output.push_str(&format!(
-            "| {} | {} | `{}` | `{}` | `{}/{}` | `{}` | `{}` | `{}/{}` | `{}/{}` | `{}/{}` | `{}` | `{}/{}/{}` | `{}/{}/{}` | {} | {} |\n",
+            "| {} | {} | {} | {}/13 | `{}/{}` | `{}/{}` | `{}` | `{}` | `{}/{}` | `{}/{}` | `{}/{}` | `{}` | `{}/{}/{}` | `{}/{}/{}` | {} | {} |\n",
+            row.seed,
             row.stratum,
             row.scenario.name(),
+            row.claims.count(),
             pair_usize(value.branch_firings),
             pair_usize(value.outlet_firings),
             pair_usize(value.trace_arrivals),
@@ -902,18 +1007,26 @@ fn markdown(rows: &[ResultRow]) -> String {
         ));
     }
     output.push_str(
-        "\nEvery physical stage is serialized separately. PX0 changed: `false`. PX1 authoritative: `false`. Definitive evidence executed: `false`.\n",
+        "\nEvery physical stage and P0–P12 are serialized separately. PX0 changed: `false`. Authority consequence remains subject to the frozen result audit and handoff.\n",
     );
     output
 }
 
-fn write_new(path: &str, contents: &str) {
+fn write_staging(path: &str, contents: &str) {
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(path)
-        .expect("create PT1 artifact");
+        .expect("create PX1 authority staging artifact");
     file.write_all(contents.as_bytes())
-        .expect("write PT1 artifact");
-    file.sync_all().expect("sync PT1 artifact");
+        .expect("write PX1 authority staging artifact");
+    file.sync_all()
+        .expect("sync PX1 authority staging artifact");
+}
+
+fn publish_results(csv_contents: &str, md_contents: &str) {
+    write_staging(STAGING_CSV, csv_contents);
+    write_staging(STAGING_MD, md_contents);
+    rename(STAGING_CSV, RESULT_CSV).expect("publish PX1 authority CSV");
+    rename(STAGING_MD, RESULT_MD).expect("publish PX1 authority report");
 }
