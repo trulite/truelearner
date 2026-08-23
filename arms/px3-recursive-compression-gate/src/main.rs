@@ -56,12 +56,8 @@ const CONFIGS: [Config; 4] = [
 
 #[derive(Clone, Copy)]
 struct Stage {
-    opportunity: CellId,
     source: CellId,
     output: CellId,
-    source_trace: CellId,
-    output_trace: CellId,
-    attribution: CellId,
 }
 
 #[derive(Clone)]
@@ -69,7 +65,6 @@ struct World {
     substrate: PlasticSubstrate,
     namespace: u64,
     primitive_sources: [CellId; 4],
-    primitive_traces: [CellId; 4],
     stages: [Stage; 3],
     context: CellId,
     global_return: CellId,
@@ -574,18 +569,13 @@ fn build(namespace: u64, reverse: bool, reflect: bool) -> World {
     }
 
     let stages = three(|stage| Stage {
-        opportunity: opportunities[stage],
         source: sources[stage],
         output: outputs[stage],
-        source_trace: source_traces[stage],
-        output_trace: output_traces[stage],
-        attribution: attributions[stage],
     });
     World {
         substrate,
         namespace,
         primitive_sources,
-        primitive_traces,
         stages,
         context,
         global_return,
