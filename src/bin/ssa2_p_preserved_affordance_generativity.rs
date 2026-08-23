@@ -187,7 +187,7 @@ fn main() {
     };
     fs::create_dir_all("results").expect("results directory is writable");
     let stem = format!(
-        "ssa2_p_preserved_affordance_generativity_{}",
+        "ssa2_p_preserved_affordance_generativity_{}_v2",
         report.stage.to_ascii_lowercase()
     );
     write_atomic(Path::new(&format!("results/{stem}.md")), &markdown(&report));

@@ -1,5 +1,5 @@
 
-pub const SSA2P_PROTOCOL: &str = "ssa2-p-preserved-affordance-generativity-v1";
+pub const SSA2P_PROTOCOL: &str = "ssa2-p-preserved-affordance-generativity-v2";
 
 const SSA2P_STATE_COUNT: usize = 4;
 const SSA2P_STEP_TICKS: i32 = 8;
@@ -149,6 +149,7 @@ enum Ssa2pRole {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Ssa2pBuildOptions {
     depth: usize,
+    history_bits: usize,
     seed: u64,
     live: [usize; 2],
     reverse_allocation: bool,
@@ -387,23 +388,8 @@ fn ssa2p_build(options: Ssa2pBuildOptions) -> Ssa2pWorld {
     }
 }
 
-fn ssa2p_mix64(mut value: u64) -> u64 {
-    value ^= value >> 30;
-    value = value.wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value ^= value >> 27;
-    value = value.wrapping_mul(0x94d0_49bb_1331_11eb);
-    value ^ (value >> 31)
-}
-
-fn ssa2p_history_side(history: u64, layer: usize) -> usize {
-    if layer < 6 {
-        ((history >> layer) & 1) as usize
-    } else {
-        let mixed = ssa2p_mix64(
-            history.wrapping_add((layer as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15)),
-        );
-        ((mixed >> (layer % 64)) & 1) as usize
-    }
+fn ssa2p_history_side(history: u64, layer: usize, history_bits: usize) -> usize {
+    ((history >> (layer % history_bits)) & 1) as usize
 }
 
 fn ssa2p_inject(world: &mut Ssa2pWorld, history: u64) {
@@ -416,7 +402,8 @@ fn ssa2p_inject(world: &mut Ssa2pWorld, history: u64) {
         impulse: 1,
     });
     for layer in 0..world.options.depth {
-        let early_physical_side = ssa2p_history_side(history, layer);
+        let early_physical_side =
+            ssa2p_history_side(history, layer, world.options.history_bits);
         for state in 0..SSA2P_STATE_COUNT {
             for side in 0..2 {
                 if world.options.live[side] == 0 {
@@ -544,11 +531,14 @@ fn ssa2p_learned_landscape(seed: u64, stable: [bool; 2]) -> Landscape {
 fn ssa2p_options(
     seed: u64,
     depth: usize,
+    histories: usize,
     live: [usize; 2],
     index: usize,
 ) -> Ssa2pBuildOptions {
+    assert!(histories.is_power_of_two() && histories >= 2);
     Ssa2pBuildOptions {
         depth,
+        history_bits: histories.trailing_zeros() as usize,
         seed,
         live,
         reverse_allocation: index.is_multiple_of(2),
@@ -591,7 +581,13 @@ fn ssa2p_run_cell(stage: Ssa2pStage, seed: u64, index: usize) -> Ssa2pCell {
     let learned_from_blank = learned_live == [4, 4]
         && learned.admissions == [4, 4]
         && learned.value_score.iter().all(|score| *score <= 0);
-    let options = ssa2p_options(seed + 100_000_000, depth, learned_live, index);
+    let options = ssa2p_options(
+        seed + 100_000_000,
+        depth,
+        histories,
+        learned_live,
+        index,
+    );
     let trajectories: Vec<_> = (0..histories as u64)
         .map(|history| ssa2p_trajectory(options, history))
         .collect();
@@ -618,6 +614,7 @@ fn ssa2p_run_cell(stage: Ssa2pStage, seed: u64, index: usize) -> Ssa2pCell {
     let collapsed_options = ssa2p_options(
         seed + 101_000_000,
         depth,
+        histories,
         collapsed_live,
         index,
     );
