@@ -14,11 +14,15 @@ const RETRY_PROTOCOL_SHA256: &str =
     "a4c4d3c7e0f1e3d5998b108e0f7225ebabe434d9246a16ebb4c0df28f83e9aa3";
 const FIXTURE_PROTOCOL_SHA256: &str =
     "2e25dd77d2eb50eb2c5a6492e32bdd1c59bd647cb0b2e6975742412768bc455e";
+const ABSENT_PROTOCOL_SHA256: &str =
+    "468958c935229c3e3347d50c5888e7cc9b94f98f7f44dac35e5a0c621e25b239";
 const PROTOCOL: &str = "experiments/cj0_d_local_subunit_development_protocol_v1.md";
 const RETRY_PROTOCOL: &str =
     "experiments/cj0_d_local_subunit_probe_v2_timing_correction_protocol.md";
 const FIXTURE_PROTOCOL: &str =
     "experiments/cj0_d_local_subunit_probe_v3_fixture_correction_protocol.md";
+const ABSENT_PROTOCOL: &str =
+    "experiments/cj0_d_local_subunit_probe_v4_absent_expectation_protocol.md";
 const AUTHORITY: &str = "crates/px0-physical-correspondence/src/lib.rs";
 
 const ROUTES: usize = 4;
@@ -673,6 +677,7 @@ fn run_silence_control(
     let expected_events = match control {
         Control::Joint if returns && weak && spacing <= 2 => 1,
         Control::Stale => 1,
+        Control::Joint if !weak || spacing > 2 => 0,
         Control::Joint => 4,
         _ => 0,
     };
@@ -1467,6 +1472,7 @@ fn source_audit() -> bool {
         && sha256(PROTOCOL) == PROTOCOL_SHA256
         && sha256(RETRY_PROTOCOL) == RETRY_PROTOCOL_SHA256
         && sha256(FIXTURE_PROTOCOL) == FIXTURE_PROTOCOL_SHA256
+        && sha256(ABSENT_PROTOCOL) == ABSENT_PROTOCOL_SHA256
         && Path::new("arms/cj0-d-local-subunit/build.rs").exists()
 }
 
@@ -1491,7 +1497,7 @@ fn command_output(program: &str, args: &[&str]) -> String {
 }
 
 fn artifact_paths(stage: &str) -> (String, String, String, String) {
-    let version = if stage == "probe" { "v3" } else { "v1" };
+    let version = if stage == "probe" { "v4" } else { "v1" };
     (
         format!("results/cj0_d_local_subunit_{stage}_{version}.csv"),
         format!("results/cj0_d_local_subunit_{stage}_{version}.md"),
@@ -1563,7 +1569,7 @@ fn write_atomic(stage: &str, rows: &[StageRow], pass: bool, classification: &str
         .create_new(true)
         .open(&staging_report)
         .expect("create report staging");
-    let version = if stage == "probe" { "v3" } else { "v1" };
+    let version = if stage == "probe" { "v4" } else { "v1" };
     writeln!(report_file, "# CJ0-D local-subunit {stage} {version}\n").expect("report");
     writeln!(report_file, "Status: **{classification}**.\n").expect("report");
     writeln!(report_file, "- conjunctive pass: `{pass}`").expect("report");
