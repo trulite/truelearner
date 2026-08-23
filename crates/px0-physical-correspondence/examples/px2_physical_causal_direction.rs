@@ -16,8 +16,13 @@ const PX1_CSV_SHA256: &str = "6613ff0a96bb3a60fbe7afeb92cd64edced3c6df5dcc04fe47
 const PX1_AUDIT_SHA256: &str = "fa4a516fcb6977a45e547ca1bb3b7db3b427c05b381fb60d2700e92fa2ae7c70";
 const PX1_HANDOFF_SHA256: &str = "ab4142a24f6ca1095c1c1364f391253752808382ac6ee70ef9d49eac722df28c";
 const PROTOCOL_SHA256: &str = "5c43ffda226a125bbbaf7f24dbb1ec8e70861b78a2d730c630535254def85c23";
-const RESULT_CSV: &str = "results/px2_physical_causal_direction_trace_sufficiency_probe_v1.csv";
-const RESULT_MD: &str = "results/px2_physical_causal_direction_trace_sufficiency_probe_v1.md";
+const PROBE_V1_SHA256: &str = "bfc2963d2afcda7de28fc6c7e2636f34800a2b7e3fa51056319bc71fe8bb0de9";
+const PROBE_V1_AUDIT_SHA256: &str =
+    "45c6f331fe7d29403314495f9db532ef85ec03b4d6f32469d3d8f3d995982cb8";
+const PROBE_V2_PROTOCOL_SHA256: &str =
+    "4a8278c6f5cc42f996dfa662176d3c56204b822ae83f8608e84b0186a9ecac0f";
+const RESULT_CSV: &str = "results/px2_physical_causal_direction_trace_sufficiency_probe_v2.csv";
+const RESULT_MD: &str = "results/px2_physical_causal_direction_trace_sufficiency_probe_v2.md";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Scenario {
@@ -143,11 +148,11 @@ fn main() {
     );
     assert!(!Path::new(RESULT_CSV).exists(), "PX2 PROBE CSV exists");
     assert!(!Path::new(RESULT_MD).exists(), "PX2 PROBE report exists");
-    eprintln!("PX2_PHYSICAL_CAUSAL_DIRECTION_TRACE_SUFFICIENCY_PROBE_V1_EVIDENCE");
+    eprintln!("PX2_PHYSICAL_CAUSAL_DIRECTION_TRACE_SUFFICIENCY_PROBE_V2_EVIDENCE");
 
     let mut rows = Vec::new();
     for (ordinal, scenario) in Scenario::ALL.into_iter().enumerate() {
-        let namespace = 0xe200_0000 + ordinal as u64 * 0x0100_0000;
+        let namespace = 0xf200_0000 + ordinal as u64 * 0x0100_0000;
         let first = run_world(namespace, scenario);
         let second = run_world(namespace, scenario);
         let duplicate_exact = first == second;
@@ -173,6 +178,14 @@ fn source_audit() -> bool {
             == PX1_HANDOFF_SHA256
         && sha256("experiments/px2_physical_causal_direction_trace_sufficiency_protocol.md")
             == PROTOCOL_SHA256
+        && sha256("results/px2_physical_causal_direction_trace_sufficiency_probe_v1.csv")
+            == PROBE_V1_SHA256
+        && sha256(
+            "experiments/px2_physical_causal_direction_trace_sufficiency_probe_v1_negative_audit.md",
+        ) == PROBE_V1_AUDIT_SHA256
+        && sha256(
+            "experiments/px2_physical_causal_direction_trace_sufficiency_probe_v2_protocol.md",
+        ) == PROBE_V2_PROTOCOL_SHA256
 }
 
 fn run_world(namespace: u64, scenario: Scenario) -> Metrics {
@@ -490,7 +503,7 @@ fn probe_passed(scenario: Scenario, metrics: &Metrics) -> bool {
     let expected_trace_arrivals = if scenario.return_enabled() {
         [EXPERIENCES * 2, EXPERIENCES * 2]
     } else {
-        [EXPERIENCES, EXPERIENCES]
+        metrics.training_consequence_firings
     };
     let expected_trace_firings = if scenario.return_enabled() {
         [EXPERIENCES, EXPERIENCES]
@@ -502,16 +515,27 @@ fn probe_passed(scenario: Scenario, metrics: &Metrics) -> bool {
     } else {
         [0, 0]
     };
+    let consequence_firings_exact = if scenario == Scenario::BlockedReturn {
+        metrics.training_consequence_firings[0] > 0
+            && metrics.training_consequence_firings[1] == EXPERIENCES
+    } else {
+        metrics.training_consequence_firings == [EXPERIENCES, EXPERIENCES]
+    };
+    let effects_exact = if scenario == Scenario::BlockedReturn {
+        metrics.training_effects == metrics.training_consequence_firings
+    } else {
+        metrics.training_effects == [EXPERIENCES, EXPERIENCES]
+    };
     metrics
         .correspondence_resistance
         .iter()
         .all(|value| *value > 1)
         && metrics.training_continuation_firings == participants
-        && metrics.training_consequence_firings == [EXPERIENCES, EXPERIENCES]
+        && consequence_firings_exact
         && metrics.training_trace_arrivals == expected_trace_arrivals
         && metrics.training_trace_firings == expected_trace_firings
         && metrics.training_local_returns == expected_trace_firings
-        && metrics.training_effects == [EXPERIENCES, EXPERIENCES]
+        && effects_exact
         && metrics.training_extra_arrival_firings == 0
         && (0..SIDES).all(|side| {
             if expected_mature[side] {
@@ -707,7 +731,7 @@ fn csv(rows: &[ResultRow]) -> String {
 fn markdown(rows: &[ResultRow]) -> String {
     let passed = rows.iter().all(|row| row.passed);
     let mut output = format!(
-        "# PX2 physical causal direction trace-sufficiency PROBE v1\n\nOutcome: **{}** (`{}/{}` worlds).\n\n| world | continuation fire | consequence fire | trace arrival/fire | local return | directional resistance | held-out continuation/consequence | held-out trace arrival/fire | held-out local/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
+        "# PX2 physical causal direction trace-sufficiency PROBE v2\n\nOutcome: **{}** (`{}/{}` worlds).\n\n| world | continuation fire | consequence fire | trace arrival/fire | local return | directional resistance | held-out continuation/consequence | held-out trace arrival/fire | held-out local/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
         if passed { "POSITIVE" } else { "NEGATIVE" },
         rows.iter().filter(|row| row.passed).count(),
         rows.len(),
