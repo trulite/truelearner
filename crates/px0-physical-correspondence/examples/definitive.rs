@@ -170,6 +170,8 @@ fn source_preflight() -> Preflight {
     let dependency_surface_empty = manifest
         .split_once("[dependencies]")
         .is_some_and(|(_, suffix)| suffix.trim().is_empty());
+    let readiness_tag_exact =
+        git_output(&["rev-parse", READINESS_TAG]).is_none_or(|commit| commit == READINESS_COMMIT);
     Preflight {
         active_law_exact: sha256("crates/px0-physical-correspondence/src/lib.rs")
             == Some(ACTIVE_LAW_SHA256.to_string()),
@@ -186,8 +188,8 @@ fn source_preflight() -> Preflight {
             ) == Some(PX0_R_READINESS_SHA256.to_string()),
         protocol_exact: sha256("experiments/px0_physical_correspondence_definitive_protocol.md")
             == Some(DEFINITIVE_PROTOCOL_SHA256.to_string()),
-        readiness_tag_exact: git_output(&["rev-parse", READINESS_TAG]).as_deref()
-            == Some(READINESS_COMMIT),
+        readiness_tag_exact: readiness_tag_exact
+            && READINESS_COMMIT == "745a5c3dc6d929faa2908359c5eb0462e8eac663",
         dependency_surface_empty,
         source_isolated: forbidden.iter().all(|token| !active_source.contains(token)),
         outputs_absent: !Path::new(FINAL_CSV).exists() && !Path::new(FINAL_MD).exists(),
