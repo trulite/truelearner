@@ -341,8 +341,10 @@ fn passes(row: &Row, kind: Kind) -> bool {
     let z6 = [0; 6];
     let z6i = [0_i32; 6];
     let one6 = [1; 6];
-    let hundred6 = [100; 6];
-    let ab4 = [4, 1, 1, 1, 1, 1];
+    let z6r = [0_u32; 6];
+    let one6r = [1_u32; 6];
+    let hundred6 = [100_u32; 6];
+    let ab4 = [4_u32, 1, 1, 1, 1, 1];
     let ab = [1, 0, 0, 0, 0, 0];
     let (
         source,
@@ -364,7 +366,7 @@ fn passes(row: &Row, kind: Kind) -> bool {
         connector_r,
     ) = match kind {
         Kind::ReturnOnly => (
-            z4, z4, z6, z6, z6, z6i, z6, z6, z6, z6, z6, one6, z6, z6, z6i, one6, hundred6,
+            z4, z4, z6, z6, z6, z6i, z6, z6, z6, z6, z6, one6, z6, z6, z6i, one6r, hundred6,
         ),
         Kind::RealSubthreshold => (
             [1, 1, 0, 0],
@@ -401,7 +403,7 @@ fn passes(row: &Row, kind: Kind) -> bool {
             z6,
             z6,
             z6i,
-            one6,
+            one6r,
             [103, 100, 100, 100, 100, 100],
         ),
         Kind::BlockedEffect => (
@@ -420,11 +422,11 @@ fn passes(row: &Row, kind: Kind) -> bool {
             z6,
             z6,
             z6i,
-            one6,
+            one6r,
             hundred6,
         ),
         Kind::IndependentEffect => (
-            z4, z4, z6, z6, z6, z6i, one6, z6, one6, z6, one6, one6, z6, z6, z6i, one6, hundred6,
+            z4, z4, z6, z6, z6, z6i, one6, z6, one6, z6, one6, one6, z6, z6, z6i, one6r, hundred6,
         ),
         Kind::NoReturn => (
             [1, 1, 0, 0],
@@ -442,7 +444,7 @@ fn passes(row: &Row, kind: Kind) -> bool {
             z6,
             z6,
             z6i,
-            one6,
+            one6r,
             hundred6,
         ),
         Kind::LateReturn => (
@@ -461,7 +463,7 @@ fn passes(row: &Row, kind: Kind) -> bool {
             z6,
             z6,
             z6i,
-            [0, 1, 1, 1, 1, 1],
+            [0_u32, 1, 1, 1, 1, 1],
             hundred6,
         ),
         Kind::TwoCompleted => (
@@ -480,7 +482,7 @@ fn passes(row: &Row, kind: Kind) -> bool {
             [1, 0, 0, 0, 0, 1],
             [1, 0, 0, 0, 0, 1],
             [1, 0, 0, 0, 0, 1],
-            [4, 1, 1, 1, 1, 4],
+            [4_u32, 1, 1, 1, 1, 4],
             hundred6,
         ),
         Kind::Suprathreshold => (
@@ -499,7 +501,7 @@ fn passes(row: &Row, kind: Kind) -> bool {
             ab,
             ab,
             [2, 0, 0, 0, 0, 0],
-            [3, 1, 1, 1, 1, 1],
+            [3_u32, 1, 1, 1, 1, 1],
             hundred6,
         ),
     };
@@ -521,7 +523,7 @@ fn passes(row: &Row, kind: Kind) -> bool {
         && row.credit_impulse == credit_impulse
         && row.candidate_resistance == candidate_r
         && row.connector_resistance == connector_r
-        && row.after_pressure == z6
+        && row.after_pressure == z6r
         && row.proposals == 0
         && row.quiescent
 }
