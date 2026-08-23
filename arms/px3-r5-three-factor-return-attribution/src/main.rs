@@ -18,6 +18,8 @@ const R4_CSV: &str = "81d3296ddda223486c3e3d00b01e590cc18889e5fffe85e59e1da825f1
 const R4_REPORT: &str = "bbf02161d4de8f5f64fec16af545e4758f8c8115a2b03c01e3a28cc430f8e25e";
 const R4_AUDIT: &str = "75bb603ba21aa9af0d6fab644264b10f6db0d1bf8a1de4a34049e169550b3785";
 const PROTOCOL: &str = "6d6635962d08c23d4e546af9f1a74d07e30896ac1df05b6c124fb558bf1ba8d7";
+const EXECUTION_PROTOCOL: &str =
+    "cfd584c967e67085fa293203ce98f823f5510052f9c7d30a1effe99f02431bd4";
 
 const SEEDS: [u64; 2] = [3601, 3609];
 const CSV: &str = "results/px3_r5_three_factor_return_attribution_v1.csv";
@@ -178,6 +180,10 @@ fn audit() {
         (
             "experiments/px3_r5_three_factor_return_attribution_protocol_v1.md",
             PROTOCOL,
+        ),
+        (
+            "experiments/px3_r5_three_factor_return_attribution_execution_protocol_v1.md",
+            EXECUTION_PROTOCOL,
         ),
     ] {
         assert_eq!(sha(path), expected, "frozen input changed: {path}");
