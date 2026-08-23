@@ -85,19 +85,34 @@ B-stable. Record the full frozen audit at the change boundary.
 
 ### E — later B-world evidence
 
-At every H checkpoint, measure after cumulative changed-world budgets:
+At every H checkpoint, run two separately reported schedules:
+
+1. **E0 — B-only counterexperience.** The mature C1 construction physically
+   enables B, returns B's stable consequence, and leaves A unavailable during
+   that interval. This asks whether more B evidence alone can reverse the
+   frozen history.
+2. **E1 — paired changed-world experience.** Each evidence unit contains one
+   physically enabled B-stable execution followed by one ordinary A-varying
+   opportunity. If A remains executable, its consequence variants alternate
+   `1, 3`; if it does not execute, it receives no evidence. This asks whether
+   the whole changed environment can both establish B and erode A's earlier
+   consequence regularity.
+
+For both schedules, measure after cumulative B-opportunity budgets:
 
 ```text
 0, 4, 16, 64, 1,024, 10,000
 ```
 
-At H=`16, 32, 192`, extend one frozen trajectory to `100,000` episodes.
+At H=`16, 32, 192`, extend one frozen trajectory to `100,000` B
+opportunities.
 Budgets are cumulative within a trajectory so the experiment does not replay
 shorter prefixes merely for accounting.
 
 One consequence may be returned only after a genuine threshold-closing route
-execution. The changed world uses B-stable and A-varying consequences. No
-unexecuted route receives evidence.
+execution. No unexecuted route receives evidence. E0 and E1 must never be
+pooled: a finite barrier in E1 does not erase an absorbing E0 result, and an E0
+absorber does not justify claiming global irreversibility if E1 reverses.
 
 ### S — physical support available to B
 
@@ -135,7 +150,7 @@ blanked landscape is reported as forgetting, not successful reversal.
 
 For every H/E/S/T checkpoint record:
 
-- actual A/B realizations and unresolved episodes;
+- schedule (`E0` or `E1`), actual A/B realizations, and unresolved episodes;
 - consequences returned and M6 observations added;
 - M6 shape count, leading support, leading margin, and eligibility per route;
 - M6 abstentions added;
@@ -215,15 +230,16 @@ No definitive execution is authorized by development readiness.
 ## Development classifications
 
 - **A — finite reversal barrier:** at least one fully mature H checkpoint
-  reverses through a finite amount of ordinary B counterexperience, and the
-  reversal remains independently executable after background removal.
+  reverses through a finite amount of preregistered ordinary changed-world
+  experience, and the reversal remains independently executable after
+  background removal. E0 and E1 are reported separately.
 - **B — moving but uncrossed barrier:** mature internal states move
   monotonically toward B through 100,000 observations without crossing, and no
   exact frozen invariant prevents eventual reversal.
 - **C — absorbing credit state:** B executes and M6 observes it, but mature M6
   credit reaches a non-decaying abstention invariant; M5 receives no later
   contrary differential and the landscape remains locked regardless of tested
-  evidence budget.
+  evidence budget in both E0 and E1.
 - **D — downstream allocation/formation absorber:** M6 emits B-favoring
   differentials but M5 allocation or supporter formation remains invariant.
 - **E — forgetting-only reopening:** disuse restores physical alternatives
