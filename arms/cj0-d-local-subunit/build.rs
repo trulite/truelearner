@@ -72,7 +72,11 @@ fn main() {
     replace_once(
         &mut source,
         "    pub fn arrow_resistance(&self, arrow: ArrowId) -> u32 {",
-        r#"    pub fn arrow_coupling(&self, arrow: ArrowId) -> i32 {
+        r#"    pub fn current_tick(&self) -> i64 {
+        self.tick
+    }
+
+    pub fn arrow_coupling(&self, arrow: ArrowId) -> i32 {
         self.require_arrow(arrow);
         self.arrows[arrow.0].coupling
     }

@@ -10,7 +10,11 @@ use std::process::Command;
 const FROZEN_PARENT: &str = "2fbee861a0aeed335d3ffa8f9095ca28f2ac6129";
 const AUTHORITY_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
 const PROTOCOL_SHA256: &str = "940dc88e8a3f70c9dd7a9bc0eb42b1367273d4caea5bed50112bdc4ffce5d195";
+const RETRY_PROTOCOL_SHA256: &str =
+    "a4c4d3c7e0f1e3d5998b108e0f7225ebabe434d9246a16ebb4c0df28f83e9aa3";
 const PROTOCOL: &str = "experiments/cj0_d_local_subunit_development_protocol_v1.md";
+const RETRY_PROTOCOL: &str =
+    "experiments/cj0_d_local_subunit_probe_v2_timing_correction_protocol.md";
 const AUTHORITY: &str = "crates/px0-physical-correspondence/src/lib.rs";
 
 const ROUTES: usize = 4;
@@ -46,6 +50,7 @@ struct Matter {
     initial_inputs: [ArrowId; PORTS],
     noise: CellId,
     reverse_insertion: bool,
+    schedule_floors: usize,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -71,6 +76,7 @@ struct State {
     persistent_bytes: usize,
     permanent_fingerprint: u64,
     complete_fingerprint: u64,
+    schedule_floors: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -235,10 +241,12 @@ fn fresh(fixture: Fixture) -> Matter {
         initial_inputs: initial_inputs.map(|value| value.expect("input")),
         noise,
         reverse_insertion: fixture.reverse_insertion,
+        schedule_floors: 0,
     }
 }
 
-fn enter_routes(matter: &mut Matter, tick: i64, routes: &[usize], origin: u64) {
+fn enter_routes(matter: &mut Matter, requested_tick: i64, routes: &[usize], origin: u64) {
+    let tick = floor_tick(matter, requested_tick, "external-route-entry");
     let mut ports = (0..PORTS)
         .filter(|port| routes.contains(&SITE_ROUTES[*port / 2][*port % 2]))
         .collect::<Vec<_>>();
@@ -263,7 +271,8 @@ fn enter_routes(matter: &mut Matter, tick: i64, routes: &[usize], origin: u64) {
     }
 }
 
-fn enter_noise(matter: &mut Matter, tick: i64, origin: u64) {
+fn enter_noise(matter: &mut Matter, requested_tick: i64, origin: u64) {
+    let tick = floor_tick(matter, requested_tick, "external-noise-entry");
     matter.substrate.enter(SpikeInput {
         arrival_tick: tick,
         phase: 0,
@@ -332,6 +341,7 @@ fn state(matter: &Matter) -> State {
         persistent_bytes: matter.substrate.persistent_bytes(),
         permanent_fingerprint: matter.substrate.permanent_fingerprint(),
         complete_fingerprint: matter.substrate.complete_fingerprint(),
+        schedule_floors: matter.schedule_floors,
     }
 }
 
@@ -352,9 +362,24 @@ fn live_input_values(matter: &Matter, port: usize) -> (u32, i32) {
         .unwrap_or((0, 0))
 }
 
-fn advance(matter: &mut Matter, tick: i64, total: &mut Counts) {
+fn advance(matter: &mut Matter, requested_tick: i64, total: &mut Counts) {
+    let tick = floor_tick(matter, requested_tick, "advance");
     let work = matter.substrate.advance_time(tick);
     merge_work(&mut total.work, &work);
+}
+
+fn floor_tick(matter: &mut Matter, requested: i64, surface: &str) -> i64 {
+    let current = matter.substrate.current_tick();
+    if requested < current {
+        matter.schedule_floors += 1;
+        eprintln!(
+            "CJ0_D_TIMING_FLOOR surface={surface} requested={requested} current={current} namespace={:#x}",
+            matter.namespace
+        );
+        current
+    } else {
+        requested
+    }
 }
 
 fn train_partition(
@@ -463,6 +488,7 @@ fn run_probe() -> (Vec<StageRow>, bool, &'static str) {
             && outcome.trained_events == [0, 0]
             && outcome.crossed_events == [1, 1]
             && !outcome.source_refiring
+            && outcome.state.schedule_floors == 0
             && outcome.training.quiescent;
         rows.push(row_from_outcome(
             format!("matched-primary-{index}"),
@@ -489,6 +515,7 @@ fn run_probe() -> (Vec<StageRow>, bool, &'static str) {
     let alternative_pass = alternative.trained_out == [1, 1]
         && alternative.crossed_out == [0, 0]
         && alternative.singleton_out == [0; ROUTES]
+        && alternative.state.schedule_floors == 0
         && matched_training(&alternative.training);
     rows.push(row_from_outcome(
         "stable-alternative".into(),
@@ -1130,6 +1157,7 @@ fn recursion_case(namespace: u64) -> StageRow {
             persistent_bytes: substrate.persistent_bytes(),
             permanent_fingerprint: substrate.permanent_fingerprint(),
             complete_fingerprint: substrate.complete_fingerprint(),
+            schedule_floors: 0,
         },
         duplicate_exact: true,
         pass,
@@ -1315,6 +1343,7 @@ fn empty_state(substrate: &PlasticSubstrate) -> State {
         persistent_bytes: substrate.persistent_bytes(),
         permanent_fingerprint: substrate.permanent_fingerprint(),
         complete_fingerprint: substrate.complete_fingerprint(),
+        schedule_floors: 0,
     }
 }
 
@@ -1427,6 +1456,7 @@ fn source_audit() -> bool {
     ) == FROZEN_PARENT
         && sha256(AUTHORITY) == AUTHORITY_SHA256
         && sha256(PROTOCOL) == PROTOCOL_SHA256
+        && sha256(RETRY_PROTOCOL) == RETRY_PROTOCOL_SHA256
         && Path::new("arms/cj0-d-local-subunit/build.rs").exists()
 }
 
@@ -1451,11 +1481,12 @@ fn command_output(program: &str, args: &[&str]) -> String {
 }
 
 fn artifact_paths(stage: &str) -> (String, String, String, String) {
+    let version = if stage == "probe" { "v2" } else { "v1" };
     (
-        format!("results/cj0_d_local_subunit_{stage}_v1.csv"),
-        format!("results/cj0_d_local_subunit_{stage}_v1.md"),
-        format!("results/.cj0_d_local_subunit_{stage}_v1.csv.staging"),
-        format!("results/.cj0_d_local_subunit_{stage}_v1.md.staging"),
+        format!("results/cj0_d_local_subunit_{stage}_{version}.csv"),
+        format!("results/cj0_d_local_subunit_{stage}_{version}.md"),
+        format!("results/.cj0_d_local_subunit_{stage}_{version}.csv.staging"),
+        format!("results/.cj0_d_local_subunit_{stage}_{version}.md.staging"),
     )
 }
 
@@ -1476,11 +1507,11 @@ fn write_atomic(stage: &str, rows: &[StageRow], pass: bool, classification: &str
         .create_new(true)
         .open(&staging_csv)
         .expect("create CSV staging");
-    writeln!(csv_file, "stage,case,namespace,matched,trained_out,crossed_out,singleton_out,source_firings,traversals,local_events,local_firings,returned_arrivals,outward,local_return_updates,structural_proposals,deallocations,work,resistance,coupling,live,local_state,arrow_count,persistent_bytes,permanent_fingerprint,complete_fingerprint,quiescent,duplicate_exact,pass,note").expect("CSV header");
+    writeln!(csv_file, "stage,case,namespace,matched,trained_out,crossed_out,singleton_out,source_firings,traversals,local_events,local_firings,returned_arrivals,outward,local_return_updates,structural_proposals,deallocations,work,resistance,coupling,live,local_state,arrow_count,persistent_bytes,permanent_fingerprint,complete_fingerprint,schedule_floors,quiescent,duplicate_exact,pass,note").expect("CSV header");
     for row in rows {
         writeln!(
             csv_file,
-            "{stage},{},{:#x},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:#018x},{:#018x},{},{},{},{}",
+            "{stage},{},{:#x},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{:#018x},{:#018x},{},{},{},{},{}",
             row.case,
             row.namespace,
             row.matched,
@@ -1505,6 +1536,7 @@ fn write_atomic(stage: &str, rows: &[StageRow], pass: bool, classification: &str
             row.state.persistent_bytes,
             row.state.permanent_fingerprint,
             row.state.complete_fingerprint,
+            row.state.schedule_floors,
             row.counts.quiescent,
             row.duplicate_exact,
             row.pass,
