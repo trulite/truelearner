@@ -1,0 +1,10 @@
+[package]
+name = "px3-r-trace-coupling-v2"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Isolated PX3-R direct physical trace-coupling development arm"
+
+[workspace]
+
+[dependencies]
