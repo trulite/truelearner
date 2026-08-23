@@ -32,8 +32,13 @@ const MICRO_V1_AUDIT_SHA256: &str =
     "05a847240a6186a3705b591487673905d6b329090145cbebcdc1094e560a9e36";
 const MICRO_V2_PROTOCOL_SHA256: &str =
     "afe799afbd04c81a157065e5e55ead73eca3bb75ca87e4abd61511cfecbfa326";
-const RESULT_CSV: &str = "results/px1_pt1_attributed_margin_stability_micro_v2.csv";
-const RESULT_MD: &str = "results/px1_pt1_attributed_margin_stability_micro_v2.md";
+const MICRO_V2_SHA256: &str = "4e315c3f30b62c4cd6168a86e29564647b37d047ae686e0fbd2f0626b4f90025";
+const MICRO_V2_AUDIT_SHA256: &str =
+    "4603cf59c0e28fc3cd2d238107840285a234155ea750127bcf58db20a10497d3";
+const GATE_PROTOCOL_SHA256: &str =
+    "75c0e60a64255d18f350d2912cb3c48cb9652225edce15b17f400297d0710b67";
+const RESULT_CSV: &str = "results/px1_pt1_attributed_margin_stability_gate_v1.csv";
+const RESULT_MD: &str = "results/px1_pt1_attributed_margin_stability_gate_v1.md";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Scenario {
@@ -93,6 +98,74 @@ impl Scenario {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Stratum {
+    name: &'static str,
+    side_spacing: i32,
+    exposure_spacing: i64,
+    heldout_gap: i64,
+    postgap_gap: i64,
+    mirror: bool,
+    reverse: bool,
+}
+
+const STRATA: [Stratum; 6] = [
+    Stratum {
+        name: "S0",
+        side_spacing: 40,
+        exposure_spacing: 12,
+        heldout_gap: 20,
+        postgap_gap: 60,
+        mirror: false,
+        reverse: false,
+    },
+    Stratum {
+        name: "S1",
+        side_spacing: 40,
+        exposure_spacing: 12,
+        heldout_gap: 24,
+        postgap_gap: 64,
+        mirror: true,
+        reverse: true,
+    },
+    Stratum {
+        name: "S2",
+        side_spacing: 32,
+        exposure_spacing: 11,
+        heldout_gap: 18,
+        postgap_gap: 52,
+        mirror: false,
+        reverse: true,
+    },
+    Stratum {
+        name: "S3",
+        side_spacing: 48,
+        exposure_spacing: 11,
+        heldout_gap: 22,
+        postgap_gap: 56,
+        mirror: true,
+        reverse: false,
+    },
+    Stratum {
+        name: "S4",
+        side_spacing: 56,
+        exposure_spacing: 13,
+        heldout_gap: 24,
+        postgap_gap: 68,
+        mirror: false,
+        reverse: false,
+    },
+    Stratum {
+        name: "S5",
+        side_spacing: 64,
+        exposure_spacing: 13,
+        heldout_gap: 28,
+        postgap_gap: 72,
+        mirror: true,
+        reverse: true,
+    },
+];
+
 #[derive(Clone)]
 struct World {
     substrate: PlasticSubstrate,
@@ -150,8 +223,8 @@ struct Metrics {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct ResultRow {
+    stratum: &'static str,
     scenario: Scenario,
-    transfer: bool,
     metrics: Metrics,
     duplicate_exact: bool,
     passed: bool,
@@ -159,30 +232,31 @@ struct ResultRow {
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args != ["--micro"] {
-        eprintln!("PX1-PT1 requires --micro; GATE/definitive execution is forbidden");
+    if args != ["--gate"] {
+        eprintln!("PX1-PT1 requires --gate; definitive execution is forbidden");
         std::process::exit(2);
     }
     assert!(
         source_audit(),
         "frozen PX0/PT0/PT1 inputs must remain exact"
     );
-    assert!(!Path::new(RESULT_CSV).exists(), "PT1 MICRO CSV exists");
-    assert!(!Path::new(RESULT_MD).exists(), "PT1 MICRO report exists");
-    eprintln!("PX1_PT1_ATTRIBUTED_MARGIN_STABILITY_MICRO_V2_EVIDENCE");
+    assert!(!Path::new(RESULT_CSV).exists(), "PT1 GATE CSV exists");
+    assert!(!Path::new(RESULT_MD).exists(), "PT1 GATE report exists");
+    eprintln!("PX1_PT1_ATTRIBUTED_MARGIN_STABILITY_GATE_V1_EVIDENCE");
 
     let mut rows = Vec::new();
-    for (ordinal, scenario) in Scenario::ALL.into_iter().enumerate() {
-        for transfer in [false, true] {
-            let namespace =
-                0x9100_0000 + ordinal as u64 * 0x0100_0000 + u64::from(transfer) * 0x0080_0000;
-            let first = run_world(namespace, scenario, transfer, transfer);
-            let second = run_world(namespace, scenario, transfer, transfer);
+    for (stratum_ordinal, stratum) in STRATA.into_iter().enumerate() {
+        for (scenario_ordinal, scenario) in Scenario::ALL.into_iter().enumerate() {
+            let namespace = 0xa100_0000
+                + stratum_ordinal as u64 * 0x0100_0000
+                + scenario_ordinal as u64 * 0x0010_0000;
+            let first = run_world(namespace, scenario, stratum);
+            let second = run_world(namespace, scenario, stratum);
             let duplicate_exact = first == second;
             let passed = micro_passed(scenario, &first) && duplicate_exact;
             rows.push(ResultRow {
+                stratum: stratum.name,
                 scenario,
-                transfer,
                 metrics: first,
                 duplicate_exact,
                 passed,
@@ -218,10 +292,21 @@ fn source_audit() -> bool {
             == MICRO_V1_AUDIT_SHA256
         && sha256("experiments/px1_pt1_attributed_margin_stability_micro_v2_protocol.md")
             == MICRO_V2_PROTOCOL_SHA256
+        && sha256("results/px1_pt1_attributed_margin_stability_micro_v2.csv") == MICRO_V2_SHA256
+        && sha256("experiments/px1_pt1_attributed_margin_stability_micro_v2_result_audit.md")
+            == MICRO_V2_AUDIT_SHA256
+        && sha256("experiments/px1_pt1_attributed_margin_stability_gate_protocol.md")
+            == GATE_PROTOCOL_SHA256
 }
 
-fn run_world(namespace: u64, scenario: Scenario, mirror: bool, reverse: bool) -> Metrics {
-    let mut world = build_world(namespace, mirror, reverse, scenario.return_enabled());
+fn run_world(namespace: u64, scenario: Scenario, stratum: Stratum) -> Metrics {
+    let mut world = build_world(
+        namespace,
+        stratum.mirror,
+        stratum.reverse,
+        stratum.side_spacing,
+        scenario.return_enabled(),
+    );
     let mut work = WorkLedger::default();
     let mut naturally_quiescent = true;
 
@@ -272,7 +357,7 @@ fn run_world(namespace: u64, scenario: Scenario, mirror: bool, reverse: bool) ->
     let mut local_returns = [0usize; SIDES];
     let mut source_firings = 0usize;
     for exposure in 0..EXPOSURES {
-        let tick = 66 + exposure as i64 * 12;
+        let tick = 66 + exposure as i64 * stratum.exposure_spacing;
         for side in 0..SIDES {
             enter_many(
                 &mut world.substrate,
@@ -337,8 +422,9 @@ fn run_world(namespace: u64, scenario: Scenario, mirror: bool, reverse: bool) ->
         }
     });
 
-    let heldout = measure_execution(&world, 170);
-    let postgap = measure_execution(&world, 210);
+    let last_exposure_tick = 66 + (EXPOSURES as i64 - 1) * stratum.exposure_spacing;
+    let heldout = measure_execution(&world, last_exposure_tick + stratum.heldout_gap);
+    let postgap = measure_execution(&world, last_exposure_tick + stratum.postgap_gap);
     let expected_effects = expected_mature.map(usize::from);
     let postgap_exact = postgap.effects == expected_effects
         && postgap.extra_source_firings == 0
@@ -374,7 +460,13 @@ fn run_world(namespace: u64, scenario: Scenario, mirror: bool, reverse: bool) ->
     }
 }
 
-fn build_world(namespace: u64, mirror: bool, reverse: bool, return_enabled: bool) -> World {
+fn build_world(
+    namespace: u64,
+    mirror: bool,
+    reverse: bool,
+    side_spacing: i32,
+    return_enabled: bool,
+) -> World {
     let mut substrate = PlasticSubstrate::new();
     let mut sources = [None; SIDES];
     let mut endpoints = [None; SIDES];
@@ -388,7 +480,7 @@ fn build_world(namespace: u64, mirror: bool, reverse: bool, return_enabled: bool
     let order = if reverse { [1, 0] } else { [0, 1] };
     for side in order {
         let slot = if mirror { SIDES - 1 - side } else { side };
-        let base = slot as i32 * 40;
+        let base = slot as i32 * side_spacing;
         sources[side] = Some(substrate.add_cell(cell(
             source_physical(namespace, side),
             base,
@@ -732,14 +824,14 @@ fn pair_usize(values: [usize; SIDES]) -> String {
 
 fn csv(rows: &[ResultRow]) -> String {
     let mut output = String::from(
-        "scenario,transfer,correspondence_resistance,continuation_resistance,training_branch_firings,training_outlet_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_extra_source_firings,heldout_branch_firings,heldout_outlet_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_extra_source_firings,postgap_extra_source_firings,heldout_quiescent,postgap_quiescent,correspondence_acquired,maturation_exact,postgap_exact,training_quiescent,duplicate_exact,work,fingerprint,passed\n",
+        "stratum,scenario,correspondence_resistance,continuation_resistance,training_branch_firings,training_outlet_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_extra_source_firings,heldout_branch_firings,heldout_outlet_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_extra_source_firings,postgap_extra_source_firings,heldout_quiescent,postgap_quiescent,correspondence_acquired,maturation_exact,postgap_exact,training_quiescent,duplicate_exact,work,fingerprint,passed\n",
     );
     for row in rows {
         let value = &row.metrics;
         output.push_str(&format!(
             "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+            row.stratum,
             row.scenario.name(),
-            row.transfer,
             pair_u32(value.correspondence_resistance),
             pair_u32(value.continuation_resistance),
             pair_usize(value.branch_firings),
@@ -775,7 +867,7 @@ fn csv(rows: &[ResultRow]) -> String {
 fn markdown(rows: &[ResultRow]) -> String {
     let passed = rows.iter().all(|row| row.passed);
     let mut output = format!(
-        "# PX1-PT1 attributed-margin stability MICRO v2\n\nOutcome: **{}** (`{}/{}` cells).\n\n| scenario | transfer | train branch | train outlet | train trace arrival/fire | train local return | resistance | held-out branch/outlet | held-out trace arrival/fire | held-out local return/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
+        "# PX1-PT1 attributed-margin stability GATE v1\n\nOutcome: **{}** (`{}/{}` cells).\n\n| stratum | scenario | train branch | train outlet | train trace arrival/fire | train local return | resistance | held-out branch/outlet | held-out trace arrival/fire | held-out local return/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
         if passed { "POSITIVE" } else { "NEGATIVE" },
         rows.iter().filter(|row| row.passed).count(),
         rows.len(),
@@ -784,8 +876,8 @@ fn markdown(rows: &[ResultRow]) -> String {
         let value = &row.metrics;
         output.push_str(&format!(
             "| {} | {} | `{}` | `{}` | `{}/{}` | `{}` | `{}` | `{}/{}` | `{}/{}` | `{}/{}` | `{}` | `{}/{}/{}` | `{}/{}/{}` | {} | {} |\n",
+            row.stratum,
             row.scenario.name(),
-            row.transfer,
             pair_usize(value.branch_firings),
             pair_usize(value.outlet_firings),
             pair_usize(value.trace_arrivals),
