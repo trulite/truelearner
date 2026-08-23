@@ -1,8 +1,7 @@
 #![forbid(unsafe_code)]
 
 use px0_physical_correspondence::{
-    ArrowId, ArrowSpec, CellId, CellSpec, Crossing, Execution, PlasticSubstrate, SpikeInput,
-    TraceEntry,
+    ArrowId, ArrowSpec, CellId, CellSpec, Execution, PlasticSubstrate, SpikeInput,
 };
 use std::collections::BTreeSet;
 use std::env;
@@ -74,7 +73,6 @@ impl Kind {
 #[derive(Clone)]
 struct World {
     substrate: PlasticSubstrate,
-    namespace: u64,
     primitive_sources: [CellId; 2],
     p: CellId,
     x: CellId,
@@ -630,7 +628,6 @@ fn build(namespace: u64, mirror: bool) -> World {
 
     World {
         substrate,
-        namespace,
         primitive_sources,
         p,
         x,
