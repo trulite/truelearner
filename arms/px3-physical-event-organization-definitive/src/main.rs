@@ -14,19 +14,13 @@ use std::process::Command;
 const PX0: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
 const PX2: &str = "921e433e3bf358e89e3f8f288b4ab0472e9503a2a3ac25fe037a2b7f6cf6eb18";
 const PX2_AUDIT: &str = "7076aca03014d19040020b6bfb126e92f7d25dcac3df9cdab92de7dd7849c6fe";
-const PX2_AUTHORITY: &str =
-    "98647ab1563593e18e345cd7e5a71c4991d18b397dfe2dec71a4756106d96509";
-const GATE_SOURCE: &str =
-    "969042a740f92237c577d82c67399447040cb96d2c003c28100034566e30d5aa";
+const PX2_AUTHORITY: &str = "98647ab1563593e18e345cd7e5a71c4991d18b397dfe2dec71a4756106d96509";
+const GATE_SOURCE: &str = "969042a740f92237c577d82c67399447040cb96d2c003c28100034566e30d5aa";
 const GATE_CSV: &str = "1c350355843ca0020a275813f1e7aa9fb36b63317375327b5bd437182d144469";
-const GATE_AUDIT: &str =
-    "4e0f38d31df19fa62449340faf65c31a80b191ec0b90a0293b7fc4fe90f7f321";
-const READINESS: &str =
-    "92b3a557dd29e362cbefda535dc2bb0355837202d61c96afe25ac85b23203c5a";
-const PROTOCOL: &str =
-    "fb58387fc8d6f214683fe3d65b5b1c4261eb910e37135fab60db7a8a357d0151";
-const EXECUTION_PROTOCOL: &str =
-    "b697904ee90c9b7e120e5a20a8c9bd84ceb95554257295081bcabd8d3066cc1a";
+const GATE_AUDIT: &str = "4e0f38d31df19fa62449340faf65c31a80b191ec0b90a0293b7fc4fe90f7f321";
+const READINESS: &str = "92b3a557dd29e362cbefda535dc2bb0355837202d61c96afe25ac85b23203c5a";
+const PROTOCOL: &str = "fb58387fc8d6f214683fe3d65b5b1c4261eb910e37135fab60db7a8a357d0151";
+const EXECUTION_PROTOCOL: &str = "b697904ee90c9b7e120e5a20a8c9bd84ceb95554257295081bcabd8d3066cc1a";
 
 const NAMESPACE_BASE: u64 = 0x6_5300_0000_0000;
 const SEEDS: usize = 16;
@@ -200,7 +194,10 @@ fn audit() {
             "experiments/px2_physical_causal_direction_authority_handoff.md",
             PX2_AUTHORITY,
         ),
-        ("arms/px3-recursive-compression-gate/src/main.rs", GATE_SOURCE),
+        (
+            "arms/px3-recursive-compression-gate/src/main.rs",
+            GATE_SOURCE,
+        ),
         ("results/px3_recursive_compression_gate_v1.csv", GATE_CSV),
         (
             "experiments/px3_recursive_compression_gate_result_audit_v1.md",
@@ -350,7 +347,11 @@ fn full_recursive(namespace: u64, reverse: bool, reflect: bool) -> Observation {
         expose(clone, 3, 61, false, false, log);
     });
 
-    let phases = [metrics(&ab, namespace), metrics(&xc, namespace), metrics(&yd, namespace)];
+    let phases = [
+        metrics(&ab, namespace),
+        metrics(&xc, namespace),
+        metrics(&yd, namespace),
+    ];
     let phase_active = [[2, 0, 0], [2, 2, 0], [2, 2, 2]];
     let phase_impulse = [[3, 0, 0], [4, 3, 0], [4, 4, 3]];
     let phase_primitive = [[2, 2, 0, 0], [2, 2, 2, 0], [2, 2, 2, 2]];
@@ -474,9 +475,8 @@ fn recurrence_no_return(namespace: u64, reverse: bool, reflect: bool) -> Observa
         && metric.output_trace_arrivals == [4, 0, 0]
         && metric.output_trace_impulse == [4, 0, 0]
         && metric.output_trace == [2, 0, 0];
-    let p4 = metric.source_trace == [2, 0, 0]
-        && metric.attribution == [0; 3]
-        && metric.credit == [0; 3];
+    let p4 =
+        metric.source_trace == [2, 0, 0] && metric.attribution == [0; 3] && metric.credit == [0; 3];
     let p6 = trained_resistance == [1, 0, 0]
         && final_resistance == [0; 3]
         && heldout.output == [0; 3]
@@ -522,13 +522,7 @@ fn return_no_joint(namespace: u64, reverse: bool, reflect: bool) -> Observation 
     for start in [0, 11] {
         background(&mut world, start + 1);
         pulse(&mut world.substrate, world.context, start + 1, 1, 500);
-        pulse(
-            &mut world.substrate,
-            world.global_return,
-            start + 3,
-            1,
-            600,
-        );
+        pulse(&mut world.substrate, world.global_return, start + 3, 1, 600);
         log.execution(world.substrate.propagate());
     }
     let metric = metrics(&log, namespace);
@@ -565,21 +559,9 @@ fn same_path(namespace: u64, reverse: bool, reflect: bool) -> Observation {
     let mut world = build(namespace, reverse, reflect);
     let initial_candidates = candidate_count(&world);
     let mut log = Log::new();
-    pulse(
-        &mut world.substrate,
-        world.primitive_sources[0],
-        0,
-        4,
-        0,
-    );
+    pulse(&mut world.substrate, world.primitive_sources[0], 0, 4, 0);
     background(&mut world, 1);
-    pulse(
-        &mut world.substrate,
-        world.primitive_sources[0],
-        4,
-        1,
-        0,
-    );
+    pulse(&mut world.substrate, world.primitive_sources[0], 4, 1, 0);
     background(&mut world, 5);
     log.execution(world.substrate.propagate());
     let metric = metrics(&log, namespace);
@@ -620,8 +602,7 @@ fn context_free(metric: &Metrics, primitive: [usize; 4], active: [usize; 3]) -> 
         && metric.output == active
         && metric.source_trace == active
         && metric.output_trace_arrivals == active.map(|x| x * 2)
-        && metric.output_trace_impulse
-            == active.map(|x| i32::try_from(x * 2).expect("small"))
+        && metric.output_trace_impulse == active.map(|x| i32::try_from(x * 2).expect("small"))
         && metric.output_trace == active
         && metric.attribution == [0; 3]
         && metric.credit == [0; 3]
@@ -1076,7 +1057,11 @@ fn csv(rows: &[Row]) -> String {
         ];
         fields.extend(claims.map(|claim| claim.to_string()));
         fields.extend([
-            claims.into_iter().filter(|claim| *claim).count().to_string(),
+            claims
+                .into_iter()
+                .filter(|claim| *claim)
+                .count()
+                .to_string(),
             row.observation.work.to_string(),
             row.observation.bytes.to_string(),
             row.observation.fingerprint.to_string(),
