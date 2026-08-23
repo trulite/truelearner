@@ -1,0 +1,9 @@
+case,namespace,mirror,reverse_allocation,reverse_insertion,distractors,return_offset,held_out_tick,training_arrival_firings,training_execution_firings,return_deliveries,background_firings,candidate_live,candidate_max_coupling,candidate_max_resistance,held_out_source_firings,held_out_execution_firings,held_out_boundary_firings,held_out_crossings,followup_source_firings,followup_execution_firings,followup_boundary_firings,followup_crossings,naturally_quiescent,duplicate_exact,work,persistent_bytes_before,persistent_bytes_after,permanent_fingerprint,complete_fingerprint,passed
+M0-ordinary,0x7b2000000000,false,false,false,0,3,40,4,3,4,0,1,2,9,1,1,1,1,0,0,0,0,true,true,222,256,384,6927156932212799106,11004624542048875768,true
+M1-mirrored,0x7b2000100000,true,false,false,0,3,40,4,3,4,0,1,2,9,1,1,1,1,0,0,0,0,true,true,222,256,384,545661884342249663,12442147584709144425,true
+M2-reversed-allocation,0x7b2000200000,false,true,false,0,3,40,4,3,4,0,1,2,9,1,1,1,1,0,0,0,0,true,true,222,256,384,5038849469747866050,250966826952167032,true
+M3-reversed-insertion-load4,0x7b2000300000,false,false,true,4,3,40,4,3,4,0,1,2,9,1,1,1,1,0,0,0,0,true,true,392,448,576,800214256869315086,15867248996048733960,true
+M4-combined-load12,0x7b2000400000,true,true,true,12,3,40,4,3,4,0,1,2,9,1,1,1,1,0,0,0,0,true,true,972,832,960,10726114486106850483,5269056350816845617,true
+M5-novel-locus,0x7b2000500000,false,false,false,0,3,40,4,3,4,0,1,2,8,1,0,0,0,1,1,1,1,true,true,262,256,512,1495375995252278476,13428947451439205377,true
+M6-late-return,0x7b2000600000,false,true,false,0,6,40,4,0,4,0,1,1,1,1,0,0,0,0,0,0,0,true,true,171,256,896,16022463006979177919,13852813659747468136,true
+M7-post-gap,0x7b2000700000,true,false,true,8,3,70,4,3,4,0,1,2,6,1,1,1,1,0,0,0,0,true,true,642,640,768,10743273364339330792,7381216422593791876,true
