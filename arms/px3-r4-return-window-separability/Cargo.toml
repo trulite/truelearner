@@ -1,0 +1,10 @@
+[package]
+name = "px3-r4-return-window-separability"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+px0-physical-correspondence = { path = "../../crates/px0-physical-correspondence" }
+
+[workspace]
