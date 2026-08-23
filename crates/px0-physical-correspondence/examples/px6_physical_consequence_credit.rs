@@ -9,18 +9,18 @@ use std::process::Command;
 
 const SIDES: usize = 2;
 const PRESENTATIONS: usize = 24;
-const NAMESPACE_BASE: u64 = 0x6_6200_0000;
+const NAMESPACE_BASE: u64 = 0x6_8200_0000;
 const SUBSTRATE_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
-const PROTOCOL_SHA256: &str = "f42c7acd859f8793d546eeed9b639bb269585bc9ae63afe3b2bb571ff4ec0fa5";
-const V1_IMPLEMENTATION_SHA256: &str =
-    "5057697a0f8d4f1ce964425b64351ca7d4cb76749e46c8263ae7683b46fcc289";
-const V1_CSV_SHA256: &str = "3ed470ef06f7d2fc7297adbe9fc615e862adf5e3d81cb1d7c80ebcbfd9cd9686";
-const V1_AUDIT_SHA256: &str = "f19f4e1958c9c930649ee848fe2c4a535332325611c3991cb8562192c3a5add6";
+const PROTOCOL_SHA256: &str = "90373edd9d2ea8c888b7e43c896fda0b98b3326176e7837e42a2d2685aa9f95e";
+const V2_IMPLEMENTATION_SHA256: &str =
+    "385190d4be77c71661399e31b650d493b2a8156c71e1010983c8333aadac1aaf";
+const V2_CSV_SHA256: &str = "1818fce395e6b496b33eb4d251b6da2363587d82cf1f6d7746ccab74c53845ff";
+const V2_AUDIT_SHA256: &str = "5c7ec127b3cf69753adf1b2c2521e32cb285c47e5ba335db9d8fa186b9c1c25e";
 const FROZEN_PARENT: &str = "2fbee861a0aeed335d3ffa8f9095ca28f2ac6129";
-const RESULT_CSV: &str = "results/px6_physical_consequence_credit_gate_v2.csv";
-const RESULT_MD: &str = "results/px6_physical_consequence_credit_gate_v2.md";
-const STAGING_CSV: &str = "results/.px6_physical_consequence_credit_gate_v2.csv.staging";
-const STAGING_MD: &str = "results/.px6_physical_consequence_credit_gate_v2.md.staging";
+const RESULT_CSV: &str = "results/px6_physical_consequence_credit_gate_v3.csv";
+const RESULT_MD: &str = "results/px6_physical_consequence_credit_gate_v3.md";
+const STAGING_CSV: &str = "results/.px6_physical_consequence_credit_gate_v3.csv.staging";
+const STAGING_MD: &str = "results/.px6_physical_consequence_credit_gate_v3.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Stratum {
@@ -220,9 +220,9 @@ struct Row {
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
     let preflight = args == ["--preflight"];
-    let gate = args == ["--gate-v2"];
+    let gate = args == ["--gate-v3"];
     if !preflight && !gate {
-        eprintln!("PX6 development GATE v2 requires --preflight or --gate-v2");
+        eprintln!("PX6 development GATE v3 requires --preflight or --gate-v3");
         std::process::exit(2);
     }
     assert!(source_audit(), "frozen PX2 parent or protocol changed");
@@ -233,11 +233,11 @@ fn main() {
         );
     }
     if preflight {
-        println!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_V2_PREFLIGHT_OK");
+        println!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_V3_PREFLIGHT_OK");
         return;
     }
 
-    eprintln!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_V2_EVIDENCE_SPENT");
+    eprintln!("PX6_PHYSICAL_CONSEQUENCE_CREDIT_GATE_V3_EVIDENCE_SPENT");
     let mut rows = Vec::new();
     for (stratum_ordinal, stratum) in STRATA.into_iter().enumerate() {
         for (world_ordinal, kind) in WorldKind::ALL.into_iter().enumerate() {
@@ -267,15 +267,15 @@ fn main() {
 
 fn source_audit() -> bool {
     sha256("crates/px0-physical-correspondence/src/lib.rs") == SUBSTRATE_SHA256
-        && sha256("experiments/px6_physical_consequence_credit_gate_v2_protocol.md")
+        && sha256("experiments/px6_physical_consequence_credit_gate_v3_protocol.md")
             == PROTOCOL_SHA256
         && git_sha256(
-            "px6-physical-consequence-credit-gate-implementation-v1",
+            "px6-physical-consequence-credit-gate-v2-implementation",
             "crates/px0-physical-correspondence/examples/px6_physical_consequence_credit.rs",
-        ) == V1_IMPLEMENTATION_SHA256
-        && sha256("results/px6_physical_consequence_credit_gate_v1.csv") == V1_CSV_SHA256
-        && sha256("experiments/px6_physical_consequence_credit_gate_v1_negative_audit.md")
-            == V1_AUDIT_SHA256
+        ) == V2_IMPLEMENTATION_SHA256
+        && sha256("results/px6_physical_consequence_credit_gate_v2.csv") == V2_CSV_SHA256
+        && sha256("experiments/px6_physical_consequence_credit_gate_v2_negative_audit.md")
+            == V2_AUDIT_SHA256
         && git_rev("px2-physical-causal-direction-authoritative^{commit}") == FROZEN_PARENT
         && !cargo_manifest().contains("ds8")
 }
@@ -444,7 +444,7 @@ fn run_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> Metrics {
                 enter(
                     &mut world.substrate,
                     world.participants[side],
-                    tick - 3,
+                    tick - 1,
                     namespace + 0x60_000 + side as u64 * 0x10 + ordinal,
                 );
             }
@@ -505,7 +505,10 @@ fn run_world(namespace: u64, kind: WorldKind, stratum: Stratum) -> Metrics {
             metrics.consequence_firings[side] += firings(&run, physical(world.namespace, 20, side));
             metrics.trace_firings[side] += firings(&run, physical(world.namespace, 30, side));
             metrics.return_arrivals[side] += arrivals(&run, physical(world.namespace, 10, side))
-                .saturating_sub(2 * usize::from(participants[side]));
+                .saturating_sub(
+                    2 * usize::from(participants[side])
+                        + 2 * usize::from(delayed_side == Some(side)),
+                );
             metrics.outward_crossings[side] += crossings(&run, physical(world.namespace, 20, side));
         }
         metrics.distractor_firings += (0..stratum.distractor_load)
@@ -772,7 +775,7 @@ fn markdown(rows: &[Row]) -> String {
         .map(|row| row.metrics.persistent_bytes)
         .sum::<usize>();
     let mut out = format!(
-        "# PX6 physical consequence-credit no-new-mechanism GATE v2\n\nOutcome: **{passed}/{} cells passed**. Authority: **absent**.\n\nFrozen parent: `{FROZEN_PARENT}`. Active substrate SHA-256: `{SUBSTRATE_SHA256}`.\n\nTotal measured work: `{work}`. Aggregate per-cell persistent storage: `{storage}` bytes.\n\n| stratum | world | traversal | downstream | return arrivals | resistance after | live | held-out | fresh paths | distractors | work | replay | pass |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---:|:---:|\n",
+        "# PX6 physical consequence-credit no-new-mechanism GATE v3\n\nOutcome: **{passed}/{} cells passed**. Authority: **absent**.\n\nFrozen parent: `{FROZEN_PARENT}`. Active substrate SHA-256: `{SUBSTRATE_SHA256}`.\n\nTotal measured work: `{work}`. Aggregate per-cell persistent storage: `{storage}` bytes.\n\n| stratum | world | traversal | downstream | return arrivals | resistance after | live | held-out | fresh paths | distractors | work | replay | pass |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|:---:|:---:|\n",
         rows.len()
     );
     for row in rows {
