@@ -13,15 +13,11 @@ use std::process::Command;
 
 const PX0: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
 const MICRO: &str = "2b05d16d12ace1009f4d3a971afa2e503c60f65acb022a13a3b449e83139014b";
-const MICRO_AUDIT: &str =
-    "e4f08598d24e3f53223dc43dbffa26b36f59d08fd94ae9f515830322fe5963e5";
+const MICRO_AUDIT: &str = "e4f08598d24e3f53223dc43dbffa26b36f59d08fd94ae9f515830322fe5963e5";
 const D2: &str = "8d82057b3a87fed3019633de1d4868080ccc75f2873a87b91ab803d949547dbe";
-const D2_AUDIT: &str =
-    "3a575394757c453ea099dc7001018327c0f2f1db9588574180775aa73bd183c2";
-const PROTOCOL: &str =
-    "e8ae58089208f475bf1e7b897a8ea2d8f13a819d566c89571afa0a7eef2a250d";
-const EXECUTION_PROTOCOL: &str =
-    "5b55f4db4e1793bef55415ea80ce6bb5e1e5ff2b4c7d0f94ba9ce84837325399";
+const D2_AUDIT: &str = "3a575394757c453ea099dc7001018327c0f2f1db9588574180775aa73bd183c2";
+const PROTOCOL: &str = "e8ae58089208f475bf1e7b897a8ea2d8f13a819d566c89571afa0a7eef2a250d";
+const EXECUTION_PROTOCOL: &str = "5b55f4db4e1793bef55415ea80ce6bb5e1e5ff2b4c7d0f94ba9ce84837325399";
 
 const CSV: &str = "results/px3_recursive_compression_gate_v1.csv";
 const MD: &str = "results/px3_recursive_compression_gate_v1.md";
@@ -396,8 +392,7 @@ fn context_free(metric: &Metrics, primitive: [usize; 4], active: [usize; 3]) -> 
         && metric.output == active
         && metric.source_trace == active
         && metric.output_trace_arrivals == active.map(|x| x * 2)
-        && metric.output_trace_impulse
-            == active.map(|x| i32::try_from(x * 2).expect("small"))
+        && metric.output_trace_impulse == active.map(|x| i32::try_from(x * 2).expect("small"))
         && metric.output_trace == active
         && metric.attribution == [0; 3]
         && metric.credit == [0; 3]
@@ -533,7 +528,12 @@ fn build(namespace: u64, reverse: bool, reflect: bool) -> World {
     let global_return = substrate.add_cell(cell(physical(namespace, 901), 100_000, 131, 1));
 
     for side in primitive_order {
-        substrate.add_arrow(fixed(primitive_sources[side], primitive_outlets[side], 0, 1));
+        substrate.add_arrow(fixed(
+            primitive_sources[side],
+            primitive_outlets[side],
+            0,
+            1,
+        ));
         normalize(
             &mut substrate,
             primitive_outlets[side],
@@ -557,7 +557,11 @@ fn build(namespace: u64, reverse: bool, reflect: bool) -> World {
     }
 
     let left_inputs = [primitive_traces[0], output_traces[0], output_traces[1]];
-    let right_inputs = [primitive_traces[1], primitive_traces[2], primitive_traces[3]];
+    let right_inputs = [
+        primitive_traces[1],
+        primitive_traces[2],
+        primitive_traces[3],
+    ];
     for stage in stage_order {
         substrate.add_arrow(fixed(left_inputs[stage], opportunities[stage], 0, 1));
         substrate.add_arrow(fixed(right_inputs[stage], opportunities[stage], 0, 1));
@@ -668,9 +672,7 @@ fn on_clone(world: &World, action: impl FnOnce(&mut World, &mut Log)) -> Metrics
 fn metrics(log: &Log, namespace: u64) -> Metrics {
     Metrics {
         primitive_trace: four(|side| fires(&log.trace, physical(namespace, 30 + side as u64))),
-        opportunity: three(|stage| {
-            fires(&log.trace, physical(namespace, 100 + stage as u64))
-        }),
+        opportunity: three(|stage| fires(&log.trace, physical(namespace, 100 + stage as u64))),
         source: three(|stage| fires(&log.trace, physical(namespace, 200 + stage as u64))),
         candidate: three(|stage| {
             crossings(
@@ -687,21 +689,15 @@ fn metrics(log: &Log, namespace: u64) -> Metrics {
             )
         }),
         output: three(|stage| fires(&log.trace, physical(namespace, 300 + stage as u64))),
-        source_trace: three(|stage| {
-            fires(&log.trace, physical(namespace, 400 + stage as u64))
-        }),
+        source_trace: three(|stage| fires(&log.trace, physical(namespace, 400 + stage as u64))),
         output_trace_arrivals: three(|stage| {
             arrivals(&log.trace, physical(namespace, 600 + stage as u64))
         }),
         output_trace_impulse: three(|stage| {
             arrival_impulse(&log.trace, physical(namespace, 600 + stage as u64))
         }),
-        output_trace: three(|stage| {
-            fires(&log.trace, physical(namespace, 600 + stage as u64))
-        }),
-        attribution: three(|stage| {
-            fires(&log.trace, physical(namespace, 800 + stage as u64))
-        }),
+        output_trace: three(|stage| fires(&log.trace, physical(namespace, 600 + stage as u64))),
+        attribution: three(|stage| fires(&log.trace, physical(namespace, 800 + stage as u64))),
         credit: three(|stage| {
             crossings(
                 &log.crossings,
@@ -721,7 +717,9 @@ fn candidate_arrows(world: &World, stage: usize) -> Vec<ArrowId> {
 }
 
 fn candidate_count(world: &World) -> usize {
-    (0..3).map(|stage| candidate_arrows(world, stage).len()).sum()
+    (0..3)
+        .map(|stage| candidate_arrows(world, stage).len())
+        .sum()
 }
 
 fn only_historical(world: &World, stage: usize) -> ArrowId {
@@ -939,10 +937,7 @@ fn signature(metric: &Metrics) -> String {
     )
 }
 
-fn join_metric_usize(
-    metrics: &[Metrics; 3],
-    field: impl Fn(&Metrics) -> Vec<usize>,
-) -> String {
+fn join_metric_usize(metrics: &[Metrics; 3], field: impl Fn(&Metrics) -> Vec<usize>) -> String {
     metrics
         .iter()
         .map(|metric| join_usize(&field(metric)))
