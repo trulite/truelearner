@@ -70,6 +70,86 @@ fn instrumented_composition_copy(source: &Path, adapter: &Path, destination: &Pa
     println!("cargo:rerun-if-changed={}", adapter.display());
 }
 
+fn doubly_instrumented_composition_copy(
+    source: &Path,
+    first_adapter: &Path,
+    second_adapter: &Path,
+    destination: &Path,
+) {
+    let text = fs::read_to_string(source).expect("frozen instrumented source is readable");
+    let mut body_started = false;
+    let mut output = String::new();
+    for line in text.split_inclusive('\n') {
+        if !body_started
+            && (line.trim().is_empty()
+                || line.starts_with("//!")
+                || line.starts_with("#![allow(dead_code)]"))
+        {
+            continue;
+        }
+        body_started = true;
+        output.push_str(line);
+    }
+    let insertion = output
+        .find("\n}\n\nfn cell(")
+        .map(|index| index + 1)
+        .expect("SSA1 frozen-learning module boundary exists");
+    let mut adapter_text =
+        fs::read_to_string(first_adapter).expect("first audit adapter is readable");
+    adapter_text
+        .push_str(&fs::read_to_string(second_adapter).expect("second audit adapter is readable"));
+    output.insert_str(insertion, &adapter_text);
+    fs::write(destination, output).expect("doubly instrumented copy is writable");
+    println!("cargo:rerun-if-changed={}", source.display());
+    println!("cargo:rerun-if-changed={}", first_adapter.display());
+    println!("cargo:rerun-if-changed={}", second_adapter.display());
+}
+
+fn s3_composition_copy(
+    source: &Path,
+    adapter_methods: &Path,
+    experiment: &Path,
+    destination: &Path,
+) {
+    let text = fs::read_to_string(source).expect("frozen S2 source is readable");
+    let mut body_started = false;
+    let mut output = String::new();
+    for line in text.split_inclusive('\n') {
+        if !body_started && (line.trim().is_empty() || line.starts_with("//!")) {
+            continue;
+        }
+        body_started = true;
+        output.push_str(line);
+    }
+    output = output.replace(
+        "/ssa1_c2_instrumented_frozen.rs",
+        "/ssa1_s3_instrumented_frozen.rs",
+    );
+    let marker = "\n    }\n}\n\npub use frozen_ssa1::Landscape;";
+    let insertion = output
+        .find(marker)
+        .expect("S2 Adapter implementation boundary exists");
+    let methods = fs::read_to_string(adapter_methods).expect("S3 Adapter methods are readable");
+    output.insert_str(insertion, &methods);
+    output.push_str("\n");
+    output.push_str(&fs::read_to_string(experiment).expect("S3 experiment body is readable"));
+    for source_name in [
+        "ssa1_s2_application_history_predictor.rs",
+        "ds8_cumulative_semantic_credit_probe.rs",
+        "ssa1_learned_variation_control.rs",
+        "ssa1_s3_physical_adapter.inc.rs",
+    ] {
+        output = output.replace(
+            &format!("include_str!(\"{source_name}\")"),
+            &format!("include_str!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/{source_name}\"))"),
+        );
+    }
+    fs::write(destination, output).expect("S3 composition copy is writable");
+    println!("cargo:rerun-if-changed={}", source.display());
+    println!("cargo:rerun-if-changed={}", adapter_methods.display());
+    println!("cargo:rerun-if-changed={}", experiment.display());
+}
+
 fn marked_copy(source: &Path, destination: &Path, begin: &str, end: &str) {
     let text = fs::read_to_string(source).expect("marked source is readable");
     let mut copying = false;
@@ -187,6 +267,18 @@ fn main() {
         Path::new("src/ssa1_learned_variation_control.rs"),
         Path::new("src/ssa1_c2_audit_adapter.inc.rs"),
         &output.join("ssa1_c2_instrumented_frozen.rs"),
+    );
+    doubly_instrumented_composition_copy(
+        Path::new("src/ssa1_learned_variation_control.rs"),
+        Path::new("src/ssa1_c2_audit_adapter.inc.rs"),
+        Path::new("src/ssa1_s3_physical_adapter.inc.rs"),
+        &output.join("ssa1_s3_instrumented_frozen.rs"),
+    );
+    s3_composition_copy(
+        Path::new("src/ssa1_s2_application_history_predictor.rs"),
+        Path::new("src/ssa1_s3_adapter_methods.inc.rs"),
+        Path::new("src/ssa1_s3_experiment.inc.rs"),
+        &output.join("ssa1_s3_composition.rs"),
     );
     fs::copy(
         "src/post_m7_ds5_closure_emission.rs",
