@@ -44,6 +44,32 @@ fn composition_copy(source: &Path, destination: &Path) {
     println!("cargo:rerun-if-changed={}", source.display());
 }
 
+fn instrumented_composition_copy(source: &Path, adapter: &Path, destination: &Path) {
+    let text = fs::read_to_string(source).expect("frozen instrumented source is readable");
+    let mut body_started = false;
+    let mut output = String::new();
+    for line in text.split_inclusive('\n') {
+        if !body_started
+            && (line.trim().is_empty()
+                || line.starts_with("//!")
+                || line.starts_with("#![allow(dead_code)]"))
+        {
+            continue;
+        }
+        body_started = true;
+        output.push_str(line);
+    }
+    let insertion = output
+        .find("\n}\n\nfn cell(")
+        .map(|index| index + 1)
+        .expect("SSA1 frozen-learning module boundary exists");
+    let adapter_text = fs::read_to_string(adapter).expect("audit adapter is readable");
+    output.insert_str(insertion, &adapter_text);
+    fs::write(destination, output).expect("instrumented composition copy is writable");
+    println!("cargo:rerun-if-changed={}", source.display());
+    println!("cargo:rerun-if-changed={}", adapter.display());
+}
+
 fn marked_copy(source: &Path, destination: &Path, begin: &str, end: &str) {
     let text = fs::read_to_string(source).expect("marked source is readable");
     let mut copying = false;
@@ -156,6 +182,11 @@ fn main() {
     composition_copy(
         Path::new("src/ssa1_learned_variation_control.rs"),
         &output.join("ssa1_learned_variation_control_frozen.rs"),
+    );
+    instrumented_composition_copy(
+        Path::new("src/ssa1_learned_variation_control.rs"),
+        Path::new("src/ssa1_c2_audit_adapter.inc.rs"),
+        &output.join("ssa1_c2_instrumented_frozen.rs"),
     );
     fs::copy(
         "src/post_m7_ds5_closure_emission.rs",
