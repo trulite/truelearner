@@ -16,7 +16,8 @@ pub const FROZEN_SSA1_SHA256: &str =
 const FIRING_THRESHOLD: i32 = 4;
 const INHIBITION: i32 = -64;
 const BASE_BUDGETS: [usize; 6] = [0, 4, 16, 64, 1_024, 10_000];
-const SAFE_ANCHOR: usize = 60_000;
+const SAFE_ANCHOR_B_ONLY: usize = 60_000;
+const SAFE_ANCHOR_PAIRED: usize = 30_000;
 const FULL_MATURATION: [usize; 13] = [0, 2, 4, 6, 8, 10, 12, 14, 16, 24, 32, 64, 192];
 const PROBE_MATURATION: [usize; 4] = [0, 8, 16, 32];
 const SAFE_ANCHOR_MATURATION: [usize; 3] = [16, 32, 192];
@@ -553,7 +554,10 @@ fn trajectory(
     let boundary = session.audit();
     let mut budgets = BASE_BUDGETS.to_vec();
     if extended {
-        budgets.push(SAFE_ANCHOR);
+        budgets.push(match schedule {
+            Schedule::BOnly => SAFE_ANCHOR_B_ONLY,
+            Schedule::PairedChangedWorld => SAFE_ANCHOR_PAIRED,
+        });
     }
     let maximum = *budgets.last().unwrap();
     let mut results = Vec::with_capacity(budgets.len());
