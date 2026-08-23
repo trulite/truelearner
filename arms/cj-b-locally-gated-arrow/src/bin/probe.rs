@@ -291,9 +291,19 @@ fn observe(
         .iter()
         .filter(|entry| entry.emitted)
         .count();
+    let candidate_consumptions = run
+        .transmissions
+        .iter()
+        .filter(|entry| {
+            entry.emitted
+                && entry.destination_state > 0
+                && source_ids.contains(&entry.from_physical)
+                && site_ids.contains(&entry.to_physical)
+        })
+        .count();
     let observation = Observation {
         crossings: run.crossings.len(),
-        consumed: run.work.local_state_consumptions,
+        consumed: u64::try_from(candidate_consumptions).expect("candidate count fits u64"),
         emitted,
         source_firings: run
             .trace
