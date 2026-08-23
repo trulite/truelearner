@@ -20,8 +20,7 @@ const DEFINITIVE_HANDOFF: &str = "f6cd3e4436071758697f8cb7805189aca747914ec6a499
 const R3_CSV: &str = "62b34a64396728c28b617bab75cf1141ee2b2db53897ee655809b6180cb2a67b";
 const R3_AUDIT: &str = "6f565cf8397afb55e28293360f1ade5aa51b89ba5fa8c19ce0eacaa23086e299";
 const PROTOCOL: &str = "6be667083059847cbe8a7e1085b021e5b0e6909ecaf43c1d9fa293e4425894ac";
-const EXECUTION_PROTOCOL: &str =
-    "ad8a1af9983f3f9d589c9bf552c086a3edd3de9ed1a1f0ee1b2177748bb249d7";
+const EXECUTION_PROTOCOL: &str = "ad8a1af9983f3f9d589c9bf552c086a3edd3de9ed1a1f0ee1b2177748bb249d7";
 
 const SEEDS: [u64; 2] = [3501, 3509];
 const CSV: &str = "results/px3_r4_return_window_separability_v1.csv";
