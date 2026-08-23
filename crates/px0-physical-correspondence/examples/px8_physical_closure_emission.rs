@@ -13,8 +13,12 @@ const PX0_CSV_SHA256: &str = "b750792123de1c0aa7d3104d2d1bcd3fdc6e26a70e54b10f5e
 const PX1_CSV_SHA256: &str = "6613ff0a96bb3a60fbe7afeb92cd64edced3c6df5dcc04fe47518db158dd88f6";
 const PX2_CSV_SHA256: &str = "921e433e3bf358e89e3f8f288b4ab0472e9503a2a3ac25fe037a2b7f6cf6eb18";
 const PROTOCOL_SHA256: &str = "881f4e3d46ce55aa1d637bfe2cc3cc99fb7e7ca2348fc1256e949fd1e3d36c2b";
+const AMENDMENT_SHA256: &str = "23e72d3311612518481e6d429f0943f821f9da50be82be2c8324ccbdf3b2f4fd";
+const INVALID_AUDIT_SHA256: &str =
+    "504812e1777602ccda30ae8d51b11dae308b3772cdb8483a37b65eb403a66b87";
 const SOURCE_PATH: &str = "crates/px0-physical-correspondence/src/lib.rs";
 const PROTOCOL_PATH: &str = "experiments/px8_physical_closure_emission_development_protocol.md";
+const AMENDMENT_PATH: &str = "experiments/px8_physical_closure_emission_probe_v2_amendment.md";
 
 const A: usize = 0;
 const B: usize = 1;
@@ -42,13 +46,13 @@ struct Stage {
 
 const PROBE: Stage = Stage {
     argument: "--probe",
-    label: "PROBE",
+    label: "PROBE_V2",
     seeds: 2,
-    namespace: 0x8_8000_0000,
-    csv: "results/px8_physical_closure_emission_probe.csv",
-    report: "results/px8_physical_closure_emission_probe.md",
-    staging_csv: "results/.px8_physical_closure_emission_probe.csv.staging",
-    staging_report: "results/.px8_physical_closure_emission_probe.md.staging",
+    namespace: 0x8_8100_0000,
+    csv: "results/px8_physical_closure_emission_probe_v2.csv",
+    report: "results/px8_physical_closure_emission_probe_v2.md",
+    staging_csv: "results/.px8_physical_closure_emission_probe_v2.csv.staging",
+    staging_report: "results/.px8_physical_closure_emission_probe_v2.md.staging",
     prerequisite: None,
 };
 
@@ -61,7 +65,7 @@ const MICRO: Stage = Stage {
     report: "results/px8_physical_closure_emission_micro.md",
     staging_csv: "results/.px8_physical_closure_emission_micro.csv.staging",
     staging_report: "results/.px8_physical_closure_emission_micro.md.staging",
-    prerequisite: Some("results/px8_physical_closure_emission_probe.md"),
+    prerequisite: Some("results/px8_physical_closure_emission_probe_v2.md"),
 };
 
 const GATE: Stage = Stage {
@@ -303,7 +307,7 @@ fn run_row(stage: Stage, seed: usize, condition_index: usize, condition: Conditi
     let reverse_insertion = (seed + condition_index) % 2 == 1;
     let participant_delay = 3 + (seed % 4) as i64;
     let outward_delay = 2 + ((seed * 3) % 4) as i64;
-    let unrelated_load = [0, 4, 12, 24][seed % 4];
+    let unrelated_load = [4, 8, 12, 24][seed % 4];
     let first = develop(
         namespace,
         mirrored,
@@ -482,8 +486,7 @@ fn develop(
         arrivals.push((base_tick, 0, namespace + 0xff03, cells[N]));
     }
     if condition.unrelated_only {
-        let count = unrelated_load.max(4);
-        for occurrence in 0..count {
+        for occurrence in 0..unrelated_load {
             arrivals.push((
                 base_tick + (occurrence as i64) * 2,
                 0,
@@ -705,6 +708,19 @@ fn audit_basis() -> Result<String, String> {
         PX2_CSV_SHA256,
     )?;
     require_sha256(PROTOCOL_PATH, PROTOCOL_SHA256)?;
+    require_sha256(AMENDMENT_PATH, AMENDMENT_SHA256)?;
+    require_sha256(
+        "experiments/px8_physical_closure_emission_probe_v1_invalid_audit.md",
+        INVALID_AUDIT_SHA256,
+    )?;
+    require_sha256(
+        "results/px8_physical_closure_emission_probe.csv",
+        "d33963361b6c2a3f40a9eaa172d296dcdbd8f668afbdd1e26f136e00028e629f",
+    )?;
+    require_sha256(
+        "results/px8_physical_closure_emission_probe.md",
+        "870691020517c5d8232de24067fa3bd50581fb2c869c3620bb1474bed92ce44b",
+    )?;
     let ancestry = Command::new("git")
         .args(["merge-base", "--is-ancestor", PARENT_COMMIT, "HEAD"])
         .status()
