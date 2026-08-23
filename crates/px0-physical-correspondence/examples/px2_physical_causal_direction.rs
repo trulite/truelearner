@@ -48,7 +48,14 @@ const GATE_NEGATIVE_HANDOFF_SHA256: &str =
 const H1_PROTOCOL_SHA256: &str = "e16afd6adae4477900bb457427f4335431628f6e4c42c1ab054c69081c1b217b";
 const H1_SUMMARY_CSV: &str = "results/px2_h1_matched_schedule_hysteresis_summary_v1.csv";
 const H1_TRAJECTORY_CSV: &str = "results/px2_h1_matched_schedule_hysteresis_trajectory_v1.csv";
-const H1_REPORT_MD: &str = "results/px2_h1_matched_schedule_hysteresis_v1.md";
+const H1_SOURCE_SHA256: &str = "59db8ed88e70e02570d45902c4f480bf9843e352004d47f032f1c805742c1adc";
+const H1_SUMMARY_SHA256: &str = "4eeef4681fba0a5c41dbe42d8911b9f8f285be0c897cb6a5d33c4a8d7da46005";
+const H1_TRAJECTORY_SHA256: &str =
+    "78afd070081eb17ce23f7b88da3d0d7d6187b126c8f4f76c111b24651c2f0323";
+const H1_AUDIT_SHA256: &str = "c1c3c6dd80265d5e864fa7c346b8effde8e4a522a0826067c3e30dcbba202dd9";
+const O1_PROTOCOL_SHA256: &str = "5381e8dcc25e2ade38ec9b9c2332ef05a09532cb46b7b2748ac214b6b3aac32d";
+const O1_CSV: &str = "results/px2_o1_post_forgetting_opportunity_window_v1.csv";
+const O1_REPORT_MD: &str = "results/px2_o1_post_forgetting_opportunity_window_v1.md";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -339,6 +346,7 @@ struct TrainingMetrics {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 enum ScheduleKind {
     ForwardBlock,
     ReverseBlock,
@@ -347,6 +355,7 @@ enum ScheduleKind {
     Rotation(usize),
 }
 
+#[allow(dead_code)]
 impl ScheduleKind {
     const ALL: [Self; 10] = [
         Self::ForwardBlock,
@@ -388,6 +397,7 @@ impl ScheduleKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 struct H1Step {
     experience: usize,
     participant: usize,
@@ -404,6 +414,7 @@ struct H1Step {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 struct H1Metrics {
     schedule: Vec<usize>,
     steps: Vec<H1Step>,
@@ -420,6 +431,7 @@ struct H1Metrics {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 struct H1Row {
     stratum: &'static str,
     schedule_name: String,
@@ -427,20 +439,59 @@ struct H1Row {
     duplicate_exact: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct O1Metrics {
+    wait: i64,
+    old_side: usize,
+    new_side: usize,
+    initial_effects: [usize; SIDES],
+    old_direction_stale: bool,
+    old_correspondence_stale: bool,
+    stale_effects: [usize; SIDES],
+    fresh_correspondence: [usize; SIDES],
+    fresh_direction_ids: bool,
+    proposal_tick: i64,
+    first_use_tick: i64,
+    preuse_live: [bool; SIDES],
+    preuse_resistance: [u32; SIDES],
+    first_continuation_firings: [usize; SIDES],
+    first_candidate_traversed: [bool; SIDES],
+    first_consequence_firings: [usize; SIDES],
+    first_trace_firings: [usize; SIDES],
+    first_local_returns: [usize; SIDES],
+    postfirst_resistance: [u32; SIDES],
+    final_live: [usize; SIDES],
+    final_resistance: [u32; SIDES],
+    heldout_effects: [usize; SIDES],
+    postgap_effects: [usize; SIDES],
+    source_refiring: usize,
+    naturally_quiescent: bool,
+    work: WorkLedger,
+    fingerprint: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct O1Row {
+    stratum: &'static str,
+    mirror: &'static str,
+    metrics: O1Metrics,
+    duplicate_exact: bool,
+}
+
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args != ["--h1-schedule-diagnostic"] {
-        eprintln!("PX2-H1 development requires --h1-schedule-diagnostic");
+    if args != ["--o1-opportunity-window-diagnostic"] {
+        eprintln!("PX2-O1 development requires --o1-opportunity-window-diagnostic");
         std::process::exit(2);
     }
     assert!(
         source_audit(),
         "authoritative PX0/PX1 inputs must remain exact"
     );
-    for path in [H1_SUMMARY_CSV, H1_TRAJECTORY_CSV, H1_REPORT_MD] {
-        assert!(!Path::new(path).exists(), "PX2-H1 result exists");
+    for path in [O1_CSV, O1_REPORT_MD] {
+        assert!(!Path::new(path).exists(), "PX2-O1 result exists");
     }
-    eprintln!("PX2_H1_MATCHED_SCHEDULE_HYSTERESIS_DIAGNOSTIC_V1_EVIDENCE");
+    eprintln!("PX2_O1_POST_FORGETTING_OPPORTUNITY_WINDOW_DIAGNOSTIC_V1_EVIDENCE");
 
     let mut rows = Vec::new();
     for (stratum_ordinal, stratum) in STRATA.into_iter().enumerate() {
@@ -449,25 +500,31 @@ fn main() {
             parallel_paths: 1,
             ..stratum
         };
-        for (schedule_ordinal, schedule) in ScheduleKind::ALL.into_iter().enumerate() {
-            let namespace = 0x2_4200_0000
-                + stratum_ordinal as u64 * 0x1000_0000
-                + schedule_ordinal as u64 * 0x0100_0000;
-            let first = run_h1(namespace, diagnostic_stratum, schedule);
-            let second = run_h1(namespace, diagnostic_stratum, schedule);
-            let duplicate_exact = first == second;
-            rows.push(H1Row {
-                stratum: diagnostic_stratum.name,
-                schedule_name: schedule.name(),
-                metrics: first,
-                duplicate_exact,
-            });
+        for (mirror_ordinal, old_side) in [0usize, 1].into_iter().enumerate() {
+            for (wait_ordinal, wait) in [0i64, 5, 10, 20, 30].into_iter().enumerate() {
+                let namespace = 0x3_4200_0000
+                    + stratum_ordinal as u64 * 0x1000_0000
+                    + mirror_ordinal as u64 * 0x0500_0000
+                    + wait_ordinal as u64 * 0x0100_0000;
+                let first = run_o1(namespace, diagnostic_stratum, old_side, wait);
+                let second = run_o1(namespace, diagnostic_stratum, old_side, wait);
+                let duplicate_exact = first == second;
+                rows.push(O1Row {
+                    stratum: diagnostic_stratum.name,
+                    mirror: if old_side == 0 {
+                        "forward-to-reverse"
+                    } else {
+                        "reverse-to-forward"
+                    },
+                    metrics: first,
+                    duplicate_exact,
+                });
+            }
         }
     }
 
-    write_new(H1_SUMMARY_CSV, &h1_summary_csv(&rows));
-    write_new(H1_TRAJECTORY_CSV, &h1_trajectory_csv(&rows));
-    write_new(H1_REPORT_MD, &h1_markdown(&rows));
+    write_new(O1_CSV, &o1_csv(&rows));
+    write_new(O1_REPORT_MD, &o1_markdown(&rows));
 }
 
 fn source_audit() -> bool {
@@ -524,8 +581,19 @@ fn source_audit() -> bool {
         ) == GATE_NEGATIVE_HANDOFF_SHA256
         && sha256("experiments/px2_h1_matched_schedule_hysteresis_diagnostic_protocol.md")
             == H1_PROTOCOL_SHA256
+        && git_sha256(
+            "px2-h1-matched-schedule-hysteresis-diagnostic-implementation-v1",
+            "crates/px0-physical-correspondence/examples/px2_physical_causal_direction.rs",
+        ) == H1_SOURCE_SHA256
+        && sha256(H1_SUMMARY_CSV) == H1_SUMMARY_SHA256
+        && sha256(H1_TRAJECTORY_CSV) == H1_TRAJECTORY_SHA256
+        && sha256("experiments/px2_h1_matched_schedule_hysteresis_diagnostic_v1_result_audit.md")
+            == H1_AUDIT_SHA256
+        && sha256("experiments/px2_o1_post_forgetting_opportunity_window_diagnostic_protocol.md")
+            == O1_PROTOCOL_SHA256
 }
 
+#[allow(dead_code)]
 fn run_h1(namespace: u64, stratum: Stratum, schedule_kind: ScheduleKind) -> H1Metrics {
     let mut world = build_world(namespace, true, stratum);
     let order = arrival_order(stratum);
@@ -655,6 +723,202 @@ fn run_h1(namespace: u64, stratum: Stratum, schedule_kind: ScheduleKind) -> H1Me
         postgap_effects: postgap.effects,
         source_refiring,
         naturally_quiescent,
+        work,
+        fingerprint: world.substrate.complete_fingerprint(),
+    }
+}
+
+fn run_o1(namespace: u64, stratum: Stratum, old_side: usize, wait: i64) -> O1Metrics {
+    let new_side = 1 - old_side;
+    let mut world = build_world(namespace, true, stratum);
+    let order = arrival_order(stratum);
+    let (old_correspondence, mut work, old_acquisition_quiescent) =
+        acquire_correspondence(&mut world, 0, namespace + 0x10_000, order);
+    let old_correspondence_generations: [Vec<u32>; SIDES] = std::array::from_fn(|side| {
+        old_correspondence[side]
+            .iter()
+            .map(|arrow| world.substrate.arrow_generation(*arrow))
+            .collect()
+    });
+    let old_directional = add_directional_candidates(&mut world, 1);
+    let old_directional_generations: [Vec<u32>; SIDES] = std::array::from_fn(|side| {
+        old_directional[side]
+            .iter()
+            .map(|arrow| world.substrate.arrow_generation(*arrow))
+            .collect()
+    });
+    let old_scenario = if old_side == 0 {
+        Scenario::Forward
+    } else {
+        Scenario::Reverse
+    };
+    let initial_training = train(
+        &mut world,
+        old_scenario,
+        stratum,
+        stratum.first_experience,
+        namespace + 0x20_000,
+        order,
+    );
+    add_work(&mut work, &initial_training.work);
+    let initial_last = stratum.first_experience + (EXPERIENCES as i64 - 1) * EXPERIENCE_SPACING;
+    let initial_heldout = measure_execution(&world, initial_last + stratum.heldout_gap, order);
+
+    let raw_gap = initial_last + FORGET_GAP;
+    let gap_tick = ((raw_gap + 9) / 10) * 10;
+    let gap_work = world.substrate.advance_time(gap_tick);
+    add_work(&mut work, &gap_work);
+    let old_direction_stale = stale_with_new_generation(
+        &world.substrate,
+        &old_directional,
+        &old_directional_generations,
+    );
+    let old_correspondence_stale = stale_with_new_generation(
+        &world.substrate,
+        &old_correspondence,
+        &old_correspondence_generations,
+    );
+    let stale = measure_execution(&world, gap_tick, order);
+
+    let acquisition_tail = stratum.traversal_delay.max(4);
+    let acquisition_span = 48 + acquisition_tail;
+    let phase_adjustment = (10 - acquisition_span % 10) % 10;
+    let reacquisition_start = gap_tick + phase_adjustment;
+    let (fresh_correspondence, fresh_work, fresh_acquisition_quiescent) =
+        acquire_correspondence(&mut world, reacquisition_start, namespace + 0x30_000, order);
+    add_work(&mut work, &fresh_work);
+    let fresh_correspondence_count = std::array::from_fn(|side| {
+        fresh_correspondence[side]
+            .iter()
+            .filter(|arrow| !old_correspondence[side].contains(arrow))
+            .count()
+    });
+    let fresh_directional = add_directional_candidates(&mut world, 1);
+    let fresh_direction_ids = (0..SIDES).all(|side| {
+        fresh_directional[side]
+            .iter()
+            .all(|arrow| !old_directional[side].contains(arrow))
+    });
+    let proposal_tick = reacquisition_start + acquisition_span;
+    let first_use_tick = proposal_tick + wait;
+    let waiting_work = world.substrate.advance_time(first_use_tick);
+    add_work(&mut work, &waiting_work);
+    let preuse_live =
+        std::array::from_fn(|side| world.substrate.arrow_is_live(fresh_directional[side][0]));
+    let preuse_resistance = std::array::from_fn(|side| {
+        if preuse_live[side] {
+            world.substrate.arrow_resistance(fresh_directional[side][0])
+        } else {
+            0
+        }
+    });
+
+    let mut first_continuation_firings = [0usize; SIDES];
+    let mut first_candidate_traversed = [false; SIDES];
+    let mut first_consequence_firings = [0usize; SIDES];
+    let mut first_trace_firings = [0usize; SIDES];
+    let mut first_local_returns = [0usize; SIDES];
+    let mut postfirst_resistance = [0u32; SIDES];
+    let mut source_refiring = 0usize;
+    let mut contemporary_quiescent = true;
+    for experience in 0..EXPERIENCES {
+        let tick = first_use_tick + experience as i64 * EXPERIENCE_SPACING;
+        for side in order {
+            enter_many(
+                &mut world.substrate,
+                world.arrivals[side],
+                tick,
+                SOURCE_THRESHOLD,
+                namespace + 0x40_000 + experience as u64 * 0x1_000 + side as u64 * 0x100,
+            );
+            let driver = if side == new_side {
+                world.participation_drivers[side]
+            } else {
+                world.independent_drivers[side]
+            };
+            enter_many(
+                &mut world.substrate,
+                driver,
+                tick,
+                1,
+                namespace + 0x140_000 + experience as u64 * 0x1_000 + side as u64 * 0x100,
+            );
+        }
+        let run = world.substrate.propagate();
+        let continuation_firings =
+            std::array::from_fn(|side| firings_at(&run, continuation_physical(namespace, side)));
+        let consequence_firings =
+            std::array::from_fn(|side| firings_at(&run, consequence_physical(namespace, side)));
+        let trace_firings =
+            std::array::from_fn(|side| firings_at(&run, trace_physical(namespace, side)));
+        let local_returns = std::array::from_fn(|side| {
+            arrivals_at(&run, continuation_physical(namespace, side))
+                .saturating_sub(1 + usize::from(side == new_side))
+        });
+        if experience == 0 {
+            first_continuation_firings = continuation_firings;
+            first_candidate_traversed =
+                std::array::from_fn(|side| preuse_live[side] && continuation_firings[side] > 0);
+            first_consequence_firings = consequence_firings;
+            first_trace_firings = trace_firings;
+            first_local_returns = local_returns;
+            postfirst_resistance = std::array::from_fn(|side| {
+                if world.substrate.arrow_is_live(fresh_directional[side][0]) {
+                    world.substrate.arrow_resistance(fresh_directional[side][0])
+                } else {
+                    0
+                }
+            });
+        }
+        let arrival_firings = (0..SIDES)
+            .map(|side| firings_at(&run, arrival_physical(namespace, side)))
+            .sum::<usize>();
+        source_refiring += arrival_firings.saturating_sub(SIDES);
+        add_work(&mut work, &run.work);
+        contemporary_quiescent &= run.naturally_quiescent;
+    }
+
+    let contemporary_last = first_use_tick + (EXPERIENCES as i64 - 1) * EXPERIENCE_SPACING;
+    let heldout = measure_execution(&world, contemporary_last + stratum.heldout_gap, order);
+    let postgap = measure_execution(&world, contemporary_last + stratum.postgap_gap, order);
+    source_refiring += heldout.extra_arrival_firings + postgap.extra_arrival_firings;
+    let (_, _, final_resistance) = directional_stats(&world.substrate, &fresh_directional);
+
+    O1Metrics {
+        wait,
+        old_side,
+        new_side,
+        initial_effects: initial_heldout.effects,
+        old_direction_stale,
+        old_correspondence_stale,
+        stale_effects: stale.effects,
+        fresh_correspondence: fresh_correspondence_count,
+        fresh_direction_ids,
+        proposal_tick,
+        first_use_tick,
+        preuse_live,
+        preuse_resistance,
+        first_continuation_firings,
+        first_candidate_traversed,
+        first_consequence_firings,
+        first_trace_firings,
+        first_local_returns,
+        postfirst_resistance,
+        final_live: std::array::from_fn(|side| {
+            live_count(&world.substrate, &fresh_directional[side])
+        }),
+        final_resistance,
+        heldout_effects: heldout.effects,
+        postgap_effects: postgap.effects,
+        source_refiring,
+        naturally_quiescent: old_acquisition_quiescent
+            && initial_training.quiescent
+            && initial_heldout.quiescent
+            && stale.quiescent
+            && fresh_acquisition_quiescent
+            && contemporary_quiescent
+            && heldout.quiescent
+            && postgap.quiescent,
         work,
         fingerprint: world.substrate.complete_fingerprint(),
     }
@@ -1539,6 +1803,7 @@ fn pair_bool(values: [bool; SIDES]) -> String {
     format!("{}|{}", values[0], values[1])
 }
 
+#[allow(dead_code)]
 fn h1_winner(effects: [usize; SIDES]) -> i32 {
     match effects {
         [1, 0] => 0,
@@ -1548,6 +1813,7 @@ fn h1_winner(effects: [usize; SIDES]) -> i32 {
     }
 }
 
+#[allow(dead_code)]
 fn h1_classification(rows: &[H1Row]) -> &'static str {
     let controlled = rows.iter().all(|row| {
         row.duplicate_exact
@@ -1588,6 +1854,7 @@ fn h1_classification(rows: &[H1Row]) -> &'static str {
     }
 }
 
+#[allow(dead_code)]
 fn h1_summary_csv(rows: &[H1Row]) -> String {
     let mut output = String::from(
         "stratum,schedule,schedule_first,forward_count,reverse_count,first_mature,first_deallocation,final_live,final_resistance,heldout_effects,postgap_effects,source_refiring,quiescent,work,fingerprint,duplicate_exact\n",
@@ -1631,6 +1898,7 @@ fn h1_summary_csv(rows: &[H1Row]) -> String {
     output
 }
 
+#[allow(dead_code)]
 fn h1_trajectory_csv(rows: &[H1Row]) -> String {
     let mut output = String::from(
         "stratum,schedule,experience,participant,continuation_firings,trace_firings,local_returns,live_before,live_after,resistance_before,resistance_after,return_gain,pressure_spent,quiescent\n",
@@ -1660,6 +1928,7 @@ fn h1_trajectory_csv(rows: &[H1Row]) -> String {
     output
 }
 
+#[allow(dead_code)]
 fn h1_markdown(rows: &[H1Row]) -> String {
     let mut output = format!(
         "# PX2-H1 matched-schedule hysteresis diagnostic v1\n\nClassification: **{}**.\n\nCells: `{}`; duplicate-exact: `{}`.\n\n| stratum | schedule | first | first mature | first deallocation | final resistance | held-out | post-gap | replay |\n|---|---|---:|---:|---:|---:|---:|---:|---:|\n",
@@ -1678,6 +1947,154 @@ fn h1_markdown(rows: &[H1Row]) -> String {
             value.first_mature[1],
             value.first_deallocation[0],
             value.first_deallocation[1],
+            pair_u32(value.final_resistance),
+            pair_usize(value.heldout_effects),
+            pair_usize(value.postgap_effects),
+            row.duplicate_exact,
+        ));
+    }
+    output.push_str(
+        "\nThe substrate law is unchanged. This diagnostic does not repair GATE v1, advance PX2, or unblock PX3.\n",
+    );
+    output
+}
+
+fn o1_expected_effect(side: usize) -> [usize; SIDES] {
+    if side == 0 {
+        [1, 0]
+    } else {
+        [0, 1]
+    }
+}
+
+fn o1_classification(rows: &[O1Row]) -> &'static str {
+    let controlled = rows.iter().all(|row| {
+        let value = &row.metrics;
+        row.duplicate_exact
+            && value.initial_effects == o1_expected_effect(value.old_side)
+            && value.old_direction_stale
+            && value.old_correspondence_stale
+            && value.stale_effects == [0, 0]
+            && value.fresh_correspondence.iter().all(|count| *count > 0)
+            && value.fresh_direction_ids
+            && value.source_refiring == 0
+            && value.naturally_quiescent
+    });
+    let finite_window = rows.iter().all(|row| {
+        let value = &row.metrics;
+        let expected_resistance = match value.wait {
+            0 | 5 => 3,
+            10 => 2,
+            20 => 1,
+            30 => 0,
+            _ => unreachable!(),
+        };
+        let new_side = value.new_side;
+        let expected_effect = o1_expected_effect(new_side);
+        value.preuse_resistance[new_side] == expected_resistance
+            && if value.wait < 30 {
+                value.preuse_live[new_side]
+                    && value.first_candidate_traversed[new_side]
+                    && value.first_consequence_firings[new_side] == 1
+                    && value.first_trace_firings[new_side] == 1
+                    && value.first_local_returns[new_side] == 1
+                    && value.postfirst_resistance[new_side] > expected_resistance
+                    && value.heldout_effects == expected_effect
+                    && value.postgap_effects == expected_effect
+            } else {
+                !value.preuse_live[new_side]
+                    && !value.first_candidate_traversed[new_side]
+                    && value.first_consequence_firings[new_side] == 0
+                    && value.first_trace_firings[new_side] == 0
+                    && value.first_local_returns[new_side] == 0
+                    && value.postfirst_resistance[new_side] == 0
+                    && value.heldout_effects == [0, 0]
+                    && value.postgap_effects == [0, 0]
+            }
+    });
+    let all_learn = rows
+        .iter()
+        .all(|row| row.metrics.heldout_effects == o1_expected_effect(row.metrics.new_side));
+    let immediate_fails = rows
+        .iter()
+        .filter(|row| row.metrics.wait == 0)
+        .any(|row| row.metrics.heldout_effects != o1_expected_effect(row.metrics.new_side));
+    if controlled && finite_window {
+        "A — finite opportunity window"
+    } else if controlled && all_learn {
+        "B — delay-independent reacquisition"
+    } else if controlled && immediate_fails {
+        "C — immediate use also fails"
+    } else {
+        "D — non-monotonic or ambiguous boundary"
+    }
+}
+
+fn o1_csv(rows: &[O1Row]) -> String {
+    let mut output = String::from(
+        "stratum,mirror,wait,old_side,new_side,initial_effects,old_direction_stale,old_correspondence_stale,stale_effects,fresh_correspondence,fresh_direction_ids,proposal_tick,first_use_tick,preuse_live,preuse_resistance,first_continuation_firings,first_candidate_traversed,first_consequence_firings,first_trace_firings,first_local_returns,postfirst_resistance,final_live,final_resistance,heldout_effects,postgap_effects,source_refiring,quiescent,work,fingerprint,duplicate_exact\n",
+    );
+    for row in rows {
+        let value = &row.metrics;
+        let fields = [
+            row.stratum.to_string(),
+            row.mirror.to_string(),
+            value.wait.to_string(),
+            value.old_side.to_string(),
+            value.new_side.to_string(),
+            pair_usize(value.initial_effects),
+            value.old_direction_stale.to_string(),
+            value.old_correspondence_stale.to_string(),
+            pair_usize(value.stale_effects),
+            pair_usize(value.fresh_correspondence),
+            value.fresh_direction_ids.to_string(),
+            value.proposal_tick.to_string(),
+            value.first_use_tick.to_string(),
+            pair_bool(value.preuse_live),
+            pair_u32(value.preuse_resistance),
+            pair_usize(value.first_continuation_firings),
+            pair_bool(value.first_candidate_traversed),
+            pair_usize(value.first_consequence_firings),
+            pair_usize(value.first_trace_firings),
+            pair_usize(value.first_local_returns),
+            pair_u32(value.postfirst_resistance),
+            pair_usize(value.final_live),
+            pair_u32(value.final_resistance),
+            pair_usize(value.heldout_effects),
+            pair_usize(value.postgap_effects),
+            value.source_refiring.to_string(),
+            value.naturally_quiescent.to_string(),
+            value.work.total().to_string(),
+            value.fingerprint.to_string(),
+            row.duplicate_exact.to_string(),
+        ];
+        output.push_str(&fields.join(","));
+        output.push('\n');
+    }
+    output
+}
+
+fn o1_markdown(rows: &[O1Row]) -> String {
+    let mut output = format!(
+        "# PX2-O1 post-forgetting opportunity-window diagnostic v1\n\nClassification: **{}**.\n\nCells: `{}`; duplicate-exact: `{}`.\n\n| stratum | mirror | wait | pre-use live | pre-use resistance | traversed | consequence | trace/return | post-first resistance | final resistance | held-out | post-gap | replay |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
+        o1_classification(rows),
+        rows.len(),
+        rows.iter().filter(|row| row.duplicate_exact).count(),
+    );
+    for row in rows {
+        let value = &row.metrics;
+        output.push_str(&format!(
+            "| {} | {} | {} | `{}` | `{}` | `{}` | `{}` | `{}/{}` | `{}` | `{}` | `{}` | `{}` | {} |\n",
+            row.stratum,
+            row.mirror,
+            value.wait,
+            pair_bool(value.preuse_live),
+            pair_u32(value.preuse_resistance),
+            pair_bool(value.first_candidate_traversed),
+            pair_usize(value.first_consequence_firings),
+            pair_usize(value.first_trace_firings),
+            pair_usize(value.first_local_returns),
+            pair_u32(value.postfirst_resistance),
             pair_u32(value.final_resistance),
             pair_usize(value.heldout_effects),
             pair_usize(value.postgap_effects),
