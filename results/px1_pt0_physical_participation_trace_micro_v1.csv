@@ -1,0 +1,17 @@
+scenario,transfer,active,expected_mature,resistance,branch_firings,effect_firings,return_arrivals,heldout_effects,quiescent,duplicate_exact,work,fingerprint,passed
+in-window-a,false,true|false|false,true|false|false,5|2|2,1|0|0,1|0|0,1|1|1,1|0|0,true,true,109,9808146582606997265,true
+in-window-a,true,true|false|false,true|false|false,5|2|2,1|0|0,1|0|0,1|1|1,1|0|0,true,true,109,11920377718510736905,true
+late-a,false,true|false|false,false|false|false,1|2|2,1|0|0,1|0|0,1|1|1,0|0|0,true,true,109,5053209258374425270,true
+late-a,true,true|false|false,false|false|false,1|2|2,1|0|0,1|0|0,1|1|1,0|0|0,true,true,109,3328802411018242654,true
+no-participation,false,false|false|false,false|false|false,2|2|2,0|0|0,0|0|0,1|1|1,0|0|0,true,true,38,13880198331554808169,true
+no-participation,true,false|false|false,false|false|false,2|2|2,0|0|0,0|0|0,1|1|1,0|0|0,true,true,38,14282760159967517249,true
+swap-b,false,false|true|false,false|true|false,2|5|2,0|1|0,0|1|0,1|1|1,0|1|0,true,true,109,8237761742627068803,true
+swap-b,true,false|true|false,false|true|false,2|5|2,0|1|0,0|1|0,1|1|1,0|1|0,true,true,109,9257723463677900839,true
+joint,false,true|true|false,true|true|false,5|5|2,1|1|0,1|1|0,1|1|1,1|1|0,true,true,209,4784483037669660598,true
+joint,true,true|true|false,true|true|false,5|5|2,1|1|0,1|1|0,1|1|1,1|1|0,true,true,209,12019379937664096498,true
+no-return-a,false,true|false|false,false|false|false,2|2|2,1|0|0,1|0|0,0|0|0,0|0|0,true,true,58,211188011127061000,true
+no-return-a,true,true|false|false,false|false|false,2|2|2,1|0|0,1|0|0,0|0|0,0|0|0,true,true,58,1302467487963804660,true
+boundary-inside-a,false,true|false|false,true|false|false,5|2|2,1|0|0,1|0|0,1|1|1,1|0|0,true,true,109,10815291876514926865,true
+boundary-inside-a,true,true|false|false,true|false|false,5|2|2,1|0|0,1|0|0,1|1|1,1|0|0,true,true,109,2038629419918448073,true
+boundary-outside-a,false,true|false|false,false|false|false,1|2|2,1|0|0,1|0|0,1|1|1,0|0|0,true,true,109,5812240211522796662,true
+boundary-outside-a,true,true|false|false,false|false|false,1|2|2,1|0|0,1|0|0,1|1|1,0|0|0,true,true,109,6631291639645021598,true
