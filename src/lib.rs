@@ -45,6 +45,7 @@ pub mod ssa1_r_rich_changing_world;
 pub mod ssa1_s2_application_history_predictor;
 pub mod ssa1_s3_structural_commitment_causality;
 pub mod ssa1_s_exposure_bias_map;
+pub mod ssa2_p_preserved_affordance_generativity;
 pub mod stability;
 pub mod tracking;
 pub mod unified;
