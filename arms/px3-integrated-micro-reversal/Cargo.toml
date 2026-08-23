@@ -1,0 +1,10 @@
+[package]
+name = "px3-integrated-micro-reversal"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+px0-physical-correspondence = { path = "../../crates/px0-physical-correspondence" }
+
+[workspace]
