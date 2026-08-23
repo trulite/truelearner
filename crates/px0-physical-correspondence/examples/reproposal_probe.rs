@@ -33,6 +33,9 @@ struct Row {
 fn main() {
     let mut args = env::args().skip(1);
     let mut output_prefix = None;
+    let mut base_namespace = 0x70_000;
+    let mut mirror = false;
+    let mut stage = String::from("PROBE");
     while let Some(argument) = args.next() {
         match argument.as_str() {
             "--output-prefix" => {
@@ -40,6 +43,17 @@ fn main() {
                     args.next().expect("--output-prefix requires a path"),
                 ));
             }
+            "--base-namespace" => {
+                base_namespace = u64::from_str_radix(
+                    args.next()
+                        .expect("--base-namespace requires hexadecimal")
+                        .trim_start_matches("0x"),
+                    16,
+                )
+                .expect("--base-namespace must be hexadecimal");
+            }
+            "--mirror" => mirror = true,
+            "--stage" => stage = args.next().expect("--stage requires a name"),
             "--definitive" => {
                 eprintln!("PX0-R definitive execution is not authorized");
                 std::process::exit(2);
@@ -47,12 +61,13 @@ fn main() {
             other => panic!("unknown argument: {other}"),
         }
     }
-    let rows = run_probe();
+    let rows = run_probe(base_namespace, mirror);
     let passed = rows.iter().all(|row| row.passed);
     write_results(
         &output_prefix.expect("development output prefix is required"),
         &rows,
         passed,
+        &stage,
     );
     if !passed {
         std::process::exit(1);
@@ -256,13 +271,27 @@ fn row(
     }
 }
 
-fn run_probe() -> Vec<Row> {
+fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
     let mut rows = Vec::new();
-    let mut fixture = build(0x70_000, false);
-    let (initial_work, initial_proposals, initial_deallocations) =
-        run_experiences(&mut fixture, &[0, 1], &[0], 0, 0x71_000);
-    let old_ids = variable_ids(&fixture, 0);
-    let initial = experience(&mut fixture, &[0], &[0], 40, 0x72_000, false);
+    let selected = usize::from(mirror);
+    let opposite = 1 - selected;
+    let mut fixture = build(base_namespace, mirror);
+    let (initial_work, initial_proposals, initial_deallocations) = run_experiences(
+        &mut fixture,
+        &[selected, opposite],
+        &[selected],
+        0,
+        base_namespace + 0x1_000,
+    );
+    let old_ids = variable_ids(&fixture, selected);
+    let initial = experience(
+        &mut fixture,
+        &[selected],
+        &[selected],
+        40,
+        base_namespace + 0x2_000,
+        mirror,
+    );
     let initial_effects = effects(&initial);
     rows.push(row(
         "initial-physical-acquisition",
@@ -295,8 +324,15 @@ fn run_probe() -> Vec<Row> {
         "time and pressure alone created no proposal and revived no old arrow",
     ));
 
-    let first_renewal = experience(&mut fixture, &[0, 1], &[1], 200, 0x73_000, true);
-    let new_ids = variable_ids(&fixture, 1)
+    let first_renewal = experience(
+        &mut fixture,
+        &[selected, opposite],
+        &[opposite],
+        200,
+        base_namespace + 0x3_000,
+        !mirror,
+    );
+    let new_ids = variable_ids(&fixture, opposite)
         .into_iter()
         .filter(|arrow| fixture.substrate.arrow_is_live(*arrow))
         .collect::<Vec<_>>();
@@ -317,17 +353,36 @@ fn run_probe() -> Vec<Row> {
         "fresh arrows arose from current adjacency; dead arrows stayed dead",
     ));
 
-    let (renewal_work, renewal_proposals, renewal_deallocations) =
-        run_experiences(&mut fixture, &[0, 1], &[1], 210, 0x74_000);
-    let restored = experience(&mut fixture, &[1], &[1], 250, 0x75_000, false);
+    let (renewal_work, renewal_proposals, renewal_deallocations) = run_experiences(
+        &mut fixture,
+        &[selected, opposite],
+        &[opposite],
+        210,
+        base_namespace + 0x4_000,
+    );
+    let restored = experience(
+        &mut fixture,
+        &[opposite],
+        &[opposite],
+        250,
+        base_namespace + 0x5_000,
+        mirror,
+    );
     let restored_effects = effects(&restored);
-    let historical = experience(&mut fixture, &[0], &[], 260, 0x76_000, false);
+    let historical = experience(
+        &mut fixture,
+        &[selected],
+        &[],
+        260,
+        base_namespace + 0x6_000,
+        !mirror,
+    );
     let historical_effects = effects(&historical);
     rows.push(row(
         "opposite-return-reacquires-opposite-correspondence",
         restored_effects == 1
             && historical_effects == 0
-            && live_variable_count(&fixture, 1) == 2
+            && live_variable_count(&fixture, opposite) == 2
             && old_ids
                 .iter()
                 .all(|arrow| !fixture.substrate.arrow_is_live(*arrow)),
@@ -339,14 +394,28 @@ fn run_probe() -> Vec<Row> {
         "new physical return, not historical identity, selected the survivor",
     ));
 
-    let mut absent = build(0x80_000, true);
-    let (absent_work, absent_proposals, absent_deallocations) =
-        run_experiences(&mut absent, &[0, 1], &[], 0, 0x81_000);
+    let mut absent = build(base_namespace + 0x8_000, !mirror);
+    let (absent_work, absent_proposals, absent_deallocations) = run_experiences(
+        &mut absent,
+        &[selected, opposite],
+        &[],
+        0,
+        base_namespace + 0x9_000,
+    );
     let final_pressure = absent.substrate.advance_time(100);
-    let absent_run = experience(&mut absent, &[0], &[], 100, 0x82_000, true);
+    let absent_run = experience(
+        &mut absent,
+        &[selected],
+        &[],
+        100,
+        base_namespace + 0xa_000,
+        !mirror,
+    );
     rows.push(row(
         "absent-return-retains-nothing",
-        absent_proposals > 0 && live_variable_count(&absent, 0) <= 2 && effects(&absent_run) == 0,
+        absent_proposals > 0
+            && live_variable_count(&absent, selected) <= 2
+            && effects(&absent_run) == 0,
         effects(&absent_run),
         absent_proposals,
         absent_deallocations + final_pressure.physical_deallocations,
@@ -355,15 +424,27 @@ fn run_probe() -> Vec<Row> {
         "fresh opportunities without return never became outward correspondence",
     ));
 
-    let mut ambiguous = build(0x90_000, false);
-    let (ambiguous_work, ambiguous_proposals, ambiguous_deallocations) =
-        run_experiences(&mut ambiguous, &[0, 1], &[0, 1], 0, 0x91_000);
-    let ambiguous_run = experience(&mut ambiguous, &[0, 1], &[0, 1], 40, 0x92_000, false);
+    let mut ambiguous = build(base_namespace + 0xb_000, mirror);
+    let (ambiguous_work, ambiguous_proposals, ambiguous_deallocations) = run_experiences(
+        &mut ambiguous,
+        &[selected, opposite],
+        &[selected, opposite],
+        0,
+        base_namespace + 0xc_000,
+    );
+    let ambiguous_run = experience(
+        &mut ambiguous,
+        &[selected, opposite],
+        &[selected, opposite],
+        40,
+        base_namespace + 0xd_000,
+        mirror,
+    );
     rows.push(row(
         "ambiguous-return-no-privileged-reacquisition",
         effects(&ambiguous_run) == 0
-            && live_variable_count(&ambiguous, 0) == 2
-            && live_variable_count(&ambiguous, 1) == 2,
+            && live_variable_count(&ambiguous, selected) == 2
+            && live_variable_count(&ambiguous, opposite) == 2,
         effects(&ambiguous_run),
         ambiguous_proposals,
         ambiguous_deallocations,
@@ -376,8 +457,22 @@ fn run_probe() -> Vec<Row> {
     let mut replay_second = fixture.clone();
     replay_first.substrate.advance_time(280);
     replay_second.substrate.advance_time(280);
-    let first = experience(&mut replay_first, &[1], &[1], 280, 0xa0_000, true);
-    let second = experience(&mut replay_second, &[1], &[1], 280, 0xa0_000, true);
+    let first = experience(
+        &mut replay_first,
+        &[opposite],
+        &[opposite],
+        280,
+        base_namespace + 0xe_000,
+        true,
+    );
+    let second = experience(
+        &mut replay_second,
+        &[opposite],
+        &[opposite],
+        280,
+        base_namespace + 0xe_000,
+        true,
+    );
     rows.push(row(
         "complete-state-replay-exact",
         first == second
@@ -393,7 +488,7 @@ fn run_probe() -> Vec<Row> {
     rows
 }
 
-fn write_results(prefix: &Path, rows: &[Row], passed: bool) {
+fn write_results(prefix: &Path, rows: &[Row], passed: bool, stage: &str) {
     let csv_path = prefix.with_extension("csv");
     let md_path = prefix.with_extension("md");
     if let Some(parent) = csv_path.parent() {
@@ -415,7 +510,8 @@ fn write_results(prefix: &Path, rows: &[Row], passed: bool) {
         ));
     }
     let mut md = format!(
-        "# PX0-R generic physical correspondence reproposal PROBE v1\n\nOutcome: **{}**.\n\n",
+        "# PX0-R generic physical correspondence reproposal {} v1\n\nOutcome: **{}**.\n\n",
+        stage,
         if passed { "POSITIVE" } else { "NEGATIVE" }
     );
     md.push_str("| control | pass | effects | proposals | deallocations | arrows | work |\n");
