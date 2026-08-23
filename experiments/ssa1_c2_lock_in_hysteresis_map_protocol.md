@@ -201,7 +201,7 @@ and M6 evidence has no ordinary pressure/decay path
 
 If every premise is established from frozen source and runtime counters, the
 result may classify the state as absorbing for this preregistered ordinary
-counterexperience class, rather than merely “not reversed by 100,000.” It may
+counterexperience class, rather than merely “not reversed by 60,000.” It may
 not generalize to untested consequence structures or environments.
 
 ## Development stages
