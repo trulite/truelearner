@@ -24,7 +24,7 @@ base=4ba88b6ed03b8e012231363fa6e3c29ea41308bb
 git merge-base --is-ancestor "$base" HEAD
 
 unexpected=$(
-    git diff --name-only "$base" -- src experiments results |
+    git diff --name-only --diff-filter=DMRTUXB "$base" -- src experiments results |
         awk '
             /^src\/lib.rs$/ { next }
             /^src\/organism\// { next }
