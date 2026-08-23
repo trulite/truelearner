@@ -1,0 +1,5 @@
+kind,arm,stable,incidental,stable_returns,incidental_returns,stable_devices_used,stable_max_resistance,incidental_final_max_resistance,stable_effects,incidental_effects,incidental_eventually_dead,duplicate_exact,naturally_quiescent,contexts,work,persistent_bytes,passed
+specificity,stable-route-1-direct,1,0,35,6,4,65,1,1,0,true,true,true,35,42223,8880,true
+specificity,stable-route-0-mirrored,0,1,35,6,4,65,1,1,0,true,true,true,35,42225,8880,true
+recurring,recurring-route-0-direct,0,1,24,19,0,0,0,1,1,false,true,true,24,21840,0,true
+recurring,recurring-route-1-mirrored,0,1,19,24,0,0,0,1,1,false,true,true,24,21840,0,true
