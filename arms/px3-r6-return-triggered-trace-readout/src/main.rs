@@ -16,8 +16,7 @@ const R5_CSV: &str = "947257da74420ca4d8a1dc4f49402ddd63bb7ae6d1fe758362c6779365
 const R5_REPORT: &str = "c88dcec19cd18de0723ec927dcaec0829efff1b5c7c4f867b598161b9d61acd1";
 const R5_AUDIT: &str = "49870f078da9b28d222b456ebea54bb72babf017dfdbde76be4e590bf105cbfe";
 const PROTOCOL: &str = "25a30a95c629d3e67665ee70f7f42024f6afff5996e4cc82b83e1511460ea6ce";
-const EXECUTION_PROTOCOL: &str =
-    "73168bcb69e0a8e846289653f08a0678f224a5fce69b3cc4ccfea8a731624bf3";
+const EXECUTION_PROTOCOL: &str = "73168bcb69e0a8e846289653f08a0678f224a5fce69b3cc4ccfea8a731624bf3";
 const SEEDS: [u64; 2] = [3701, 3709];
 const CSV: &str = "results/px3_r6_return_triggered_trace_readout_v1.csv";
 const MD: &str = "results/px3_r6_return_triggered_trace_readout_v1.md";
