@@ -1,0 +1,13 @@
+cell,family,namespace,coupling,resistance,held_out_source,held_out_execution,held_out_boundary,followup_source,followup_execution,followup_boundary,crossings,followup_crossings,background_firings,quiescent,duplicate_exact,work,persistent_bytes_before,persistent_bytes_after,permanent_fingerprint,complete_fingerprint,passed
+M0-ordinary,hardened,0x7c3000000000,2,9,1,1,1,0,0,0,1,0,0,true,true,222,256,384,10635774907652447530,30103015262686616,true
+M1-mirrored,hardened,0x7c3000100000,2,9,1,1,1,0,0,0,1,0,0,true,true,222,256,384,2658922728389098583,16705605825809500457,true
+M2-reversed-allocation,hardened,0x7c3000200000,2,9,1,1,1,0,0,0,1,0,0,true,true,222,256,384,9872967443352449834,14635090710554810328,true
+M3-reversed-insertion-load4,hardened,0x7c3000300000,2,9,1,1,1,0,0,0,1,0,0,true,true,392,448,576,1670699279302715974,12553840580431637960,true
+M4-combined-load12,hardened,0x7c3000400000,2,9,1,1,1,0,0,0,1,0,0,true,true,972,832,960,9315001114387949183,6264406858891297381,true
+M7-post-gap,hardened,0x7c3000500000,2,6,1,1,1,0,0,0,1,0,0,true,true,642,640,768,10867578870986903168,16948316849288399764,true
+M5-novel-locus,hardened,0x7c3000600000,2,8,1,0,0,1,1,1,0,1,0,true,true,262,256,512,10530577952363916904,3996201227627314181,true
+M6-late-return,hardened,0x7c3000700000,1,1,1,0,0,0,0,0,0,0,0,true,true,171,256,896,6915522972344441911,564076967136066688,true
+P-learned-return,compact-control,0x7c3000800000,2,9,1,1,1,0,0,0,1,0,0,true,true,145,208,272,9199684077349963627,2093239085101243920,true
+P-unreturned,compact-control,0x7c3000900000,1,1,1,0,0,0,0,0,0,0,0,true,true,92,208,528,10535076100984284615,2942425704974646565,true
+P-subthreshold,compact-control,0x7c3000a00000,2,9,0,0,0,0,0,0,0,0,0,true,true,124,208,272,9882757453320926539,11577821332144084968,true
+P-absent,compact-control,0x7c3000b00000,2,9,0,0,0,0,0,0,0,0,0,true,true,120,208,272,4671985867563660219,10829254306667352906,true
