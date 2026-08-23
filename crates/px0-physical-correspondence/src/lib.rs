@@ -68,6 +68,7 @@ struct Arrow {
     delay: i64,
     phase: i32,
     coupling: i32,
+    source_generation: u32,
     generation: u32,
     resistance: u32,
     live: bool,
@@ -194,12 +195,14 @@ impl PlasticSubstrate {
         self.require_cell(spec.to);
         assert!(spec.delay >= 0, "delay must not run backward in time");
         let id = ArrowId(self.arrows.len());
+        let source_generation = self.cells[spec.from.0].generation;
         self.arrows.push(Arrow {
             from: spec.from,
             to: spec.to,
             delay: spec.delay,
             phase: spec.phase,
             coupling: spec.coupling,
+            source_generation,
             generation: 1,
             resistance: spec.resistance,
             live: spec.resistance > 0,
@@ -305,7 +308,10 @@ impl PlasticSubstrate {
                 .collect::<Vec<_>>();
             for (arrow_id, arrow) in outgoing {
                 work.arrow_checks += 1;
-                if !arrow.live || arrow.from != source || arrow.generation != source_generation {
+                if !arrow.live
+                    || arrow.from != source
+                    || arrow.source_generation != source_generation
+                {
                     continue;
                 }
                 let from = &self.cells[arrow.from.0];
@@ -473,6 +479,7 @@ impl PlasticSubstrate {
                 delay: i64::from(distance.max(1)),
                 phase: 0,
                 coupling: 1,
+                source_generation: self.cells[source.0].generation,
                 generation,
                 resistance: 1,
                 live: true,
@@ -563,6 +570,7 @@ impl PlasticSubstrate {
             push_i64(&mut bytes, arrow.delay);
             push_i32(&mut bytes, arrow.phase);
             push_i32(&mut bytes, arrow.coupling);
+            push_u32(&mut bytes, arrow.source_generation);
             push_u32(&mut bytes, arrow.generation);
             push_u32(&mut bytes, arrow.resistance);
             bytes.push(u8::from(arrow.live));
