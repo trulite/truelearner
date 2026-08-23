@@ -13,7 +13,7 @@ Status: **IMPLEMENTED AND FROZEN; EVIDENCE UNSPENT**.
 - `arms/cj1-pa-trace-amplitude/Cargo.toml` SHA-256:
   `13ff34306efa75ce3c400d44050149a6d18db87ad61425441eafb284e1b4bd12`;
 - `arms/cj1-pa-trace-amplitude/src/main.rs` SHA-256:
-  `a371d8b16c0b96bae419d3d9182f730dd0de7264a42c2bc4771c94191d2cc57c`.
+  `80505822b6ba4a53b6b617c6026c13d1c0735a8dac89cae762a292726cca4a5e`.
 
 The arm directly imports the authoritative PX0 crate. It has no build script,
 generated substrate, wrapper or alternate law. At runtime it also refuses drift
@@ -48,5 +48,7 @@ scheduled input substitutes for a firing or traversal.
 
 The executable exposes one command and four create-new result/staging paths. It
 contains no amplitude clamp, identity/count operation, contributor storage,
-candidate, MICRO/GATE, definitive, authority, PX3 or PX-C surface. No evidence
-or Rust command ran while this audit was prepared.
+candidate, MICRO/GATE, definitive, authority, PX3 or PX-C surface. The first
+E2B preflight refused on formatting before compilation; this audit incorporates
+only that exact formatter diff and supersedes the unexecuted `fabf0f0`
+implementation snapshot. No evidence ran while this audit was prepared.

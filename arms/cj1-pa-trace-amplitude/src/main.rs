@@ -17,10 +17,8 @@ const PX1_DEFINITIVE_CSV_SHA256: &str =
     "6613ff0a96bb3a60fbe7afeb92cd64edced3c6df5dcc04fe47518db158dd88f6";
 const PX1_RESULT_AUDIT_SHA256: &str =
     "fa4a516fcb6977a45e547ca1bb3b7db3b427c05b381fb60d2700e92fa2ae7c70";
-const PX1_HANDOFF_SHA256: &str =
-    "ab4142a24f6ca1095c1c1364f391253752808382ac6ee70ef9d49eac722df28c";
-const PROTOCOL_SHA256: &str =
-    "c5827a66f693a2bd6a3558a2fbcece5b38ae1f1c5a66eedcc25bb97d37853abd";
+const PX1_HANDOFF_SHA256: &str = "ab4142a24f6ca1095c1c1364f391253752808382ac6ee70ef9d49eac722df28c";
+const PROTOCOL_SHA256: &str = "c5827a66f693a2bd6a3558a2fbcece5b38ae1f1c5a66eedcc25bb97d37853abd";
 const SEED: u64 = 2501;
 const CSV_PATH: &str = "results/cj1_pa_participation_amplitude_geometry_v1.csv";
 const MD_PATH: &str = "results/cj1_pa_participation_amplitude_geometry_v1.md";
@@ -35,12 +33,30 @@ struct Scenario {
 
 impl Scenario {
     const ALL: [Self; 6] = [
-        Self { name: "a1", couplings: [1, 0] },
-        Self { name: "a2", couplings: [2, 0] },
-        Self { name: "a4", couplings: [4, 0] },
-        Self { name: "a1-b1", couplings: [1, 1] },
-        Self { name: "a2-b1", couplings: [2, 1] },
-        Self { name: "a4-b4", couplings: [4, 4] },
+        Self {
+            name: "a1",
+            couplings: [1, 0],
+        },
+        Self {
+            name: "a2",
+            couplings: [2, 0],
+        },
+        Self {
+            name: "a4",
+            couplings: [4, 0],
+        },
+        Self {
+            name: "a1-b1",
+            couplings: [1, 1],
+        },
+        Self {
+            name: "a2-b1",
+            couplings: [2, 1],
+        },
+        Self {
+            name: "a4-b4",
+            couplings: [4, 4],
+        },
     ];
 
     fn active(self) -> [bool; 2] {
@@ -123,13 +139,22 @@ fn source_audit() {
             "crates/px0-physical-correspondence/examples/px1_pt1_attributed_margin_stability.rs",
             PX1_DEFINITIVE_SOURCE_SHA256,
         ),
-        ("results/px1_physical_boundary_roles_definitive.csv", PX1_DEFINITIVE_CSV_SHA256),
+        (
+            "results/px1_physical_boundary_roles_definitive.csv",
+            PX1_DEFINITIVE_CSV_SHA256,
+        ),
         (
             "experiments/px1_physical_boundary_roles_definitive_result_audit.md",
             PX1_RESULT_AUDIT_SHA256,
         ),
-        ("experiments/px1_physical_boundary_roles_authority_handoff.md", PX1_HANDOFF_SHA256),
-        ("experiments/cj1_pa_participation_amplitude_geometry_protocol_v1.md", PROTOCOL_SHA256),
+        (
+            "experiments/px1_physical_boundary_roles_authority_handoff.md",
+            PX1_HANDOFF_SHA256,
+        ),
+        (
+            "experiments/cj1_pa_participation_amplitude_geometry_protocol_v1.md",
+            PROTOCOL_SHA256,
+        ),
     ];
     for (path, expected) in frozen {
         assert_eq!(sha256(path), expected, "frozen input hash drift: {path}");
@@ -315,11 +340,24 @@ fn pair<T>(mut make: impl FnMut(usize) -> T) -> [T; 2] {
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
-    CellSpec { physical_id, position, region, threshold, resistance: 100 }
+    CellSpec {
+        physical_id,
+        position,
+        region,
+        threshold,
+        resistance: 100,
+    }
 }
 
 fn arrow(from: CellId, to: CellId, delay: i64, coupling: i32) -> ArrowSpec {
-    ArrowSpec { from, to, delay, phase: 0, coupling, resistance: 100 }
+    ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling,
+        resistance: 100,
+    }
 }
 
 fn source_physical(namespace: u64, side: usize) -> u64 {
@@ -381,7 +419,10 @@ fn crossing_impulse(run: &Execution, from: u64, to: u64) -> i32 {
 
 fn require_absent(paths: &[&str]) {
     for path in paths {
-        assert!(!Path::new(path).exists(), "artifact path must be absent: {path}");
+        assert!(
+            !Path::new(path).exists(),
+            "artifact path must be absent: {path}"
+        );
     }
 }
 
@@ -424,17 +465,19 @@ fn csv(rows: &[Row]) -> String {
 }
 
 fn report(rows: &[Row]) -> String {
-    let singles = rows.iter().filter(|row| row.couplings[1] == 0).collect::<Vec<_>>();
-    let pairs = rows.iter().filter(|row| row.couplings[1] > 0).collect::<Vec<_>>();
+    let singles = rows
+        .iter()
+        .filter(|row| row.couplings[1] == 0)
+        .collect::<Vec<_>>();
+    let pairs = rows
+        .iter()
+        .filter(|row| row.couplings[1] > 0)
+        .collect::<Vec<_>>();
     let amplitude_invariant = singles.iter().all(|row| {
-        row.outlet_firings == [1, 0]
-            && row.trace_firings == [1, 0]
-            && row.conjunction_firings == 0
+        row.outlet_firings == [1, 0] && row.trace_firings == [1, 0] && row.conjunction_firings == 0
     });
     let distinct_invariant = pairs.iter().all(|row| {
-        row.raw_traversals == [1, 1]
-            && row.trace_firings == [1, 1]
-            && row.conjunction_firings == 1
+        row.raw_traversals == [1, 1] && row.trace_firings == [1, 1] && row.conjunction_firings == 1
     });
     let all_passed = rows.iter().all(|row| row.passed);
     format!(
@@ -458,7 +501,10 @@ fn report(rows: &[Row]) -> String {
 }
 
 fn triples(rows: &[&Row], value: impl Fn(&Row) -> usize) -> String {
-    rows.iter().map(|row| value(row).to_string()).collect::<Vec<_>>().join("|")
+    rows.iter()
+        .map(|row| value(row).to_string())
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn pair_i32(values: [i32; 2]) -> String {
@@ -481,7 +527,10 @@ fn publish(staging: &str, destination: &str, contents: &str) {
 }
 
 fn sha256(path: &str) -> String {
-    let output = Command::new("sha256sum").arg(path).output().expect("run sha256sum");
+    let output = Command::new("sha256sum")
+        .arg(path)
+        .output()
+        .expect("run sha256sum");
     assert!(output.status.success(), "hash {path}");
     String::from_utf8(output.stdout)
         .expect("utf8 hash")
@@ -499,14 +548,32 @@ mod tests {
     #[test]
     fn six_geometry_rows_are_unique() {
         assert_eq!(Scenario::ALL.len(), 6);
-        let names = Scenario::ALL.iter().map(|row| row.name).collect::<BTreeSet<_>>();
+        let names = Scenario::ALL
+            .iter()
+            .map(|row| row.name)
+            .collect::<BTreeSet<_>>();
         assert_eq!(names.len(), 6);
     }
 
     #[test]
     fn frozen_amplitude_partition_is_exact() {
-        assert_eq!(Scenario::ALL.iter().filter(|row| row.active_count() == 1).count(), 3);
-        assert_eq!(Scenario::ALL.iter().filter(|row| row.active_count() == 2).count(), 3);
-        assert_eq!(Scenario::ALL.map(|row| row.expected_conjunction()), [0, 0, 0, 1, 1, 1]);
+        assert_eq!(
+            Scenario::ALL
+                .iter()
+                .filter(|row| row.active_count() == 1)
+                .count(),
+            3
+        );
+        assert_eq!(
+            Scenario::ALL
+                .iter()
+                .filter(|row| row.active_count() == 2)
+                .count(),
+            3
+        );
+        assert_eq!(
+            Scenario::ALL.map(|row| row.expected_conjunction()),
+            [0, 0, 0, 1, 1, 1]
+        );
     }
 }
