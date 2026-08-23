@@ -39,10 +39,19 @@ const MICRO_HANDOFF_SHA256: &str =
     "aa433961c26a86783bdb372a23b2d0da982e14180f2fbeb51d2de5a407cce6c7";
 const GATE_PROTOCOL_SHA256: &str =
     "fd0235ef42b54e4cc5a7e0f2673d57249f8b60b4bb2ca7ddc35396c162e75917";
-const RESULT_CSV: &str = "results/px2_physical_causal_direction_trace_sufficiency_gate_v1.csv";
-const RESULT_MD: &str = "results/px2_physical_causal_direction_trace_sufficiency_gate_v1.md";
+const GATE_SOURCE_SHA256: &str = "8cdd72cff084c6a85d65629fd6504f5ca96f14d281a7a5ac518fd9c4754579ec";
+const GATE_CSV_SHA256: &str = "ef63c70d3ce980d71cbe1e085174b654bd4dcc4505d3e308e2ed59a34abeaec5";
+const GATE_NEGATIVE_AUDIT_SHA256: &str =
+    "2e04bb306d6426181461357d4caeb8a10b9a8c7499ac2bac65f2f04efe6ac943";
+const GATE_NEGATIVE_HANDOFF_SHA256: &str =
+    "98865d55579e5ecdbe9981415227601990834c3187720a72053f3fc2f070a814";
+const H1_PROTOCOL_SHA256: &str = "e16afd6adae4477900bb457427f4335431628f6e4c42c1ab054c69081c1b217b";
+const H1_SUMMARY_CSV: &str = "results/px2_h1_matched_schedule_hysteresis_summary_v1.csv";
+const H1_TRAJECTORY_CSV: &str = "results/px2_h1_matched_schedule_hysteresis_trajectory_v1.csv";
+const H1_REPORT_MD: &str = "results/px2_h1_matched_schedule_hysteresis_v1.md";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 enum Scenario {
     Forward,
     Reverse,
@@ -57,6 +66,7 @@ enum Scenario {
     LifecycleReverseToForward,
 }
 
+#[allow(dead_code)]
 impl Scenario {
     const ALL: [Self; 11] = [
         Self::Forward,
@@ -328,42 +338,136 @@ struct TrainingMetrics {
     work: WorkLedger,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ScheduleKind {
+    ForwardBlock,
+    ReverseBlock,
+    ForwardAlternating,
+    ReverseAlternating,
+    Rotation(usize),
+}
+
+impl ScheduleKind {
+    const ALL: [Self; 10] = [
+        Self::ForwardBlock,
+        Self::ReverseBlock,
+        Self::ForwardAlternating,
+        Self::ReverseAlternating,
+        Self::Rotation(0),
+        Self::Rotation(1),
+        Self::Rotation(2),
+        Self::Rotation(3),
+        Self::Rotation(4),
+        Self::Rotation(5),
+    ];
+
+    fn name(self) -> String {
+        match self {
+            Self::ForwardBlock => "forward-block".to_string(),
+            Self::ReverseBlock => "reverse-block".to_string(),
+            Self::ForwardAlternating => "forward-alternating".to_string(),
+            Self::ReverseAlternating => "reverse-alternating".to_string(),
+            Self::Rotation(value) => format!("rotation-{value}"),
+        }
+    }
+
+    fn schedule(self) -> Vec<usize> {
+        match self {
+            Self::ForwardBlock => [vec![0; 12], vec![1; 12]].concat(),
+            Self::ReverseBlock => [vec![1; 12], vec![0; 12]].concat(),
+            Self::ForwardAlternating => (0..EXPERIENCES).map(|value| value % 2).collect(),
+            Self::ReverseAlternating => (0..EXPERIENCES).map(|value| 1 - value % 2).collect(),
+            Self::Rotation(rotation) => {
+                let base = [0usize, 0, 1, 0, 1, 1];
+                (0..EXPERIENCES)
+                    .map(|value| base[(value + rotation) % base.len()])
+                    .collect()
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct H1Step {
+    experience: usize,
+    participant: usize,
+    continuation_firings: [usize; SIDES],
+    trace_firings: [usize; SIDES],
+    local_returns: [usize; SIDES],
+    live_before: [bool; SIDES],
+    live_after: [bool; SIDES],
+    resistance_before: [u32; SIDES],
+    resistance_after: [u32; SIDES],
+    return_gain: [u32; SIDES],
+    pressure_spent: [u32; SIDES],
+    naturally_quiescent: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct H1Metrics {
+    schedule: Vec<usize>,
+    steps: Vec<H1Step>,
+    first_mature: [i32; SIDES],
+    first_deallocation: [i32; SIDES],
+    final_live: [usize; SIDES],
+    final_resistance: [u32; SIDES],
+    heldout_effects: [usize; SIDES],
+    postgap_effects: [usize; SIDES],
+    source_refiring: usize,
+    naturally_quiescent: bool,
+    work: WorkLedger,
+    fingerprint: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct H1Row {
+    stratum: &'static str,
+    schedule_name: String,
+    metrics: H1Metrics,
+    duplicate_exact: bool,
+}
+
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args != ["--gate"] {
-        eprintln!("PX2 trace-sufficiency development requires --gate");
+    if args != ["--h1-schedule-diagnostic"] {
+        eprintln!("PX2-H1 development requires --h1-schedule-diagnostic");
         std::process::exit(2);
     }
     assert!(
         source_audit(),
         "authoritative PX0/PX1 inputs must remain exact"
     );
-    assert!(!Path::new(RESULT_CSV).exists(), "PX2 GATE CSV exists");
-    assert!(!Path::new(RESULT_MD).exists(), "PX2 GATE report exists");
-    eprintln!("PX2_PHYSICAL_CAUSAL_DIRECTION_TRACE_SUFFICIENCY_GATE_V1_EVIDENCE");
+    for path in [H1_SUMMARY_CSV, H1_TRAJECTORY_CSV, H1_REPORT_MD] {
+        assert!(!Path::new(path).exists(), "PX2-H1 result exists");
+    }
+    eprintln!("PX2_H1_MATCHED_SCHEDULE_HYSTERESIS_DIAGNOSTIC_V1_EVIDENCE");
 
     let mut rows = Vec::new();
     for (stratum_ordinal, stratum) in STRATA.into_iter().enumerate() {
-        for (scenario_ordinal, scenario) in Scenario::ALL.into_iter().enumerate() {
-            let namespace = 0x1_4200_0000
+        let diagnostic_stratum = Stratum {
+            distractor_load: 0,
+            parallel_paths: 1,
+            ..stratum
+        };
+        for (schedule_ordinal, schedule) in ScheduleKind::ALL.into_iter().enumerate() {
+            let namespace = 0x2_4200_0000
                 + stratum_ordinal as u64 * 0x1000_0000
-                + scenario_ordinal as u64 * 0x0100_0000;
-            let first = run_world(namespace, scenario, stratum);
-            let second = run_world(namespace, scenario, stratum);
+                + schedule_ordinal as u64 * 0x0100_0000;
+            let first = run_h1(namespace, diagnostic_stratum, schedule);
+            let second = run_h1(namespace, diagnostic_stratum, schedule);
             let duplicate_exact = first == second;
-            let passed = gate_passed(scenario, stratum, &first) && duplicate_exact;
-            rows.push(ResultRow {
-                stratum: stratum.name,
-                scenario,
+            rows.push(H1Row {
+                stratum: diagnostic_stratum.name,
+                schedule_name: schedule.name(),
                 metrics: first,
                 duplicate_exact,
-                passed,
             });
         }
     }
 
-    write_new(RESULT_CSV, &csv(&rows));
-    write_new(RESULT_MD, &markdown(&rows));
+    write_new(H1_SUMMARY_CSV, &h1_summary_csv(&rows));
+    write_new(H1_TRAJECTORY_CSV, &h1_trajectory_csv(&rows));
+    write_new(H1_REPORT_MD, &h1_markdown(&rows));
 }
 
 fn source_audit() -> bool {
@@ -406,8 +510,157 @@ fn source_audit() -> bool {
         ) == MICRO_HANDOFF_SHA256
         && sha256("experiments/px2_physical_causal_direction_trace_sufficiency_gate_protocol.md")
             == GATE_PROTOCOL_SHA256
+        && git_sha256(
+            "px2-physical-causal-direction-trace-sufficiency-gate-implementation-v1",
+            "crates/px0-physical-correspondence/examples/px2_physical_causal_direction.rs",
+        ) == GATE_SOURCE_SHA256
+        && sha256("results/px2_physical_causal_direction_trace_sufficiency_gate_v1.csv")
+            == GATE_CSV_SHA256
+        && sha256(
+            "experiments/px2_physical_causal_direction_trace_sufficiency_gate_v1_negative_audit.md",
+        ) == GATE_NEGATIVE_AUDIT_SHA256
+        && sha256(
+            "experiments/px2_physical_causal_direction_trace_sufficiency_gate_v1_negative_handoff.md",
+        ) == GATE_NEGATIVE_HANDOFF_SHA256
+        && sha256("experiments/px2_h1_matched_schedule_hysteresis_diagnostic_protocol.md")
+            == H1_PROTOCOL_SHA256
 }
 
+fn run_h1(namespace: u64, stratum: Stratum, schedule_kind: ScheduleKind) -> H1Metrics {
+    let mut world = build_world(namespace, true, stratum);
+    let order = arrival_order(stratum);
+    let (_, mut work, acquisition_quiescent) =
+        acquire_correspondence(&mut world, 0, namespace + 0x10_000, order);
+    let directional = add_directional_candidates(&mut world, 1);
+    let schedule = schedule_kind.schedule();
+    assert_eq!(schedule.iter().filter(|side| **side == 0).count(), 12);
+    assert_eq!(schedule.iter().filter(|side| **side == 1).count(), 12);
+    let mut steps = Vec::new();
+    let mut first_mature = [-1i32; SIDES];
+    let mut first_deallocation = [-1i32; SIDES];
+    let mut source_refiring = 0usize;
+    let mut naturally_quiescent = acquisition_quiescent;
+
+    for (experience, participant) in schedule.iter().copied().enumerate() {
+        let tick = stratum.first_experience + experience as i64 * EXPERIENCE_SPACING;
+        let live_before =
+            std::array::from_fn(|side| world.substrate.arrow_is_live(directional[side][0]));
+        let resistance_before = std::array::from_fn(|side| {
+            if live_before[side] {
+                world.substrate.arrow_resistance(directional[side][0])
+            } else {
+                0
+            }
+        });
+        for side in order {
+            enter_many(
+                &mut world.substrate,
+                world.arrivals[side],
+                tick,
+                SOURCE_THRESHOLD,
+                namespace + 0x20_000 + experience as u64 * 0x1_000 + side as u64 * 0x100,
+            );
+            if side == participant {
+                enter_many(
+                    &mut world.substrate,
+                    world.participation_drivers[side],
+                    tick,
+                    1,
+                    namespace + 0x120_000 + experience as u64 * 0x1_000 + side as u64 * 0x100,
+                );
+            } else {
+                enter_many(
+                    &mut world.substrate,
+                    world.independent_drivers[side],
+                    tick,
+                    1,
+                    namespace + 0x220_000 + experience as u64 * 0x1_000 + side as u64 * 0x100,
+                );
+            }
+        }
+        let run = world.substrate.propagate();
+        let continuation_firings =
+            std::array::from_fn(|side| firings_at(&run, continuation_physical(namespace, side)));
+        let trace_firings =
+            std::array::from_fn(|side| firings_at(&run, trace_physical(namespace, side)));
+        let local_returns = std::array::from_fn(|side| {
+            arrivals_at(&run, continuation_physical(namespace, side))
+                .saturating_sub(1 + usize::from(side == participant))
+        });
+        let live_after =
+            std::array::from_fn(|side| world.substrate.arrow_is_live(directional[side][0]));
+        let resistance_after = std::array::from_fn(|side| {
+            if live_after[side] {
+                world.substrate.arrow_resistance(directional[side][0])
+            } else {
+                0
+            }
+        });
+        let return_gain = std::array::from_fn(|side| {
+            if live_before[side] && continuation_firings[side] > 0 && local_returns[side] > 0 {
+                3
+            } else {
+                0
+            }
+        });
+        let pressure_spent = std::array::from_fn(|side| {
+            resistance_before[side]
+                .saturating_add(return_gain[side])
+                .saturating_sub(resistance_after[side])
+        });
+        for side in 0..SIDES {
+            if first_mature[side] < 0 && resistance_after[side] > 3 {
+                first_mature[side] = experience as i32;
+            }
+            if first_deallocation[side] < 0 && live_before[side] && !live_after[side] {
+                first_deallocation[side] = experience as i32;
+            }
+            source_refiring += firings_at(&run, arrival_physical(namespace, side));
+        }
+        source_refiring = source_refiring.saturating_sub(SIDES);
+        add_work(&mut work, &run.work);
+        naturally_quiescent &= run.naturally_quiescent;
+        steps.push(H1Step {
+            experience,
+            participant,
+            continuation_firings,
+            trace_firings,
+            local_returns,
+            live_before,
+            live_after,
+            resistance_before,
+            resistance_after,
+            return_gain,
+            pressure_spent,
+            naturally_quiescent: run.naturally_quiescent,
+        });
+    }
+
+    let last_tick = stratum.first_experience + (EXPERIENCES as i64 - 1) * EXPERIENCE_SPACING;
+    let heldout = measure_execution(&world, last_tick + stratum.heldout_gap, order);
+    let postgap = measure_execution(&world, last_tick + stratum.postgap_gap, order);
+    source_refiring += heldout.extra_arrival_firings + postgap.extra_arrival_firings;
+    naturally_quiescent &= heldout.quiescent && postgap.quiescent;
+
+    H1Metrics {
+        schedule,
+        steps,
+        first_mature,
+        first_deallocation,
+        final_live: std::array::from_fn(|side| live_count(&world.substrate, &directional[side])),
+        final_resistance: std::array::from_fn(|side| {
+            max_resistance(&world.substrate, &directional[side])
+        }),
+        heldout_effects: heldout.effects,
+        postgap_effects: postgap.effects,
+        source_refiring,
+        naturally_quiescent,
+        work,
+        fingerprint: world.substrate.complete_fingerprint(),
+    }
+}
+
+#[allow(dead_code)]
 fn run_world(namespace: u64, scenario: Scenario, stratum: Stratum) -> Metrics {
     if scenario.is_lifecycle() {
         return run_lifecycle(namespace, scenario, stratum);
@@ -968,6 +1221,7 @@ fn measure_execution(world: &World, tick: i64, arrival_order: [usize; SIDES]) ->
     }
 }
 
+#[allow(dead_code)]
 fn gate_passed(scenario: Scenario, stratum: Stratum, metrics: &Metrics) -> bool {
     let effective = scenario.lifecycle_reacquisition().unwrap_or(scenario);
     let participants = std::array::from_fn(|side| {
@@ -1281,6 +1535,162 @@ fn pair_usize(values: [usize; SIDES]) -> String {
     format!("{}|{}", values[0], values[1])
 }
 
+fn pair_bool(values: [bool; SIDES]) -> String {
+    format!("{}|{}", values[0], values[1])
+}
+
+fn h1_winner(effects: [usize; SIDES]) -> i32 {
+    match effects {
+        [1, 0] => 0,
+        [0, 1] => 1,
+        [1, 1] => 2,
+        _ => -1,
+    }
+}
+
+fn h1_classification(rows: &[H1Row]) -> &'static str {
+    let controlled = rows.iter().all(|row| {
+        row.duplicate_exact
+            && row.metrics.source_refiring == 0
+            && row.metrics.naturally_quiescent
+            && row
+                .metrics
+                .schedule
+                .iter()
+                .filter(|side| **side == 0)
+                .count()
+                == 12
+            && row
+                .metrics
+                .schedule
+                .iter()
+                .filter(|side| **side == 1)
+                .count()
+                == 12
+    });
+    let protection_first = rows.iter().all(|row| {
+        let first = row.metrics.schedule[0];
+        let other = 1 - first;
+        h1_winner(row.metrics.heldout_effects) == first as i32
+            && row.metrics.first_mature[first] >= 0
+            && row.metrics.first_deallocation[other] >= 0
+            && row.metrics.first_mature[first] < row.metrics.first_deallocation[other]
+    });
+    let symmetric = rows.iter().all(|row| row.metrics.heldout_effects == [1, 1]);
+    if controlled && protection_first {
+        "A — protection-first hysteresis"
+    } else if controlled && symmetric {
+        "B — matched histories remain symmetric"
+    } else if controlled {
+        "C — ordering matters but protection-first is not sufficient"
+    } else {
+        "D — no stable classification"
+    }
+}
+
+fn h1_summary_csv(rows: &[H1Row]) -> String {
+    let mut output = String::from(
+        "stratum,schedule,schedule_first,forward_count,reverse_count,first_mature,first_deallocation,final_live,final_resistance,heldout_effects,postgap_effects,source_refiring,quiescent,work,fingerprint,duplicate_exact\n",
+    );
+    for row in rows {
+        let value = &row.metrics;
+        let fields = [
+            row.stratum.to_string(),
+            row.schedule_name.clone(),
+            value.schedule[0].to_string(),
+            value
+                .schedule
+                .iter()
+                .filter(|side| **side == 0)
+                .count()
+                .to_string(),
+            value
+                .schedule
+                .iter()
+                .filter(|side| **side == 1)
+                .count()
+                .to_string(),
+            format!("{}|{}", value.first_mature[0], value.first_mature[1]),
+            format!(
+                "{}|{}",
+                value.first_deallocation[0], value.first_deallocation[1]
+            ),
+            pair_usize(value.final_live),
+            pair_u32(value.final_resistance),
+            pair_usize(value.heldout_effects),
+            pair_usize(value.postgap_effects),
+            value.source_refiring.to_string(),
+            value.naturally_quiescent.to_string(),
+            value.work.total().to_string(),
+            value.fingerprint.to_string(),
+            row.duplicate_exact.to_string(),
+        ];
+        output.push_str(&fields.join(","));
+        output.push('\n');
+    }
+    output
+}
+
+fn h1_trajectory_csv(rows: &[H1Row]) -> String {
+    let mut output = String::from(
+        "stratum,schedule,experience,participant,continuation_firings,trace_firings,local_returns,live_before,live_after,resistance_before,resistance_after,return_gain,pressure_spent,quiescent\n",
+    );
+    for row in rows {
+        for step in &row.metrics.steps {
+            let fields = [
+                row.stratum.to_string(),
+                row.schedule_name.clone(),
+                step.experience.to_string(),
+                step.participant.to_string(),
+                pair_usize(step.continuation_firings),
+                pair_usize(step.trace_firings),
+                pair_usize(step.local_returns),
+                pair_bool(step.live_before),
+                pair_bool(step.live_after),
+                pair_u32(step.resistance_before),
+                pair_u32(step.resistance_after),
+                pair_u32(step.return_gain),
+                pair_u32(step.pressure_spent),
+                step.naturally_quiescent.to_string(),
+            ];
+            output.push_str(&fields.join(","));
+            output.push('\n');
+        }
+    }
+    output
+}
+
+fn h1_markdown(rows: &[H1Row]) -> String {
+    let mut output = format!(
+        "# PX2-H1 matched-schedule hysteresis diagnostic v1\n\nClassification: **{}**.\n\nCells: `{}`; duplicate-exact: `{}`.\n\n| stratum | schedule | first | first mature | first deallocation | final resistance | held-out | post-gap | replay |\n|---|---|---:|---:|---:|---:|---:|---:|---:|\n",
+        h1_classification(rows),
+        rows.len(),
+        rows.iter().filter(|row| row.duplicate_exact).count(),
+    );
+    for row in rows {
+        let value = &row.metrics;
+        output.push_str(&format!(
+            "| {} | {} | {} | `{}|{}` | `{}|{}` | `{}` | `{}` | `{}` | {} |\n",
+            row.stratum,
+            row.schedule_name,
+            value.schedule[0],
+            value.first_mature[0],
+            value.first_mature[1],
+            value.first_deallocation[0],
+            value.first_deallocation[1],
+            pair_u32(value.final_resistance),
+            pair_usize(value.heldout_effects),
+            pair_usize(value.postgap_effects),
+            row.duplicate_exact,
+        ));
+    }
+    output.push_str(
+        "\nThe substrate law is unchanged. This diagnostic does not repair GATE v1, advance PX2, or unblock PX3.\n",
+    );
+    output
+}
+
+#[allow(dead_code)]
 fn csv(rows: &[ResultRow]) -> String {
     let mut output = String::from(
         "stratum,scenario,correspondence_resistance,directional_live_paths,directional_min_resistance,directional_max_resistance,training_continuation_firings,training_consequence_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_effects,training_distractor_firings,training_extra_arrival_firings,heldout_continuation_firings,heldout_consequence_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_extra_arrival_firings,postgap_extra_arrival_firings,training_quiescent,heldout_quiescent,postgap_quiescent,lifecycle_first_effects,lifecycle_first_extra_arrival_firings,lifecycle_first_quiescent,lifecycle_old_direction_live,lifecycle_old_direction_stale,lifecycle_old_correspondence_live,lifecycle_old_correspondence_stale,lifecycle_stale_effects,lifecycle_stale_extra_arrival_firings,lifecycle_stale_quiescent,lifecycle_fresh_correspondence,lifecycle_fresh_direction_ids,work,fingerprint,duplicate_exact,passed\n",
@@ -1337,6 +1747,7 @@ fn csv(rows: &[ResultRow]) -> String {
     output
 }
 
+#[allow(dead_code)]
 fn markdown(rows: &[ResultRow]) -> String {
     let passed = rows.iter().all(|row| row.passed);
     let mut output = format!(
