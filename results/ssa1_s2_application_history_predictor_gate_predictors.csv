@@ -1,0 +1,11 @@
+stage,predictor,discovery_total,discovery_predicted,discovery_correct,discovery_accuracy_bp,discovery_coverage_bp,heldout_total,heldout_predicted,heldout_correct,heldout_accuracy_bp,heldout_coverage_bp,minimum_cell_accuracy_bp,latest_available_episode,qualifies
+GATE,P0-ratio-majority,576,432,198,3437,7500,576,432,228,3958,7500,3958,0,false
+GATE,P1-first-application,576,576,144,2500,10000,576,576,126,2187,10000,2187,1,false
+GATE,P2-first-4-balance,576,510,78,1354,8854,576,546,96,1666,9479,1666,12115,false
+GATE,P3-first-8-balance,576,450,108,1875,7812,576,480,120,2083,8333,2083,15490,false
+GATE,P4-first-16-balance,576,420,150,2604,7291,576,462,246,4270,8020,4270,17997,false
+GATE,P5-gap-before-opposition,576,432,0,0,7500,576,468,18,312,8125,312,15488,false
+GATE,P6-longest-run-first-90,576,372,222,3854,6458,576,426,294,5104,7395,5104,16498,false
+GATE,P7-gap-after-episode-90,576,576,174,3020,10000,576,576,162,2812,10000,2812,90,false
+GATE,P8-structural-commitment,576,576,576,10000,10000,576,576,576,10000,10000,10000,18000,true
+GATE,P9-composite-tuple,576,432,432,7500,7500,576,450,450,7812,7812,7812,17941,false
