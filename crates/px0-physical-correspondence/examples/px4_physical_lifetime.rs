@@ -20,6 +20,8 @@ const PX2_MD_SHA256: &str = "eef9c336baea6aa1e5c2debde2e1286b2839759c55fd5fc008c
 const PX2_AUDIT_SHA256: &str = "7076aca03014d19040020b6bfb126e92f7d25dcac3df9cdab92de7dd7849c6fe";
 const PX2_HANDOFF_SHA256: &str = "98647ab1563593e18e345cd7e5a71c4991d18b397dfe2dec71a4756106d96509";
 const PROTOCOL_SHA256: &str = "fd152ef5c73c071e68fe41bb0e1b38707b00a43b8c2447ee647e847624876bb5";
+const PROBE_V2_PROTOCOL_SHA256: &str =
+    "fb0e67c8c8e1e37789a4f51e081df975bcbb738856bc26f5acd866ade5490e98";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Stage {
@@ -48,7 +50,7 @@ impl Stage {
 
     fn base(self) -> u64 {
         match self {
-            Self::Probe => 0x6_4400_0000,
+            Self::Probe => 0x6_8400_0000,
             Self::Micro => 0x6_5400_0000,
             Self::Gate => 0x6_7400_0000,
         }
@@ -72,10 +74,10 @@ impl Stage {
     fn paths(self) -> (&'static str, &'static str, &'static str, &'static str) {
         match self {
             Self::Probe => (
-                "results/px4_physical_lifetime_probe_v1.csv",
-                "results/px4_physical_lifetime_probe_v1.md",
-                "results/.px4_physical_lifetime_probe_v1.csv.staging",
-                "results/.px4_physical_lifetime_probe_v1.md.staging",
+                "results/px4_physical_lifetime_probe_v2.csv",
+                "results/px4_physical_lifetime_probe_v2.md",
+                "results/.px4_physical_lifetime_probe_v2.csv.staging",
+                "results/.px4_physical_lifetime_probe_v2.md.staging",
             ),
             Self::Micro => (
                 "results/px4_physical_lifetime_micro_v1.csv",
@@ -377,8 +379,10 @@ fn run_use_case(
     let (correspondence, mut work, mut quiescent) =
         acquire_correspondence(&mut world, layout.first_tick, namespace + 0x10_000, order);
     remember(&mut world, &correspondence);
-    let candidates = add_candidates(&mut world);
     let start = layout.first_tick + ACQUISITION_EXPERIENCES as i64 * 16 + 18;
+    let opportunity_work = world.substrate.advance_time(start);
+    add_work(&mut work, &opportunity_work);
+    let candidates = add_candidates(&mut world);
     let training = train(
         &mut world,
         [active == 0, active == 1],
@@ -443,8 +447,10 @@ fn run_disuse(namespace: u64, layout: Layout) -> PhysicalOutcome {
     let (correspondence, mut work, mut quiescent) =
         acquire_correspondence(&mut world, layout.first_tick, namespace + 0x10_000, order);
     remember(&mut world, &correspondence);
-    let candidates = add_candidates(&mut world);
     let start = layout.first_tick + ACQUISITION_EXPERIENCES as i64 * 16 + 18;
+    let opportunity_work = world.substrate.advance_time(start);
+    add_work(&mut work, &opportunity_work);
+    let candidates = add_candidates(&mut world);
     let training = train(
         &mut world,
         [true, false],
@@ -516,8 +522,10 @@ fn run_competition(
     let (correspondence, mut work, mut quiescent) =
         acquire_correspondence(&mut world, layout.first_tick, namespace + 0x10_000, order);
     remember(&mut world, &correspondence);
-    let old_candidates = add_candidates(&mut world);
     let first_start = layout.first_tick + ACQUISITION_EXPERIENCES as i64 * 16 + 18;
+    let opportunity_work = world.substrate.advance_time(first_start);
+    add_work(&mut work, &opportunity_work);
+    let old_candidates = add_candidates(&mut world);
     let first_training = train(
         &mut world,
         [old == 0, old == 1],
@@ -534,6 +542,9 @@ fn run_competition(
     let trained_resistance = candidate_resistance(&world, &old_candidates);
     let trained_live = candidate_live(&world, &old_candidates);
     let trained_generation = candidate_generation(&world, &old_candidates);
+    let second_start = first_last + 18;
+    let opportunity_work = world.substrate.advance_time(second_start);
+    add_work(&mut work, &opportunity_work);
     let contemporary_arrow = world.substrate.add_arrow(ArrowSpec {
         from: world.continuations[contemporary],
         to: world.consequences[contemporary],
@@ -543,7 +554,6 @@ fn run_competition(
         resistance: WEAK_RESISTANCE,
     });
     world.known_arrows.push(contemporary_arrow);
-    let second_start = first_last + 18;
     let second_training = train(
         &mut world,
         [contemporary == 0, contemporary == 1],
@@ -602,8 +612,10 @@ fn run_correlation(namespace: u64, layout: Layout) -> PhysicalOutcome {
     let (correspondence, mut work, mut quiescent) =
         acquire_correspondence(&mut world, layout.first_tick, namespace + 0x10_000, order);
     remember(&mut world, &correspondence);
-    let candidates = add_candidates(&mut world);
     let start = layout.first_tick + ACQUISITION_EXPERIENCES as i64 * 16 + 18;
+    let opportunity_work = world.substrate.advance_time(start);
+    add_work(&mut work, &opportunity_work);
+    let candidates = add_candidates(&mut world);
     let training = train(
         &mut world,
         [false, false],
@@ -648,8 +660,10 @@ fn run_return_absent(namespace: u64, layout: Layout) -> PhysicalOutcome {
     let (correspondence, mut work, mut quiescent) =
         acquire_correspondence(&mut world, layout.first_tick, namespace + 0x10_000, order);
     remember(&mut world, &correspondence);
-    let candidates = add_candidates(&mut world);
     let start = layout.first_tick + ACQUISITION_EXPERIENCES as i64 * 16 + 18;
+    let opportunity_work = world.substrate.advance_time(start);
+    add_work(&mut work, &opportunity_work);
+    let candidates = add_candidates(&mut world);
     let training = train(
         &mut world,
         [true, false],
@@ -694,8 +708,10 @@ fn run_reacquisition(namespace: u64, layout: Layout) -> PhysicalOutcome {
     let (old_correspondence, mut work, mut quiescent) =
         acquire_correspondence(&mut world, layout.first_tick, namespace + 0x10_000, order);
     remember(&mut world, &old_correspondence);
-    let old_candidates = add_candidates(&mut world);
     let start = layout.first_tick + ACQUISITION_EXPERIENCES as i64 * 16 + 18;
+    let opportunity_work = world.substrate.advance_time(start);
+    add_work(&mut work, &opportunity_work);
+    let old_candidates = add_candidates(&mut world);
     let training = train(
         &mut world,
         [true, false],
@@ -749,9 +765,11 @@ fn run_reacquisition(namespace: u64, layout: Layout) -> PhysicalOutcome {
             .count()
     });
     remember(&mut world, &fresh_correspondence_ids);
+    let second_start = reacquisition_start + ACQUISITION_EXPERIENCES as i64 * 16 + 18;
+    let opportunity_work = world.substrate.advance_time(second_start);
+    add_work(&mut work, &opportunity_work);
     let fresh_candidates = add_candidates(&mut world);
     let fresh_direction_ids = (0..SIDES).all(|side| fresh_candidates[side] != old_candidates[side]);
-    let second_start = reacquisition_start + ACQUISITION_EXPERIENCES as i64 * 16 + 18;
     let second_training = train(
         &mut world,
         [false, true],
@@ -1126,6 +1144,8 @@ fn source_audit() -> bool {
         && sha256("experiments/px2_physical_causal_direction_authority_handoff.md")
             == PX2_HANDOFF_SHA256
         && sha256("experiments/px4_physical_lifetime_development_protocol.md") == PROTOCOL_SHA256
+        && sha256("experiments/px4_physical_lifetime_probe_v2_protocol.md")
+            == PROBE_V2_PROTOCOL_SHA256
         && git_output(&["rev-parse", PX2_TAG]).is_some_and(|value| value == PX2_COMMIT)
         && Command::new("git")
             .args(["merge-base", "--is-ancestor", PX2_COMMIT, "HEAD"])
@@ -1141,13 +1161,13 @@ fn active_information_flow_audit() -> bool {
         fs::read_to_string("crates/px0-physical-correspondence/examples/px4_physical_lifetime.rs")
             .unwrap_or_default();
     let substrate_forbidden = [
-        "LifetimeClass",
-        "RetentionPolicy",
-        "DeletionPolicy",
-        "EvaluatorPath",
-        "TypedMemory",
-        "M4Record",
-        "DS6Record",
+        ["Lifetime", "Class"].concat(),
+        ["Retention", "Policy"].concat(),
+        ["Deletion", "Policy"].concat(),
+        ["Evaluator", "Path"].concat(),
+        ["Typed", "Memory"].concat(),
+        ["M4", "Record"].concat(),
+        ["DS6", "Record"].concat(),
     ];
     let source_forbidden = [
         ["Lifetime", "Class"].concat(),
