@@ -1,0 +1,3 @@
+cell,trace_firings,source_firings,passive_firings,proposals,arrows,local_arrows,complete_fingerprint,permanent_fingerprint,quiescent,extra_source_firings,duplicate_exact,queue_comparisons,spikes_delivered,generation_checks,state_updates,threshold_checks,firings,arrow_checks,spikes_emitted,local_eligibility_writes,local_return_updates,ordinary_pressure_updates,local_structural_proposals,physical_deallocations,work
+actual-participation,6|6|6|6,6|6|6|6,0,0,8,0,12505736380825549863,1997676649100610187,true,0,true,852,72,72,72,72,72,576,48,48,0,92,0,0,1976
+passive-reference,1|0|0|0,0|0|0|0,0,2,2,2,18309848265236956718,5299544595080218509,true,0,true,1,3,3,3,3,1,2,2,2,0,0,2,0,22
