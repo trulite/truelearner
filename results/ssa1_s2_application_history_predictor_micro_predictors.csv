@@ -1,0 +1,11 @@
+stage,predictor,discovery_total,discovery_predicted,discovery_correct,discovery_accuracy_bp,discovery_coverage_bp,heldout_total,heldout_predicted,heldout_correct,heldout_accuracy_bp,heldout_coverage_bp,minimum_cell_accuracy_bp,latest_available_episode,qualifies
+MICRO,P0-ratio-majority,384,288,132,3437,7500,384,288,152,3958,7500,3958,0,false
+MICRO,P1-first-application,384,384,96,2500,10000,384,384,84,2187,10000,2187,1,false
+MICRO,P2-first-4-balance,384,340,52,1354,8854,384,364,64,1666,9479,1666,12115,false
+MICRO,P3-first-8-balance,384,300,72,1875,7812,384,320,80,2083,8333,2083,15490,false
+MICRO,P4-first-16-balance,384,280,100,2604,7291,384,308,164,4270,8020,4270,17997,false
+MICRO,P5-gap-before-opposition,384,288,0,0,7500,384,312,12,312,8125,312,15488,false
+MICRO,P6-longest-run-first-90,384,248,148,3854,6458,384,284,196,5104,7395,5104,16498,false
+MICRO,P7-gap-after-episode-90,384,384,116,3020,10000,384,384,108,2812,10000,2812,90,false
+MICRO,P8-structural-commitment,384,384,384,10000,10000,384,384,384,10000,10000,10000,18000,true
+MICRO,P9-composite-tuple,384,288,288,7500,7500,384,300,300,7812,7812,7812,17941,false
