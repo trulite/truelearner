@@ -1,0 +1,5 @@
+cell,namespace,mirrored,reversed_allocation,initial_proposals,useful_return_updates,useful_live,distractor_live,return_free_proposals,return_free_updates,return_free_live,old_generation,new_generation,stale_dead,reacquired_live,reacquired_crossings,label_shuffle_inert,quiescent,persistent_bytes,work,fingerprint,p0,p1,p2,p3,p4,p5,p6,p7,duplicate_exact,passed
+0,550000000,false,false,5,1,1,0,4,0,0,3,7,true,true,1,true,true,1600,345,111fa94b46578dfb,true,true,true,true,true,true,true,true,true,true
+1,551000000,true,false,5,1,1,0,4,0,0,3,7,true,true,1,true,true,1600,345,36318d4fb4e12bfe,true,true,true,true,true,true,true,true,true,true
+2,552000000,false,true,5,1,1,0,4,0,0,7,7,true,true,1,true,true,1600,345,db74649e6dca56d7,true,true,true,true,true,true,true,true,true,true
+3,553000000,true,true,5,1,1,0,4,0,0,7,7,true,true,1,true,true,1600,345,d2ba772db8abbdd6,true,true,true,true,true,true,true,true,true,true
