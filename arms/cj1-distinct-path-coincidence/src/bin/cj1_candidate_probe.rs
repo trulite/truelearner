@@ -15,10 +15,10 @@ const PARENT_PROTOCOL_SHA256: &str =
 const PROBE_PROTOCOL_SHA256: &str =
     "9481bdf46793475ac6ca28d35910ddc51dd7cafbbd94ea9a7ae7ffc2f68b9984";
 const SEEDS: [u64; 2] = [2101, 2111];
-const CSV_PATH: &str = "../../results/cj1_candidate_probe_v1.csv";
-const MD_PATH: &str = "../../results/cj1_candidate_probe_v1.md";
-const CSV_STAGE: &str = "../../results/.cj1_candidate_probe_v1.csv.staging";
-const MD_STAGE: &str = "../../results/.cj1_candidate_probe_v1.md.staging";
+const CSV_PATH: &str = "results/cj1_candidate_probe_v1.csv";
+const MD_PATH: &str = "results/cj1_candidate_probe_v1.md";
+const CSV_STAGE: &str = "results/.cj1_candidate_probe_v1.csv.staging";
+const MD_STAGE: &str = "results/.cj1_candidate_probe_v1.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Scenario {
@@ -129,15 +129,15 @@ struct Row {
 
 fn main() {
     assert_eq!(
-        sha256("../../crates/px0-physical-correspondence/src/lib.rs"),
+        sha256("crates/px0-physical-correspondence/src/lib.rs"),
         PX0_SHA256
     );
     assert_eq!(
-        sha256("../../experiments/cj1_distinct_path_coincidence_development_protocol_v1.md"),
+        sha256("experiments/cj1_distinct_path_coincidence_development_protocol_v1.md"),
         PARENT_PROTOCOL_SHA256
     );
     assert_eq!(
-        sha256("../../experiments/cj1_candidate_probe_protocol_v1.md"),
+        sha256("experiments/cj1_candidate_probe_protocol_v1.md"),
         PROBE_PROTOCOL_SHA256
     );
     let args = env::args().skip(1).collect::<Vec<_>>();

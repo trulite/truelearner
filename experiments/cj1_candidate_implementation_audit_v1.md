@@ -13,7 +13,7 @@ Status: **IMPLEMENTED AND FROZEN; PROBE EVIDENCE UNSPENT**.
 - `arms/cj1-distinct-path-coincidence/src/lib.rs` SHA-256:
   `7e6a45fb00017782c38a5a09b3cbebeee376cfac2ef9afe58f419efb82381fe8`;
 - `arms/cj1-distinct-path-coincidence/src/bin/cj1_candidate_probe.rs` SHA-256:
-  `76c713c92e3f006eb80af9df3ca3c09c615c045af6de58a1c344b69621598cbe`;
+  `6085e98d81b33082349e8e8032e3bcdb83328c18b33afa2ceee1c4135670cded`;
 - `arms/cj1-distinct-path-coincidence/Cargo.toml` SHA-256:
   `ff4cb9dc82dc080a736a600ec636af4f73e9238897dd674d198a84411fd46dfd`.
 
@@ -42,7 +42,9 @@ no MICRO, GATE, definitive, authority, PX3-restart or PX-C execution surface.
 
 No candidate evidence was executed while this audit was prepared. The first
 E2B preflight refused on formatting before compilation; this audit incorporates
-only that exact formatter diff and supersedes the unexecuted `ed50290`
-implementation snapshot. Focused tests and strict Clippy are to be run from
-this clean frozen commit in the established E2B sandbox before the evidence
-command.
+only that exact formatter diff. A subsequent preflight passed formatting,
+focused tests and strict Clippy; root-relative runner paths were then corrected
+before execution to match the exact preregistered root command. This snapshot
+supersedes the unexecuted `ed50290` and `a31443f` implementation snapshots. A
+final focused preflight is to be run from this clean frozen commit in the
+established E2B sandbox before the evidence command.
