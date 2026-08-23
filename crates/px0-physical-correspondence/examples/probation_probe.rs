@@ -27,20 +27,29 @@ struct Arm {
     spacing: i64,
     active_count: usize,
     mirror: bool,
+    stride: i32,
 }
 
 #[derive(Clone, Debug)]
 struct ResultRow {
     arm: &'static str,
     old_dead: bool,
+    fresh_initial_created: bool,
     fresh_current: usize,
     current_effects: usize,
     unsupported_effects: usize,
     unsupported_first_crossing_tick: i64,
     unsupported_trace_entries: usize,
     unsupported_firings: usize,
+    initial_gate_firings: usize,
+    initial_delayed_returns: usize,
+    initial_max_candidate_impulse: i32,
+    initial_max_resistance: u32,
+    initial_eventually_dead: bool,
+    current_max_candidate_impulse: i32,
+    duplicate_exact: bool,
     naturally_quiescent: bool,
-    passed_negative: bool,
+    passed_target: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -57,6 +66,7 @@ struct TraceRow {
 fn main() {
     let mut args = env::args().skip(1);
     let mut output_prefix = None;
+    let mut return_free = false;
     while let Some(argument) = args.next() {
         match argument.as_str() {
             "--output-prefix" => {
@@ -64,6 +74,7 @@ fn main() {
                     args.next().expect("--output-prefix requires a path"),
                 ));
             }
+            "--return-free" => return_free = true,
             "--definitive" => {
                 eprintln!("PX0-P is development-only; definitive execution is forbidden");
                 std::process::exit(2);
@@ -71,41 +82,50 @@ fn main() {
             other => panic!("unknown argument: {other}"),
         }
     }
+    let base_namespace = if return_free { 0x940_0000 } else { 0x920_0000 };
+    let route_stride = if return_free { 8 } else { 6 };
     let arms = [
         Arm {
             name: "fresh-short-two-direct",
-            namespace: 0x920_0000,
+            namespace: base_namespace,
             initial: 0,
             current: 1,
             spacing: 8,
             active_count: 2,
             mirror: false,
+            stride: route_stride,
         },
         Arm {
             name: "fresh-threshold-three-mirror",
-            namespace: 0x924_0000,
+            namespace: base_namespace + 0x4_0000,
             initial: 1,
             current: 2,
             spacing: 10,
             active_count: 3,
             mirror: true,
+            stride: route_stride,
         },
     ];
     let mut results = Vec::new();
     let mut traces = Vec::new();
     for arm in &arms {
-        let (result, trace) = run_arm(arm);
+        let (result, trace) = run_arm(arm, return_free);
         results.push(result);
         traces.extend(trace);
     }
-    let passed_negative = results.iter().all(|row| row.passed_negative);
+    let passed_target = results.iter().all(|row| row.passed_target);
     write_results(
         &output_prefix.expect("development output prefix is required"),
         &results,
         &traces,
-        passed_negative,
+        passed_target,
+        return_free,
     );
-    if passed_negative {
+    if return_free {
+        if !passed_target {
+            std::process::exit(1);
+        }
+    } else if passed_target {
         std::process::exit(1);
     }
 }
@@ -251,15 +271,14 @@ fn variable_ids(fixture: &Fixture, index: usize) -> Vec<ArrowId> {
     ids
 }
 
-fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
+fn run_arm(arm: &Arm, return_free: bool) -> (ResultRow, Vec<TraceRow>) {
     let spare = (arm.current + 1) % N;
     let active = if arm.active_count == 2 {
         vec![arm.initial, arm.current]
     } else {
         vec![arm.initial, arm.current, spare]
     };
-    let stride = 6;
-    let mut fixture = build(arm.namespace, arm.mirror, stride);
+    let mut fixture = build(arm.namespace, arm.mirror, arm.stride);
     let mut trace = Vec::new();
     for ordinal in 0..4 {
         experience(
@@ -302,7 +321,11 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
         arm.namespace + 0x3_000,
         true,
     );
+    let fresh_initial_created = variable_ids(&fixture, arm.initial)
+        .iter()
+        .any(|arrow| old_ids.iter().all(|old| old != arrow));
     append_trace(arm.name, "renewal-0", &first_renewal, &mut trace);
+    let mut renewal_executions = vec![(300, first_renewal.clone())];
     for ordinal in 0..4 {
         let renewal = experience(
             &mut fixture,
@@ -318,7 +341,47 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
             &renewal,
             &mut trace,
         );
+        renewal_executions.push((300 + (ordinal as i64 + 1) * arm.spacing, renewal));
     }
+    let initial_source = arm.namespace + 10 + arm.initial as u64;
+    let initial_probe = arm.namespace + 20 + arm.initial as u64;
+    let initial_contender = arm.namespace + 30 + arm.initial as u64;
+    let initial_gate = arm.namespace + 40 + arm.initial as u64;
+    let initial_gate_firings = renewal_executions
+        .iter()
+        .flat_map(|(_, execution)| &execution.trace)
+        .filter(|entry| entry.target_physical == initial_gate && entry.fired)
+        .count();
+    let initial_delayed_returns = renewal_executions
+        .iter()
+        .map(|(presentation_tick, execution)| {
+            execution
+                .trace
+                .iter()
+                .filter(|entry| {
+                    entry.target_physical == initial_source && entry.tick > *presentation_tick
+                })
+                .count()
+        })
+        .sum::<usize>();
+    let initial_max_candidate_impulse = renewal_executions
+        .iter()
+        .flat_map(|(_, execution)| &execution.trace)
+        .filter(|entry| {
+            entry.target_physical == initial_probe || entry.target_physical == initial_contender
+        })
+        .map(|entry| entry.impulse)
+        .max()
+        .unwrap_or(0);
+    let fresh_initial_ids = variable_ids(&fixture, arm.initial)
+        .into_iter()
+        .filter(|arrow| old_ids.iter().all(|old| old != arrow))
+        .collect::<Vec<_>>();
+    let initial_max_resistance = fresh_initial_ids
+        .iter()
+        .map(|arrow| fixture.substrate.arrow_resistance(*arrow))
+        .max()
+        .unwrap_or(0);
     let current = experience(
         &mut fixture,
         &[arm.current],
@@ -327,15 +390,39 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
         arm.namespace + 0x5_000,
         false,
     );
+    let current_probe = arm.namespace + 20 + arm.current as u64;
+    let current_contender = arm.namespace + 30 + arm.current as u64;
+    let current_max_candidate_impulse = current
+        .trace
+        .iter()
+        .filter(|entry| {
+            entry.target_physical == current_probe || entry.target_physical == current_contender
+        })
+        .map(|entry| entry.impulse)
+        .max()
+        .unwrap_or(0);
     append_trace(arm.name, "current-held-out", &current, &mut trace);
+    let mut unsupported_first = fixture.clone();
+    let mut unsupported_second = fixture.clone();
     let unsupported = experience(
-        &mut fixture,
+        &mut unsupported_first,
         &[arm.initial],
         &[],
         300 + 6 * arm.spacing,
         arm.namespace + 0x6_000,
         true,
     );
+    let unsupported_duplicate = experience(
+        &mut unsupported_second,
+        &[arm.initial],
+        &[],
+        300 + 6 * arm.spacing,
+        arm.namespace + 0x6_000,
+        true,
+    );
+    let duplicate_exact = unsupported == unsupported_duplicate
+        && unsupported_first.substrate.complete_fingerprint()
+            == unsupported_second.substrate.complete_fingerprint();
     let unsupported_trace_entries = unsupported.trace.len();
     let unsupported_firings = unsupported.trace.iter().filter(|entry| entry.fired).count();
     append_trace(arm.name, "unsupported-held-out", &unsupported, &mut trace);
@@ -345,26 +432,56 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
         .iter()
         .find(|crossing| crossing.from_region == 0 && crossing.to_region == 1)
         .map_or(-1, |crossing| crossing.tick);
-    let fresh_current = variable_ids(&fixture, arm.current)
+    let fresh_current = variable_ids(&unsupported_first, arm.current)
         .into_iter()
         .filter(|arrow| fixture.substrate.arrow_is_live(*arrow))
         .count();
+    unsupported_first.substrate.advance_time(500);
+    let initial_eventually_dead = variable_ids(&unsupported_first, arm.initial)
+        .iter()
+        .all(|arrow| !unsupported_first.substrate.arrow_is_live(*arrow));
+    let passed_target = if return_free {
+        old_dead
+            && fresh_initial_created
+            && fresh_current == 2
+            && effects(&current) == 1
+            && unsupported_effects == 0
+            && initial_gate_firings == 0
+            && initial_delayed_returns == 0
+            && initial_max_candidate_impulse <= 1
+            && initial_max_resistance <= 1
+            && initial_eventually_dead
+            && current_max_candidate_impulse == 2
+            && duplicate_exact
+            && current.naturally_quiescent
+            && unsupported.naturally_quiescent
+    } else {
+        old_dead
+            && effects(&current) == 1
+            && unsupported_effects == 1
+            && current.naturally_quiescent
+            && unsupported.naturally_quiescent
+    };
     (
         ResultRow {
             arm: arm.name,
             old_dead,
+            fresh_initial_created,
             fresh_current,
             current_effects: effects(&current),
             unsupported_effects,
             unsupported_first_crossing_tick: first_crossing_tick,
             unsupported_trace_entries,
             unsupported_firings,
+            initial_gate_firings,
+            initial_delayed_returns,
+            initial_max_candidate_impulse,
+            initial_max_resistance,
+            initial_eventually_dead,
+            current_max_candidate_impulse,
+            duplicate_exact,
             naturally_quiescent: current.naturally_quiescent && unsupported.naturally_quiescent,
-            passed_negative: old_dead
-                && effects(&current) == 1
-                && unsupported_effects == 1
-                && current.naturally_quiescent
-                && unsupported.naturally_quiescent,
+            passed_target,
         },
         trace,
     )
@@ -388,7 +505,13 @@ fn append_trace(arm: &'static str, stage: &str, execution: &Execution, rows: &mu
     );
 }
 
-fn write_results(prefix: &Path, results: &[ResultRow], traces: &[TraceRow], passed_negative: bool) {
+fn write_results(
+    prefix: &Path,
+    results: &[ResultRow],
+    traces: &[TraceRow],
+    passed_target: bool,
+    return_free: bool,
+) {
     let summary_csv = prefix.with_extension("csv");
     let trace_csv = prefix.with_extension("trace.csv");
     let markdown = prefix.with_extension("md");
@@ -396,21 +519,29 @@ fn write_results(prefix: &Path, results: &[ResultRow], traces: &[TraceRow], pass
         fs::create_dir_all(parent).expect("create result directory");
     }
     let mut summary = String::from(
-        "arm,old_dead,fresh_current,current_effects,unsupported_effects,unsupported_first_crossing_tick,unsupported_trace_entries,unsupported_firings,naturally_quiescent,passed_negative\n",
+        "arm,old_dead,fresh_initial_created,fresh_current,current_effects,unsupported_effects,unsupported_first_crossing_tick,unsupported_trace_entries,unsupported_firings,initial_gate_firings,initial_delayed_returns,initial_max_candidate_impulse,initial_max_resistance,initial_eventually_dead,current_max_candidate_impulse,duplicate_exact,naturally_quiescent,passed_target\n",
     );
     for row in results {
         summary.push_str(&format!(
-            "{},{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
             row.arm,
             row.old_dead,
+            row.fresh_initial_created,
             row.fresh_current,
             row.current_effects,
             row.unsupported_effects,
             row.unsupported_first_crossing_tick,
             row.unsupported_trace_entries,
             row.unsupported_firings,
+            row.initial_gate_firings,
+            row.initial_delayed_returns,
+            row.initial_max_candidate_impulse,
+            row.initial_max_resistance,
+            row.initial_eventually_dead,
+            row.current_max_candidate_impulse,
+            row.duplicate_exact,
             row.naturally_quiescent,
-            row.passed_negative,
+            row.passed_target,
         ));
     }
     let mut trace = String::from("arm,stage,ordinal,tick,target_physical,impulse,fired\n");
@@ -421,27 +552,41 @@ fn write_results(prefix: &Path, results: &[ResultRow], traces: &[TraceRow], pass
         ));
     }
     let mut report = format!(
-        "# PX0-P physical proposal probation baseline PROBE v1\n\nOutcome: **{}**.\n\n",
-        if passed_negative {
-            "FROZEN NEGATIVE REPRODUCED"
+        "# {}\n\nOutcome: **{}**.\n\n",
+        if return_free {
+            "PX0-P1 return-free proposal control PROBE v1"
         } else {
-            "BASELINE MISMATCH"
+            "PX0-P physical proposal probation baseline PROBE v1"
+        },
+        if passed_target {
+            if return_free {
+                "P1-A — EXISTING PHYSICAL PROBATION POSITIVE"
+            } else {
+                "FROZEN NEGATIVE REPRODUCED"
+            }
+        } else {
+            "TARGET NOT MET"
         }
     );
-    report.push_str("| arm | old dead | B live | B effect | unsupported A effect | first crossing | trace entries | firings | quiescent |\n");
-    report.push_str("|---|---:|---:|---:|---:|---:|---:|---:|---:|\n");
+    report.push_str("| arm | old dead | fresh A | A gate fires | A returns | A max impulse | A max resistance | A effect | A dies | B max impulse | B effect | duplicate | quiescent | pass |\n");
+    report.push_str("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n");
     for row in results {
         report.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             row.arm,
             row.old_dead,
-            row.fresh_current,
-            row.current_effects,
+            row.fresh_initial_created,
+            row.initial_gate_firings,
+            row.initial_delayed_returns,
+            row.initial_max_candidate_impulse,
+            row.initial_max_resistance,
             row.unsupported_effects,
-            row.unsupported_first_crossing_tick,
-            row.unsupported_trace_entries,
-            row.unsupported_firings,
+            row.initial_eventually_dead,
+            row.current_max_candidate_impulse,
+            row.current_effects,
+            row.duplicate_exact,
             row.naturally_quiescent,
+            row.passed_target,
         ));
     }
     atomic_write(&summary_csv, &summary);
