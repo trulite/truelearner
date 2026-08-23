@@ -1,0 +1,11 @@
+scenario,mirror,namespace,a_firings,b_firings,integration_firings,output_firings,negative_arrivals,negative_arrival_tick,output_tick,crossings,quiescent,complete_fingerprint,permanent_fingerprint,work,persistent_bytes,duplicate_exact,passed
+a-absent,false,0x611000000,0,1,1,1,0,-1,2,2,true,0x6f190d85d540b200,0x4314f08325c4e078,28,384,true,true
+a-timely,false,0x611100000,1,1,0,0,1,1,-1,2,true,0x820e6f12923f0557,0x43404ebafa69e778,31,384,true,true
+a-too-late,false,0x611200000,1,1,1,1,1,3,2,3,true,0x2125d602e34a5bed,0x283591d38c009cfb,47,384,true,true
+a-blocked,false,0x611300000,1,1,1,1,0,-1,2,2,true,0xa903d7ea877c2375,0x7871ea13aaeba8a7,37,384,true,true
+a-stale,false,0x611400000,1,1,1,1,0,-1,2,3,true,0x3c5d9efc2f16425,0x9fcd884eeb1e5fa0,50,384,true,true
+a-absent,true,0x612000000,0,1,1,1,0,-1,2,2,true,0xee1fda3b41efcbf5,0x945d32fe81b6e03d,28,384,true,true
+a-timely,true,0x612100000,1,1,0,0,1,1,-1,2,true,0x177bb4e7e97e3e8e,0xbdc5324cb1fba5d,31,384,true,true
+a-too-late,true,0x612200000,1,1,1,1,1,3,2,3,true,0x3e5f29bc2c064658,0xd1f4dc9c80c1dc8e,47,384,true,true
+a-blocked,true,0x612300000,1,1,1,1,0,-1,2,2,true,0xbdd694060ef484b8,0x8c81172e1b184f2a,37,384,true,true
+a-stale,true,0x612400000,1,1,1,1,0,-1,2,3,true,0x74ec7eff47ad0fd0,0x7797ad336133a505,50,384,true,true
