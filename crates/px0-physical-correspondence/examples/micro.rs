@@ -42,6 +42,9 @@ struct Observation {
 fn main() {
     let mut args = env::args().skip(1);
     let mut output_prefix = None;
+    let mut cell_count = 2;
+    let mut base_namespace = 0x20_000;
+    let mut stage = String::from("MICRO");
     while let Some(argument) = args.next() {
         match argument.as_str() {
             "--output-prefix" => {
@@ -49,6 +52,23 @@ fn main() {
                     args.next().expect("--output-prefix requires a path"),
                 ));
             }
+            "--cells" => {
+                cell_count = args
+                    .next()
+                    .expect("--cells requires a count")
+                    .parse()
+                    .expect("--cells must be an integer");
+            }
+            "--base-namespace" => {
+                base_namespace = u64::from_str_radix(
+                    args.next()
+                        .expect("--base-namespace requires a hexadecimal value")
+                        .trim_start_matches("0x"),
+                    16,
+                )
+                .expect("--base-namespace must be hexadecimal");
+            }
+            "--stage" => stage = args.next().expect("--stage requires a name"),
             "--definitive" => {
                 eprintln!("PX0 definitive execution is not authorized");
                 std::process::exit(2);
@@ -56,12 +76,13 @@ fn main() {
             other => panic!("unknown argument: {other}"),
         }
     }
-    let rows = run_micro();
+    let rows = run_matrix(cell_count, base_namespace);
     let passed = rows.iter().all(|row| row.passed);
     write_results(
         &output_prefix.expect("development output prefix is required"),
         &rows,
         passed,
+        &stage,
     );
     if !passed {
         std::process::exit(1);
@@ -189,17 +210,22 @@ fn record(rows: &mut Vec<Row>, fixture: &Fixture, observation: Observation) {
     });
 }
 
-fn run_micro() -> Vec<Row> {
+fn run_matrix(cell_count: usize, base_namespace: u64) -> Vec<Row> {
     let mut rows = Vec::new();
-    for cell in 0..2 {
-        let namespace = 0x20_000 + (cell as u64) * 0x10_000;
-        let selected = cell;
-        let rejected = 1 - cell;
-        let unused = 2;
+    for cell in 0..cell_count {
+        let namespace = base_namespace + (cell as u64) * 0x10_000;
+        let selected = cell % N;
+        let rejected = (selected + 1) % N;
+        let unused = (selected + 2) % N;
         let mut returned = [false; N];
         returned[selected] = true;
         let mut fixture = build(namespace, returned, cell == 1);
-        let ticks = if cell == 0 { [0, 10, 20] } else { [0, 12, 24] };
+        let ticks = match cell % 3 {
+            0 => [0, 10, 20],
+            1 => [0, 11, 22],
+            _ => [0, 12, 24],
+        };
+        let test_tick = ticks[2] + 80;
         let mut work = 0;
         for (ordinal, tick) in ticks.into_iter().enumerate() {
             work += activate(
@@ -212,7 +238,7 @@ fn run_micro() -> Vec<Row> {
             .work
             .total();
         }
-        work += fixture.substrate.advance_time(104).total();
+        work += fixture.substrate.advance_time(test_tick).total();
         let acquired = resistance(&fixture, selected) > 0
             && resistance(&fixture, rejected) == 0
             && resistance(&fixture, unused) == 0;
@@ -231,7 +257,13 @@ fn run_micro() -> Vec<Row> {
             },
         );
 
-        let held_out = activate(&mut fixture, &[selected], 104, namespace + 0x200, cell == 0);
+        let held_out = activate(
+            &mut fixture,
+            &[selected],
+            test_tick,
+            namespace + 0x200,
+            cell == 0,
+        );
         let held_out_effects = effects(&held_out);
         record(
             &mut rows,
@@ -248,8 +280,14 @@ fn run_micro() -> Vec<Row> {
             },
         );
 
-        fixture.substrate.advance_time(124);
-        let changed = activate(&mut fixture, &[unused], 124, namespace + 0x300, false);
+        fixture.substrate.advance_time(test_tick + 20);
+        let changed = activate(
+            &mut fixture,
+            &[unused],
+            test_tick + 20,
+            namespace + 0x300,
+            false,
+        );
         let changed_effects = effects(&changed);
         record(
             &mut rows,
@@ -266,8 +304,14 @@ fn run_micro() -> Vec<Row> {
             },
         );
 
-        fixture.substrate.advance_time(134);
-        let historical = activate(&mut fixture, &[selected], 134, namespace + 0x400, true);
+        fixture.substrate.advance_time(test_tick + 30);
+        let historical = activate(
+            &mut fixture,
+            &[selected],
+            test_tick + 30,
+            namespace + 0x400,
+            true,
+        );
         let historical_effects = effects(&historical);
         record(
             &mut rows,
@@ -297,11 +341,11 @@ fn run_micro() -> Vec<Row> {
                 cell == 0,
             );
         }
-        ambiguous.substrate.advance_time(104);
+        ambiguous.substrate.advance_time(test_tick);
         let ambiguous_run = activate(
             &mut ambiguous,
             &[selected, rejected],
-            104,
+            test_tick,
             namespace + 0x1_200,
             cell == 1,
         );
@@ -323,19 +367,19 @@ fn run_micro() -> Vec<Row> {
 
         let mut replay_first = fixture.clone();
         let mut replay_second = fixture.clone();
-        replay_first.substrate.advance_time(154);
-        replay_second.substrate.advance_time(154);
+        replay_first.substrate.advance_time(test_tick + 50);
+        replay_second.substrate.advance_time(test_tick + 50);
         let first = activate(
             &mut replay_first,
             &[selected],
-            154,
+            test_tick + 50,
             namespace + 0x500,
             false,
         );
         let second = activate(
             &mut replay_second,
             &[selected],
-            154,
+            test_tick + 50,
             namespace + 0x500,
             false,
         );
@@ -360,7 +404,7 @@ fn run_micro() -> Vec<Row> {
     rows
 }
 
-fn write_results(prefix: &Path, rows: &[Row], passed: bool) {
+fn write_results(prefix: &Path, rows: &[Row], passed: bool, stage: &str) {
     let csv_path = prefix.with_extension("csv");
     let md_path = prefix.with_extension("md");
     if let Some(parent) = csv_path.parent() {
@@ -383,7 +427,8 @@ fn write_results(prefix: &Path, rows: &[Row], passed: bool) {
         ));
     }
     let mut md = format!(
-        "# PX0 substrate-native correspondence MICRO v1\n\nOutcome: **{}**.\n\n",
+        "# PX0 substrate-native correspondence {} v1\n\nOutcome: **{}**.\n\n",
+        stage,
         if passed { "POSITIVE" } else { "NEGATIVE" }
     );
     md.push_str("| cell | control | pass | effects | selected | rejected | unused | work |\n");
