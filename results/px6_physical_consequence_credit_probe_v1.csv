@@ -1,0 +1,7 @@
+world,namespace,traversals,consequence_firings,trace_firings,return_arrivals,outward_crossings,resistance_before,resistance_after,live_after,heldout_crossings,quiescent,local_return_updates,pressure_updates,deallocations,work,persistent_bytes,fingerprint,duplicate_exact,passed
+left,25803358208,8|0,8|8,8|8,8|8,8|8,3|3,17|0,true|false,1|0,true,29,259,1,2966,2000,2417741002999392789,true,false
+right,25804406784,0|8,8|8,8|8,8|8,8|8,3|3,0|17,false|true,0|1,true,29,259,1,2966,2000,5630608927689782851,true,false
+both,25805455360,8|8,8|8,8|8,8|8,8|8,3|3,17|17,true|true,1|1,true,58,262,0,3745,2000,14889128307295233156,true,false
+correlation,25806503936,0|0,8|8,8|8,8|8,8|8,3|3,0|0,false|false,0|0,true,0,256,2,2306,2000,18187432533149332558,true,true
+crossed-return,25807552512,8|0,2|8,2|8,0|2,2|8,3|3,0|0,false|false,0|0,true,0,216,2,2108,1936,15811889366725371636,true,false
+no-return,25808601088,8|0,2|8,2|8,0|0,2|8,3|3,0|0,false|false,0|0,true,0,188,2,2004,1872,16967113460664429389,true,false
