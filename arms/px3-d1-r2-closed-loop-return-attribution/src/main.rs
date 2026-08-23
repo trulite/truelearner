@@ -56,7 +56,6 @@ impl Scenario {
 }
 #[derive(Clone)]
 struct World {
-    ns: u64,
     s: PlasticSubstrate,
     sources: [CellId; 4],
     context: CellId,
@@ -404,7 +403,6 @@ fn build(ns: u64, raw: [i32; 4], kind: Kind) -> World {
         s.add_arrow(fixed(broadcast, ps[i], 1, 1));
     }
     World {
-        ns,
         s,
         sources,
         context,
