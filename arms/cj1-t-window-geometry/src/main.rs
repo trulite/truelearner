@@ -10,8 +10,7 @@ use std::path::Path;
 use std::process::Command;
 
 const PX0_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
-const PROTOCOL_SHA256: &str =
-    "4c904459c7684261d1a5c63b1ff16eb3a6dc47dbf8596ec23386f254834c8762";
+const PROTOCOL_SHA256: &str = "4c904459c7684261d1a5c63b1ff16eb3a6dc47dbf8596ec23386f254834c8762";
 const SEED: u64 = 2401;
 const OFFSETS: [i64; 6] = [0, 1, 2, 3, 4, 5];
 const CSV_PATH: &str = "results/cj1_t_refractory_trace_geometry_v1.csv";
@@ -221,9 +220,7 @@ fn run_distinct_path() -> Row {
         persistent_bytes: world.substrate.persistent_bytes(),
         first_end_fingerprint: first.end_fingerprint,
         second_end_fingerprint: a.end_fingerprint ^ b.end_fingerprint.rotate_left(1),
-        quiescent: first.naturally_quiescent
-            && a.naturally_quiescent
-            && b.naturally_quiescent,
+        quiescent: first.naturally_quiescent && a.naturally_quiescent && b.naturally_quiescent,
         replay_equal: false,
         passed,
     }
@@ -374,9 +371,9 @@ fn report(rows: &[Row]) -> String {
             && row.second_return_closes == 1
             && row.second_traversals == 1
     });
-    let retained_retraversal = same.iter().any(|row| {
-        row.offset <= 4 && row.second_traversals == 1 && row.second_return_closes == 0
-    });
+    let retained_retraversal = same
+        .iter()
+        .any(|row| row.offset <= 4 && row.second_traversals == 1 && row.second_return_closes == 0);
     let all_passed = rows.iter().all(|row| row.passed);
     let geometry = if live_retraversal && !retained_retraversal {
         "R < T; ordinary local return closes the old trace before retraversal"
@@ -448,6 +445,9 @@ mod tests {
 
     #[test]
     fn work_ledger_remains_native_px0_accounting() {
-        assert_eq!(px0_physical_correspondence::WorkLedger::default().total(), 0);
+        assert_eq!(
+            px0_physical_correspondence::WorkLedger::default().total(),
+            0
+        );
     }
 }

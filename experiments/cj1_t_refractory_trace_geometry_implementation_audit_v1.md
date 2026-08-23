@@ -11,7 +11,7 @@ Status: **IMPLEMENTED AND FROZEN; EVIDENCE UNSPENT**.
 - `arms/cj1-t-window-geometry/Cargo.toml` SHA-256:
   `45e8c268482d8a95d1cbafdcb55f69d7c0bc1b31eda4b8918a35d71485729d8e`;
 - `arms/cj1-t-window-geometry/src/main.rs` SHA-256:
-  `fe0998bbc6847d99f38906dda5c4bffd49199b7e22717cb4d0682e7e3672cbfa`.
+  `010227f7bd1bcd140dd08e83d77b3e9b1748f2f59d3fa02511005798a669665c`.
 
 The arm imports `px0-physical-correspondence` directly. It has no build script,
 generated substrate, wrapper, candidate or alternate law.
@@ -38,4 +38,7 @@ post-event state.
 All seven rows are reconstructed twice and exact-equality checked. The runner
 contains one command and four create-new destination/staging paths. It contains
 no mechanism change, candidate, MICRO, GATE, definitive, authority, PX3 or PX-C
-surface. No evidence or Rust command ran while this audit was prepared.
+surface. The first E2B preflight refused on formatting before compilation; this
+audit incorporates only that exact formatter diff and supersedes the unexecuted
+`6e670c0` implementation snapshot. No evidence ran while this audit was
+prepared.
