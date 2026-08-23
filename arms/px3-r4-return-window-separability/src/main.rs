@@ -312,7 +312,7 @@ fn run(seed: u64, scenario: Scenario) -> Row {
     let live_candidates = candidate_liveness.iter().filter(|live| **live).count();
 
     let v0 = [3501, 3509].contains(&seed)
-        && namespace == namespace(seed, scenario)
+        && namespace == crate::namespace(seed, scenario)
         && ((seed == 3501 && !reverse && !reflect) || (seed == 3509 && reverse && reflect));
     let v1 = participation_valid(scenario, &execution, namespace);
     let v2 = timing_valid(scenario, &execution, namespace);
