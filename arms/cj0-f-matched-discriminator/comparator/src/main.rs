@@ -59,14 +59,18 @@ enum Kind {
     DirectAsymmetric,
     DirectAaSpacing,
     OnePathBurst,
+    BurstFour,
     GatedDistinct,
     GatedSingleton,
     GatedReuse,
     DenseDirectReturn,
     DenseCrossedReturn,
     DenseNoReturn,
+    DenseLateReturn,
     StaleQueued,
     DeallocateBootstrap,
+    TimingTransfer,
+    ContemporaryReversal,
     Recursion,
     FourWayAmbiguity,
     ExactReplay,
@@ -621,6 +625,34 @@ fn run_direct<L: Law>(spec: &RowSpec) -> RunMetrics {
     metrics
 }
 
+fn run_burst_four<L: Law>(spec: &RowSpec) -> RunMetrics {
+    let (mut law, trigger, _target, _effect, base) = build_gated::<L>(spec);
+    for tick in 0..4 {
+        law.enter(tick, 0, base + 602, trigger, 1);
+    }
+    let run = law.propagate();
+    let mut metrics = RunMetrics {
+        naturally_quiescent: true,
+        temporary_peak_count: 4,
+        locus_firings: run
+            .fired_physical
+            .iter()
+            .filter(|physical| **physical == base + 2)
+            .count(),
+        effect_firings: run
+            .fired_physical
+            .iter()
+            .filter(|physical| **physical == base + 3)
+            .count(),
+        ..RunMetrics::default()
+    };
+    absorb(&mut metrics, &run, false);
+    metrics.false_conjunction = metrics.effect_firings > 0;
+    metrics.row_pass = metrics.effect_firings == 0;
+    finish_metrics(&law, &mut metrics);
+    metrics
+}
+
 fn build_gated<L: Law>(spec: &RowSpec) -> (L, usize, usize, usize, u64) {
     let mut law = L::default();
     let base = spec.seed.saturating_mul(10_000);
@@ -810,15 +842,23 @@ fn run_dense<L: Law>(spec: &RowSpec) -> RunMetrics {
     match spec.kind {
         Kind::DenseDirectReturn => law.enter(1, 0, base + 701, selected, 1),
         Kind::DenseCrossedReturn => law.enter(1, 0, base + 702, other, 1),
-        Kind::DenseNoReturn => {}
+        Kind::DenseNoReturn | Kind::DenseLateReturn => {}
         _ => unreachable!("dense runner received wrong row"),
     }
-    if spec.kind != Kind::DenseNoReturn {
+    if matches!(
+        spec.kind,
+        Kind::DenseDirectReturn | Kind::DenseCrossedReturn
+    ) {
         let returned = law.propagate();
         absorb(&mut metrics, &returned, false);
     }
     let close = law.advance_time(5);
     absorb(&mut metrics, &close, false);
+    if spec.kind == Kind::DenseLateReturn {
+        law.enter(6, 0, base + 703, selected, 1);
+        let late = law.propagate();
+        absorb(&mut metrics, &late, false);
+    }
     let selected_end = law.arrow_state(selected, target);
     let other_end = law.arrow_state(other, target);
     metrics.resistance_end = selected_end.resistance_max;
@@ -828,7 +868,7 @@ fn run_dense<L: Law>(spec: &RowSpec) -> RunMetrics {
     let other_strengthened = other_end.resistance_max > other_start.resistance_max;
     metrics.dense_attribution_ok = match spec.kind {
         Kind::DenseDirectReturn => selected_strengthened && !other_strengthened,
-        Kind::DenseCrossedReturn | Kind::DenseNoReturn => {
+        Kind::DenseCrossedReturn | Kind::DenseNoReturn | Kind::DenseLateReturn => {
             !selected_strengthened && !other_strengthened
         }
         _ => false,
@@ -909,6 +949,156 @@ fn run_deallocate<L: Law>(spec: &RowSpec) -> RunMetrics {
     metrics.coupling_end = end.coupling_max;
     metrics.live_structures = end.live;
     metrics.row_pass = dead.live == 0 && end.live == 1 && bootstrap.proposals == 1;
+    finish_metrics(&law, &mut metrics);
+    metrics
+}
+
+fn run_timing_transfer<L: Law>(spec: &RowSpec) -> RunMetrics {
+    let (mut law, trigger, target, _effect, base) = build_gated::<L>(spec);
+    enter_genuine(
+        &mut law,
+        trigger,
+        target,
+        base,
+        (0, spec.threshold, spec.coupling, spec.train_spacing),
+    );
+    let training = law.propagate();
+    let training_effect = training
+        .fired_physical
+        .iter()
+        .filter(|physical| **physical == base + 3)
+        .count();
+    let mut metrics = RunMetrics {
+        naturally_quiescent: true,
+        temporary_peak_count: 2,
+        locus_firings: training_effect,
+        ..RunMetrics::default()
+    };
+    absorb(&mut metrics, &training, true);
+    let return_tick = spec.train_spacing.max(0).saturating_add(1);
+    law.enter(return_tick, 0, base + 701, trigger, 1);
+    let returned = law.propagate();
+    absorb(&mut metrics, &returned, true);
+    let closed = law.advance_time(10);
+    absorb(&mut metrics, &closed, true);
+    enter_genuine(
+        &mut law,
+        trigger,
+        target,
+        base,
+        (10, spec.threshold, spec.coupling, spec.spacing),
+    );
+    let heldout = law.propagate();
+    metrics.effect_firings = heldout
+        .fired_physical
+        .iter()
+        .filter(|physical| **physical == base + 3)
+        .count();
+    metrics.heldout_reuse = metrics.effect_firings > 0;
+    metrics.timing_tolerance = i64::from(metrics.heldout_reuse);
+    absorb(&mut metrics, &heldout, false);
+    metrics.row_pass = metrics.naturally_quiescent;
+    finish_metrics(&law, &mut metrics);
+    metrics
+}
+
+fn run_reversal<L: Law>(spec: &RowSpec) -> RunMetrics {
+    let mut law = L::default();
+    let base = spec.seed.saturating_mul(10_000);
+    let a = add_cell(&mut law, base, 1, 0, spec.mirror, 0, 1);
+    let d = add_cell(&mut law, base, 2, 1, spec.mirror, 0, spec.threshold);
+    let c = add_cell(&mut law, base, 3, 10, spec.mirror, 0, 1);
+    let b_cell = add_cell(&mut law, base, 4, 11, spec.mirror, 0, spec.threshold);
+    let b_effect = add_cell(&mut law, base, 5, 100, spec.mirror, 1, 1);
+    let d_effect = add_cell(&mut law, base, 6, 200, spec.mirror, 1, 1);
+    let clock = add_cell(&mut law, base, 7, 400, spec.mirror, 0, 1);
+    law.add_arrow(a, b_cell, 0, 4, spec.coupling, 1);
+    law.add_arrow(c, d, 0, 4, spec.coupling, 1);
+    law.add_arrow(d, a, 0, 9, 0, 100);
+    law.add_arrow(b_cell, c, 0, 9, 0, 100);
+    law.add_arrow(b_cell, b_effect, 0, 8, 1, 30);
+    law.add_arrow(d, d_effect, 0, 8, 1, 30);
+    let old_ab_start = law.arrow_state(a, b_cell);
+    let old_cd_start = law.arrow_state(c, d);
+    let prime = (spec.threshold - spec.coupling).max(1);
+    law.enter(0, 0, base + 601, b_cell, prime);
+    law.enter(0, 0, base + 602, d, prime);
+    law.enter(0, 1, base + 603, a, 1);
+    law.enter(0, 1, base + 604, c, 1);
+    let initial = law.propagate();
+    let initial_effects = initial
+        .fired_physical
+        .iter()
+        .filter(|physical| **physical == base + 5 || **physical == base + 6)
+        .count();
+    let mut metrics = RunMetrics {
+        naturally_quiescent: true,
+        temporary_peak_count: 4,
+        resistance_start: old_ab_start.resistance_max.max(old_cd_start.resistance_max),
+        coupling_start: old_ab_start.coupling_max.max(old_cd_start.coupling_max),
+        locus_firings: initial_effects,
+        ..RunMetrics::default()
+    };
+    absorb(&mut metrics, &initial, true);
+    let deallocated = law.advance_time(5);
+    metrics.deallocation_cost = deallocated.work_total;
+    absorb(&mut metrics, &deallocated, true);
+    let old_ab_dead = law.arrow_state(a, b_cell);
+    let old_cd_dead = law.arrow_state(c, d);
+
+    law.enter(5, 0, base + 605, a, 1);
+    law.enter(5, 0, base + 606, c, 1);
+    law.enter(6, 20, base + 699, clock, 0);
+    let bootstrap = law.propagate();
+    metrics.reacquisition_cost = bootstrap.work_total;
+    absorb(&mut metrics, &bootstrap, true);
+    let new_ad_bootstrap = law.arrow_state(a, d);
+    let new_cb_bootstrap = law.arrow_state(c, b_cell);
+
+    law.enter(7, 0, base + 607, d, prime);
+    law.enter(7, 0, base + 608, b_cell, prime);
+    law.enter(7, 1, base + 609, a, 1);
+    law.enter(7, 1, base + 610, c, 1);
+    let changed = law.propagate();
+    absorb(&mut metrics, &changed, true);
+    law.enter(9, 0, base + 611, a, 1);
+    law.enter(9, 0, base + 612, c, 1);
+    let returned = law.propagate();
+    absorb(&mut metrics, &returned, true);
+
+    law.enter(11, 0, base + 613, d, prime);
+    law.enter(11, 0, base + 614, b_cell, prime);
+    law.enter(11, 1, base + 615, a, 1);
+    law.enter(11, 1, base + 616, c, 1);
+    let heldout = law.propagate();
+    let heldout_effects = heldout
+        .fired_physical
+        .iter()
+        .filter(|physical| **physical == base + 5 || **physical == base + 6)
+        .count();
+    metrics.effect_firings = heldout_effects;
+    metrics.heldout_reuse = heldout_effects == 2;
+    absorb(&mut metrics, &heldout, false);
+    let reversal_before_pressure = metrics.learning_work + metrics.execution_work;
+    // Reversal activity itself observes ticks 8, 10, and 11; the remaining
+    // fixed pressure-boundary observations follow held-out completion.
+    for tick in [13, 14, 16] {
+        let observed = law.advance_time(tick);
+        absorb(&mut metrics, &observed, false);
+    }
+    metrics.reversal_cost = reversal_before_pressure;
+    let new_ad_end = law.arrow_state(a, d);
+    let new_cb_end = law.arrow_state(c, b_cell);
+    metrics.resistance_end = new_ad_end.resistance_max.max(new_cb_end.resistance_max);
+    metrics.coupling_end = new_ad_end.coupling_max.max(new_cb_end.coupling_max);
+    metrics.live_structures = new_ad_end.live + new_cb_end.live;
+    metrics.row_pass = initial_effects == 2
+        && old_ab_dead.live == 0
+        && old_cd_dead.live == 0
+        && new_ad_bootstrap.live == 1
+        && new_cb_bootstrap.live == 1
+        && metrics.heldout_reuse
+        && metrics.naturally_quiescent;
     finish_metrics(&law, &mut metrics);
     metrics
 }
@@ -1038,11 +1228,15 @@ fn execute<L: Law>(spec: &RowSpec) -> RunMetrics {
         Kind::OnePathBurst | Kind::GatedDistinct | Kind::GatedSingleton | Kind::GatedReuse => {
             run_gated::<L>(spec)
         }
-        Kind::DenseDirectReturn | Kind::DenseCrossedReturn | Kind::DenseNoReturn => {
-            run_dense::<L>(spec)
-        }
+        Kind::BurstFour => run_burst_four::<L>(spec),
+        Kind::DenseDirectReturn
+        | Kind::DenseCrossedReturn
+        | Kind::DenseNoReturn
+        | Kind::DenseLateReturn => run_dense::<L>(spec),
         Kind::StaleQueued => run_stale::<L>(spec),
         Kind::DeallocateBootstrap => run_deallocate::<L>(spec),
+        Kind::TimingTransfer => run_timing_transfer::<L>(spec),
+        Kind::ContemporaryReversal => run_reversal::<L>(spec),
         Kind::Recursion => run_recursion::<L>(spec),
         Kind::FourWayAmbiguity => run_four_way::<L>(spec),
         Kind::ExactReplay => run_replay::<L>(spec),
@@ -1239,6 +1433,75 @@ fn matrix(stage: Stage) -> Vec<RowSpec> {
                 ),
             );
         }
+    }
+    rows
+}
+
+fn correction_strata(stage: Stage) -> Vec<(Stage, u64, bool, bool, i32, i32, usize)> {
+    let (seeds, mirrors, thresholds, loads): (&[u64], &[bool], &[i32], &[usize]) = match stage {
+        Stage::Probe => (&[1101], &[false], &[2], &[0]),
+        Stage::Micro => (&[1211, 1223], &[false, true], &[2, 3], &[0, 4]),
+        Stage::Gate => (
+            &[1307, 1311, 1313, 1317],
+            &[false, true],
+            &[2, 3, 4],
+            &[0, 4, 12],
+        ),
+    };
+    let mut result = Vec::new();
+    for seed in seeds {
+        for mirror in mirrors {
+            for threshold in thresholds {
+                for coupling in [1, 2] {
+                    for load in loads {
+                        result.push((stage, *seed, *mirror, *mirror, *threshold, coupling, *load));
+                    }
+                }
+            }
+        }
+    }
+    result
+}
+
+fn correction_matrix(stage: Stage) -> Vec<RowSpec> {
+    let mut rows = Vec::new();
+    for stratum in correction_strata(stage) {
+        push_row(
+            &mut rows,
+            "coverage-correction-v2-burst-4",
+            Family::SameSource,
+            Kind::BurstFour,
+            &stratum,
+            (1, 0, 2, false, false),
+        );
+        push_row(
+            &mut rows,
+            "coverage-correction-v2-blocked-late-return",
+            Family::DenseReturn,
+            Kind::DenseLateReturn,
+            &stratum,
+            (0, 0, 6, true, true),
+        );
+        for train_spacing in [0, 2, 4] {
+            for spacing in [-1, 0, 1, 2, 3, 4, 5] {
+                push_row(
+                    &mut rows,
+                    "coverage-correction-v2-timing-transfer",
+                    Family::Timing,
+                    Kind::TimingTransfer,
+                    &stratum,
+                    (spacing, train_spacing, 2, false, true),
+                );
+            }
+        }
+        push_row(
+            &mut rows,
+            "coverage-correction-v2-contemporary-reversal",
+            Family::Control,
+            Kind::ContemporaryReversal,
+            &stratum,
+            (0, 0, 2, true, true),
+        );
     }
     rows
 }
@@ -1454,6 +1717,43 @@ fn artifact_paths(stage: Stage) -> [(PathBuf, PathBuf); 4] {
     ]
 }
 
+fn correction_artifact_paths(stage: Stage) -> [(PathBuf, PathBuf); 4] {
+    let stem = format!(
+        "results/cj0_f_matched_discriminator_coverage_correction_v2_{}",
+        stage.name()
+    );
+    [
+        (
+            PathBuf::from(format!("{stem}_b.csv")),
+            PathBuf::from(format!(
+                "results/.cj0_f_coverage_correction_v2_{}_b.csv.staging",
+                stage.name()
+            )),
+        ),
+        (
+            PathBuf::from(format!("{stem}_e.csv")),
+            PathBuf::from(format!(
+                "results/.cj0_f_coverage_correction_v2_{}_e.csv.staging",
+                stage.name()
+            )),
+        ),
+        (
+            PathBuf::from(format!("{stem}_paired.csv")),
+            PathBuf::from(format!(
+                "results/.cj0_f_coverage_correction_v2_{}_paired.csv.staging",
+                stage.name()
+            )),
+        ),
+        (
+            PathBuf::from(format!("{stem}.md")),
+            PathBuf::from(format!(
+                "results/.cj0_f_coverage_correction_v2_{}.md.staging",
+                stage.name()
+            )),
+        ),
+    ]
+}
+
 fn publish_atomic(final_path: &Path, stage_path: &Path, bytes: &[u8]) -> Result<(), String> {
     if final_path.exists() || stage_path.exists() {
         return Err(format!(
@@ -1536,6 +1836,67 @@ fn run_stage(stage: Stage) -> Result<(), String> {
     Ok(())
 }
 
+fn correction_prerequisite(stage: Stage) -> Result<(), String> {
+    let prior = match stage {
+        Stage::Probe => return Ok(()),
+        Stage::Micro => Stage::Probe,
+        Stage::Gate => Stage::Micro,
+    };
+    let report_path = format!(
+        "results/cj0_f_matched_discriminator_coverage_correction_v2_{}.md",
+        prior.name()
+    );
+    let report = fs::read_to_string(&report_path)
+        .map_err(|error| format!("missing correction prerequisite {report_path}: {error}"))?;
+    if !report.contains("development result") {
+        return Err(format!(
+            "uninterpretable correction prerequisite {report_path}"
+        ));
+    }
+    Ok(())
+}
+
+fn run_correction_stage(stage: Stage) -> Result<(), String> {
+    correction_prerequisite(stage)?;
+    for (final_path, stage_path) in correction_artifact_paths(stage) {
+        if final_path.exists() || stage_path.exists() {
+            return Err(format!(
+                "correction artifact preflight failed: {} or {} exists",
+                final_path.display(),
+                stage_path.display()
+            ));
+        }
+    }
+    let specs = correction_matrix(stage);
+    let b_rows = specs
+        .iter()
+        .cloned()
+        .map(|spec| {
+            let metrics = execute::<LawB>(&spec);
+            (spec, metrics)
+        })
+        .collect::<Vec<_>>();
+    let e_rows = specs
+        .iter()
+        .cloned()
+        .map(|spec| {
+            let metrics = execute::<LawE>(&spec);
+            (spec, metrics)
+        })
+        .collect::<Vec<_>>();
+    let b_csv = candidate_csv("CJ-B", &b_rows).map_err(|error| error.to_string())?;
+    let e_csv = candidate_csv("CJ-E", &e_rows).map_err(|error| error.to_string())?;
+    let pairs = paired_csv(&b_rows, &e_rows).map_err(|error| error.to_string())?;
+    let summary = report(stage, &b_rows, &e_rows)
+        .map_err(|error| error.to_string())?
+        .replacen("# CJ0-F", "# CJ0-F COVERAGE CORRECTION V2", 1);
+    let paths = correction_artifact_paths(stage);
+    for ((final_path, stage_path), content) in paths.iter().zip([b_csv, e_csv, pairs, summary]) {
+        publish_atomic(final_path, stage_path, content.as_bytes())?;
+    }
+    Ok(())
+}
+
 fn preflight() -> Result<(), String> {
     if B_SHA256.len() != 64 || E_SHA256.len() != 64 || PROTOCOL_SHA256.len() != 64 {
         return Err("embedded hash width mismatch".to_string());
@@ -1553,12 +1914,27 @@ fn preflight() -> Result<(), String> {
         if ids.windows(2).any(|window| window[0] == window[1]) {
             return Err(format!("duplicate {} row id", stage.name()));
         }
+        let correction_rows = correction_matrix(stage);
+        let mut correction_ids = correction_rows
+            .iter()
+            .map(|row| row.row_id.as_str())
+            .collect::<Vec<_>>();
+        correction_ids.sort_unstable();
+        if correction_ids
+            .windows(2)
+            .any(|window| window[0] == window[1])
+        {
+            return Err(format!("duplicate correction {} row id", stage.name()));
+        }
     }
     println!(
-        "preflight=PASS definitive=false authority=false b_sha256={B_SHA256} e_sha256={E_SHA256} protocol_sha256={PROTOCOL_SHA256} probe_rows={} micro_rows={} gate_rows={}",
+        "preflight=PASS definitive=false authority=false b_sha256={B_SHA256} e_sha256={E_SHA256} protocol_sha256={PROTOCOL_SHA256} probe_rows={} micro_rows={} gate_rows={} correction_probe_rows={} correction_micro_rows={} correction_gate_rows={}",
         matrix(Stage::Probe).len(),
         matrix(Stage::Micro).len(),
-        matrix(Stage::Gate).len()
+        matrix(Stage::Gate).len(),
+        correction_matrix(Stage::Probe).len(),
+        correction_matrix(Stage::Micro).len(),
+        correction_matrix(Stage::Gate).len()
     );
     Ok(())
 }
@@ -1576,7 +1952,10 @@ fn real_main() -> Result<(), String> {
         "probe" => run_stage(Stage::Probe),
         "micro" => run_stage(Stage::Micro),
         "gate" => run_stage(Stage::Gate),
-        _ => Err("usage: cj0-f-matched-discriminator --preflight|probe|micro|gate".to_string()),
+        "correction-probe" => run_correction_stage(Stage::Probe),
+        "correction-micro" => run_correction_stage(Stage::Micro),
+        "correction-gate" => run_correction_stage(Stage::Gate),
+        _ => Err("usage: cj0-f-matched-discriminator --preflight|probe|micro|gate|correction-probe|correction-micro|correction-gate".to_string()),
     }
 }
 
@@ -1677,5 +2056,42 @@ mod tests {
         };
         assert!(execute::<LawB>(&spec).heldout_reuse);
         assert!(execute::<LawE>(&spec).heldout_reuse);
+    }
+
+    #[test]
+    fn corrected_mandatory_fixtures_execute_symmetrically() {
+        let base = RowSpec {
+            row_id: "unit-correction".to_string(),
+            stage: Stage::Probe,
+            family: Family::Control,
+            kind: Kind::BurstFour,
+            seed: 994,
+            mirror: false,
+            reverse_insertion: false,
+            threshold: 2,
+            coupling: 1,
+            load: 0,
+            spacing: 0,
+            train_spacing: 0,
+            allocation: 2,
+            expected_effect: false,
+            genuine: false,
+        };
+        for kind in [
+            Kind::BurstFour,
+            Kind::DenseLateReturn,
+            Kind::TimingTransfer,
+            Kind::ContemporaryReversal,
+        ] {
+            let mut spec = base.clone();
+            spec.kind = kind;
+            spec.allocation = if kind == Kind::DenseLateReturn { 6 } else { 2 };
+            let b = execute::<LawB>(&spec);
+            let e = execute::<LawE>(&spec);
+            assert!(b.naturally_quiescent, "CJ-B {kind:?}");
+            assert!(e.naturally_quiescent, "CJ-E {kind:?}");
+        }
+        assert_eq!(execute::<LawB>(&base).temporary_peak_count, 4);
+        assert_eq!(execute::<LawE>(&base).temporary_peak_count, 4);
     }
 }
