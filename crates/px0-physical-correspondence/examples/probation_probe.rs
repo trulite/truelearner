@@ -46,6 +46,7 @@ struct ResultRow {
 #[derive(Clone, Debug)]
 struct TraceRow {
     arm: &'static str,
+    stage: String,
     ordinal: usize,
     tick: i64,
     target_physical: u64,
@@ -73,7 +74,7 @@ fn main() {
     let arms = [
         Arm {
             name: "fresh-short-two-direct",
-            namespace: 0x900_0000,
+            namespace: 0x910_0000,
             initial: 0,
             current: 1,
             spacing: 8,
@@ -82,7 +83,7 @@ fn main() {
         },
         Arm {
             name: "fresh-threshold-three-mirror",
-            namespace: 0x904_0000,
+            namespace: 0x914_0000,
             initial: 1,
             current: 2,
             spacing: 10,
@@ -259,6 +260,7 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
     };
     let stride = 6;
     let mut fixture = build(arm.namespace, arm.mirror, stride);
+    let mut trace = Vec::new();
     for ordinal in 0..4 {
         experience(
             &mut fixture,
@@ -270,7 +272,7 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
         );
     }
     let old_ids = variable_ids(&fixture, arm.initial);
-    experience(
+    let first_renewal = experience(
         &mut fixture,
         &[arm.initial],
         &[arm.initial],
@@ -300,14 +302,21 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
         arm.namespace + 0x3_000,
         true,
     );
+    append_trace(arm.name, "renewal-0", &first_renewal, &mut trace);
     for ordinal in 0..4 {
-        experience(
+        let renewal = experience(
             &mut fixture,
             &active,
             &[arm.current],
             300 + (ordinal as i64 + 1) * arm.spacing,
             arm.namespace + 0x4_000 + ordinal as u64 * 0x20,
             ordinal % 2 == 1,
+        );
+        append_trace(
+            arm.name,
+            &format!("renewal-{}", ordinal + 1),
+            &renewal,
+            &mut trace,
         );
     }
     let current = experience(
@@ -318,6 +327,7 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
         arm.namespace + 0x5_000,
         false,
     );
+    append_trace(arm.name, "current-held-out", &current, &mut trace);
     let unsupported = experience(
         &mut fixture,
         &[arm.initial],
@@ -326,19 +336,9 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
         arm.namespace + 0x6_000,
         true,
     );
-    let trace = unsupported
-        .trace
-        .iter()
-        .enumerate()
-        .map(|(ordinal, entry)| TraceRow {
-            arm: arm.name,
-            ordinal,
-            tick: entry.tick,
-            target_physical: entry.target_physical,
-            impulse: entry.impulse,
-            fired: entry.fired,
-        })
-        .collect::<Vec<_>>();
+    let unsupported_trace_entries = unsupported.trace.len();
+    let unsupported_firings = unsupported.trace.iter().filter(|entry| entry.fired).count();
+    append_trace(arm.name, "unsupported-held-out", &unsupported, &mut trace);
     let unsupported_effects = effects(&unsupported);
     let first_crossing_tick = unsupported
         .crossings
@@ -357,8 +357,8 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
             current_effects: effects(&current),
             unsupported_effects,
             unsupported_first_crossing_tick: first_crossing_tick,
-            unsupported_trace_entries: trace.len(),
-            unsupported_firings: trace.iter().filter(|entry| entry.fired).count(),
+            unsupported_trace_entries,
+            unsupported_firings,
             naturally_quiescent: current.naturally_quiescent && unsupported.naturally_quiescent,
             passed_negative: old_dead
                 && effects(&current) == 1
@@ -368,6 +368,24 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
         },
         trace,
     )
+}
+
+fn append_trace(arm: &'static str, stage: &str, execution: &Execution, rows: &mut Vec<TraceRow>) {
+    rows.extend(
+        execution
+            .trace
+            .iter()
+            .enumerate()
+            .map(|(ordinal, entry)| TraceRow {
+                arm,
+                stage: stage.to_string(),
+                ordinal,
+                tick: entry.tick,
+                target_physical: entry.target_physical,
+                impulse: entry.impulse,
+                fired: entry.fired,
+            }),
+    );
 }
 
 fn write_results(prefix: &Path, results: &[ResultRow], traces: &[TraceRow], passed_negative: bool) {
@@ -395,11 +413,11 @@ fn write_results(prefix: &Path, results: &[ResultRow], traces: &[TraceRow], pass
             row.passed_negative,
         ));
     }
-    let mut trace = String::from("arm,ordinal,tick,target_physical,impulse,fired\n");
+    let mut trace = String::from("arm,stage,ordinal,tick,target_physical,impulse,fired\n");
     for row in traces {
         trace.push_str(&format!(
-            "{},{},{},{},{},{}\n",
-            row.arm, row.ordinal, row.tick, row.target_physical, row.impulse, row.fired
+            "{},{},{},{},{},{},{}\n",
+            row.arm, row.stage, row.ordinal, row.tick, row.target_physical, row.impulse, row.fired
         ));
     }
     let mut report = format!(
