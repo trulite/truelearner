@@ -159,13 +159,28 @@ fn evidence() {
 fn audit() {
     for (path, expected) in [
         ("crates/px0-physical-correspondence/src/lib.rs", PX0),
-        ("results/px3_d1_r3_downstream_participation_attribution_v1.csv", R3_CSV),
-        ("experiments/px3_d1_r3_downstream_participation_attribution_result_audit_v1.md", R3_AUDIT),
-        ("arms/px3-r4-return-window-separability/src/main.rs", R4_SOURCE),
+        (
+            "results/px3_d1_r3_downstream_participation_attribution_v1.csv",
+            R3_CSV,
+        ),
+        (
+            "experiments/px3_d1_r3_downstream_participation_attribution_result_audit_v1.md",
+            R3_AUDIT,
+        ),
+        (
+            "arms/px3-r4-return-window-separability/src/main.rs",
+            R4_SOURCE,
+        ),
         ("results/px3_r4_return_window_separability_v1.csv", R4_CSV),
         ("results/px3_r4_return_window_separability_v1.md", R4_REPORT),
-        ("experiments/px3_r4_return_window_separability_result_audit_v1.md", R4_AUDIT),
-        ("experiments/px3_r5_three_factor_return_attribution_protocol_v1.md", PROTOCOL),
+        (
+            "experiments/px3_r4_return_window_separability_result_audit_v1.md",
+            R4_AUDIT,
+        ),
+        (
+            "experiments/px3_r5_three_factor_return_attribution_protocol_v1.md",
+            PROTOCOL,
+        ),
     ] {
         assert_eq!(sha(path), expected, "frozen input changed: {path}");
     }
@@ -239,7 +254,9 @@ fn run(seed: u64, kind: Kind) -> Row {
         &return_outlet,
         &return_trace,
     );
-    let v2 = attribution.iter().all(|tick| echo.iter().any(|value| value == &format!("{tick}:1")))
+    let v2 = attribution
+        .iter()
+        .all(|tick| echo.iter().any(|value| value == &format!("{tick}:1")))
         && echo.len() == attribution.len()
         && candidate.len() == p_fires.len();
     let expected_history = usize::from(kind != Kind::XrPAbsent);
@@ -339,22 +356,129 @@ fn scheduled_participation_valid(
     r_trace: &[i64],
 ) -> bool {
     match kind {
-        Kind::Complete => factor_ticks(primitive, primitive_trace, p, x, r_source, r_outlet, r_trace, &[0], &[1], &[1], &[2], &[2], &[2], &[3]),
-        Kind::PxNoReturn => factor_ticks(primitive, primitive_trace, p, x, r_source, r_outlet, r_trace, &[0], &[1], &[1], &[2], &[], &[], &[]),
-        Kind::PrXBlocked => factor_ticks(primitive, primitive_trace, p, x, r_source, r_outlet, r_trace, &[0], &[1], &[1], &[], &[2], &[2], &[3]),
-        Kind::XrPAbsent => factor_ticks(primitive, primitive_trace, p, x, r_source, r_outlet, r_trace, &[], &[], &[], &[2], &[2], &[2], &[3]),
-        Kind::PxLateA => primitive[0] == [0, 3]
-            && primitive[1] == [0]
-            && primitive_trace[0] == [1, 4]
-            && primitive_trace[1] == [1]
-            && p == [1]
-            && x == [2]
-            && r_source.is_empty()
-            && r_outlet.is_empty()
-            && r_trace.is_empty(),
-        Kind::AdjacentNoReturn => factor_ticks(primitive, primitive_trace, p, x, r_source, r_outlet, r_trace, &[0, 1], &[1, 2], &[1, 2], &[2, 3], &[], &[], &[]),
-        Kind::Collision => factor_ticks(primitive, primitive_trace, p, x, r_source, r_outlet, r_trace, &[0, 3], &[1, 4], &[1, 4], &[2, 5], &[2], &[2], &[3]),
-        Kind::TwoCompleted => factor_ticks(primitive, primitive_trace, p, x, r_source, r_outlet, r_trace, &[0, 11], &[1, 12], &[1, 12], &[2, 13], &[2, 13], &[2, 13], &[3, 14]),
+        Kind::Complete => factor_ticks(
+            primitive,
+            primitive_trace,
+            p,
+            x,
+            r_source,
+            r_outlet,
+            r_trace,
+            &[0],
+            &[1],
+            &[1],
+            &[2],
+            &[2],
+            &[2],
+            &[3],
+        ),
+        Kind::PxNoReturn => factor_ticks(
+            primitive,
+            primitive_trace,
+            p,
+            x,
+            r_source,
+            r_outlet,
+            r_trace,
+            &[0],
+            &[1],
+            &[1],
+            &[2],
+            &[],
+            &[],
+            &[],
+        ),
+        Kind::PrXBlocked => factor_ticks(
+            primitive,
+            primitive_trace,
+            p,
+            x,
+            r_source,
+            r_outlet,
+            r_trace,
+            &[0],
+            &[1],
+            &[1],
+            &[],
+            &[2],
+            &[2],
+            &[3],
+        ),
+        Kind::XrPAbsent => factor_ticks(
+            primitive,
+            primitive_trace,
+            p,
+            x,
+            r_source,
+            r_outlet,
+            r_trace,
+            &[],
+            &[],
+            &[],
+            &[2],
+            &[2],
+            &[2],
+            &[3],
+        ),
+        Kind::PxLateA => {
+            primitive[0] == [0, 3]
+                && primitive[1] == [0]
+                && primitive_trace[0] == [1, 4]
+                && primitive_trace[1] == [1]
+                && p == [1]
+                && x == [2]
+                && r_source.is_empty()
+                && r_outlet.is_empty()
+                && r_trace.is_empty()
+        }
+        Kind::AdjacentNoReturn => factor_ticks(
+            primitive,
+            primitive_trace,
+            p,
+            x,
+            r_source,
+            r_outlet,
+            r_trace,
+            &[0, 1],
+            &[1, 2],
+            &[1, 2],
+            &[2, 3],
+            &[],
+            &[],
+            &[],
+        ),
+        Kind::Collision => factor_ticks(
+            primitive,
+            primitive_trace,
+            p,
+            x,
+            r_source,
+            r_outlet,
+            r_trace,
+            &[0, 3],
+            &[1, 4],
+            &[1, 4],
+            &[2, 5],
+            &[2],
+            &[2],
+            &[3],
+        ),
+        Kind::TwoCompleted => factor_ticks(
+            primitive,
+            primitive_trace,
+            p,
+            x,
+            r_source,
+            r_outlet,
+            r_trace,
+            &[0, 11],
+            &[1, 12],
+            &[1, 12],
+            &[2, 13],
+            &[2, 13],
+            &[2, 13],
+            &[3, 14],
+        ),
     }
 }
 
@@ -388,10 +512,12 @@ fn factor_ticks(
 
 fn claim_pass(kind: Kind, observation: &Observation) -> bool {
     match kind {
-        Kind::Complete => observation.attribution == [3]
-            && observation.echo == ["3:1"]
-            && observation.candidate_resistance == [4]
-            && observation.p_fires == [1],
+        Kind::Complete => {
+            observation.attribution == [3]
+                && observation.echo == ["3:1"]
+                && observation.candidate_resistance == [4]
+                && observation.p_fires == [1]
+        }
         Kind::PxNoReturn | Kind::PrXBlocked | Kind::XrPAbsent | Kind::PxLateA => {
             observation.attribution.is_empty() && observation.echo.is_empty()
         }
@@ -400,14 +526,18 @@ fn claim_pass(kind: Kind, observation: &Observation) -> bool {
                 && observation.attribution.is_empty()
                 && observation.echo.is_empty()
         }
-        Kind::Collision => observation.return_trace == [3]
-            && observation.attribution == [3]
-            && observation.echo == ["3:1"]
-            && observation.p_fires == [1, 4],
-        Kind::TwoCompleted => observation.return_trace == [3, 14]
-            && observation.attribution == [3, 14]
-            && observation.echo == ["3:1", "14:1"]
-            && observation.p_fires == [1, 12],
+        Kind::Collision => {
+            observation.return_trace == [3]
+                && observation.attribution == [3]
+                && observation.echo == ["3:1"]
+                && observation.p_fires == [1, 4]
+        }
+        Kind::TwoCompleted => {
+            observation.return_trace == [3, 14]
+                && observation.attribution == [3, 14]
+                && observation.echo == ["3:1", "14:1"]
+                && observation.p_fires == [1, 12]
+        }
     }
 }
 
@@ -419,10 +549,30 @@ fn build(namespace: u64, mirror: bool) -> World {
     let mut primitive_traces = [None; 2];
     let mut primitive_hubs = [None; 2];
     for side in order {
-        primitive_sources[side] = Some(substrate.add_cell(cell(physical(namespace, 10 + side as u64), -100_000 - side as i32 * 1_000, 10 + side as i16, 1)));
-        primitive_outlets[side] = Some(substrate.add_cell(cell(physical(namespace, 20 + side as u64), -90_000 - side as i32 * 1_000, 20 + side as i16, 1)));
-        primitive_traces[side] = Some(substrate.add_cell(cell(physical(namespace, 30 + side as u64), -80_000 - side as i32 * 1_000, 30 + side as i16, 2)));
-        primitive_hubs[side] = Some(substrate.add_cell(cell(physical(namespace, 40 + side as u64), -70_000 - side as i32 * 1_000, 40 + side as i16, 1)));
+        primitive_sources[side] = Some(substrate.add_cell(cell(
+            physical(namespace, 10 + side as u64),
+            -100_000 - side as i32 * 1_000,
+            10 + side as i16,
+            1,
+        )));
+        primitive_outlets[side] = Some(substrate.add_cell(cell(
+            physical(namespace, 20 + side as u64),
+            -90_000 - side as i32 * 1_000,
+            20 + side as i16,
+            1,
+        )));
+        primitive_traces[side] = Some(substrate.add_cell(cell(
+            physical(namespace, 30 + side as u64),
+            -80_000 - side as i32 * 1_000,
+            30 + side as i16,
+            2,
+        )));
+        primitive_hubs[side] = Some(substrate.add_cell(cell(
+            physical(namespace, 40 + side as u64),
+            -70_000 - side as i32 * 1_000,
+            40 + side as i16,
+            1,
+        )));
     }
     let primitive_sources = primitive_sources.map(|value| value.expect("primitive source"));
     let primitive_outlets = primitive_outlets.map(|value| value.expect("primitive outlet"));
@@ -432,7 +582,12 @@ fn build(namespace: u64, mirror: bool) -> World {
     let opportunity = substrate.add_cell(cell(physical(namespace, 100), -10_000, 50, 2));
     let p_position = 10_000;
     let p = substrate.add_cell(cell(physical(namespace, 200), p_position, 60, 2));
-    let x = substrate.add_cell(cell(physical(namespace, 300), p_position + if mirror { -1 } else { 1 }, 70, 2));
+    let x = substrate.add_cell(cell(
+        physical(namespace, 300),
+        p_position + if mirror { -1 } else { 1 },
+        70,
+        2,
+    ));
     let p_trace = substrate.add_cell(cell(physical(namespace, 400), 30_000, 80, 2));
     let p_hub = substrate.add_cell(cell(physical(namespace, 500), 40_000, 90, 1));
     let x_trace = substrate.add_cell(cell(physical(namespace, 600), 50_000, 100, 2));
@@ -446,8 +601,18 @@ fn build(namespace: u64, mirror: bool) -> World {
     let return_hub = substrate.add_cell(cell(physical(namespace, 940), 130_000, 143, 1));
 
     for side in order {
-        substrate.add_arrow(fixed(primitive_sources[side], primitive_outlets[side], 0, 1));
-        normalize(&mut substrate, primitive_outlets[side], primitive_traces[side], primitive_hubs[side]);
+        substrate.add_arrow(fixed(
+            primitive_sources[side],
+            primitive_outlets[side],
+            0,
+            1,
+        ));
+        normalize(
+            &mut substrate,
+            primitive_outlets[side],
+            primitive_traces[side],
+            primitive_hubs[side],
+        );
     }
     normalize(&mut substrate, p, p_trace, p_hub);
     normalize(&mut substrate, x, x_trace, x_hub);
@@ -463,7 +628,16 @@ fn build(namespace: u64, mirror: bool) -> World {
     substrate.add_arrow(fixed(return_trace, attribution, 0, 1));
     substrate.add_arrow(fixed(attribution, p, 1, 1));
 
-    World { substrate, namespace, primitive_sources, p, x, context, effect_driver, return_source }
+    World {
+        substrate,
+        namespace,
+        primitive_sources,
+        p,
+        x,
+        context,
+        effect_driver,
+        return_source,
+    }
 }
 
 fn normalize(substrate: &mut PlasticSubstrate, outlet: CellId, trace: CellId, hub: CellId) {
@@ -482,7 +656,13 @@ fn episode(world: &mut World, start: i64, with_context: bool) {
 }
 
 fn primitive(world: &mut World, side: usize, tick: i64, phase: i32) {
-    pulse(&mut world.substrate, world.primitive_sources[side], tick, 1, phase);
+    pulse(
+        &mut world.substrate,
+        world.primitive_sources[side],
+        tick,
+        1,
+        phase,
+    );
 }
 
 fn returned(world: &mut World, tick: i64) {
@@ -494,15 +674,34 @@ fn candidate_arrows(world: &World) -> Vec<ArrowId> {
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
-    CellSpec { physical_id, position, region, threshold, resistance: 100 }
+    CellSpec {
+        physical_id,
+        position,
+        region,
+        threshold,
+        resistance: 100,
+    }
 }
 
 fn fixed(from: CellId, to: CellId, delay: i64, coupling: i32) -> ArrowSpec {
-    ArrowSpec { from, to, delay, phase: 0, coupling, resistance: 100 }
+    ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling,
+        resistance: 100,
+    }
 }
 
 fn pulse(substrate: &mut PlasticSubstrate, target: CellId, tick: i64, impulse: i32, phase: i32) {
-    substrate.enter(SpikeInput { arrival_tick: tick, phase, origin_physical: 900_000 + phase as u64, target, impulse });
+    substrate.enter(SpikeInput {
+        arrival_tick: tick,
+        phase,
+        origin_physical: 900_000 + phase as u64,
+        target,
+        impulse,
+    });
 }
 
 fn physical(namespace: u64, suffix: u64) -> u64 {
@@ -511,24 +710,44 @@ fn physical(namespace: u64, suffix: u64) -> u64 {
 
 fn firing_ticks(execution: &Execution, namespace: u64, suffix: u64) -> Vec<i64> {
     let target = physical(namespace, suffix);
-    execution.trace.iter().filter(|entry| entry.target_physical == target && entry.fired).map(|entry| entry.tick).collect()
+    execution
+        .trace
+        .iter()
+        .filter(|entry| entry.target_physical == target && entry.fired)
+        .map(|entry| entry.tick)
+        .collect()
 }
 
 fn events(execution: &Execution, namespace: u64, suffix: u64) -> Vec<String> {
     let target = physical(namespace, suffix);
-    execution.trace.iter().filter(|entry| entry.target_physical == target).map(|entry| format!("{}:{}:{}", entry.tick, entry.impulse, entry.fired)).collect()
+    execution
+        .trace
+        .iter()
+        .filter(|entry| entry.target_physical == target)
+        .map(|entry| format!("{}:{}:{}", entry.tick, entry.impulse, entry.fired))
+        .collect()
 }
 
 fn crossings(execution: &Execution, namespace: u64, from: u64, to: u64) -> Vec<String> {
     let from = physical(namespace, from);
     let to = physical(namespace, to);
-    execution.crossings.iter().filter(|entry| entry.from_physical == from && entry.to_physical == to).map(|entry| format!("{}:{}", entry.tick, entry.impulse)).collect()
+    execution
+        .crossings
+        .iter()
+        .filter(|entry| entry.from_physical == from && entry.to_physical == to)
+        .map(|entry| format!("{}:{}", entry.tick, entry.impulse))
+        .collect()
 }
 
 fn crossing_impulse(execution: &Execution, namespace: u64, from: u64, to: u64) -> i32 {
     let from = physical(namespace, from);
     let to = physical(namespace, to);
-    execution.crossings.iter().filter(|entry| entry.from_physical == from && entry.to_physical == to).map(|entry| entry.impulse).sum()
+    execution
+        .crossings
+        .iter()
+        .filter(|entry| entry.from_physical == from && entry.to_physical == to)
+        .map(|entry| entry.impulse)
+        .sum()
 }
 
 fn two<T>(mut function: impl FnMut(usize) -> T) -> [T; 2] {
@@ -540,9 +759,59 @@ fn csv(rows: &[Row]) -> String {
     for row in rows {
         let value = &row.observation;
         let fields = vec![
-            row.seed.to_string(), row.stratum.into(), row.scenario.name().into(), row.namespace.to_string(),
-            join_nested(&value.primitive), join_nested(&value.primitive_trace), join_i64(&value.opportunity), join_string(&value.p_events), join_i64(&value.p_fires), join_string(&value.candidate), join_i64(&value.x_fires), join_i64(&value.p_trace), join_i64(&value.x_trace), join_i64(&value.return_source), join_i64(&value.return_outlet), join_i64(&value.return_trace), join_i64(&value.attribution), join_string(&value.echo), value.historical_candidates.to_string(), value.live_candidates.to_string(), value.candidate_resistance.iter().map(u32::to_string).collect::<Vec<_>>().join("|"), value.candidate_liveness.iter().map(bool::to_string).collect::<Vec<_>>().join("|"), value.return_updates.to_string(), value.proposals.to_string(),
-            value.validity[0].to_string(), value.validity[1].to_string(), value.validity[2].to_string(), value.validity[3].to_string(), value.validity[4].to_string(), value.validity.into_iter().filter(|item| *item).count().to_string(), value.claim_pass.to_string(), value.work.to_string(), value.bytes.to_string(), value.fingerprint.to_string(), value.permanent.to_string(), value.quiescent.to_string(), row.replay.to_string(), row.valid.to_string(),
+            row.seed.to_string(),
+            row.stratum.into(),
+            row.scenario.name().into(),
+            row.namespace.to_string(),
+            join_nested(&value.primitive),
+            join_nested(&value.primitive_trace),
+            join_i64(&value.opportunity),
+            join_string(&value.p_events),
+            join_i64(&value.p_fires),
+            join_string(&value.candidate),
+            join_i64(&value.x_fires),
+            join_i64(&value.p_trace),
+            join_i64(&value.x_trace),
+            join_i64(&value.return_source),
+            join_i64(&value.return_outlet),
+            join_i64(&value.return_trace),
+            join_i64(&value.attribution),
+            join_string(&value.echo),
+            value.historical_candidates.to_string(),
+            value.live_candidates.to_string(),
+            value
+                .candidate_resistance
+                .iter()
+                .map(u32::to_string)
+                .collect::<Vec<_>>()
+                .join("|"),
+            value
+                .candidate_liveness
+                .iter()
+                .map(bool::to_string)
+                .collect::<Vec<_>>()
+                .join("|"),
+            value.return_updates.to_string(),
+            value.proposals.to_string(),
+            value.validity[0].to_string(),
+            value.validity[1].to_string(),
+            value.validity[2].to_string(),
+            value.validity[3].to_string(),
+            value.validity[4].to_string(),
+            value
+                .validity
+                .into_iter()
+                .filter(|item| *item)
+                .count()
+                .to_string(),
+            value.claim_pass.to_string(),
+            value.work.to_string(),
+            value.bytes.to_string(),
+            value.fingerprint.to_string(),
+            value.permanent.to_string(),
+            value.quiescent.to_string(),
+            row.replay.to_string(),
+            row.valid.to_string(),
         ];
         output.push_str(&fields.join(","));
         output.push('\n');
@@ -552,8 +821,14 @@ fn csv(rows: &[Row]) -> String {
 
 fn report(rows: &[Row]) -> String {
     let all_valid = rows.iter().all(|row| row.valid);
-    let core_pass = rows.iter().filter(|row| row.scenario != Kind::AdjacentNoReturn).all(|row| row.observation.claim_pass);
-    let adjacent_clean = rows.iter().filter(|row| row.scenario == Kind::AdjacentNoReturn).all(|row| row.observation.claim_pass);
+    let core_pass = rows
+        .iter()
+        .filter(|row| row.scenario != Kind::AdjacentNoReturn)
+        .all(|row| row.observation.claim_pass);
+    let adjacent_clean = rows
+        .iter()
+        .filter(|row| row.scenario == Kind::AdjacentNoReturn)
+        .all(|row| row.observation.claim_pass);
     let classification = if all_valid && core_pass && adjacent_clean {
         "R5-A THREE-FACTOR POSITIVE"
     } else if all_valid && core_pass && !adjacent_clean {
@@ -561,17 +836,33 @@ fn report(rows: &[Row]) -> String {
     } else {
         "R5-C CORE NEGATIVE"
     };
-    let adjacent_m = rows.iter().filter(|row| row.scenario == Kind::AdjacentNoReturn).map(|row| row.observation.attribution.len()).sum::<usize>();
-    let adjacent_r = rows.iter().filter(|row| row.scenario == Kind::AdjacentNoReturn).map(|row| row.observation.return_trace.len()).sum::<usize>();
+    let adjacent_m = rows
+        .iter()
+        .filter(|row| row.scenario == Kind::AdjacentNoReturn)
+        .map(|row| row.observation.attribution.len())
+        .sum::<usize>();
+    let adjacent_r = rows
+        .iter()
+        .filter(|row| row.scenario == Kind::AdjacentNoReturn)
+        .map(|row| row.observation.return_trace.len())
+        .sum::<usize>();
     format!("# PX3-R5 three-factor physical return attribution v1\n\nOutcome: **{classification}**.\n\n- valid rows: `{}/{}`;\n- validity clauses: `{}/80`;\n- non-adjacent core controls passed: `{core_pass}`;\n- adjacent recurrence/no-return clean: `{adjacent_clean}`;\n- adjacent recurrence R traces: `{adjacent_r}`;\n- adjacent recurrence M firings: `{adjacent_m}`;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- PX0 law changed: `false`;\n- semantic return/provenance representation added: `false`;\n- PX3 authority after R5: `negative`.\n", rows.iter().filter(|row| row.valid).count(), rows.len(), rows.iter().map(|row| row.observation.validity.into_iter().filter(|item| *item).count()).sum::<usize>(), rows.iter().all(|row| row.replay), rows.iter().all(|row| row.observation.quiescent))
 }
 
 fn join_nested<const N: usize>(values: &[Vec<i64>; N]) -> String {
-    values.iter().map(|value| join_i64(value)).collect::<Vec<_>>().join("~")
+    values
+        .iter()
+        .map(|value| join_i64(value))
+        .collect::<Vec<_>>()
+        .join("~")
 }
 
 fn join_i64(values: &[i64]) -> String {
-    values.iter().map(i64::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(i64::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_string(values: &[String]) -> String {
@@ -585,16 +876,28 @@ fn absent(paths: &[&str]) {
 }
 
 fn publish(stage: &str, destination: &str, content: &str) {
-    let mut file = OpenOptions::new().write(true).create_new(true).open(stage).expect("create staging artifact");
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(stage)
+        .expect("create staging artifact");
     file.write_all(content.as_bytes()).expect("write artifact");
     file.sync_all().expect("sync artifact");
     rename(stage, destination).expect("publish artifact");
 }
 
 fn sha(path: &str) -> String {
-    let output = Command::new("sha256sum").arg(path).output().expect("sha256sum");
+    let output = Command::new("sha256sum")
+        .arg(path)
+        .output()
+        .expect("sha256sum");
     assert!(output.status.success(), "sha256sum failed: {path}");
-    String::from_utf8(output.stdout).expect("utf8").split_whitespace().next().expect("digest").into()
+    String::from_utf8(output.stdout)
+        .expect("utf8")
+        .split_whitespace()
+        .next()
+        .expect("digest")
+        .into()
 }
 
 #[cfg(test)]
