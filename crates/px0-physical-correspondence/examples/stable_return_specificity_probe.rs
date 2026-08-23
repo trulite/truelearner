@@ -32,6 +32,19 @@ struct Arm {
     stable: usize,
     incidental: usize,
     mirror: bool,
+    stride: i32,
+    context_spacing: i64,
+    cycles: usize,
+    incidental_form: usize,
+    device_order: [usize; DEVICES],
+    distractor_load: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Mode {
+    Probe,
+    Micro,
+    Gate,
 }
 
 #[derive(Debug)]
@@ -57,6 +70,7 @@ struct ResultRow {
 
 #[derive(Debug)]
 struct ControlRow {
+    kind: &'static str,
     arm: &'static str,
     route_0_returns: usize,
     route_1_returns: usize,
@@ -84,6 +98,7 @@ struct ContextRow {
 fn main() {
     let mut args = env::args().skip(1);
     let mut output_prefix = None;
+    let mut mode = Mode::Probe;
     while let Some(argument) = args.next() {
         match argument.as_str() {
             "--output-prefix" => {
@@ -91,6 +106,8 @@ fn main() {
                     args.next().expect("--output-prefix requires a path"),
                 ));
             }
+            "--micro" => mode = Mode::Micro,
+            "--gate" => mode = Mode::Gate,
             "--definitive" => {
                 eprintln!("PX0-S is development-only; definitive execution is forbidden");
                 std::process::exit(2);
@@ -99,13 +116,19 @@ fn main() {
         }
     }
 
-    let arms = [
+    let probe_arms = vec![
         Arm {
             name: "stable-route-1-direct",
             namespace: 0xb00_0000,
             stable: 1,
             incidental: 0,
             mirror: false,
+            stride: STRIDE,
+            context_spacing: CONTEXT_SPACING,
+            cycles: CYCLES,
+            incidental_form: 0,
+            device_order: [0, 1, 2, 3],
+            distractor_load: 0,
         },
         Arm {
             name: "stable-route-0-mirrored",
@@ -113,8 +136,231 @@ fn main() {
             stable: 0,
             incidental: 1,
             mirror: true,
+            stride: STRIDE,
+            context_spacing: CONTEXT_SPACING,
+            cycles: CYCLES,
+            incidental_form: 0,
+            device_order: [0, 1, 2, 3],
+            distractor_load: 0,
         },
     ];
+    let micro_arms = vec![
+        arm(
+            "micro-phase-2-direct",
+            0xc00_0000,
+            2,
+            0,
+            false,
+            12,
+            10,
+            6,
+            2,
+            [2, 0, 3, 1],
+            2,
+        ),
+        arm(
+            "micro-phase-3-mirror",
+            0xc40_0000,
+            0,
+            2,
+            true,
+            20,
+            14,
+            10,
+            3,
+            [3, 1, 0, 2],
+            8,
+        ),
+        arm(
+            "micro-route-1-direct",
+            0xc80_0000,
+            1,
+            2,
+            false,
+            14,
+            11,
+            7,
+            1,
+            [1, 3, 2, 0],
+            4,
+        ),
+        arm(
+            "micro-route-2-mirror",
+            0xcc0_0000,
+            2,
+            1,
+            true,
+            18,
+            16,
+            9,
+            0,
+            [0, 2, 1, 3],
+            16,
+        ),
+    ];
+    let gate_arms = vec![
+        arm(
+            "gate-00",
+            0xd00_0000,
+            0,
+            1,
+            false,
+            12,
+            10,
+            6,
+            0,
+            [0, 1, 2, 3],
+            0,
+        ),
+        arm(
+            "gate-01",
+            0xd20_0000,
+            1,
+            0,
+            true,
+            14,
+            11,
+            7,
+            1,
+            [1, 2, 3, 0],
+            2,
+        ),
+        arm(
+            "gate-02",
+            0xd40_0000,
+            2,
+            0,
+            false,
+            16,
+            12,
+            8,
+            2,
+            [2, 3, 0, 1],
+            4,
+        ),
+        arm(
+            "gate-03",
+            0xd60_0000,
+            0,
+            2,
+            true,
+            18,
+            13,
+            9,
+            3,
+            [3, 0, 1, 2],
+            8,
+        ),
+        arm(
+            "gate-04",
+            0xd80_0000,
+            1,
+            2,
+            false,
+            20,
+            14,
+            10,
+            0,
+            [3, 1, 0, 2],
+            16,
+        ),
+        arm(
+            "gate-05",
+            0xda0_0000,
+            2,
+            1,
+            true,
+            22,
+            15,
+            6,
+            1,
+            [2, 0, 3, 1],
+            32,
+        ),
+        arm(
+            "gate-06",
+            0xdc0_0000,
+            0,
+            1,
+            true,
+            24,
+            16,
+            7,
+            2,
+            [1, 3, 2, 0],
+            1,
+        ),
+        arm(
+            "gate-07",
+            0xde0_0000,
+            1,
+            0,
+            false,
+            26,
+            17,
+            8,
+            3,
+            [0, 2, 1, 3],
+            3,
+        ),
+        arm(
+            "gate-08",
+            0xe00_0000,
+            2,
+            0,
+            true,
+            28,
+            18,
+            9,
+            0,
+            [2, 1, 3, 0],
+            6,
+        ),
+        arm(
+            "gate-09",
+            0xe20_0000,
+            0,
+            2,
+            false,
+            30,
+            19,
+            10,
+            1,
+            [1, 0, 2, 3],
+            12,
+        ),
+        arm(
+            "gate-10",
+            0xe40_0000,
+            1,
+            2,
+            true,
+            32,
+            20,
+            6,
+            2,
+            [3, 2, 0, 1],
+            24,
+        ),
+        arm(
+            "gate-11",
+            0xe60_0000,
+            2,
+            1,
+            false,
+            34,
+            21,
+            8,
+            3,
+            [0, 3, 1, 2],
+            40,
+        ),
+    ];
+    let arms = match mode {
+        Mode::Probe => probe_arms,
+        Mode::Micro => micro_arms,
+        Mode::Gate => gate_arms,
+    };
     let mut results = Vec::new();
     let mut contexts = Vec::new();
     for arm in arms {
@@ -122,10 +368,30 @@ fn main() {
         results.push(result);
         contexts.extend(rows);
     }
-    let controls = [
-        run_recurring_control("recurring-route-0-direct", 0xb80_0000, 0, 1, false),
-        run_recurring_control("recurring-route-1-mirrored", 0xbc0_0000, 1, 0, true),
+    let control_base = match mode {
+        Mode::Probe => 0xb80_0000,
+        Mode::Micro => 0xcf0_0000,
+        Mode::Gate => 0xe80_0000,
+    };
+    let mut controls = vec![
+        run_recurring_control("recurring-route-0-direct", control_base, 0, 1, false),
+        run_recurring_control(
+            "recurring-route-1-mirrored",
+            control_base + 0x10_000,
+            1,
+            0,
+            true,
+        ),
+        run_absent_control("absent-return-direct", control_base + 0x20_000, false),
+        run_absent_control("absent-return-mirror", control_base + 0x30_000, true),
     ];
+    if mode != Mode::Probe {
+        controls.push(run_switch_control(
+            "stability-switch-continuous",
+            control_base + 0x40_000,
+            mode == Mode::Gate,
+        ));
+    }
     let passed = results.iter().all(|row| row.passed) && controls.iter().all(|row| row.passed);
     write_results(
         &output_prefix.expect("development output prefix is required"),
@@ -133,9 +399,39 @@ fn main() {
         &controls,
         &contexts,
         passed,
+        mode,
     );
     if !passed {
         std::process::exit(1);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn arm(
+    name: &'static str,
+    namespace: u64,
+    stable: usize,
+    incidental: usize,
+    mirror: bool,
+    stride: i32,
+    context_spacing: i64,
+    cycles: usize,
+    incidental_form: usize,
+    device_order: [usize; DEVICES],
+    distractor_load: usize,
+) -> Arm {
+    Arm {
+        name,
+        namespace,
+        stable,
+        incidental,
+        mirror,
+        stride,
+        context_spacing,
+        cycles,
+        incidental_form,
+        device_order,
+        distractor_load,
     }
 }
 
@@ -160,7 +456,7 @@ fn arrow(from: CellId, to: CellId, delay: i64, coupling: i32) -> ArrowSpec {
     }
 }
 
-fn build(namespace: u64, mirror: bool) -> Fixture {
+fn build(namespace: u64, mirror: bool, stride: i32, distractor_load: usize) -> Fixture {
     let mut substrate = PlasticSubstrate::new();
     let mut sources = [None; N];
     let mut probes = [None; N];
@@ -173,7 +469,7 @@ fn build(namespace: u64, mirror: bool) -> Fixture {
 
     for route in 0..N {
         let slot = if mirror { N - 1 - route } else { route };
-        let position = slot as i32 * STRIDE;
+        let position = slot as i32 * stride;
         sources[route] =
             Some(substrate.add_cell(cell(namespace + 10 + route as u64, position, 0, 2)));
         probes[route] =
@@ -197,6 +493,14 @@ fn build(namespace: u64, mirror: bool) -> Fixture {
                 -2,
                 1,
             )));
+        }
+        for distractor in 0..distractor_load {
+            substrate.add_cell(cell(
+                namespace + 1_000 + route as u64 * 100 + distractor as u64,
+                position + 5 + (distractor % 3) as i32,
+                -3,
+                2,
+            ));
         }
     }
 
@@ -293,25 +597,28 @@ fn activate_driver(fixture: &mut Fixture, route: usize, tick: i64, origin: u64) 
     enter_twice(fixture, fixture.incidental_drivers[route], tick, origin);
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_context(
     fixture: &mut Fixture,
     stable: usize,
     incidental: usize,
-    form: usize,
+    stable_device: usize,
+    incidental_active: bool,
+    elsewhere_active: bool,
     base: i64,
     origin: u64,
 ) -> Execution {
     let spare = 3 - stable - incidental;
     let mut active = vec![stable, incidental];
-    if form == 3 {
+    if elsewhere_active {
         active.push(spare);
     }
     activate_candidates(fixture, &active, base + 2, origin);
-    activate_support(fixture, stable, form, base + 4, origin + 0x200);
-    if form == 0 {
+    activate_support(fixture, stable, stable_device, base + 4, origin + 0x200);
+    if incidental_active {
         activate_driver(fixture, incidental, base + 2, origin + 0x300);
     }
-    if form == 3 {
+    if elsewhere_active {
         activate_driver(fixture, spare, base + 2, origin + 0x400);
     }
     fixture.substrate.propagate()
@@ -361,21 +668,24 @@ fn max_live_resistance(fixture: &Fixture, route: usize) -> u32 {
 }
 
 fn run_specificity_arm(arm: Arm) -> (ResultRow, Vec<ContextRow>) {
-    let mut fixture = build(arm.namespace, arm.mirror);
+    let mut fixture = build(arm.namespace, arm.mirror, arm.stride, arm.distractor_load);
     let mut contexts = Vec::new();
     let mut stable_returns = 0;
     let mut incidental_returns = 0;
     let mut work = 0;
     let mut ordinal = 0;
 
-    for _ in 0..CYCLES {
+    for _ in 0..arm.cycles {
         for form in 0..DEVICES {
-            let base = ordinal as i64 * CONTEXT_SPACING;
+            let base = ordinal as i64 * arm.context_spacing;
+            let device = arm.device_order[form];
             let execution = run_context(
                 &mut fixture,
                 arm.stable,
                 arm.incidental,
-                form,
+                device,
+                form == arm.incidental_form,
+                form == (arm.incidental_form + 3) % DEVICES,
                 base,
                 arm.namespace + 0x10_000 + ordinal as u64 * 0x100,
             );
@@ -388,7 +698,7 @@ fn run_specificity_arm(arm: Arm) -> (ResultRow, Vec<ContextRow>) {
                 arm: arm.name,
                 ordinal,
                 form,
-                stable_device: form,
+                stable_device: device,
                 stable_returns: stable_here,
                 incidental_returns: incidental_here,
                 crossings: effects(&execution),
@@ -398,13 +708,16 @@ fn run_specificity_arm(arm: Arm) -> (ResultRow, Vec<ContextRow>) {
             ordinal += 1;
         }
     }
-    for form in 1..DEVICES {
-        let base = ordinal as i64 * CONTEXT_SPACING;
+    for form in (0..DEVICES).filter(|form| *form != arm.incidental_form) {
+        let base = ordinal as i64 * arm.context_spacing;
+        let device = arm.device_order[form];
         let execution = run_context(
             &mut fixture,
             arm.stable,
             arm.incidental,
-            form,
+            device,
+            false,
+            form == (arm.incidental_form + 3) % DEVICES,
             base,
             arm.namespace + 0x20_000 + ordinal as u64 * 0x100,
         );
@@ -417,7 +730,7 @@ fn run_specificity_arm(arm: Arm) -> (ResultRow, Vec<ContextRow>) {
             arm: arm.name,
             ordinal,
             form,
-            stable_device: form,
+            stable_device: device,
             stable_returns: stable_here,
             incidental_returns: incidental_here,
             crossings: effects(&execution),
@@ -429,7 +742,7 @@ fn run_specificity_arm(arm: Arm) -> (ResultRow, Vec<ContextRow>) {
 
     let stable_max_resistance = max_live_resistance(&fixture, arm.stable);
     let incidental_final_max_resistance = max_live_resistance(&fixture, arm.incidental);
-    let test_tick = ordinal as i64 * CONTEXT_SPACING;
+    let test_tick = ordinal as i64 * arm.context_spacing;
     let mut stable_first = fixture.clone();
     let mut stable_second = fixture.clone();
     let stable_execution = held_out(
@@ -520,7 +833,7 @@ fn run_recurring_control(
     dense: usize,
     mirror: bool,
 ) -> ControlRow {
-    let mut fixture = build(namespace, mirror);
+    let mut fixture = build(namespace, mirror, STRIDE, 8);
     let mut route_0_returns = 0;
     let mut route_1_returns = 0;
     let mut work = 0;
@@ -585,6 +898,7 @@ fn run_recurring_control(
         && duplicate_exact
         && naturally_quiescent;
     ControlRow {
+        kind: "recurring",
         arm: name,
         route_0_returns,
         route_1_returns,
@@ -598,12 +912,158 @@ fn run_recurring_control(
     }
 }
 
+fn run_absent_control(name: &'static str, namespace: u64, mirror: bool) -> ControlRow {
+    let mut fixture = build(namespace, mirror, STRIDE, 8);
+    let mut work = 0;
+    for ordinal in 0..24 {
+        let tick = ordinal as i64 * CONTEXT_SPACING + 2;
+        let execution = held_out(
+            &mut fixture,
+            ordinal % 2,
+            tick,
+            namespace + 0x10_000 + ordinal as u64 * 0x100,
+        );
+        work += execution.work.total();
+        assert!(execution.naturally_quiescent);
+    }
+    let tick = 24 * CONTEXT_SPACING;
+    let mut route_0_first = fixture.clone();
+    let mut route_0_second = fixture.clone();
+    let route_0 = held_out(&mut route_0_first, 0, tick, namespace + 0x20_000);
+    let route_0_duplicate = held_out(&mut route_0_second, 0, tick, namespace + 0x20_000);
+    let mut route_1_fixture = fixture.clone();
+    let route_1 = held_out(&mut route_1_fixture, 1, tick, namespace + 0x30_000);
+    let duplicate_exact = route_0 == route_0_duplicate
+        && route_0_first.substrate.complete_fingerprint()
+            == route_0_second.substrate.complete_fingerprint();
+    let route_0_effects = effects(&route_0);
+    let route_1_effects = effects(&route_1);
+    let naturally_quiescent = route_0.naturally_quiescent && route_1.naturally_quiescent;
+    let passed = route_0_effects == 0
+        && route_1_effects == 0
+        && max_live_resistance(&fixture, 0) <= 1
+        && max_live_resistance(&fixture, 1) <= 1
+        && duplicate_exact
+        && naturally_quiescent;
+    ControlRow {
+        kind: "absent",
+        arm: name,
+        route_0_returns: 0,
+        route_1_returns: 0,
+        route_0_effects,
+        route_1_effects,
+        simultaneous_effects: 0,
+        duplicate_exact,
+        naturally_quiescent,
+        work,
+        passed,
+    }
+}
+
+fn run_switch_control(name: &'static str, namespace: u64, mirror: bool) -> ControlRow {
+    let mut fixture = build(namespace, mirror, 18, 12);
+    let mut route_0_returns = 0;
+    let mut route_1_returns = 0;
+    let mut work = 0;
+    let mut ordinal = 0;
+    for _ in 0..8 {
+        for form in 0..DEVICES {
+            let base = ordinal * CONTEXT_SPACING;
+            let execution = run_context(
+                &mut fixture,
+                0,
+                1,
+                form,
+                form == 0,
+                form == 3,
+                base,
+                namespace + 0x10_000 + ordinal as u64 * 0x100,
+            );
+            route_0_returns += delayed_returns(&fixture, 0, base, &execution);
+            route_1_returns += delayed_returns(&fixture, 1, base, &execution);
+            work += execution.work.total();
+            ordinal += 1;
+        }
+    }
+    let switched_while_both_live =
+        max_live_resistance(&fixture, 0) > 1 && max_live_resistance(&fixture, 1) > 0;
+    for _ in 0..80 {
+        for form in 0..DEVICES {
+            let base = ordinal * CONTEXT_SPACING;
+            let execution = run_context(
+                &mut fixture,
+                1,
+                0,
+                form,
+                form == 0,
+                form == 3,
+                base,
+                namespace + 0x20_000 + ordinal as u64 * 0x100,
+            );
+            route_0_returns += delayed_returns(&fixture, 0, base, &execution);
+            route_1_returns += delayed_returns(&fixture, 1, base, &execution);
+            work += execution.work.total();
+            ordinal += 1;
+        }
+    }
+    for form in 1..DEVICES {
+        let base = ordinal * CONTEXT_SPACING;
+        let execution = run_context(
+            &mut fixture,
+            1,
+            0,
+            form,
+            false,
+            form == 3,
+            base,
+            namespace + 0x30_000 + ordinal as u64 * 0x100,
+        );
+        route_0_returns += delayed_returns(&fixture, 0, base, &execution);
+        route_1_returns += delayed_returns(&fixture, 1, base, &execution);
+        work += execution.work.total();
+        ordinal += 1;
+    }
+    let tick = ordinal * CONTEXT_SPACING;
+    let mut route_0_fixture = fixture.clone();
+    let mut route_1_first = fixture.clone();
+    let mut route_1_second = fixture.clone();
+    let route_0 = held_out(&mut route_0_fixture, 0, tick, namespace + 0x40_000);
+    let route_1 = held_out(&mut route_1_first, 1, tick, namespace + 0x50_000);
+    let route_1_duplicate = held_out(&mut route_1_second, 1, tick, namespace + 0x50_000);
+    let route_0_effects = effects(&route_0);
+    let route_1_effects = effects(&route_1);
+    let duplicate_exact = route_1 == route_1_duplicate
+        && route_1_first.substrate.complete_fingerprint()
+            == route_1_second.substrate.complete_fingerprint();
+    let naturally_quiescent = route_0.naturally_quiescent && route_1.naturally_quiescent;
+    let passed = switched_while_both_live
+        && route_0_effects == 0
+        && route_1_effects == 1
+        && max_live_resistance(&fixture, 1) > max_live_resistance(&fixture, 0)
+        && duplicate_exact
+        && naturally_quiescent;
+    ControlRow {
+        kind: "switch",
+        arm: name,
+        route_0_returns,
+        route_1_returns,
+        route_0_effects,
+        route_1_effects,
+        simultaneous_effects: 0,
+        duplicate_exact,
+        naturally_quiescent,
+        work,
+        passed,
+    }
+}
+
 fn write_results(
     prefix: &Path,
     results: &[ResultRow],
     controls: &[ControlRow],
     contexts: &[ContextRow],
     passed: bool,
+    mode: Mode,
 ) {
     let summary_path = prefix.with_extension("csv");
     let context_path = prefix.with_extension("contexts.csv");
@@ -638,7 +1098,8 @@ fn write_results(
     }
     for row in controls {
         summary.push_str(&format!(
-            "recurring,{},{},{},{},{},0,0,0,{},{},false,{},{},24,{},0,{}\n",
+            "{},{},{},{},{},{},0,0,0,{},{},false,{},{},24,{},0,{}\n",
+            row.kind,
             row.arm,
             0,
             1,
@@ -669,7 +1130,12 @@ fn write_results(
         ));
     }
     let mut report = format!(
-        "# PX0-S stable return specificity PROBE retry v2\n\nOutcome: **{}**.\n\n",
+        "# PX0-S stable return specificity {}\n\nOutcome: **{}**.\n\n",
+        match mode {
+            Mode::Probe => "PROBE retry v2",
+            Mode::Micro => "MICRO v1",
+            Mode::Gate => "GATE v1",
+        },
         if passed {
             "PX0-S-A — STABLE RETURN SPECIFICITY POSITIVE"
         } else {
@@ -696,12 +1162,13 @@ fn write_results(
             row.passed,
         ));
     }
-    report.push_str("\n## Recurring dense-path controls\n\n");
+    report.push_str("\n## Dense-path and absent-return controls\n\n");
     report.push_str("| arm | route 0 returns | route 1 returns | route 0 effect | route 1 effect | simultaneous | replay | pass |\n");
     report.push_str("|---|---:|---:|---:|---:|---:|---:|---:|\n");
     for row in controls {
         report.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {}:{} | {} | {} | {} | {} | {} | {} | {} |\n",
+            row.kind,
             row.arm,
             row.route_0_returns,
             row.route_1_returns,
