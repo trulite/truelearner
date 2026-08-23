@@ -64,11 +64,12 @@ if [ "$ssa_hash" != 50c46962c2388359a46b2a12ce74f8bcba4bcbb33c651f2c908fcd35e16e
 fi
 
 cargo fmt --all -- --check
-cargo test --lib organism::
-cargo run --quiet --bin post_m8_consolidation
+cargo test -p frozen-organism-v1-physics
+cargo test -p organism-v0 --lib organism::
+cargo run -p organism-v0 --quiet --bin post_m8_consolidation
 
 if [ "${1:-}" = "--full" ]; then
-    cargo run --release --quiet --bin post_m8_consolidation -- --m8-gate
+    cargo run -p organism-v0 --release --quiet --bin post_m8_consolidation -- --m8-gate
 fi
 
 echo "post-M8 consolidation verification: PASS"

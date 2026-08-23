@@ -1,5 +1,25 @@
 # organism-v0
 
+## Current state: Frozen Organism v1
+
+The architecture-discovery program is complete at authoritative M8. New work
+must use the frozen post-M8 contract and may vary experience, environment,
+capacity, internal work, and developmental time; it may not add cognitive
+architecture.
+
+- [Final substrate contract](docs/final_substrate_contract.md)
+- [M0--M8 learned machinery ledger](docs/learned_machinery_ledger.md)
+- [Developmental Harness v0 implementation plan](docs/developmental_harness_v0_plan.md)
+- `crates/frozen-organism-v1-physics`: standalone retained-physics crate with
+  no dependency on the historical experiment surface
+- `./scripts/verify_frozen_organism_v1_cleanup.sh`: cleanup, isolation, and
+  conformance checks
+
+The remainder of this README and the root `src/`, `experiments/`, and
+`results/` trees are the immutable research archive. They remain available for
+provenance and conformance replay but are not the dependency surface for new
+capability work.
+
 Minimal executable experiments for the CELL / ARROW / SPIKE idea.
 
 ## Independent review

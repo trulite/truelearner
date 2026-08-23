@@ -1,0 +1,8 @@
+[package]
+name = "frozen-organism-v1-physics"
+version = "1.0.0"
+edition = "2021"
+publish = false
+description = "Frozen semantic-free CELL/ARROW/SPIKE retained physics"
+
+[dependencies]

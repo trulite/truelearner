@@ -23,10 +23,16 @@ jobs:
           cargo --version
 
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: cargo fmt --all -- --check
 
-      - name: Run all tests
-        run: cargo test --lib --bin organism-v0 --test reviewer_api
+      - name: Run retained-physics tests
+        run: cargo test -p frozen-organism-v1-physics
 
-      - name: Run Clippy
-        run: cargo clippy --all-targets -- -D warnings
+      - name: Run historical archive tests
+        run: cargo test -p organism-v0 --lib --bin organism-v0 --test reviewer_api
+
+      - name: Run retained-physics Clippy
+        run: cargo clippy -p frozen-organism-v1-physics --all-targets -- -D warnings
+
+      - name: Run historical archive Clippy
+        run: cargo clippy -p organism-v0 --all-targets -- -D warnings

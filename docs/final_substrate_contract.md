@@ -85,6 +85,22 @@ M8 is `m8-cumulative-closure-emission-authoritative`, commit
 `4ba88b6ed03b8e012231363fa6e3c29ea41308bb`. The M0--M8 ladder is complete;
 no DS9 is created or authorized by consolidation.
 
+## Clean implementation boundary
+
+The retained execution physics now lives in the standalone
+`crates/frozen-organism-v1-physics` package. Its substrate source is
+byte-identical to the post-M8 consolidation implementation, SHA-256
+`6aa28a76e1362ac8dfb1d33fb68807da40e7604dfdc8cca9efa1e314e3ce4263`,
+and the package has no normal dependencies. The historical experiment crate
+depends on and re-exports this package for conformance; the physics package
+does not depend back on the archive.
+
+This package is retained physics, not by itself the complete cumulative
+M0--M8 learner. The reusable blank learner must be mechanically extracted and
+fingerprint-checked before Developmental Harness v0 can run world episodes.
+That cleanup gate is specified in the
+[Harness v0 implementation plan](developmental_harness_v0_plan.md).
+
 ## Post-M8 development rule
 
 From post-M8 onward, a capability failure does not authorize adding cognitive
