@@ -131,7 +131,7 @@ fn s3_composition_copy(
         .expect("S2 Adapter implementation boundary exists");
     let methods = fs::read_to_string(adapter_methods).expect("S3 Adapter methods are readable");
     output.insert_str(insertion, &methods);
-    output.push_str("\n");
+    output.push('\n');
     output.push_str(&fs::read_to_string(experiment).expect("S3 experiment body is readable"));
     for source_name in [
         "ssa1_s2_application_history_predictor.rs",
