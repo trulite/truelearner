@@ -35,6 +35,9 @@ fn main() {
     let mut output_prefix = None;
     let mut base_namespace = 0x70_000;
     let mut mirror = false;
+    let mut selected = 0;
+    let mut spacing = 10;
+    let mut include_third = false;
     let mut stage = String::from("PROBE");
     while let Some(argument) = args.next() {
         match argument.as_str() {
@@ -53,6 +56,23 @@ fn main() {
                 .expect("--base-namespace must be hexadecimal");
             }
             "--mirror" => mirror = true,
+            "--selected" => {
+                selected = args
+                    .next()
+                    .expect("--selected requires an index")
+                    .parse::<usize>()
+                    .expect("--selected must be an integer");
+                assert!(selected < N, "--selected must be 0, 1, or 2");
+            }
+            "--spacing" => {
+                spacing = args
+                    .next()
+                    .expect("--spacing requires a tick count")
+                    .parse::<i64>()
+                    .expect("--spacing must be an integer");
+                assert!(spacing >= 8, "--spacing must preserve physical quiescence");
+            }
+            "--include-third" => include_third = true,
             "--stage" => stage = args.next().expect("--stage requires a name"),
             "--definitive" => {
                 eprintln!("PX0-R definitive execution is not authorized");
@@ -61,13 +81,18 @@ fn main() {
             other => panic!("unknown argument: {other}"),
         }
     }
-    let rows = run_probe(base_namespace, mirror);
+    let rows = run_probe(base_namespace, mirror, selected, spacing, include_third);
     let passed = rows.iter().all(|row| row.passed);
     write_results(
         &output_prefix.expect("development output prefix is required"),
         &rows,
         passed,
         &stage,
+        base_namespace,
+        selected,
+        mirror,
+        spacing,
+        include_third,
     );
     if !passed {
         std::process::exit(1);
@@ -228,6 +253,7 @@ fn run_experiences(
     supported: &[usize],
     start: i64,
     namespace: u64,
+    spacing: i64,
 ) -> (u64, u64, u64) {
     let mut work = 0;
     let mut proposals = 0;
@@ -237,7 +263,7 @@ fn run_experiences(
             fixture,
             active,
             supported,
-            start + ordinal * 10,
+            start + ordinal * spacing,
             namespace + ordinal as u64 * 0x10,
             ordinal % 2 == 1,
         );
@@ -271,24 +297,36 @@ fn row(
     }
 }
 
-fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
+fn run_probe(
+    base_namespace: u64,
+    mirror: bool,
+    selected: usize,
+    spacing: i64,
+    include_third: bool,
+) -> Vec<Row> {
     let mut rows = Vec::new();
-    let selected = usize::from(mirror);
-    let opposite = 1 - selected;
+    let opposite = (selected + 1) % N;
+    let spare = (selected + 2) % N;
+    let active = if include_third {
+        vec![selected, opposite, spare]
+    } else {
+        vec![selected, opposite]
+    };
     let mut fixture = build(base_namespace, mirror);
     let (initial_work, initial_proposals, initial_deallocations) = run_experiences(
         &mut fixture,
-        &[selected, opposite],
+        &active,
         &[selected],
         0,
         base_namespace + 0x1_000,
+        spacing,
     );
     let old_ids = variable_ids(&fixture, selected);
     let initial = experience(
         &mut fixture,
         &[selected],
         &[selected],
-        40,
+        4 * spacing,
         base_namespace + 0x2_000,
         mirror,
     );
@@ -326,7 +364,7 @@ fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
 
     let first_renewal = experience(
         &mut fixture,
-        &[selected, opposite],
+        &active,
         &[opposite],
         200,
         base_namespace + 0x3_000,
@@ -357,14 +395,15 @@ fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
         &mut fixture,
         &[selected, opposite],
         &[opposite],
-        210,
+        200 + spacing,
         base_namespace + 0x4_000,
+        spacing,
     );
     let restored = experience(
         &mut fixture,
         &[opposite],
         &[opposite],
-        250,
+        200 + 5 * spacing,
         base_namespace + 0x5_000,
         mirror,
     );
@@ -373,7 +412,7 @@ fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
         &mut fixture,
         &[selected],
         &[],
-        260,
+        200 + 6 * spacing,
         base_namespace + 0x6_000,
         !mirror,
     );
@@ -397,10 +436,11 @@ fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
     let mut absent = build(base_namespace + 0x8_000, !mirror);
     let (absent_work, absent_proposals, absent_deallocations) = run_experiences(
         &mut absent,
-        &[selected, opposite],
+        &active,
         &[],
         0,
         base_namespace + 0x9_000,
+        spacing,
     );
     let final_pressure = absent.substrate.advance_time(100);
     let absent_run = experience(
@@ -427,16 +467,17 @@ fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
     let mut ambiguous = build(base_namespace + 0xb_000, mirror);
     let (ambiguous_work, ambiguous_proposals, ambiguous_deallocations) = run_experiences(
         &mut ambiguous,
-        &[selected, opposite],
+        &active,
         &[selected, opposite],
         0,
         base_namespace + 0xc_000,
+        spacing,
     );
     let ambiguous_run = experience(
         &mut ambiguous,
+        &active,
         &[selected, opposite],
-        &[selected, opposite],
-        40,
+        4 * spacing,
         base_namespace + 0xd_000,
         mirror,
     );
@@ -455,13 +496,13 @@ fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
 
     let mut replay_first = fixture.clone();
     let mut replay_second = fixture.clone();
-    replay_first.substrate.advance_time(280);
-    replay_second.substrate.advance_time(280);
+    replay_first.substrate.advance_time(400);
+    replay_second.substrate.advance_time(400);
     let first = experience(
         &mut replay_first,
         &[opposite],
         &[opposite],
-        280,
+        400,
         base_namespace + 0xe_000,
         true,
     );
@@ -469,7 +510,7 @@ fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
         &mut replay_second,
         &[opposite],
         &[opposite],
-        280,
+        400,
         base_namespace + 0xe_000,
         true,
     );
@@ -488,7 +529,18 @@ fn run_probe(base_namespace: u64, mirror: bool) -> Vec<Row> {
     rows
 }
 
-fn write_results(prefix: &Path, rows: &[Row], passed: bool, stage: &str) {
+#[allow(clippy::too_many_arguments)]
+fn write_results(
+    prefix: &Path,
+    rows: &[Row],
+    passed: bool,
+    stage: &str,
+    base_namespace: u64,
+    selected: usize,
+    mirror: bool,
+    spacing: i64,
+    include_third: bool,
+) {
     let csv_path = prefix.with_extension("csv");
     let md_path = prefix.with_extension("md");
     if let Some(parent) = csv_path.parent() {
@@ -510,9 +562,14 @@ fn write_results(prefix: &Path, rows: &[Row], passed: bool, stage: &str) {
         ));
     }
     let mut md = format!(
-        "# PX0-R generic physical correspondence reproposal {} v1\n\nOutcome: **{}**.\n\n",
+        "# PX0-R generic physical correspondence reproposal {} v1\n\nOutcome: **{}**.\n\nConfiguration: base namespace `0x{:x}`, selected route `{}`, reverse allocation `{}`, spacing `{}` ticks, active opportunities `{}`.\n\n",
         stage,
-        if passed { "POSITIVE" } else { "NEGATIVE" }
+        if passed { "POSITIVE" } else { "NEGATIVE" },
+        base_namespace,
+        selected,
+        mirror,
+        spacing,
+        if include_third { 3 } else { 2 }
     );
     md.push_str("| control | pass | effects | proposals | deallocations | arrows | work |\n");
     md.push_str("|---|---:|---:|---:|---:|---:|---:|\n");
