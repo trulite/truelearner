@@ -15,9 +15,11 @@ const PX0_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bd
 const PX1_SHA256: &str = "74716c87d146cb697b37ddf802c12e67a5cb93daf82ec20f8b982e54922bd696";
 const PX2_SHA256: &str = "c47d605371d5787cffc7d456f1d9e38168b4b203063fb9dcdeefcf630fa4aed5";
 const PRIOR_PX3_SHA256: &str = "39ec595fc1204a29083d271ebcadcdb7950c07d1c44e4ce07c0107fca54730ba";
-const PRIOR_PX3_AUDIT_SHA256: &str = "a029f250ed88f8f2fc164e0d2c9042675bf0a8c9ae51c89cf83ad1aa42e4fa9b";
+const PRIOR_PX3_AUDIT_SHA256: &str =
+    "a029f250ed88f8f2fc164e0d2c9042675bf0a8c9ae51c89cf83ad1aa42e4fa9b";
 const CJ1_T_AUDIT_SHA256: &str = "f5dd663eab0717d67fb00ef97792cced46ae79ad8d0915c2f6d76899e2945ae4";
-const CJ1_PA_AUDIT_SHA256: &str = "1bcb24c7736e8aeab8dfc3eb3ebf4da3ede2ec9ea324d52ba546aecc78f36aca";
+const CJ1_PA_AUDIT_SHA256: &str =
+    "1bcb24c7736e8aeab8dfc3eb3ebf4da3ede2ec9ea324d52ba546aecc78f36aca";
 const CJ1_HANDOFF_SHA256: &str = "5157ea555fdf1aa8b7d7b9ad89bf762dc908c05ab8be00f0deb3dbed6ebdc60e";
 const DEVELOPMENT_PROTOCOL_SHA256: &str =
     "61ce9535ccab0133db660f8fc4d1e408bc61c2f9d8948877f34a431ec063c9c7";
@@ -30,10 +32,8 @@ const SEEDS: [u64; 2] = [2601, 2609];
 const PAIRS: [(usize, usize); 6] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
 const CSV_PATH: &str = "results/px3_participation_trace_organization_probe_v1.csv";
 const MD_PATH: &str = "results/px3_participation_trace_organization_probe_v1.md";
-const CSV_STAGE: &str =
-    "results/.px3_participation_trace_organization_probe_v1.csv.staging";
-const MD_STAGE: &str =
-    "results/.px3_participation_trace_organization_probe_v1.md.staging";
+const CSV_STAGE: &str = "results/.px3_participation_trace_organization_probe_v1.csv.staging";
+const MD_STAGE: &str = "results/.px3_participation_trace_organization_probe_v1.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Kind {
@@ -89,10 +89,7 @@ impl Scenario {
     fn recurrent(self) -> bool {
         matches!(
             self.kind,
-            Kind::AbRecurrent11
-                | Kind::AbRecurrent21
-                | Kind::AbRecurrent44
-                | Kind::AbHeldoutMatrix
+            Kind::AbRecurrent11 | Kind::AbRecurrent21 | Kind::AbRecurrent44 | Kind::AbHeldoutMatrix
         )
     }
 }
@@ -258,7 +255,10 @@ fn frozen_surface_audit() {
         "results/px3_participation_trace_organization_micro_v1.csv",
         "results/px3_participation_trace_organization_gate_v1.csv",
     ] {
-        assert!(!Path::new(forbidden).exists(), "later-stage surface exists: {forbidden}");
+        assert!(
+            !Path::new(forbidden).exists(),
+            "later-stage surface exists: {forbidden}"
+        );
     }
 }
 
@@ -285,15 +285,36 @@ fn run(seed: u64, scenario: Scenario) -> Row {
 
     match scenario.kind {
         Kind::AAlone | Kind::A4Alone => {
-            expose(&mut world, 2, [true, false, false, false], true, false, &mut log);
+            expose(
+                &mut world,
+                2,
+                [true, false, false, false],
+                true,
+                false,
+                &mut log,
+            );
             scheduled[0] = 1;
         }
         Kind::BAlone => {
-            expose(&mut world, 2, [false, true, false, false], true, false, &mut log);
+            expose(
+                &mut world,
+                2,
+                [false, true, false, false],
+                true,
+                false,
+                &mut log,
+            );
             scheduled[1] = 1;
         }
         Kind::ARepeated => {
-            expose(&mut world, 2, [true, false, false, false], true, true, &mut log);
+            expose(
+                &mut world,
+                2,
+                [true, false, false, false],
+                true,
+                true,
+                &mut log,
+            );
             scheduled[0] = 2;
         }
         Kind::ALateB => {
@@ -304,7 +325,14 @@ fn run(seed: u64, scenario: Scenario) -> Row {
             scheduled = [1, 1, 0, 0];
         }
         Kind::AbOne => {
-            expose(&mut world, 2, [true, true, false, false], true, false, &mut log);
+            expose(
+                &mut world,
+                2,
+                [true, true, false, false],
+                true,
+                false,
+                &mut log,
+            );
             scheduled = [1, 1, 0, 0];
         }
         Kind::AbRecurrent11
@@ -312,8 +340,22 @@ fn run(seed: u64, scenario: Scenario) -> Row {
         | Kind::AbRecurrent44
         | Kind::AbHeldoutMatrix
         | Kind::AbBlockedReturn => {
-            expose(&mut world, 2, [true, true, false, false], true, false, &mut log);
-            expose(&mut world, 11, [true, true, false, false], true, false, &mut log);
+            expose(
+                &mut world,
+                2,
+                [true, true, false, false],
+                true,
+                false,
+                &mut log,
+            );
+            expose(
+                &mut world,
+                11,
+                [true, true, false, false],
+                true,
+                false,
+                &mut log,
+            );
             scheduled = [2, 2, 0, 0];
         }
         Kind::ProposalOnly => {}
@@ -367,9 +409,8 @@ fn run(seed: u64, scenario: Scenario) -> Row {
     });
     let trace_firings = four(|side| firings(&log.trace, trace_physical(namespace, side)));
     let trace_ticks = four(|side| firing_ticks(&log.trace, trace_physical(namespace, side)));
-    let opportunity_firings = six(|pair| {
-        firings(&log.trace, opportunity_physical(namespace, pair))
-    });
+    let opportunity_firings =
+        six(|pair| firings(&log.trace, opportunity_physical(namespace, pair)));
     let candidate_traversals = six(|pair| {
         crossings(
             &log.crossings,
@@ -377,11 +418,11 @@ fn run(seed: u64, scenario: Scenario) -> Row {
             effect_physical(namespace, pair),
         )
     });
-    let consequence_firings =
-        six(|pair| firings(&log.trace, effect_physical(namespace, pair)));
-    let return_arrivals =
-        six(|pair| arrivals(&log.trace, opportunity_physical(namespace, pair))
-            .saturating_sub(opportunity_trace_arrivals(&log, namespace, pair)));
+    let consequence_firings = six(|pair| firings(&log.trace, effect_physical(namespace, pair)));
+    let return_arrivals = six(|pair| {
+        arrivals(&log.trace, opportunity_physical(namespace, pair))
+            .saturating_sub(opportunity_trace_arrivals(&log, namespace, pair))
+    });
 
     let persistent_bytes = world.substrate.persistent_bytes();
     let complete_fingerprint = world.substrate.complete_fingerprint();
@@ -499,21 +540,31 @@ fn expectations(kind: Kind) -> ([usize; 4], [usize; 4], [usize; 6], [usize; 6]) 
         Kind::BAlone => ([0, 1, 0, 0], [0, 1, 0, 0], [0; 6], [0; 6]),
         Kind::ARepeated => ([2, 0, 0, 0], [1, 0, 0, 0], [0; 6], [0; 6]),
         Kind::ALateB => ([1, 1, 0, 0], [1, 1, 0, 0], [0; 6], [0; 6]),
-        Kind::AbOne => ([1, 1, 0, 0], [1, 1, 0, 0], [1, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0]),
-        Kind::AbRecurrent11
-        | Kind::AbRecurrent21
-        | Kind::AbRecurrent44
-        | Kind::AbHeldoutMatrix => ([2, 2, 0, 0], [2, 2, 0, 0], [2, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0]),
-        Kind::AbBlockedReturn => ([2, 2, 0, 0], [2, 2, 0, 0], [2, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0]),
+        Kind::AbOne => (
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [1, 0, 0, 0, 0, 0],
+            [1, 0, 0, 0, 0, 0],
+        ),
+        Kind::AbRecurrent11 | Kind::AbRecurrent21 | Kind::AbRecurrent44 | Kind::AbHeldoutMatrix => {
+            (
+                [2, 2, 0, 0],
+                [2, 2, 0, 0],
+                [2, 0, 0, 0, 0, 0],
+                [2, 0, 0, 0, 0, 0],
+            )
+        }
+        Kind::AbBlockedReturn => (
+            [2, 2, 0, 0],
+            [2, 2, 0, 0],
+            [2, 0, 0, 0, 0, 0],
+            [1, 0, 0, 0, 0, 0],
+        ),
         Kind::ProposalOnly => ([0; 4], [0; 4], [0; 6], [0; 6]),
     }
 }
 
-fn build_world(
-    namespace: u64,
-    couplings: [i32; 4],
-    return_enabled: bool,
-) -> (World, Execution) {
+fn build_world(namespace: u64, couplings: [i32; 4], return_enabled: bool) -> (World, Execution) {
     let mut substrate = PlasticSubstrate::new();
     let sources = four(|side| {
         substrate.add_cell(cell(
@@ -587,7 +638,10 @@ fn build_world(
     let prime = substrate.propagate();
     assert!(prime.naturally_quiescent, "prime must quiesce");
     assert_eq!(prime.work.local_structural_proposals, 6);
-    assert_eq!(substrate.arrow_count(), fixed_arrow_count(return_enabled) + 6);
+    assert_eq!(
+        substrate.arrow_count(),
+        fixed_arrow_count(return_enabled) + 6
+    );
     let candidates = six(|pair| {
         let candidates = substrate.arrows_between(opportunities[pair], effects[pair]);
         assert_eq!(candidates.len(), 1, "exactly one anonymous candidate");
@@ -967,24 +1021,43 @@ fn report(rows: &[Row]) -> String {
 }
 
 fn join_i32(values: &[i32]) -> String {
-    values.iter().map(i32::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(i32::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_u32(values: &[u32]) -> String {
-    values.iter().map(u32::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_usize(values: &[usize]) -> String {
-    values.iter().map(usize::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(usize::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_bool(values: &[bool]) -> String {
-    values.iter().map(bool::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(bool::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn require_absent(paths: &[&str]) {
     for path in paths {
-        assert!(!Path::new(path).exists(), "artifact path must be absent: {path}");
+        assert!(
+            !Path::new(path).exists(),
+            "artifact path must be absent: {path}"
+        );
     }
 }
 
