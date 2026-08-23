@@ -74,7 +74,7 @@ fn main() {
     let arms = [
         Arm {
             name: "fresh-short-two-direct",
-            namespace: 0x910_0000,
+            namespace: 0x920_0000,
             initial: 0,
             current: 1,
             spacing: 8,
@@ -83,7 +83,7 @@ fn main() {
         },
         Arm {
             name: "fresh-threshold-three-mirror",
-            namespace: 0x914_0000,
+            namespace: 0x924_0000,
             initial: 1,
             current: 2,
             spacing: 10,
@@ -272,7 +272,7 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
         );
     }
     let old_ids = variable_ids(&fixture, arm.initial);
-    let first_renewal = experience(
+    experience(
         &mut fixture,
         &[arm.initial],
         &[arm.initial],
@@ -294,7 +294,7 @@ fn run_arm(arm: &Arm) -> (ResultRow, Vec<TraceRow>) {
     let old_dead = old_ids.iter().all(|arrow| {
         !fixture.substrate.arrow_is_live(*arrow) && fixture.substrate.arrow_resistance(*arrow) == 0
     });
-    experience(
+    let first_renewal = experience(
         &mut fixture,
         &active,
         &[arm.current],
