@@ -22,6 +22,12 @@ const POSITIVE_PROBE_CSV_SHA256: &str =
     "313168dd2672373260a459ce4e79b4ed17d97451779dea83d6fa94deb2efd626";
 const POSITIVE_PROBE_MD_SHA256: &str =
     "822bb52cae83ab30a1d6df0c83f064100834b146c23060264816010a424959f7";
+const GATE_TRANSITION_SHA256: &str =
+    "dd05aa966c70bfd47a02f3bea7008657a7feed26917ba12fef87a954f2ea125a";
+const POSITIVE_MICRO_CSV_SHA256: &str =
+    "e0a3d78d99571dbaf14cba02c25e6056977c510e062c0770a91233ca597522a7";
+const POSITIVE_MICRO_MD_SHA256: &str =
+    "2f131d5574c6114b610dd77c90e3118df75077d9301a00c0b12cdad72a998399";
 const PROTOCOL: &str = "experiments/cj0_d_local_subunit_development_protocol_v1.md";
 const RETRY_PROTOCOL: &str =
     "experiments/cj0_d_local_subunit_probe_v2_timing_correction_protocol.md";
@@ -31,6 +37,8 @@ const ABSENT_PROTOCOL: &str =
     "experiments/cj0_d_local_subunit_probe_v4_absent_expectation_protocol.md";
 const MICRO_TRANSITION: &str =
     "experiments/cj0_d_local_subunit_micro_preflight_transition_protocol.md";
+const GATE_TRANSITION: &str =
+    "experiments/cj0_d_local_subunit_gate_preflight_transition_protocol.md";
 const AUTHORITY: &str = "crates/px0-physical-correspondence/src/lib.rs";
 
 const ROUTES: usize = 4;
@@ -149,9 +157,17 @@ fn main() {
             POSITIVE_PROBE_MD_SHA256,
             "positive PROBE report changed"
         );
-        for stage in ["micro", "gate"] {
-            assert_artifacts_absent(stage);
-        }
+        assert_eq!(
+            sha256("results/cj0_d_local_subunit_micro_v1.csv"),
+            POSITIVE_MICRO_CSV_SHA256,
+            "positive MICRO CSV changed"
+        );
+        assert_eq!(
+            sha256("results/cj0_d_local_subunit_micro_v1.md"),
+            POSITIVE_MICRO_MD_SHA256,
+            "positive MICRO report changed"
+        );
+        assert_artifacts_absent("gate");
         println!("CJ0_D_LOCAL_SUBUNIT_PREFLIGHT_OK_NO_CELL_ENTERED");
         return;
     }
@@ -1492,6 +1508,7 @@ fn source_audit() -> bool {
         && sha256(FIXTURE_PROTOCOL) == FIXTURE_PROTOCOL_SHA256
         && sha256(ABSENT_PROTOCOL) == ABSENT_PROTOCOL_SHA256
         && sha256(MICRO_TRANSITION) == MICRO_TRANSITION_SHA256
+        && sha256(GATE_TRANSITION) == GATE_TRANSITION_SHA256
         && Path::new("arms/cj0-d-local-subunit/build.rs").exists()
 }
 
