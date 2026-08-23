@@ -11,10 +11,21 @@ use std::process::Command;
 
 const PX0_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
 const PROTOCOL_SHA256: &str = "8c31387f3337c3ad38d83e030dd6a43d4fce8f2e146d93596c9c7231e8b8a6ad";
+const CORRECTION_PROTOCOL_SHA256: &str =
+    "593bbb11b6cb9348a08bd754d7358c41b0c05bbee302cea320f6adfa2f11bdb1";
+const FROZEN_PROBE_CSV_SHA256: &str =
+    "82840f4e16063da3301710b2524299b6092f34695850a7499667f38cd88b481e";
+const FROZEN_PROBE_MD_SHA256: &str =
+    "506e18f9443ddd722ca17d68117e5da555e323c8921bf5b0fe69270962934b31";
 const CSV_PATH: &str = "../../results/cj1_existing_physics_probe_v1.csv";
 const MD_PATH: &str = "../../results/cj1_existing_physics_probe_v1.md";
 const CSV_STAGE: &str = "../../results/.cj1_existing_physics_probe_v1.csv.staging";
 const MD_STAGE: &str = "../../results/.cj1_existing_physics_probe_v1.md.staging";
+const CORRECTION_CSV_PATH: &str = "../../results/cj1_shared_path_fixture_correction_v1.csv";
+const CORRECTION_MD_PATH: &str = "../../results/cj1_shared_path_fixture_correction_v1.md";
+const CORRECTION_CSV_STAGE: &str =
+    "../../results/.cj1_shared_path_fixture_correction_v1.csv.staging";
+const CORRECTION_MD_STAGE: &str = "../../results/.cj1_shared_path_fixture_correction_v1.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Scenario {
@@ -122,10 +133,6 @@ struct Row {
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args.as_slice() != ["--existing-probe"] {
-        eprintln!("CJ1 permits only --existing-probe at this frozen implementation");
-        std::process::exit(2);
-    }
     assert_eq!(
         sha256("../../crates/px0-physical-correspondence/src/lib.rs"),
         PX0_SHA256
@@ -134,22 +141,61 @@ fn main() {
         sha256("../../experiments/cj1_distinct_path_coincidence_development_protocol_v1.md"),
         PROTOCOL_SHA256
     );
-    for path in [CSV_PATH, MD_PATH, CSV_STAGE, MD_STAGE] {
+    match args.as_slice() {
+        [value] if value == "--existing-probe" => {
+            require_absent(&[CSV_PATH, MD_PATH, CSV_STAGE, MD_STAGE]);
+            eprintln!("CJ1_EXISTING_PHYSICS_PROBE_EVIDENCE");
+            let rows = Scenario::ALL
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(index, scenario)| {
+                    run_replay(scenario, 0xC110_0000 + index as u64 * 0x1_0000)
+                })
+                .collect::<Vec<_>>();
+            publish(CSV_STAGE, CSV_PATH, &csv(&rows));
+            publish(MD_STAGE, MD_PATH, &report(&rows));
+        }
+        [value] if value == "--shared-path-correction" => {
+            assert_eq!(
+                sha256("../../experiments/cj1_shared_path_fixture_correction_protocol_v1.md"),
+                CORRECTION_PROTOCOL_SHA256
+            );
+            assert_eq!(sha256(CSV_PATH), FROZEN_PROBE_CSV_SHA256);
+            assert_eq!(sha256(MD_PATH), FROZEN_PROBE_MD_SHA256);
+            require_absent(&[
+                CORRECTION_CSV_PATH,
+                CORRECTION_MD_PATH,
+                CORRECTION_CSV_STAGE,
+                CORRECTION_MD_STAGE,
+            ]);
+            eprintln!("CJ1_SHARED_PATH_FIXTURE_CORRECTION_EVIDENCE");
+            let row = run_replay(Scenario::TwoOriginsSharedPath, 0xC210_0000);
+            publish(
+                CORRECTION_CSV_STAGE,
+                CORRECTION_CSV_PATH,
+                &csv(std::slice::from_ref(&row)),
+            );
+            publish(
+                CORRECTION_MD_STAGE,
+                CORRECTION_MD_PATH,
+                &correction_report(&row),
+            );
+        }
+        _ => {
+            eprintln!("CJ1 permits only its frozen PROBE or shared-path correction");
+            std::process::exit(2);
+        }
+    }
+}
+
+fn require_absent(paths: &[&str]) {
+    for path in paths {
         assert!(
             !Path::new(path).exists(),
             "artifact path must be absent: {path}"
         );
     }
-    eprintln!("CJ1_EXISTING_PHYSICS_PROBE_EVIDENCE");
-
-    let rows = Scenario::ALL
-        .iter()
-        .copied()
-        .enumerate()
-        .map(|(index, scenario)| run_replay(scenario, 0xC110_0000 + index as u64 * 0x1_0000))
-        .collect::<Vec<_>>();
-    publish(CSV_STAGE, CSV_PATH, &csv(&rows));
-    publish(MD_STAGE, MD_PATH, &report(&rows));
 }
 
 fn run_replay(scenario: Scenario, namespace: u64) -> Row {
@@ -230,14 +276,16 @@ fn build_world(namespace: u64, scenario: Scenario) -> World {
     } else {
         1
     };
-    substrate.add_arrow(arrow(sources[0], locus, coupling_a));
-    if scenario == Scenario::OneOriginTwoPaths {
-        substrate.add_arrow(arrow(sources[0], locus, 1));
-    } else if scenario == Scenario::TwoOriginsSharedPath {
+    if scenario == Scenario::TwoOriginsSharedPath {
         substrate.add_arrow(arrow(sources[0], shared, 1));
         substrate.add_arrow(arrow(sources[1], shared, 1));
         substrate.add_arrow(arrow(shared, locus, 1));
     } else {
+        substrate.add_arrow(arrow(sources[0], locus, coupling_a));
+    }
+    if scenario == Scenario::OneOriginTwoPaths {
+        substrate.add_arrow(arrow(sources[0], locus, 1));
+    } else if scenario != Scenario::TwoOriginsSharedPath {
         substrate.add_arrow(arrow(sources[1], locus, 1));
         substrate.add_arrow(arrow(sources[2], locus, 1));
     }
@@ -414,6 +462,24 @@ fn report(rows: &[Row]) -> String {
         first.unwrap_or("none"),
         rows.iter().all(|row| row.quiescent),
         rows.iter().all(|row| row.replay_equal),
+    )
+}
+
+fn correction_report(row: &Row) -> String {
+    format!(
+        "# CJ1 shared-path fixture correction v1\n\nOutcome: **{}**.\n\n- rows: `{}/1` passed;\n- source firings: `{}`;\n- cross-region traversals into the local CELL: `{}`;\n- local arrivals/firings/effects: `{}/{}/{}`;\n- held-out effects: `{}`;\n- native work: `{}` operations;\n- persistent bytes: `{}`;\n- naturally quiescent: `{}`;\n- exact replay: `{}`;\n- authoritative PX0 law changed: `false`;\n- candidate evidence executed: `false`.\n\nThe corrected topology has one shared incoming physical path to the local CELL and does not produce a false effect.\n",
+        if row.passed { "POSITIVE" } else { "NEGATIVE" },
+        usize::from(row.passed),
+        row.source_firings,
+        row.traversals,
+        row.locus_arrivals,
+        row.locus_firings,
+        row.effects,
+        row.heldout_effects,
+        row.work,
+        row.persistent_bytes,
+        row.quiescent,
+        row.replay_equal,
     )
 }
 
