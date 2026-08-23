@@ -11,6 +11,7 @@ const LOCAL_WINDOW: i64 = 4;
 const LOCAL_RETURN_STRENGTH: u32 = 3;
 const UNSUPPORTED_USE_PRESSURE: u32 = 1;
 const ORDINARY_PRESSURE_PERIOD: i64 = 10;
+const LOCAL_VARIATION_RADIUS: i32 = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CellId(usize);
@@ -98,6 +99,8 @@ pub struct WorkLedger {
     pub local_eligibility_writes: u64,
     pub local_return_updates: u64,
     pub ordinary_pressure_updates: u64,
+    pub local_structural_proposals: u64,
+    pub physical_deallocations: u64,
 }
 
 impl WorkLedger {
@@ -113,6 +116,8 @@ impl WorkLedger {
             + self.local_eligibility_writes
             + self.local_return_updates
             + self.ordinary_pressure_updates
+            + self.local_structural_proposals
+            + self.physical_deallocations
     }
 }
 
@@ -249,6 +254,7 @@ impl PlasticSubstrate {
                 }
             }
             let spike = self.pending.remove(first);
+            let external_arrival = spike.arrow.is_none();
             self.elapse_to(spike.arrival_tick, &mut work);
             self.tick = spike.arrival_tick;
             work.spikes_delivered += 1;
@@ -288,6 +294,9 @@ impl PlasticSubstrate {
             let source = spike.target;
             let origin_physical = target.physical_id;
             let source_generation = target.generation;
+            if external_arrival {
+                self.propose_local_arrows(source, &mut work);
+            }
             let outgoing = self
                 .arrows
                 .iter()
@@ -363,6 +372,33 @@ impl PlasticSubstrate {
         self.arrows[arrow.0].resistance
     }
 
+    pub fn arrow_count(&self) -> usize {
+        self.arrows.len()
+    }
+
+    pub fn arrow_generation(&self, arrow: ArrowId) -> u32 {
+        self.require_arrow(arrow);
+        self.arrows[arrow.0].generation
+    }
+
+    pub fn arrow_endpoints(&self, arrow: ArrowId) -> (CellId, CellId) {
+        self.require_arrow(arrow);
+        let arrow = &self.arrows[arrow.0];
+        (arrow.from, arrow.to)
+    }
+
+    pub fn arrows_between(&self, from: CellId, to: CellId) -> Vec<ArrowId> {
+        self.require_cell(from);
+        self.require_cell(to);
+        self.arrows
+            .iter()
+            .enumerate()
+            .filter_map(|(index, arrow)| {
+                (arrow.from == from && arrow.to == to).then_some(ArrowId(index))
+            })
+            .collect()
+    }
+
     fn apply_local_return(&mut self, cell: CellId, tick: i64, work: &mut WorkLedger) {
         for arrow in &mut self.arrows {
             if arrow.live
@@ -370,6 +406,9 @@ impl PlasticSubstrate {
                 && arrow.eligible_until.is_some_and(|end| tick <= end)
             {
                 arrow.resistance = arrow.resistance.saturating_add(LOCAL_RETURN_STRENGTH);
+                if arrow.coupling > 0 {
+                    arrow.coupling = arrow.coupling.saturating_add(1).min(2);
+                }
                 arrow.eligible_until = None;
                 work.local_return_updates += 1;
             }
@@ -382,8 +421,10 @@ impl PlasticSubstrate {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
             for arrow in &mut self.arrows {
                 if arrow.live {
+                    let was_live = arrow.live;
                     pressure_arrow(arrow, amount);
                     work.ordinary_pressure_updates += 1;
+                    work.physical_deallocations += u64::from(was_live && !arrow.live);
                 }
             }
             self.pressure_tick = self
@@ -392,13 +433,52 @@ impl PlasticSubstrate {
         }
         for arrow in &mut self.arrows {
             if arrow.live && arrow.eligible_until.is_some_and(|end| end < tick) {
+                let was_live = arrow.live;
                 pressure_arrow(arrow, UNSUPPORTED_USE_PRESSURE);
                 arrow.eligible_until = None;
                 work.ordinary_pressure_updates += 1;
+                work.physical_deallocations += u64::from(was_live && !arrow.live);
             }
         }
         for index in 0..self.cells.len() {
             self.decay_cell(CellId(index), tick);
+        }
+    }
+
+    fn propose_local_arrows(&mut self, source: CellId, work: &mut WorkLedger) {
+        let source_position = self.cells[source.0].position;
+        let mut targets = self
+            .cells
+            .iter()
+            .enumerate()
+            .filter_map(|(index, cell)| {
+                let distance = cell.position.saturating_sub(source_position).abs();
+                (CellId(index) != source
+                    && cell.live
+                    && (1..=LOCAL_VARIATION_RADIUS).contains(&distance)
+                    && !self.arrows.iter().any(|arrow| {
+                        arrow.live && arrow.from == source && arrow.to == CellId(index)
+                    }))
+                .then_some((cell.physical_id, CellId(index), distance))
+            })
+            .collect::<Vec<_>>();
+        targets.sort_by_key(|(physical_id, _, _)| *physical_id);
+        for (_, target, distance) in targets {
+            let generation = u32::try_from(self.arrows.len())
+                .unwrap_or(u32::MAX)
+                .saturating_add(2);
+            self.arrows.push(Arrow {
+                from: source,
+                to: target,
+                delay: i64::from(distance.max(1)),
+                phase: 0,
+                coupling: 1,
+                generation,
+                resistance: 1,
+                live: true,
+                eligible_until: None,
+            });
+            work.local_structural_proposals += 1;
         }
     }
 
