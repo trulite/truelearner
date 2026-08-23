@@ -752,7 +752,7 @@ fn source_invariant() -> bool {
 
 fn b_only_invariant(trajectory: &MaturationTrajectory, productive: usize) -> bool {
     let suppressed = 1 - productive;
-    let Some(first) = trajectory.b_only.iter().find(|point| point.budget == 16) else {
+    let Some(first) = trajectory.b_only.iter().find(|point| point.budget == 1_024) else {
         return false;
     };
     let Some(last) = trajectory.b_only.last() else {
@@ -864,8 +864,26 @@ fn run_cell(stage: Stage, seed: u64, productive: usize) -> Cell {
         .min_by_key(|(_, maturation, budget)| (*budget, *maturation));
     let b_only_absorbing_invariant = trajectories
         .iter()
-        .filter(|trajectory| trajectory.maturation >= 16)
-        .all(|trajectory| b_only_invariant(trajectory, productive));
+        .filter(|trajectory| {
+            trajectory.maturation >= 16
+                && trajectory.boundary_landscape.live_supporters[1 - productive]
+                    < FIRING_THRESHOLD as usize
+        })
+        .all(|trajectory| b_only_invariant(trajectory, productive))
+        && support_map
+            .iter()
+            .find(|point| point.extra_early_support == 3)
+            .is_some_and(|point| {
+                let suppressed = 1 - productive;
+                point.checkpoint.realizations[suppressed] == 10_000
+                    && point.checkpoint.audit.routes[productive].evidence_eligible
+                    && point.checkpoint.audit.routes[suppressed].evidence_eligible
+                    && point.checkpoint.audit.routes[suppressed].m5_support == 0
+                    && point.checkpoint.audit.routes[suppressed].m5_rejection == 3
+                    && point.checkpoint.audit.abstentions >= 10_000
+                    && point.checkpoint.first_nonresponsive_edge == "credit edge"
+                    && !point.checkpoint.reversed
+            });
     let forgetting_only = disuse_map
         .iter()
         .any(|point| point.forgetting_only_reopening);
@@ -947,15 +965,19 @@ fn report(stage: Stage, seeds: &[u64]) -> Report {
     let forgetting = cells.iter().all(|cell| cell.forgetting_only);
     let moving = cells.iter().any(|cell| {
         cell.trajectories.iter().any(|trajectory| {
-            let boundary = &trajectory.boundary_audit;
-            trajectory
-                .b_only
-                .last()
-                .is_some_and(|last| last.audit != *boundary)
+            let suppressed = 1 - cell.productive_route;
+            trajectory.b_only.last().is_some_and(|last| {
+                last.audit.routes[suppressed].m5_support
+                    > trajectory.boundary_audit.routes[suppressed].m5_support
+                    || last.landscape.live_supporters[suppressed]
+                        > trajectory.boundary_landscape.live_supporters[suppressed]
+            })
         })
     });
     let classification = if finite {
         "A — finite reversal barrier"
+    } else if matches!(stage, Stage::Probe) && b_only_absorbing && source_invariant {
+        "PROBE — B-only absorbing credit state; paired mature map pending"
     } else if b_only_absorbing && source_invariant {
         "C — absorbing credit state"
     } else if moving {

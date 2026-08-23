@@ -88,7 +88,7 @@ fn markdown(report: &Report) -> String {
             let first_e1_reversal = trajectory
                 .paired
                 .iter()
-                .find(|point| point.reversed)
+                .find(|point| point.budget > 0 && point.reversed)
                 .map(|point| point.budget);
             writeln!(
                 output,
