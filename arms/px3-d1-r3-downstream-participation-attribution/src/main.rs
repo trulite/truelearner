@@ -15,8 +15,7 @@ const D1: &str = "511efc76fc36c9c3c77815f1bd53bd4f8ea38411f8892bbc26005af1e7d0fe
 const D1_AUDIT: &str = "06135ca0e63cb9dd944f172e6c072db2ae77b6c1eb1653aabba254f9247d13de";
 const R2_AUDIT: &str = "dcdcaf31fad49d9d559b4ec93cadf728326343cf1d491a9bfa09ccb3e06232e8";
 const PROTOCOL: &str = "fd1d3442a699ef4a1d3c62ff92ad85937b16e6d80f315ae9c94ce44b504b96f7";
-const EXECUTION_PROTOCOL: &str =
-    "8282b318cf23b34553b7199c6dab136a154b48b42052f93c05704d8cb32dc9af";
+const EXECUTION_PROTOCOL: &str = "8282b318cf23b34553b7199c6dab136a154b48b42052f93c05704d8cb32dc9af";
 const SEEDS: [u64; 2] = [3201, 3209];
 const PAIRS: [(usize, usize); 6] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
 const CSV: &str = "results/px3_d1_r3_downstream_participation_attribution_v1.csv";
