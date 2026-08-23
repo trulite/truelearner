@@ -12,3 +12,7 @@ version = "0.1.0"
 dependencies = [
  "frozen-organism-v1-physics",
 ]
+
+[[package]]
+name = "px0-physical-correspondence"
+version = "0.1.0"

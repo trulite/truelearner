@@ -5,7 +5,10 @@ edition = "2021"
 default-run = "organism-v0"
 
 [workspace]
-members = ["crates/frozen-organism-v1-physics"]
+members = [
+    "crates/frozen-organism-v1-physics",
+    "crates/px0-physical-correspondence",
+]
 default-members = ["crates/frozen-organism-v1-physics"]
 resolver = "2"
 
