@@ -1,0 +1,2 @@
+name,passed,exit_code,minimum_runtime_seconds,result_artifact,diagnostic
+natural-quiescence,false,130,60,absent,"fresh propagation entered a self-sustaining source-probe-gate-source cascade; development execution was terminated without rescue"
