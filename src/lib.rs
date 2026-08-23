@@ -42,6 +42,7 @@ pub mod ssa1_c1_adaptation_under_experience;
 pub mod ssa1_c2_lock_in_hysteresis_map;
 pub mod ssa1_learned_variation_control;
 pub mod ssa1_r_rich_changing_world;
+pub mod ssa1_s2_application_history_predictor;
 pub mod ssa1_s_exposure_bias_map;
 pub mod stability;
 pub mod tracking;
