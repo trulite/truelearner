@@ -17,6 +17,8 @@ const D1_AUDIT: &str = "06135ca0e63cb9dd944f172e6c072db2ae77b6c1eb1653aabba254f9
 const R3: &str = "62b34a64396728c28b617bab75cf1141ee2b2db53897ee655809b6180cb2a67b";
 const R3_AUDIT: &str = "6f565cf8397afb55e28293360f1ade5aa51b89ba5fa8c19ce0eacaa23086e299";
 const PROTOCOL: &str = "3d5394bcddd50a3ea8f785da50e3bf23eecbd9d88e88912c41cb1d1eded24e8e";
+const EXECUTION_PROTOCOL: &str =
+    "9776b6cbcbc3de54042b9d022995410632a377c6fb224a16d97c983718def922";
 const SEEDS: [u64; 2] = [3301, 3309];
 const PAIRS: [(usize, usize); 6] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
 const INITIAL: [usize; 2] = [0, 5];
@@ -173,6 +175,10 @@ fn audit() {
         (
             "experiments/px3_integrated_micro_reversal_protocol_v1.md",
             PROTOCOL,
+        ),
+        (
+            "experiments/px3_integrated_micro_reversal_execution_protocol_v1.md",
+            EXECUTION_PROTOCOL,
         ),
     ] {
         assert_eq!(sha(path), expected, "frozen input changed: {path}");
