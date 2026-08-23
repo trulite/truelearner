@@ -13,10 +13,14 @@ is blocked.
 - [Developmental Harness v0 implementation plan](docs/developmental_harness_v0_plan.md)
 - [H0 extraction negative](results/h0_frozen_organism_extraction_probe_v1_negative.md)
 - [I0 continuous-integration negative](results/i0_continuous_physical_integration_probe_v1_negative.md)
+- [PX0 physical correspondence development readiness](experiments/px0_physical_correspondence_development_readiness.md)
 - `crates/frozen-organism-v1-physics`: standalone retained-physics crate with
   no dependency on the historical experiment surface
 - `./scripts/verify_frozen_organism_v1_cleanup.sh`: cleanup, isolation, and
   conformance checks
+
+PX0 is development positive but not authoritative. PX1 and Harness H1 remain
+blocked until a separate one-shot PX0 authority matrix passes.
 
 The remainder of this README and the root `src/`, `experiments/`, and
 `results/` trees are the immutable research archive. They remain available for

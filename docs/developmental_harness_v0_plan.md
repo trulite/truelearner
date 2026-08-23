@@ -15,6 +15,10 @@ research. See
 [the H0 negative](../results/h0_frozen_organism_extraction_probe_v1_negative.md)
 and [the I0 negative](../results/i0_continuous_physical_integration_probe_v1_negative.md).
 
+PX0 physical correspondence subsequently reached development readiness, but
+it is not authoritative and does not unblock H1. See the
+[PX0 readiness handoff](../experiments/px0_physical_correspondence_development_readiness.md).
+
 ## Fixed scientific boundary
 
 The starting organism is Frozen Organism v1: authoritative M8 plus the
