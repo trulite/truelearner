@@ -19,8 +19,12 @@ const PT0_MICRO_SHA256: &str = "f67185cd9443e5501bc19e1e967a5f5b8c1a403850cb3c2a
 const PT0_READINESS_SHA256: &str =
     "f184d168331d9a7af413621415c76a78db5ba7f00f297f6cdd690525df5bd2ad";
 const PROTOCOL_V2_SHA256: &str = "da8396b1955e393a56be2c770f96b8262bf7fad7e9c71e98a81f5abe9fa38725";
-const RESULT_CSV: &str = "results/px1_pt1_attributed_margin_stability_probe_v1.csv";
-const RESULT_MD: &str = "results/px1_pt1_attributed_margin_stability_probe_v1.md";
+const V1_NEGATIVE_AUDIT_SHA256: &str =
+    "53ebee871ff068e222fd5a9049203b59e94a67acf8935c96b5800d9f467d417b";
+const RETRY_PROTOCOL_SHA256: &str =
+    "e7365d73b086815c6531c1f1d35594a902687000018393e1225d1f1f0d0a364c";
+const RESULT_CSV: &str = "results/px1_pt1_attributed_margin_stability_probe_retry_v1.csv";
+const RESULT_MD: &str = "results/px1_pt1_attributed_margin_stability_probe_retry_v1.md";
 
 #[derive(Clone)]
 struct World {
@@ -78,7 +82,7 @@ fn main() {
     );
     assert!(!Path::new(RESULT_CSV).exists(), "PT1 PROBE CSV exists");
     assert!(!Path::new(RESULT_MD).exists(), "PT1 PROBE report exists");
-    eprintln!("PX1_PT1_ATTRIBUTED_MARGIN_STABILITY_PROBE_EVIDENCE");
+    eprintln!("PX1_PT1_ATTRIBUTED_MARGIN_STABILITY_PROBE_RETRY_EVIDENCE");
     let first = run_world(0x7100_0000, 0, false, false);
     let second = run_world(0x7100_0000, 0, false, false);
     let duplicate_exact = first == second;
@@ -104,6 +108,10 @@ fn source_audit() -> bool {
             == PT0_READINESS_SHA256
         && sha256("experiments/px1_pt1_attributed_margin_stability_protocol_v2.md")
             == PROTOCOL_V2_SHA256
+        && sha256("experiments/px1_pt1_attributed_margin_stability_probe_v1_negative_audit.md")
+            == V1_NEGATIVE_AUDIT_SHA256
+        && sha256("experiments/px1_pt1_attributed_margin_stability_probe_retry_protocol.md")
+            == RETRY_PROTOCOL_SHA256
 }
 
 fn run_world(namespace: u64, supported: usize, mirror: bool, reverse: bool) -> Metrics {
@@ -147,7 +155,7 @@ fn run_world(namespace: u64, supported: usize, mirror: bool, reverse: bool) -> M
             delay: 1,
             phase: 0,
             coupling: 1,
-            resistance: 2,
+            resistance: 3,
         })
     });
 
@@ -529,7 +537,7 @@ fn csv(row: &ResultRow) -> String {
 fn markdown(row: &ResultRow) -> String {
     let value = &row.metrics;
     format!(
-        "# PX1-PT1 attributed-margin stability PROBE v1\n\nOutcome: **{}**.\n\n| clause | value |\n|---|---:|\n| PX0 correspondence resistance | `{}` |\n| continuation resistance | `{}` |\n| branch firings | `{}` |\n| outlet firings | `{}` |\n| trace arrivals | `{}` |\n| trace firings | `{}` |\n| local branch returns | `{}` |\n| training extra source firings | `{}` |\n| held-out effects | `{}` |\n| post-gap effects | `{}` |\n| held-out extra source firings | `{}` |\n| post-gap extra source firings | `{}` |\n| training/held-out/post-gap quiescence | `{}/{}/{}` |\n| productive recurrence | `{}` |\n| duplicate exact | `{}` |\n\nPX0 changed: `false`. PX1 authoritative: `false`. Definitive evidence executed: `false`.\n",
+        "# PX1-PT1 attributed-margin stability PROBE retry v1\n\nOutcome: **{}**.\n\n| clause | value |\n|---|---:|\n| PX0 correspondence resistance | `{}` |\n| continuation resistance | `{}` |\n| branch firings | `{}` |\n| outlet firings | `{}` |\n| trace arrivals | `{}` |\n| trace firings | `{}` |\n| local branch returns | `{}` |\n| training extra source firings | `{}` |\n| held-out effects | `{}` |\n| post-gap effects | `{}` |\n| held-out extra source firings | `{}` |\n| post-gap extra source firings | `{}` |\n| training/held-out/post-gap quiescence | `{}/{}/{}` |\n| productive recurrence | `{}` |\n| duplicate exact | `{}` |\n\nPX0 changed: `false`. PX1 authoritative: `false`. Definitive evidence executed: `false`.\n",
         if row.passed { "POSITIVE" } else { "NEGATIVE" },
         pair_u32(value.correspondence_resistance),
         pair_u32(value.continuation_resistance),
