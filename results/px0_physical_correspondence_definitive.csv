@@ -1,0 +1,17 @@
+index,namespace,initial_route,reacquired_route,spacing,active_opportunities,reverse_allocation,mirrored_layout,initial_effects,survival_effects,reacquired_effects,historical_effects,absent_effects,ambiguous_effects,proposals,deallocations,work,persistent_bytes,old_arrow_count,fresh_arrow_count,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,passed
+0,0x8000000,0,1,8,2,false,false,1,1,1,1,0,0,42,32,12394,3504,2,2,true,true,true,true,true,true,true,false,true,true,true,true,false
+1,0x8040000,1,2,9,2,true,false,1,1,1,0,0,0,46,40,11089,3824,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+2,0x8080000,2,0,10,2,false,true,1,1,1,0,0,0,46,40,11302,3824,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+3,0x80c0000,0,1,11,2,true,true,1,1,1,0,0,0,46,40,11324,3824,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+4,0x8100000,1,2,12,2,false,false,1,1,1,0,0,0,46,40,11390,3824,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+5,0x8140000,2,0,13,2,true,false,1,1,1,0,0,0,54,47,12333,4272,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+6,0x8180000,0,1,14,2,false,true,1,1,1,0,0,0,46,40,11494,3824,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+7,0x81c0000,1,2,15,2,true,true,1,1,1,0,0,0,46,40,11302,3824,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+8,0x8200000,2,0,8,3,false,false,1,1,1,0,0,0,80,74,16879,4976,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+9,0x8240000,0,1,9,3,true,false,1,1,1,0,0,0,80,74,16514,4976,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+10,0x8280000,1,2,10,3,false,true,1,1,1,1,0,0,80,70,19066,4656,2,2,true,true,true,true,true,true,true,false,true,true,true,true,false
+11,0x82c0000,2,0,11,3,true,true,1,1,1,0,0,0,80,74,17007,4976,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+12,0x8300000,0,1,12,3,false,false,1,1,1,0,0,0,80,74,17071,4976,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+13,0x8340000,1,2,13,3,true,false,1,1,1,0,0,0,80,74,16582,4976,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+14,0x8380000,2,0,14,3,false,true,1,1,1,0,0,0,80,74,17169,4976,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
+15,0x83c0000,0,1,15,3,true,true,1,1,1,0,0,0,65,52,18300,4272,2,2,true,true,true,true,true,true,true,true,true,true,true,true,true
