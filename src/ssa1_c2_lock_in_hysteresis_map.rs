@@ -519,7 +519,9 @@ fn checkpoint(
         consequences_returned,
         &landscape,
     );
+    let productive = 1 - suppressed;
     let reversed = landscape.live_supporters[suppressed] >= FIRING_THRESHOLD as usize
+        && landscape.live_supporters[productive] < FIRING_THRESHOLD as usize
         && independent_realizations[suppressed] > 0;
     Checkpoint {
         maturation,
