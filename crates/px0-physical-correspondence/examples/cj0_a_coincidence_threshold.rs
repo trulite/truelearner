@@ -20,14 +20,17 @@ const V1_PROTOCOL_SHA256: &str = "aab8b7ed8eb8b96b6dd3b8fef95775d77cf797c1b23292
 const V1_INVALID_SHA256: &str = "96c0816e6310661243bb1abd04452128d24f0aabe3ca46906297c1d84b2d0f23";
 const V1_INVALID_COMMIT: &str = "62e8774466bfeaa214302fe95b61960c1085d0b7";
 const V2_PROTOCOL_SHA256: &str = "0f2918c94f79a1f300240fde0b6a2f1c5adb3c0f334aa27dd01e679b8c56a5c1";
+const V2_INVALID_SHA256: &str = "1ad71e8064b412c4e6fff28cfd50f7c758466f045e1a184aff969c66dff3474c";
+const V2_INVALID_COMMIT: &str = "6690d69493d8673b6ce34d6c2a5f9424ff14606d";
+const V3_PROTOCOL_SHA256: &str = "99ca2690e474ce79e0c761389ff95e50075341218f93dabf02c056b6b680331f";
 const PX3_NEGATIVE: &str = "873094497ff6eb74363191dc5edc479c7d66de72";
 const ARM_A_NEGATIVE: &str = "26aa795377c47ecf6fd28232865d5404408b6df9";
 const ARM_B_NEGATIVE: &str = "82c0433329cf85bf3fe261661acd033011000656";
 const ARM_C_NEGATIVE: &str = "5feb9b4c4755ed40d58ffc9cb8769d5523ea46f0";
-const RESULT_CSV: &str = "results/cj0_a_coincidence_threshold_probe_v2.csv";
-const RESULT_MD: &str = "results/cj0_a_coincidence_threshold_probe_v2.md";
-const STAGING_CSV: &str = "results/.cj0_a_coincidence_threshold_probe_v2.csv.staging";
-const STAGING_MD: &str = "results/.cj0_a_coincidence_threshold_probe_v2.md.staging";
+const RESULT_CSV: &str = "results/cj0_a_coincidence_threshold_probe_v3.csv";
+const RESULT_MD: &str = "results/cj0_a_coincidence_threshold_probe_v3.md";
+const STAGING_CSV: &str = "results/.cj0_a_coincidence_threshold_probe_v3.csv.staging";
+const STAGING_MD: &str = "results/.cj0_a_coincidence_threshold_probe_v3.md.staging";
 const SOURCE_PATH: &str =
     "crates/px0-physical-correspondence/examples/cj0_a_coincidence_threshold.rs";
 
@@ -200,9 +203,9 @@ struct Row {
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
     let preflight = args == ["--preflight"];
-    let probe = args == ["--probe-v2"];
+    let probe = args == ["--probe-v3"];
     if !preflight && !probe {
-        eprintln!("CJ0-A requires --preflight or --probe-v2");
+        eprintln!("CJ0-A requires --preflight or --probe-v3");
         std::process::exit(2);
     }
     assert!(source_audit(), "frozen source/lineage audit failed");
@@ -213,11 +216,11 @@ fn main() {
         );
     }
     if preflight {
-        println!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V2_PREFLIGHT_OK");
+        println!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V3_PREFLIGHT_OK");
         return;
     }
 
-    eprintln!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V2_EVIDENCE_SPENT");
+    eprintln!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V3_EVIDENCE_SPENT");
     let mut rows = Vec::new();
     for variant in VARIANTS {
         let first = run_replica(variant);
@@ -235,7 +238,7 @@ fn main() {
     let passed = rows.iter().all(|row| row.claims.all());
     publish(&csv(&rows), &markdown(&rows, passed));
     if !passed {
-        eprintln!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V2_FROZEN_NEGATIVE");
+        eprintln!("CJ0_A_COINCIDENCE_THRESHOLD_PROBE_V3_FROZEN_NEGATIVE");
         std::process::exit(1);
     }
 }
@@ -365,7 +368,7 @@ fn build_matter(
     }
 }
 
-fn activate(matter: &mut Matter, active: &[usize], tick: i64, serial_base: u64) -> Activity {
+fn enqueue(matter: &mut Matter, active: &[usize], tick: i64, serial_base: u64) {
     let mut entries = Vec::new();
     for route in active.iter().copied() {
         for (port_index, port) in matter.route_ports[route].iter().copied().enumerate() {
@@ -394,6 +397,17 @@ fn activate(matter: &mut Matter, active: &[usize], tick: i64, serial_base: u64) 
             impulse: 1,
         });
     }
+}
+
+fn activate(matter: &mut Matter, active: &[usize], tick: i64, serial_base: u64) -> Activity {
+    enqueue(matter, active, tick, serial_base);
+    let execution = propagate_physics(&mut matter.substrate);
+    classify(matter, execution)
+}
+
+fn activate_burst(matter: &mut Matter, active: &[usize], tick: i64, serial_base: u64) -> Activity {
+    enqueue(matter, active, tick, serial_base);
+    enqueue(matter, active, tick + 1, serial_base + 0x100);
     let execution = propagate_physics(&mut matter.substrate);
     classify(matter, execution)
 }
@@ -452,16 +466,11 @@ fn train_at(matter: &mut Matter, first: [usize; 2], second: [usize; 2], start: i
         quiescent: true,
         ..Activity::default()
     };
-    for repetition in 0..2 {
-        let serial = matter.namespace + 0x10_0000 + repetition as u64 * 0x100;
-        let value = activate(matter, &first, start + repetition, serial);
-        add_activity(&mut total, value);
-    }
-    for repetition in 0..2 {
-        let serial = matter.namespace + 0x20_0000 + repetition as u64 * 0x100;
-        let value = activate(matter, &second, start + 8 + repetition, serial);
-        add_activity(&mut total, value);
-    }
+    let namespace = matter.namespace;
+    let first_burst = activate_burst(matter, &first, start, namespace + 0x10_0000);
+    add_activity(&mut total, first_burst);
+    let second_burst = activate_burst(matter, &second, start + 8, namespace + 0x20_0000);
+    add_activity(&mut total, second_burst);
     for reinforcement in 0..REINFORCEMENTS {
         let offset = 20 + reinforcement as i64 * 20;
         let first_serial = matter.namespace + 0x30_0000 + reinforcement as u64 * 0x1000;
@@ -488,10 +497,8 @@ fn observe_repeated(base: &Matter, active: &[usize], tick: i64, serial: u64) -> 
         quiescent: true,
         ..Activity::default()
     };
-    let first = activate(&mut clone, active, tick, serial);
-    add_activity(&mut total, first);
-    let second = activate(&mut clone, active, tick + 1, serial + 0x100);
-    add_activity(&mut total, second);
+    let burst = activate_burst(&mut clone, active, tick, serial);
+    add_activity(&mut total, burst);
     (clone, total)
 }
 
@@ -710,13 +717,10 @@ fn controls(variant: Variant) -> ControlMetrics {
 
     let mut absent = build_matter(variant, 0x4000_0000, true, false);
     let absent_namespace = absent.namespace;
-    let absent_first = activate(&mut absent, &[0, 1], 0, absent_namespace + 0x10000);
-    let absent_second = activate(&mut absent, &[0, 1], 1, absent_namespace + 0x20000);
-    let absent_opportunity_effects =
-        absent_first.effects.iter().sum::<usize>() + absent_second.effects.iter().sum::<usize>();
-    quiescent &= absent_first.quiescent && absent_second.quiescent;
-    add_work(&mut work, &absent_first.work);
-    add_work(&mut work, &absent_second.work);
+    let absent_burst = activate_burst(&mut absent, &[0, 1], 0, absent_namespace + 0x10000);
+    let absent_opportunity_effects = absent_burst.effects.iter().sum::<usize>();
+    quiescent &= absent_burst.quiescent;
+    add_work(&mut work, &absent_burst.work);
 
     let mut stale = build_matter(variant, 0x5000_0000, true, true);
     let pressure = stale.substrate.advance_time(30);
@@ -729,23 +733,17 @@ fn controls(variant: Variant) -> ControlMetrics {
 
     let mut three = build_matter(variant, 0x6000_0000, true, true);
     let three_namespace = three.namespace;
-    let three_first = activate(&mut three, &[0, 1, 3], 0, three_namespace + 0x10000);
-    let three_second = activate(&mut three, &[0, 1, 3], 1, three_namespace + 0x20000);
-    let ambiguity_three_effects =
-        three_first.effects.iter().sum::<usize>() + three_second.effects.iter().sum::<usize>();
-    quiescent &= three_first.quiescent && three_second.quiescent;
-    add_work(&mut work, &three_first.work);
-    add_work(&mut work, &three_second.work);
+    let three_burst = activate_burst(&mut three, &[0, 1, 3], 0, three_namespace + 0x10000);
+    let ambiguity_three_effects = three_burst.effects.iter().sum::<usize>();
+    quiescent &= three_burst.quiescent;
+    add_work(&mut work, &three_burst.work);
 
     let mut four = build_matter(variant, 0x7000_0000, true, true);
     let four_namespace = four.namespace;
-    let four_first = activate(&mut four, &[0, 1, 2, 3], 0, four_namespace + 0x10000);
-    let four_second = activate(&mut four, &[0, 1, 2, 3], 1, four_namespace + 0x20000);
-    let ambiguity_four_effects =
-        four_first.effects.iter().sum::<usize>() + four_second.effects.iter().sum::<usize>();
-    quiescent &= four_first.quiescent && four_second.quiescent;
-    add_work(&mut work, &four_first.work);
-    add_work(&mut work, &four_second.work);
+    let four_burst = activate_burst(&mut four, &[0, 1, 2, 3], 0, four_namespace + 0x10000);
+    let ambiguity_four_effects = four_burst.effects.iter().sum::<usize>();
+    quiescent &= four_burst.quiescent;
+    add_work(&mut work, &four_burst.work);
 
     let mut alternative = build_matter(variant, 0x8000_0000, true, true);
     let alternative_training = train_at(&mut alternative, [0, 3], [2, 1], 0);
@@ -888,6 +886,11 @@ fn source_audit() -> bool {
         && rev_parse("cj0-a-coincidence-threshold-probe-v1-invalid^{commit}") == V1_INVALID_COMMIT
         && sha256("experiments/cj0_a_coincidence_threshold_probe_v2_protocol.md")
             == V2_PROTOCOL_SHA256
+        && sha256("experiments/cj0_a_coincidence_threshold_probe_v2_invalid_audit.md")
+            == V2_INVALID_SHA256
+        && rev_parse("cj0-a-coincidence-threshold-probe-v2-invalid^{commit}") == V2_INVALID_COMMIT
+        && sha256("experiments/cj0_a_coincidence_threshold_probe_v3_protocol.md")
+            == V3_PROTOCOL_SHA256
         && rev_parse("HEAD^{commit}") != AUTHORITATIVE_COMMIT
         && rev_parse(&format!("{AUTHORITY_TAG}^{{commit}}")) == AUTHORITATIVE_COMMIT
         && rev_parse("px3-physical-event-boundaries-frozen-negative-handoff-v1^{commit}")
@@ -1016,7 +1019,7 @@ fn markdown(rows: &[Row], passed: bool) -> String {
         .map(|row| row.metrics.persistent_bytes)
         .sum::<usize>();
     let mut out = format!(
-        "# CJ0 Arm A coincidence-threshold CELL PROBE v2\n\n- Classification: `{classification}`\n- Candidate law added: `none`\n- Authoritative source changed: `false`\n- Rows passed: `{}/{}`\n- Ledgered work: `{total_work}`\n- Final persistent matter across primary executions: `{total_storage}` bytes\n\n| replica | initial discriminator | repeated singleton | reversal old/new | claims | first failure | duplicate |\n|---|---:|---:|---:|---:|---:|---:|\n",
+        "# CJ0 Arm A coincidence-threshold CELL PROBE v3\n\n- Classification: `{classification}`\n- Candidate law added: `none`\n- Authoritative source changed: `false`\n- Rows passed: `{}/{}`\n- Ledgered work: `{total_work}`\n- Final persistent matter across primary executions: `{total_storage}` bytes\n\n| replica | initial discriminator | repeated singleton | reversal old/new | claims | first failure | duplicate |\n|---|---:|---:|---:|---:|---:|---:|\n",
         rows.iter().filter(|row| row.claims.all()).count(),
         rows.len(),
     );
