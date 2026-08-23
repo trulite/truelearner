@@ -8,10 +8,10 @@ use std::path::Path;
 use std::process::Command;
 
 const N: usize = 3;
-const CELLS: usize = 16;
+const CELLS: usize = 24;
 const DEVICES: usize = 4;
 const SCAFFOLD: u32 = 1_000;
-const BASE_NAMESPACE: u64 = 0x1_2000_0000;
+const BASE_NAMESPACE: u64 = 0x1600_0000;
 const NAMESPACE_STRIDE: u64 = 0x10_0000;
 const ACTIVE_LAW_SHA256: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
 const RETAINED_PHYSICS_SHA256: &str =
@@ -26,14 +26,23 @@ const S_PROTOCOL_SHA256: &str = "3f14e74de3c331eb6657e09077be147ed83cebb5325ea9e
 const S_PROBE_AUDIT_SHA256: &str =
     "51174002f79c281ba98f49c921f788d14c7389ab558c332caa12a8dcb0eeada2";
 const S_READINESS_SHA256: &str = "a3ba35f6755b0363db809575182296d9cead69a30bb0842a527c4ae4389fcad7";
+const V2_CSV_SHA256: &str = "486970d22b7282c8a89b2f06b811644841b6b905563c9e12e676b3da33150119";
+const V2_MD_SHA256: &str = "460d183d9cfb8e0f244209801b4cb4f140dc474089120473fd1de5bf738aba33";
+const V2_AUDIT_SHA256: &str = "c52cd71b61d32d379412cbd423f226f3e0784c876f012dcb65d25304a059b815";
+const V2_HANDOFF_SHA256: &str = "63cddb2f6ef8113ef1ee7f9d87ddc217b35df95b7c3d62dad0bf826429ffff33";
+const D2_CELLS_SHA256: &str = "2314704d08f318c394e07c3eb6bc856a1b958c6d8d45bb173d044aba0eea02ac";
+const D2_TRAJECTORY_SHA256: &str =
+    "2a55880a0ca822e0b6d691c5ec0ccd7f83360bf80fbadfe3576042bf9feb4828";
+const D2_AUDIT_SHA256: &str = "c34fe93cf7666f1be84c7978bcbe5ef98a0cd54d9714407603da6bbfa2e69f80";
+const D2_HANDOFF_SHA256: &str = "b914bd244e44db5d0e23a029581780646f271e1a0c623a449f0e5c708f0917b4";
 const DEFINITIVE_PROTOCOL_SHA256: &str =
-    "899819b4605f811211916da447c211604dfd7757b9f7b94aa87084c2ed0e534d";
-const READINESS_COMMIT: &str = "a77a564f741e280bb674ff6e1cb6a28df4d80790";
-const READINESS_TAG: &str = "px0-s-stable-return-specificity-development-classification-a^{}";
-const FINAL_CSV: &str = "results/px0_physical_correspondence_definitive_v2.csv";
-const FINAL_MD: &str = "results/px0_physical_correspondence_definitive_v2.md";
-const STAGING_CSV: &str = "results/.px0_physical_correspondence_definitive_v2.csv.staging";
-const STAGING_MD: &str = "results/.px0_physical_correspondence_definitive_v2.md.staging";
+    "084275c5f3fd9694942098b668618841e5c035ff9599dca48c478c6f8de20974";
+const READINESS_COMMIT: &str = "19bbaa9e2e670f51bbaacd1a32fe9707ad519d81";
+const READINESS_TAG: &str = "px0-d2-dense-corner-handoff-classification-a^{}";
+const FINAL_CSV: &str = "results/px0_physical_correspondence_definitive_v3.csv";
+const FINAL_MD: &str = "results/px0_physical_correspondence_definitive_v3.md";
+const STAGING_CSV: &str = "results/.px0_physical_correspondence_definitive_v3.csv.staging";
+const STAGING_MD: &str = "results/.px0_physical_correspondence_definitive_v3.md.staging";
 
 #[derive(Clone)]
 struct Fixture {
@@ -53,8 +62,10 @@ struct Preflight {
     active_law_exact: bool,
     retained_physics_exact: bool,
     v1_negative_exact: bool,
+    v2_negative_exact: bool,
     p1_exact: bool,
     specificity_exact: bool,
+    d2_exact: bool,
     protocol_exact: bool,
     readiness_tag_exact: bool,
     dependency_surface_empty: bool,
@@ -68,8 +79,10 @@ impl Preflight {
         self.active_law_exact
             && self.retained_physics_exact
             && self.v1_negative_exact
+            && self.v2_negative_exact
             && self.p1_exact
             && self.specificity_exact
+            && self.d2_exact
             && self.protocol_exact
             && self.readiness_tag_exact
             && self.dependency_surface_empty
@@ -86,27 +99,57 @@ struct CellResult {
     initial_route: usize,
     reacquired_route: usize,
     spacing: i64,
-    active_opportunities: usize,
+    stride: i32,
+    distractor_load: usize,
+    incidental_form: usize,
     reverse_allocation: bool,
     mirrored_layout: bool,
     initial_effects: usize,
     survival_effects: usize,
-    reacquired_effects: usize,
-    historical_effects: usize,
+    stale_effects: usize,
+    stable_opportunities: usize,
+    stable_completed: usize,
+    sparse_opportunities: usize,
+    sparse_completed: usize,
+    first_mature_context: isize,
+    executable_contexts: usize,
+    stable_resistance: u32,
+    sparse_resistance: u32,
+    stable_deallocation_delay: i64,
+    sparse_deallocation_delay: i64,
+    stable_effects: usize,
     sparse_effects: usize,
+    sparse_eventually_dead: bool,
+    return_free_proposals: u64,
+    return_free_returns: usize,
     stable_dense_effects: usize,
+    explicit_dense_effects: usize,
+    dense_simultaneous_effects: usize,
+    recurrent_dense_stable_returns: usize,
+    recurrent_dense_sparse_returns: usize,
     swapped_stable_effects: usize,
     swapped_sparse_effects: usize,
+    swapped_stable_returns: usize,
+    swapped_sparse_returns: usize,
     return_free_effects: usize,
+    return_free_dead: bool,
     absent_effects: usize,
     ambiguous_effects: usize,
+    ambiguous_live_alternatives: usize,
+    replay_exact: bool,
+    naturally_quiescent: bool,
     proposals: u64,
     deallocations: u64,
+    queue_comparisons: u64,
     work: u64,
+    diagnostic_work: u64,
     persistent_bytes: usize,
+    complete_fingerprint: u64,
+    permanent_fingerprint: u64,
     old_arrow_count: usize,
     fresh_arrow_count: usize,
-    p: [bool; 13],
+    old_still_dead: bool,
+    p: [bool; 24],
 }
 
 impl CellResult {
@@ -117,10 +160,10 @@ impl CellResult {
 
 fn main() {
     let args = env::args().skip(1).collect::<Vec<_>>();
-    if args == ["--preflight-v2"] {
+    if args == ["--preflight-v3"] {
         let preflight = source_preflight();
         println!(
-            "PX0 definitive v2 no-cell preflight: {}",
+            "PX0 definitive v3 no-cell preflight: {}",
             preflight.passed()
         );
         if !preflight.passed() {
@@ -128,18 +171,18 @@ fn main() {
         }
         return;
     }
-    if args != ["--definitive-v2"] {
-        eprintln!("PX0 definitive v2 requires the sole --definitive-v2 authority command");
+    if args != ["--definitive-v3"] {
+        eprintln!("PX0 definitive v3 requires the sole --definitive-v3 authority command");
         std::process::exit(2);
     }
 
     let preflight = source_preflight();
     if !preflight.passed() {
-        eprintln!("PX0 definitive v2 preflight refused before cell zero: {preflight:?}");
+        eprintln!("PX0 definitive v3 preflight refused before cell zero: {preflight:?}");
         std::process::exit(2);
     }
 
-    eprintln!("PX0_V2_DEFINITIVE_EVIDENCE_SPENT");
+    eprintln!("PX0_V3_DEFINITIVE_EVIDENCE_SPENT");
     let cells = (0..CELLS).map(run_cell).collect::<Vec<_>>();
     let passed = cells.len() == CELLS
         && cells.iter().all(CellResult::passed)
@@ -147,7 +190,7 @@ fn main() {
             .iter()
             .map(|cell| cell.p.iter().filter(|p| **p).count())
             .sum::<usize>()
-            == CELLS * 13;
+            == CELLS * 24;
     let csv = csv(&cells);
     let markdown = markdown(&preflight, &cells, passed);
     publish_write_once(STAGING_CSV, FINAL_CSV, &csv);
@@ -209,6 +252,14 @@ fn source_preflight() -> Preflight {
                 == Some(V1_AUDIT_SHA256.to_string())
             && sha256("experiments/px0_physical_correspondence_definitive_authority_handoff.md")
                 == Some(V1_HANDOFF_SHA256.to_string()),
+        v2_negative_exact: sha256("results/px0_physical_correspondence_definitive_v2.csv")
+            == Some(V2_CSV_SHA256.to_string())
+            && sha256("results/px0_physical_correspondence_definitive_v2.md")
+                == Some(V2_MD_SHA256.to_string())
+            && sha256("experiments/px0_physical_correspondence_definitive_v2_result_audit.md")
+                == Some(V2_AUDIT_SHA256.to_string())
+            && sha256("experiments/px0_physical_correspondence_definitive_v2_authority_handoff.md")
+                == Some(V2_HANDOFF_SHA256.to_string()),
         p1_exact: sha256("experiments/px0_p1_return_free_proposal_control_result_audit.md")
             == Some(P1_AUDIT_SHA256.to_string())
             && sha256("experiments/px0_p1_return_free_proposal_control_handoff.md")
@@ -219,10 +270,18 @@ fn source_preflight() -> Preflight {
                 == Some(S_PROBE_AUDIT_SHA256.to_string())
             && sha256("experiments/px0_s_stable_return_specificity_development_readiness.md")
                 == Some(S_READINESS_SHA256.to_string()),
-        protocol_exact: sha256("experiments/px0_physical_correspondence_definitive_v2_protocol.md")
+        d2_exact: sha256("results/px0_d2_dense_corner_v1.cells.csv")
+            == Some(D2_CELLS_SHA256.to_string())
+            && sha256("results/px0_d2_dense_corner_v1.trajectory.csv")
+                == Some(D2_TRAJECTORY_SHA256.to_string())
+            && sha256("experiments/px0_d2_dense_corner_result_audit.md")
+                == Some(D2_AUDIT_SHA256.to_string())
+            && sha256("experiments/px0_d2_dense_corner_handoff.md")
+                == Some(D2_HANDOFF_SHA256.to_string()),
+        protocol_exact: sha256("experiments/px0_physical_correspondence_definitive_v3_protocol.md")
             == Some(DEFINITIVE_PROTOCOL_SHA256.to_string()),
         readiness_tag_exact: readiness_tag_exact
-            && READINESS_COMMIT == "a77a564f741e280bb674ff6e1cb6a28df4d80790",
+            && READINESS_COMMIT == "19bbaa9e2e670f51bbaacd1a32fe9707ad519d81",
         dependency_surface_empty,
         source_isolated: forbidden.iter().all(|token| !active_source.contains(token)),
         outputs_absent: !Path::new(FINAL_CSV).exists() && !Path::new(FINAL_MD).exists(),
@@ -540,6 +599,18 @@ fn live_variable_ids(fixture: &Fixture, index: usize) -> Vec<ArrowId> {
         .into_iter()
         .filter(|arrow| fixture.substrate.arrow_is_live(*arrow))
         .collect()
+}
+
+fn route_deallocation_delay(mut fixture: Fixture, route: usize, start_tick: i64) -> (i64, u64) {
+    let mut work = 0u64;
+    for step in 1..=200 {
+        let delay = step * 10;
+        work += fixture.substrate.advance_time(start_tick + delay).total();
+        if live_variable_ids(&fixture, route).is_empty() {
+            return (delay, work);
+        }
+    }
+    (-1, work)
 }
 
 fn all_variable_ids(fixture: &Fixture) -> Vec<ArrowId> {
@@ -874,13 +945,15 @@ fn run_cell(index: usize) -> CellResult {
     let spare = (initial + 2) % N;
     let reverse = index % 2 == 1;
     let mirror = index % 4 >= 2;
-    let spacing = 10 + (index % 8) as i64;
-    let stride = 12 + 2 * (index % 8) as i32;
-    let distractor_loads = [0, 2, 4, 8, 16, 24, 32, 40];
-    let distractor_load = distractor_loads[index % distractor_loads.len()];
+    let spacing = 10 + (index % 10) as i64;
+    let strides = [12, 16, 20, 24, 25, 27, 28];
+    let stride = strides[index % strides.len()];
+    let distractor_loads = [0, 4, 16, 32, 36, 44, 48];
+    let distractor_load = distractor_loads[(index * 3) % distractor_loads.len()];
     let incidental_form = index % DEVICES;
     let active = vec![initial, current, spare];
     let mut total = WorkLedger::default();
+    let mut diagnostic_work = 0u64;
     let mut quiescent = true;
     let mut fixture = build(namespace, reverse, mirror, stride, distractor_load);
 
@@ -952,8 +1025,12 @@ fn run_cell(index: usize) -> CellResult {
 
     let dense_start = 300 + spacing;
     let mut ordinal = 0usize;
+    let mut stable_opportunities = 0usize;
     let mut stable_returns = 0usize;
+    let mut sparse_opportunities = 0usize;
     let mut sparse_returns = 0usize;
+    let mut first_mature_context = -1isize;
+    let mut executable_contexts = 0usize;
     let mut first_dense_proposals = 0u64;
     for _ in 0..8 {
         for form in 0..DEVICES {
@@ -973,10 +1050,28 @@ fn run_cell(index: usize) -> CellResult {
             if ordinal == 0 {
                 first_dense_proposals = run.work.local_structural_proposals;
             }
+            stable_opportunities += 1;
+            sparse_opportunities += usize::from(form == incidental_form);
             stable_returns += delayed_returns(&fixture, current, base + 2, &run);
             sparse_returns += delayed_returns(&fixture, initial, base + 2, &run);
             add_work(&mut total, &run.work);
             quiescent &= run.naturally_quiescent;
+            let mut maturity_fixture = fixture.clone();
+            let maturity = held_out(
+                &mut maturity_fixture,
+                current,
+                base + 7,
+                namespace + 0x60_000 + ordinal as u64 * 0x100,
+                reverse,
+            );
+            diagnostic_work += maturity.work.total();
+            quiescent &= maturity.naturally_quiescent;
+            if effects(&maturity) == 1 {
+                if first_mature_context < 0 {
+                    first_mature_context = ordinal as isize;
+                }
+                executable_contexts += 1;
+            }
             ordinal += 1;
         }
     }
@@ -994,10 +1089,27 @@ fn run_cell(index: usize) -> CellResult {
             namespace + 0x8_000 + ordinal as u64 * 0x100,
             reverse ^ (ordinal % 2 == 1),
         );
+        stable_opportunities += 1;
         stable_returns += delayed_returns(&fixture, current, base + 2, &run);
         sparse_returns += delayed_returns(&fixture, initial, base + 2, &run);
         add_work(&mut total, &run.work);
         quiescent &= run.naturally_quiescent;
+        let mut maturity_fixture = fixture.clone();
+        let maturity = held_out(
+            &mut maturity_fixture,
+            current,
+            base + 7,
+            namespace + 0x60_000 + ordinal as u64 * 0x100,
+            reverse,
+        );
+        diagnostic_work += maturity.work.total();
+        quiescent &= maturity.naturally_quiescent;
+        if effects(&maturity) == 1 {
+            if first_mature_context < 0 {
+                first_mature_context = ordinal as isize;
+            }
+            executable_contexts += 1;
+        }
         ordinal += 1;
     }
     let stable_resistance = max_live_resistance(&fixture, current);
@@ -1008,6 +1120,13 @@ fn run_cell(index: usize) -> CellResult {
             .iter()
             .all(|fresh| old_ids.iter().all(|old| old != fresh));
     let test_tick = dense_start + ordinal as i64 * spacing;
+    let complete_fingerprint = fixture.substrate.complete_fingerprint();
+    let permanent_fingerprint = fixture.substrate.permanent_fingerprint();
+    let (stable_deallocation_delay, stable_lifetime_work) =
+        route_deallocation_delay(fixture.clone(), current, test_tick);
+    let (sparse_deallocation_delay, sparse_lifetime_work) =
+        route_deallocation_delay(fixture.clone(), initial, test_tick);
+    diagnostic_work += stable_lifetime_work + sparse_lifetime_work;
     let mut current_first = fixture.clone();
     let mut current_second = fixture.clone();
     let reacquired = held_out(
@@ -1025,6 +1144,7 @@ fn run_cell(index: usize) -> CellResult {
         reverse,
     );
     add_work(&mut total, &reacquired.work);
+    diagnostic_work += replay.work.total();
     quiescent &= reacquired.naturally_quiescent && replay.naturally_quiescent;
     let reacquired_effects = effects(&reacquired);
     let replay_exact = reacquired == replay
@@ -1136,6 +1256,7 @@ fn run_cell(index: usize) -> CellResult {
         namespace + 0x2_a000,
         !reverse,
     );
+    diagnostic_work += dense_initial_run.work.total() + dense_current_run.work.total();
     let stable_dense_effects = effects(&dense_initial_run);
     let explicit_dense_effects = effects(&dense_current_run);
     let mut dense_ambiguous = dense.clone();
@@ -1221,6 +1342,7 @@ fn run_cell(index: usize) -> CellResult {
         namespace + 0x3_b000,
         !reverse,
     );
+    diagnostic_work += swapped_stable_run.work.total() + swapped_sparse_run.work.total();
     let swapped_stable_effects = effects(&swapped_stable_run);
     let swapped_sparse_effects = effects(&swapped_sparse_run);
     quiescent &= swapped_stable_run.naturally_quiescent && swapped_sparse_run.naturally_quiescent;
@@ -1246,6 +1368,7 @@ fn run_cell(index: usize) -> CellResult {
     quiescent &= absent_training.iter().all(|run| run.naturally_quiescent);
     add_work(&mut total, &absent.substrate.advance_time(200));
     let absent_run = held_out(&mut absent, initial, 200, namespace + 0x4_9000, reverse);
+    add_work(&mut total, &absent_run.work);
     let absent_effects = effects(&absent_run);
     quiescent &= absent_run.naturally_quiescent;
 
@@ -1279,49 +1402,69 @@ fn run_cell(index: usize) -> CellResult {
     add_work(&mut total, &ambiguous_run.work);
     quiescent &= ambiguous_run.naturally_quiescent;
     let ambiguous_effects = effects(&ambiguous_run);
-    let ambiguous_live = live_variable_ids(&ambiguous, initial).len() == 2
-        && live_variable_ids(&ambiguous, current).len() == 2;
+    let ambiguous_live_alternatives = [initial, current]
+        .into_iter()
+        .filter(|route| live_variable_ids(&ambiguous, *route).len() == 2)
+        .count();
+    let dense_simultaneous_effects = effects(&dense_simultaneous);
 
     let p = [
         namespace == BASE_NAMESPACE + index as u64 * NAMESPACE_STRIDE
-            && spacing == 10 + (index % 8) as i64
-            && stride == 12 + 2 * (index % 8) as i32
+            && spacing == 10 + (index % 10) as i64
+            && stride == strides[index % strides.len()]
+            && distractor_load == distractor_loads[(index * 3) % distractor_loads.len()]
+            && incidental_form == index % DEVICES
             && initial == index % N
-            && current == (initial + 1) % N,
-        acquired && initial_effects == 1,
+            && current == (initial + 1) % N
+            && spare == (initial + 2) % N
+            && reverse == (index % 2 == 1)
+            && mirror == (index % 4 >= 2),
+        acquired,
+        initial_effects == 1,
         same_live_before_reuse && same_live_after_reuse && survival_effects == 1,
         old_dead && forgetting.physical_deallocations > 0,
         no_time_proposal && stale_effects == 0 && old_still_dead,
         fresh_initial_proposal && first_dense_proposals > 0 && fresh_current,
-        stable_returns == ordinal
-            && stable_resistance > sparse_resistance
-            && reacquired_effects == 1,
+        stable_opportunities == 35 && ordinal == 35,
+        stable_returns > 0 && stable_returns > sparse_returns,
+        sparse_opportunities == 8,
+        (0..35).contains(&first_mature_context) && executable_contexts > 0,
+        stable_resistance > sparse_resistance,
+        stable_deallocation_delay > sparse_deallocation_delay && sparse_deallocation_delay > 0,
+        reacquired_effects == 1,
+        sparse_effects == 0,
+        sparse_eventually_dead && sparse_deallocation_delay > 0,
         return_free_returns == 0
             && return_free_effects == 0
             && return_free_proposals > 0
             && return_free_dead,
-        sparse_returns > 0
-            && sparse_returns < stable_returns
-            && sparse_resistance <= 1
-            && sparse_effects == 0
-            && sparse_eventually_dead,
         dense_initial_returns > 0
             && dense_current_returns > 0
             && stable_dense_effects == 1
             && explicit_dense_effects == 1
-            && effects(&dense_simultaneous) == 0,
-        swapped_stable_returns == swap_ordinal
-            && swapped_sparse_returns > 0
+            && dense_simultaneous_effects == 0,
+        swapped_stable_returns > 0
             && swapped_sparse_returns < swapped_stable_returns
             && swapped_stable_effects == 1
             && swapped_sparse_effects == 0,
-        absent_effects == 0 && ambiguous_effects == 0 && ambiguous_live,
+        absent_effects == 0,
+        ambiguous_effects == 0 && ambiguous_live_alternatives == 2,
+        old_still_dead
+            && fresh_current
+            && old_ids.len() == 2
+            && current_ids.len() == 2
+            && current_ids
+                .iter()
+                .all(|fresh| old_ids.iter().all(|old| old != fresh)),
         replay_exact
-            && quiescent
-            && old_still_dead
+            && current_first.substrate.complete_fingerprint()
+                == current_second.substrate.complete_fingerprint(),
+        quiescent
             && total.total() > 0
             && total.local_structural_proposals > 0
             && total.physical_deallocations > 0
+            && total.queue_comparisons > 0
+            && diagnostic_work > 0
             && fixture.substrate.persistent_bytes() > 0,
     ];
 
@@ -1331,33 +1474,63 @@ fn run_cell(index: usize) -> CellResult {
         initial_route: initial,
         reacquired_route: current,
         spacing,
-        active_opportunities: active.len(),
+        stride,
+        distractor_load,
+        incidental_form,
         reverse_allocation: reverse,
         mirrored_layout: mirror,
         initial_effects,
         survival_effects,
-        reacquired_effects,
-        historical_effects: stale_effects,
+        stale_effects,
+        stable_opportunities,
+        stable_completed: stable_returns,
+        sparse_opportunities,
+        sparse_completed: sparse_returns,
+        first_mature_context,
+        executable_contexts,
+        stable_resistance,
+        sparse_resistance,
+        stable_deallocation_delay,
+        sparse_deallocation_delay,
+        stable_effects: reacquired_effects,
         sparse_effects,
+        sparse_eventually_dead,
+        return_free_proposals,
+        return_free_returns,
         stable_dense_effects,
+        explicit_dense_effects,
+        dense_simultaneous_effects,
+        recurrent_dense_stable_returns: dense_current_returns,
+        recurrent_dense_sparse_returns: dense_initial_returns,
         swapped_stable_effects,
         swapped_sparse_effects,
+        swapped_stable_returns,
+        swapped_sparse_returns,
         return_free_effects,
+        return_free_dead,
         absent_effects,
         ambiguous_effects,
+        ambiguous_live_alternatives,
+        replay_exact,
+        naturally_quiescent: quiescent,
         proposals: total.local_structural_proposals,
         deallocations: total.physical_deallocations,
+        queue_comparisons: total.queue_comparisons,
         work: total.total(),
+        diagnostic_work,
         persistent_bytes: fixture.substrate.persistent_bytes(),
+        complete_fingerprint,
+        permanent_fingerprint,
         old_arrow_count: old_ids.len(),
         fresh_arrow_count: current_ids.len(),
+        old_still_dead,
         p,
     }
 }
 
 fn csv(cells: &[CellResult]) -> String {
     let mut text = String::from(
-        "index,namespace,initial_route,reacquired_route,spacing,active_opportunities,reverse_allocation,mirrored_layout,initial_effects,survival_effects,reacquired_effects,historical_effects,sparse_effects,stable_dense_effects,swapped_stable_effects,swapped_sparse_effects,return_free_effects,absent_effects,ambiguous_effects,proposals,deallocations,work,persistent_bytes,old_arrow_count,fresh_arrow_count,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,passed\n",
+        "index,namespace,initial_route,reacquired_route,spacing,stride,distractor_load,incidental_form,reverse_allocation,mirrored_layout,initial_effects,survival_effects,stale_effects,stable_opportunities,stable_completed,sparse_opportunities,sparse_completed,first_mature_context,executable_contexts,stable_resistance,sparse_resistance,stable_deallocation_delay,sparse_deallocation_delay,stable_effects,sparse_effects,sparse_eventually_dead,return_free_proposals,return_free_returns,return_free_effects,return_free_dead,recurrent_dense_stable_returns,recurrent_dense_sparse_returns,stable_dense_effects,explicit_dense_effects,dense_simultaneous_effects,swapped_stable_returns,swapped_sparse_returns,swapped_stable_effects,swapped_sparse_effects,absent_effects,ambiguous_effects,ambiguous_live_alternatives,replay_exact,naturally_quiescent,proposals,deallocations,queue_comparisons,work,diagnostic_work,persistent_bytes,complete_fingerprint,permanent_fingerprint,old_arrow_count,fresh_arrow_count,old_still_dead,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14,p15,p16,p17,p18,p19,p20,p21,p22,p23,passed\n",
     );
     for cell in cells {
         let mut fields = vec![
@@ -1366,26 +1539,56 @@ fn csv(cells: &[CellResult]) -> String {
             cell.initial_route.to_string(),
             cell.reacquired_route.to_string(),
             cell.spacing.to_string(),
-            cell.active_opportunities.to_string(),
+            cell.stride.to_string(),
+            cell.distractor_load.to_string(),
+            cell.incidental_form.to_string(),
             cell.reverse_allocation.to_string(),
             cell.mirrored_layout.to_string(),
             cell.initial_effects.to_string(),
             cell.survival_effects.to_string(),
-            cell.reacquired_effects.to_string(),
-            cell.historical_effects.to_string(),
+            cell.stale_effects.to_string(),
+            cell.stable_opportunities.to_string(),
+            cell.stable_completed.to_string(),
+            cell.sparse_opportunities.to_string(),
+            cell.sparse_completed.to_string(),
+            cell.first_mature_context.to_string(),
+            cell.executable_contexts.to_string(),
+            cell.stable_resistance.to_string(),
+            cell.sparse_resistance.to_string(),
+            cell.stable_deallocation_delay.to_string(),
+            cell.sparse_deallocation_delay.to_string(),
+            cell.stable_effects.to_string(),
             cell.sparse_effects.to_string(),
+            cell.sparse_eventually_dead.to_string(),
+            cell.return_free_proposals.to_string(),
+            cell.return_free_returns.to_string(),
+            cell.return_free_effects.to_string(),
+            cell.return_free_dead.to_string(),
+            cell.recurrent_dense_stable_returns.to_string(),
+            cell.recurrent_dense_sparse_returns.to_string(),
             cell.stable_dense_effects.to_string(),
+            cell.explicit_dense_effects.to_string(),
+            cell.dense_simultaneous_effects.to_string(),
+            cell.swapped_stable_returns.to_string(),
+            cell.swapped_sparse_returns.to_string(),
             cell.swapped_stable_effects.to_string(),
             cell.swapped_sparse_effects.to_string(),
-            cell.return_free_effects.to_string(),
             cell.absent_effects.to_string(),
             cell.ambiguous_effects.to_string(),
+            cell.ambiguous_live_alternatives.to_string(),
+            cell.replay_exact.to_string(),
+            cell.naturally_quiescent.to_string(),
             cell.proposals.to_string(),
             cell.deallocations.to_string(),
+            cell.queue_comparisons.to_string(),
             cell.work.to_string(),
+            cell.diagnostic_work.to_string(),
             cell.persistent_bytes.to_string(),
+            cell.complete_fingerprint.to_string(),
+            cell.permanent_fingerprint.to_string(),
             cell.old_arrow_count.to_string(),
             cell.fresh_arrow_count.to_string(),
+            cell.old_still_dead.to_string(),
         ];
         fields.extend(cell.p.iter().map(bool::to_string));
         fields.push(cell.passed().to_string());
@@ -1404,12 +1607,12 @@ fn markdown(preflight: &Preflight, cells: &[CellResult], passed: bool) -> String
     let deallocations = cells.iter().map(|cell| cell.deallocations).sum::<u64>();
     let work = cells.iter().map(|cell| cell.work).sum::<u64>();
     let mut text = format!(
-        "# PX0 substrate-native physical correspondence definitive v2 result\n\nOutcome: **{}**.\n\n- cells: `{}/{}`\n- conjunctive claims: `{}/{}`\n- generic local proposals: `{}`\n- physical deallocations: `{}`\n- ledgered work: `{}`\n- PX0 authoritative: `{}`\n- PX1 development eligible: `{}`\n\n",
+        "# PX0 substrate-native physical correspondence definitive v3 result\n\nOutcome: **{}**.\n\n- cells: `{}/{}`\n- independently serialized conjunctive claims: `{}/{}`\n- generic local proposals: `{}`\n- physical deallocations: `{}`\n- ledgered causal work: `{}`\n- PX0 authoritative: `{}`\n- PX1 development eligible: `{}`\n\n",
         if passed { "PASS" } else { "FAIL" },
         cells.iter().filter(|cell| cell.passed()).count(),
         CELLS,
         controls_passed,
-        CELLS * 13,
+        CELLS * 24,
         proposals,
         deallocations,
         work,
@@ -1417,12 +1620,14 @@ fn markdown(preflight: &Preflight, cells: &[CellResult], passed: bool) -> String
         passed,
     );
     text.push_str(&format!(
-        "Preflight: active law `{}`, retained physics `{}`, v1 negative `{}`, P1 `{}`, specificity `{}`, protocol `{}`, tag `{}`, dependency isolation `{}`, source isolation `{}`, outputs absent `{}`, staging absent `{}`.\n\n",
+        "Preflight: active law `{}`, retained physics `{}`, v1 negative `{}`, v2 negative `{}`, P1 `{}`, specificity `{}`, D2 `{}`, protocol `{}`, tag `{}`, dependency isolation `{}`, source isolation `{}`, outputs absent `{}`, staging absent `{}`.\n\n",
         preflight.active_law_exact,
         preflight.retained_physics_exact,
         preflight.v1_negative_exact,
+        preflight.v2_negative_exact,
         preflight.p1_exact,
         preflight.specificity_exact,
+        preflight.d2_exact,
         preflight.protocol_exact,
         preflight.readiness_tag_exact,
         preflight.dependency_surface_empty,
@@ -1430,35 +1635,29 @@ fn markdown(preflight: &Preflight, cells: &[CellResult], passed: bool) -> String
         preflight.outputs_absent,
         preflight.staging_absent,
     ));
-    text.push_str("| cell | A→B | spacing | opportunities | allocation | layout | effects initial/reuse/B/old/sparse/dense/swap | claims | work | pass |\n");
-    text.push_str("|---:|---|---:|---:|---|---|---|---:|---:|---:|\n");
+    text.push_str("| cell | A→B | spacing/stride/load | stable opp/done | sparse opp/done | mature context | resistance stable/sparse | lifetime stable/sparse | effects B/A | claims | pass |\n");
+    text.push_str("|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|\n");
     for cell in cells {
         text.push_str(&format!(
-            "| {} | {}→{} | {} | {} | {} | {} | {}/{}/{}/{}/{}/{}/{} | {}/13 | {} | {} |\n",
+            "| {} | {}→{} | {}/{}/{} | {}/{} | {}/{} | {} | {}/{} | {}/{} | {}/{} | {}/24 | {} |\n",
             cell.index,
             cell.initial_route,
             cell.reacquired_route,
             cell.spacing,
-            cell.active_opportunities,
-            if cell.reverse_allocation {
-                "reverse"
-            } else {
-                "forward"
-            },
-            if cell.mirrored_layout {
-                "mirror"
-            } else {
-                "direct"
-            },
-            cell.initial_effects,
-            cell.survival_effects,
-            cell.reacquired_effects,
-            cell.historical_effects,
+            cell.stride,
+            cell.distractor_load,
+            cell.stable_opportunities,
+            cell.stable_completed,
+            cell.sparse_opportunities,
+            cell.sparse_completed,
+            cell.first_mature_context,
+            cell.stable_resistance,
+            cell.sparse_resistance,
+            cell.stable_deallocation_delay,
+            cell.sparse_deallocation_delay,
+            cell.stable_effects,
             cell.sparse_effects,
-            cell.stable_dense_effects,
-            cell.swapped_stable_effects,
             cell.p.iter().filter(|value| **value).count(),
-            cell.work,
             cell.passed(),
         ));
     }
