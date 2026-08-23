@@ -479,9 +479,7 @@ fn row_passes(row: &Row, scenario: Scenario) -> bool {
     let expected_raw_impulse = four(|side| {
         i32::try_from(expected_actual[side]).expect("small count") * scenario.couplings[side]
     });
-    let expected_live_train = if scenario.recurrent() {
-        [true, false, false, false, false, false]
-    } else if scenario.kind == Kind::AbOne {
+    let expected_live_train = if scenario.recurrent() || scenario.kind == Kind::AbOne {
         [true, false, false, false, false, false]
     } else {
         [false; 6]
