@@ -1,0 +1,7 @@
+scenario,couplings,scheduled_sources,source_firings,raw_traversals,raw_impulse,outlet_firings,unit_participation_crossings,hub_input_crossings,hub_firings,hub_return_crossings,trace_arrivals,trace_arrival_impulse,trace_firings,unit_conjunction_crossings,conjunction_arrivals,conjunction_impulse,conjunction_firings,expected_conjunction,work,persistent_bytes,complete_fingerprint,permanent_fingerprint,quiescent,replay_equal,passed
+a1,1|0,1|0,1|0,1|0,1|0,1|0,1|0,1,1,1|1,2|1,2|1,1|0,1|0,1,1,0,0,83,960,4929415916950141582,9351810606851611789,true,true,true
+a2,2|0,1|0,1|0,1|0,2|0,1|0,1|0,1,1,1|1,2|1,2|1,1|0,1|0,1,1,0,0,83,960,3871328370048031115,4728880805282290356,true,true,true
+a4,4|0,1|0,1|0,1|0,4|0,1|0,1|0,1,1,1|1,2|1,2|1,1|0,1|0,1,1,0,0,83,960,5254574338094388241,16617741171862907570,true,true,true
+a1-b1,1|1,1|1,1|1,1|1,1|1,1|1,1|1,2,1,1|1,2|2,2|2,1|1,1|1,2,2,1,1,176,1024,1086735642195370261,4020262195156270073,true,true,true
+a2-b1,2|1,1|1,1|1,1|1,2|1,1|1,1|1,2,1,1|1,2|2,2|2,1|1,1|1,2,2,1,1,176,1024,11837338247846188978,15515749313278970958,true,true,true
+a4-b4,4|4,1|1,1|1,1|1,4|4,1|1,1|1,2,1,1|1,2|2,2|2,1|1,1|1,2,2,1,1,176,1024,9092255312359887735,2301834436093457847,true,true,true
