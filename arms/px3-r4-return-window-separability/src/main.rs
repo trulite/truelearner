@@ -12,16 +12,11 @@ use std::path::Path;
 use std::process::Command;
 
 const PX0: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad12d";
-const DEFINITIVE_SOURCE: &str =
-    "288ce23199f66b65e022afac4314629ac133edaea93072486326357f8c58b328";
-const DEFINITIVE_CSV: &str =
-    "3fa85616ae97faef0db2200941a41a6ea7d51f9e254267f84fbed8684a0e0d06";
-const DEFINITIVE_REPORT: &str =
-    "3a8f96587b751f3e19303582861d8320c0a78ae1aa25da24b8959efb809c3317";
-const DEFINITIVE_AUDIT: &str =
-    "37a2bd47474020510d076e131c65acfa60f0ac34ee1b6f583aa42c3d6f6fd3d5";
-const DEFINITIVE_HANDOFF: &str =
-    "f6cd3e4436071758697f8cb7805189aca747914ec6a4999f5143f142f02ca336";
+const DEFINITIVE_SOURCE: &str = "288ce23199f66b65e022afac4314629ac133edaea93072486326357f8c58b328";
+const DEFINITIVE_CSV: &str = "3fa85616ae97faef0db2200941a41a6ea7d51f9e254267f84fbed8684a0e0d06";
+const DEFINITIVE_REPORT: &str = "3a8f96587b751f3e19303582861d8320c0a78ae1aa25da24b8959efb809c3317";
+const DEFINITIVE_AUDIT: &str = "37a2bd47474020510d076e131c65acfa60f0ac34ee1b6f583aa42c3d6f6fd3d5";
+const DEFINITIVE_HANDOFF: &str = "f6cd3e4436071758697f8cb7805189aca747914ec6a4999f5143f142f02ca336";
 const R3_CSV: &str = "62b34a64396728c28b617bab75cf1141ee2b2db53897ee655809b6180cb2a67b";
 const R3_AUDIT: &str = "6f565cf8397afb55e28293360f1ade5aa51b89ba5fa8c19ce0eacaa23086e299";
 const PROTOCOL: &str = "6be667083059847cbe8a7e1085b021e5b0e6909ecaf43c1d9fa293e4425894ac";
@@ -275,21 +270,37 @@ fn run(seed: u64, scenario: Scenario) -> Row {
     let execution = world.substrate.propagate();
     let candidates = candidate_arrows(&world, 0);
 
-    let primitive_fires = two(|side| firing_ticks(&execution.trace, physical(namespace, 10 + side as u64)));
-    let primitive_trace_fires = two(|side| {
-        firing_ticks(&execution.trace, physical(namespace, 30 + side as u64))
-    });
+    let primitive_fires =
+        two(|side| firing_ticks(&execution.trace, physical(namespace, 10 + side as u64)));
+    let primitive_trace_fires =
+        two(|side| firing_ticks(&execution.trace, physical(namespace, 30 + side as u64)));
     let opportunity_fires = firing_ticks(&execution.trace, physical(namespace, 100));
-    let opportunity_to_source = crossing_signatures(&execution.crossings, physical(namespace, 100), physical(namespace, 200));
+    let opportunity_to_source = crossing_signatures(
+        &execution.crossings,
+        physical(namespace, 100),
+        physical(namespace, 200),
+    );
     let source_events = event_signatures(&execution.trace, physical(namespace, 200));
     let source_fires = firing_ticks(&execution.trace, physical(namespace, 200));
-    let candidate_crossings = crossing_signatures(&execution.crossings, physical(namespace, 200), physical(namespace, 300));
+    let candidate_crossings = crossing_signatures(
+        &execution.crossings,
+        physical(namespace, 200),
+        physical(namespace, 300),
+    );
     let output_fires = firing_ticks(&execution.trace, physical(namespace, 300));
     let source_trace_fires = firing_ticks(&execution.trace, physical(namespace, 400));
     let output_trace_fires = firing_ticks(&execution.trace, physical(namespace, 600));
-    let global_to_attribution = crossing_signatures(&execution.crossings, physical(namespace, 901), physical(namespace, 800));
+    let global_to_attribution = crossing_signatures(
+        &execution.crossings,
+        physical(namespace, 901),
+        physical(namespace, 800),
+    );
     let attribution_fires = firing_ticks(&execution.trace, physical(namespace, 800));
-    let echo_crossings = crossing_signatures(&execution.crossings, physical(namespace, 800), physical(namespace, 200));
+    let echo_crossings = crossing_signatures(
+        &execution.crossings,
+        physical(namespace, 800),
+        physical(namespace, 200),
+    );
     let candidate_resistance = candidates
         .iter()
         .map(|arrow| world.substrate.arrow_resistance(*arrow))
@@ -360,7 +371,11 @@ fn schedule(world: &mut World, scenario: Scenario) {
 }
 
 fn participation_valid(scenario: Scenario, execution: &Execution, namespace: u64) -> bool {
-    let episodes = if scenario.sweep == Sweep::Return { 1 } else { 2 };
+    let episodes = if scenario.sweep == Sweep::Return {
+        1
+    } else {
+        2
+    };
     let expected_ticks = if episodes == 1 {
         vec![0]
     } else {
@@ -372,34 +387,70 @@ fn participation_valid(scenario: Scenario, execution: &Execution, namespace: u64
     let primitive_b = firing_ticks(&execution.trace, physical(namespace, 31));
     let opportunity = firing_ticks(&execution.trace, physical(namespace, 100));
     let p = firing_ticks(&execution.trace, physical(namespace, 200));
-    let candidate = crossing_signatures(&execution.crossings, physical(namespace, 200), physical(namespace, 300));
+    let candidate = crossing_signatures(
+        &execution.crossings,
+        physical(namespace, 200),
+        physical(namespace, 300),
+    );
     let output = firing_ticks(&execution.trace, physical(namespace, 300));
     let attribution = firing_ticks(&execution.trace, physical(namespace, 800));
 
     source == expected_ticks
         && source_b == expected_ticks
-        && primitive_a == expected_ticks.iter().map(|tick| tick + 1).collect::<Vec<_>>()
-        && primitive_b == expected_ticks.iter().map(|tick| tick + 1).collect::<Vec<_>>()
-        && opportunity == expected_ticks.iter().map(|tick| tick + 1).collect::<Vec<_>>()
+        && primitive_a
+            == expected_ticks
+                .iter()
+                .map(|tick| tick + 1)
+                .collect::<Vec<_>>()
+        && primitive_b
+            == expected_ticks
+                .iter()
+                .map(|tick| tick + 1)
+                .collect::<Vec<_>>()
+        && opportunity
+            == expected_ticks
+                .iter()
+                .map(|tick| tick + 1)
+                .collect::<Vec<_>>()
         && p.len() == episodes
         && candidate.len() == episodes
         && output.len() == episodes
         && match scenario.sweep {
-            Sweep::Return => attribution == if scenario.parameter == 3 { vec![3] } else { vec![] },
+            Sweep::Return => {
+                attribution
+                    == if scenario.parameter == 3 {
+                        vec![3]
+                    } else {
+                        vec![]
+                    }
+            }
             Sweep::Recurrence => attribution.is_empty(),
             Sweep::Collision => attribution == vec![3],
         }
 }
 
 fn timing_valid(scenario: Scenario, execution: &Execution, namespace: u64) -> bool {
-    let o_to_p = crossing_ticks(&execution.crossings, physical(namespace, 100), physical(namespace, 200));
-    let echo = crossing_ticks(&execution.crossings, physical(namespace, 800), physical(namespace, 200));
+    let o_to_p = crossing_ticks(
+        &execution.crossings,
+        physical(namespace, 100),
+        physical(namespace, 200),
+    );
+    let echo = crossing_ticks(
+        &execution.crossings,
+        physical(namespace, 800),
+        physical(namespace, 200),
+    );
     let p = firing_ticks(&execution.trace, physical(namespace, 200));
     match scenario.sweep {
         Sweep::Return => {
             o_to_p == vec![1]
                 && p == vec![1]
-                && echo == if scenario.parameter == 3 { vec![3] } else { vec![] }
+                && echo
+                    == if scenario.parameter == 3 {
+                        vec![3]
+                    } else {
+                        vec![]
+                    }
                 && firing_ticks(&execution.trace, physical(namespace, 400)) == vec![2]
                 && firing_ticks(&execution.trace, physical(namespace, 600)) == vec![3]
         }
@@ -413,7 +464,13 @@ fn timing_valid(scenario: Scenario, execution: &Execution, namespace: u64) -> bo
                 && echo == vec![3]
                 && p == vec![1, 4]
                 && event_signatures(&execution.trace, physical(namespace, 200))
-                    == vec!["1:1:false", "1:1:true", "4:1:false", "4:1:true", "4:1:false"]
+                    == vec![
+                        "1:1:false",
+                        "1:1:true",
+                        "4:1:false",
+                        "4:1:true",
+                        "4:1:false",
+                    ]
         }
     }
 }
@@ -428,8 +485,11 @@ fn mechanism_valid(world: &World, execution: &Execution, scenario: Scenario) -> 
     candidates.len() == expected_history
         && world.substrate.arrow_count() >= 42
         && execution.work.local_structural_proposals == expected_history as u64
-        && crossing_impulse(&execution.crossings, physical(world.namespace, 800), physical(world.namespace, 200))
-            <= 1
+        && crossing_impulse(
+            &execution.crossings,
+            physical(world.namespace, 800),
+            physical(world.namespace, 200),
+        ) <= 1
 }
 
 fn build(namespace: u64, reverse: bool, reflect: bool) -> World {
@@ -543,15 +603,39 @@ fn build(namespace: u64, reverse: bool, reflect: bool) -> World {
     let global_return = substrate.add_cell(cell(physical(namespace, 901), 100_000, 131, 1));
 
     for side in primitive_order {
-        substrate.add_arrow(fixed(primitive_sources[side], primitive_outlets[side], 0, 1));
-        normalize(&mut substrate, primitive_outlets[side], primitive_traces[side], primitive_hubs[side]);
+        substrate.add_arrow(fixed(
+            primitive_sources[side],
+            primitive_outlets[side],
+            0,
+            1,
+        ));
+        normalize(
+            &mut substrate,
+            primitive_outlets[side],
+            primitive_traces[side],
+            primitive_hubs[side],
+        );
     }
     for stage in stage_order {
-        normalize(&mut substrate, outputs[stage], output_traces[stage], output_hubs[stage]);
-        normalize(&mut substrate, sources[stage], source_traces[stage], source_hubs[stage]);
+        normalize(
+            &mut substrate,
+            outputs[stage],
+            output_traces[stage],
+            output_hubs[stage],
+        );
+        normalize(
+            &mut substrate,
+            sources[stage],
+            source_traces[stage],
+            source_hubs[stage],
+        );
     }
     let left_inputs = [primitive_traces[0], output_traces[0], output_traces[1]];
-    let right_inputs = [primitive_traces[1], primitive_traces[2], primitive_traces[3]];
+    let right_inputs = [
+        primitive_traces[1],
+        primitive_traces[2],
+        primitive_traces[3],
+    ];
     for stage in stage_order {
         substrate.add_arrow(fixed(left_inputs[stage], opportunities[stage], 0, 1));
         substrate.add_arrow(fixed(right_inputs[stage], opportunities[stage], 0, 1));
@@ -562,8 +646,18 @@ fn build(namespace: u64, reverse: bool, reflect: bool) -> World {
         substrate.add_arrow(fixed(global_return, attributions[stage], 0, 1));
         substrate.add_arrow(fixed(attributions[stage], sources[stage], 1, 1));
     }
-    let stages = three(|stage| Stage { source: sources[stage], output: outputs[stage] });
-    World { substrate, namespace, primitive_sources, stages, context, global_return }
+    let stages = three(|stage| Stage {
+        source: sources[stage],
+        output: outputs[stage],
+    });
+    World {
+        substrate,
+        namespace,
+        primitive_sources,
+        stages,
+        context,
+        global_return,
+    }
 }
 
 fn normalize(substrate: &mut PlasticSubstrate, outlet: CellId, trace: CellId, hub: CellId) {
@@ -582,12 +676,24 @@ fn episode(world: &mut World, start: i64, with_context: bool) {
 }
 
 fn primitive(world: &mut World, side: usize, tick: i64, phase: i32) {
-    pulse(&mut world.substrate, world.primitive_sources[side], tick, 1, phase);
+    pulse(
+        &mut world.substrate,
+        world.primitive_sources[side],
+        tick,
+        1,
+        phase,
+    );
 }
 
 fn background(world: &mut World, tick: i64) {
     for stage in 0..3 {
-        pulse(&mut world.substrate, world.stages[stage].source, tick, 1, 100 + stage as i32);
+        pulse(
+            &mut world.substrate,
+            world.stages[stage].source,
+            tick,
+            1,
+            100 + stage as i32,
+        );
     }
 }
 
@@ -596,15 +702,30 @@ fn global_return(world: &mut World, tick: i64) {
 }
 
 fn candidate_arrows(world: &World, stage: usize) -> Vec<ArrowId> {
-    world.substrate.arrows_between(world.stages[stage].source, world.stages[stage].output)
+    world
+        .substrate
+        .arrows_between(world.stages[stage].source, world.stages[stage].output)
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
-    CellSpec { physical_id, position, region, threshold, resistance: 100 }
+    CellSpec {
+        physical_id,
+        position,
+        region,
+        threshold,
+        resistance: 100,
+    }
 }
 
 fn fixed(from: CellId, to: CellId, delay: i64, coupling: i32) -> ArrowSpec {
-    ArrowSpec { from, to, delay, phase: 0, coupling, resistance: 100 }
+    ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling,
+        resistance: 100,
+    }
 }
 
 fn pulse(substrate: &mut PlasticSubstrate, target: CellId, tick: i64, impulse: i32, phase: i32) {
@@ -622,7 +743,10 @@ fn namespace(seed: u64, scenario: Scenario) -> u64 {
 }
 
 fn scenario_index(scenario: Scenario) -> usize {
-    Scenario::ALL.iter().position(|value| *value == scenario).expect("scenario")
+    Scenario::ALL
+        .iter()
+        .position(|value| *value == scenario)
+        .expect("scenario")
 }
 
 fn physical(namespace: u64, suffix: u64) -> u64 {
@@ -630,7 +754,11 @@ fn physical(namespace: u64, suffix: u64) -> u64 {
 }
 
 fn firing_ticks(trace: &[TraceEntry], physical_id: u64) -> Vec<i64> {
-    trace.iter().filter(|entry| entry.target_physical == physical_id && entry.fired).map(|entry| entry.tick).collect()
+    trace
+        .iter()
+        .filter(|entry| entry.target_physical == physical_id && entry.fired)
+        .map(|entry| entry.tick)
+        .collect()
 }
 
 fn event_signatures(trace: &[TraceEntry], physical_id: u64) -> Vec<String> {
@@ -642,7 +770,11 @@ fn event_signatures(trace: &[TraceEntry], physical_id: u64) -> Vec<String> {
 }
 
 fn crossing_ticks(crossings: &[Crossing], from: u64, to: u64) -> Vec<i64> {
-    crossings.iter().filter(|crossing| crossing.from_physical == from && crossing.to_physical == to).map(|crossing| crossing.tick).collect()
+    crossings
+        .iter()
+        .filter(|crossing| crossing.from_physical == from && crossing.to_physical == to)
+        .map(|crossing| crossing.tick)
+        .collect()
 }
 
 fn crossing_signatures(crossings: &[Crossing], from: u64, to: u64) -> Vec<String> {
@@ -697,8 +829,18 @@ fn csv(rows: &[Row]) -> String {
             join_string(&observation.echo_crossings),
             observation.historical_candidates.to_string(),
             observation.live_candidates.to_string(),
-            observation.candidate_resistance.iter().map(u32::to_string).collect::<Vec<_>>().join("|"),
-            observation.candidate_liveness.iter().map(bool::to_string).collect::<Vec<_>>().join("|"),
+            observation
+                .candidate_resistance
+                .iter()
+                .map(u32::to_string)
+                .collect::<Vec<_>>()
+                .join("|"),
+            observation
+                .candidate_liveness
+                .iter()
+                .map(bool::to_string)
+                .collect::<Vec<_>>()
+                .join("|"),
             observation.return_updates.to_string(),
             observation.proposals.to_string(),
             observation.validity[0].to_string(),
@@ -706,7 +848,12 @@ fn csv(rows: &[Row]) -> String {
             observation.validity[2].to_string(),
             observation.validity[3].to_string(),
             observation.validity[4].to_string(),
-            observation.validity.into_iter().filter(|valid| *valid).count().to_string(),
+            observation
+                .validity
+                .into_iter()
+                .filter(|valid| *valid)
+                .count()
+                .to_string(),
             observation.work.to_string(),
             observation.bytes.to_string(),
             observation.fingerprint.to_string(),
@@ -726,7 +873,13 @@ fn report(rows: &[Row]) -> String {
     let return_arrivals = rows
         .iter()
         .filter(|row| row.sweep == Sweep::Return && !row.observation.echo_crossings.is_empty())
-        .flat_map(|row| row.observation.echo_crossings.iter().filter_map(|value| value.split(':').next()?.parse::<i64>().ok()).map(|tick| tick + 1))
+        .flat_map(|row| {
+            row.observation
+                .echo_crossings
+                .iter()
+                .filter_map(|value| value.split(':').next()?.parse::<i64>().ok())
+                .map(|tick| tick + 1)
+        })
         .collect::<Vec<_>>();
     let recurrence_arrivals = rows
         .iter()
@@ -736,16 +889,31 @@ fn report(rows: &[Row]) -> String {
         .collect::<Vec<_>>();
     let latest_return = return_arrivals.iter().copied().max();
     let earliest_recurrence = recurrence_arrivals.iter().copied().min();
-    let collision = rows.iter().filter(|row| row.sweep == Sweep::Collision).all(|row| {
-        row.observation.opportunity_to_source.get(1).is_some_and(|value| value.starts_with("4:"))
-            && row.observation.echo_crossings.first().is_some_and(|value| value.starts_with("3:"))
-    });
-    let overlap = latest_return.is_some_and(|return_tick| recurrence_arrivals.contains(&return_tick)) && collision;
+    let collision = rows
+        .iter()
+        .filter(|row| row.sweep == Sweep::Collision)
+        .all(|row| {
+            row.observation
+                .opportunity_to_source
+                .get(1)
+                .is_some_and(|value| value.starts_with("4:"))
+                && row
+                    .observation
+                    .echo_crossings
+                    .first()
+                    .is_some_and(|value| value.starts_with("3:"))
+        });
+    let overlap = latest_return
+        .is_some_and(|return_tick| recurrence_arrivals.contains(&return_tick))
+        && collision;
     let classification = if !valid {
         "R4-C UNINTERPRETABLE"
     } else if overlap {
         "R4-B TEMPORAL OVERLAP"
-    } else if latest_return.zip(earliest_recurrence).is_some_and(|(return_tick, recurrence_tick)| return_tick < recurrence_tick) {
+    } else if latest_return
+        .zip(earliest_recurrence)
+        .is_some_and(|(return_tick, recurrence_tick)| return_tick < recurrence_tick)
+    {
         "R4-A TEMPORALLY SEPARABLE"
     } else {
         "R4-C UNINTERPRETABLE"
@@ -765,11 +933,19 @@ fn report(rows: &[Row]) -> String {
 }
 
 fn join_nested_i64<const N: usize>(values: &[Vec<i64>; N]) -> String {
-    values.iter().map(|value| join_i64(value)).collect::<Vec<_>>().join("~")
+    values
+        .iter()
+        .map(|value| join_i64(value))
+        .collect::<Vec<_>>()
+        .join("~")
 }
 
 fn join_i64(values: &[i64]) -> String {
-    values.iter().map(i64::to_string).collect::<Vec<_>>().join("|")
+    values
+        .iter()
+        .map(i64::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn join_string(values: &[String]) -> String {
@@ -783,16 +959,28 @@ fn absent(paths: &[&str]) {
 }
 
 fn publish(stage: &str, destination: &str, content: &str) {
-    let mut file = OpenOptions::new().write(true).create_new(true).open(stage).expect("create staging artifact");
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(stage)
+        .expect("create staging artifact");
     file.write_all(content.as_bytes()).expect("write artifact");
     file.sync_all().expect("sync artifact");
     rename(stage, destination).expect("publish artifact");
 }
 
 fn sha(path: &str) -> String {
-    let output = Command::new("sha256sum").arg(path).output().expect("sha256sum");
+    let output = Command::new("sha256sum")
+        .arg(path)
+        .output()
+        .expect("sha256sum");
     assert!(output.status.success(), "sha256sum failed: {path}");
-    String::from_utf8(output.stdout).expect("utf8").split_whitespace().next().expect("digest").into()
+    String::from_utf8(output.stdout)
+        .expect("utf8")
+        .split_whitespace()
+        .next()
+        .expect("digest")
+        .into()
 }
 
 #[cfg(test)]
@@ -807,7 +995,10 @@ mod tests {
 
     #[test]
     fn collision_is_explicit() {
-        let collision = Scenario::ALL.iter().filter(|scenario| scenario.sweep == Sweep::Collision).collect::<Vec<_>>();
+        let collision = Scenario::ALL
+            .iter()
+            .filter(|scenario| scenario.sweep == Sweep::Collision)
+            .collect::<Vec<_>>();
         assert_eq!(collision.len(), 1);
         assert_eq!(collision[0].parameter, 3);
     }
