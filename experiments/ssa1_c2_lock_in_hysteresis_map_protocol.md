@@ -104,7 +104,7 @@ For both schedules, measure after cumulative B-opportunity budgets:
 0, 4, 16, 64, 1,024, 10,000
 ```
 
-At H=`16, 32, 192`, extend one frozen trajectory to `100,000` B
+At H=`16, 32, 192`, extend one frozen trajectory to `60,000` B
 opportunities.
 Budgets are cumulative within a trajectory so the experiment does not replay
 shorter prefixes merely for accounting.
@@ -169,6 +169,17 @@ The first non-responsive edge is defined mechanically:
 5. **formation edge:** M5 changes but live support does not;
 6. **none:** live support and independent execution reverse.
 
+### Frozen count-capacity boundary
+
+Pre-execution source audit found that each M6 normalized consequence-shape
+count is stored as `u16`. A 100,000-repeat single-shape trajectory would
+therefore overflow the frozen representation. The protocol must not widen the
+field, split a physical shape for accounting, or rely on release-mode integer
+wraparound. `60,000` is the maximum preregistered empirical anchor. Behavior
+beyond it may be inferred only when an exact source-and-runtime invariant makes
+the additional count causally irrelevant; otherwise the result stops at the
+capacity boundary.
+
 The evaluator may label this edge only after comparing the recorded physical
 states. The label cannot enter the organism.
 
@@ -213,7 +224,7 @@ Two fresh seeds and mirrors:
 
 - full H grid;
 - E through `10,000`;
-- E=`100,000` anchors at H=`16, 32, 192`;
+- E=`60,000` anchors at H=`16, 32, 192`;
 - full S and T grids;
 - exact duplicate checkpoints.
 
@@ -234,7 +245,7 @@ No definitive execution is authorized by development readiness.
   experience, and the reversal remains independently executable after
   background removal. E0 and E1 are reported separately.
 - **B — moving but uncrossed barrier:** mature internal states move
-  monotonically toward B through 100,000 observations without crossing, and no
+  monotonically toward B through 60,000 observations without crossing, and no
   exact frozen invariant prevents eventual reversal.
 - **C — absorbing credit state:** B executes and M6 observes it, but mature M6
   credit reaches a non-decaying abstention invariant; M5 receives no later
