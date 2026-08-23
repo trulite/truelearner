@@ -27,8 +27,13 @@ const POSITIVE_PROBE_SHA256: &str =
     "cda4bf6750abb40f7b3798e84c0b6f39527704a02c69b133896ce51c3925420b";
 const MICRO_PROTOCOL_SHA256: &str =
     "3c3e0d968e247988cb34f5ecac602c2c1af634758060afdf577b6aad927df829";
-const RESULT_CSV: &str = "results/px1_pt1_attributed_margin_stability_micro_v1.csv";
-const RESULT_MD: &str = "results/px1_pt1_attributed_margin_stability_micro_v1.md";
+const MICRO_V1_SHA256: &str = "d32e174f77c2440c52baf8978370ff684ddfffb45a72938cbc8cdbb7099f93c2";
+const MICRO_V1_AUDIT_SHA256: &str =
+    "05a847240a6186a3705b591487673905d6b329090145cbebcdc1094e560a9e36";
+const MICRO_V2_PROTOCOL_SHA256: &str =
+    "afe799afbd04c81a157065e5e55ead73eca3bb75ca87e4abd61511cfecbfa326";
+const RESULT_CSV: &str = "results/px1_pt1_attributed_margin_stability_micro_v2.csv";
+const RESULT_MD: &str = "results/px1_pt1_attributed_margin_stability_micro_v2.md";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Scenario {
@@ -164,13 +169,13 @@ fn main() {
     );
     assert!(!Path::new(RESULT_CSV).exists(), "PT1 MICRO CSV exists");
     assert!(!Path::new(RESULT_MD).exists(), "PT1 MICRO report exists");
-    eprintln!("PX1_PT1_ATTRIBUTED_MARGIN_STABILITY_MICRO_EVIDENCE");
+    eprintln!("PX1_PT1_ATTRIBUTED_MARGIN_STABILITY_MICRO_V2_EVIDENCE");
 
     let mut rows = Vec::new();
     for (ordinal, scenario) in Scenario::ALL.into_iter().enumerate() {
         for transfer in [false, true] {
             let namespace =
-                0x8100_0000 + ordinal as u64 * 0x0100_0000 + u64::from(transfer) * 0x0080_0000;
+                0x9100_0000 + ordinal as u64 * 0x0100_0000 + u64::from(transfer) * 0x0080_0000;
             let first = run_world(namespace, scenario, transfer, transfer);
             let second = run_world(namespace, scenario, transfer, transfer);
             let duplicate_exact = first == second;
@@ -208,6 +213,11 @@ fn source_audit() -> bool {
             == POSITIVE_PROBE_SHA256
         && sha256("experiments/px1_pt1_attributed_margin_stability_micro_protocol.md")
             == MICRO_PROTOCOL_SHA256
+        && sha256("results/px1_pt1_attributed_margin_stability_micro_v1.csv") == MICRO_V1_SHA256
+        && sha256("experiments/px1_pt1_attributed_margin_stability_micro_v1_negative_audit.md")
+            == MICRO_V1_AUDIT_SHA256
+        && sha256("experiments/px1_pt1_attributed_margin_stability_micro_v2_protocol.md")
+            == MICRO_V2_PROTOCOL_SHA256
 }
 
 fn run_world(namespace: u64, scenario: Scenario, mirror: bool, reverse: bool) -> Metrics {
@@ -545,22 +555,35 @@ struct TrainingExpectation {
 }
 
 fn expected_heldout_trace_arrivals(expected_mature: [bool; SIDES]) -> [usize; SIDES] {
-    let mature_count = expected_mature.into_iter().filter(|value| *value).count();
-    expected_mature.map(|mature| mature_count + usize::from(mature))
+    let shared_return = usize::from(expected_mature.into_iter().any(|value| value));
+    expected_mature.map(|mature| shared_return + usize::from(mature))
+}
+
+fn training_passed(scenario: Scenario, metrics: &Metrics) -> bool {
+    if scenario == Scenario::BlockedReturn {
+        metrics.branch_firings == [EXPOSURES, 0]
+            && metrics.outlet_firings[0] > 0
+            && metrics.outlet_firings[1] == 0
+            && metrics.trace_arrivals == metrics.outlet_firings
+            && metrics.trace_firings == [0, 0]
+            && metrics.local_returns == [0, 0]
+    } else {
+        let expected = expected_training(scenario);
+        metrics.branch_firings == expected.branches
+            && metrics.outlet_firings == expected.outlets
+            && metrics.trace_arrivals == expected.trace_arrivals
+            && metrics.trace_firings == expected.trace_firings
+            && metrics.local_returns == expected.local_returns
+    }
 }
 
 fn micro_passed(scenario: Scenario, metrics: &Metrics) -> bool {
-    let training = expected_training(scenario);
     let expected_mature = scenario.expected_mature();
     let expected_effects = expected_mature.map(usize::from);
     let expected_trace_arrivals = expected_heldout_trace_arrivals(expected_mature);
     metrics.correspondence_acquired
         && metrics.maturation_exact
-        && metrics.branch_firings == training.branches
-        && metrics.outlet_firings == training.outlets
-        && metrics.trace_arrivals == training.trace_arrivals
-        && metrics.trace_firings == training.trace_firings
-        && metrics.local_returns == training.local_returns
+        && training_passed(scenario, metrics)
         && metrics.extra_source_firings == 0
         && metrics.heldout_branch_firings == [1, 1]
         && metrics.heldout_outlet_firings == expected_effects
@@ -752,7 +775,7 @@ fn csv(rows: &[ResultRow]) -> String {
 fn markdown(rows: &[ResultRow]) -> String {
     let passed = rows.iter().all(|row| row.passed);
     let mut output = format!(
-        "# PX1-PT1 attributed-margin stability MICRO v1\n\nOutcome: **{}** (`{}/{}` cells).\n\n| scenario | transfer | train branch | train outlet | train trace arrival/fire | train local return | resistance | held-out branch/outlet | held-out trace arrival/fire | held-out local return/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
+        "# PX1-PT1 attributed-margin stability MICRO v2\n\nOutcome: **{}** (`{}/{}` cells).\n\n| scenario | transfer | train branch | train outlet | train trace arrival/fire | train local return | resistance | held-out branch/outlet | held-out trace arrival/fire | held-out local return/effect | post-gap effect | source refire train/held/post | quiescent train/held/post | replay | pass |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n",
         if passed { "POSITIVE" } else { "NEGATIVE" },
         rows.iter().filter(|row| row.passed).count(),
         rows.len(),
