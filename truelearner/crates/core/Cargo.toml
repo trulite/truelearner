@@ -13,3 +13,4 @@ name = "truelearner"
 path = "src/main.rs"
 
 [dependencies]
+truelearner-arena-format = { path = "../arena-format" }

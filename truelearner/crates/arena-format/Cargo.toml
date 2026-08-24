@@ -1,0 +1,9 @@
+[package]
+name = "truelearner-arena-format"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Canonical durable arena representation for TrueLearner"
+
+[dependencies]
+sha2 = "0.10"
