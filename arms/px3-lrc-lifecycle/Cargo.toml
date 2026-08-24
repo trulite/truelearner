@@ -1,0 +1,10 @@
+[package]
+name = "px3-lrc-lifecycle"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+lr1-modulatory-physical-return = { path = "../../crates/lr1-modulatory-physical-return" }
+
+[workspace]
