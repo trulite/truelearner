@@ -225,4 +225,3 @@ handoff commits/tags are required.
 
 The handoff may establish PX7 only. PX8 must not be preregistered, prepared,
 executed, reinterpreted, or advanced.
-
