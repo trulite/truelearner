@@ -194,7 +194,10 @@ fn placements(partition: Partition, count: usize) -> Vec<ResidentArenaId> {
                 Partition::FourContiguous => index.saturating_mul(4) / count.max(1),
                 Partition::Striped => index % 4,
                 Partition::DeterministicRandom => {
-                    index.wrapping_mul(1_103_515_245).wrapping_add(12_345) % 7
+                    index
+                        .wrapping_mul(2_654_435_761)
+                        .wrapping_add(1_013_904_223)
+                        % 7
                 }
                 Partition::Adversarial => (index / 2) % 2,
                 Partition::Aggressive => index % count.min(128).max(1),
