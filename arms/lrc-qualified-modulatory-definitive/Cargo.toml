@@ -1,0 +1,10 @@
+[package]
+name = "lrc-qualified-modulatory-definitive"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+lr1-modulatory-physical-return = { path = "../../crates/lr1-modulatory-physical-return" }
+
+[workspace]
