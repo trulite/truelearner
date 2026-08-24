@@ -239,26 +239,58 @@ impl ArenaBody {
         let mut cell_bytes = Vec::with_capacity(cells.len() * CELL_RECORD_LEN);
         for cell in &cells {
             put_u64(&mut cell_bytes, cell.id.0);
+        }
+        for cell in &cells {
             put_u32(&mut cell_bytes, cell.generation.0);
+        }
+        for cell in &cells {
             put_u64(&mut cell_bytes, cell.physical_id);
+        }
+        for cell in &cells {
             put_i32(&mut cell_bytes, cell.position);
+        }
+        for cell in &cells {
             put_i16(&mut cell_bytes, cell.region);
+        }
+        for cell in &cells {
             put_i32(&mut cell_bytes, cell.threshold);
+        }
+        for cell in &cells {
             put_u32(&mut cell_bytes, cell.resistance);
+        }
+        for cell in &cells {
             cell_bytes.push(u8::from(cell.live));
         }
 
         let mut arrow_bytes = Vec::with_capacity(arrows.len() * ARROW_RECORD_LEN);
         for arrow in &arrows {
             put_u64(&mut arrow_bytes, arrow.id.0);
+        }
+        for arrow in &arrows {
             put_u32(&mut arrow_bytes, arrow.generation.0);
+        }
+        for arrow in &arrows {
             put_cell_ref(&mut arrow_bytes, arrow.from);
+        }
+        for arrow in &arrows {
             put_cell_ref(&mut arrow_bytes, arrow.to);
+        }
+        for arrow in &arrows {
             put_i64(&mut arrow_bytes, arrow.delay);
+        }
+        for arrow in &arrows {
             put_i32(&mut arrow_bytes, arrow.phase);
+        }
+        for arrow in &arrows {
             put_i32(&mut arrow_bytes, arrow.coupling);
+        }
+        for arrow in &arrows {
             put_u32(&mut arrow_bytes, arrow.resistance);
+        }
+        for arrow in &arrows {
             arrow_bytes.push(arrow.transmission_mode);
+        }
+        for arrow in &arrows {
             arrow_bytes.push(u8::from(arrow.live));
         }
 
@@ -388,57 +420,60 @@ impl ArenaBody {
         }
 
         let mut cell_cursor = Cursor::new(cell_section, 0);
+        let cell_ids = collect_values(cell_count, || cell_cursor.u64().map(CellId))?;
+        let cell_generations =
+            collect_values(cell_count, || cell_cursor.u32().map(Generation))?;
+        let physical_ids = collect_values(cell_count, || cell_cursor.u64())?;
+        let positions = collect_values(cell_count, || cell_cursor.i32())?;
+        let regions = collect_values(cell_count, || cell_cursor.i16())?;
+        let thresholds = collect_values(cell_count, || cell_cursor.i32())?;
+        let cell_resistances = collect_values(cell_count, || cell_cursor.u32())?;
+        let cell_flags = collect_values(cell_count, || cell_cursor.u8())?;
+        for flags in &cell_flags {
+            validate_flags(*flags)?;
+        }
         let mut cells = Vec::with_capacity(cell_count);
-        for _ in 0..cell_count {
-            let flags = {
-                let id = CellId(cell_cursor.u64()?);
-                let generation = Generation(cell_cursor.u32()?);
-                let physical_id = cell_cursor.u64()?;
-                let position = cell_cursor.i32()?;
-                let region = cell_cursor.i16()?;
-                let threshold = cell_cursor.i32()?;
-                let resistance = cell_cursor.u32()?;
-                let flags = cell_cursor.u8()?;
-                cells.push(DurableCell {
-                    id,
-                    generation,
-                    physical_id,
-                    position,
-                    region,
-                    threshold,
-                    resistance,
-                    live: flags & LIVE_FLAG != 0,
-                });
-                flags
-            };
-            validate_flags(flags)?;
+        for index in 0..cell_count {
+            cells.push(DurableCell {
+                id: cell_ids[index],
+                generation: cell_generations[index],
+                physical_id: physical_ids[index],
+                position: positions[index],
+                region: regions[index],
+                threshold: thresholds[index],
+                resistance: cell_resistances[index],
+                live: cell_flags[index] & LIVE_FLAG != 0,
+            });
         }
 
         let mut arrow_cursor = Cursor::new(arrow_section, 0);
+        let arrow_ids = collect_values(arrow_count, || arrow_cursor.u64().map(ArrowId))?;
+        let arrow_generations =
+            collect_values(arrow_count, || arrow_cursor.u32().map(Generation))?;
+        let from = collect_values(arrow_count, || arrow_cursor.cell_ref())?;
+        let to = collect_values(arrow_count, || arrow_cursor.cell_ref())?;
+        let delays = collect_values(arrow_count, || arrow_cursor.i64())?;
+        let phases = collect_values(arrow_count, || arrow_cursor.i32())?;
+        let couplings = collect_values(arrow_count, || arrow_cursor.i32())?;
+        let arrow_resistances = collect_values(arrow_count, || arrow_cursor.u32())?;
+        let transmission_modes = collect_values(arrow_count, || arrow_cursor.u8())?;
+        let arrow_flags = collect_values(arrow_count, || arrow_cursor.u8())?;
+        for flags in &arrow_flags {
+            validate_flags(*flags)?;
+        }
         let mut arrows = Vec::with_capacity(arrow_count);
-        for _ in 0..arrow_count {
-            let id = ArrowId(arrow_cursor.u64()?);
-            let generation = Generation(arrow_cursor.u32()?);
-            let from = arrow_cursor.cell_ref()?;
-            let to = arrow_cursor.cell_ref()?;
-            let delay = arrow_cursor.i64()?;
-            let phase = arrow_cursor.i32()?;
-            let coupling = arrow_cursor.i32()?;
-            let resistance = arrow_cursor.u32()?;
-            let transmission_mode = arrow_cursor.u8()?;
-            let flags = arrow_cursor.u8()?;
-            validate_flags(flags)?;
+        for index in 0..arrow_count {
             arrows.push(DurableArrow {
-                id,
-                generation,
-                from,
-                to,
-                delay,
-                phase,
-                coupling,
-                resistance,
-                transmission_mode,
-                live: flags & LIVE_FLAG != 0,
+                id: arrow_ids[index],
+                generation: arrow_generations[index],
+                from: from[index],
+                to: to[index],
+                delay: delays[index],
+                phase: phases[index],
+                coupling: couplings[index],
+                resistance: arrow_resistances[index],
+                transmission_mode: transmission_modes[index],
+                live: arrow_flags[index] & LIVE_FLAG != 0,
             });
         }
 
@@ -520,6 +555,17 @@ fn put_u64(bytes: &mut Vec<u8>, value: u64) {
 
 fn put_i64(bytes: &mut Vec<u8>, value: i64) {
     bytes.extend_from_slice(&value.to_le_bytes());
+}
+
+fn collect_values<T, F>(count: usize, mut read: F) -> Result<Vec<T>, FormatError>
+where
+    F: FnMut() -> Result<T, FormatError>,
+{
+    let mut values = Vec::with_capacity(count);
+    for _ in 0..count {
+        values.push(read()?);
+    }
+    Ok(values)
 }
 
 struct Cursor<'a> {
@@ -670,6 +716,13 @@ mod tests {
         assert_eq!(
             ArenaBody::decode(&trailing),
             Err(FormatError::TrailingBytes)
+        );
+
+        let mut overlapping = body().canonical_bytes().unwrap();
+        overlapping[68..76].copy_from_slice(&(HEADER_LEN as u64).to_le_bytes());
+        assert_eq!(
+            ArenaBody::decode(&overlapping),
+            Err(FormatError::InvalidHeader)
         );
     }
 
