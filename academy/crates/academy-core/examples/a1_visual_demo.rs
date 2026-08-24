@@ -23,11 +23,17 @@ fn run() -> Result<(), String> {
     let teaching = lab.teach_supported().map_err(|error| error.to_string())?;
     write_surface(
         &output.join("01-teaching-world.png"),
-        &teaching.shared_world_surface.png_bytes().map_err(|error| error.to_string())?,
+        &teaching
+            .shared_world_surface
+            .png_bytes()
+            .map_err(|error| error.to_string())?,
     )?;
     write_surface(
         &output.join("02-teaching-response.png"),
-        &teaching.organism_surface.png_bytes().map_err(|error| error.to_string())?,
+        &teaching
+            .organism_surface
+            .png_bytes()
+            .map_err(|error| error.to_string())?,
     )?;
 
     let probe = lab
@@ -35,11 +41,17 @@ fn run() -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     write_surface(
         &output.join("03-fresh-probe-world.png"),
-        &probe.shared_world_surface.png_bytes().map_err(|error| error.to_string())?,
+        &probe
+            .shared_world_surface
+            .png_bytes()
+            .map_err(|error| error.to_string())?,
     )?;
     write_surface(
         &output.join("04-learned-response.png"),
-        &probe.organism_surface.png_bytes().map_err(|error| error.to_string())?,
+        &probe
+            .organism_surface
+            .png_bytes()
+            .map_err(|error| error.to_string())?,
     )?;
 
     let replay = lab.replay(&probe.id).map_err(|error| error.to_string())?;
