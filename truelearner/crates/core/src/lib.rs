@@ -1435,18 +1435,15 @@ impl PlasticSubstrate {
         &self,
         body_version: u64,
     ) -> Result<QuiescentCheckpoint, CheckpointError> {
-        let transiently_quiet = self.pending.is_empty()
-            && self.pending_loads.is_empty()
-            && self
-                .cells
-                .values()
-                .iter()
-                .all(|cell| cell.state == 0 && cell.refractory_until <= self.tick)
-            && self
-                .arrows
-                .values()
-                .iter()
-                .all(|arrow| {
+        let transiently_quiet =
+            self.pending.is_empty()
+                && self.pending_loads.is_empty()
+                && self
+                    .cells
+                    .values()
+                    .iter()
+                    .all(|cell| cell.state == 0 && cell.refractory_until <= self.tick)
+                && self.arrows.values().iter().all(|arrow| {
                     arrow.eligible_until.is_none() && arrow.first_effect_due.is_none()
                 });
         if !transiently_quiet {
