@@ -1,7 +1,12 @@
 #!/bin/sh
 set -eu
 
-root=$(git rev-parse --show-toplevel)
+if root=$(git rev-parse --show-toplevel 2>/dev/null); then
+    repository_checkout=true
+else
+    root=${PXC_SOURCE_ROOT:-$PWD}
+    repository_checkout=false
+fi
 cd "$root"
 
 authority=f9057fe78a86db9111b0b69310d03accef3bc970
@@ -11,9 +16,18 @@ inventory="$output_dir/pxc_continuous_seam_inventory_v1.csv"
 summary="$output_dir/pxc_continuous_seam_summary_v1.csv"
 report="$output_dir/pxc_continuous_seam_baseline_v1.md"
 
-if ! git merge-base --is-ancestor "$authority" HEAD; then
-    echo "PX-C audit must descend from PX3+LR-C authority $authority" >&2
-    exit 1
+if [ "$repository_checkout" = true ]; then
+    if ! git merge-base --is-ancestor "$authority" HEAD; then
+        echo "PX-C audit must descend from PX3+LR-C authority $authority" >&2
+        exit 1
+    fi
+    commit=$(git rev-parse HEAD)
+else
+    commit=${PXC_AUDITED_COMMIT:-}
+    if [ -z "$commit" ]; then
+        echo "archive audit requires PXC_AUDITED_COMMIT" >&2
+        exit 1
+    fi
 fi
 
 if [ ! -f "$manifest" ]; then
@@ -110,8 +124,11 @@ done
 printf 'TOTAL_OCCURRENCES,%s\n' "$total" >> "$summary"
 printf 'UNIQUE_SOURCE_LINES,%s\n' "$unique_lines" >> "$summary"
 
-manifest_hash=$(shasum -a 256 "$manifest" | awk '{print $1}')
-commit=$(git rev-parse HEAD)
+if command -v sha256sum >/dev/null 2>&1; then
+    manifest_hash=$(sha256sum "$manifest" | awk '{print $1}')
+else
+    manifest_hash=$(shasum -a 256 "$manifest" | awk '{print $1}')
+fi
 
 {
     printf '# PX-C continuous seam baseline v1\n\n'
