@@ -257,12 +257,12 @@ fn replay_row(index: usize, mark: u64, flip: bool, mirror: bool) -> Row {
 
 fn run_core(mark: u64, flip: bool, mirror: bool) -> Core {
     let one = one_exposure(mark + 10_000, flip, mirror);
-    let curve = curve(mark + 20_000, flip, mirror);
+    let base_curve = curve(mark + 20_000, flip, mirror);
     let reflected = curve(mark + 30_000, !flip, !mirror);
-    let fresh_layout = curve.resistance == reflected.resistance
-        && curve.deallocation_steps == reflected.deallocation_steps
-        && curve.penultimate_live == reflected.penultimate_live
-        && curve.final_dead == reflected.final_dead;
+    let fresh_layout = base_curve.resistance == reflected.resistance
+        && base_curve.deallocation_steps == reflected.deallocation_steps
+        && base_curve.penultimate_live == reflected.penultimate_live
+        && base_curve.final_dead == reflected.final_dead;
     let reuse = reuse(mark + 40_000, flip, mirror);
     let shift = shift(mark + 50_000, flip, mirror);
     let stale = stale(mark + 60_000, flip, mirror);
@@ -271,11 +271,11 @@ fn run_core(mark: u64, flip: bool, mirror: bool) -> Core {
         one.unsupported_dead && reuse.disuse_dead && reuse.reacquired && stale.blocked,
         one.return_alone_empty && one.late_return_rejected,
         forward_only,
-        curve.strict && reuse.no_proposal && shift.old_dead && shift.new_live,
+        base_curve.strict && reuse.no_proposal && shift.old_dead && shift.new_live,
     ];
     Core {
         one,
-        curve,
+        curve: base_curve,
         reuse,
         shift,
         stale,
