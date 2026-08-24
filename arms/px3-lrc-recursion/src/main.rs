@@ -13,12 +13,12 @@ use std::process::Command;
 
 const LAW: &str = "7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cfc10";
 const AUTHORITY: &str = "3ad1df774690a71ee7e6884f56a9399a098890e14d83c7a2f03231ed9aafeb3c";
-const PROTOCOL: &str = "b118d84d81856a2d193dc4ec89b67f7df449855eed3b5a432eea329282031a5f";
+const PROTOCOL: &str = "c249be1d74ad219896f2fe3505942166efb369e9bea4e50dfa84585f2a1d7107";
 
-const CSV: &str = "results/px3_lrc_recursion_v1.csv";
-const MD: &str = "results/px3_lrc_recursion_v1.md";
-const CSV_STAGE: &str = "results/.px3_lrc_recursion_v1.csv.staging";
-const MD_STAGE: &str = "results/.px3_lrc_recursion_v1.md.staging";
+const CSV: &str = "results/px3_lrc_recursion_v2.csv";
+const MD: &str = "results/px3_lrc_recursion_v2.md";
+const CSV_STAGE: &str = "results/.px3_lrc_recursion_v2.csv.staging";
+const MD_STAGE: &str = "results/.px3_lrc_recursion_v2.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Config {
@@ -29,22 +29,22 @@ struct Config {
 
 const CONFIGS: [Config; 4] = [
     Config {
-        seed: 8209,
+        seed: 8401,
         reverse: false,
         reflect: false,
     },
     Config {
-        seed: 8219,
+        seed: 8419,
         reverse: true,
         reflect: false,
     },
     Config {
-        seed: 8221,
+        seed: 8423,
         reverse: false,
         reflect: true,
     },
     Config {
-        seed: 8231,
+        seed: 8431,
         reverse: true,
         reflect: true,
     },
@@ -166,7 +166,7 @@ fn audit() {
             AUTHORITY,
         ),
         (
-            "experiments/px3_lrc_fresh_integrated_parallel_gates_protocol_v1.md",
+            "experiments/px3_lrc_fresh_integrated_parallel_gates_protocol_v2.md",
             PROTOCOL,
         ),
     ] {
@@ -371,7 +371,7 @@ fn context_free(metric: &Metrics, primitive: [usize; 4], active: [usize; 3]) -> 
         && metric.candidate == active
         && metric.candidate_impulse == active.map(|x| i32::try_from(x * 2).expect("small"))
         && metric.output == active
-        && metric.source_trace == active
+        && metric.source_trace == [0; 3]
         && metric.output_trace_arrivals == active.map(|x| x * 2)
         && metric.output_trace_impulse == active.map(|x| i32::try_from(x * 2).expect("small"))
         && metric.output_trace == active
@@ -873,7 +873,7 @@ fn csv(rows: &[Row]) -> String {
 fn report(rows: &[Row]) -> String {
     let passed = rows.iter().filter(|row| row.passed).count();
     format!(
-        "# PX3 LR-C recursive compression v1\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- native proposals AB/XC/YD: `{}`;\n- one-exposure candidates dead: `{}`;\n- final AB/XC/YD resistance: `{}`;\n- final context-free X/Y/Z traces: `{}`;\n- lawful modulatory return is the only learning feedback: `true`;\n- active R3/R4/R5/R6 geometry: `false`;\n- level-specific participant or conjunction API: `false`;\n- definitive/authority/PX4 executed: `false`.\n",
+        "# PX3 LR-C recursive compression v2\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- native proposals AB/XC/YD: `{}`;\n- one-exposure candidates dead: `{}`;\n- final AB/XC/YD resistance: `{}`;\n- final context-free X/Y/Z traces: `{}`;\n- context-free return-relay/modulatory traffic absent: `{}`;\n- lawful modulatory return is the only learning feedback: `true`;\n- active R3/R4/R5/R6 geometry: `false`;\n- level-specific participant or conjunction API: `false`;\n- definitive/authority/PX4 executed: `false`.\n",
         if passed == rows.len() {
             "PX3-LRC-RECURSION POSITIVE"
         } else {
@@ -894,6 +894,14 @@ fn report(rows: &[Row]) -> String {
             .map(|row| join_usize(&row.full_reuse.output_trace))
             .collect::<Vec<_>>()
             .join(";"),
+        rows.iter().all(|row| {
+            row.ab_reuse.source_trace == [0; 3]
+                && row.xc_reuse.source_trace == [0; 3]
+                && row.full_reuse.source_trace == [0; 3]
+                && row.ab_reuse.credit == [0; 3]
+                && row.xc_reuse.credit == [0; 3]
+                && row.full_reuse.credit == [0; 3]
+        }),
     )
 }
 
@@ -1002,6 +1010,10 @@ mod tests {
 
     #[test]
     fn matrix_is_frozen() {
+        assert_eq!(
+            CONFIGS.map(|config| config.seed),
+            [8401, 8419, 8423, 8431]
+        );
         assert_eq!(CONFIGS.len(), 4);
         assert_eq!(CONFIGS.into_iter().collect::<BTreeSet<_>>().len(), 4);
         assert_eq!(CONFIGS.iter().filter(|config| config.reverse).count(), 2);
