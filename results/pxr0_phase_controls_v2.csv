@@ -1,0 +1,13 @@
+root,reverse,reflect,origin,origin_modulus,construction_tick,pressure_origin,first_arrival_tick,construction_minus_pressure,first_arrival_minus_construction,phase_zero_root,differs_from_phase_zero,pair_updates,pair_impulses,formation_updates,completed_outward,duplicate_outward,incomplete_outward,blocked_outward,open_outward,branch_outward,cycle_outward,stale_outward,stale_proposals,stale_before,stale_after,max_work,max_bytes,quiescent,replay,clauses,passed
+1176001,false,false,3,3,3,0,3,3,0,1175001,true,2,2|2,10,0,0,0,0,0,0,0,0,1,5552,5616,14284,5616,true,true,true|true|true|true|true|true,true
+1176002,false,false,6,6,6,0,6,6,0,1175001,true,0,0|0,5,0,0,0,0,0,0,0,0,1,5552,5616,14990,6000,true,true,true|true|true|true|true|true,true
+1176003,false,false,9,9,9,0,9,9,0,1175001,true,0,0|0,12,1,1,0,0,0,0,0,0,1,5488,5552,14753,5552,true,true,true|true|true|true|true|true,true
+1176004,true,false,133,3,133,130,133,3,0,1175005,true,2,2|2,10,0,0,0,0,0,0,0,0,1,5552,5616,14323,5616,true,true,true|true|true|true|true|true,true
+1176005,true,false,136,6,136,130,136,6,0,1175005,true,0,0|0,5,0,0,0,0,0,0,0,0,1,5552,5616,15039,6000,true,true,true|true|true|true|true|true,true
+1176006,true,false,139,9,139,130,139,9,0,1175005,true,0,0|0,12,1,1,0,0,0,0,0,0,1,5488,5552,14785,5552,true,true,true|true|true|true|true|true,true
+1176007,false,true,263,3,263,260,263,3,0,1175009,true,2,2|2,10,0,0,0,0,0,0,0,0,1,5552,5616,14285,5616,true,true,true|true|true|true|true|true,true
+1176008,false,true,266,6,266,260,266,6,0,1175009,true,0,0|0,5,0,0,0,0,0,0,0,0,1,5552,5616,15010,6000,true,true,true|true|true|true|true|true,true
+1176009,false,true,269,9,269,260,269,9,0,1175009,true,0,0|0,12,1,1,0,0,0,0,0,0,1,5488,5552,14755,5552,true,true,true|true|true|true|true|true,true
+1176010,true,true,393,3,393,390,393,3,0,1175013,true,2,2|2,10,0,0,0,0,0,0,0,0,1,5552,5616,14261,5616,true,true,true|true|true|true|true|true,true
+1176011,true,true,396,6,396,390,396,6,0,1175013,true,0,0|0,5,0,0,0,0,0,0,0,0,1,5552,5616,14988,6000,true,true,true|true|true|true|true|true,true
+1176012,true,true,399,9,399,390,399,9,0,1175013,true,0,0|0,12,1,1,0,0,0,0,0,0,1,5488,5552,14725,5552,true,true,true|true|true|true|true|true,true
