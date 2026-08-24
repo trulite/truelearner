@@ -9,6 +9,36 @@ runner=arms/px4-lrc-lifetime/src/main.rs
 wrapper=arms/px4-lrc-lifetime/src/bin/px4_lrc_lifetime_authority_v1.rs
 manifest=experiments/pxc_active_surface_manifest_v2.csv
 
+search_lines() {
+    pattern=$1
+    shift
+    if command -v rg >/dev/null 2>&1; then
+        rg -n "$pattern" "$@"
+    else
+        grep -En "$pattern" "$@"
+    fi
+}
+
+search_lines_i() {
+    pattern=$1
+    shift
+    if command -v rg >/dev/null 2>&1; then
+        rg -n -i "$pattern" "$@"
+    else
+        grep -Eni "$pattern" "$@"
+    fi
+}
+
+search_quiet() {
+    pattern=$1
+    shift
+    if command -v rg >/dev/null 2>&1; then
+        rg -q "$pattern" "$@"
+    else
+        grep -Eq "$pattern" "$@"
+    fi
+}
+
 require_hash() {
     required=$1
     path=$2
@@ -41,19 +71,19 @@ require_hash fa04de4ec43c10f3878b86d920c2a67243b84201e8759950075c069548153ba8 \
 require_hash e696c8e1e50ac9504c180094daf90182d0854755a2b6289826f8de19397bfc5d "$runner"
 require_hash a181fa810cef8edfe557daaf8dae9948ebd37dd429bb084d8ffedb6d84615b4c "$wrapper"
 
-if rg -n -i '\b(lifetime|history|episode|reset|cleanup|delete)\b' "$active"; then
+if search_lines_i '\b(lifetime|history|episode|reset|cleanup|delete)\b' "$active"; then
     echo "PX4 active mechanism contains forbidden semantic vocabulary" >&2
     exit 1
 fi
 
-if rg -n -i \
+if search_lines_i \
     '(struct|enum|type|fn|let)[[:space:]]+[A-Za-z0-9_]*(lifetime|history|episode|reset|cleanup|delete)|\.(lifetime|history|episode|reset|cleanup|delete)[A-Za-z0-9_]*' \
     "$runner" "$wrapper"; then
     echo "PX4 evaluator declares or accesses a forbidden semantic object" >&2
     exit 1
 fi
 
-if rg -n '\.(set_(resistance|coupling|eligibility|generation)|delete|cleanup|reset)[A-Za-z0-9_]*[[:space:]]*\(' \
+if search_lines '\.(set_(resistance|coupling|eligibility|generation)|delete|cleanup|reset)[A-Za-z0-9_]*[[:space:]]*\(' \
     "$active" "$runner" "$wrapper"; then
     echo "PX4 authority surface contains forbidden mutation invocation" >&2
     exit 1
@@ -67,7 +97,7 @@ awk -F, '$1 == "PX4" {
 
 test "$(awk -F= '/^[a-zA-Z0-9_-]+[[:space:]]*=.*path/ {n += 1} END {print n + 0}' \
     arms/px4-lrc-lifetime/Cargo.toml)" -eq 1
-rg -q '^lr1-modulatory-physical-return[[:space:]]*=' arms/px4-lrc-lifetime/Cargo.toml
+search_quiet '^lr1-modulatory-physical-return[[:space:]]*=' arms/px4-lrc-lifetime/Cargo.toml
 
 test -f "$runner"
 test -f "$wrapper"
