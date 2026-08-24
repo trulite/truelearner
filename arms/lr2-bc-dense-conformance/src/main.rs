@@ -22,7 +22,9 @@ use std::path::Path;
 use std::process::Command;
 
 const PROTOCOL: &str = "943414a4e8b98bc66df70e38803ab920894bfa7f47b7b7a088efc7278c2fe3d6";
+#[cfg(feature = "arm-b")]
 const B_LAW: &str = "0494b7b82a72ed8dfd254fa862d308bcb6a44fc739c9fbfbf7af23af12309611";
+#[cfg(feature = "arm-c")]
 const C_LAW: &str = "7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cfc10";
 const SEEDS: [u64; 4] = [5201, 5209, 5227, 5231];
 const BASE: u64 = 0x7_2200_0000_0000;
