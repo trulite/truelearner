@@ -463,13 +463,14 @@ fn quiescent_repartition_control() -> bool {
     original.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
     let first = input(0, 1, 0);
     original.arrive(&[first], OUTWARD_REGION);
+    original.advance_time(10);
     let checkpoint = original.quiescent_checkpoint(700).unwrap();
     let mut baseline = PlasticSubstrate::from_quiescent_checkpoint(checkpoint.clone()).unwrap();
     baseline.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
     let mut partitioned = PlasticSubstrate::from_quiescent_checkpoint(checkpoint).unwrap();
     partitioned.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
     partitioned.repartition_resident(&placements(Partition::Striped, world.cell_count));
-    let future = input(1, 10, 1);
+    let future = input(1, 11, 1);
     let baseline_result = baseline.arrive(&[future], OUTWARD_REGION);
     let partitioned_result = partitioned.arrive(&[future], OUTWARD_REGION);
     same_physics(
