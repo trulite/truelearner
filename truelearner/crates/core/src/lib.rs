@@ -2531,6 +2531,48 @@ mod tests {
     }
 
     #[test]
+    fn r4_soa_compaction_and_restart_preserve_stable_identity() {
+        for config in [MechanicalConfig::R4, MechanicalConfig::R5] {
+            let (mut ordinary, source, target, arrow) = substrate(50);
+            ordinary.reconfigure_mechanics(config);
+            ordinary.add_arrow(ArrowSpec {
+                from: target,
+                to: source,
+                delay: 1,
+                phase: 0,
+                coupling: 0,
+                resistance: 50,
+                mode: TransmissionMode::Drive,
+            });
+            ordinary.enter(input(source, 5));
+            let checkpoint = ordinary.live_checkpoint(811).unwrap();
+            let mut restored =
+                PlasticSubstrate::from_live_checkpoint_with_mechanics(checkpoint, config).unwrap();
+            let source_reference = restored.cell_reference(source);
+            let arrow_reference = restored.arrow_reference(arrow);
+            let source_slot_before = restored.resolve_cell(source_reference).unwrap();
+            let arrow_slot_before = restored.resolve_arrow(arrow_reference).unwrap();
+            restored.compact_resident();
+            assert_ne!(
+                restored.resolve_cell(source_reference).unwrap(),
+                source_slot_before
+            );
+            assert_ne!(
+                restored.resolve_arrow(arrow_reference).unwrap(),
+                arrow_slot_before
+            );
+            let restored_result = restored.propagate();
+            let ordinary_result = ordinary.propagate();
+            assert_physical_equivalence(
+                &ordinary,
+                &ordinary_result,
+                &restored,
+                &restored_result,
+            );
+        }
+    }
+
+    #[test]
     fn compaction_changes_slots_not_physics() {
         let (original, source, _, _) = substrate(50);
         let reference = original.cell_reference(source);
