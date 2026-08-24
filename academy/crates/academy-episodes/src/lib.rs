@@ -4,9 +4,7 @@
 //! Episode media is observational infrastructure. It is produced only after
 //! the physical run and is never admitted back into TrueLearner.
 
-use academy_core::{
-    A1Experience, A1ProbeFamily, GenuineTeachingLab, TeachingCase, VisualSurface,
-};
+use academy_core::{A1Experience, A1ProbeFamily, GenuineTeachingLab, TeachingCase, VisualSurface};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs;
@@ -305,8 +303,14 @@ fn write_episode(
         body_before: experience.observation.body_before.clone(),
         body_after: experience.observation.body_after.clone(),
         video_file: relative_dir.join(video_name).to_string_lossy().into_owned(),
-        poster_file: relative_dir.join(poster_name).to_string_lossy().into_owned(),
-        record_file: relative_dir.join(record_name).to_string_lossy().into_owned(),
+        poster_file: relative_dir
+            .join(poster_name)
+            .to_string_lossy()
+            .into_owned(),
+        record_file: relative_dir
+            .join(record_name)
+            .to_string_lossy()
+            .into_owned(),
         frames,
     };
     write_json(&episode_dir.join("manifest.json"), &episode)?;
@@ -342,14 +346,7 @@ fn render_review_frame(
         VIEW_WIDTH,
         VIEW_HEIGHT,
     );
-    blit_scaled(
-        &mut frame,
-        output,
-        RIGHT_X,
-        VIEW_Y,
-        VIEW_WIDTH,
-        VIEW_HEIGHT,
-    );
+    blit_scaled(&mut frame, output, RIGHT_X, VIEW_Y, VIEW_WIDTH, VIEW_HEIGHT);
     let caption = if arrival {
         spec.arrival_caption
     } else {
@@ -399,14 +396,7 @@ fn yes_no(value: bool) -> &'static str {
     }
 }
 
-fn fill_rect(
-    surface: &mut VisualSurface,
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-    color: [u8; 4],
-) {
+fn fill_rect(surface: &mut VisualSurface, x: u32, y: u32, width: u32, height: u32, color: [u8; 4]) {
     for py in y..y.saturating_add(height) {
         for px in x..x.saturating_add(width) {
             surface.set_pixel(px, py, color);
@@ -458,7 +448,10 @@ fn encode_video(
             .and_then(|name| name.to_str())
             .ok_or_else(|| EpisodeError("invalid frame name".to_string()))?;
         timeline.push_str(&format!("file '{name}'\n"));
-        timeline.push_str(&format!("duration {:.3}\n", f64::from(frame.duration_ms) / 1_000.0));
+        timeline.push_str(&format!(
+            "duration {:.3}\n",
+            f64::from(frame.duration_ms) / 1_000.0
+        ));
     }
     let final_name = Path::new(&frames.last().expect("episode has frames").file)
         .file_name()
@@ -491,9 +484,7 @@ fn encode_video(
         .status()
         .map_err(|error| EpisodeError(format!("ffmpeg unavailable: {error}")))?;
     if !result.success() {
-        return Err(EpisodeError(format!(
-            "ffmpeg exited with status {result}"
-        )));
+        return Err(EpisodeError(format!("ffmpeg exited with status {result}")));
     }
     Ok(())
 }
