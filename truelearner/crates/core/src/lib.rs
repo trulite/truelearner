@@ -259,6 +259,59 @@ pub struct ExecutionCost {
     pub scans: u64,
     pub allocations: u64,
     pub bytes_touched: u64,
+    pub peak_resident_bytes: u64,
+    pub adjacency_accesses: u64,
+    pub frontier_samples: u64,
+    pub active_frontier_total: u64,
+    pub active_frontier_max: u64,
+    pub eligible_frontier_total: u64,
+    pub eligible_frontier_max: u64,
+    pub batches: u64,
+    pub batched_items: u64,
+    pub batch_max: u64,
+    pub batch_histogram: [u64; 7],
+    pub batch_fallback_zero_delay: u64,
+}
+
+impl ExecutionCost {
+    pub(crate) fn touch<T>(&mut self, count: usize) {
+        self.bytes_touched = self.bytes_touched.saturating_add(
+            u64::try_from(std::mem::size_of::<T>().saturating_mul(count)).unwrap_or(u64::MAX),
+        );
+    }
+
+    fn observe_resident_bytes(&mut self, bytes: usize) {
+        self.peak_resident_bytes = self
+            .peak_resident_bytes
+            .max(u64::try_from(bytes).unwrap_or(u64::MAX));
+    }
+
+    fn observe_frontiers(&mut self, active: usize, eligible: usize) {
+        let active = u64::try_from(active).unwrap_or(u64::MAX);
+        let eligible = u64::try_from(eligible).unwrap_or(u64::MAX);
+        self.frontier_samples = self.frontier_samples.saturating_add(1);
+        self.active_frontier_total = self.active_frontier_total.saturating_add(active);
+        self.active_frontier_max = self.active_frontier_max.max(active);
+        self.eligible_frontier_total = self.eligible_frontier_total.saturating_add(eligible);
+        self.eligible_frontier_max = self.eligible_frontier_max.max(eligible);
+    }
+
+    fn observe_batch(&mut self, size: usize) {
+        let size = u64::try_from(size).unwrap_or(u64::MAX);
+        self.batches = self.batches.saturating_add(1);
+        self.batched_items = self.batched_items.saturating_add(size);
+        self.batch_max = self.batch_max.max(size);
+        let bucket = match size {
+            0 | 1 => 0,
+            2 => 1,
+            3..=4 => 2,
+            5..=8 => 3,
+            9..=16 => 4,
+            17..=32 => 5,
+            _ => 6,
+        };
+        self.batch_histogram[bucket] = self.batch_histogram[bucket].saturating_add(1);
+    }
 }
 
 impl Work {
@@ -1502,17 +1555,30 @@ impl PlasticSubstrate {
         let mut work = Work::default();
         let mut execution_cost = ExecutionCost::default();
         let mut physical_trace = Vec::new();
+        execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
         while !self.pending.is_empty() {
-            let batch = if self.mechanics.executor == ExecutorKind::Batched
-                && self.zero_delay_live_arrows == 0
-            {
-                self.pop_scheduled_batch(64, &mut execution_cost)
+            let batch = if self.mechanics.executor == ExecutorKind::Batched {
+                if self.zero_delay_live_arrows == 0 {
+                    let batch = self.pop_scheduled_batch(64, &mut execution_cost);
+                    execution_cost.observe_batch(batch.len());
+                    batch
+                } else {
+                    execution_cost.batch_fallback_zero_delay = execution_cost
+                        .batch_fallback_zero_delay
+                        .saturating_add(1);
+                    execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                    vec![self
+                        .pop_scheduled(&mut execution_cost)
+                        .expect("nonempty schedule must pop")]
+                }
             } else {
+                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
                 vec![self
                     .pop_scheduled(&mut execution_cost)
                     .expect("nonempty schedule must pop")]
             };
             for (spike, legacy_comparisons) in batch {
+                execution_cost.touch::<Spike>(1);
                 work.total = work.total.saturating_add(legacy_comparisons);
                 let external_arrival = spike.arrow.is_none();
                 self.elapse_to(spike.arrival_tick, &mut work, &mut execution_cost);
@@ -1524,6 +1590,7 @@ impl PlasticSubstrate {
                         continue;
                     };
                     let arrow = self.arrows.get(arrow_slot.0);
+                    execution_cost.touch::<Arrow>(1);
                     if !arrow.live || arrow.generation != generation {
                         continue;
                     }
@@ -1532,11 +1599,13 @@ impl PlasticSubstrate {
                     continue;
                 };
                 let target = self.cells.get(target_slot.0);
+                execution_cost.touch::<Cell>(1);
                 if !target.live || target.generation != spike.target_generation {
                     continue;
                 }
 
                 let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
+                    execution_cost.touch::<Arrow>(1);
                     self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
                 });
                 if self.trace_physics {
@@ -1571,6 +1640,7 @@ impl PlasticSubstrate {
                     target.state = target.state.saturating_add(spike.impulse);
                     target.clone()
                 });
+                execution_cost.touch::<Cell>(1);
                 if target.state != 0 {
                     self.active_cells.insert(spike.target);
                 }
@@ -1597,30 +1667,49 @@ impl PlasticSubstrate {
                 let origin_physical = target.physical_id;
                 let source_generation = target.generation;
                 if external_arrival {
-                    self.propose_local_arrows(source, &mut work, spike.phase, &mut physical_trace);
+                    self.propose_local_arrows(
+                        source,
+                        &mut work,
+                        &mut execution_cost,
+                        spike.phase,
+                        &mut physical_trace,
+                    );
                 }
                 let mut outgoing = match self.mechanics.traversal {
                     TraversalKind::GlobalScan => {
+                        execution_cost.allocations = execution_cost.allocations.saturating_add(1);
                         execution_cost.scans = execution_cost
                             .scans
                             .saturating_add(self.arrows.len() as u64);
+                        execution_cost.touch::<Arrow>(self.arrows.len());
                         self.arrows
                             .values()
                             .iter()
                             .map(|arrow| (arrow.id, arrow.clone()))
                             .collect::<Vec<_>>()
                     }
-                    TraversalKind::Adjacency => self.outgoing_index[source.0 as usize]
-                        .iter()
-                        .filter_map(|id| {
-                            let slot = self.arrow_slot(*id)?;
-                            execution_cost.scans = execution_cost.scans.saturating_add(1);
-                            Some((*id, self.arrows.get(slot.0)))
-                        })
-                        .collect(),
+                    TraversalKind::Adjacency => {
+                        execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                        execution_cost.adjacency_accesses = execution_cost
+                            .adjacency_accesses
+                            .saturating_add(
+                                u64::try_from(self.outgoing_index[source.0 as usize].len())
+                                    .unwrap_or(u64::MAX),
+                            );
+                        self.outgoing_index[source.0 as usize]
+                            .iter()
+                            .filter_map(|id| {
+                                let slot = self.arrow_slot(*id)?;
+                                execution_cost.scans = execution_cost.scans.saturating_add(1);
+                                execution_cost.touch::<Arrow>(1);
+                                Some((*id, self.arrows.get(slot.0)))
+                            })
+                            .collect()
+                    }
                 };
                 outgoing.sort_by_key(|(id, _)| *id);
                 for (arrow_id, arrow) in outgoing {
+                    execution_cost.touch::<Arrow>(1);
                     work.total = work.total.saturating_add(1);
                     if !arrow.live
                         || arrow.from != source
@@ -1632,6 +1721,7 @@ impl PlasticSubstrate {
                     let to_slot = self.cell_slot(arrow.to).unwrap();
                     let from = self.cells.get(from_slot.0);
                     let to = self.cells.get(to_slot.0);
+                    execution_cost.touch::<Cell>(2);
                     if from.region != to.region {
                         let crossing = Crossing {
                             tick: self.tick,
@@ -1654,6 +1744,7 @@ impl PlasticSubstrate {
                     self.arrows.with_mut(arrow_slot.0, |live_arrow| {
                         live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
                     });
+                    execution_cost.touch::<Arrow>(1);
                     self.eligible_arrows.insert(arrow_id);
                     if self.trace_physics {
                         physical_trace.push(PhysicalTransition {
@@ -1682,6 +1773,7 @@ impl PlasticSubstrate {
                     self.next_serial = self.next_serial.wrapping_add(1);
                 }
             }
+            execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
         }
         RunResult {
             crossings,
@@ -1733,16 +1825,27 @@ impl PlasticSubstrate {
     ) {
         let candidates = match self.mechanics.traversal {
             TraversalKind::GlobalScan => {
+                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
                 execution_cost.scans = execution_cost
                     .scans
                     .saturating_add(self.arrows.len() as u64);
+                execution_cost.touch::<Arrow>(self.arrows.len());
                 self.arrows
                     .values()
                     .iter()
                     .map(|arrow| arrow.id)
                     .collect::<Vec<_>>()
             }
-            TraversalKind::Adjacency => self.outgoing_index[cell.0 as usize].clone(),
+            TraversalKind::Adjacency => {
+                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                execution_cost.adjacency_accesses = execution_cost
+                    .adjacency_accesses
+                    .saturating_add(
+                        u64::try_from(self.outgoing_index[cell.0 as usize].len())
+                            .unwrap_or(u64::MAX),
+                    );
+                self.outgoing_index[cell.0 as usize].clone()
+            }
         };
         for id in candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
@@ -1765,6 +1868,7 @@ impl PlasticSubstrate {
                     None
                 }
             });
+            execution_cost.touch::<Arrow>(1);
             if let Some((before, after)) = updated {
                 if self.trace_physics {
                     physical_trace.push(PhysicalTransition {
@@ -1783,6 +1887,7 @@ impl PlasticSubstrate {
     }
 
     fn elapse_to(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
+        execution_cost.observe_frontiers(self.active_cells.len(), self.eligible_arrows.len());
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
         if pressure_steps > 0 {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
@@ -1797,6 +1902,7 @@ impl PlasticSubstrate {
                     work.total = work.total.saturating_add(1);
                     (was_live && !arrow.live, arrow.delay == 0)
                 });
+                execution_cost.touch::<Arrow>(1);
                 if deallocated && zero_delay {
                     self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
                 }
@@ -1817,13 +1923,19 @@ impl PlasticSubstrate {
                 .collect();
         }
         let expiry_candidates = match self.mechanics.activity {
-            ActivityKind::FullScan => self
-                .arrows
-                .values()
-                .iter()
-                .map(|arrow| arrow.id)
-                .collect::<Vec<_>>(),
-            ActivityKind::Frontier => self.eligible_arrows.iter().copied().collect(),
+            ActivityKind::FullScan => {
+                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                execution_cost.touch::<Arrow>(self.arrows.len());
+                self.arrows
+                    .values()
+                    .iter()
+                    .map(|arrow| arrow.id)
+                    .collect::<Vec<_>>()
+            }
+            ActivityKind::Frontier => {
+                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                self.eligible_arrows.iter().copied().collect()
+            }
         };
         for id in expiry_candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
@@ -1837,6 +1949,7 @@ impl PlasticSubstrate {
                 arrow.eligible_until = None;
                 (true, was_live && !arrow.live, arrow.delay == 0)
             });
+            execution_cost.touch::<Arrow>(1);
             if expired {
                 self.eligible_arrows.remove(&id);
                 work.total = work.total.saturating_add(1);
@@ -1850,16 +1963,23 @@ impl PlasticSubstrate {
             }
         }
         let cell_ids = match self.mechanics.activity {
-            ActivityKind::FullScan => self
-                .cells
-                .values()
-                .iter()
-                .map(|cell| cell.id)
-                .collect::<Vec<_>>(),
-            ActivityKind::Frontier => self.active_cells.iter().copied().collect(),
+            ActivityKind::FullScan => {
+                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                execution_cost.touch::<Cell>(self.cells.len());
+                self.cells
+                    .values()
+                    .iter()
+                    .map(|cell| cell.id)
+                    .collect::<Vec<_>>()
+            }
+            ActivityKind::Frontier => {
+                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                self.active_cells.iter().copied().collect()
+            }
         };
         for id in cell_ids {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
+            execution_cost.touch::<Cell>(1);
             self.decay_cell(id, tick);
         }
     }
@@ -1868,16 +1988,20 @@ impl PlasticSubstrate {
         &mut self,
         source: CellId,
         work: &mut Work,
+        execution_cost: &mut ExecutionCost,
         phase: i32,
         physical_trace: &mut Vec<PhysicalTransition>,
     ) {
+        execution_cost.allocations = execution_cost.allocations.saturating_add(1);
         let source_slot = self.cell_slot(source).unwrap();
         let source_position = self.cells.get(source_slot.0).position;
+        execution_cost.touch::<Cell>(1);
         let mut targets = self
             .cells
             .values()
             .iter()
             .filter_map(|cell| {
+                execution_cost.touch::<Cell>(1);
                 let distance = cell.position.saturating_sub(source_position).abs();
                 (cell.id != source
                     && cell.live
@@ -1886,7 +2010,10 @@ impl PlasticSubstrate {
                         .arrows
                         .values()
                         .iter()
-                        .any(|arrow| arrow.live && arrow.from == source && arrow.to == cell.id))
+                        .any(|arrow| {
+                            execution_cost.touch::<Arrow>(1);
+                            arrow.live && arrow.from == source && arrow.to == cell.id
+                        }))
                 .then_some((cell.physical_id, cell.id, distance))
             })
             .collect::<Vec<_>>();
@@ -2042,6 +2169,40 @@ impl PlasticSubstrate {
     fn resident_bytes(&self) -> usize {
         self.cells.len() * std::mem::size_of::<Cell>()
             + self.arrows.len() * std::mem::size_of::<Arrow>()
+    }
+
+    fn mechanical_resident_bytes(&self) -> usize {
+        std::mem::size_of::<Self>()
+            .saturating_add(self.cells.resident_bytes())
+            .saturating_add(self.arrows.resident_bytes())
+            .saturating_add(
+                self.cell_slots
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<Option<CellSlot>>()),
+            )
+            .saturating_add(
+                self.arrow_slots
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<Option<ArrowSlot>>()),
+            )
+            .saturating_add(self.pending.resident_bytes())
+            .saturating_add(
+                self.outgoing_index
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<Vec<ArrowId>>()),
+            )
+            .saturating_add(
+                self.outgoing_index
+                    .iter()
+                    .map(|ids| ids.capacity().saturating_mul(std::mem::size_of::<ArrowId>()))
+                    .sum::<usize>(),
+            )
+            .saturating_add(self.active_cells.len().saturating_mul(
+                std::mem::size_of::<CellId>() + 3 * std::mem::size_of::<usize>(),
+            ))
+            .saturating_add(self.eligible_arrows.len().saturating_mul(
+                std::mem::size_of::<ArrowId>() + 3 * std::mem::size_of::<usize>(),
+            ))
     }
 }
 

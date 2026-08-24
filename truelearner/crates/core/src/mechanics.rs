@@ -73,6 +73,13 @@ impl CellStore {
             LayoutKind::SoA => Self::SoA(Box::new(CellColumns::from_values(values))),
         };
     }
+
+    pub(super) fn resident_bytes(&self) -> usize {
+        match self {
+            Self::AoS(values) => values.capacity().saturating_mul(std::mem::size_of::<Cell>()),
+            Self::SoA(values) => values.resident_bytes(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -141,6 +148,20 @@ impl CellColumns {
         self.generations.push(value.generation);
         self.resistances.push(value.resistance);
         self.live.push(value.live);
+    }
+
+    fn resident_bytes(&self) -> usize {
+        self.ids.capacity() * std::mem::size_of::<CellId>()
+            + self.physical_ids.capacity() * std::mem::size_of::<u64>()
+            + self.positions.capacity() * std::mem::size_of::<i32>()
+            + self.regions.capacity() * std::mem::size_of::<i16>()
+            + self.thresholds.capacity() * std::mem::size_of::<i32>()
+            + self.states.capacity() * std::mem::size_of::<i32>()
+            + self.last_update_ticks.capacity() * std::mem::size_of::<i64>()
+            + self.refractory_until.capacity() * std::mem::size_of::<i64>()
+            + self.generations.capacity() * std::mem::size_of::<super::Generation>()
+            + self.resistances.capacity() * std::mem::size_of::<u32>()
+            + self.live.capacity() * std::mem::size_of::<bool>()
     }
 }
 
@@ -222,6 +243,13 @@ impl ArrowStore {
             LayoutKind::SoA => Self::SoA(Box::new(ArrowColumns::from_values(values))),
         };
     }
+
+    pub(super) fn resident_bytes(&self) -> usize {
+        match self {
+            Self::AoS(values) => values.capacity().saturating_mul(std::mem::size_of::<Arrow>()),
+            Self::SoA(values) => values.resident_bytes(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -295,6 +323,21 @@ impl ArrowColumns {
         self.eligible_until.push(value.eligible_until);
         self.modes.push(value.mode);
     }
+
+    fn resident_bytes(&self) -> usize {
+        self.ids.capacity() * std::mem::size_of::<ArrowId>()
+            + self.from.capacity() * std::mem::size_of::<CellId>()
+            + self.to.capacity() * std::mem::size_of::<CellId>()
+            + self.delays.capacity() * std::mem::size_of::<i64>()
+            + self.phases.capacity() * std::mem::size_of::<i32>()
+            + self.couplings.capacity() * std::mem::size_of::<i32>()
+            + self.source_generations.capacity() * std::mem::size_of::<super::Generation>()
+            + self.generations.capacity() * std::mem::size_of::<super::Generation>()
+            + self.resistances.capacity() * std::mem::size_of::<u32>()
+            + self.live.capacity() * std::mem::size_of::<bool>()
+            + self.eligible_until.capacity() * std::mem::size_of::<Option<i64>>()
+            + self.modes.capacity() * std::mem::size_of::<super::TransmissionMode>()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -332,9 +375,15 @@ impl PendingSchedule {
 
     pub(super) fn push(&mut self, spike: Spike, cost: &mut ExecutionCost) {
         cost.queue_ops = cost.queue_ops.saturating_add(1);
+        cost.touch::<Spike>(1);
         match self {
-            Self::Vec(spikes) => spikes.push(spike),
-            Self::TimingWheel(wheel) => wheel.push(spike),
+            Self::Vec(spikes) => {
+                if spikes.len() == spikes.capacity() {
+                    cost.allocations = cost.allocations.saturating_add(1);
+                }
+                spikes.push(spike);
+            }
+            Self::TimingWheel(wheel) => wheel.push(spike, cost),
         }
     }
 
@@ -410,6 +459,13 @@ impl PendingSchedule {
         }
         schedule
     }
+
+    pub(super) fn resident_bytes(&self) -> usize {
+        match self {
+            Self::Vec(spikes) => spikes.capacity().saturating_mul(std::mem::size_of::<Spike>()),
+            Self::TimingWheel(wheel) => wheel.resident_bytes(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -431,15 +487,21 @@ impl TimingWheel {
         }
     }
 
-    fn push(&mut self, spike: Spike) {
+    fn push(&mut self, spike: Spike, cost: &mut ExecutionCost) {
         assert!(
             spike.arrival_tick >= self.head_tick,
             "scheduled activity cannot precede timing-wheel head"
         );
         if self.in_near_window(spike.arrival_tick) {
             let index = self.bucket_index(spike.arrival_tick);
+            if self.near[index].len() == self.near[index].capacity() {
+                cost.allocations = cost.allocations.saturating_add(1);
+            }
             self.near[index].push(spike);
         } else {
+            if self.overflow.len() == self.overflow.capacity() {
+                cost.allocations = cost.allocations.saturating_add(1);
+            }
             self.overflow.push(spike);
         }
         self.len += 1;
@@ -520,16 +582,33 @@ impl TimingWheel {
     fn promote_overflow(&mut self, cost: &mut ExecutionCost) {
         let end = self.head_tick.saturating_add(self.near.len() as i64);
         let mut retained = Vec::with_capacity(self.overflow.len());
+        if !self.overflow.is_empty() {
+            cost.allocations = cost.allocations.saturating_add(1);
+        }
         for spike in self.overflow.drain(..) {
             cost.scans = cost.scans.saturating_add(1);
+            cost.touch::<Spike>(1);
             if spike.arrival_tick < end {
                 let offset = spike.arrival_tick.rem_euclid(self.near.len() as i64) as usize;
+                if self.near[offset].len() == self.near[offset].capacity() {
+                    cost.allocations = cost.allocations.saturating_add(1);
+                }
                 self.near[offset].push(spike);
             } else {
                 retained.push(spike);
             }
         }
         self.overflow = retained;
+    }
+
+    fn resident_bytes(&self) -> usize {
+        self.near.capacity() * std::mem::size_of::<Vec<Spike>>()
+            + self
+                .near
+                .iter()
+                .map(|bucket| bucket.capacity() * std::mem::size_of::<Spike>())
+                .sum::<usize>()
+            + self.overflow.capacity() * std::mem::size_of::<Spike>()
     }
 
     fn in_near_window(&self, tick: i64) -> bool {
@@ -555,6 +634,7 @@ where
     }
     for candidate in 1..spikes.len() {
         cost.comparisons = cost.comparisons.saturating_add(1);
+        cost.touch::<Spike>(2);
         if order_key(&spikes[candidate], target_physical)
             < order_key(&spikes[first], target_physical)
         {

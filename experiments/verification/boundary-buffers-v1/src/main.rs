@@ -615,6 +615,34 @@ fn add_execution_cost(total: &mut ExecutionCost, value: ExecutionCost) {
     total.scans = total.scans.saturating_add(value.scans);
     total.allocations = total.allocations.saturating_add(value.allocations);
     total.bytes_touched = total.bytes_touched.saturating_add(value.bytes_touched);
+    total.peak_resident_bytes = total.peak_resident_bytes.max(value.peak_resident_bytes);
+    total.adjacency_accesses = total
+        .adjacency_accesses
+        .saturating_add(value.adjacency_accesses);
+    total.frontier_samples = total.frontier_samples.saturating_add(value.frontier_samples);
+    total.active_frontier_total = total
+        .active_frontier_total
+        .saturating_add(value.active_frontier_total);
+    total.active_frontier_max = total.active_frontier_max.max(value.active_frontier_max);
+    total.eligible_frontier_total = total
+        .eligible_frontier_total
+        .saturating_add(value.eligible_frontier_total);
+    total.eligible_frontier_max = total
+        .eligible_frontier_max
+        .max(value.eligible_frontier_max);
+    total.batches = total.batches.saturating_add(value.batches);
+    total.batched_items = total.batched_items.saturating_add(value.batched_items);
+    total.batch_max = total.batch_max.max(value.batch_max);
+    for (total_bucket, value_bucket) in total
+        .batch_histogram
+        .iter_mut()
+        .zip(value.batch_histogram)
+    {
+        *total_bucket = total_bucket.saturating_add(value_bucket);
+    }
+    total.batch_fallback_zero_delay = total
+        .batch_fallback_zero_delay
+        .saturating_add(value.batch_fallback_zero_delay);
 }
 
 fn first_trace_divergence(reference: &Trial, candidate: &Trial) -> String {
