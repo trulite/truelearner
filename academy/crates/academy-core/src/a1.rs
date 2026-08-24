@@ -77,7 +77,9 @@ impl TeachingCase {
         let normalized = name
             .trim()
             .chars()
-            .filter(|character| character.is_alphanumeric() || *character == '-' || *character == ' ')
+            .filter(|character| {
+                character.is_alphanumeric() || *character == '-' || *character == ' '
+            })
             .take(18)
             .collect::<String>();
         if !normalized.is_empty() {
@@ -709,7 +711,9 @@ fn surface_for_port(seed: u64, port: usize) -> VisualSurface {
 }
 
 fn generated_name(seed: u64) -> String {
-    const NAMES: [&str; 8] = ["Momo", "Luma", "Pip", "Bibi", "Toto", "Nunu", "Kiki", "Bobo"];
+    const NAMES: [&str; 8] = [
+        "Momo", "Luma", "Pip", "Bibi", "Toto", "Nunu", "Kiki", "Bobo",
+    ];
     NAMES[usize::try_from(seed % NAMES.len() as u64).unwrap_or(0)].to_string()
 }
 
@@ -790,7 +794,12 @@ fn draw_creature(surface: &mut VisualSurface, seed: u64, center: (u32, u32), wav
         ink,
         3,
     );
-    surface.draw_line((center.0 - 60, center.1 + 56), (center.0 - 112, center.1 + 94), body, 13);
+    surface.draw_line(
+        (center.0 - 60, center.1 + 56),
+        (center.0 - 112, center.1 + 94),
+        body,
+        13,
+    );
     let right_hand = if waving {
         (center.0 + 112, center.1.saturating_sub(100))
     } else {
@@ -799,20 +808,55 @@ fn draw_creature(surface: &mut VisualSurface, seed: u64, center: (u32, u32), wav
     surface.draw_line((center.0 + 60, center.1 + 56), right_hand, body, 13);
     surface.fill_circle(right_hand, 18, body);
     if waving {
-        surface.draw_line((right_hand.0 + 24, right_hand.1 - 24), (right_hand.0 + 46, right_hand.1 - 42), [244, 183, 78, 255], 3);
-        surface.draw_line((right_hand.0 + 30, right_hand.1), (right_hand.0 + 58, right_hand.1), [244, 183, 78, 255], 3);
-        surface.draw_line((right_hand.0 + 22, right_hand.1 + 23), (right_hand.0 + 45, right_hand.1 + 41), [244, 183, 78, 255], 3);
+        surface.draw_line(
+            (right_hand.0 + 24, right_hand.1 - 24),
+            (right_hand.0 + 46, right_hand.1 - 42),
+            [244, 183, 78, 255],
+            3,
+        );
+        surface.draw_line(
+            (right_hand.0 + 30, right_hand.1),
+            (right_hand.0 + 58, right_hand.1),
+            [244, 183, 78, 255],
+            3,
+        );
+        surface.draw_line(
+            (right_hand.0 + 22, right_hand.1 + 23),
+            (right_hand.0 + 45, right_hand.1 + 41),
+            [244, 183, 78, 255],
+            3,
+        );
     }
 }
 
 fn draw_chime(surface: &mut VisualSurface, center: (u32, u32)) {
     let gold = [244, 183, 78, 255];
     surface.fill_circle((center.0, center.1 - 58), 20, gold);
-    surface.draw_line((center.0, center.1 - 36), (center.0, center.1 + 48), gold, 8);
-    surface.draw_line((center.0 - 48, center.1 + 48), (center.0 + 48, center.1 + 48), gold, 8);
+    surface.draw_line(
+        (center.0, center.1 - 36),
+        (center.0, center.1 + 48),
+        gold,
+        8,
+    );
+    surface.draw_line(
+        (center.0 - 48, center.1 + 48),
+        (center.0 + 48, center.1 + 48),
+        gold,
+        8,
+    );
     surface.fill_circle((center.0, center.1 + 70), 12, [255, 224, 139, 255]);
-    surface.draw_line((center.0 - 76, center.1 - 26), (center.0 - 98, center.1 - 38), [255, 224, 139, 255], 3);
-    surface.draw_line((center.0 + 76, center.1 - 26), (center.0 + 98, center.1 - 38), [255, 224, 139, 255], 3);
+    surface.draw_line(
+        (center.0 - 76, center.1 - 26),
+        (center.0 - 98, center.1 - 38),
+        [255, 224, 139, 255],
+        3,
+    );
+    surface.draw_line(
+        (center.0 + 76, center.1 - 26),
+        (center.0 + 98, center.1 - 38),
+        [255, 224, 139, 255],
+        3,
+    );
 }
 
 #[cfg(test)]
@@ -905,17 +949,13 @@ mod tests {
 
         let mut unsupported = GenuineTeachingLab::new(case.clone()).unwrap();
         unsupported.teach_unsupported().unwrap();
-        let silent_probe = unsupported
-            .probe(A1ProbeFamily::LearnedRelation)
-            .unwrap();
+        let silent_probe = unsupported.probe(A1ProbeFamily::LearnedRelation).unwrap();
         assert_eq!(silent_probe.observation.outward_relation_crossings, 0);
         assert_eq!(silent_probe.organism_surface, quiet);
 
         let mut supported = GenuineTeachingLab::new(case).unwrap();
         supported.teach_supported().unwrap();
-        let learned_probe = supported
-            .probe(A1ProbeFamily::LearnedRelation)
-            .unwrap();
+        let learned_probe = supported.probe(A1ProbeFamily::LearnedRelation).unwrap();
         assert_eq!(learned_probe.observation.outward_relation_crossings, 1);
         assert_eq!(learned_probe.organism_surface, waving);
     }

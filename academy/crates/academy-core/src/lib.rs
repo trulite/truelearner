@@ -211,13 +211,7 @@ impl VisualSurface {
         }
     }
 
-    pub fn draw_text(
-        &mut self,
-        text: &str,
-        origin: (u32, u32),
-        scale: u32,
-        rgba: [u8; 4],
-    ) {
+    pub fn draw_text(&mut self, text: &str, origin: (u32, u32), scale: u32, rgba: [u8; 4]) {
         let scale = scale.max(1);
         let mut x = origin.0;
         let mut y = origin.1;
