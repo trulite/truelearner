@@ -2747,9 +2747,13 @@ mod tests {
         assert_ne!(before, after);
 
         let mut ordinary = original;
-        assert_eq!(
-            ordinary.arrive(&[input(source, 0)], 1),
-            compacted.arrive(&[input(source, 0)], 1)
+        let ordinary_result = ordinary.arrive(&[input(source, 0)], 1);
+        let compacted_result = compacted.arrive(&[input(source, 0)], 1);
+        assert_physical_equivalence(
+            &ordinary,
+            &ordinary_result,
+            &compacted,
+            &compacted_result,
         );
     }
 
@@ -2772,9 +2776,13 @@ mod tests {
         assert_eq!(decoded.canonical_bytes().unwrap(), bytes);
         let mut restored = PlasticSubstrate::from_quiescent_checkpoint(decoded).unwrap();
         assert_eq!(restored.clock(), substrate.clock());
-        assert_eq!(
-            substrate.arrive(&[input(source, 24)], 1),
-            restored.arrive(&[input(source, 24)], 1)
+        let substrate_result = substrate.arrive(&[input(source, 24)], 1);
+        let restored_result = restored.arrive(&[input(source, 24)], 1);
+        assert_physical_equivalence(
+            &substrate,
+            &substrate_result,
+            &restored,
+            &restored_result,
         );
     }
 
@@ -2801,7 +2809,14 @@ mod tests {
         assert_eq!(decoded.canonical_bytes().unwrap(), bytes);
         let mut restored = PlasticSubstrate::from_live_checkpoint(decoded).unwrap();
         assert_eq!(restored, substrate);
-        assert_eq!(restored.propagate(), substrate.propagate());
+        let restored_result = restored.propagate();
+        let substrate_result = substrate.propagate();
+        assert_physical_equivalence(
+            &substrate,
+            &substrate_result,
+            &restored,
+            &restored_result,
+        );
     }
 
     #[test]
