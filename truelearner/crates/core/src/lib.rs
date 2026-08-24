@@ -2342,11 +2342,11 @@ mod tests {
 
                 let reference_pressure = {
                     let mut value = reference.clone();
-                    value.advance_time(origin + 100)
+                    value.advance_time(reference.clock().tick + 100)
                 };
                 let candidate_pressure = {
                     let mut value = candidate.clone();
-                    value.advance_time(origin + 100)
+                    value.advance_time(candidate.clock().tick + 100)
                 };
                 assert_eq!(
                     physical_work(candidate_pressure),
