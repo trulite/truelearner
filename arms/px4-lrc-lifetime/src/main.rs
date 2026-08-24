@@ -263,9 +263,11 @@ pub fn main() {
         .marks()
         .into_iter()
         .enumerate()
-        .map(|(index, (mark, flip, mirror, schedule_origin, replicate))| {
-            replay_row(index, mark, flip, mirror, schedule_origin, replicate)
-        })
+        .map(
+            |(index, (mark, flip, mirror, schedule_origin, replicate))| {
+                replay_row(index, mark, flip, mirror, schedule_origin, replicate)
+            },
+        )
         .collect::<Vec<_>>();
     let all_layouts = rows
         .iter()
@@ -282,7 +284,11 @@ pub fn main() {
     let clause_passed = rows
         .iter()
         .map(|row| {
-            row.core.clauses().into_iter().filter(|value| *value).count()
+            row.core
+                .clauses()
+                .into_iter()
+                .filter(|value| *value)
+                .count()
                 + usize::from(row.replay)
         })
         .sum::<usize>()
@@ -621,11 +627,7 @@ fn trained(
     let mut world = field(mark, flip, mirror, TransmissionMode::Modulatory);
     let mut flows = Vec::new();
     for index in 0..count {
-        flows.push(expose(
-            &mut world,
-            schedule_origin + index as i64 * 5,
-            true,
-        ));
+        flows.push(expose(&mut world, schedule_origin + index as i64 * 5, true));
     }
     let candidate = only_candidate(&world);
     let last_tick = schedule_origin + (count as i64 - 1) * 5 + 3;
@@ -787,7 +789,11 @@ fn markdown(stage: Stage, rows: &[Row], all_layouts: bool, passed: bool) -> Stri
     let clause_passed = rows
         .iter()
         .map(|row| {
-            row.core.clauses().into_iter().filter(|value| *value).count()
+            row.core
+                .clauses()
+                .into_iter()
+                .filter(|value| *value)
+                .count()
                 + usize::from(row.replay)
         })
         .sum::<usize>()
@@ -840,7 +846,11 @@ fn markdown(stage: Stage, rows: &[Row], all_layouts: bool, passed: bool) -> Stri
             row.core.stale.blocked,
             controls,
             row.replay,
-            row.core.clauses().into_iter().filter(|value| *value).count()
+            row.core
+                .clauses()
+                .into_iter()
+                .filter(|value| *value)
+                .count()
                 + usize::from(row.replay),
             row.core.clauses().len() + 1,
             if row.passed { "PASS" } else { "FAIL" },
@@ -902,7 +912,9 @@ fn authority_preflight() {
     assert_eq!(identities.len(), 16);
     assert_eq!(identities.first(), Some(&461_001));
     assert_eq!(identities.last(), Some(&461_016));
-    assert!(identities.iter().all(|mark| !(151_001..=153_008).contains(mark)));
+    assert!(identities
+        .iter()
+        .all(|mark| !(151_001..=153_008).contains(mark)));
     let strata = matrix
         .iter()
         .map(|item| (item.1, item.2, item.3, item.4))
@@ -918,7 +930,10 @@ fn authority_preflight() {
         "results/px4_lrc_lifetime_authority_v1.csv.staging",
         "results/px4_lrc_lifetime_authority_v1.md.staging",
     ] {
-        assert!(!Path::new(path).exists(), "authority artifact exists: {path}");
+        assert!(
+            !Path::new(path).exists(),
+            "authority artifact exists: {path}"
+        );
     }
     println!(
         "PX4 authority preflight: worlds=0 identities=16 strata=16 origins=200|400 artifacts=absent"
@@ -939,7 +954,10 @@ fn verify_frozen_inputs() {
         "experiments/px4_lrc_development_readiness_handoff_v1.md",
         DEVELOPMENT_HANDOFF_HASH,
     );
-    require_hash("results/px4_lrc_lifetime_gate_v1.csv", DEVELOPMENT_GATE_HASH);
+    require_hash(
+        "results/px4_lrc_lifetime_gate_v1.csv",
+        DEVELOPMENT_GATE_HASH,
+    );
     require_hash(
         "experiments/pxc_active_surface_manifest_v2.csv",
         ACTIVE_MANIFEST_HASH,

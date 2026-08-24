@@ -34,7 +34,7 @@ require_hash 7789fe652e39e77e8d909b2cd34ec71b8fcdc3ee6564d8f18ba1840f8fdb9d54 \
 require_hash 28924746e951645047225d8d20f5c5f98d93f349f46f7c6d7019e68632ce51b9 "$manifest"
 require_hash fa04de4ec43c10f3878b86d920c2a67243b84201e8759950075c069548153ba8 \
     experiments/px4_lrc_physical_lifetime_authority_protocol_v1.md
-require_hash aac52684ecb70b36e8a287eec226d4940de18512ffc8e7e58ce43c54029638ea "$runner"
+require_hash e696c8e1e50ac9504c180094daf90182d0854755a2b6289826f8de19397bfc5d "$runner"
 require_hash a181fa810cef8edfe557daaf8dae9948ebd37dd429bb084d8ffedb6d84615b4c "$wrapper"
 
 if rg -n -i '\b(lifetime|history|episode|reset|cleanup|delete)\b' "$active"; then
