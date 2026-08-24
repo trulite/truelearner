@@ -866,7 +866,7 @@ mod tests {
         let second_context = spatial_context(&changed).unwrap();
         assert_ne!(first_context, second_context);
         let second = organism
-            .observe(changed, &[1, 2, 3, 4], Some(2), true, true, &[1, 2, 3, 4])
+            .observe(changed, &[1, 2, 3, 4], Some(2), true, false, &[1, 2, 3, 4])
             .unwrap();
         assert_eq!(second.context, second_context);
         assert_eq!(second.action, Some(2));
