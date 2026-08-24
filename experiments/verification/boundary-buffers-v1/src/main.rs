@@ -6,8 +6,8 @@ mod buffers;
 use body::{BodyEvidence, CLAUSE_NAMES};
 use buffers::{BufferEvidence, CLAUSE_NAMES as BUFFER_CLAUSE_NAMES};
 use pxr0_physical_runtime::{
-    ArrowSpec, BoundaryRuntime, CellId, CellSpec, Crossing, PlasticSubstrate, RunResult,
-    SpikeInput, TransmissionMode, Work,
+    ArrowSpec, BoundaryRuntime, CellId, CellSpec, Crossing, MechanicalConfig, PlasticSubstrate,
+    RunResult, SpikeInput, TransmissionMode, Work,
 };
 use std::{
     collections::BTreeSet,
@@ -54,6 +54,7 @@ const AUTHORITY_CASES: [Case; 16] = [
 enum Mode {
     Preflight,
     Authority,
+    Differential,
 }
 
 impl Mode {
@@ -61,6 +62,7 @@ impl Mode {
         match env::args().nth(1).as_deref() {
             Some("--preflight") if env::args().count() == 2 => Self::Preflight,
             Some("--authority") if env::args().count() == 2 => Self::Authority,
+            Some("--differential") if env::args().count() == 2 => Self::Differential,
             _ => {
                 eprintln!("expected exactly --preflight or --authority");
                 std::process::exit(2);
@@ -87,6 +89,7 @@ impl Mode {
         match self {
             Self::Preflight => "BOUNDARY_BUFFERS_V1_AUTHORITY_PREFLIGHT_READY",
             Self::Authority => "BOUNDARY_BUFFERS_V1_AUTHORITY_EVIDENCE_SPENT",
+            Self::Differential => "R1_R5_MECHANICAL_DIFFERENTIAL",
         }
     }
 
@@ -176,6 +179,9 @@ struct Trial {
     max_work: u64,
     max_bytes: usize,
     last_arrival_tick: i64,
+    final_tick: i64,
+    pressure_phase: i64,
+    final_body: Vec<u8>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -242,6 +248,10 @@ fn main() {
         println!("{}", mode.marker());
         return;
     }
+    if mode == Mode::Differential {
+        run_mechanical_differential();
+        return;
+    }
     println!("{}", mode.marker());
     let pxr0_exact = pxr0_inputs_exact();
     let rows = mode
@@ -271,14 +281,15 @@ fn main() {
 }
 
 fn replay(case: Case, pxr0_exact: bool) -> Row {
-    let first = run(case);
-    let second = run(case);
+    let first = run(case, MechanicalConfig::REFERENCE);
+    let second = run(case, MechanicalConfig::REFERENCE);
     let exact = first == second;
     row(first, exact, pxr0_exact)
 }
 
-fn run(case: Case) -> Trial {
+fn run(case: Case, mechanics: MechanicalConfig) -> Trial {
     let mut space = PlasticSubstrate::new();
+    space.reconfigure_mechanics(mechanics);
     space.advance_time(case.origin);
     let root_namespace = case.root << 32;
     let retained = build_cascade(&mut space, layout(case, root_namespace + 100_000, 1, 100));
@@ -438,6 +449,12 @@ fn run(case: Case) -> Trial {
         .chain([blank.bytes])
         .max()
         .unwrap_or(0);
+    let final_tick = space.substrate().clock().tick;
+    let pressure_phase = space.substrate().clock().pressure_phase();
+    let final_body = space
+        .substrate()
+        .canonical_body_bytes(case.root)
+        .expect("differential body must encode");
 
     Trial {
         case,
@@ -467,7 +484,93 @@ fn run(case: Case) -> Trial {
         max_work,
         max_bytes,
         last_arrival_tick: case.origin + 120,
+        final_tick,
+        pressure_phase,
+        final_body,
     }
+}
+
+fn run_mechanical_differential() {
+    let configs = [
+        MechanicalConfig::R1,
+        MechanicalConfig::R2,
+        MechanicalConfig::R3,
+        MechanicalConfig::R4,
+        MechanicalConfig::R5,
+    ];
+    let mut comparisons = 0usize;
+    for case in AUTHORITY_CASES {
+        let reference = run(case, MechanicalConfig::REFERENCE);
+        let replayed = run(case, MechanicalConfig::REFERENCE);
+        assert_eq!(reference, replayed, "reference replay diverged for {case:?}");
+        for config in configs {
+            let candidate = run(case, config);
+            let candidate_replay = run(case, config);
+            assert_eq!(
+                candidate, candidate_replay,
+                "candidate replay diverged for {case:?} {config:?}"
+            );
+            assert!(
+                trials_match_physics(&reference, &candidate),
+                "first mechanical divergence for {case:?} {config:?}"
+            );
+            comparisons += 1;
+        }
+    }
+    println!(
+        "R1_R5_MECHANICAL_DIFFERENTIAL_PASS cases={} comparisons={comparisons}",
+        AUTHORITY_CASES.len()
+    );
+}
+
+fn trials_match_physics(reference: &Trial, candidate: &Trial) -> bool {
+    reference.case == candidate.case
+        && reference.construction_tick == candidate.construction_tick
+        && reference.pressure_origin == candidate.pressure_origin
+        && reference.first_arrival_tick == candidate.first_arrival_tick
+        && batches_match_physics(&reference.blank, &candidate.blank)
+        && reference.batches.len() == candidate.batches.len()
+        && reference
+            .batches
+            .iter()
+            .zip(&candidate.batches)
+            .all(|(left, right)| batches_match_physics(left, right))
+        && works_match_physics(reference.pause_work, candidate.pause_work)
+        && works_match_physics(reference.age_work, candidate.age_work)
+        && reference.paired_held == candidate.paired_held
+        && reference.selective_held == candidate.selective_held
+        && reference.retained == candidate.retained
+        && reference.partial == candidate.partial
+        && reference.adjacent_first == candidate.adjacent_first
+        && reference.adjacent_second == candidate.adjacent_second
+        && reference.duplicated == candidate.duplicated
+        && reference.resisted == candidate.resisted
+        && reference.direct == candidate.direct
+        && reference.duplicate_direct == candidate.duplicate_direct
+        && reference.open == candidate.open
+        && reference.fork == candidate.fork
+        && reference.ring == candidate.ring
+        && reference.aged == candidate.aged
+        && reference.formation_updates == candidate.formation_updates
+        && reference.formation_modulation == candidate.formation_modulation
+        && reference.last_arrival_tick == candidate.last_arrival_tick
+        && reference.final_tick == candidate.final_tick
+        && reference.pressure_phase == candidate.pressure_phase
+        && reference.final_body == candidate.final_body
+}
+
+fn batches_match_physics(reference: &Batch, candidate: &Batch) -> bool {
+    reference.crossings == candidate.crossings
+        && works_match_physics(reference.work, candidate.work)
+        && reference.quiet == candidate.quiet
+}
+
+fn works_match_physics(reference: Work, candidate: Work) -> bool {
+    reference.drive_deliveries == candidate.drive_deliveries
+        && reference.modulatory_deliveries == candidate.modulatory_deliveries
+        && reference.local_return_updates == candidate.local_return_updates
+        && reference.local_structural_proposals == candidate.local_structural_proposals
+        && reference.physical_deallocations == candidate.physical_deallocations
 }
 
 fn row(trial: Trial, replay: bool, pxr0_exact: bool) -> Row {
