@@ -840,6 +840,17 @@ impl BoundaryRuntime {
         &self.substrate
     }
 
+    /// Changes only the mechanical execution strategy beneath the boundary.
+    /// Physical law and buffered activity are preserved exactly.
+    pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
+        self.substrate.reconfigure_mechanics(mechanics);
+    }
+
+    /// Reassigns resident execution placement without changing durable identity.
+    pub fn repartition_resident(&mut self, placements: &[ResidentArenaId]) {
+        self.substrate.repartition_resident(placements);
+    }
+
     pub fn input_capacity(&self) -> usize {
         self.input_capacity
     }
