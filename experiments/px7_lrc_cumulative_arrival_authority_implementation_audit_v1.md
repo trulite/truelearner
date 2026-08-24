@@ -1,6 +1,6 @@
 # PX7 LR-C cumulative arrival authority implementation audit v1
 
-Status: **IMPLEMENTATION CANDIDATE; TARGETED E2B VALIDATION PENDING; EVIDENCE UNSPENT**.
+Status: **FROZEN; TARGETED E2B VALIDATION PASSED; EVIDENCE UNSPENT**.
 
 ## Serial boundary
 
@@ -46,6 +46,26 @@ eligibility rule, plastic update, pressure rule, hidden state, or memory leak.
 
 Formatting-only E2B sandbox `iu8zf96pw7n97n5wcyfs2` canonicalized the
 authority package and computed frozen hashes without compiling or constructing
-a body. One fresh package-only validation remains pending. No Rust, project
-program, or project audit has run locally. No authority body, result artifact,
-or evidence marker exists.
+a body.
+
+Exact clean snapshot `80f6d5c2562594e574a2f0120220f505e0252a4b`
+then passed the sole targeted package-only validation in fresh sandbox
+`iw75mdqvewnd2bnszua5c`:
+
+```text
+package rustfmt check                               PASS
+strict release package Clippy -D warnings           PASS
+fully qualified no-world matrix test             1/1 PASS
+static hash/dependency/coverage/firewall audit      PASS
+release --authority-preflight                       PASS
+```
+
+Cargo compiled the package dependency closure once and reused it for the test
+and preflight. No workspace-wide build, unrelated suite, repeated validation,
+body construction, row replay, evidence marker, or result publication
+occurred. Static audit reported `active_sources=3`, `new_active_px7=1`,
+`evaluator_sources=1`, and `unclassified=0`.
+
+No Rust, project program, or project audit ran locally. The sole definitive
+command may now execute exactly once from the unchanged source plus this
+audit-only freeze commit in a new E2B sandbox.
