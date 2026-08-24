@@ -367,6 +367,12 @@ fn surface() {
     assert_eq!(CASES.iter().filter(|c| c.suite == Suite::Px0).count(), 6);
     assert_eq!(CASES.iter().filter(|c| c.suite == Suite::Px1).count(), 6);
     assert_eq!(CASES.iter().filter(|c| c.suite == Suite::Px2).count(), 7);
+    let namespaces = SEEDS
+        .into_iter()
+        .flat_map(|seed| CASES.map(|case| namespace(seed, case)))
+        .collect::<BTreeSet<_>>();
+    assert_eq!(namespaces.len(), 496);
+    assert!(namespaces.into_iter().all(|value| value >= BASE));
 }
 
 fn evidence() {
@@ -1353,5 +1359,21 @@ mod tests {
                 assert!(row.passed, "{seed} {case:?} {:#?}", row.observation);
             }
         }
+    }
+
+    #[test]
+    fn definitive_serialization_has_exact_shape() {
+        let rows = SEEDS
+            .into_iter()
+            .flat_map(|seed| CASES.map(|case| replay(seed, case)))
+            .collect::<Vec<_>>();
+        assert_eq!(rows.len(), 496);
+        let serialized = csv(&rows);
+        let lines = serialized.lines().collect::<Vec<_>>();
+        assert_eq!(lines.len(), 497);
+        assert!(lines.iter().all(|line| line.split(',').count() == 45));
+        let summary = report(&rows);
+        assert!(summary.contains("496/496"));
+        assert!(summary.contains("5952/5952"));
     }
 }
