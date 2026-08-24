@@ -51,6 +51,12 @@ PSEL0 production-mechanics selection (engineering, non-authoritative)
     select  TimingWheel + Adjacency + Frontier + AoS + opportunistic Batched
     retain  ReferencePhysics permanently
 
+R6 partition-invariance development freeze (non-authoritative)
+    tag     r6-partition-invariance-development-v1
+    result  36/36 partition comparisons, 2/2 checkpoint controls
+    scale   2, 4, 7, and up to 128 simultaneously resident arenas
+    latency zero additional ticks or phase at resident boundaries
+
 canonical production body
     truelearner/crates/core/src/lib.rs
     SHA-256 8a0f0c862a9aa6bfaf74a3a09ca5ee0eb6b3dc95e75ce76e5a136c9a8890ff0a
@@ -78,6 +84,12 @@ PSEL0 subsequently selected a measured production composition without changing
 the physical law or advancing organism authority. `MechanicalConfig::PRODUCTION`
 names that composition. `MechanicalConfig::REFERENCE` remains the permanent
 correctness oracle and is not deleted or weakened.
+
+R6 subsequently established a second representation-independence result: the
+same durable organism can be repartitioned among multiple simultaneously
+resident execution arenas without changing its physical history when the
+partition adds zero latency. This remains development evidence, not organism
+authority and not permission to introduce R7 storage latency.
 
 ---
 
@@ -527,6 +539,24 @@ LANGUAGE_ARENA
 VISION_ARENA
 ```
 
+R6 forced a precise distinction between two arena notions:
+
+```text
+ArenaId
+    durable content-addressed identity unit
+    appears in CellRef / ArrowRef
+    changing it changes durable identity
+
+ResidentArenaId
+    disposable execution placement
+    owns a local timing wheel while resident
+    absent from durable bytes and physical ordering
+    may change across restart or repartition
+```
+
+The distinction is required for the already accepted rule that placement is
+not identity. R6 does not yet add non-residence, loading, eviction, or latency.
+
 Conceptual hierarchy:
 
 ```text
@@ -735,6 +765,23 @@ remote dependency requested
 ```
 
 The actual delay remains physically observable.
+
+R6's zero-latency body scheduler merges resident timing wheels using only the
+global physical key:
+
+```text
+arrival tick
+phase
+origin physical identity
+target physical identity
+body-wide serial
+```
+
+`ResidentArenaId` is forbidden as a tie-breaker. Cross-resident-arena traversal
+is an ordinary ARROW traversal and adds no event, tick, or phase. The initial
+merge is intentionally simple; its lookups and arena hops are ExecutionCost,
+not organism history. R7 may later admit a physical availability tick only for
+actually nonresident structure.
 
 ## Framebuffers
 
