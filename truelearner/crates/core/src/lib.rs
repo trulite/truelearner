@@ -216,6 +216,8 @@ pub enum CheckpointError {
     MissingCell(CellId),
     MissingArrow(ArrowId),
     ManifestMismatch,
+    InvalidPhysicalBody,
+    StaleCellReference(CellRef),
     Truncated,
     WrongMagic,
     UnsupportedCheckpointVersion(u16),
@@ -702,6 +704,9 @@ impl PlasticSubstrate {
             .map(|maximum| vec![None; maximum as usize + 1])
             .unwrap_or_default();
         for durable in body.cells {
+            if durable.threshold <= 0 || durable.live != (durable.resistance > 0) {
+                return Err(CheckpointError::InvalidPhysicalBody);
+            }
             let slot = CellSlot(substrate.cells.len());
             substrate.cell_slots[durable.id.0 as usize] = Some(slot);
             substrate.cells.push(Cell {
@@ -728,6 +733,17 @@ impl PlasticSubstrate {
             }
             substrate.require_cell_result(durable.from.id)?;
             substrate.require_cell_result(durable.to.id)?;
+            let from_slot = substrate.cell_slot(durable.from.id).unwrap();
+            let to_slot = substrate.cell_slot(durable.to.id).unwrap();
+            if substrate.cells[from_slot.0].generation != durable.from.generation {
+                return Err(CheckpointError::StaleCellReference(durable.from));
+            }
+            if substrate.cells[to_slot.0].generation != durable.to.generation {
+                return Err(CheckpointError::StaleCellReference(durable.to));
+            }
+            if durable.delay < 0 || durable.live != (durable.resistance > 0) {
+                return Err(CheckpointError::InvalidPhysicalBody);
+            }
             let mode = transmission_mode_from_byte(durable.transmission_mode)?;
             let slot = ArrowSlot(substrate.arrows.len());
             substrate.arrow_slots[durable.id.0 as usize] = Some(slot);
@@ -1561,5 +1577,17 @@ mod tests {
         assert_ne!(current.generation, stale.generation);
         assert_eq!(substrate.resolve_arrow(stale), None);
         assert!(substrate.resolve_arrow(current).is_some());
+    }
+
+    #[test]
+    fn durable_body_rejects_stale_internal_references() {
+        let (substrate, _, _, _) = substrate(4);
+        let mut body = substrate.arena_body(1);
+        body.arrows[0].from.generation = Generation(99);
+        let bytes = body.canonical_bytes().unwrap();
+        assert!(matches!(
+            PlasticSubstrate::from_body_bytes(&bytes),
+            Err(CheckpointError::StaleCellReference(_))
+        ));
     }
 }
