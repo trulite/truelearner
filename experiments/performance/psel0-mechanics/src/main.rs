@@ -5,9 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use truelearner_core::{
-    ActivityKind, ArenaId, ArrowSpec, CellId, CellSpec, ExecutionCost, ExecutorKind,
-    LayoutKind, MechanicalConfig, PlasticSubstrate, RunResult, SchedulerKind, SpikeInput,
-    TransmissionMode, TraversalKind, Work,
+    ActivityKind, ArenaId, ArrowSpec, CellId, CellSpec, ExecutionCost, ExecutorKind, LayoutKind,
+    MechanicalConfig, PlasticSubstrate, RunResult, SchedulerKind, SpikeInput, TransmissionMode,
+    TraversalKind, Work,
 };
 
 const OUTWARD_REGION: i16 = 1;
@@ -69,7 +69,11 @@ fn main() {
     for world in &worlds {
         let (reference, _) = measured(world, MechanicalConfig::REFERENCE);
         let (reference_replay, _) = measured(world, MechanicalConfig::REFERENCE);
-        assert_eq!(reference, reference_replay, "reference replay: {}", world.name);
+        assert_eq!(
+            reference, reference_replay,
+            "reference replay: {}",
+            world.name
+        );
 
         for candidate in candidates {
             let mut observations = Vec::with_capacity(REPETITIONS);
@@ -188,7 +192,10 @@ fn observation(substrate: &PlasticSubstrate, result: RunResult) -> Observation {
 }
 
 fn assert_physics(name: &str, reference: &Observation, candidate: &Observation) {
-    assert_eq!(reference.crossings, candidate.crossings, "crossings: {name}");
+    assert_eq!(
+        reference.crossings, candidate.crossings,
+        "crossings: {name}"
+    );
     assert_eq!(reference.work, candidate.work, "physical work: {name}");
     assert_eq!(reference.clock, candidate.clock, "clock: {name}");
     assert_eq!(reference.body, candidate.body, "durable body: {name}");
@@ -351,9 +358,19 @@ fn dense_layers() -> StressWorld {
 fn long_delays() -> StressWorld {
     let pairs = 256;
     let mut body = substrate(103, pairs * 2, pairs);
-    add_cells(&mut body, pairs * 2, |index| if index < pairs { 1 } else { 1_000 });
+    add_cells(
+        &mut body,
+        pairs * 2,
+        |index| if index < pairs { 1 } else { 1_000 },
+    );
     for index in 0..pairs {
-        drive(&mut body, index, pairs + index, 128 + (index % 32) as i64, 1);
+        drive(
+            &mut body,
+            index,
+            pairs + index,
+            128 + (index % 32) as i64,
+            1,
+        );
     }
     freeze(
         "long_delays",
@@ -365,7 +382,11 @@ fn long_delays() -> StressWorld {
 fn many_same_tick() -> StressWorld {
     let pairs = 1_024;
     let mut body = substrate(104, pairs * 2, pairs);
-    add_cells(&mut body, pairs * 2, |index| if index < pairs { 1 } else { 1_000 });
+    add_cells(
+        &mut body,
+        pairs * 2,
+        |index| if index < pairs { 1 } else { 1_000 },
+    );
     for index in 0..pairs {
         drive(&mut body, index, pairs + index, 1, 1);
     }
@@ -380,7 +401,13 @@ fn high_fanout() -> StressWorld {
     let sources = 8;
     let sinks = 512;
     let mut body = substrate(105, sources + sinks, sources * sinks);
-    add_cells(&mut body, sources + sinks, |index| if index < sources { 1 } else { 1_000 });
+    add_cells(&mut body, sources + sinks, |index| {
+        if index < sources {
+            1
+        } else {
+            1_000
+        }
+    });
     for source in 0..sources {
         for sink in 0..sinks {
             drive(&mut body, source, sources + sink, 1, 1);
@@ -429,7 +456,11 @@ fn mostly_dormant() -> StressWorld {
 fn zero_delay_fallback() -> StressWorld {
     let pairs = 512;
     let mut body = substrate(108, pairs * 2, pairs);
-    add_cells(&mut body, pairs * 2, |index| if index < pairs { 1 } else { 1_000 });
+    add_cells(
+        &mut body,
+        pairs * 2,
+        |index| if index < pairs { 1 } else { 1_000 },
+    );
     for index in 0..pairs {
         drive(&mut body, index, pairs + index, 0, 1);
     }
