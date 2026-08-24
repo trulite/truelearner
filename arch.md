@@ -39,6 +39,12 @@ Boundary Buffers V1 authority evidence
 Boundary Buffers V1 result audit
     commit  4b5a85c411655f3f8866cbf5107e40ad6ad1231f
 
+R1-R5 mechanical-equivalence development freeze (non-authoritative)
+    commit  3411aba95485a309d0d4f74ec8824c5029681c82
+    tag     r1-r5-mechanical-optimization-development-v1
+    result  80/80 differential pairs, 536/536 behavioral clauses
+    scope   scheduling, adjacency, frontier, resident layout, safe batching
+
 canonical production body
     truelearner/crates/core/src/lib.rs
     SHA-256 8a0f0c862a9aa6bfaf74a3a09ca5ee0eb6b3dc95e75ce76e5a136c9a8890ff0a
@@ -54,6 +60,13 @@ PXR0 v2 passed its frozen `466/466` development matrix. PX-C independently passe
 Boundary Buffers V1 then passed `548/548`: the same `540/540` cumulative and body clauses through bounded buffered execution plus `8/8` input, output, backpressure, ordering, and buffered-checkpoint clauses.
 
 Boundary Buffers V1 is now the oracle parent. Future work must begin as an explicitly preregistered successor. After successor authority is established, update this oracle deliberately; do not silently reinterpret it from an experimental branch.
+
+R1-R5 is a frozen development result, not a successor authority promotion and
+not a declaration that the fully enabled configuration is the production
+default. It establishes the narrower architectural fact that the accepted
+physical history is representation-independent across the five tested
+mechanical axes. Production-mechanics selection remains an engineering
+successor decision.
 
 ---
 
@@ -540,7 +553,7 @@ Storage may repack without changing organism physics.
 
 Try to co-locate physically interacting structure for performance, but storage layout must never define semantics.
 
-For hot arenas prefer SoA/AoSoA-style layouts suitable for SIMD:
+SoA/AoSoA is an available hot-arena layout, not an architectural requirement:
 
 ```text
 cell_state[]
@@ -556,7 +569,10 @@ eligibility[]
 mode[]
 ```
 
-Do not scan the whole graph.
+R1-R5 development proved AoS and SoA physically interchangeable. Its current
+SoA accessor path was slower than frontier-based AoS in the accepted corpus,
+so layout must be selected by measured mechanical cost rather than assumed
+SIMD benefit. Do not scan the whole graph.
 
 Process compact active frontiers:
 
@@ -636,6 +652,24 @@ schedule future SPIKEs into arena timing rings
 ```
 
 This should be the main CPU execution pipeline.
+
+R1-R5 development established that the physical law is empirically
+representation-independent across:
+
+```text
+scheduling                 Vec scan | bounded timing wheel + overflow
+graph traversal            global scan | source adjacency
+activity sparsification    full scan | active/eligible frontier
+resident layout            AoS | SoA
+safe execution             scalar | exact opportunistic batching
+```
+
+The accepted law remains singular. These are replaceable mechanics underneath
+it. Timing-wheel, adjacency, and frontier showed compelling reductions in
+mechanical work. SoA and batching proved physically valid but have not been
+selected as universal defaults. Batching may fall back to scalar execution
+where zero-delay topology can add current-tick work. SIMD is not yet an
+accepted or implemented result.
 
 ## Why rings matter
 
