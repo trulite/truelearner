@@ -527,10 +527,16 @@ fn run_mechanical_differential() {
         MechanicalConfig::R5,
     ];
     let mut comparisons = 0usize;
+    let mut reference_cost = ExecutionCost::default();
+    let mut reference_elapsed_ns = 0u128;
     let mut costs = [ExecutionCost::default(); 5];
     let mut elapsed_ns = [0u128; 5];
     for case in AUTHORITY_CASES {
+        let reference_started = Instant::now();
         let reference = run(case, MechanicalConfig::REFERENCE, false);
+        reference_elapsed_ns = reference_elapsed_ns
+            .saturating_add(reference_started.elapsed().as_nanos());
+        add_execution_cost(&mut reference_cost, reference.execution_cost);
         let replayed = run(case, MechanicalConfig::REFERENCE, false);
         assert_eq!(
             reference, replayed,
@@ -561,6 +567,16 @@ fn run_mechanical_differential() {
     println!(
         "R1_R5_MECHANICAL_DIFFERENTIAL_PASS cases={} comparisons={comparisons}",
         AUTHORITY_CASES.len()
+    );
+    println!(
+        "MECHANICAL_COST config={:?} queue_ops={} comparisons={} scans={} allocations={} bytes_touched={} elapsed_ns={}",
+        MechanicalConfig::REFERENCE,
+        reference_cost.queue_ops,
+        reference_cost.comparisons,
+        reference_cost.scans,
+        reference_cost.allocations,
+        reference_cost.bytes_touched,
+        reference_elapsed_ns
     );
     for (index, config) in configs.into_iter().enumerate() {
         println!(
