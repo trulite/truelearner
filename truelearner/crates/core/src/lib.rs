@@ -2563,12 +2563,7 @@ mod tests {
             );
             let restored_result = restored.propagate();
             let ordinary_result = ordinary.propagate();
-            assert_physical_equivalence(
-                &ordinary,
-                &ordinary_result,
-                &restored,
-                &restored_result,
-            );
+            assert_physical_equivalence(&ordinary, &ordinary_result, &restored, &restored_result);
         }
     }
 
