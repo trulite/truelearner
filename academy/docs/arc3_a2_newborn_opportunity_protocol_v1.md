@@ -12,15 +12,19 @@ any other learning, execution, or pressure rule?
 ## Candidate physical rule
 
 When local variation creates a new ARROW at physical tick `t` with delay `d`,
-the ARROW records a transient first-opportunity deadline `t + d`.
+the ARROW records a transient first-effect deadline `t + d`.
+
+The retained runtime treats source emission as the ARROW traversal: it makes
+the route eligible and schedules its propagated effect. The observed failure
+happens while that first effect is already in flight. Protection therefore
+lasts through resolution of that first emitted effect, not until traversal.
 
 ```text
-proposal exists
-but its earliest scheduled traversal has not yet been attempted
+proposal traversed and its first effect is in flight
     -> ordinary global pressure may inspect it
     -> ordinary global pressure may not lower its resistance
 
-first scheduled traversal is attempted
+first scheduled effect is resolved at its arrival tick
     -> protection ends, whether delivery succeeds or is stale/blocked
     -> all later pressure is ordinary
 ```
@@ -38,10 +42,12 @@ durable body version.
 ## Core discriminators
 
 1. A resistance-1 ordinary ARROW present before a pressure epoch still dies.
-2. A distance-1 proposal created at tick 9 remains live through pressure at
-   tick 10, attempts its scheduled traversal, and then loses protection.
-3. A proposal whose first traversal cannot execute loses protection after that
-   attempt and can die under the next ordinary pressure epoch.
+2. A distance-1 proposal created and traversed at tick 9 remains live through
+   pressure at tick 10, resolves its scheduled effect, and then loses
+   protection.
+3. A proposal whose first scheduled effect cannot be delivered loses
+   protection after that resolution and can die under the next ordinary
+   pressure epoch.
 4. No proposal may receive modulation before actual traversal.
 5. Reference and production mechanics must serialize the same physical state
    and produce the same physical history.
