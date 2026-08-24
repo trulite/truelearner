@@ -21,7 +21,7 @@ const LOCAL_VARIATION_RADIUS: i32 = 2;
 const COUPLING_PLASTICITY_CEILING: u32 = 16;
 const DEFAULT_CELL_CAPACITY: u32 = 65_536;
 const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
-const CHECKPOINT_VERSION: u16 = 1;
+const CHECKPOINT_VERSION: u16 = 2;
 const QUIESCENT_MAGIC: &[u8; 8] = b"TLQUIE01";
 const LIVE_MAGIC: &[u8; 8] = b"TLLIVE01";
 const BOUNDARY_LIVE_MAGIC: &[u8; 8] = b"TLBNDY01";
@@ -191,6 +191,7 @@ struct Arrow {
     resistance: u32,
     live: bool,
     eligible_until: Option<i64>,
+    first_effect_due: Option<i64>,
     mode: TransmissionMode,
 }
 
@@ -470,6 +471,7 @@ struct CellRuntime {
 struct ArrowRuntime {
     id: ArrowId,
     eligible_until: Option<i64>,
+    first_effect_due: Option<i64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -590,6 +592,7 @@ impl LiveCheckpoint {
         for arrow in &arrows {
             checkpoint_put_u64(&mut payload, arrow.id.0);
             checkpoint_put_optional_tick(&mut payload, arrow.eligible_until);
+            checkpoint_put_optional_tick(&mut payload, arrow.first_effect_due);
         }
         for spike in &pending {
             encode_spike(&mut payload, spike);
@@ -676,6 +679,7 @@ impl LiveCheckpoint {
             arrows.push(ArrowRuntime {
                 id: ArrowId(transient.u64()?),
                 eligible_until: transient.optional_tick()?,
+                first_effect_due: transient.optional_tick()?,
             });
         }
         let mut pending = Vec::with_capacity(pending_count);
@@ -1198,6 +1202,7 @@ impl PlasticSubstrate {
             resistance: spec.resistance,
             live: spec.resistance > 0,
             eligible_until: None,
+            first_effect_due: None,
             mode: spec.mode,
         };
         if slot.0 < self.arrows.len() {
@@ -1414,6 +1419,7 @@ impl PlasticSubstrate {
                 resistance: durable.resistance,
                 live: durable.live,
                 eligible_until: None,
+                first_effect_due: None,
                 mode,
             });
             substrate.outgoing_index[durable.from.id.0 as usize].push(durable.id);
@@ -1440,7 +1446,9 @@ impl PlasticSubstrate {
                 .arrows
                 .values()
                 .iter()
-                .all(|arrow| arrow.eligible_until.is_none());
+                .all(|arrow| {
+                    arrow.eligible_until.is_none() && arrow.first_effect_due.is_none()
+                });
         if !transiently_quiet {
             return Err(CheckpointError::NotQuiescent);
         }
@@ -1503,6 +1511,7 @@ impl PlasticSubstrate {
                 .map(|arrow| ArrowRuntime {
                     id: arrow.id,
                     eligible_until: arrow.eligible_until,
+                    first_effect_due: arrow.first_effect_due,
                 })
                 .collect(),
             pending,
@@ -1538,7 +1547,8 @@ impl PlasticSubstrate {
                 .arrow_slot(runtime.id)
                 .ok_or(CheckpointError::MissingArrow(runtime.id))?;
             substrate.arrows.with_mut(slot.0, |arrow| {
-                arrow.eligible_until = runtime.eligible_until
+                arrow.eligible_until = runtime.eligible_until;
+                arrow.first_effect_due = runtime.first_effect_due;
             });
         }
         substrate.pending = PendingSchedule::from_canonical(
@@ -1660,7 +1670,17 @@ impl PlasticSubstrate {
                     let Some(arrow_slot) = self.arrow_slot(arrow_id) else {
                         continue;
                     };
-                    let arrow = self.arrows.get(arrow_slot.0);
+                    let current_tick = self.tick;
+                    let arrow = self.arrows.with_mut(arrow_slot.0, |arrow| {
+                        if arrow.generation == generation
+                            && arrow
+                                .first_effect_due
+                                .is_some_and(|due| current_tick >= due)
+                        {
+                            arrow.first_effect_due = None;
+                        }
+                        arrow.clone()
+                    });
                     execution_cost.touch::<Arrow>(1);
                     if !arrow.live || arrow.generation != generation {
                         continue;
@@ -1973,7 +1993,9 @@ impl PlasticSubstrate {
                         return (false, false);
                     }
                     let was_live = arrow.live;
-                    pressure_arrow(arrow, amount);
+                    if !arrow.first_effect_due.is_some_and(|due| tick <= due) {
+                        pressure_arrow(arrow, amount);
+                    }
                     work.total = work.total.saturating_add(1);
                     (was_live && !arrow.live, arrow.delay == 0)
                 });
@@ -2100,11 +2122,13 @@ impl PlasticSubstrate {
                 mode: TransmissionMode::Drive,
             });
             let slot = self.arrow_slot(id).unwrap();
+            let first_effect_due = self.tick.saturating_add(i64::from(distance.max(1)));
             self.arrows.with_mut(slot.0, |arrow| {
                 if arrow.generation == Generation(1) {
                     arrow.generation =
                         Generation(u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2));
                 }
+                arrow.first_effect_due = Some(first_effect_due);
             });
             work.total = work.total.saturating_add(1);
             work.local_structural_proposals = work.local_structural_proposals.saturating_add(1);
@@ -2295,6 +2319,7 @@ fn pressure_arrow(arrow: &mut Arrow, amount: u32) {
         arrow.live = false;
         arrow.generation = Generation(arrow.generation.0.wrapping_add(1));
         arrow.eligible_until = None;
+        arrow.first_effect_due = None;
     }
 }
 
@@ -2951,6 +2976,102 @@ mod tests {
         let restored_result = restored.propagate();
         let substrate_result = substrate.propagate();
         assert_physical_equivalence(&substrate, &substrate_result, &restored, &restored_result);
+    }
+
+    #[test]
+    fn newborn_proposal_survives_pressure_through_its_first_effect() {
+        let mut substrate = PlasticSubstrate::with_capacity(ArenaId(43), 4, 4);
+        let source = substrate.add_cell(CellSpec {
+            physical_id: 1,
+            position: 0,
+            region: 0,
+            threshold: 1,
+            resistance: 10,
+        });
+        substrate.add_cell(CellSpec {
+            physical_id: 2,
+            position: 1,
+            region: 0,
+            threshold: 1,
+            resistance: 10,
+        });
+        substrate.advance_time(9);
+
+        let result = substrate.arrive(&[input(source, 9)], 1);
+        assert_eq!(result.work.local_structural_proposals, 1);
+        assert_eq!(result.work.physical_deallocations, 0);
+        assert_eq!(substrate.clock().tick, 10);
+        let proposal = substrate.arrows.get(0);
+        assert!(proposal.live);
+        assert_eq!(proposal.resistance, 1);
+        assert_eq!(proposal.first_effect_due, None);
+    }
+
+    #[test]
+    fn first_effect_resolution_ends_protection_even_when_target_is_stale() {
+        let (mut substrate, _, target, arrow) = substrate(1);
+        let arrow_slot = substrate.arrow_slot(arrow).unwrap();
+        let generation = substrate.arrows.get(arrow_slot.0).generation;
+        substrate.arrows.with_mut(arrow_slot.0, |arrow| {
+            arrow.first_effect_due = Some(10);
+        });
+        let serial = substrate.next_serial;
+        substrate.pending.push(Spike {
+            arrival_tick: 10,
+            phase: 0,
+            origin_physical: 900,
+            target,
+            target_generation: Generation(99),
+            impulse: 1,
+            serial,
+            arrow: Some((arrow, generation)),
+        });
+        substrate.next_serial = substrate.next_serial.saturating_add(1);
+
+        let result = substrate.propagate();
+        assert_eq!(result.work.physical_deallocations, 0);
+        assert_eq!(substrate.arrows.get(arrow_slot.0).first_effect_due, None);
+        assert!(substrate.arrows.get(arrow_slot.0).live);
+        substrate.advance_time(20);
+        assert!(!substrate.arrows.get(arrow_slot.0).live);
+    }
+
+    #[test]
+    fn newborn_protection_is_not_modulatory_eligibility_and_checkpoints_exactly() {
+        let (mut substrate, source, _, arrow) = substrate(4);
+        let return_cell = substrate.add_cell(CellSpec {
+            physical_id: 901,
+            position: 100,
+            region: 0,
+            threshold: 1,
+            resistance: 10,
+        });
+        substrate.add_arrow(ArrowSpec {
+            from: return_cell,
+            to: source,
+            delay: 0,
+            phase: 0,
+            coupling: 1,
+            resistance: 50,
+            mode: TransmissionMode::Modulatory,
+        });
+        let arrow_slot = substrate.arrow_slot(arrow).unwrap();
+        substrate.arrows.with_mut(arrow_slot.0, |arrow| {
+            arrow.first_effect_due = Some(10);
+        });
+        substrate.enter(input(return_cell, 5));
+
+        let checkpoint = substrate.live_checkpoint(812).unwrap();
+        let bytes = checkpoint.canonical_bytes().unwrap();
+        let decoded = LiveCheckpoint::decode(&bytes).unwrap();
+        assert_eq!(decoded.canonical_bytes().unwrap(), bytes);
+        let mut restored = PlasticSubstrate::from_live_checkpoint(decoded).unwrap();
+        assert_eq!(restored, substrate);
+
+        let result = restored.propagate();
+        assert_eq!(result.work.local_return_updates, 0);
+        let restored_slot = restored.arrow_slot(arrow).unwrap();
+        assert_eq!(restored.arrows.get(restored_slot.0).resistance, 4);
     }
 
     #[test]
