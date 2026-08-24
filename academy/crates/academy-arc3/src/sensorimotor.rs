@@ -352,7 +352,7 @@ impl Arc3Sensorimotor {
             pressure_phase: self.boundary.substrate().clock().pressure_phase(),
             previous_context: self.previous_context,
             previous_motor: self.previous_motor,
-            resident_bytes: self.boundary.substrate().resident_bytes(),
+            resident_bytes: self.boundary.substrate().canonical_body_bytes(0)?.len(),
         })
     }
 
@@ -470,7 +470,7 @@ fn build_body(seed: u64) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorErr
             2,
         ))
     });
-    let outputs = std::array::from_fn(|motor| {
+    let outputs: [CellId; MOTORS] = std::array::from_fn(|motor| {
         body.add_cell(cell(
             OUTPUT_PHYSICAL_BASE + motor as u64,
             70_000 + motor as i32 * 20,

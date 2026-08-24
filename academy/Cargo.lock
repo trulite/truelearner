@@ -7,8 +7,11 @@ name = "academy-arc3"
 version = "0.1.0"
 dependencies = [
  "academy-core",
+ "academy-episodes",
  "serde",
  "serde_json",
+ "truelearner-arena-format",
+ "truelearner-core",
 ]
 
 [[package]]
