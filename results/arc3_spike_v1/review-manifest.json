@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "game_id": "ls20",
+  "toolkit_revision": "arcprize/ARC-AGI@f12822c4d550121c35a275008d964afbbed47d2f",
+  "seed": 205,
+  "observations": 13,
+  "actions": 12,
+  "final_state": "NOT_FINISHED",
+  "levels_completed": 0,
+  "win_levels": 7,
+  "recording_file": "recording.jsonl",
+  "video_file": "episode.mp4",
+  "poster_file": "poster.png",
+  "organism_admission": false
+}

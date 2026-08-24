@@ -52,6 +52,14 @@ academy-storage -> AWS S3
 Storage configuration and its object contract are documented in
 [`docs/s3_storage_v1.md`](docs/s3_storage_v1.md).
 
+## ARC-AGI-3 compatibility
+
+The first external-world adapter lives in `academy-arc3`. It normalizes the
+official 64×64, sixteen-color, turn-based ARC-AGI-3 boundary into recorded
+Academy evidence and renders review videos. ARC game/action/score semantics stay
+outside TrueLearner. See the [protocol](docs/arc3_compatibility_protocol_v1.md)
+and [first live result](docs/arc3_compatibility_result_v1.md).
+
 ## Linux development prerequisites
 
 The E2B desktop smoke uses Xvfb and the native WebKit/GTK packages required by
