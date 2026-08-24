@@ -588,7 +588,7 @@ fn CapabilityDetail(capability: Capability) -> Element {
             if !capability.prerequisites.is_empty() {
                 div { class: "prerequisites",
                     strong { "Prerequisites" }
-                    span { "{capability.prerequisites.join(" · ")}" }
+                    span { {capability.prerequisites.join(" · ")} }
                 }
             }
             dl { class: "evidence-table",
@@ -596,7 +596,7 @@ fn CapabilityDetail(capability: Capability) -> Element {
                 div { dt { "Fresh probes" } dd { "{evidence.fresh_passes} / {evidence.fresh_attempts}" } }
                 div { dt { "Transfer probes" } dd { "{evidence.transfer_passes} / {evidence.transfer_attempts}" } }
                 div { dt { "Retention probes" } dd { "{evidence.retention_passes} / {evidence.retention_attempts}" } }
-                div { dt { "Median successful work" } dd { "{evidence.median_work().map_or("—".to_string(), |value| value.to_string())}" } }
+                div { dt { "Median successful work" } dd { {evidence.median_work().map_or("—".to_string(), |value| value.to_string())} } }
             }
         }
     }

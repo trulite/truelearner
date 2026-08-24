@@ -11,11 +11,11 @@ use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::thread::{self, JoinHandle};
+use truelearner_arena_format::FormatError;
 use truelearner_core::{
     ArenaId, ArrowSpec, BoundaryError, BoundaryLiveCheckpoint, BoundaryRuntime, CellId, CellSpec,
     ContentHash, Crossing, MechanicalConfig, ResidentArenaId, SpikeInput, TransmissionMode,
 };
-use truelearner_arena_format::FormatError;
 
 pub const SURFACE_WIDTH: u32 = 640;
 pub const SURFACE_HEIGHT: u32 = 360;
@@ -75,7 +75,8 @@ impl VisualSurface {
     }
 
     pub fn from_encoded_image(bytes: &[u8]) -> Result<Self, SurfaceError> {
-        let decoded = image::load_from_memory(bytes).map_err(|error| SurfaceError::Decode(error.to_string()))?;
+        let decoded = image::load_from_memory(bytes)
+            .map_err(|error| SurfaceError::Decode(error.to_string()))?;
         Ok(Self::from_dynamic(decoded))
     }
 
@@ -143,7 +144,8 @@ impl VisualSurface {
         if x >= self.width || y >= self.height {
             return;
         }
-        let index = (usize::try_from(y).unwrap_or(usize::MAX)
+        let index = (usize::try_from(y)
+            .unwrap_or(usize::MAX)
             .saturating_mul(usize::try_from(self.width).unwrap_or(usize::MAX))
             .saturating_add(usize::try_from(x).unwrap_or(usize::MAX)))
         .saturating_mul(4);
@@ -312,20 +314,90 @@ pub struct CapabilityGraph {
 impl Default for CapabilityGraph {
     fn default() -> Self {
         let definitions = [
-            ("interaction-response", "Interaction / response", "Produces a physical outward response to admitted activity.", &[][..]),
-            ("copy-symbol", "Copy simple symbol", "Returns a freshly presented simple symbol.", &["interaction-response"][..]),
-            ("distinguish-symbols", "Distinguish two symbols", "Responds differently to physically different symbols.", &["copy-symbol"][..]),
-            ("repeat-sequence", "Repeat short sequence", "Preserves order across a short physical sequence.", &["copy-symbol"][..]),
-            ("novel-binding", "Novel symbol binding", "Acquires a new physical symbol-to-symbol regularity.", &["distinguish-symbols"][..]),
-            ("retrieve-binding", "Retrieve binding", "Reuses a previously acquired binding.", &["novel-binding"][..]),
-            ("reverse-binding", "Reverse binding", "Uses a learned relation in the opposite direction.", &["retrieve-binding"][..]),
-            ("delayed-binding", "Delayed binding", "Retains a binding across intervening experience.", &["retrieve-binding"][..]),
-            ("replace-binding", "Replace binding", "Lets changed experience replace an old relation.", &["delayed-binding"][..]),
-            ("sequence-continuation", "Sequence continuation", "Continues a short repeated physical pattern.", &["repeat-sequence"][..]),
-            ("visual-difference", "Visual difference", "Responds to a changed raster surface.", &["interaction-response"][..]),
-            ("visual-symbol", "Visual ↔ symbol binding", "Binds a raster regularity to a physical symbol.", &["visual-difference", "novel-binding"][..]),
-            ("short-recall", "Short conversational recall", "Reuses relevant recent physical interaction.", &["delayed-binding"][..]),
-            ("composition", "Recursive composition", "Treats a matured organization as an ordinary participant.", &["sequence-continuation", "visual-symbol"][..]),
+            (
+                "interaction-response",
+                "Interaction / response",
+                "Produces a physical outward response to admitted activity.",
+                &[][..],
+            ),
+            (
+                "copy-symbol",
+                "Copy simple symbol",
+                "Returns a freshly presented simple symbol.",
+                &["interaction-response"][..],
+            ),
+            (
+                "distinguish-symbols",
+                "Distinguish two symbols",
+                "Responds differently to physically different symbols.",
+                &["copy-symbol"][..],
+            ),
+            (
+                "repeat-sequence",
+                "Repeat short sequence",
+                "Preserves order across a short physical sequence.",
+                &["copy-symbol"][..],
+            ),
+            (
+                "novel-binding",
+                "Novel symbol binding",
+                "Acquires a new physical symbol-to-symbol regularity.",
+                &["distinguish-symbols"][..],
+            ),
+            (
+                "retrieve-binding",
+                "Retrieve binding",
+                "Reuses a previously acquired binding.",
+                &["novel-binding"][..],
+            ),
+            (
+                "reverse-binding",
+                "Reverse binding",
+                "Uses a learned relation in the opposite direction.",
+                &["retrieve-binding"][..],
+            ),
+            (
+                "delayed-binding",
+                "Delayed binding",
+                "Retains a binding across intervening experience.",
+                &["retrieve-binding"][..],
+            ),
+            (
+                "replace-binding",
+                "Replace binding",
+                "Lets changed experience replace an old relation.",
+                &["delayed-binding"][..],
+            ),
+            (
+                "sequence-continuation",
+                "Sequence continuation",
+                "Continues a short repeated physical pattern.",
+                &["repeat-sequence"][..],
+            ),
+            (
+                "visual-difference",
+                "Visual difference",
+                "Responds to a changed raster surface.",
+                &["interaction-response"][..],
+            ),
+            (
+                "visual-symbol",
+                "Visual ↔ symbol binding",
+                "Binds a raster regularity to a physical symbol.",
+                &["visual-difference", "novel-binding"][..],
+            ),
+            (
+                "short-recall",
+                "Short conversational recall",
+                "Reuses relevant recent physical interaction.",
+                &["delayed-binding"][..],
+            ),
+            (
+                "composition",
+                "Recursive composition",
+                "Treats a matured organization as an ordinary participant.",
+                &["sequence-continuation", "visual-symbol"][..],
+            ),
         ];
         let capabilities = definitions
             .into_iter()
@@ -336,7 +408,10 @@ impl Default for CapabilityGraph {
                         id: id.to_string(),
                         title: title.to_string(),
                         description: description.to_string(),
-                        prerequisites: prerequisites.iter().map(|item| (*item).to_string()).collect(),
+                        prerequisites: prerequisites
+                            .iter()
+                            .map(|item| (*item).to_string())
+                            .collect(),
                         status: CapabilityStatus::Unknown,
                         evidence: EvidenceTotals::default(),
                     },
@@ -363,24 +438,31 @@ impl CapabilityGraph {
             };
             match mode {
                 ExperienceMode::Teach => {
-                    capability.evidence.teach_experiences = capability.evidence.teach_experiences.saturating_add(1);
+                    capability.evidence.teach_experiences =
+                        capability.evidence.teach_experiences.saturating_add(1);
                 }
                 ExperienceMode::Probe => {
-                    capability.evidence.fresh_attempts = capability.evidence.fresh_attempts.saturating_add(1);
+                    capability.evidence.fresh_attempts =
+                        capability.evidence.fresh_attempts.saturating_add(1);
                     if passed {
-                        capability.evidence.fresh_passes = capability.evidence.fresh_passes.saturating_add(1);
+                        capability.evidence.fresh_passes =
+                            capability.evidence.fresh_passes.saturating_add(1);
                     }
                 }
                 ExperienceMode::Transfer => {
-                    capability.evidence.transfer_attempts = capability.evidence.transfer_attempts.saturating_add(1);
+                    capability.evidence.transfer_attempts =
+                        capability.evidence.transfer_attempts.saturating_add(1);
                     if passed {
-                        capability.evidence.transfer_passes = capability.evidence.transfer_passes.saturating_add(1);
+                        capability.evidence.transfer_passes =
+                            capability.evidence.transfer_passes.saturating_add(1);
                     }
                 }
                 ExperienceMode::Retention => {
-                    capability.evidence.retention_attempts = capability.evidence.retention_attempts.saturating_add(1);
+                    capability.evidence.retention_attempts =
+                        capability.evidence.retention_attempts.saturating_add(1);
                     if passed {
-                        capability.evidence.retention_passes = capability.evidence.retention_passes.saturating_add(1);
+                        capability.evidence.retention_passes =
+                            capability.evidence.retention_passes.saturating_add(1);
                     }
                 }
             }
@@ -394,14 +476,26 @@ impl CapabilityGraph {
     pub fn stable_count(&self) -> usize {
         self.capabilities
             .values()
-            .filter(|capability| matches!(capability.status, CapabilityStatus::Stable | CapabilityStatus::Automatic))
+            .filter(|capability| {
+                matches!(
+                    capability.status,
+                    CapabilityStatus::Stable | CapabilityStatus::Automatic
+                )
+            })
             .count()
     }
 
     pub fn frontier_count(&self) -> usize {
         self.capabilities
             .values()
-            .filter(|capability| matches!(capability.status, CapabilityStatus::Emerging | CapabilityStatus::Acquired | CapabilityStatus::General))
+            .filter(|capability| {
+                matches!(
+                    capability.status,
+                    CapabilityStatus::Emerging
+                        | CapabilityStatus::Acquired
+                        | CapabilityStatus::General
+                )
+            })
             .count()
     }
 }
@@ -613,10 +707,16 @@ impl AcademySession {
         })
     }
 
-    pub fn interact(&mut self, request: InteractionRequest) -> Result<(ExperienceRecord, VisualSurface), AcademyError> {
+    pub fn interact(
+        &mut self,
+        request: InteractionRequest,
+    ) -> Result<(ExperienceRecord, VisualSurface), AcademyError> {
         let clock_start = self.boundary.substrate().clock().tick;
         let body_before = self.body_fingerprint()?;
-        let checkpoint = self.boundary.live_checkpoint(self.body_version)?.canonical_bytes()?;
+        let checkpoint = self
+            .boundary
+            .live_checkpoint(self.body_version)?
+            .canonical_bytes()?;
         let spikes = self.physical_inputs(&request.input, clock_start.saturating_add(1));
         if spikes.is_empty() {
             return Err(AcademyError::EmptyPhysicalInput);
@@ -640,9 +740,10 @@ impl AcademySession {
         if body_after != body_before {
             self.body_version = self.body_version.saturating_add(1);
         }
-        let probe_passed = request.expected_text.as_ref().map(|expected| {
-            normalize_text(expected) == normalize_text(&organism_text)
-        });
+        let probe_passed = request
+            .expected_text
+            .as_ref()
+            .map(|expected| normalize_text(expected) == normalize_text(&organism_text));
         let record = ExperienceRecord {
             id: self.experience_sequence,
             mode: request.mode,
@@ -671,7 +772,9 @@ impl AcademySession {
             probe_passed.unwrap_or(false),
             result.work.total(),
         );
-        self.crossing_total = self.crossing_total.saturating_add(result.crossings.len() as u64);
+        self.crossing_total = self
+            .crossing_total
+            .saturating_add(result.crossings.len() as u64);
         self.work_total = self.work_total.saturating_add(result.work.total());
         self.last_run_bytes = result.resident_bytes;
         self.last_run_work = result.work.total();
@@ -695,12 +798,19 @@ impl AcademySession {
     }
 
     pub fn save_checkpoint(&mut self) -> Result<u64, AcademyError> {
-        self.saved_checkpoint = Some(self.boundary.live_checkpoint(self.body_version)?.canonical_bytes()?);
+        self.saved_checkpoint = Some(
+            self.boundary
+                .live_checkpoint(self.body_version)?
+                .canonical_bytes()?,
+        );
         Ok(self.body_version)
     }
 
     pub fn restore_checkpoint(&mut self) -> Result<u64, AcademyError> {
-        let bytes = self.saved_checkpoint.clone().ok_or(AcademyError::NoCheckpoint)?;
+        let bytes = self
+            .saved_checkpoint
+            .clone()
+            .ok_or(AcademyError::NoCheckpoint)?;
         self.boundary = restore_boundary(&bytes, &self.placements)?;
         self.body_version = self.body_version.saturating_add(1);
         self.replay_exact = None;
@@ -841,18 +951,23 @@ impl AcademyWorker {
             .spawn(move || {
                 send_event(
                     &event_sender,
-                    session.snapshot().map(|snapshot| AcademyEvent::Ready(Box::new(snapshot))),
+                    session
+                        .snapshot()
+                        .map(|snapshot| AcademyEvent::Ready(Box::new(snapshot))),
                 );
                 while let Ok(command) = command_receiver.recv() {
                     match command {
                         AcademyCommand::Interact(request) => {
-                            let event = session.interact(request).and_then(|(record, organism_surface)| {
-                                Ok(AcademyEvent::Completed {
-                                    record: Box::new(record),
-                                    organism_surface: Box::new(organism_surface),
-                                    snapshot: Box::new(session.snapshot()?),
-                                })
-                            });
+                            let event =
+                                session
+                                    .interact(request)
+                                    .and_then(|(record, organism_surface)| {
+                                        Ok(AcademyEvent::Completed {
+                                            record: Box::new(record),
+                                            organism_surface: Box::new(organism_surface),
+                                            snapshot: Box::new(session.snapshot()?),
+                                        })
+                                    });
                             send_event(&event_sender, event);
                         }
                         AcademyCommand::SaveCheckpoint => {
@@ -895,10 +1010,12 @@ impl AcademyWorker {
     }
 
     pub fn try_command(&self, command: AcademyCommand) -> Result<(), WorkerBackpressure> {
-        self.commands.try_send(command).map_err(|error| match error {
-            TrySendError::Full(_) => WorkerBackpressure::Full,
-            TrySendError::Disconnected(_) => WorkerBackpressure::Disconnected,
-        })
+        self.commands
+            .try_send(command)
+            .map_err(|error| match error {
+                TrySendError::Full(_) => WorkerBackpressure::Full,
+                TrySendError::Disconnected(_) => WorkerBackpressure::Disconnected,
+            })
     }
 
     pub fn try_event(&self) -> Result<Option<AcademyEvent>, WorkerBackpressure> {
@@ -928,7 +1045,10 @@ pub enum WorkerBackpressure {
 impl fmt::Display for WorkerBackpressure {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Full => write!(formatter, "Academy worker queue is full; wait for the current physical run"),
+            Self::Full => write!(
+                formatter,
+                "Academy worker queue is full; wait for the current physical run"
+            ),
             Self::Disconnected => write!(formatter, "Academy worker is unavailable"),
         }
     }
@@ -953,7 +1073,10 @@ impl fmt::Display for AcademyError {
             Self::Format(error) => write!(formatter, "body format error: {error:?}"),
             Self::EmptyPhysicalInput => write!(formatter, "the admitted physical input was empty"),
             Self::NoCheckpoint => write!(formatter, "no saved body checkpoint is available"),
-            Self::NoReplay => write!(formatter, "no completed physical interaction is available to replay"),
+            Self::NoReplay => write!(
+                formatter,
+                "no completed physical interaction is available to replay"
+            ),
             Self::Worker(message) => write!(formatter, "worker error: {message}"),
         }
     }
@@ -1032,11 +1155,15 @@ fn starter_body() -> Result<(BoundaryRuntime, Vec<CellId>, Vec<ResidentArenaId>)
         .map(|index| ResidentArenaId(u32::try_from(index % 8).unwrap_or(0)))
         .collect::<Vec<_>>();
     substrate.repartition_resident(&placements);
-    let boundary = BoundaryRuntime::new(substrate, OUTWARD_REGION, INPUT_CAPACITY, OUTPUT_CAPACITY)?;
+    let boundary =
+        BoundaryRuntime::new(substrate, OUTWARD_REGION, INPUT_CAPACITY, OUTPUT_CAPACITY)?;
     Ok((boundary, sensors, placements))
 }
 
-fn restore_boundary(bytes: &[u8], placements: &[ResidentArenaId]) -> Result<BoundaryRuntime, AcademyError> {
+fn restore_boundary(
+    bytes: &[u8],
+    placements: &[ResidentArenaId],
+) -> Result<BoundaryRuntime, AcademyError> {
     let checkpoint = BoundaryLiveCheckpoint::decode(bytes)?;
     let mut boundary = BoundaryRuntime::from_live_checkpoint(checkpoint)?;
     boundary.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
@@ -1052,7 +1179,10 @@ fn fingerprint_body(boundary: &BoundaryRuntime, _version: u64) -> Result<String,
 }
 
 fn short_hash(hash: &[u8; 32]) -> String {
-    hash.iter().take(8).map(|byte| format!("{byte:02x}")).collect()
+    hash.iter()
+        .take(8)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn normalize_text(text: &str) -> String {
@@ -1080,7 +1210,8 @@ fn sample_surface(surface: &VisualSurface) -> Vec<u8> {
     while y < surface.height && samples.len() < 144 {
         let mut x = x_step / 2;
         while x < surface.width && samples.len() < 144 {
-            let offset = (usize::try_from(y).unwrap_or(0)
+            let offset = (usize::try_from(y)
+                .unwrap_or(0)
                 .saturating_mul(usize::try_from(surface.width).unwrap_or(0))
                 .saturating_add(usize::try_from(x).unwrap_or(0)))
             .saturating_mul(4);
@@ -1175,7 +1306,10 @@ mod tests {
         let mut second = VisualSurface::blank();
         second.draw_line((4, 7), (311, 203), [12, 34, 56, 255], 2);
         assert_eq!(first, second);
-        assert_eq!(first.rgba_pixels().len(), (SURFACE_WIDTH * SURFACE_HEIGHT * 4) as usize);
+        assert_eq!(
+            first.rgba_pixels().len(),
+            (SURFACE_WIDTH * SURFACE_HEIGHT * 4) as usize
+        );
         assert!(!first.png_bytes().unwrap().is_empty());
     }
 
@@ -1184,12 +1318,21 @@ mod tests {
         let mut graph = CapabilityGraph::default();
         let ids = vec!["copy-symbol".to_string()];
         graph.record(&ids, ExperienceMode::Teach, false, 100);
-        assert_eq!(graph.capability("copy-symbol").unwrap().status, CapabilityStatus::Emerging);
+        assert_eq!(
+            graph.capability("copy-symbol").unwrap().status,
+            CapabilityStatus::Emerging
+        );
         graph.record(&ids, ExperienceMode::Probe, true, 80);
         graph.record(&ids, ExperienceMode::Probe, true, 60);
-        assert_eq!(graph.capability("copy-symbol").unwrap().status, CapabilityStatus::Acquired);
+        assert_eq!(
+            graph.capability("copy-symbol").unwrap().status,
+            CapabilityStatus::Acquired
+        );
         graph.record(&ids, ExperienceMode::Retention, true, 40);
-        assert_eq!(graph.capability("copy-symbol").unwrap().status, CapabilityStatus::Stable);
+        assert_eq!(
+            graph.capability("copy-symbol").unwrap().status,
+            CapabilityStatus::Stable
+        );
     }
 
     #[test]
@@ -1198,7 +1341,10 @@ mod tests {
         let request = InteractionRequest {
             mode: ExperienceMode::Probe,
             input: PhysicalInput::Text("dax".to_string()),
-            capability_ids: vec!["interaction-response".to_string(), "copy-symbol".to_string()],
+            capability_ids: vec![
+                "interaction-response".to_string(),
+                "copy-symbol".to_string(),
+            ],
             expected_text: Some("dax".to_string()),
             academy_note: "fresh probe".to_string(),
         };
@@ -1216,7 +1362,10 @@ mod tests {
         let saved = session.save_checkpoint().unwrap();
         let restored = session.restore_checkpoint().unwrap();
         assert!(restored > saved);
-        assert_eq!(session.boundary.substrate().mechanical_config(), MechanicalConfig::PRODUCTION);
+        assert_eq!(
+            session.boundary.substrate().mechanical_config(),
+            MechanicalConfig::PRODUCTION
+        );
         assert_eq!(session.boundary.substrate().resident_arena_count(), 8);
     }
 
