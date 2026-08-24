@@ -35,6 +35,15 @@ if [ ! -f "$manifest" ]; then
     exit 1
 fi
 
+if command -v rg >/dev/null 2>&1; then
+    search_backend=rg
+elif command -v grep >/dev/null 2>&1; then
+    search_backend=grep
+else
+    echo "PX-C audit requires rg or grep" >&2
+    exit 1
+fi
+
 while IFS=, read -r layer path surface; do
     if [ "$layer" = "layer" ]; then
         continue
@@ -56,6 +65,28 @@ csv_quote() {
     printf '%s' "$1" | sed 's/"/""/g'
 }
 
+search_file() {
+    pattern=$1
+    path=$2
+    output=
+    status=0
+
+    if [ "$search_backend" = rg ]; then
+        output=$(rg -n -o --no-heading --color never -e "$pattern" "$path" 2>/dev/null) \
+            || status=$?
+    else
+        output=$(grep -Eno -e "$pattern" "$path" 2>/dev/null) || status=$?
+    fi
+
+    if [ "$status" -gt 1 ]; then
+        echo "PX-C search failed: backend=$search_backend path=$path category-pattern=$pattern" >&2
+        return "$status"
+    fi
+    if [ -n "$output" ]; then
+        printf '%s\n' "$output"
+    fi
+}
+
 scan_category() {
     category=$1
     pattern=$2
@@ -64,15 +95,19 @@ scan_category() {
         if [ "$layer" = "layer" ]; then
             continue
         fi
-        rg -n -o --no-heading --color never -e "$pattern" "$path" 2>/dev/null \
-            | while IFS=: read -r line match; do
+        if ! matches=$(search_file "$pattern" "$path"); then
+            exit 1
+        fi
+        if [ -n "$matches" ]; then
+            printf '%s\n' "$matches" | while IFS=: read -r line match; do
                 q_category=$(csv_quote "$category")
                 q_layer=$(csv_quote "$layer")
                 q_path=$(csv_quote "$path")
                 q_match=$(csv_quote "$match")
                 printf '"%s","%s","%s",%s,"%s"\n' \
                     "$q_category" "$q_layer" "$q_path" "$line" "$q_match" >> "$raw"
-            done || true
+            done
+        fi
     done < "$manifest"
 }
 
@@ -92,10 +127,8 @@ scan_category typed_layer_handoff '\b(FROZEN_[A-Z0-9_]*HANDOFF[A-Z0-9_]*|frozen_
 
 count_category() {
     category=$1
-    count=$(rg -c "^\"$category\"," "$inventory" 2>/dev/null || true)
-    if [ -z "$count" ]; then
-        count=0
-    fi
+    count=$(awk -F, -v key="\"$category\"" \
+        '$1 == key { count += 1 } END { print count + 0 }' "$inventory")
     printf '%s' "$count"
 }
 
@@ -155,4 +188,5 @@ fi
 
 printf 'PX-C seam audit: total=%s unique_lines=%s manifest=%s\n' \
     "$total" "$unique_lines" "$manifest_hash"
+printf 'search_backend=%s\n' "$search_backend"
 cat "$summary"
