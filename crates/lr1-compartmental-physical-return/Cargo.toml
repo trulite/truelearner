@@ -1,0 +1,8 @@
+[package]
+name = "lr1-compartmental-physical-return"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "LR1 Arm B compartmental-return successor to PX0 plastic physics"
+
+[dependencies]
