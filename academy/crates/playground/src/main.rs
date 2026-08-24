@@ -490,7 +490,7 @@ fn App() -> Element {
                 textarea {
                     value: "{composer}",
                     placeholder: if model.read().mode == ExperienceMode::Teach {
-                        "Name a generated teaching case…"
+                        "Name a little learner, e.g. Momo…"
                     } else {
                         "Run a fresh held-out probe"
                     },
@@ -559,7 +559,7 @@ fn App() -> Element {
                                                 A1ExperienceKind::Probe(_) => "Probe",
                                             }}
                                         }
-                                        strong { "{record.case_id}" }
+                                        strong { "{record.display_name}" }
                                         if record.replay_exact == Some(true) {
                                             span { class: "probe-result pass", "Exact" }
                                         }
@@ -768,8 +768,8 @@ fn apply_worker_event(
         AcademyEvent::TeachingCaseReady { case, snapshot } => {
             update_snapshot(model, *snapshot);
             let mut state = model.write();
-            state.status = "Teaching case ready".to_string();
-            state.replay_message = format!("{} · seed {}", case.id, case.seed);
+            state.status = format!("{} is ready", case.display_name);
+            state.replay_message = format!("creature + chime · seed {}", case.seed);
             state.busy = false;
         }
         AcademyEvent::A1Completed { record, snapshot } => {
@@ -786,18 +786,19 @@ fn apply_worker_event(
             organism_surface.set(record.organism_surface.clone());
             let (title, body) = match record.kind {
                 A1ExperienceKind::Teach => (
-                    "Teaching".to_string(),
+                    format!("Teaching {}", record.display_name),
                     format!(
-                        "Completed physical consequence loop · {} updates",
-                        record.observation.plasticity_updates
+                        "Met the chime twice · {} physical learning updates",
+                        record.observation.plasticity_updates,
                     ),
                 ),
                 A1ExperienceKind::Probe(family) => (
-                    "Fresh probe".to_string(),
-                    format!(
-                        "{family:?} · {} relation crossing(s) · no teaching",
-                        record.observation.outward_relation_crossings
-                    ),
+                    format!("Fresh probe for {}", record.display_name),
+                    if record.observation.outward_relation_crossings == 1 {
+                        format!("Remembered the chime and waved · {family:?} · no teaching")
+                    } else {
+                        format!("Stayed quiet · {family:?} · no teaching")
+                    },
                 ),
             };
             model.write().messages.push(Message {
@@ -925,7 +926,7 @@ fn update_snapshot(model: &mut Signal<UiModel>, snapshot: SessionSnapshot) {
 fn submit_text(worker: &Arc<Mutex<AcademyWorker>>, model: &mut Signal<UiModel>, text: &str) {
     let mode = model.read().mode;
     let command = if mode == ExperienceMode::Teach {
-        AcademyCommand::StartAndTeach(TeachingCase::generated_text(stable_seed(text)))
+        AcademyCommand::StartAndTeach(TeachingCase::named_creature(stable_seed(text), text))
     } else {
         AcademyCommand::ProbeActiveCase(A1ProbeFamily::LearnedRelation)
     };
@@ -933,7 +934,7 @@ fn submit_text(worker: &Arc<Mutex<AcademyWorker>>, model: &mut Signal<UiModel>, 
         speaker: Speaker::Human,
         title: "You".to_string(),
         body: if mode == ExperienceMode::Teach {
-            text.to_string()
+            format!("Teach {text} to wave when the chime appears")
         } else {
             "Run a fresh held-out relation probe".to_string()
         },

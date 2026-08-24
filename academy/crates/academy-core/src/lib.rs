@@ -193,6 +193,66 @@ impl VisualSurface {
         }
     }
 
+    pub fn fill_circle(&mut self, center: (u32, u32), radius: u32, rgba: [u8; 4]) {
+        let radius_squared = i64::from(radius).saturating_mul(i64::from(radius));
+        for offset_y in -(i64::from(radius))..=i64::from(radius) {
+            for offset_x in -(i64::from(radius))..=i64::from(radius) {
+                if offset_x.saturating_mul(offset_x) + offset_y.saturating_mul(offset_y)
+                    > radius_squared
+                {
+                    continue;
+                }
+                let x = i64::from(center.0) + offset_x;
+                let y = i64::from(center.1) + offset_y;
+                if x >= 0 && y >= 0 {
+                    self.set_pixel(x as u32, y as u32, rgba);
+                }
+            }
+        }
+    }
+
+    pub fn draw_text(
+        &mut self,
+        text: &str,
+        origin: (u32, u32),
+        scale: u32,
+        rgba: [u8; 4],
+    ) {
+        let scale = scale.max(1);
+        let mut x = origin.0;
+        let mut y = origin.1;
+        for character in text.chars().take(120) {
+            if character == '\n' {
+                x = origin.0;
+                y = y.saturating_add(10_u32.saturating_mul(scale));
+                continue;
+            }
+            if let Some(bitmap) = BASIC_FONTS.get(character) {
+                for (row, bits) in bitmap.iter().copied().enumerate() {
+                    for column in 0..8_u32 {
+                        if bits & (1 << column) == 0 {
+                            continue;
+                        }
+                        for pixel_y in 0..scale {
+                            for pixel_x in 0..scale {
+                                self.set_pixel(
+                                    x.saturating_add(column.saturating_mul(scale))
+                                        .saturating_add(pixel_x),
+                                    y.saturating_add(
+                                        u32::try_from(row).unwrap_or(0).saturating_mul(scale),
+                                    )
+                                    .saturating_add(pixel_y),
+                                    rgba,
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            x = x.saturating_add(9_u32.saturating_mul(scale));
+        }
+    }
+
     pub fn png_bytes(&self) -> Result<Vec<u8>, SurfaceError> {
         let mut bytes = Vec::new();
         PngEncoder::new(&mut bytes)

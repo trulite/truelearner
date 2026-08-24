@@ -30,6 +30,7 @@ pub enum A1ExperienceKind {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TeachingCase {
     pub id: String,
+    pub display_name: String,
     pub capability_id: String,
     pub seed: u64,
     pub left: PhysicalInput,
@@ -46,6 +47,7 @@ impl TeachingCase {
         let distractor = token_for_port(seed.rotate_left(23), 2);
         Self {
             id: format!("text-relation-{seed:016x}"),
+            display_name: generated_name(seed),
             capability_id: "novel-binding".to_string(),
             seed,
             left: PhysicalInput::Text(left),
@@ -59,6 +61,7 @@ impl TeachingCase {
     pub fn generated_raster(seed: u64) -> Self {
         Self {
             id: format!("raster-relation-{seed:016x}"),
+            display_name: generated_name(seed),
             capability_id: "visual-symbol".to_string(),
             seed,
             left: PhysicalInput::Raster(surface_for_port(seed, 0)),
@@ -67,6 +70,20 @@ impl TeachingCase {
             reflected: seed & 1 != 0,
             reverse_allocation: seed & 2 != 0,
         }
+    }
+
+    pub fn named_creature(seed: u64, name: &str) -> Self {
+        let mut case = Self::generated_raster(seed);
+        let normalized = name
+            .trim()
+            .chars()
+            .filter(|character| character.is_alphanumeric() || *character == '-' || *character == ' ')
+            .take(18)
+            .collect::<String>();
+        if !normalized.is_empty() {
+            case.display_name = normalized;
+        }
+        case
     }
 
     pub fn ports_are_distinct(&self) -> bool {
@@ -100,6 +117,7 @@ pub struct A1WorldObservation {
 pub struct A1Experience {
     pub id: String,
     pub case_id: String,
+    pub display_name: String,
     pub capability_id: String,
     pub seed: u64,
     pub kind: A1ExperienceKind,
@@ -368,6 +386,7 @@ impl GenuineTeachingLab {
         let experience = A1Experience {
             id: format!("{}-{:04}", self.case.id, self.sequence),
             case_id: self.case.id.clone(),
+            display_name: self.case.display_name.clone(),
             capability_id: self.case.capability_id.clone(),
             seed: self.case.seed,
             kind,
@@ -375,8 +394,12 @@ impl GenuineTeachingLab {
             checkpoint_after,
             admitted_inputs: inputs.into_iter().map(SpikeRecord::from).collect(),
             crossings,
-            organism_surface: relation_surface(&self.case, kind, false),
-            shared_world_surface: relation_surface(&self.case, kind, true),
+            organism_surface: organism_response_surface(
+                &self.case,
+                kind,
+                outward_relation_crossings,
+            ),
+            shared_world_surface: teaching_world_surface(&self.case, kind),
             observation,
             replay_exact: None,
         };
@@ -685,22 +708,111 @@ fn surface_for_port(seed: u64, port: usize) -> VisualSurface {
         .expect("a four-way physical raster port must be reachable")
 }
 
-fn relation_surface(case: &TeachingCase, kind: A1ExperienceKind, observer: bool) -> VisualSurface {
-    let background = if observer {
-        [31, 38, 45, 255]
-    } else {
-        [246, 244, 238, 255]
+fn generated_name(seed: u64) -> String {
+    const NAMES: [&str; 8] = ["Momo", "Luma", "Pip", "Bibi", "Toto", "Nunu", "Kiki", "Bobo"];
+    NAMES[usize::try_from(seed % NAMES.len() as u64).unwrap_or(0)].to_string()
+}
+
+fn teaching_world_surface(case: &TeachingCase, kind: A1ExperienceKind) -> VisualSurface {
+    let mut surface = VisualSurface::new(640, 360, [22, 31, 45, 255]);
+    for y in 0..360 {
+        let blue = 45_u8.saturating_add(u8::try_from(y / 12).unwrap_or(0));
+        surface.draw_line((0, y), (639, y), [22, 31, blue, 255], 0);
+    }
+    draw_creature(&mut surface, case.seed, (205, 190), false);
+    draw_chime(&mut surface, (450, 170));
+    surface.draw_text(
+        &case.display_name.to_uppercase(),
+        (54, 42),
+        3,
+        [246, 240, 221, 255],
+    );
+    let caption = match kind {
+        A1ExperienceKind::Teach => "MEET THE CHIME",
+        A1ExperienceKind::Probe(A1ProbeFamily::LearnedRelation) => "THE CHIME IS BACK",
+        A1ExperienceKind::Probe(_) => "A DIFFERENT CUE",
     };
-    let mut surface = VisualSurface::new(640, 360, background);
-    let color = match kind {
-        A1ExperienceKind::Teach => [91, 211, 165, 255],
-        A1ExperienceKind::Probe(A1ProbeFamily::LearnedRelation) => [104, 187, 255, 255],
-        A1ExperienceKind::Probe(_) => [236, 158, 82, 255],
-    };
-    let offset = u32::try_from(case.seed % 120).unwrap_or(0);
-    surface.draw_line((80 + offset, 84), (260 + offset, 276), color, 6);
-    surface.draw_line((260 + offset, 84), (80 + offset, 276), color, 6);
+    surface.draw_text(caption, (314, 296), 2, [171, 196, 220, 255]);
     surface
+}
+
+fn organism_response_surface(
+    case: &TeachingCase,
+    kind: A1ExperienceKind,
+    outward_relation_crossings: usize,
+) -> VisualSurface {
+    let responded = outward_relation_crossings > 0;
+    let mut surface = VisualSurface::new(640, 360, [242, 237, 226, 255]);
+    draw_creature(&mut surface, case.seed, (260, 190), responded);
+    if responded {
+        surface.draw_text("HI!", (410, 92), 7, [53, 74, 95, 255]);
+        surface.draw_text(
+            &format!("{} REMEMBERED", case.display_name.to_uppercase()),
+            (86, 310),
+            2,
+            [53, 74, 95, 255],
+        );
+    } else {
+        let caption = match kind {
+            A1ExperienceKind::Teach => "LEARNING...",
+            A1ExperienceKind::Probe(_) => "LISTENING...",
+        };
+        surface.draw_text(caption, (365, 172), 3, [103, 111, 117, 255]);
+    }
+    surface
+}
+
+fn draw_creature(surface: &mut VisualSurface, seed: u64, center: (u32, u32), waving: bool) {
+    let palettes = [
+        [117, 211, 171, 255],
+        [120, 180, 242, 255],
+        [239, 173, 112, 255],
+        [199, 162, 238, 255],
+    ];
+    let body = palettes[usize::try_from(seed % palettes.len() as u64).unwrap_or(0)];
+    let ink = [44, 57, 67, 255];
+    surface.fill_circle(center, 82, body);
+    surface.fill_circle((center.0 - 48, center.1 - 65), 28, body);
+    surface.fill_circle((center.0 + 48, center.1 - 65), 28, body);
+    surface.fill_circle((center.0 - 29, center.1 - 14), 10, [250, 249, 242, 255]);
+    surface.fill_circle((center.0 + 29, center.1 - 14), 10, [250, 249, 242, 255]);
+    surface.fill_circle((center.0 - 27, center.1 - 12), 4, ink);
+    surface.fill_circle((center.0 + 31, center.1 - 12), 4, ink);
+    surface.draw_line(
+        (center.0 - 24, center.1 + 27),
+        (center.0, center.1 + if waving { 39 } else { 32 }),
+        ink,
+        3,
+    );
+    surface.draw_line(
+        (center.0, center.1 + if waving { 39 } else { 32 }),
+        (center.0 + 24, center.1 + 27),
+        ink,
+        3,
+    );
+    surface.draw_line((center.0 - 60, center.1 + 56), (center.0 - 112, center.1 + 94), body, 13);
+    let right_hand = if waving {
+        (center.0 + 112, center.1.saturating_sub(100))
+    } else {
+        (center.0 + 112, center.1 + 94)
+    };
+    surface.draw_line((center.0 + 60, center.1 + 56), right_hand, body, 13);
+    surface.fill_circle(right_hand, 18, body);
+    if waving {
+        surface.draw_line((right_hand.0 + 24, right_hand.1 - 24), (right_hand.0 + 46, right_hand.1 - 42), [244, 183, 78, 255], 3);
+        surface.draw_line((right_hand.0 + 30, right_hand.1), (right_hand.0 + 58, right_hand.1), [244, 183, 78, 255], 3);
+        surface.draw_line((right_hand.0 + 22, right_hand.1 + 23), (right_hand.0 + 45, right_hand.1 + 41), [244, 183, 78, 255], 3);
+    }
+}
+
+fn draw_chime(surface: &mut VisualSurface, center: (u32, u32)) {
+    let gold = [244, 183, 78, 255];
+    surface.fill_circle((center.0, center.1 - 58), 20, gold);
+    surface.draw_line((center.0, center.1 - 36), (center.0, center.1 + 48), gold, 8);
+    surface.draw_line((center.0 - 48, center.1 + 48), (center.0 + 48, center.1 + 48), gold, 8);
+    surface.fill_circle((center.0, center.1 + 70), 12, [255, 224, 139, 255]);
+    surface.draw_line((center.0 - 76, center.1 - 26), (center.0 - 98, center.1 - 38), [255, 224, 139, 255], 3);
+    surface.draw_line((center.0 + 76, center.1 - 26), (center.0 + 98, center.1 - 38), [255, 224, 139, 255], 3);
 }
 
 #[cfg(test)]
@@ -773,5 +885,38 @@ mod tests {
                 "{distractor:?}"
             );
         }
+    }
+
+    #[test]
+    fn visible_wave_is_gated_only_by_an_actual_outward_crossing() {
+        let case = TeachingCase::named_creature(205, "Momo");
+        let quiet = organism_response_surface(
+            &case,
+            A1ExperienceKind::Probe(A1ProbeFamily::LearnedRelation),
+            0,
+        );
+        let waving = organism_response_surface(
+            &case,
+            A1ExperienceKind::Probe(A1ProbeFamily::LearnedRelation),
+            1,
+        );
+        assert_eq!(case.display_name, "Momo");
+        assert_ne!(quiet.fingerprint(), waving.fingerprint());
+
+        let mut unsupported = GenuineTeachingLab::new(case.clone()).unwrap();
+        unsupported.teach_unsupported().unwrap();
+        let silent_probe = unsupported
+            .probe(A1ProbeFamily::LearnedRelation)
+            .unwrap();
+        assert_eq!(silent_probe.observation.outward_relation_crossings, 0);
+        assert_eq!(silent_probe.organism_surface, quiet);
+
+        let mut supported = GenuineTeachingLab::new(case).unwrap();
+        supported.teach_supported().unwrap();
+        let learned_probe = supported
+            .probe(A1ProbeFamily::LearnedRelation)
+            .unwrap();
+        assert_eq!(learned_probe.observation.outward_relation_crossings, 1);
+        assert_eq!(learned_probe.organism_surface, waving);
     }
 }
