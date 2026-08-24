@@ -666,7 +666,7 @@ fn build_body(
                 body.add_arrow(drive(
                     babblers[context][motor],
                     motors[context][motor],
-                    1,
+                    0,
                     1,
                     SCAFFOLD_RESISTANCE,
                 ));
