@@ -7,3 +7,4 @@ academy/.env
 *.profraw
 *.profdata
 __pycache__/
+.e2b-dev-state*
