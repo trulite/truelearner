@@ -801,7 +801,10 @@ mod tests {
         let mut second = frame(4);
         first[64 * 7 + 9] = 14;
         second[64 * 7 + 10] = 14;
-        assert_ne!(spatial_context(&first).unwrap(), spatial_context(&second).unwrap());
+        assert_ne!(
+            spatial_context(&first).unwrap(),
+            spatial_context(&second).unwrap()
+        );
     }
 
     #[test]
@@ -827,14 +830,7 @@ mod tests {
         let second_context = spatial_context(&changed).unwrap();
         assert_ne!(first_context, second_context);
         let second = organism
-            .observe(
-                changed,
-                &[1, 2, 3, 4],
-                Some(2),
-                true,
-                true,
-                &[1, 2, 3, 4],
-            )
+            .observe(changed, &[1, 2, 3, 4], Some(2), true, true, &[1, 2, 3, 4])
             .unwrap();
         assert_eq!(second.context, second_context);
         assert_eq!(second.action, Some(2));
