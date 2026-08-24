@@ -145,7 +145,10 @@ pub struct GenuineTeachingLab {
 
 impl GenuineTeachingLab {
     pub fn new(case: TeachingCase) -> Result<Self, AcademyError> {
-        assert!(case.ports_are_distinct(), "generated physical ports must be distinct");
+        assert!(
+            case.ports_are_distinct(),
+            "generated physical ports must be distinct"
+        );
         let (boundary, placements, sites) = build_world(&case)?;
         Ok(Self {
             case,
@@ -176,7 +179,12 @@ impl GenuineTeachingLab {
             external(self.sites.returning, start + 3, 21, self.case.seed + 21),
             external(a, start + 10, 0, self.case.seed + 30),
             external(b, start + 10, 1, self.case.seed + 31),
-            external(self.sites.downstream[0], start + 12, 20, self.case.seed + 40),
+            external(
+                self.sites.downstream[0],
+                start + 12,
+                20,
+                self.case.seed + 40,
+            ),
             external(self.sites.returning, start + 13, 21, self.case.seed + 41),
         ];
         self.execute(A1ExperienceKind::Teach, inputs, start + TEACHING_HORIZON)
@@ -247,7 +255,8 @@ impl GenuineTeachingLab {
             .map(SpikeInput::from)
             .collect::<Vec<_>>();
         let result = boundary.arrive(&inputs, OUTWARD_REGION)?;
-        let pressure_work = if experience.observation.clock_end > boundary.substrate().clock().tick {
+        let pressure_work = if experience.observation.clock_end > boundary.substrate().clock().tick
+        {
             boundary.advance_time(experience.observation.clock_end)
         } else {
             Work::default()
@@ -264,14 +273,11 @@ impl GenuineTeachingLab {
         let clock_exact = boundary.substrate().clock().tick == experience.observation.clock_end;
         let observed_work = result.work.total().saturating_add(pressure_work.total());
         let work_exact = observed_work == experience.observation.physical_work;
-        let quiescence_exact = result.naturally_quiescent == experience.observation.naturally_quiescent;
+        let quiescence_exact =
+            result.naturally_quiescent == experience.observation.naturally_quiescent;
         Ok(A1ReplayOutcome {
             experience_id: experience.id.clone(),
-            exact: crossings_exact
-                && body_exact
-                && clock_exact
-                && work_exact
-                && quiescence_exact,
+            exact: crossings_exact && body_exact && clock_exact && work_exact && quiescence_exact,
             crossings_exact,
             body_exact,
             clock_exact,
@@ -288,7 +294,10 @@ impl GenuineTeachingLab {
     ) -> Result<A1Experience, AcademyError> {
         let clock_start = self.boundary.substrate().clock().tick;
         let body_before = body_fingerprint(&self.boundary)?;
-        let checkpoint_before = self.boundary.live_checkpoint(self.sequence)?.canonical_bytes()?;
+        let checkpoint_before = self
+            .boundary
+            .live_checkpoint(self.sequence)?
+            .canonical_bytes()?;
         let result = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
         let pressure_work = if horizon > self.boundary.substrate().clock().tick {
             self.boundary.advance_time(horizon)
@@ -316,10 +325,8 @@ impl GenuineTeachingLab {
             .iter()
             .filter(|crossing| crossing.from_physical == self.sites.outward_from[1])
             .count();
-        let (candidate_resistance, candidate_live) = candidate_state(
-            self.boundary.substrate(),
-            self.sites.candidates[0],
-        );
+        let (candidate_resistance, candidate_live) =
+            candidate_state(self.boundary.substrate(), self.sites.candidates[0]);
         let physical_work = result.work.total().saturating_add(pressure_work.total());
         let observation = A1WorldObservation {
             kind,
@@ -397,7 +404,11 @@ fn build_world(
     let mut downstream_trace = [None; 2];
     let mut relay = [None; 2];
     let mut outward = [None; 2];
-    let pair_order = if case.reverse_allocation { [1, 0] } else { [0, 1] };
+    let pair_order = if case.reverse_allocation {
+        [1, 0]
+    } else {
+        [0, 1]
+    };
     for pair in pair_order {
         coincidence[pair] = Some(space.add_cell(cell(
             namespace + 300 + pair as u64,
@@ -442,14 +453,15 @@ fn build_world(
     let downstream_trace = downstream_trace.map(Option::unwrap);
     let relay = relay.map(Option::unwrap);
     let outward = outward.map(Option::unwrap);
-    let returning = space.add_cell(cell(
-        namespace + 900,
-        position(case, 1_900),
-        0,
-        1,
-    ));
+    let returning = space.add_cell(cell(namespace + 900, position(case, 1_900), 0, 1));
     for port in order {
-        space.add_arrow(drive(sources[port], traces[port], 1, 1, SCAFFOLD_RESISTANCE));
+        space.add_arrow(drive(
+            sources[port],
+            traces[port],
+            1,
+            1,
+            SCAFFOLD_RESISTANCE,
+        ));
     }
     space.add_arrow(drive(traces[0], coincidence[0], 0, 1, SCAFFOLD_RESISTANCE));
     space.add_arrow(drive(traces[1], coincidence[0], 0, 1, SCAFFOLD_RESISTANCE));
@@ -543,13 +555,7 @@ fn drive(from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u32) -
     }
 }
 
-fn modulatory(
-    from: CellId,
-    to: CellId,
-    delay: i64,
-    coupling: i32,
-    resistance: u32,
-) -> ArrowSpec {
+fn modulatory(from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u32) -> ArrowSpec {
     ArrowSpec {
         from,
         to,
@@ -577,7 +583,9 @@ fn candidate_state(space: &truelearner_core::PlasticSubstrate, arrow: ArrowId) -
         .arrows
         .into_iter()
         .find(|candidate| candidate.id == arrow)
-        .map_or((0, false), |candidate| (candidate.resistance, candidate.live))
+        .map_or((0, false), |candidate| {
+            (candidate.resistance, candidate.live)
+        })
 }
 
 fn body_fingerprint(boundary: &BoundaryRuntime) -> Result<String, AcademyError> {
@@ -591,7 +599,11 @@ fn body_fingerprint(boundary: &BoundaryRuntime) -> Result<String, AcademyError> 
 }
 
 fn position(case: &TeachingCase, value: i32) -> i32 {
-    if case.reflected { -value } else { value }
+    if case.reflected {
+        -value
+    } else {
+        value
+    }
 }
 
 fn physical_port(input: &PhysicalInput) -> usize {
@@ -682,7 +694,10 @@ mod tests {
             assert!(teaching.observation.plasticity_updates >= 2, "{teaching:?}");
             assert!(teaching.observation.candidate_live, "{teaching:?}");
             let learned = lab.probe(A1ProbeFamily::LearnedRelation).unwrap();
-            assert_eq!(learned.observation.outward_relation_crossings, 1, "{learned:?}");
+            assert_eq!(
+                learned.observation.outward_relation_crossings, 1,
+                "{learned:?}"
+            );
             assert_eq!(learned.observation.plasticity_updates, 0, "{learned:?}");
             for family in [
                 A1ProbeFamily::Echo,
@@ -691,8 +706,14 @@ mod tests {
                 A1ProbeFamily::UnsupportedReturn,
             ] {
                 let control = lab.probe(family).unwrap();
-                assert_eq!(control.observation.outward_relation_crossings, 0, "{control:?}");
-                assert_eq!(control.observation.outward_distractor_crossings, 0, "{control:?}");
+                assert_eq!(
+                    control.observation.outward_relation_crossings, 0,
+                    "{control:?}"
+                );
+                assert_eq!(
+                    control.observation.outward_distractor_crossings, 0,
+                    "{control:?}"
+                );
                 assert_eq!(control.observation.plasticity_updates, 0, "{control:?}");
             }
             let replay = lab.replay(&learned.id).unwrap();
@@ -720,9 +741,15 @@ mod tests {
             let mut lab = GenuineTeachingLab::new(case).unwrap();
             lab.teach_supported().unwrap();
             let learned = lab.probe(A1ProbeFamily::LearnedRelation).unwrap();
-            assert_eq!(learned.observation.outward_relation_crossings, 1, "{learned:?}");
+            assert_eq!(
+                learned.observation.outward_relation_crossings, 1,
+                "{learned:?}"
+            );
             let distractor = lab.probe(A1ProbeFamily::Distractor).unwrap();
-            assert_eq!(distractor.observation.outward_relation_crossings, 0, "{distractor:?}");
+            assert_eq!(
+                distractor.observation.outward_relation_crossings, 0,
+                "{distractor:?}"
+            );
         }
     }
 }
