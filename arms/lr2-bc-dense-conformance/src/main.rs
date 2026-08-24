@@ -9,9 +9,9 @@ compile_error!("select exactly one LR2 arm");
 use lr1_compartmental_physical_return as physics;
 #[cfg(feature = "arm-c")]
 use lr1_modulatory_physical_return as physics;
-use physics::{ArrowId, CellId, CellSpec, Crossing, Execution, PlasticSubstrate, SpikeInput};
 #[cfg(feature = "arm-b")]
 use physics::ArrowSpec;
+use physics::{ArrowId, CellId, CellSpec, Crossing, Execution, PlasticSubstrate, SpikeInput};
 #[cfg(feature = "arm-c")]
 use physics::{ArrowSpec, TransmissionMode};
 use std::collections::BTreeSet;
@@ -59,35 +59,151 @@ struct Case {
 }
 
 const CASES: [Case; 29] = [
-    Case { suite: Suite::Dense, index: 0, name: "unrelated-nearby-no-lawful-return" },
-    Case { suite: Suite::Dense, index: 1, name: "lawful-return-in-dense-world" },
-    Case { suite: Suite::Dense, index: 2, name: "other-candidate-return" },
-    Case { suite: Suite::Dense, index: 3, name: "both-traverse-one-return" },
-    Case { suite: Suite::Dense, index: 4, name: "both-traverse-both-return" },
-    Case { suite: Suite::Dense, index: 5, name: "cross-and-distractors-no-return" },
-    Case { suite: Suite::Dense, index: 6, name: "lawful-return-with-all-distractors" },
-    Case { suite: Suite::Dense, index: 7, name: "return-without-candidate" },
-    Case { suite: Suite::Dense, index: 8, name: "late-lawful-return" },
-    Case { suite: Suite::Dense, index: 9, name: "adjacent-renewed-upstream" },
-    Case { suite: Suite::Px0, index: 0, name: "acquisition" },
-    Case { suite: Suite::Px0, index: 1, name: "probation" },
-    Case { suite: Suite::Px0, index: 2, name: "stable-return-specificity" },
-    Case { suite: Suite::Px0, index: 3, name: "forgetting" },
-    Case { suite: Suite::Px0, index: 4, name: "fresh-reproposal" },
-    Case { suite: Suite::Px0, index: 5, name: "reacquisition" },
-    Case { suite: Suite::Px1, index: 0, name: "support-a" },
-    Case { suite: Suite::Px1, index: 1, name: "support-b" },
-    Case { suite: Suite::Px1, index: 2, name: "no-support" },
-    Case { suite: Suite::Px1, index: 3, name: "participation-return-blocked" },
-    Case { suite: Suite::Px1, index: 4, name: "return-without-participation" },
-    Case { suite: Suite::Px1, index: 5, name: "joint-participation" },
-    Case { suite: Suite::Px2, index: 0, name: "forward-traversal-return" },
-    Case { suite: Suite::Px2, index: 1, name: "reverse-traversal-return" },
-    Case { suite: Suite::Px2, index: 2, name: "correlation-without-traversal" },
-    Case { suite: Suite::Px2, index: 3, name: "forward-return-blocked" },
-    Case { suite: Suite::Px2, index: 4, name: "joint-traversal-return" },
-    Case { suite: Suite::Px2, index: 5, name: "forward-with-wrong-way-observation" },
-    Case { suite: Suite::Px2, index: 6, name: "reverse-with-wrong-way-observation" },
+    Case {
+        suite: Suite::Dense,
+        index: 0,
+        name: "unrelated-nearby-no-lawful-return",
+    },
+    Case {
+        suite: Suite::Dense,
+        index: 1,
+        name: "lawful-return-in-dense-world",
+    },
+    Case {
+        suite: Suite::Dense,
+        index: 2,
+        name: "other-candidate-return",
+    },
+    Case {
+        suite: Suite::Dense,
+        index: 3,
+        name: "both-traverse-one-return",
+    },
+    Case {
+        suite: Suite::Dense,
+        index: 4,
+        name: "both-traverse-both-return",
+    },
+    Case {
+        suite: Suite::Dense,
+        index: 5,
+        name: "cross-and-distractors-no-return",
+    },
+    Case {
+        suite: Suite::Dense,
+        index: 6,
+        name: "lawful-return-with-all-distractors",
+    },
+    Case {
+        suite: Suite::Dense,
+        index: 7,
+        name: "return-without-candidate",
+    },
+    Case {
+        suite: Suite::Dense,
+        index: 8,
+        name: "late-lawful-return",
+    },
+    Case {
+        suite: Suite::Dense,
+        index: 9,
+        name: "adjacent-renewed-upstream",
+    },
+    Case {
+        suite: Suite::Px0,
+        index: 0,
+        name: "acquisition",
+    },
+    Case {
+        suite: Suite::Px0,
+        index: 1,
+        name: "probation",
+    },
+    Case {
+        suite: Suite::Px0,
+        index: 2,
+        name: "stable-return-specificity",
+    },
+    Case {
+        suite: Suite::Px0,
+        index: 3,
+        name: "forgetting",
+    },
+    Case {
+        suite: Suite::Px0,
+        index: 4,
+        name: "fresh-reproposal",
+    },
+    Case {
+        suite: Suite::Px0,
+        index: 5,
+        name: "reacquisition",
+    },
+    Case {
+        suite: Suite::Px1,
+        index: 0,
+        name: "support-a",
+    },
+    Case {
+        suite: Suite::Px1,
+        index: 1,
+        name: "support-b",
+    },
+    Case {
+        suite: Suite::Px1,
+        index: 2,
+        name: "no-support",
+    },
+    Case {
+        suite: Suite::Px1,
+        index: 3,
+        name: "participation-return-blocked",
+    },
+    Case {
+        suite: Suite::Px1,
+        index: 4,
+        name: "return-without-participation",
+    },
+    Case {
+        suite: Suite::Px1,
+        index: 5,
+        name: "joint-participation",
+    },
+    Case {
+        suite: Suite::Px2,
+        index: 0,
+        name: "forward-traversal-return",
+    },
+    Case {
+        suite: Suite::Px2,
+        index: 1,
+        name: "reverse-traversal-return",
+    },
+    Case {
+        suite: Suite::Px2,
+        index: 2,
+        name: "correlation-without-traversal",
+    },
+    Case {
+        suite: Suite::Px2,
+        index: 3,
+        name: "forward-return-blocked",
+    },
+    Case {
+        suite: Suite::Px2,
+        index: 4,
+        name: "joint-traversal-return",
+    },
+    Case {
+        suite: Suite::Px2,
+        index: 5,
+        name: "forward-with-wrong-way-observation",
+    },
+    Case {
+        suite: Suite::Px2,
+        index: 6,
+        name: "reverse-with-wrong-way-observation",
+    },
 ];
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -107,15 +223,20 @@ impl Totals {
         self.work = self.work.saturating_add(run.work.total());
         self.updates = self.work_field_add(self.updates, run.work.local_return_updates);
         self.accepts = self.work_field_add(self.accepts, run.work.qualified_return_accepts);
-        self.path_edges = self.work_field_add(self.path_edges, run.work.qualified_return_path_edges);
+        self.path_edges =
+            self.work_field_add(self.path_edges, run.work.qualified_return_path_edges);
         self.firings = self.work_field_add(self.firings, run.work.firings);
-        self.deallocations = self.work_field_add(self.deallocations, run.work.physical_deallocations);
+        self.deallocations =
+            self.work_field_add(self.deallocations, run.work.physical_deallocations);
         self.quiescent = self.quiescent && run.naturally_quiescent;
         self.crossings.extend(run.crossings);
     }
 
     fn seeded() -> Self {
-        Self { quiescent: true, ..Self::default() }
+        Self {
+            quiescent: true,
+            ..Self::default()
+        }
     }
 
     fn work_field_add(&self, left: u64, right: u64) -> u64 {
@@ -192,11 +313,20 @@ fn main() {
 }
 
 fn audit() {
-    assert_eq!(sha("experiments/lr2_dense_topology_px0_px2_successor_conformance_protocol_v1.md"), PROTOCOL);
+    assert_eq!(
+        sha("experiments/lr2_dense_topology_px0_px2_successor_conformance_protocol_v1.md"),
+        PROTOCOL
+    );
     #[cfg(feature = "arm-b")]
-    assert_eq!(sha("crates/lr1-compartmental-physical-return/src/lib.rs"), B_LAW);
+    assert_eq!(
+        sha("crates/lr1-compartmental-physical-return/src/lib.rs"),
+        B_LAW
+    );
     #[cfg(feature = "arm-c")]
-    assert_eq!(sha("crates/lr1-modulatory-physical-return/src/lib.rs"), C_LAW);
+    assert_eq!(
+        sha("crates/lr1-modulatory-physical-return/src/lib.rs"),
+        C_LAW
+    );
 }
 
 fn surface() {
@@ -248,16 +378,52 @@ fn run_dense(seed: u64, case: Case) -> Observation {
     let start_a = world.substrate.arrow_resistance(world.candidate_a);
     let start_b = world.substrate.arrow_resistance(world.candidate_b);
     match case.index {
-        0 => { drive_a(&mut world, 0); distract(&mut world, 1, 0); }
-        1 => { drive_a(&mut world, 0); lawful_a(&mut world, 1); }
-        2 => { drive_a(&mut world, 0); lawful_b(&mut world, 1); }
-        3 => { drive_a(&mut world, 0); drive_b(&mut world, 0); lawful_a(&mut world, 1); }
-        4 => { drive_a(&mut world, 0); drive_b(&mut world, 0); lawful_a(&mut world, 1); lawful_b(&mut world, 1); }
-        5 => { drive_a(&mut world, 0); for i in 0..world.distractors.len() { distract(&mut world, 1, i); } lawful_b(&mut world, 1); }
-        6 => { drive_a(&mut world, 0); lawful_a(&mut world, 1); for i in 0..world.distractors.len() { distract(&mut world, 1, i); } }
+        0 => {
+            drive_a(&mut world, 0);
+            distract(&mut world, 1, 0);
+        }
+        1 => {
+            drive_a(&mut world, 0);
+            lawful_a(&mut world, 1);
+        }
+        2 => {
+            drive_a(&mut world, 0);
+            lawful_b(&mut world, 1);
+        }
+        3 => {
+            drive_a(&mut world, 0);
+            drive_b(&mut world, 0);
+            lawful_a(&mut world, 1);
+        }
+        4 => {
+            drive_a(&mut world, 0);
+            drive_b(&mut world, 0);
+            lawful_a(&mut world, 1);
+            lawful_b(&mut world, 1);
+        }
+        5 => {
+            drive_a(&mut world, 0);
+            for i in 0..world.distractors.len() {
+                distract(&mut world, 1, i);
+            }
+            lawful_b(&mut world, 1);
+        }
+        6 => {
+            drive_a(&mut world, 0);
+            lawful_a(&mut world, 1);
+            for i in 0..world.distractors.len() {
+                distract(&mut world, 1, i);
+            }
+        }
         7 => lawful_a(&mut world, 1),
-        8 => { drive_a(&mut world, 0); lawful_a(&mut world, 6); }
-        9 => { drive_a(&mut world, 0); drive_a(&mut world, 2); }
+        8 => {
+            drive_a(&mut world, 0);
+            lawful_a(&mut world, 6);
+        }
+        9 => {
+            drive_a(&mut world, 0);
+            drive_a(&mut world, 2);
+        }
         _ => unreachable!(),
     }
     let execution = world.substrate.propagate();
@@ -271,16 +437,22 @@ fn run_dense(seed: u64, case: Case) -> Observation {
         4 => (1, 1),
         _ => unreachable!(),
     };
-    observe_pair(world, totals, updates_a, updates_b, [
-        updates_a == expected.0,
-        updates_b == expected.1,
-        true,
-        true,
-        true,
-        true,
-        true,
-        true,
-    ])
+    observe_pair(
+        world,
+        totals,
+        updates_a,
+        updates_b,
+        [
+            updates_a == expected.0,
+            updates_b == expected.1,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+        ],
+    )
 }
 
 fn run_px0(seed: u64, case: Case) -> Observation {
@@ -292,7 +464,11 @@ fn run_px0(seed: u64, case: Case) -> Observation {
     match case.index {
         0 => recurrent_a(&mut world, &[0, 6, 12, 18], true),
         1 => recurrent_a(&mut world, &[0], true),
-        2 => { drive_a(&mut world, 0); drive_b(&mut world, 0); lawful_a(&mut world, 1); }
+        2 => {
+            drive_a(&mut world, 0);
+            drive_b(&mut world, 0);
+            lawful_a(&mut world, 1);
+        }
         3 => recurrent_a(&mut world, &[0, 6, 12, 18], true),
         _ => unreachable!(),
     }
@@ -302,17 +478,55 @@ fn run_px0(seed: u64, case: Case) -> Observation {
         let pressure = world.substrate.advance_time(30);
         totals.work += pressure.total();
         world.substrate.arrow_is_live(world.candidate_a)
-    } else { true };
+    } else {
+        true
+    };
     if case.index == 1 || case.index == 3 {
         let pressure = world.substrate.advance_time(200);
         totals.work += pressure.total();
         totals.deallocations += pressure.physical_deallocations;
     }
     let clauses = match case.index {
-        0 => [before_pressure > 4, world.substrate.arrow_coupling(world.candidate_a) == 2, true, true, true, true, true, true],
-        1 => [before_pressure == 4, !world.substrate.arrow_is_live(world.candidate_a), true, true, true, true, true, true],
-        2 => [world.substrate.arrow_resistance(world.candidate_a) == 4, world.substrate.arrow_resistance(world.candidate_b) == 1, true, true, true, true, true, true],
-        3 => [bounded_live, !world.substrate.arrow_is_live(world.candidate_a), before_pressure > 4, true, true, true, true, true],
+        0 => [
+            before_pressure > 4,
+            world.substrate.arrow_coupling(world.candidate_a) == 2,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+        ],
+        1 => [
+            before_pressure == 4,
+            !world.substrate.arrow_is_live(world.candidate_a),
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+        ],
+        2 => [
+            world.substrate.arrow_resistance(world.candidate_a) == 4,
+            world.substrate.arrow_resistance(world.candidate_b) == 1,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+        ],
+        3 => [
+            bounded_live,
+            !world.substrate.arrow_is_live(world.candidate_a),
+            before_pressure > 4,
+            true,
+            true,
+            true,
+            true,
+            true,
+        ],
         _ => unreachable!(),
     };
     observe_pair(world, totals, 0, 0, clauses)
@@ -343,7 +557,9 @@ fn run_reproposal(seed: u64, case: Case) -> Observation {
     totals.work += pressure.total();
     totals.deallocations += pressure.physical_deallocations;
     pulse(&mut substrate, p, 11, 2, 2);
-    if case.index == 5 { pulse(&mut substrate, r, 12, 1, 3); }
+    if case.index == 5 {
+        pulse(&mut substrate, r, 12, 1, 3);
+    }
     totals.take(substrate.propagate());
     let candidates = substrate.arrows_between(p, x);
     let fresh = *candidates.last().expect("fresh local proposal");
@@ -376,7 +592,11 @@ fn run_reproposal(seed: u64, case: Case) -> Observation {
         live_b: false,
         candidate_crossings_a: totals.crossings.len(),
         candidate_crossings_b: 0,
-        generations: format!("old{}|fresh{}", substrate.arrow_generation(old), fresh_generation),
+        generations: format!(
+            "old{}|fresh{}",
+            substrate.arrow_generation(old),
+            fresh_generation
+        ),
         work: totals.work,
         accepts: totals.accepts,
         path_edges: totals.path_edges,
@@ -397,15 +617,26 @@ fn run_px1(seed: u64, case: Case) -> Observation {
         1 => recurrent_b(&mut world, &[0, 6], true),
         2 => {}
         3 => recurrent_a(&mut world, &[0, 6], false),
-        4 => { lawful_a(&mut world, 1); lawful_a(&mut world, 7); }
-        5 => { recurrent_a(&mut world, &[0, 6], true); recurrent_b(&mut world, &[0, 6], true); }
+        4 => {
+            lawful_a(&mut world, 1);
+            lawful_a(&mut world, 7);
+        }
+        5 => {
+            recurrent_a(&mut world, &[0, 6], true);
+            recurrent_b(&mut world, &[0, 6], true);
+        }
         _ => unreachable!(),
     }
     let mut totals = Totals::seeded();
     totals.take(world.substrate.propagate());
     let mature_a = world.substrate.arrow_resistance(world.candidate_a) > 1;
     let mature_b = world.substrate.arrow_resistance(world.candidate_b) > 1;
-    let expected = match case.index { 0 => (true, false), 1 => (false, true), 5 => (true, true), _ => (false, false) };
+    let expected = match case.index {
+        0 => (true, false),
+        1 => (false, true),
+        5 => (true, true),
+        _ => (false, false),
+    };
     let clauses = [
         mature_a == expected.0,
         mature_b == expected.1,
@@ -416,7 +647,13 @@ fn run_px1(seed: u64, case: Case) -> Observation {
         true,
         true,
     ];
-    observe_pair(world, totals, u64::from(mature_a), u64::from(mature_b), clauses)
+    observe_pair(
+        world,
+        totals,
+        u64::from(mature_a),
+        u64::from(mature_b),
+        clauses,
+    )
 }
 
 fn run_px2(seed: u64, case: Case) -> Observation {
@@ -424,18 +661,41 @@ fn run_px2(seed: u64, case: Case) -> Observation {
     match case.index {
         0 => recurrent_a(&mut world, &[0, 6], true),
         1 => recurrent_b(&mut world, &[0, 6], true),
-        2 => { for tick in [1, 3, 5, 7, 9, 11] { lawful_a(&mut world, tick); lawful_b(&mut world, tick); } }
+        2 => {
+            for tick in [1, 3, 5, 7, 9, 11] {
+                lawful_a(&mut world, tick);
+                lawful_b(&mut world, tick);
+            }
+        }
         3 => recurrent_a(&mut world, &[0, 6], false),
-        4 => { recurrent_a(&mut world, &[0, 6], true); recurrent_b(&mut world, &[0, 6], true); }
-        5 => { recurrent_a(&mut world, &[0, 6], true); for tick in [1, 3, 5, 7, 9, 11] { lawful_b(&mut world, tick); } }
-        6 => { recurrent_b(&mut world, &[0, 6], true); for tick in [1, 3, 5, 7, 9, 11] { lawful_a(&mut world, tick); } }
+        4 => {
+            recurrent_a(&mut world, &[0, 6], true);
+            recurrent_b(&mut world, &[0, 6], true);
+        }
+        5 => {
+            recurrent_a(&mut world, &[0, 6], true);
+            for tick in [1, 3, 5, 7, 9, 11] {
+                lawful_b(&mut world, tick);
+            }
+        }
+        6 => {
+            recurrent_b(&mut world, &[0, 6], true);
+            for tick in [1, 3, 5, 7, 9, 11] {
+                lawful_a(&mut world, tick);
+            }
+        }
         _ => unreachable!(),
     }
     let mut totals = Totals::seeded();
     totals.take(world.substrate.propagate());
     let mature_a = world.substrate.arrow_resistance(world.candidate_a) > 1;
     let mature_b = world.substrate.arrow_resistance(world.candidate_b) > 1;
-    let expected = match case.index { 0 | 5 => (true, false), 1 | 6 => (false, true), 4 => (true, true), _ => (false, false) };
+    let expected = match case.index {
+        0 | 5 => (true, false),
+        1 | 6 => (false, true),
+        4 => (true, true),
+        _ => (false, false),
+    };
     let clauses = [
         mature_a == expected.0,
         mature_b == expected.1,
@@ -446,7 +706,13 @@ fn run_px2(seed: u64, case: Case) -> Observation {
         true,
         true,
     ];
-    observe_pair(world, totals, u64::from(mature_a), u64::from(mature_b), clauses)
+    observe_pair(
+        world,
+        totals,
+        u64::from(mature_a),
+        u64::from(mature_b),
+        clauses,
+    )
 }
 
 fn build_pair(ns: u64, seed: u64, dense: bool, candidate_resistance: u32) -> PairWorld {
@@ -471,44 +737,112 @@ fn build_pair(ns: u64, seed: u64, dense: bool, candidate_resistance: u32) -> Pai
     ];
     let return_a = substrate.add_cell(cell(ns + 50, 10_000, 50, 1));
     let return_b = substrate.add_cell(cell(ns + 51, 11_000, 51, 1));
-    for upstream in upstream_a { add_drive(&mut substrate, upstream, p, 0, 1, 100); }
-    for upstream in upstream_b { add_drive(&mut substrate, upstream, q, 0, 1, 100); }
+    for upstream in upstream_a {
+        add_drive(&mut substrate, upstream, p, 0, 1, 100);
+    }
+    for upstream in upstream_b {
+        add_drive(&mut substrate, upstream, q, 0, 1, 100);
+    }
     let candidate_a = add_drive(&mut substrate, p, x, 0, 1, candidate_resistance);
     let candidate_b = add_drive(&mut substrate, q, y, 0, 1, candidate_resistance);
     #[cfg(feature = "arm-b")]
-    { add_return(&mut substrate, return_a, compartment_a, 0, 100); add_return(&mut substrate, return_b, compartment_b, 0, 100); }
+    {
+        add_return(&mut substrate, return_a, compartment_a, 0, 100);
+        add_return(&mut substrate, return_b, compartment_b, 0, 100);
+    }
     #[cfg(feature = "arm-c")]
-    { add_return(&mut substrate, return_a, p, 0, 100); add_return(&mut substrate, return_b, q, 0, 100); }
+    {
+        add_return(&mut substrate, return_a, p, 0, 100);
+        add_return(&mut substrate, return_b, q, 0, 100);
+    }
     let mut distractors = Vec::new();
     if dense {
         for index in 0..16_u64 {
-            let source = substrate.add_cell(cell(ns + 100 + index, 20_000 + index as i32 * 100, 80, 1));
+            let source =
+                substrate.add_cell(cell(ns + 100 + index, 20_000 + index as i32 * 100, 80, 1));
             #[cfg(feature = "arm-b")]
-            let target = if index % 2 == 0 { compartment_a } else { compartment_b };
+            let target = if index % 2 == 0 {
+                compartment_a
+            } else {
+                compartment_b
+            };
             #[cfg(feature = "arm-c")]
             let target = if index % 2 == 0 { p } else { q };
             add_drive(&mut substrate, source, target, 0, 1, 100);
             distractors.push(source);
         }
     }
-    PairWorld { substrate, namespace: ns, upstream_a, upstream_b, return_a, return_b, distractors, candidate_a, candidate_b }
+    PairWorld {
+        substrate,
+        namespace: ns,
+        upstream_a,
+        upstream_b,
+        return_a,
+        return_b,
+        distractors,
+        candidate_a,
+        candidate_b,
+    }
 }
 
 fn recurrent_a(world: &mut PairWorld, ticks: &[i64], returned: bool) {
-    for &tick in ticks { drive_a(world, tick); if returned { lawful_a(world, tick + 1); } }
+    for &tick in ticks {
+        drive_a(world, tick);
+        if returned {
+            lawful_a(world, tick + 1);
+        }
+    }
 }
 
 fn recurrent_b(world: &mut PairWorld, ticks: &[i64], returned: bool) {
-    for &tick in ticks { drive_b(world, tick); if returned { lawful_b(world, tick + 1); } }
+    for &tick in ticks {
+        drive_b(world, tick);
+        if returned {
+            lawful_b(world, tick + 1);
+        }
+    }
 }
 
-fn drive_a(world: &mut PairWorld, tick: i64) { for side in 0..2 { pulse(&mut world.substrate, world.upstream_a[side], tick, 1, side as i32); } }
-fn drive_b(world: &mut PairWorld, tick: i64) { for side in 0..2 { pulse(&mut world.substrate, world.upstream_b[side], tick, 1, 10 + side as i32); } }
-fn lawful_a(world: &mut PairWorld, tick: i64) { pulse(&mut world.substrate, world.return_a, tick, 1, 20); }
-fn lawful_b(world: &mut PairWorld, tick: i64) { pulse(&mut world.substrate, world.return_b, tick, 1, 21); }
-fn distract(world: &mut PairWorld, tick: i64, index: usize) { let source = world.distractors[index]; pulse(&mut world.substrate, source, tick, 1, 30 + index as i32); }
+fn drive_a(world: &mut PairWorld, tick: i64) {
+    for side in 0..2 {
+        pulse(
+            &mut world.substrate,
+            world.upstream_a[side],
+            tick,
+            1,
+            side as i32,
+        );
+    }
+}
+fn drive_b(world: &mut PairWorld, tick: i64) {
+    for side in 0..2 {
+        pulse(
+            &mut world.substrate,
+            world.upstream_b[side],
+            tick,
+            1,
+            10 + side as i32,
+        );
+    }
+}
+fn lawful_a(world: &mut PairWorld, tick: i64) {
+    pulse(&mut world.substrate, world.return_a, tick, 1, 20);
+}
+fn lawful_b(world: &mut PairWorld, tick: i64) {
+    pulse(&mut world.substrate, world.return_b, tick, 1, 21);
+}
+fn distract(world: &mut PairWorld, tick: i64, index: usize) {
+    let source = world.distractors[index];
+    pulse(&mut world.substrate, source, tick, 1, 30 + index as i32);
+}
 
-fn observe_pair(world: PairWorld, totals: Totals, updates_a: u64, updates_b: u64, mut clauses: [bool; 8]) -> Observation {
+fn observe_pair(
+    world: PairWorld,
+    totals: Totals,
+    updates_a: u64,
+    updates_b: u64,
+    mut clauses: [bool; 8],
+) -> Observation {
     clauses[6] &= totals.quiescent;
     clauses[7] &= totals.accepts == totals.updates;
     Observation {
@@ -520,9 +854,21 @@ fn observe_pair(world: PairWorld, totals: Totals, updates_a: u64, updates_b: u64
         coupling_b: world.substrate.arrow_coupling(world.candidate_b),
         live_a: world.substrate.arrow_is_live(world.candidate_a),
         live_b: world.substrate.arrow_is_live(world.candidate_b),
-        candidate_crossings_a: count_crossings(&totals.crossings, world.namespace + 20, world.namespace + 30),
-        candidate_crossings_b: count_crossings(&totals.crossings, world.namespace + 21, world.namespace + 31),
-        generations: format!("a{}|b{}", world.substrate.arrow_generation(world.candidate_a), world.substrate.arrow_generation(world.candidate_b)),
+        candidate_crossings_a: count_crossings(
+            &totals.crossings,
+            world.namespace + 20,
+            world.namespace + 30,
+        ),
+        candidate_crossings_b: count_crossings(
+            &totals.crossings,
+            world.namespace + 21,
+            world.namespace + 31,
+        ),
+        generations: format!(
+            "a{}|b{}",
+            world.substrate.arrow_generation(world.candidate_a),
+            world.substrate.arrow_generation(world.candidate_b)
+        ),
         work: totals.work,
         accepts: totals.accepts,
         path_edges: totals.path_edges,
@@ -536,48 +882,133 @@ fn observe_pair(world: PairWorld, totals: Totals, updates_a: u64, updates_b: u64
     }
 }
 
-fn add_drive(substrate: &mut PlasticSubstrate, from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u32) -> ArrowId {
+fn add_drive(
+    substrate: &mut PlasticSubstrate,
+    from: CellId,
+    to: CellId,
+    delay: i64,
+    coupling: i32,
+    resistance: u32,
+) -> ArrowId {
     #[cfg(feature = "arm-b")]
-    let spec = ArrowSpec { from, to, delay, phase: 0, coupling, resistance };
+    let spec = ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling,
+        resistance,
+    };
     #[cfg(feature = "arm-c")]
-    let spec = ArrowSpec { from, to, delay, phase: 0, coupling, resistance, mode: TransmissionMode::Drive };
+    let spec = ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling,
+        resistance,
+        mode: TransmissionMode::Drive,
+    };
     substrate.add_arrow(spec)
 }
 
-fn add_return(substrate: &mut PlasticSubstrate, from: CellId, to: CellId, delay: i64, resistance: u32) -> ArrowId {
+fn add_return(
+    substrate: &mut PlasticSubstrate,
+    from: CellId,
+    to: CellId,
+    delay: i64,
+    resistance: u32,
+) -> ArrowId {
     #[cfg(feature = "arm-b")]
-    let spec = ArrowSpec { from, to, delay, phase: 0, coupling: 1, resistance };
+    let spec = ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling: 1,
+        resistance,
+    };
     #[cfg(feature = "arm-c")]
-    let spec = ArrowSpec { from, to, delay, phase: 0, coupling: 1, resistance, mode: TransmissionMode::Modulatory };
+    let spec = ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling: 1,
+        resistance,
+        mode: TransmissionMode::Modulatory,
+    };
     substrate.add_arrow(spec)
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
-    CellSpec { physical_id, position, region, threshold, resistance: 100 }
+    CellSpec {
+        physical_id,
+        position,
+        region,
+        threshold,
+        resistance: 100,
+    }
 }
 
 fn pulse(substrate: &mut PlasticSubstrate, target: CellId, tick: i64, impulse: i32, phase: i32) {
-    substrate.enter(SpikeInput { arrival_tick: tick, phase, origin_physical: 0xF200_0000 + phase.max(0) as u64, target, impulse });
+    substrate.enter(SpikeInput {
+        arrival_tick: tick,
+        phase,
+        origin_physical: 0xF200_0000 + phase.max(0) as u64,
+        target,
+        impulse,
+    });
 }
 
 fn count_crossings(crossings: &[Crossing], from: u64, to: u64) -> usize {
-    crossings.iter().filter(|c| c.from_physical == from && c.to_physical == to).count()
+    crossings
+        .iter()
+        .filter(|c| c.from_physical == from && c.to_physical == to)
+        .count()
 }
 
 fn namespace(seed: u64, case: Case) -> u64 {
-    BASE + seed * 0x1000_0000 + (case.suite as u64) * 0x0100_0000 + u64::from(case.index) * 0x0010_0000
+    BASE + seed * 0x1000_0000
+        + (case.suite as u64) * 0x0100_0000
+        + u64::from(case.index) * 0x0010_0000
 }
 
 fn paths() -> (&'static str, &'static str, &'static str, &'static str) {
     #[cfg(feature = "arm-b")]
-    { ("results/lr2_arm_b_v1.csv", "results/lr2_arm_b_v1.md", "results/.lr2_arm_b_v1.csv.staging", "results/.lr2_arm_b_v1.md.staging") }
+    {
+        (
+            "results/lr2_arm_b_v1.csv",
+            "results/lr2_arm_b_v1.md",
+            "results/.lr2_arm_b_v1.csv.staging",
+            "results/.lr2_arm_b_v1.md.staging",
+        )
+    }
     #[cfg(feature = "arm-c")]
-    { ("results/lr2_arm_c_v1.csv", "results/lr2_arm_c_v1.md", "results/.lr2_arm_c_v1.csv.staging", "results/.lr2_arm_c_v1.md.staging") }
+    {
+        (
+            "results/lr2_arm_c_v1.csv",
+            "results/lr2_arm_c_v1.md",
+            "results/.lr2_arm_c_v1.csv.staging",
+            "results/.lr2_arm_c_v1.md.staging",
+        )
+    }
 }
 
-fn absent() { let (a, b, c, d) = paths(); for path in [a, b, c, d] { assert!(!Path::new(path).exists(), "artifact exists: {path}"); } }
+fn absent() {
+    let (a, b, c, d) = paths();
+    for path in [a, b, c, d] {
+        assert!(!Path::new(path).exists(), "artifact exists: {path}");
+    }
+}
 
-fn join_bool(values: &[bool]) -> String { values.iter().map(ToString::to_string).collect::<Vec<_>>().join("|") }
+fn join_bool(values: &[bool]) -> String {
+    values
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
+}
 
 fn csv(rows: &[Row]) -> String {
     let mut out = String::from("arm,seed,suite,scenario,namespace,updates_a,updates_b,resistance_a,resistance_b,coupling_a,coupling_b,live_a,live_b,crossings_a,crossings_b,generations,work,accepts,path_edges,firings,deallocations,bytes,fingerprint,permanent,quiescent,clauses,replay,passed\n");
@@ -590,10 +1021,21 @@ fn csv(rows: &[Row]) -> String {
 
 fn report(rows: &[Row]) -> String {
     let suite_line = |suite: Suite| {
-        let selected = rows.iter().filter(|r| r.case.suite == suite).collect::<Vec<_>>();
+        let selected = rows
+            .iter()
+            .filter(|r| r.case.suite == suite)
+            .collect::<Vec<_>>();
         let passed = selected.iter().filter(|r| r.passed).count();
-        let clauses = selected.iter().map(|r| r.observation.clauses.into_iter().filter(|v| *v).count()).sum::<usize>();
-        format!("- {}: `{passed}/{}` rows; `{clauses}/{}` clauses", suite.name(), selected.len(), selected.len() * 8)
+        let clauses = selected
+            .iter()
+            .map(|r| r.observation.clauses.into_iter().filter(|v| *v).count())
+            .sum::<usize>();
+        format!(
+            "- {}: `{passed}/{}` rows; `{clauses}/{}` clauses",
+            suite.name(),
+            selected.len(),
+            selected.len() * 8
+        )
     };
     let passed = rows.iter().filter(|r| r.passed).count();
     let max_work = rows.iter().map(|r| r.observation.work).max().unwrap_or(0);
@@ -603,16 +1045,30 @@ fn report(rows: &[Row]) -> String {
 }
 
 fn publish(stage: &str, final_path: &str, content: &str) {
-    let mut file = OpenOptions::new().create_new(true).write(true).open(stage).unwrap_or_else(|e| panic!("create {stage}: {e}"));
-    file.write_all(content.as_bytes()).unwrap_or_else(|e| panic!("write {stage}: {e}"));
-    file.sync_all().unwrap_or_else(|e| panic!("sync {stage}: {e}"));
+    let mut file = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(stage)
+        .unwrap_or_else(|e| panic!("create {stage}: {e}"));
+    file.write_all(content.as_bytes())
+        .unwrap_or_else(|e| panic!("write {stage}: {e}"));
+    file.sync_all()
+        .unwrap_or_else(|e| panic!("sync {stage}: {e}"));
     rename(stage, final_path).unwrap_or_else(|e| panic!("publish {final_path}: {e}"));
 }
 
 fn sha(path: &str) -> String {
-    let output = Command::new("sha256sum").arg(path).output().unwrap_or_else(|e| panic!("sha256sum {path}: {e}"));
+    let output = Command::new("sha256sum")
+        .arg(path)
+        .output()
+        .unwrap_or_else(|e| panic!("sha256sum {path}: {e}"));
     assert!(output.status.success());
-    String::from_utf8(output.stdout).expect("utf8").split_whitespace().next().expect("sha").to_owned()
+    String::from_utf8(output.stdout)
+        .expect("utf8")
+        .split_whitespace()
+        .next()
+        .expect("sha")
+        .to_owned()
 }
 
 #[cfg(test)]
@@ -621,6 +1077,11 @@ mod tests {
 
     #[test]
     fn registered_matrix_is_deterministic() {
-        for seed in SEEDS { for case in CASES { let row = replay(seed, case); assert!(row.replay, "{seed} {case:?}"); } }
+        for seed in SEEDS {
+            for case in CASES {
+                let row = replay(seed, case);
+                assert!(row.replay, "{seed} {case:?}");
+            }
+        }
     }
 }
