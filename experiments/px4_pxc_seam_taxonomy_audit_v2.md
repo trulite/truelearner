@@ -9,7 +9,8 @@ script and manifest SHA-256
 It used unique state file `px4-pxc-taxonomy-final-20260824-b.json` and was
 left running. This final replay supersedes the byte-equal inventories and
 counts from earlier fresh taxonomy sandbox `ivhh9mi0wathsydi2wbiq`; only the
-generated report's audited-commit line differs.
+generated report's audited-commit line differs. The superseded earlier sandbox
+was later terminated after its artifacts were frozen.
 
 The E2B invocation enforced:
 

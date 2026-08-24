@@ -19,12 +19,14 @@ Status: **PX4 DEVELOPMENT READY; AUTHORITY NOT RUN AND NOT CLAIMED**.
 - functional GATE E2B sandbox: `i9y7kazos146gzwuphwk6`;
 - exact artifact-replay E2B sandbox: `i05mu61g04ubqr5aqn6n5`;
 - final taxonomy E2B sandbox: `i6mlrh7u2iv4abtdkz01e`;
-- readiness comparator E2B sandbox: `iuc23g8o1zr7bcxh7sndx`.
+- final readiness comparator E2B sandbox: `ijq864x9iqlqlfenpakht`.
 
-All evidence sandboxes were fresh, used unique state files through the
-established launcher, and were left running. Failed compile-only sandbox
-`ic74p4yt92m9ho1xyx1kr` contained no evidence and was terminated to release
-capacity for the final taxonomy replay.
+All retained evidence sandboxes were fresh, used unique state files through
+the established launcher, and were left running. Failed compile-only sandbox
+`ic74p4yt92m9ho1xyx1kr` and superseded taxonomy sandbox
+`ivhh9mi0wathsydi2wbiq` were terminated to release capacity; all their
+downloaded evidence had already been frozen, and the taxonomy was replayed in
+the retained final sandbox above.
 
 ## Functional result
 
