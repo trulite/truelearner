@@ -1,6 +1,6 @@
 # PX7 LR-C cumulative physical-arrival authority result audit v1
 
-Status: **DEFINITIVE POSITIVE; SERIAL PX-C GATE PENDING; PX8 UNCHANGED**.
+Status: **DEFINITIVE POSITIVE; PX7 AUTHORITY EARNED; PX8 UNCHANGED**.
 
 ## Frozen serial chain
 
@@ -70,10 +70,60 @@ mode, rule, or adapter.
 | definitive CSV | `96baddb76ef1c58dc0173f14a8fabded8c6237e73b729030e4698cf2fe300137` |
 | definitive report | `9b23ad3bd34050e1f13b8638b05baa5b9e29adc6cef5208db60dde36b7b058dc` |
 
-## Pending serial gate
+## Serial PX-C gate
 
-Functional authority evidence is positive but authority is not yet handed off.
-Manifest v5 must replace exactly the PX7 predecessor entry, and fresh E2B
-taxonomy/comparator evidence must pass against the immutable PX6 baseline.
-Until that gate and the final handoff pass, PX7 authority is not established.
+After functional evidence was frozen, manifest v5 replaced exactly the PX7
+predecessor row. Fresh E2B sandbox `ioic2bj2dunoargeqhgrq` ran taxonomy and
+the comparator against the immutable raw PX6 authority baseline. It ran no
+Rust and constructed no physical body.
 
+Manifest v5 SHA-256:
+`db4758baa5aeba36a87251f7d2ccb85cd2215f9489a1189eae4fd9d6408001c2`.
+
+| metric | PX6 before | PX7 after | delta | accepted |
+|---|---:|---:|---:|:---:|
+| primary seams | 246 | 110 | -136 | true |
+| semantic guard | 83 | 36 | -47 | true |
+| evaluator guard | 318 | 136 | -182 | true |
+| new seam kinds | 0 | 0 | 0 | true |
+| new guarded surfaces | 0 | 0 | 0 | true |
+
+| layer | before | after | delta |
+|---|---:|---:|---:|
+| PX0--PX3+LR-C | 0 | 0 | 0 |
+| PX4 | 0 | 0 | 0 |
+| PX5 | 0 | 0 | 0 |
+| PX6 | 0 | 0 | 0 |
+| PX7 | 136 | 0 | -136 |
+| PX8 | 110 | 110 | 0 |
+
+Exact kind deltas were typed representation `-34`, explicit mechanism
+invocation `-39`, semantic condition `-22`, typed handoff `-37`, and
+evaluator-derived input `-4`; episode reset, seed-history synthesis, and
+manual cleanup were unchanged. The novelty files contain headers only.
+
+E2B hash-audit sandbox `ijtb043rw40hveqlpzra0` recorded:
+
+| artifact | SHA-256 |
+|---|---|
+| taxonomy inventory | `97908560b6d98dd2972f60ddbda79a216aa11ce89149850ef0b9f875f8a72dcd` |
+| guard inventory | `96f318052c1a3dce871d96a87e2890f7de6843d5af12e1ba58c05612b7d355cf` |
+| taxonomy summary | `56cb5ba249a805d50fff77af4f2733ee60331cfa5cab29e78c610edfb4db4215` |
+| taxonomy report | `34ea8c7eb580d213e1ec75e5214266a01b47a8ee710a113b99915f8d62ba18e2` |
+| readiness delta | `674e6f9b07123f99ef9f12f701a5ba19baa750afe52e984a0bede428510044a0` |
+| readiness report | `e6de61ebef7d5a5dfe94dc8822ef24b0f07f88fecc706daa8394f9f332d3656c` |
+| kind delta | `6a821de40fa7c0263f7d6c9c633581eb4fc2d585d2609d9400a8407b445feeea` |
+| layer delta | `3c1af4960166509289f4af6e842785774293ece80e0d090c699a0ad3c3bd0087` |
+| new kinds | `7e5ecf41e673f27bfc5957420ba466da02c700c15e982bfeed4727058ce3c0de` |
+| new guarded surfaces | `d5033ae75b748d89a215895d25406b7ab5155f622e42dcd59ec72db19a3f7ca9` |
+
+## Authority decision
+
+Anonymous physical arrival through recursively matured organization initiates
+useful outward activity through one level-blind physical interface, without a
+request, start, invocation, constructed query/session, semantic mechanism
+selection, new substrate law, or memory trick. All functional, cumulative,
+resource, replay, quiescence, coverage, leakage, and serial PX-C gates passed.
+
+PX7 authority is earned. This audit does not preregister, execute, reinterpret,
+or advance PX8.
