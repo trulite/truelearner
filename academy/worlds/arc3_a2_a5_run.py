@@ -29,6 +29,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report-output", type=Path, required=True)
     parser.add_argument("--replay-output", type=Path)
+    parser.add_argument("--stop-after-a2", action="store_true")
     parser.add_argument("--stop-after-a3", action="store_true")
     parser.add_argument("--initial-gap", type=int, default=0)
     return parser.parse_args()
@@ -176,6 +177,7 @@ def run_ladder(
     game: str,
     seed: int,
     held_out_seed: int,
+    stop_after_a2: bool,
     stop_after_a3: bool,
     initial_gap: int,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -290,6 +292,20 @@ def run_ladder(
                     skipped_gate("A3", "state-conditioned autonomous replay", "A2 failed"),
                     skipped_gate("A4", "autonomous official level completion", "A2 failed"),
                     skipped_gate("A5", "held-out-seed transfer", "A2 failed"),
+                ]
+            )
+        elif stop_after_a2:
+            gates.extend(
+                [
+                    skipped_gate(
+                        "A3", "state-conditioned autonomous replay", "diagnostic stops after A2"
+                    ),
+                    skipped_gate(
+                        "A4", "autonomous official level completion", "diagnostic stops after A2"
+                    ),
+                    skipped_gate(
+                        "A5", "held-out-seed transfer", "diagnostic stops after A2"
+                    ),
                 ]
             )
         else:
@@ -545,9 +561,13 @@ def run_ladder(
         "initial_gap": initial_gap,
         "curriculum": CURRICULUM,
         "first_failure": first_failure,
-        "all_gates_passed": first_failure is None and not stop_after_a3,
+        "all_gates_passed": (
+            first_failure is None and not stop_after_a2 and not stop_after_a3
+        ),
         "executed_gates_passed": first_failure is None,
-        "completion_scope": "A3" if stop_after_a3 else "A5",
+        "completion_scope": (
+            "A2" if stop_after_a2 else ("A3" if stop_after_a3 else "A5")
+        ),
         "exact_replay": False,
         "gates": gates,
     }
@@ -562,11 +582,14 @@ def main() -> None:
     args = arguments()
     if args.initial_gap < 0:
         raise SystemExit("--initial-gap must be non-negative")
+    if args.stop_after_a2 and args.stop_after_a3:
+        raise SystemExit("--stop-after-a2 and --stop-after-a3 are mutually exclusive")
     first_suite, first_report = run_ladder(
         args.agent,
         args.game,
         args.seed,
         args.held_out_seed,
+        args.stop_after_a2,
         args.stop_after_a3,
         args.initial_gap,
     )
@@ -575,6 +598,7 @@ def main() -> None:
         args.game,
         args.seed,
         args.held_out_seed,
+        args.stop_after_a2,
         args.stop_after_a3,
         args.initial_gap,
     )
