@@ -6,8 +6,8 @@ mod buffers;
 use body::{BodyEvidence, CLAUSE_NAMES};
 use buffers::{BufferEvidence, CLAUSE_NAMES as BUFFER_CLAUSE_NAMES};
 use pxr0_physical_runtime::{
-    ArrowSpec, BoundaryRuntime, CellId, CellSpec, Crossing, MechanicalConfig, PhysicalTransition,
-    PlasticSubstrate, RunResult, SpikeInput, TransmissionMode, Work,
+    ArrowSpec, BoundaryRuntime, CellId, CellSpec, Crossing, ExecutionCost, MechanicalConfig,
+    PhysicalTransition, PlasticSubstrate, RunResult, SpikeInput, TransmissionMode, Work,
 };
 use std::{
     collections::BTreeSet,
@@ -17,6 +17,7 @@ use std::{
     io::Write as _,
     path::Path,
     process::Command,
+    time::Instant,
 };
 
 const OUTWARD_REGION: i16 = 1;
@@ -125,6 +126,7 @@ struct Batch {
     quiet: bool,
     bytes: usize,
     physical_trace: Vec<PhysicalTransition>,
+    execution_cost: ExecutionCost,
 }
 
 impl Batch {
@@ -135,6 +137,7 @@ impl Batch {
             quiet: result.naturally_quiescent,
             bytes: result.resident_bytes,
             physical_trace: result.physical_trace,
+            execution_cost: result.execution_cost,
         }
     }
 
@@ -184,6 +187,7 @@ struct Trial {
     final_tick: i64,
     pressure_phase: i64,
     final_body: Vec<u8>,
+    execution_cost: ExecutionCost,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -458,6 +462,23 @@ fn run(case: Case, mechanics: MechanicalConfig, physical_trace: bool) -> Trial {
         .substrate()
         .canonical_body_bytes(case.root)
         .expect("differential body must encode");
+    let execution_cost = batches
+        .iter()
+        .chain([&blank])
+        .fold(ExecutionCost::default(), |mut total, batch| {
+            total.queue_ops = total.queue_ops.saturating_add(batch.execution_cost.queue_ops);
+            total.comparisons = total
+                .comparisons
+                .saturating_add(batch.execution_cost.comparisons);
+            total.scans = total.scans.saturating_add(batch.execution_cost.scans);
+            total.allocations = total
+                .allocations
+                .saturating_add(batch.execution_cost.allocations);
+            total.bytes_touched = total
+                .bytes_touched
+                .saturating_add(batch.execution_cost.bytes_touched);
+            total
+        });
 
     Trial {
         case,
@@ -490,6 +511,7 @@ fn run(case: Case, mechanics: MechanicalConfig, physical_trace: bool) -> Trial {
         final_tick,
         pressure_phase,
         final_body,
+        execution_cost,
     }
 }
 
@@ -502,6 +524,8 @@ fn run_mechanical_differential() {
         MechanicalConfig::R5,
     ];
     let mut comparisons = 0usize;
+    let mut costs = [ExecutionCost::default(); 5];
+    let mut elapsed_ns = [0u128; 5];
     for case in AUTHORITY_CASES {
         let reference = run(case, MechanicalConfig::REFERENCE, false);
         let replayed = run(case, MechanicalConfig::REFERENCE, false);
@@ -509,8 +533,12 @@ fn run_mechanical_differential() {
             reference, replayed,
             "reference replay diverged for {case:?}"
         );
-        for config in configs {
+        for (config_index, config) in configs.into_iter().enumerate() {
+            let started = Instant::now();
             let candidate = run(case, config, false);
+            elapsed_ns[config_index] = elapsed_ns[config_index]
+                .saturating_add(started.elapsed().as_nanos());
+            add_execution_cost(&mut costs[config_index], candidate.execution_cost);
             let candidate_replay = run(case, config, false);
             assert_eq!(
                 candidate, candidate_replay,
@@ -531,6 +559,25 @@ fn run_mechanical_differential() {
         "R1_R5_MECHANICAL_DIFFERENTIAL_PASS cases={} comparisons={comparisons}",
         AUTHORITY_CASES.len()
     );
+    for (index, config) in configs.into_iter().enumerate() {
+        println!(
+            "MECHANICAL_COST config={config:?} queue_ops={} comparisons={} scans={} allocations={} bytes_touched={} elapsed_ns={}",
+            costs[index].queue_ops,
+            costs[index].comparisons,
+            costs[index].scans,
+            costs[index].allocations,
+            costs[index].bytes_touched,
+            elapsed_ns[index]
+        );
+    }
+}
+
+fn add_execution_cost(total: &mut ExecutionCost, value: ExecutionCost) {
+    total.queue_ops = total.queue_ops.saturating_add(value.queue_ops);
+    total.comparisons = total.comparisons.saturating_add(value.comparisons);
+    total.scans = total.scans.saturating_add(value.scans);
+    total.allocations = total.allocations.saturating_add(value.allocations);
+    total.bytes_touched = total.bytes_touched.saturating_add(value.bytes_touched);
 }
 
 fn first_trace_divergence(reference: &Trial, candidate: &Trial) -> String {
