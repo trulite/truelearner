@@ -19,5 +19,8 @@ are immutable, machine-independent bytes. A `BodyVersion` is structural and
 timeless; quiescent and live checkpoints add the physical clock and the
 transient state required by their restart contracts.
 
+Physical Body V1 authority passed `16/16` fresh roots and `540/540` clauses at
+tag `physical-body-v1-authority-positive-v1`.
+
 Production crates must not depend on anything under `experiments/`.
 Experimental crates may depend on production crates.

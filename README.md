@@ -1,12 +1,14 @@
 # TrueLearner
 
-This branch separates the production physical organism from its research
-history.
+This branch contains the authoritative Physical Body V1 production organism
+and separates it from its research history.
 
 - `truelearner/` is the complete production Rust workspace.
 - `experiments/` contains archived research code, protocols, evaluators,
   generated evidence, and audit tooling.
-- `arch.md` is the accepted PXR0/PX-C architectural oracle.
+- `arch.md` is the accepted PXR0/PX-C + Physical Body V1 architectural oracle.
 
-The initial relocation preserves the authoritative PX-C physics. Runtime
-redesign begins only after relocation equivalence is established.
+Physical Body V1 preserves the authoritative PX-C physics and adds stable
+arena identity, canonical durable bodies, compaction invariance, and clocked
+quiescent/live restart. Cold storage and distributed execution remain future
+successors.

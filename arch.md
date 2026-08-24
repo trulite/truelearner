@@ -2,7 +2,7 @@
 
 This document is the architectural oracle for the physical organism runtime.
 
-The PXR0/PX-C scientific lineage is complete and authoritative as of 2026-08-24. Sections 1–3 describe the accepted organism and its resolved runtime boundary. Sections 4–24 preserve successor-runtime intent; they are not claims about the current implementation and do not authorize implementation or substrate-law changes.
+The PXR0/PX-C scientific lineage and its Physical Body V1 successor are complete and authoritative as of 2026-08-24. Sections 1–3 describe the accepted organism, its resolved runtime boundary, and its current production body. Sections 4–24 preserve forward-runtime intent except for the narrowly accepted V1 arena, identity, checkpoint, and physical-clock facts called out below; they do not authorize further implementation or substrate-law changes.
 
 The authority pins are:
 
@@ -15,7 +15,7 @@ PX-C continuous-organism authority
     commit  ec87c438aa8c52389fd2734667363ef43acaef93
     tag     pxc-continuous-organism-authority-v1
 
-canonical production runtime
+canonical PX-C kernel ancestor
     crates/pxr0-physical-runtime/src/lib.rs
     SHA-256 e34a9442205fa63d4bde3d286fb7c0c6e722ba04b64c403535e1db71cf3fb8aa
     485 lines
@@ -23,11 +23,28 @@ canonical production runtime
     16 functions/methods
     one active Rust file
     zero runtime dependencies
+
+Physical Body V1 authority evidence
+    commit  4b2c77331708c7b6314ca3dd56d0c0607b6beff7
+    tag     physical-body-v1-authority-positive-v1
+
+Physical Body V1 result audit
+    commit  90e0328d5ca38ad6fa90ac5dc0b3eb215d819a79
+    tag     physical-body-v1-authority-result-audit-v1
+
+canonical production body
+    truelearner/crates/core/src/lib.rs
+    SHA-256 e6767845f27ddb9bb57bfb1fcab6dd1663178449faddc4a630b628e3d1148a8d
+    truelearner/crates/arena-format/src/lib.rs
+    SHA-256 8c35c3c07fe95b2cc76cbe9ceb47d83f250c5e0c7c40481e7371583afa48a812
+    two production packages
+    three production Rust files including the seven-line composition root
+    zero dependencies on experiment code
 ```
 
-PXR0 v2 passed its frozen `466/466` development matrix. PX-C independently passed `524/524` in development and `524/524` in its disjoint authority execution. Exact replay, natural quiescence, outward-only boundary observation, work and memory bounds, and the complete PX0–PX8 behavior stack passed. Primary seams, semantic guards, evaluator guards, new seam kinds, and new guarded surfaces are all zero.
+PXR0 v2 passed its frozen `466/466` development matrix. PX-C independently passed `524/524` in development and `524/524` in its disjoint authority execution. Physical Body V1 then passed a fresh `540/540` successor authority matrix: all `512` cumulative PX0–PX8 row clauses, all `12` cumulative globals, and all `16` body clauses. Exact replay, natural quiescence, outward-only boundary observation, work and memory bounds, stable identity across compaction, canonical persistence, exact clocked restart, bounded allocation, generation safety, and corrupt-input rejection passed.
 
-Future work must begin as an explicitly preregistered successor. After successor authority is established, update this oracle deliberately; do not silently reinterpret it from an experimental branch.
+Physical Body V1 is now the oracle parent. Future work must begin as an explicitly preregistered successor. After successor authority is established, update this oracle deliberately; do not silently reinterpret it from an experimental branch.
 
 ---
 
@@ -76,21 +93,32 @@ Frozen inference means durable changes are suppressed or placed in a private CoW
 
 ---
 
-# 2. Authoritative PXR0/PX-C physical kernel
+# 2. Authoritative physical kernel and production body
 
-The canonical production runtime is:
+The canonical production workspace is:
 
-`crates/pxr0-physical-runtime/src/lib.rs`
+`truelearner/`
 
-Its complete active surface is one Rust file with 29 exhaustive entries. Read it in five physical blocks:
+It contains two packages with a strict membrane:
 
 ```text
-14–138    physical state, substrate state, and boundary result types
-140–231   construction, physical arrival, and time advancement
-232–337   queue, firing, traversal, eligibility, and crossings
-338–445   modulation, pressure, decay, and local proposals
-446–485   identity checks, ordering, accounting, and deallocation
+truelearner-core
+    accepted CELL/ARROW/SPIKE transitions
+    resident arena execution
+    stable identity → disposable slot resolution
+    clocked quiescent and live checkpoints
+    seven-line production composition root
+
+truelearner-arena-format
+    canonical little-endian arena blocks
+    immutable body manifests
+    content hashes and validation
+    no firing, learning, pressure, or experiment behavior
 ```
+
+The PX-C kernel is retained inside `truelearner-core`; the production-body
+successor changes residence, identity, and persistence representation without
+changing the accepted local transition laws.
 
 Current conceptual state is roughly:
 
@@ -119,6 +147,17 @@ SPIKE
     target
     impulse
     traversed arrow provenance
+
+PHYSICAL BODY
+    stable ArenaId + CellId/ArrowId + Generation
+    disposable CellSlot / ArrowSlot resident packing
+    bounded CELL and ARROW capacity
+    canonical immutable ArenaBody blocks
+    timeless BodyVersion manifests
+    PhysicalClock derived from substrate tick
+    QuiescentCheckpoint = body + clock
+    LiveCheckpoint = body + clock + transient physical state
+    pending load availability admitted as a physical tick
 ```
 
 Core physics:
@@ -227,9 +266,43 @@ Different phase relationships may lawfully produce different physical histories.
 
 Equivalent translations initialize the empty substrate at origins congruent modulo ten. Other phase relationships may lawfully differ. Pressure must not be reinterpreted as wall-clock housekeeping.
 
+## F. Physical Body V1
+
+The accepted production body adds no cognitive or learning law. It establishes
+where the already-authoritative physics lives and how that body survives
+movement, compaction, and restart:
+
+```text
+identity
+    ArenaId + CellId/ArrowId + Generation
+    independent of resident CellSlot/ArrowSlot
+
+execution
+    explicit mutable RAM arenas
+    deterministic resident compaction
+    no directly mutable mmap state
+
+durability
+    canonical immutable arena bytes
+    canonical BodyVersion manifests
+    content-addressed validation
+
+restart
+    BodyVersion is structural and timeless
+    QuiescentCheckpoint adds physical clock
+    LiveCheckpoint adds transient state, queued activity,
+    and admitted pending-load availability ticks
+```
+
+The V1 authority does **not** claim a cold arena cache, actual asynchronous
+storage service, network transport, replication, distributed scheduling,
+foveated sensors, or organism-visible fetch/prefetch/pin behavior.
+
 ---
 
-Everything from Section 4 through Section 24 is successor-runtime intent. It is not part of current PXR0/PX-C authority and is not implementation authorization.
+Everything from Section 4 through Section 24 remains forward-runtime intent
+unless it is exactly one of the Physical Body V1 facts frozen above. Those
+sections are not general implementation authorization.
 
 ---
 
@@ -1076,20 +1149,30 @@ The organism should eventually become better at using the machine because it has
 
 # 25. Oracle governance and successor boundary
 
-The PXR0/PX-C phase is finished. The authority pins at the top of this document define the accepted continuous organism.
+The PXR0/PX-C phase and Physical Body V1 successor are finished. The authority
+pins at the top of this document define the accepted continuous organism and
+its current production body.
 
 This oracle governs future work as follows:
 
 ```text
 current authority
-    one physical runtime file
+    truelearner-core + truelearner-arena-format
+    unchanged PX-C physical transition laws
+    stable identity independent of resident slots
+    canonical immutable body blocks
+    clocked quiescent and live restart
     anonymous physical arrival
     continuous execution to natural quiescence
     outward physical crossings
     zero orchestration seams and guarded semantic surfaces
 
-future intent
-    Sections 4–24
+remaining future intent
+    framebuffer/foveated embodiment
+    cold arena residence and eviction
+    asynchronous and network arena transport
+    distributed execution and causal journaling
+    organism-visible computational-body affordances
     design input only
     not current behavior
     not implementation authorization
@@ -1104,4 +1187,6 @@ successor change
 
 No experimental branch, evaluator, primer, optimization, or deployment concern may silently add a cognitive noun, semantic adapter, hidden mechanism invocation, or new substrate law to the active organism.
 
-When explicitly authorized, the successor runtime program may begin from Sections 4–24 and may extract a dedicated design note such as `docs/foveated_distributed_runtime_primer_v1.md`. Until then, no future-runtime implementation is implied.
+When explicitly authorized, the next successor program may begin from the
+remaining intent in Sections 4–24 and may extract a dedicated design note.
+Until then, no further runtime implementation is implied.
