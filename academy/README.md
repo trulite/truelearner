@@ -60,6 +60,21 @@ Academy evidence and renders review videos. ARC game/action/score semantics stay
 outside TrueLearner. See the [protocol](docs/arc3_compatibility_protocol_v1.md)
 and [first live result](docs/arc3_compatibility_result_v1.md).
 
+The next ARC3-A1 slice closes the loop through the physical organism. A fixed
+raster sensor admits an official frame, organism crossings select actions, and
+visible changed-raster return can preserve the route that actually acted. The
+headless suite includes development, a frozen learned probe, retention,
+shuffled-boundary, and blocked-return controls. See the
+[ARC3-A1 protocol](docs/arc3_a1_sensorimotor_protocol_v1.md) and
+[development result](docs/arc3_a1_sensorimotor_result_v1.md).
+
+To review the frozen ARC3-A1 gallery locally:
+
+```sh
+ACADEMY_EPISODE_DIR=results/arc3_a1_v1/gallery \
+  cargo run --locked --manifest-path academy/Cargo.toml -p academy-playground
+```
+
 ## Linux development prerequisites
 
 The E2B desktop smoke uses Xvfb and the native WebKit/GTK packages required by
