@@ -312,9 +312,9 @@ fi
 {
     printf '# PX-C seam taxonomy baseline v2\n\n'
     printf 'Frozen v1 reference: **368 occurrences / 295 source lines**.\n\n'
-    printf 'Audited commit: `%s`.  \n' "$commit"
-    printf 'Manifest: `%s`.  \n' "$manifest"
-    printf 'Manifest SHA-256: `%s`.  \n' "$manifest_hash"
+    printf 'Audited commit: `%s`.\n\n' "$commit"
+    printf 'Manifest: `%s`.\n\n' "$manifest"
+    printf 'Manifest SHA-256: `%s`.\n\n' "$manifest_hash"
     printf 'Search backend: `%s`.\n\n' "$search_backend"
     printf '| primary kind | count |\n|---|---:|\n'
     awk -F, '$1 ~ /^KIND_/ { sub(/^KIND_/, "", $1); printf "| `%s` | %s |\n", $1, $2 }' "$summary"
