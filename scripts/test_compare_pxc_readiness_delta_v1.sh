@@ -48,6 +48,26 @@ if run_compare "$temporary/strict" "$summary" "$inventory" "$guard" 1; then
 fi
 grep -q 'Verdict: \*\*FAIL\*\*' "$temporary/strict/pxc_PX4_readiness_delta_v1.md"
 
+# A structurally consistent seam removal must pass strict readiness mode.
+mkdir "$temporary/reduction"
+cp "$summary" "$temporary/reduction/after-summary.csv"
+grep -v '^"begin_episode"' "$inventory" \
+    > "$temporary/reduction/after-inventory.csv"
+sed -i \
+    -e 's/^TOTAL_OCCURRENCES,368$/TOTAL_OCCURRENCES,367/' \
+    -e 's/^UNIQUE_SOURCE_LINES,295$/UNIQUE_SOURCE_LINES,294/' \
+    -e 's/^KIND_episode_reset_boundary,1$/KIND_episode_reset_boundary,0/' \
+    -e 's/^LAYER_PX8,110$/LAYER_PX8,109/' \
+    "$temporary/reduction/after-summary.csv"
+run_compare \
+    "$temporary/reduction" \
+    "$temporary/reduction/after-summary.csv" \
+    "$temporary/reduction/after-inventory.csv" \
+    "$guard" \
+    1
+grep -q '^primary_seams,368,367,-1,true$' \
+    "$temporary/reduction/pxc_PX4_readiness_delta_v1.csv"
+
 # A hand-edited summary that disagrees with its inventory must fail closed.
 mkdir "$temporary/tamper"
 cp "$summary" "$temporary/tamper/after-summary.csv"
@@ -133,4 +153,4 @@ grep -q '"arms/new_semantic_adapter.rs"' \
     "$temporary/new-surface/pxc_PX4_new_guarded_surfaces_v1.csv"
 
 printf '%s\n' \
-    'PX-C readiness comparator controls: positive=PASS strict=REJECT tamper=REJECT rising=REJECT new_kind=REJECT new_surface=REJECT'
+    'PX-C readiness comparator controls: replay=PASS strict_no_change=REJECT real_reduction=PASS tamper=REJECT rising=REJECT new_kind=REJECT new_surface=REJECT'
