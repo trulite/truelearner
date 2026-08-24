@@ -1,11 +1,11 @@
 #![forbid(unsafe_code)]
 
+use lr1_modulatory_physical_return::TransmissionMode;
+use px4_lrc_lifetime::{arrive, field};
 use px7_lrc_arrival::{
     Activity, Arrival, Body, Form, BOUNDARY_A, BOUNDARY_B, BOUNDARY_C, BOUNDARY_D, DOWNSTREAM_ONE,
     DOWNSTREAM_ZERO, INNER_ONE, INNER_ZERO, OUTWARD_SITE, RETURN_SITE,
 };
-use lr1_modulatory_physical_return::TransmissionMode;
-use px4_lrc_lifetime::{arrive, field};
 use std::collections::BTreeSet;
 use std::env;
 use std::fmt::Write as _;
@@ -158,7 +158,10 @@ fn audit() {
         ("arms/px4-lrc-lifetime/src/lib.rs", PX4_SOURCE),
         ("results/px6_lrc_consequence_authority_v1.csv", PX6_CSV),
         ("results/px6_lrc_consequence_authority_v1.md", PX6_REPORT),
-        ("experiments/pxc_active_surface_manifest_v4.csv", PX6_MANIFEST),
+        (
+            "experiments/pxc_active_surface_manifest_v4.csv",
+            PX6_MANIFEST,
+        ),
         ("crates/px7-lrc-arrival/src/lib.rs", PX7_SOURCE),
     ] {
         assert_eq!(sha(path), digest, "frozen input changed: {path}");
@@ -207,7 +210,10 @@ fn authority(_permission: AuthorityPermission) {
     let rows = CASES.into_iter().map(replay).collect::<Vec<_>>();
     let globals = global_claims(&rows);
     assert!(rows.iter().all(|row| row.passed), "authority row failed");
-    assert!(globals.into_iter().all(|claim| claim), "global clause failed");
+    assert!(
+        globals.into_iter().all(|claim| claim),
+        "global clause failed"
+    );
     publish(CSV_STAGE, CSV, &csv(&rows));
     publish(REPORT_STAGE, REPORT, &report(&rows, globals));
     println!("PX7_LRC_ARRIVAL_AUTHORITY_PASS rows=16/16 clauses=198/198");
@@ -623,7 +629,10 @@ fn csv(rows: &[Row]) -> String {
 }
 
 fn global_claims(rows: &[Row]) -> [bool; 6] {
-    let roots = rows.iter().map(|row| row.case.number).collect::<BTreeSet<_>>();
+    let roots = rows
+        .iter()
+        .map(|row| row.case.number)
+        .collect::<BTreeSet<_>>();
     let changed = rows
         .iter()
         .map(|row| (row.case.number + 1_000_000) << 32)
@@ -658,12 +667,30 @@ fn report(rows: &[Row], globals: [bool; 6]) -> String {
         .sum::<usize>();
     let global_clauses = globals.into_iter().filter(|claim| *claim).count();
     let mut output = String::new();
-    writeln!(output, "# PX7 LR-C cumulative physical-arrival authority v1\n").unwrap();
-    writeln!(output, "Outcome: **{}**.\n", if passed == 16 && global_clauses == 6 { "DEFINITIVE POSITIVE" } else { "NEGATIVE" }).unwrap();
+    writeln!(
+        output,
+        "# PX7 LR-C cumulative physical-arrival authority v1\n"
+    )
+    .unwrap();
+    writeln!(
+        output,
+        "Outcome: **{}**.\n",
+        if passed == 16 && global_clauses == 6 {
+            "DEFINITIVE POSITIVE"
+        } else {
+            "NEGATIVE"
+        }
+    )
+    .unwrap();
     writeln!(output, "- rows: `{passed}/{}`;", rows.len()).unwrap();
     writeln!(output, "- row clauses: `{row_clauses}/192`;").unwrap();
     writeln!(output, "- global clauses: `{global_clauses}/6`;").unwrap();
-    writeln!(output, "- total clauses: `{}/198`;", row_clauses + global_clauses).unwrap();
+    writeln!(
+        output,
+        "- total clauses: `{}/198`;",
+        row_clauses + global_clauses
+    )
+    .unwrap();
     writeln!(
         output,
         "- exact replay: `{}`;",
