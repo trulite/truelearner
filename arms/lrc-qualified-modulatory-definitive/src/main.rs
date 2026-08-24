@@ -16,8 +16,7 @@ const PROTOCOL: &str = "2ed743a0313d80b5a819704284c2e65e58ec933d5e1d608693f5726e
 const LAW_SPEC: &str = "7c0fe9b86a99f8618f98fd40cd53c41429c3d7cafaa7d773ab315562d410a9bc";
 const LAW_SOURCE: &str = "7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cfc10";
 const SEEDS: [u64; 16] = [
-    6101, 6113, 6121, 6131, 6143, 6151, 6163, 6173, 6197, 6203, 6211, 6221, 6229, 6247,
-    6257, 6263,
+    6101, 6113, 6121, 6131, 6143, 6151, 6163, 6173, 6197, 6203, 6211, 6221, 6229, 6247, 6257, 6263,
 ];
 const BASE: u64 = 0x7_3300_0000_0000;
 
@@ -354,7 +353,10 @@ fn audit() {
         "COMPOSITE",
         "EVENT",
     ] {
-        assert!(!law.contains(forbidden), "semantic active-law identifier: {forbidden}");
+        assert!(
+            !law.contains(forbidden),
+            "semantic active-law identifier: {forbidden}"
+        );
     }
 }
 
@@ -418,12 +420,9 @@ fn run_law(seed: u64, case: Case) -> Observation {
             lawful_a(&mut world, 0);
         }
         3 => {
-            let strong = world.substrate.add_cell(cell(
-                world.namespace + 90,
-                30_000,
-                90,
-                1,
-            ));
+            let strong = world
+                .substrate
+                .add_cell(cell(world.namespace + 90, 30_000, 90, 1));
             add_return_coupling(&mut world.substrate, strong, world.p, 0, 4, 100);
             pulse(&mut world.substrate, strong, 0, 1, 90);
             mode_record = "strong_return=Modulatory:coupling4|candidate=Drive".to_owned();
@@ -433,18 +432,12 @@ fn run_law(seed: u64, case: Case) -> Observation {
             distract_all(&mut world, 1);
         }
         5 | 6 => {
-            let route0 = world.substrate.add_cell(cell(
-                world.namespace + 60,
-                31_000,
-                60,
-                1,
-            ));
-            let route1 = world.substrate.add_cell(cell(
-                world.namespace + 61,
-                32_000,
-                61,
-                1,
-            ));
+            let route0 = world
+                .substrate
+                .add_cell(cell(world.namespace + 60, 31_000, 60, 1));
+            let route1 = world
+                .substrate
+                .add_cell(cell(world.namespace + 61, 32_000, 61, 1));
             let (mode0, mode1) = if case.index == 5 {
                 (TransmissionMode::Drive, TransmissionMode::Modulatory)
             } else {
@@ -476,12 +469,9 @@ fn run_law(seed: u64, case: Case) -> Observation {
         }
         7 => recurrent_a(&mut world, &[0, 6], true),
         8 => {
-            let second_target = world.substrate.add_cell(cell(
-                world.namespace + 32,
-                200,
-                32,
-                1,
-            ));
+            let second_target = world
+                .substrate
+                .add_cell(cell(world.namespace + 32, 200, 32, 1));
             world.candidate_b = add_drive(&mut world.substrate, world.p, second_target, 0, 1, 1);
             world.candidate_b_physical = (world.namespace + 20, world.namespace + 32);
             drive_a(&mut world, 0);
@@ -675,13 +665,7 @@ fn run_reproposal(seed: u64, case: Case) -> Observation {
     totals.deallocations += pressure.physical_deallocations;
     pulse(&mut substrate, p, 11, 2, 2);
     if case.index == 5 {
-        pulse(
-            &mut substrate,
-            r,
-            15_i64.saturating_sub(return_delay),
-            1,
-            3,
-        );
+        pulse(&mut substrate, r, 15_i64.saturating_sub(return_delay), 1, 3);
     }
     totals.take(substrate.propagate());
     let candidates = substrate.arrows_between(p, x);
@@ -903,8 +887,22 @@ fn build_pair(ns: u64, seed: u64, dense: bool, candidate_resistance: u32) -> Pai
         drive_spec(upstream_b[1], q, 0, 1, 100),
         drive_spec(p, x, 0, 1, candidate_resistance),
         drive_spec(q, y, 0, 1, candidate_resistance),
-        mode_spec(return_a, p, return_delay, 1, 100, TransmissionMode::Modulatory),
-        mode_spec(return_b, q, return_delay, 1, 100, TransmissionMode::Modulatory),
+        mode_spec(
+            return_a,
+            p,
+            return_delay,
+            1,
+            100,
+            TransmissionMode::Modulatory,
+        ),
+        mode_spec(
+            return_b,
+            q,
+            return_delay,
+            1,
+            100,
+            TransmissionMode::Modulatory,
+        ),
     ];
     let arrow_order = if reverse_arrows {
         (0..arrow_specs.len()).rev().collect::<Vec<_>>()
@@ -975,7 +973,11 @@ fn recurrent_b(world: &mut PairWorld, ticks: &[i64], returned: bool) {
 }
 
 fn drive_a(world: &mut PairWorld, tick: i64) {
-    let order = if world.reverse_arrivals { [1, 0] } else { [0, 1] };
+    let order = if world.reverse_arrivals {
+        [1, 0]
+    } else {
+        [0, 1]
+    };
     for side in order {
         pulse(
             &mut world.substrate,
@@ -987,7 +989,11 @@ fn drive_a(world: &mut PairWorld, tick: i64) {
     }
 }
 fn drive_b(world: &mut PairWorld, tick: i64) {
-    let order = if world.reverse_arrivals { [1, 0] } else { [0, 1] };
+    let order = if world.reverse_arrivals {
+        [1, 0]
+    } else {
+        [0, 1]
+    };
     for side in order {
         pulse(
             &mut world.substrate,
@@ -1108,13 +1114,7 @@ fn add_drive(
     substrate.add_arrow(drive_spec(from, to, delay, coupling, resistance))
 }
 
-fn drive_spec(
-    from: CellId,
-    to: CellId,
-    delay: i64,
-    coupling: i32,
-    resistance: u32,
-) -> ArrowSpec {
+fn drive_spec(from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u32) -> ArrowSpec {
     ArrowSpec {
         from,
         to,
@@ -1234,8 +1234,14 @@ fn namespace(seed: u64, case: Case) -> u64 {
 }
 
 fn return_delay(seed: u64) -> i64 {
-    i64::try_from(SEEDS.iter().position(|value| *value == seed).expect("registered seed") % 4)
-        .expect("small delay")
+    i64::try_from(
+        SEEDS
+            .iter()
+            .position(|value| *value == seed)
+            .expect("registered seed")
+            % 4,
+    )
+    .expect("small delay")
         + 1
 }
 
@@ -1288,13 +1294,22 @@ fn report(rows: &[Row]) -> String {
     let max_bytes = rows.iter().map(|r| r.observation.bytes).max().unwrap_or(0);
     let claims = rows
         .iter()
-        .map(|row| row.observation.clauses.into_iter().filter(|value| *value).count())
+        .map(|row| {
+            row.observation
+                .clauses
+                .into_iter()
+                .filter(|value| *value)
+                .count()
+        })
         .sum::<usize>();
     format!("# LR-C qualified modulatory transmission definitive v1\n\nOutcome: **{}**.\n\n{}\n{}\n{}\n{}\n- all cells: `{passed}/{}`;\n- all claims: `{claims}/5952`;\n- exact replay: `{}`;\n- natural quiescence: `{}`;\n- total/max work: `{total_work}/{max_work}`;\n- maximum persistent bytes: `{max_bytes}`;\n- active state addition: `one two-valued TransmissionMode per ARROW`;\n- spent PX0--PX2 authority replayed: `false`;\n- PX3 executed: `false`.\n", if passed == rows.len() { "LRC AUTHORITATIVE POSITIVE" } else { "LRC DEFINITIVE NEGATIVE" }, suite_line(Suite::Law), suite_line(Suite::Px0), suite_line(Suite::Px1), suite_line(Suite::Px2), rows.len(), rows.iter().all(|r| r.replay), rows.iter().all(|r| r.observation.quiescent))
 }
 
 fn stratum(seed: u64) -> String {
-    let index = SEEDS.iter().position(|value| *value == seed).expect("registered seed");
+    let index = SEEDS
+        .iter()
+        .position(|value| *value == seed)
+        .expect("registered seed");
     format!("S{index:02}")
 }
 
