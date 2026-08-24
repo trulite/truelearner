@@ -2200,6 +2200,152 @@ mod tests {
         }
     }
 
+    fn physical_work(work: Work) -> (u64, u64, u64, u64, u64) {
+        (
+            work.drive_deliveries,
+            work.modulatory_deliveries,
+            work.local_return_updates,
+            work.local_structural_proposals,
+            work.physical_deallocations,
+        )
+    }
+
+    fn differential_body() -> (PlasticSubstrate, CellId) {
+        let mut body = PlasticSubstrate::with_capacity(ArenaId(700), 16, 32);
+        let cells = (0..8)
+            .map(|index| {
+                body.add_cell(CellSpec {
+                    physical_id: 10_000 + index,
+                    position: (index as i32) * 10,
+                    region: if index < 6 { 0 } else { 1 },
+                    threshold: if index == 0 { 2 } else { 1 },
+                    resistance: 20,
+                })
+            })
+            .collect::<Vec<_>>();
+        let arrows = [
+            (0, 1, 0, -3, TransmissionMode::Drive),
+            (0, 2, 1, 2, TransmissionMode::Drive),
+            (1, 3, 65, 0, TransmissionMode::Drive),
+            (2, 3, 2, 1, TransmissionMode::Drive),
+            (3, 4, 1, 0, TransmissionMode::Drive),
+            (4, 0, 1, 4, TransmissionMode::Modulatory),
+            (3, 6, 3, 0, TransmissionMode::Drive),
+            (4, 7, 4, 0, TransmissionMode::Drive),
+        ];
+        for (from, to, delay, phase, mode) in arrows {
+            body.add_arrow(ArrowSpec {
+                from: cells[from],
+                to: cells[to],
+                delay,
+                phase,
+                coupling: 1,
+                resistance: 40,
+                mode,
+            });
+        }
+        (body, cells[0])
+    }
+
+    fn assert_physical_equivalence(
+        reference: &PlasticSubstrate,
+        reference_result: &RunResult,
+        candidate: &PlasticSubstrate,
+        candidate_result: &RunResult,
+    ) {
+        assert_eq!(candidate_result.crossings, reference_result.crossings);
+        assert_eq!(physical_work(candidate_result.work), physical_work(reference_result.work));
+        assert_eq!(candidate.clock(), reference.clock());
+        assert_eq!(
+            candidate.clock().pressure_phase(),
+            reference.clock().pressure_phase()
+        );
+        assert_eq!(
+            candidate.canonical_body_bytes(991).unwrap(),
+            reference.canonical_body_bytes(991).unwrap()
+        );
+        assert_eq!(
+            candidate_result.naturally_quiescent,
+            reference_result.naturally_quiescent
+        );
+    }
+
+    #[test]
+    fn r1_r5_mechanical_prefixes_preserve_physics() {
+        let configs = [
+            MechanicalConfig::R1,
+            MechanicalConfig::R2,
+            MechanicalConfig::R3,
+            MechanicalConfig::R4,
+            MechanicalConfig::R5,
+        ];
+        for origin in [0, 130, 260, 390] {
+            let (base, source) = differential_body();
+            let arrivals = [
+                SpikeInput {
+                    arrival_tick: origin,
+                    phase: 0,
+                    origin_physical: 91,
+                    target: source,
+                    impulse: 1,
+                },
+                SpikeInput {
+                    arrival_tick: origin,
+                    phase: 1,
+                    origin_physical: 92,
+                    target: source,
+                    impulse: 1,
+                },
+                SpikeInput {
+                    arrival_tick: origin + 70,
+                    phase: -1,
+                    origin_physical: 93,
+                    target: source,
+                    impulse: 2,
+                },
+            ];
+            let mut reference = base.clone();
+            for arrival in arrivals {
+                reference.enter(arrival);
+            }
+            let canonical_pending = reference.live_checkpoint(990).unwrap().canonical_bytes().unwrap();
+            let reference_result = reference.propagate();
+            for config in configs {
+                let mut candidate = base.clone();
+                candidate.reconfigure_mechanics(config);
+                for arrival in arrivals {
+                    candidate.enter(arrival);
+                }
+                assert_eq!(
+                    candidate.live_checkpoint(990).unwrap().canonical_bytes().unwrap(),
+                    canonical_pending,
+                    "canonical pending activity differs for {config:?}"
+                );
+                let candidate_result = candidate.propagate();
+                assert_physical_equivalence(
+                    &reference,
+                    &reference_result,
+                    &candidate,
+                    &candidate_result,
+                );
+
+                let reference_pressure = {
+                    let mut value = reference.clone();
+                    value.advance_time(origin + 100)
+                };
+                let candidate_pressure = {
+                    let mut value = candidate.clone();
+                    value.advance_time(origin + 100)
+                };
+                assert_eq!(
+                    physical_work(candidate_pressure),
+                    physical_work(reference_pressure),
+                    "pressure work differs for {config:?}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn compaction_changes_slots_not_physics() {
         let (original, source, _, _) = substrate(50);
