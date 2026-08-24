@@ -95,8 +95,9 @@ forward/reflected positions. Six fresh cases execute per seed, in this order:
    same downstream return route traverse while `P -> X` never traversed;
    candidate resistance remains one and updates are zero;
 4. `late-downstream-return` -- the same completed physical route reaches P
-   after candidate eligibility expires; resistance remains one and updates are
-   zero;
+   after candidate eligibility expires; ordinary unsupported-use pressure may
+   reduce the resistance-one candidate to zero, but strengthening and return
+   updates are zero;
 5. `simultaneous-upstream-and-return` -- renewed U0/U1 drive and lawful S
    return reach P at the same tick; P may execute, but exactly one lawful
    update occurs and candidate resistance becomes four, not seven;
