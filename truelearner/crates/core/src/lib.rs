@@ -1563,9 +1563,8 @@ impl PlasticSubstrate {
                     execution_cost.observe_batch(batch.len());
                     batch
                 } else {
-                    execution_cost.batch_fallback_zero_delay = execution_cost
-                        .batch_fallback_zero_delay
-                        .saturating_add(1);
+                    execution_cost.batch_fallback_zero_delay =
+                        execution_cost.batch_fallback_zero_delay.saturating_add(1);
                     execution_cost.allocations = execution_cost.allocations.saturating_add(1);
                     vec![self
                         .pop_scheduled(&mut execution_cost)
@@ -1690,9 +1689,8 @@ impl PlasticSubstrate {
                     }
                     TraversalKind::Adjacency => {
                         execution_cost.allocations = execution_cost.allocations.saturating_add(1);
-                        execution_cost.adjacency_accesses = execution_cost
-                            .adjacency_accesses
-                            .saturating_add(
+                        execution_cost.adjacency_accesses =
+                            execution_cost.adjacency_accesses.saturating_add(
                                 u64::try_from(self.outgoing_index[source.0 as usize].len())
                                     .unwrap_or(u64::MAX),
                             );
@@ -1838,9 +1836,8 @@ impl PlasticSubstrate {
             }
             TraversalKind::Adjacency => {
                 execution_cost.allocations = execution_cost.allocations.saturating_add(1);
-                execution_cost.adjacency_accesses = execution_cost
-                    .adjacency_accesses
-                    .saturating_add(
+                execution_cost.adjacency_accesses =
+                    execution_cost.adjacency_accesses.saturating_add(
                         u64::try_from(self.outgoing_index[cell.0 as usize].len())
                             .unwrap_or(u64::MAX),
                     );
@@ -2006,14 +2003,10 @@ impl PlasticSubstrate {
                 (cell.id != source
                     && cell.live
                     && (1..=LOCAL_VARIATION_RADIUS).contains(&distance)
-                    && !self
-                        .arrows
-                        .values()
-                        .iter()
-                        .any(|arrow| {
-                            execution_cost.touch::<Arrow>(1);
-                            arrow.live && arrow.from == source && arrow.to == cell.id
-                        }))
+                    && !self.arrows.values().iter().any(|arrow| {
+                        execution_cost.touch::<Arrow>(1);
+                        arrow.live && arrow.from == source && arrow.to == cell.id
+                    }))
                 .then_some((cell.physical_id, cell.id, distance))
             })
             .collect::<Vec<_>>();
@@ -2194,15 +2187,22 @@ impl PlasticSubstrate {
             .saturating_add(
                 self.outgoing_index
                     .iter()
-                    .map(|ids| ids.capacity().saturating_mul(std::mem::size_of::<ArrowId>()))
+                    .map(|ids| {
+                        ids.capacity()
+                            .saturating_mul(std::mem::size_of::<ArrowId>())
+                    })
                     .sum::<usize>(),
             )
-            .saturating_add(self.active_cells.len().saturating_mul(
-                std::mem::size_of::<CellId>() + 3 * std::mem::size_of::<usize>(),
-            ))
-            .saturating_add(self.eligible_arrows.len().saturating_mul(
-                std::mem::size_of::<ArrowId>() + 3 * std::mem::size_of::<usize>(),
-            ))
+            .saturating_add(
+                self.active_cells.len().saturating_mul(
+                    std::mem::size_of::<CellId>() + 3 * std::mem::size_of::<usize>(),
+                ),
+            )
+            .saturating_add(
+                self.eligible_arrows.len().saturating_mul(
+                    std::mem::size_of::<ArrowId>() + 3 * std::mem::size_of::<usize>(),
+                ),
+            )
     }
 }
 

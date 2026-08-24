@@ -76,7 +76,9 @@ impl CellStore {
 
     pub(super) fn resident_bytes(&self) -> usize {
         match self {
-            Self::AoS(values) => values.capacity().saturating_mul(std::mem::size_of::<Cell>()),
+            Self::AoS(values) => values
+                .capacity()
+                .saturating_mul(std::mem::size_of::<Cell>()),
             Self::SoA(values) => values.resident_bytes(),
         }
     }
@@ -246,7 +248,9 @@ impl ArrowStore {
 
     pub(super) fn resident_bytes(&self) -> usize {
         match self {
-            Self::AoS(values) => values.capacity().saturating_mul(std::mem::size_of::<Arrow>()),
+            Self::AoS(values) => values
+                .capacity()
+                .saturating_mul(std::mem::size_of::<Arrow>()),
             Self::SoA(values) => values.resident_bytes(),
         }
     }
@@ -462,7 +466,9 @@ impl PendingSchedule {
 
     pub(super) fn resident_bytes(&self) -> usize {
         match self {
-            Self::Vec(spikes) => spikes.capacity().saturating_mul(std::mem::size_of::<Spike>()),
+            Self::Vec(spikes) => spikes
+                .capacity()
+                .saturating_mul(std::mem::size_of::<Spike>()),
             Self::TimingWheel(wheel) => wheel.resident_bytes(),
         }
     }
