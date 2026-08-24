@@ -1,17 +1,19 @@
 #!/bin/sh
 set -eu
 
-if [ "$#" -ne 6 ]; then
-    echo "usage: $0 LANE BEFORE_SUMMARY BEFORE_GUARD AFTER_SUMMARY AFTER_GUARD OUTPUT_DIR" >&2
+if [ "$#" -ne 8 ]; then
+    echo "usage: $0 LANE BEFORE_SUMMARY BEFORE_INVENTORY BEFORE_GUARD AFTER_SUMMARY AFTER_INVENTORY AFTER_GUARD OUTPUT_DIR" >&2
     exit 2
 fi
 
 lane=$1
 before_summary=$2
-before_guard=$3
-after_summary=$4
-after_guard=$5
-output_dir=$6
+before_inventory=$3
+before_guard=$4
+after_summary=$5
+after_inventory=$6
+after_guard=$7
+output_dir=$8
 
 case "$lane" in
     PX4|PX5|PX6|PX7|PX8) ;;
@@ -28,7 +30,14 @@ if [ -z "$before_manifest" ] || [ -z "$after_manifest" ]; then
     exit 2
 fi
 
-for path in "$before_summary" "$before_guard" "$after_summary" "$after_guard"; do
+for path in \
+    "$before_summary" \
+    "$before_inventory" \
+    "$before_guard" \
+    "$after_summary" \
+    "$after_inventory" \
+    "$after_guard"
+do
     if [ ! -f "$path" ]; then
         echo "PX-C readiness input is missing: $path" >&2
         exit 2
@@ -57,23 +66,76 @@ metric() {
     printf '%s' "$value"
 }
 
-check_summary() {
-    path=$1
-    total=$(metric TOTAL_OCCURRENCES "$path")
-    kind_sum=$(awk -F, '$1 ~ /^KIND_/ { sum += $2 } END { print sum + 0 }' "$path")
-    layer_sum=$(awk -F, '$1 ~ /^LAYER_/ { sum += $2 } END { print sum + 0 }' "$path")
+check_snapshot() {
+    label=$1
+    summary=$2
+    inventory=$3
+    guard=$4
+    total=$(metric TOTAL_OCCURRENCES "$summary")
+    unique=$(metric UNIQUE_SOURCE_LINES "$summary")
+    kind_sum=$(awk -F, '$1 ~ /^KIND_/ { sum += $2 } END { print sum + 0 }' "$summary")
+    layer_sum=$(awk -F, '$1 ~ /^LAYER_/ { sum += $2 } END { print sum + 0 }' "$summary")
     if [ "$kind_sum" -ne "$total" ]; then
-        echo "PX-C kind sum is not exhaustive: path=$path kinds=$kind_sum total=$total" >&2
+        echo "PX-C kind sum is not exhaustive: path=$summary kinds=$kind_sum total=$total" >&2
         exit 2
     fi
     if [ "$layer_sum" -ne "$total" ]; then
-        echo "PX-C layer sum is not exhaustive: path=$path layers=$layer_sum total=$total" >&2
+        echo "PX-C layer sum is not exhaustive: path=$summary layers=$layer_sum total=$total" >&2
+        exit 2
+    fi
+
+    inventory_total=$(tail -n +2 "$inventory" | wc -l | tr -d ' ')
+    inventory_unique=$(
+        tail -n +2 "$inventory" | cut -d, -f3-5 | LC_ALL=C sort -u | wc -l | tr -d ' '
+    )
+    if [ "$inventory_total" -ne "$total" ] || [ "$inventory_unique" -ne "$unique" ]; then
+        echo "PX-C $label inventory totals disagree with summary" >&2
+        exit 2
+    fi
+
+    awk -F, 'NR > 1 {
+        gsub(/^"|"$/, "", $2)
+        count[$2] += 1
+    } END {
+        for (key in count) print key "," count[key]
+    }' "$inventory" | LC_ALL=C sort > "$temporary/$label-inventory-kinds.csv"
+    awk -F, '$1 ~ /^KIND_/ && $2 > 0 {
+        sub(/^KIND_/, "", $1)
+        print $1 "," $2
+    }' "$summary" | LC_ALL=C sort > "$temporary/$label-summary-kinds.csv"
+    if ! cmp -s "$temporary/$label-inventory-kinds.csv" "$temporary/$label-summary-kinds.csv"; then
+        echo "PX-C $label kind counts disagree with inventory" >&2
+        exit 2
+    fi
+
+    awk -F, 'NR > 1 {
+        gsub(/^"|"$/, "", $3)
+        count[$3] += 1
+    } END {
+        for (key in count) print key "," count[key]
+    }' "$inventory" | LC_ALL=C sort > "$temporary/$label-inventory-layers.csv"
+    awk -F, '$1 ~ /^LAYER_/ && $2 > 0 {
+        sub(/^LAYER_/, "", $1)
+        print $1 "," $2
+    }' "$summary" | LC_ALL=C sort > "$temporary/$label-summary-layers.csv"
+    if ! cmp -s "$temporary/$label-inventory-layers.csv" "$temporary/$label-summary-layers.csv"; then
+        echo "PX-C $label layer counts disagree with inventory" >&2
+        exit 2
+    fi
+
+    inventory_semantic=$(awk -F, '$1 == "\"semantic_condition\"" { n += 1 } END { print n + 0 }' "$guard")
+    inventory_evaluator=$(awk -F, '$1 == "\"evaluator_derived_input\"" { n += 1 } END { print n + 0 }' "$guard")
+    summary_semantic=$(metric GUARD_semantic_condition "$summary")
+    summary_evaluator=$(metric GUARD_evaluator_derived_input "$summary")
+    if [ "$inventory_semantic" -ne "$summary_semantic" ] \
+        || [ "$inventory_evaluator" -ne "$summary_evaluator" ]; then
+        echo "PX-C $label guard counts disagree with inventory" >&2
         exit 2
     fi
 }
 
-check_summary "$before_summary"
-check_summary "$after_summary"
+check_snapshot before "$before_summary" "$before_inventory" "$before_guard"
+check_snapshot after "$after_summary" "$after_inventory" "$after_guard"
 
 before_total=$(metric TOTAL_OCCURRENCES "$before_summary")
 after_total=$(metric TOTAL_OCCURRENCES "$after_summary")

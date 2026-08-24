@@ -56,8 +56,10 @@ PXC_REQUIRE_PRIMARY_DECREASE=1 \
 scripts/compare_pxc_readiness_delta_v1.sh \
   PX__ \
   <before-summary.csv> \
+  <before-taxonomy-inventory.csv> \
   <before-guard.csv> \
   <after-summary.csv> \
+  <after-taxonomy-inventory.csv> \
   <after-guard.csv> \
   <output-directory>
 ```
