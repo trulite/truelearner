@@ -50,6 +50,9 @@ pub enum EpisodeOutcome {
     StructureFormed,
     LearnedResponse,
     ExpectedSilence,
+    ScaffoldedAction,
+    MappingFollowed,
+    RetainedResponse,
 }
 
 impl EpisodeOutcome {
@@ -58,6 +61,9 @@ impl EpisodeOutcome {
             Self::StructureFormed => "Structure formed",
             Self::LearnedResponse => "Learned response",
             Self::ExpectedSilence => "Correctly silent",
+            Self::ScaffoldedAction => "Scaffolded action",
+            Self::MappingFollowed => "Physical mapping followed",
+            Self::RetainedResponse => "Retained response",
         }
     }
 }

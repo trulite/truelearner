@@ -78,6 +78,56 @@ pub struct Arc3SensorimotorSnapshot {
     pub resident_bytes: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Arc3A1EpisodeClass {
+    Development,
+    Test,
+    Control,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Arc3A1EpisodeOutcome {
+    ScaffoldedAction,
+    StructureFormed,
+    LearnedAction,
+    ExpectedSilence,
+    MappingFollowed,
+    RetainedAction,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Arc3A1Turn {
+    pub turn: u32,
+    pub frame: Vec<u8>,
+    pub organism: Arc3SensorimotorObservation,
+    pub official_state: String,
+    pub levels_completed: u16,
+    pub win_levels: u16,
+    pub caption: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Arc3A1Episode {
+    pub id: String,
+    pub title: String,
+    pub summary: String,
+    pub class: Arc3A1EpisodeClass,
+    pub outcome: Arc3A1EpisodeOutcome,
+    pub turns: Vec<Arc3A1Turn>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Arc3A1Suite {
+    pub schema_version: u16,
+    pub game_id: String,
+    pub toolkit_revision: String,
+    pub seed: u64,
+    pub exact_replay: bool,
+    pub episodes: Vec<Arc3A1Episode>,
+}
+
 #[derive(Clone, Copy)]
 struct Sites {
     candidate_sources: [[CellId; MOTORS]; CONTEXTS],

@@ -13,8 +13,9 @@ use std::path::Path;
 
 mod sensorimotor;
 pub use sensorimotor::{
-    dominant_palette, Arc3AgentCommand, Arc3AgentResponse, Arc3Sensorimotor,
-    Arc3SensorimotorError, Arc3SensorimotorObservation, Arc3SensorimotorSnapshot,
+    dominant_palette, Arc3A1Episode, Arc3A1EpisodeClass, Arc3A1EpisodeOutcome, Arc3A1Suite,
+    Arc3A1Turn, Arc3AgentCommand, Arc3AgentResponse, Arc3Sensorimotor, Arc3SensorimotorError,
+    Arc3SensorimotorObservation, Arc3SensorimotorSnapshot,
 };
 
 pub const ARC3_FRAME_SIDE: usize = 64;
