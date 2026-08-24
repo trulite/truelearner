@@ -804,23 +804,23 @@ pub enum AcademyCommand {
 
 #[derive(Clone, Debug)]
 pub enum AcademyEvent {
-    Ready(SessionSnapshot),
+    Ready(Box<SessionSnapshot>),
     Completed {
-        record: ExperienceRecord,
-        organism_surface: VisualSurface,
-        snapshot: SessionSnapshot,
+        record: Box<ExperienceRecord>,
+        organism_surface: Box<VisualSurface>,
+        snapshot: Box<SessionSnapshot>,
     },
     CheckpointSaved {
         body_version: u64,
-        snapshot: SessionSnapshot,
+        snapshot: Box<SessionSnapshot>,
     },
     CheckpointRestored {
         body_version: u64,
-        snapshot: SessionSnapshot,
+        snapshot: Box<SessionSnapshot>,
     },
     ReplayVerified {
-        outcome: ReplayOutcome,
-        snapshot: SessionSnapshot,
+        outcome: Box<ReplayOutcome>,
+        snapshot: Box<SessionSnapshot>,
     },
     Error(String),
 }
@@ -839,15 +839,18 @@ impl AcademyWorker {
         let join = thread::Builder::new()
             .name("truelearner-academy-body".to_string())
             .spawn(move || {
-                send_event(&event_sender, session.snapshot().map(AcademyEvent::Ready));
+                send_event(
+                    &event_sender,
+                    session.snapshot().map(|snapshot| AcademyEvent::Ready(Box::new(snapshot))),
+                );
                 while let Ok(command) = command_receiver.recv() {
                     match command {
                         AcademyCommand::Interact(request) => {
                             let event = session.interact(request).and_then(|(record, organism_surface)| {
                                 Ok(AcademyEvent::Completed {
-                                    record,
-                                    organism_surface,
-                                    snapshot: session.snapshot()?,
+                                    record: Box::new(record),
+                                    organism_surface: Box::new(organism_surface),
+                                    snapshot: Box::new(session.snapshot()?),
                                 })
                             });
                             send_event(&event_sender, event);
@@ -856,7 +859,7 @@ impl AcademyWorker {
                             let event = session.save_checkpoint().and_then(|body_version| {
                                 Ok(AcademyEvent::CheckpointSaved {
                                     body_version,
-                                    snapshot: session.snapshot()?,
+                                    snapshot: Box::new(session.snapshot()?),
                                 })
                             });
                             send_event(&event_sender, event);
@@ -865,7 +868,7 @@ impl AcademyWorker {
                             let event = session.restore_checkpoint().and_then(|body_version| {
                                 Ok(AcademyEvent::CheckpointRestored {
                                     body_version,
-                                    snapshot: session.snapshot()?,
+                                    snapshot: Box::new(session.snapshot()?),
                                 })
                             });
                             send_event(&event_sender, event);
@@ -873,8 +876,8 @@ impl AcademyWorker {
                         AcademyCommand::ReplayLast => {
                             let event = session.replay_last().and_then(|outcome| {
                                 Ok(AcademyEvent::ReplayVerified {
-                                    outcome,
-                                    snapshot: session.snapshot()?,
+                                    outcome: Box::new(outcome),
+                                    snapshot: Box::new(session.snapshot()?),
                                 })
                             });
                             send_event(&event_sender, event);

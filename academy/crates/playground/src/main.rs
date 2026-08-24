@@ -615,7 +615,7 @@ fn Metric(term: String, value: String) -> Element {
 fn apply_worker_event(event: AcademyEvent, model: &mut Signal<UiModel>, organism_surface: &mut Signal<VisualSurface>) {
     match event {
         AcademyEvent::Ready(snapshot) => {
-            update_snapshot(model, snapshot);
+            update_snapshot(model, *snapshot);
             let mut state = model.write();
             state.status = "Body quiescent".to_string();
             state.busy = false;
@@ -627,6 +627,7 @@ fn apply_worker_event(event: AcademyEvent, model: &mut Signal<UiModel>, organism
             });
         }
         AcademyEvent::Completed { record, organism_surface: output, snapshot } => {
+            let record = *record;
             let result = record.probe_passed.map(|passed| if passed { "PASS" } else { "NOT YET" });
             let body = if record.organism_text.is_empty() {
                 format!("{} outward crossing(s); no text decoded.", record.crossings.len())
@@ -642,28 +643,29 @@ fn apply_worker_event(event: AcademyEvent, model: &mut Signal<UiModel>, organism
                     |result| format!("Academy probe {result} · {} work", record.physical_work),
                 ),
             });
-            organism_surface.set(output);
-            update_snapshot(model, snapshot);
+            organism_surface.set(*output);
+            update_snapshot(model, *snapshot);
             let mut state = model.write();
             state.status = "Body quiescent".to_string();
             state.busy = false;
         }
         AcademyEvent::CheckpointSaved { body_version, snapshot } => {
-            update_snapshot(model, snapshot);
+            update_snapshot(model, *snapshot);
             let mut state = model.write();
             state.status = "Checkpoint saved".to_string();
             state.replay_message = format!("Saved exact live checkpoint at body v{body_version}");
             state.busy = false;
         }
         AcademyEvent::CheckpointRestored { body_version, snapshot } => {
-            update_snapshot(model, snapshot);
+            update_snapshot(model, *snapshot);
             let mut state = model.write();
             state.status = "Checkpoint restored".to_string();
             state.replay_message = format!("Restored body as v{body_version}; production mechanics reapplied");
             state.busy = false;
         }
         AcademyEvent::ReplayVerified { outcome, snapshot } => {
-            update_snapshot(model, snapshot);
+            let outcome = *outcome;
+            update_snapshot(model, *snapshot);
             let mut state = model.write();
             state.status = if outcome.exact { "Replay exact" } else { "Replay diverged" }.to_string();
             state.replay_message = if outcome.exact {
