@@ -17,6 +17,12 @@ use truelearner_core::{
     ContentHash, Crossing, MechanicalConfig, ResidentArenaId, SpikeInput, TransmissionMode,
 };
 
+mod a1;
+pub use a1::{
+    A1Experience, A1ExperienceKind, A1ProbeFamily, A1ReplayOutcome, A1WorldObservation,
+    GenuineTeachingLab, TeachingCase,
+};
+
 pub const SURFACE_WIDTH: u32 = 640;
 pub const SURFACE_HEIGHT: u32 = 360;
 pub const COMMAND_CAPACITY: usize = 16;
