@@ -78,7 +78,7 @@ struct Cell {
     state: i32,
     last_update_tick: i64,
     refractory_until: i64,
-    generation: u32,
+    generation: Generation,
     resistance: u32,
     live: bool,
 }
