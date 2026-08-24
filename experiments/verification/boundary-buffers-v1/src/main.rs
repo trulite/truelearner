@@ -462,23 +462,26 @@ fn run(case: Case, mechanics: MechanicalConfig, physical_trace: bool) -> Trial {
         .substrate()
         .canonical_body_bytes(case.root)
         .expect("differential body must encode");
-    let execution_cost = batches
-        .iter()
-        .chain([&blank])
-        .fold(ExecutionCost::default(), |mut total, batch| {
-            total.queue_ops = total.queue_ops.saturating_add(batch.execution_cost.queue_ops);
-            total.comparisons = total
-                .comparisons
-                .saturating_add(batch.execution_cost.comparisons);
-            total.scans = total.scans.saturating_add(batch.execution_cost.scans);
-            total.allocations = total
-                .allocations
-                .saturating_add(batch.execution_cost.allocations);
-            total.bytes_touched = total
-                .bytes_touched
-                .saturating_add(batch.execution_cost.bytes_touched);
-            total
-        });
+    let execution_cost =
+        batches
+            .iter()
+            .chain([&blank])
+            .fold(ExecutionCost::default(), |mut total, batch| {
+                total.queue_ops = total
+                    .queue_ops
+                    .saturating_add(batch.execution_cost.queue_ops);
+                total.comparisons = total
+                    .comparisons
+                    .saturating_add(batch.execution_cost.comparisons);
+                total.scans = total.scans.saturating_add(batch.execution_cost.scans);
+                total.allocations = total
+                    .allocations
+                    .saturating_add(batch.execution_cost.allocations);
+                total.bytes_touched = total
+                    .bytes_touched
+                    .saturating_add(batch.execution_cost.bytes_touched);
+                total
+            });
 
     Trial {
         case,
@@ -536,8 +539,8 @@ fn run_mechanical_differential() {
         for (config_index, config) in configs.into_iter().enumerate() {
             let started = Instant::now();
             let candidate = run(case, config, false);
-            elapsed_ns[config_index] = elapsed_ns[config_index]
-                .saturating_add(started.elapsed().as_nanos());
+            elapsed_ns[config_index] =
+                elapsed_ns[config_index].saturating_add(started.elapsed().as_nanos());
             add_execution_cost(&mut costs[config_index], candidate.execution_cost);
             let candidate_replay = run(case, config, false);
             assert_eq!(
