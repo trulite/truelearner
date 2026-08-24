@@ -28,7 +28,7 @@ one marker, and atomic create-new publication.
 | authority protocol | `827a220f12ba2c6713becb4d9f87bd1a21b0d756efbe5c9a8f88cd6dded51c8a` |
 | active PX7 source | `d248a8af479872d8148115a405ae7332f7d24ca229378d3fde898ffd3d19e63e` |
 | coverage audit | `f371bf1d8c05614f16c02dcdce1d0919a1d9c815182c2a813cc3ffced12424b7` |
-| static audit | `STATIC_AUDIT_HASH_TBD` |
+| static audit | `2a972c5849647ec1e876be549d2ecde1bb666918063913b61d9a8d6b83789f89` |
 
 ## Implementation boundary
 
@@ -44,6 +44,8 @@ eligibility rule, plastic update, pressure rule, hidden state, or memory leak.
 
 ## Targeted validation
 
-Pending one fresh E2B package-only validation. No Rust, project program, or
-project audit has run locally. No authority body, result artifact, or evidence
-marker exists.
+Formatting-only E2B sandbox `iu8zf96pw7n97n5wcyfs2` canonicalized the
+authority package and computed frozen hashes without compiling or constructing
+a body. One fresh package-only validation remains pending. No Rust, project
+program, or project audit has run locally. No authority body, result artifact,
+or evidence marker exists.
