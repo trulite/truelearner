@@ -8,10 +8,13 @@ use aws_config::{BehaviorVersion, Region};
 use aws_sdk_s3::{primitives::ByteStream, Client};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
+use std::thread::{self, JoinHandle};
 use std::{env, error::Error, fmt};
 
 pub const DEFAULT_REGION: &str = "ap-south-1";
 pub const DEFAULT_PREFIX: &str = "academy/v1";
+pub const PUBLICATION_CAPACITY: usize = 16;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -100,6 +103,113 @@ pub struct EpisodeManifest {
 pub struct PublishedEpisode {
     pub manifest: EpisodeManifest,
     pub manifest_ref: BlobRef,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PublicationEvent {
+    Published(PublishedEpisode),
+    Unconfigured {
+        experience_id: String,
+        reason: String,
+    },
+    Failed {
+        experience_id: String,
+        reason: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PublicationBackpressure {
+    Full,
+    Disconnected,
+}
+
+pub struct EpisodePublisherWorker {
+    commands: SyncSender<Option<A1Experience>>,
+    events: Receiver<PublicationEvent>,
+    join: Option<JoinHandle<()>>,
+}
+
+impl EpisodePublisherWorker {
+    pub fn spawn() -> Result<Self, StorageError> {
+        let (commands, command_receiver) = mpsc::sync_channel(PUBLICATION_CAPACITY);
+        let (event_sender, events) = mpsc::sync_channel(PUBLICATION_CAPACITY);
+        let join = thread::Builder::new()
+            .name("academy-evidence-publisher".to_string())
+            .spawn(move || {
+                let runtime = match tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                {
+                    Ok(runtime) => runtime,
+                    Err(error) => {
+                        while let Ok(Some(experience)) = command_receiver.recv() {
+                            let _ = event_sender.send(PublicationEvent::Failed {
+                                experience_id: experience.id,
+                                reason: format!("publisher runtime unavailable: {error}"),
+                            });
+                        }
+                        return;
+                    }
+                };
+                let config = S3StoreConfig::from_env();
+                let store = config.map(|config| runtime.block_on(S3AcademyStore::load(config)));
+                while let Ok(command) = command_receiver.recv() {
+                    let Some(experience) = command else {
+                        break;
+                    };
+                    let event = match &store {
+                        Ok(store) => match runtime.block_on(store.publish_a1_experience(&experience)) {
+                            Ok(published) => PublicationEvent::Published(published),
+                            Err(error) => PublicationEvent::Failed {
+                                experience_id: experience.id,
+                                reason: error.to_string(),
+                            },
+                        },
+                        Err(error) => PublicationEvent::Unconfigured {
+                            experience_id: experience.id,
+                            reason: error.to_string(),
+                        },
+                    };
+                    let _ = event_sender.send(event);
+                }
+            })
+            .map_err(|error| StorageError::Worker(error.to_string()))?;
+        Ok(Self {
+            commands,
+            events,
+            join: Some(join),
+        })
+    }
+
+    pub fn try_publish(
+        &self,
+        experience: A1Experience,
+    ) -> Result<(), PublicationBackpressure> {
+        self.commands
+            .try_send(Some(experience))
+            .map_err(|error| match error {
+                TrySendError::Full(_) => PublicationBackpressure::Full,
+                TrySendError::Disconnected(_) => PublicationBackpressure::Disconnected,
+            })
+    }
+
+    pub fn try_event(&self) -> Result<Option<PublicationEvent>, PublicationBackpressure> {
+        match self.events.try_recv() {
+            Ok(event) => Ok(Some(event)),
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(TryRecvError::Disconnected) => Err(PublicationBackpressure::Disconnected),
+        }
+    }
+}
+
+impl Drop for EpisodePublisherWorker {
+    fn drop(&mut self) {
+        let _ = self.commands.send(None);
+        if let Some(join) = self.join.take() {
+            let _ = join.join();
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -367,6 +477,7 @@ pub enum StorageError {
     },
     Serialization(String),
     Surface(String),
+    Worker(String),
     S3(String),
 }
 
@@ -393,6 +504,7 @@ impl fmt::Display for StorageError {
             ),
             Self::Serialization(message) => write!(formatter, "serialization failed: {message}"),
             Self::Surface(message) => write!(formatter, "surface encoding failed: {message}"),
+            Self::Worker(message) => write!(formatter, "publisher worker failed: {message}"),
             Self::S3(message) => write!(formatter, "S3 operation failed: {message}"),
         }
     }

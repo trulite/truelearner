@@ -6,6 +6,7 @@ use academy_core::{
     InteractionRequest, PhysicalInput, SessionSnapshot, TeachingCase, VisualSurface,
     SURFACE_HEIGHT, SURFACE_WIDTH,
 };
+use academy_storage::{EpisodePublisherWorker, PublicationEvent};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use dioxus::prelude::*;
@@ -54,6 +55,7 @@ struct UiModel {
     debug_overlay: bool,
     replay_message: String,
     file_notice: String,
+    publication_message: String,
 }
 
 impl Default for UiModel {
@@ -71,6 +73,7 @@ impl Default for UiModel {
             debug_overlay: true,
             replay_message: String::new(),
             file_notice: String::new(),
+            publication_message: String::new(),
         }
     }
 }
@@ -80,6 +83,11 @@ fn App() -> Element {
     let worker = use_hook(|| {
         Arc::new(Mutex::new(
             AcademyWorker::spawn().expect("Academy worker must start"),
+        ))
+    });
+    let publisher = use_hook(|| {
+        Arc::new(Mutex::new(
+            EpisodePublisherWorker::spawn().expect("Academy publisher worker must start"),
         ))
     });
     let mut model = use_signal(UiModel::default);
@@ -95,8 +103,10 @@ fn App() -> Element {
     let mut canvas_element = use_signal(|| None::<MountedEvent>);
 
     let polling_worker = Arc::clone(&worker);
+    let polling_publisher = Arc::clone(&publisher);
     use_future(move || {
         let polling_worker = Arc::clone(&polling_worker);
+        let polling_publisher = Arc::clone(&polling_publisher);
         async move {
             loop {
                 let mut events = Vec::new();
@@ -109,10 +119,16 @@ fn App() -> Element {
                     for event in events {
                         apply_worker_event(
                             event,
+                            &polling_publisher,
                             &mut model,
                             &mut shared_surface,
                             &mut organism_surface,
                         );
+                    }
+                }
+                if let Ok(locked) = polling_publisher.lock() {
+                    while let Ok(Some(event)) = locked.try_event() {
+                        apply_publication_event(event, &mut model);
                     }
                 }
                 Delay::new(Duration::from_millis(48)).await;
@@ -149,7 +165,11 @@ fn App() -> Element {
                         strong { "{model.read().status}" }
                         span {
                             if let Some(ref state) = inspector {
-                                "t{state.physical_tick} · {state.body_fingerprint}"
+                                if model.read().publication_message.is_empty() {
+                                    "t{state.physical_tick} · {state.body_fingerprint}"
+                                } else {
+                                    "{model.read().publication_message}"
+                                }
                             } else {
                                 "Starting"
                             }
@@ -697,6 +717,7 @@ fn Metric(term: String, value: String) -> Element {
 
 fn apply_worker_event(
     event: AcademyEvent,
+    publisher: &Arc<Mutex<EpisodePublisherWorker>>,
     model: &mut Signal<UiModel>,
     shared_surface: &mut Signal<VisualSurface>,
     organism_surface: &mut Signal<VisualSurface>,
@@ -753,6 +774,14 @@ fn apply_worker_event(
         }
         AcademyEvent::A1Completed { record, snapshot } => {
             let record = *record;
+            let publication = publisher
+                .lock()
+                .map_err(|_| "evidence publisher lock is unavailable".to_string())
+                .and_then(|publisher| {
+                    publisher
+                        .try_publish(record.clone())
+                        .map_err(|error| format!("evidence publisher is {error:?}"))
+                });
             shared_surface.set(record.shared_world_surface.clone());
             organism_surface.set(record.organism_surface.clone());
             let (title, body) = match record.kind {
@@ -797,6 +826,9 @@ fn apply_worker_event(
                 A1ExperienceKind::Probe(_) => "Control observed",
             }
             .to_string();
+            state.publication_message = publication
+                .map(|()| "Evidence queued".to_string())
+                .unwrap_or_else(|error| format!("Local replay retained · {error}"));
             state.busy = false;
         }
         AcademyEvent::CheckpointSaved {
@@ -864,6 +896,22 @@ fn apply_worker_event(
         }
         AcademyEvent::Error(message) => set_error(model, message),
     }
+}
+
+fn apply_publication_event(event: PublicationEvent, model: &mut Signal<UiModel>) {
+    let message = match event {
+        PublicationEvent::Published(published) => format!(
+            "Published · {}",
+            &published.manifest_ref.sha256.as_str()[..12]
+        ),
+        PublicationEvent::Unconfigured { reason, .. } => {
+            format!("Local replay retained · {reason}")
+        }
+        PublicationEvent::Failed { reason, .. } => {
+            format!("Publication failed; local replay retained · {reason}")
+        }
+    };
+    model.write().publication_message = message;
 }
 
 fn update_snapshot(model: &mut Signal<UiModel>, snapshot: SessionSnapshot) {
