@@ -132,6 +132,10 @@ pub struct EpisodePublisherWorker {
 
 impl EpisodePublisherWorker {
     pub fn spawn() -> Result<Self, StorageError> {
+        Self::spawn_with_config(S3StoreConfig::from_env())
+    }
+
+    fn spawn_with_config(config: Result<S3StoreConfig, StorageError>) -> Result<Self, StorageError> {
         let (commands, command_receiver) =
             mpsc::sync_channel::<Option<A1Experience>>(PUBLICATION_CAPACITY);
         let (event_sender, events) = mpsc::sync_channel(PUBLICATION_CAPACITY);
@@ -153,7 +157,6 @@ impl EpisodePublisherWorker {
                         return;
                     }
                 };
-                let config = S3StoreConfig::from_env();
                 let store = config.map(|config| runtime.block_on(S3AcademyStore::load(config)));
                 while let Ok(command) = command_receiver.recv() {
                     let Some(experience) = command else {
@@ -567,5 +570,37 @@ mod tests {
             experience.observation.body_before,
             experience.observation.body_after
         );
+    }
+
+    #[test]
+    fn unconfigured_publication_preserves_the_complete_local_experience() {
+        let worker = EpisodePublisherWorker::spawn_with_config(Err(
+            StorageError::MissingEnvironment("ACADEMY_S3_BUCKET"),
+        ))
+        .unwrap();
+        let mut lab = academy_core::GenuineTeachingLab::new(
+            academy_core::TeachingCase::generated_text(0xa1b2),
+        )
+        .unwrap();
+        let experience = lab.teach_supported().unwrap();
+        let id = experience.id.clone();
+        worker.try_publish(experience.clone()).unwrap();
+        let event = (0..100_000)
+            .find_map(|_| {
+                let event = worker.try_event().ok().flatten();
+                if event.is_none() {
+                    std::thread::yield_now();
+                }
+                event
+            })
+            .expect("publisher must return an explicit offline state");
+        assert!(matches!(
+            event,
+            PublicationEvent::Unconfigured {
+                experience_id,
+                ..
+            } if experience_id == id
+        ));
+        assert!(lab.replay(&id).unwrap().exact);
     }
 }
