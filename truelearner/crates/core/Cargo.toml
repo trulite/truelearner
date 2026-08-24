@@ -1,0 +1,15 @@
+[package]
+name = "truelearner-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Production physical organism runtime"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "truelearner"
+path = "src/main.rs"
+
+[dependencies]

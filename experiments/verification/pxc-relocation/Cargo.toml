@@ -1,0 +1,13 @@
+[package]
+name = "pxc-relocation-verification"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+pxr0-physical-runtime = {
+    package = "truelearner-core",
+    path = "../../../truelearner/crates/core",
+}
+
+[workspace]
