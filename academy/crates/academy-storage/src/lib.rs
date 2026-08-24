@@ -167,9 +167,7 @@ impl EpisodePublisherWorker {
                     let event = match &store {
                         Ok(store) => {
                             match runtime.block_on(store.publish_a1_experience(&experience)) {
-                                Ok(published) => {
-                                    PublicationEvent::Published(Box::new(published))
-                                }
+                                Ok(published) => PublicationEvent::Published(Box::new(published)),
                                 Err(error) => PublicationEvent::Failed {
                                     experience_id: experience.id,
                                     reason: error.to_string(),
