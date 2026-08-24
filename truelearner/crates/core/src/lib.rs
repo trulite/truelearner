@@ -3013,16 +3013,20 @@ mod tests {
             arrow.first_effect_due = Some(10);
         });
         let serial = substrate.next_serial;
-        substrate.pending.push(Spike {
-            arrival_tick: 10,
-            phase: 0,
-            origin_physical: 900,
-            target,
-            target_generation: Generation(99),
-            impulse: 1,
-            serial,
-            arrow: Some((arrow, generation)),
-        });
+        let mut execution_cost = ExecutionCost::default();
+        substrate.pending.push(
+            Spike {
+                arrival_tick: 10,
+                phase: 0,
+                origin_physical: 900,
+                target,
+                target_generation: Generation(99),
+                impulse: 1,
+                serial,
+                arrow: Some((arrow, generation)),
+            },
+            &mut execution_cost,
+        );
         substrate.next_serial = substrate.next_serial.saturating_add(1);
 
         let result = substrate.propagate();
