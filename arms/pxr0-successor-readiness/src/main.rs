@@ -124,7 +124,10 @@ fn main() {
     let globals = globals(&rows);
     publish(CSV_STAGE, CSV, &csv(&rows));
     publish(MD_STAGE, MD, &markdown(&rows, globals));
-    assert!(rows.iter().all(|row| row.passed), "PXR0 readiness row failed");
+    assert!(
+        rows.iter().all(|row| row.passed),
+        "PXR0 readiness row failed"
+    );
     assert!(globals.into_iter().all(|value| value), "PXR0 global failed");
     println!("PXR0_SUCCESSOR_DEVELOPMENT_READY rows=16/16 clauses=392/392");
 }
@@ -357,17 +360,41 @@ impl RecursiveBody {
     fn new(layout: Layout) -> Self {
         let mut space = PlasticSubstrate::new();
         space.advance_time(layout.shift);
-        let sides = if layout.reverse { [3, 2, 1, 0] } else { [0, 1, 2, 3] };
+        let sides = if layout.reverse {
+            [3, 2, 1, 0]
+        } else {
+            [0, 1, 2, 3]
+        };
         let stages_order = if layout.reverse { [2, 1, 0] } else { [0, 1, 2] };
         let mut primitive = [None; 4];
         let mut outlets = [None; 4];
         let mut traces = [None; 4];
         let mut hubs = [None; 4];
         for side in sides {
-            primitive[side] = Some(space.add_cell(cell(physical(layout, 10 + side as u64), -100_000 - side as i32 * 1_000, 10 + side as i16, 1)));
-            outlets[side] = Some(space.add_cell(cell(physical(layout, 20 + side as u64), -90_000 - side as i32 * 1_000, 20 + side as i16, 1)));
-            traces[side] = Some(space.add_cell(cell(physical(layout, 30 + side as u64), -80_000 - side as i32 * 1_000, 30 + side as i16, 2)));
-            hubs[side] = Some(space.add_cell(cell(physical(layout, 40 + side as u64), -70_000 - side as i32 * 1_000, 34 + side as i16, 1)));
+            primitive[side] = Some(space.add_cell(cell(
+                physical(layout, 10 + side as u64),
+                -100_000 - side as i32 * 1_000,
+                10 + side as i16,
+                1,
+            )));
+            outlets[side] = Some(space.add_cell(cell(
+                physical(layout, 20 + side as u64),
+                -90_000 - side as i32 * 1_000,
+                20 + side as i16,
+                1,
+            )));
+            traces[side] = Some(space.add_cell(cell(
+                physical(layout, 30 + side as u64),
+                -80_000 - side as i32 * 1_000,
+                30 + side as i16,
+                2,
+            )));
+            hubs[side] = Some(space.add_cell(cell(
+                physical(layout, 40 + side as u64),
+                -70_000 - side as i32 * 1_000,
+                34 + side as i16,
+                1,
+            )));
         }
         let primitive = primitive.map(Option::unwrap);
         let outlets = outlets.map(Option::unwrap);
@@ -381,14 +408,49 @@ impl RecursiveBody {
         let mut output_hubs = [None; 3];
         let mut return_loci = [None; 3];
         for stage in stages_order {
-            opportunities[stage] = Some(space.add_cell(cell(physical(layout, 100 + stage as u64), -10_000 - stage as i32 * 1_000, 50 + stage as i16, 2)));
+            opportunities[stage] = Some(space.add_cell(cell(
+                physical(layout, 100 + stage as u64),
+                -10_000 - stage as i32 * 1_000,
+                50 + stage as i16,
+                2,
+            )));
             let position = 10_000 + stage as i32 * 1_000;
-            stages[stage] = Some(space.add_cell(cell(physical(layout, 200 + stage as u64), position, 60 + stage as i16, 2)));
-            outputs[stage] = Some(space.add_cell(cell(physical(layout, 300 + stage as u64), position + if layout.reflect { -1 } else { 1 }, 70 + stage as i16, 2)));
-            source_traces[stage] = Some(space.add_cell(cell(physical(layout, 400 + stage as u64), 30_000 + stage as i32 * 1_000, 80 + stage as i16, 2)));
-            output_traces[stage] = Some(space.add_cell(cell(physical(layout, 600 + stage as u64), 50_000 + stage as i32 * 1_000, 100 + stage as i16, 2)));
-            output_hubs[stage] = Some(space.add_cell(cell(physical(layout, 700 + stage as u64), 60_000 + stage as i32 * 1_000, 110 + stage as i16, 1)));
-            return_loci[stage] = Some(space.add_cell(cell(physical(layout, 800 + stage as u64), 70_000 + stage as i32 * 1_000, 120 + stage as i16, 1)));
+            stages[stage] = Some(space.add_cell(cell(
+                physical(layout, 200 + stage as u64),
+                position,
+                60 + stage as i16,
+                2,
+            )));
+            outputs[stage] = Some(space.add_cell(cell(
+                physical(layout, 300 + stage as u64),
+                position + if layout.reflect { -1 } else { 1 },
+                70 + stage as i16,
+                2,
+            )));
+            source_traces[stage] = Some(space.add_cell(cell(
+                physical(layout, 400 + stage as u64),
+                30_000 + stage as i32 * 1_000,
+                80 + stage as i16,
+                2,
+            )));
+            output_traces[stage] = Some(space.add_cell(cell(
+                physical(layout, 600 + stage as u64),
+                50_000 + stage as i32 * 1_000,
+                100 + stage as i16,
+                2,
+            )));
+            output_hubs[stage] = Some(space.add_cell(cell(
+                physical(layout, 700 + stage as u64),
+                60_000 + stage as i32 * 1_000,
+                110 + stage as i16,
+                1,
+            )));
+            return_loci[stage] = Some(space.add_cell(cell(
+                physical(layout, 800 + stage as u64),
+                70_000 + stage as i32 * 1_000,
+                120 + stage as i16,
+                1,
+            )));
         }
         let opportunities = opportunities.map(Option::unwrap);
         let stages = stages.map(Option::unwrap);
@@ -406,7 +468,12 @@ impl RecursiveBody {
             normalize(&mut space, outlets[side], traces[side], hubs[side]);
         }
         for stage in stages_order {
-            normalize(&mut space, outputs[stage], output_traces[stage], output_hubs[stage]);
+            normalize(
+                &mut space,
+                outputs[stage],
+                output_traces[stage],
+                output_hubs[stage],
+            );
         }
         let left = [traces[0], output_traces[0], output_traces[1]];
         let right = [traces[1], traces[2], traces[3]];
@@ -420,7 +487,13 @@ impl RecursiveBody {
             space.add_arrow(drive(source_traces[stage], return_loci[stage], 0, 1, 100));
             space.add_arrow(modulatory(return_loci[stage], stages[stage], 1, 1, 100));
         }
-        space.add_arrow(drive(output_traces[2], outward, 0, 1, layout.outward_resistance));
+        space.add_arrow(drive(
+            output_traces[2],
+            outward,
+            0,
+            1,
+            layout.outward_resistance,
+        ));
         space.add_arrow(drive(outward, relay, 1, 1, 100));
         space.add_arrow(modulatory(relay, stages[2], 1, 1, 100));
         Self {
@@ -475,7 +548,12 @@ impl RecursiveBody {
             }
         }
         for stage in 0..3 {
-            self.pulse(self.stages[stage], start + 1 + stage as i64 * 2, 1, 100 + stage as i32);
+            self.pulse(
+                self.stages[stage],
+                start + 1 + stage as i64 * 2,
+                1,
+                100 + stage as i32,
+            );
         }
         self.settle()
     }
@@ -487,7 +565,12 @@ impl RecursiveBody {
 
     fn burst(&mut self, depth: usize, start: i64, context: bool, returning: bool) -> Reading {
         for side in 0..=depth {
-            self.pulse(self.primitive[side], start + [0, 0, 2, 4][side], 1, side as i32);
+            self.pulse(
+                self.primitive[side],
+                start + [0, 0, 2, 4][side],
+                1,
+                side as i32,
+            );
         }
         for stage in 0..depth {
             let tick = start + 1 + stage as i64 * 2;
@@ -514,7 +597,13 @@ impl RecursiveBody {
 
     fn settle(&mut self) -> Reading {
         let result = self.space.propagate();
-        let reading = reading(result, self.outward_from, self.outward_to, self.inward_from, self.inward_to);
+        let reading = reading(
+            result,
+            self.outward_from,
+            self.outward_to,
+            self.inward_from,
+            self.inward_to,
+        );
         self.last_bytes = reading.bytes;
         reading
     }
@@ -536,8 +625,12 @@ fn compact(case: Case, offset: u64, form: Form, count: usize) -> Reading {
     let inlet = space.add_cell(cell(namespace + 1, 0, 40, 1));
     let outward = space.add_cell(cell(namespace + 2, direction * 10, 400, 1));
     match form {
-        Form::Direct => { space.add_arrow(drive(inlet, outward, 1, 1, 100)); }
-        Form::Open => { space.add_arrow(drive(inlet, outward, 1, 1, 0)); }
+        Form::Direct => {
+            space.add_arrow(drive(inlet, outward, 1, 1, 100));
+        }
+        Form::Open => {
+            space.add_arrow(drive(inlet, outward, 1, 1, 0));
+        }
         Form::Fork => {
             let a = space.add_cell(cell(namespace + 3, direction * 2, 40, 1));
             let b = space.add_cell(cell(namespace + 4, direction * 3, 40, 1));
@@ -596,10 +689,24 @@ impl PairBody {
         space.advance_time(case.shift);
         let mut sources = [None; 4];
         let mut traces = [None; 4];
-        let sides = if case.reverse { [3, 2, 1, 0] } else { [0, 1, 2, 3] };
+        let sides = if case.reverse {
+            [3, 2, 1, 0]
+        } else {
+            [0, 1, 2, 3]
+        };
         for side in sides {
-            sources[side] = Some(space.add_cell(cell(namespace + 100 + side as u64, position(case, side), 10 + side as i16, 1)));
-            traces[side] = Some(space.add_cell(cell(namespace + 200 + side as u64, internal(case, 20 + side as i32), 20 + side as i16, 1)));
+            sources[side] = Some(space.add_cell(cell(
+                namespace + 100 + side as u64,
+                position(case, side),
+                10 + side as i16,
+                1,
+            )));
+            traces[side] = Some(space.add_cell(cell(
+                namespace + 200 + side as u64,
+                internal(case, 20 + side as i32),
+                20 + side as i16,
+                1,
+            )));
         }
         let sources = sources.map(Option::unwrap);
         let traces = traces.map(Option::unwrap);
@@ -610,11 +717,36 @@ impl PairBody {
         let mut relay = [None; 2];
         let pairs = if case.reverse { [1, 0] } else { [0, 1] };
         for pair in pairs {
-            coincidence[pair] = Some(space.add_cell(cell(namespace + 300 + pair as u64, internal(case, 40 + pair as i32), 30 + pair as i16, 2)));
-            inner[pair] = Some(space.add_cell(cell(namespace + 400 + pair as u64, position(case, 4 + pair * 2), 40 + pair as i16, 1)));
-            downstream[pair] = Some(space.add_cell(cell(namespace + 500 + pair as u64, position(case, 5 + pair * 2), 50 + pair as i16, 2)));
-            downstream_trace[pair] = Some(space.add_cell(cell(namespace + 600 + pair as u64, internal(case, 60 + pair as i32), 60 + pair as i16, 1)));
-            relay[pair] = Some(space.add_cell(cell(namespace + 800 + pair as u64, internal(case, 80 + pair as i32), 70 + pair as i16, 2)));
+            coincidence[pair] = Some(space.add_cell(cell(
+                namespace + 300 + pair as u64,
+                internal(case, 40 + pair as i32),
+                30 + pair as i16,
+                2,
+            )));
+            inner[pair] = Some(space.add_cell(cell(
+                namespace + 400 + pair as u64,
+                position(case, 4 + pair * 2),
+                40 + pair as i16,
+                1,
+            )));
+            downstream[pair] = Some(space.add_cell(cell(
+                namespace + 500 + pair as u64,
+                position(case, 5 + pair * 2),
+                50 + pair as i16,
+                2,
+            )));
+            downstream_trace[pair] = Some(space.add_cell(cell(
+                namespace + 600 + pair as u64,
+                internal(case, 60 + pair as i32),
+                60 + pair as i16,
+                1,
+            )));
+            relay[pair] = Some(space.add_cell(cell(
+                namespace + 800 + pair as u64,
+                internal(case, 80 + pair as i32),
+                70 + pair as i16,
+                2,
+            )));
         }
         let coincidence = coincidence.map(Option::unwrap);
         let inner = inner.map(Option::unwrap);
@@ -623,7 +755,9 @@ impl PairBody {
         let relay = relay.map(Option::unwrap);
         let returning = space.add_cell(cell(namespace + 700, position(case, 8), 80, 1));
         let outward = space.add_cell(cell(namespace + 900, position(case, 9), 90, 1));
-        for side in sides { space.add_arrow(drive(sources[side], traces[side], 1, 1, 100)); }
+        for side in sides {
+            space.add_arrow(drive(sources[side], traces[side], 1, 1, 100));
+        }
         space.add_arrow(drive(traces[0], coincidence[0], 0, 1, 100));
         space.add_arrow(drive(traces[1], coincidence[0], 0, 1, 100));
         space.add_arrow(drive(coincidence[0], inner[0], 0, 1, 100));
@@ -639,9 +773,29 @@ impl PairBody {
             space.add_arrow(modulatory(relay[pair], inner[pair], 1, 1, 100));
         }
         space.add_arrow(drive(downstream[1], outward, 1, 1, 100));
-        let sites = [sources[0], sources[1], sources[2], sources[3], inner[0], downstream[0], inner[1], downstream[1], returning];
-        let physical = [namespace + 100, namespace + 101, namespace + 102, namespace + 103, namespace + 400, namespace + 500, namespace + 401, namespace + 501, namespace + 700];
-        let positions = [0,1,2,3,4,5,6,7,8].map(|site| position(case, site));
+        let sites = [
+            sources[0],
+            sources[1],
+            sources[2],
+            sources[3],
+            inner[0],
+            downstream[0],
+            inner[1],
+            downstream[1],
+            returning,
+        ];
+        let physical = [
+            namespace + 100,
+            namespace + 101,
+            namespace + 102,
+            namespace + 103,
+            namespace + 400,
+            namespace + 500,
+            namespace + 401,
+            namespace + 501,
+            namespace + 700,
+        ];
+        let positions = [0, 1, 2, 3, 4, 5, 6, 7, 8].map(|site| position(case, site));
         Self {
             space,
             case,
@@ -658,7 +812,11 @@ impl PairBody {
 
     fn participate(&mut self, arrivals: Vec<Arrival>) -> PairReading {
         for arrival in arrivals {
-            let index = self.positions.iter().position(|value| *value == arrival.position).unwrap();
+            let index = self
+                .positions
+                .iter()
+                .position(|value| *value == arrival.position)
+                .unwrap();
             self.space.enter(SpikeInput {
                 arrival_tick: self.case.shift + arrival.tick,
                 phase: arrival.phase,
@@ -672,7 +830,9 @@ impl PairBody {
         let mut impulses = [0; 2];
         for crossing in &result.crossings {
             for index in 0..2 {
-                if crossing.from_physical == self.link_from[index] && crossing.to_physical == self.link_to[index] {
+                if crossing.from_physical == self.link_from[index]
+                    && crossing.to_physical == self.link_to[index]
+                {
                     links[index] += 1;
                     impulses[index] = impulses[index].max(crossing.impulse);
                 }
@@ -703,11 +863,20 @@ fn pair_maturation(body: &PairBody, tick: i64) -> Vec<Arrival> {
 }
 
 fn pair_boundary(body: &PairBody, tick: i64) -> Vec<Arrival> {
-    vec![arrival(body, 0, tick, 10), arrival(body, 1, tick, 11), arrival(body, 2, tick + 2, 12)]
+    vec![
+        arrival(body, 0, tick, 10),
+        arrival(body, 1, tick, 11),
+        arrival(body, 2, tick + 2, 12),
+    ]
 }
 
 fn pair_role(body: &PairBody, tick: i64) -> Vec<Arrival> {
-    vec![arrival(body, 0, tick, 10), arrival(body, 1, tick, 11), arrival(body, 5, tick + 2, 20), arrival(body, 8, tick + 3, 21)]
+    vec![
+        arrival(body, 0, tick, 10),
+        arrival(body, 1, tick, 11),
+        arrival(body, 5, tick + 2, 20),
+        arrival(body, 8, tick + 3, 21),
+    ]
 }
 
 fn pair_boundary_zero(body: &PairBody, tick: i64) -> Vec<Arrival> {
@@ -716,20 +885,38 @@ fn pair_boundary_zero(body: &PairBody, tick: i64) -> Vec<Arrival> {
 
 fn arrival(body: &PairBody, site: usize, tick: i64, phase: i32) -> Arrival {
     let _physical_identity = body.physical[site];
-    Arrival { tick, phase, position: body.positions[site] }
+    Arrival {
+        tick,
+        phase,
+        position: body.positions[site],
+    }
 }
 
 fn position(case: Case, site: usize) -> i32 {
     let value = 100_000 + site as i32 * 10_000;
-    if case.reflect { -value } else { value }
+    if case.reflect {
+        -value
+    } else {
+        value
+    }
 }
 
 fn internal(case: Case, offset: i32) -> i32 {
     let value = 500_000 + offset * 10_000;
-    if case.reflect { -value } else { value }
+    if case.reflect {
+        -value
+    } else {
+        value
+    }
 }
 
-fn reading(result: RunResult, outward_from: u64, outward_to: u64, inward_from: u64, inward_to: u64) -> Reading {
+fn reading(
+    result: RunResult,
+    outward_from: u64,
+    outward_to: u64,
+    inward_from: u64,
+    inward_to: u64,
+) -> Reading {
     Reading {
         outward: count(&result, outward_from, outward_to),
         inward: count(&result, inward_from, inward_to),
@@ -745,7 +932,11 @@ fn reading(result: RunResult, outward_from: u64, outward_to: u64, inward_from: u
 }
 
 fn count(result: &RunResult, from: u64, to: u64) -> usize {
-    result.crossings.iter().filter(|crossing| crossing.from_physical == from && crossing.to_physical == to).count()
+    result
+        .crossings
+        .iter()
+        .filter(|crossing| crossing.from_physical == from && crossing.to_physical == to)
+        .count()
 }
 
 fn merge(left: Reading, right: Reading) -> Reading {
@@ -770,15 +961,37 @@ fn normalize(space: &mut PlasticSubstrate, outlet: CellId, trace: CellId, hub: C
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
-    CellSpec { physical_id, position, region, threshold, resistance: 100 }
+    CellSpec {
+        physical_id,
+        position,
+        region,
+        threshold,
+        resistance: 100,
+    }
 }
 
 fn drive(from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u32) -> ArrowSpec {
-    ArrowSpec { from, to, delay, phase: 0, coupling, resistance, mode: TransmissionMode::Drive }
+    ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling,
+        resistance,
+        mode: TransmissionMode::Drive,
+    }
 }
 
 fn modulatory(from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u32) -> ArrowSpec {
-    ArrowSpec { from, to, delay, phase: 0, coupling, resistance, mode: TransmissionMode::Modulatory }
+    ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling,
+        resistance,
+        mode: TransmissionMode::Modulatory,
+    }
 }
 
 fn physical(layout: Layout, suffix: u64) -> u64 {
@@ -786,18 +999,41 @@ fn physical(layout: Layout, suffix: u64) -> u64 {
 }
 
 fn globals(rows: &[Row]) -> [bool; 8] {
-    let roots = rows.iter().map(|row| row.trial.case.root).collect::<BTreeSet<_>>();
-    let layouts = [false, true].into_iter().all(|reverse| [false, true].into_iter().all(|reflect| rows.iter().filter(|row| row.trial.case.reverse == reverse && row.trial.case.reflect == reflect).count() == 4));
-    let shifts = [0, 137, 274, 411].into_iter().all(|shift| rows.iter().filter(|row| row.trial.case.shift == shift).count() == 4);
-    let namespaces = rows.iter().flat_map(|row| (0..10).map(move |index| (row.trial.case.root << 32) + index * 10_000)).collect::<BTreeSet<_>>();
-    let manifest = std::fs::read_to_string("experiments/pxr0_active_surface_manifest_v1.csv").unwrap_or_default();
-    let gate = std::fs::read_to_string("results/pxr0_static_gate_v1/audit.json").unwrap_or_default();
+    let roots = rows
+        .iter()
+        .map(|row| row.trial.case.root)
+        .collect::<BTreeSet<_>>();
+    let layouts = [false, true].into_iter().all(|reverse| {
+        [false, true].into_iter().all(|reflect| {
+            rows.iter()
+                .filter(|row| {
+                    row.trial.case.reverse == reverse && row.trial.case.reflect == reflect
+                })
+                .count()
+                == 4
+        })
+    });
+    let shifts = [0, 137, 274, 411].into_iter().all(|shift| {
+        rows.iter()
+            .filter(|row| row.trial.case.shift == shift)
+            .count()
+            == 4
+    });
+    let namespaces = rows
+        .iter()
+        .flat_map(|row| (0..10).map(move |index| (row.trial.case.root << 32) + index * 10_000))
+        .collect::<BTreeSet<_>>();
+    let manifest = std::fs::read_to_string("experiments/pxr0_active_surface_manifest_v1.csv")
+        .unwrap_or_default();
+    let gate =
+        std::fs::read_to_string("results/pxr0_static_gate_v1/audit.json").unwrap_or_default();
     [
         roots.len() == 16 && roots.iter().copied().eq(1_075_001..=1_075_016),
         layouts,
         shifts,
         namespaces.len() == 160,
-        manifest.lines().count() == 2 && manifest.contains("crates/pxr0-physical-runtime/src/lib.rs"),
+        manifest.lines().count() == 2
+            && manifest.contains("crates/pxr0-physical-runtime/src/lib.rs"),
         gate.contains("\"gate_pass\": true"),
         rows.len() == 16 && rows.iter().all(|row| row.clauses.len() == 24),
         rows.iter().all(|row| row.replay),
@@ -809,13 +1045,34 @@ fn csv(rows: &[Row]) -> String {
     for row in rows {
         let trial = &row.trial;
         let fields = [
-            trial.case.root.to_string(), trial.case.reverse.to_string(), trial.case.reflect.to_string(), trial.case.shift.to_string(),
-            trial.pair_first.updates.to_string(), format!("{}|{}", trial.pair_held.impulses[0], trial.pair_held.impulses[1]),
-            trial.formation.updates.to_string(), trial.completed.outward.to_string(), trial.duplicate.outward.to_string(),
-            trial.incomplete.outward.to_string(), trial.blocked.outward.to_string(), trial.stale.outward.to_string(),
-            trial.stale.proposals.to_string(), trial.stale_before.to_string(), trial.stale_after.to_string(),
-            trial.max_work.to_string(), trial.max_bytes.to_string(), row.clauses[20].to_string(), row.replay.to_string(),
-            row.clauses.iter().map(bool::to_string).collect::<Vec<_>>().join("|"), row.passed.to_string(),
+            trial.case.root.to_string(),
+            trial.case.reverse.to_string(),
+            trial.case.reflect.to_string(),
+            trial.case.shift.to_string(),
+            trial.pair_first.updates.to_string(),
+            format!(
+                "{}|{}",
+                trial.pair_held.impulses[0], trial.pair_held.impulses[1]
+            ),
+            trial.formation.updates.to_string(),
+            trial.completed.outward.to_string(),
+            trial.duplicate.outward.to_string(),
+            trial.incomplete.outward.to_string(),
+            trial.blocked.outward.to_string(),
+            trial.stale.outward.to_string(),
+            trial.stale.proposals.to_string(),
+            trial.stale_before.to_string(),
+            trial.stale_after.to_string(),
+            trial.max_work.to_string(),
+            trial.max_bytes.to_string(),
+            row.clauses[20].to_string(),
+            row.replay.to_string(),
+            row.clauses
+                .iter()
+                .map(bool::to_string)
+                .collect::<Vec<_>>()
+                .join("|"),
+            row.passed.to_string(),
         ];
         text.push_str(&fields.join(","));
         text.push('\n');
@@ -825,20 +1082,64 @@ fn csv(rows: &[Row]) -> String {
 
 fn markdown(rows: &[Row], globals: [bool; 8]) -> String {
     let row_count = rows.iter().filter(|row| row.passed).count();
-    let row_clauses = rows.iter().map(|row| row.clauses.iter().filter(|value| **value).count()).sum::<usize>();
+    let row_clauses = rows
+        .iter()
+        .map(|row| row.clauses.iter().filter(|value| **value).count())
+        .sum::<usize>();
     let global_count = globals.iter().filter(|value| **value).count();
     let mut text = String::new();
     writeln!(text, "# PXR0 successor development readiness v1\n").unwrap();
-    writeln!(text, "Outcome: **{}**.\n", if row_count == 16 && global_count == 8 { "DEVELOPMENT READY" } else { "NEGATIVE" }).unwrap();
+    writeln!(
+        text,
+        "Outcome: **{}**.\n",
+        if row_count == 16 && global_count == 8 {
+            "DEVELOPMENT READY"
+        } else {
+            "NEGATIVE"
+        }
+    )
+    .unwrap();
     writeln!(text, "- rows: `{row_count}/16`;").unwrap();
     writeln!(text, "- row clauses: `{row_clauses}/384`;").unwrap();
     writeln!(text, "- global clauses: `{global_count}/8`;").unwrap();
-    writeln!(text, "- total clauses: `{}/392`;", row_clauses + global_count).unwrap();
-    writeln!(text, "- maximum work: `{}`;", rows.iter().map(|row| row.trial.max_work).max().unwrap_or(0)).unwrap();
-    writeln!(text, "- maximum resident bytes: `{}`;", rows.iter().map(|row| row.trial.max_bytes).max().unwrap_or(0)).unwrap();
-    writeln!(text, "- natural quiescence: `{}`;", rows.iter().all(|row| row.clauses[20])).unwrap();
-    writeln!(text, "- exact replay: `{}`;", rows.iter().all(|row| row.replay)).unwrap();
-    writeln!(text, "- PXR0 authority: `false`; PX-C authority: `false`.\n").unwrap();
+    writeln!(
+        text,
+        "- total clauses: `{}/392`;",
+        row_clauses + global_count
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "- maximum work: `{}`;",
+        rows.iter().map(|row| row.trial.max_work).max().unwrap_or(0)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "- maximum resident bytes: `{}`;",
+        rows.iter()
+            .map(|row| row.trial.max_bytes)
+            .max()
+            .unwrap_or(0)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "- natural quiescence: `{}`;",
+        rows.iter().all(|row| row.clauses[20])
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "- exact replay: `{}`;",
+        rows.iter().all(|row| row.replay)
+    )
+    .unwrap();
+    writeln!(
+        text,
+        "- PXR0 authority: `false`; PX-C authority: `false`.\n"
+    )
+    .unwrap();
     writeln!(text, "## Unconditional rows\n").unwrap();
     for row in rows {
         let trial = &row.trial;
@@ -848,7 +1149,11 @@ fn markdown(rows: &[Row], globals: [bool; 8]) -> String {
 }
 
 fn publish(stage: &str, destination: &str, content: &str) {
-    let mut file = OpenOptions::new().write(true).create_new(true).open(stage).unwrap();
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(stage)
+        .unwrap();
     file.write_all(content.as_bytes()).unwrap();
     file.sync_all().unwrap();
     rename(stage, destination).unwrap();

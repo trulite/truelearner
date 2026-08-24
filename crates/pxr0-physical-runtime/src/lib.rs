@@ -353,8 +353,7 @@ impl PlasticSubstrate {
                     work.total = work.total.saturating_add(1);
                     if was_live && !arrow.live {
                         work.total = work.total.saturating_add(1);
-                        work.physical_deallocations =
-                            work.physical_deallocations.saturating_add(1);
+                        work.physical_deallocations = work.physical_deallocations.saturating_add(1);
                     }
                 }
             }
@@ -370,8 +369,7 @@ impl PlasticSubstrate {
                 work.total = work.total.saturating_add(1);
                 if was_live && !arrow.live {
                     work.total = work.total.saturating_add(1);
-                    work.physical_deallocations =
-                        work.physical_deallocations.saturating_add(1);
+                    work.physical_deallocations = work.physical_deallocations.saturating_add(1);
                 }
             }
         }
