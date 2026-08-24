@@ -124,6 +124,14 @@ impl MechanicalConfig {
         executor: ExecutorKind::Batched,
         ..Self::R4
     };
+
+    /// PSEL0's measured production selection. The permanent correctness
+    /// reference remains `REFERENCE`; batching falls back safely when live
+    /// zero-delay topology can add current-tick work.
+    pub const PRODUCTION: Self = Self {
+        executor: ExecutorKind::Batched,
+        ..Self::R3
+    };
 }
 
 impl Default for MechanicalConfig {
