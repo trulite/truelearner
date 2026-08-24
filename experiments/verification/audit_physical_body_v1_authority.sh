@@ -31,12 +31,12 @@ test "$actual_rust" = "$expected_rust" || {
     exit 1
 }
 
-if rg -n 'unsafe[[:space:]]*\{|mmap|memmap' truelearner --glob '*.rs'; then
+if grep -R -n -E --include='*.rs' 'unsafe[[:space:]]*\{|mmap|memmap' truelearner; then
     echo "forbidden production memory surface" >&2
     exit 1
 fi
 
-if rg -n 'experiments/' truelearner --glob 'Cargo.toml'; then
+if grep -R -n -F --include='Cargo.toml' 'experiments/' truelearner; then
     echo "production depends on experiment path" >&2
     exit 1
 fi
