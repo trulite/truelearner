@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/academy-core",
+    "crates/academy-arc3",
     "crates/academy-episodes",
     "crates/academy-runner",
     "crates/academy-storage",
@@ -8,6 +9,7 @@ members = [
 ]
 default-members = [
     "crates/academy-core",
+    "crates/academy-arc3",
     "crates/academy-episodes",
     "crates/academy-runner",
     "crates/academy-storage",
@@ -22,6 +24,7 @@ publish = false
 
 [workspace.dependencies]
 academy-core = { path = "crates/academy-core" }
+academy-arc3 = { path = "crates/academy-arc3" }
 academy-episodes = { path = "crates/academy-episodes" }
 academy-storage = { path = "crates/academy-storage" }
 truelearner-core = { path = "../truelearner/crates/core" }
