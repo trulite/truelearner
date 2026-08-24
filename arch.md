@@ -45,6 +45,12 @@ R1-R5 mechanical-equivalence development freeze (non-authoritative)
     result  80/80 differential pairs, 536/536 behavioral clauses
     scope   scheduling, adjacency, frontier, resident layout, safe batching
 
+PSEL0 production-mechanics selection (engineering, non-authoritative)
+    branch  runtime/psel0-production-mechanics-selection
+    result  32/32 stress comparisons, three exact repetitions each
+    select  TimingWheel + Adjacency + Frontier + AoS + opportunistic Batched
+    retain  ReferencePhysics permanently
+
 canonical production body
     truelearner/crates/core/src/lib.rs
     SHA-256 8a0f0c862a9aa6bfaf74a3a09ca5ee0eb6b3dc95e75ce76e5a136c9a8890ff0a
@@ -67,6 +73,11 @@ default. It establishes the narrower architectural fact that the accepted
 physical history is representation-independent across the five tested
 mechanical axes. Production-mechanics selection remains an engineering
 successor decision.
+
+PSEL0 subsequently selected a measured production composition without changing
+the physical law or advancing organism authority. `MechanicalConfig::PRODUCTION`
+names that composition. `MechanicalConfig::REFERENCE` remains the permanent
+correctness oracle and is not deleted or weakened.
 
 ---
 
@@ -569,10 +580,12 @@ eligibility[]
 mode[]
 ```
 
-R1-R5 development proved AoS and SoA physically interchangeable. Its current
-SoA accessor path was slower than frontier-based AoS in the accepted corpus,
-so layout must be selected by measured mechanical cost rather than assumed
-SIMD benefit. Do not scan the whole graph.
+R1-R5 development proved AoS and SoA physically interchangeable. PSEL0 then
+measured both on eight larger mechanical workloads. SoA reduced peak resident
+capacity by roughly two percent but was roughly 2.7 times slower in aggregate
+with the current access path. AoS is therefore the selected resident default.
+SoA remains a valid replaceable layout, not rejected physics. Do not scan the
+whole graph.
 
 Process compact active frontiers:
 
@@ -670,6 +683,13 @@ mechanical work. SoA and batching proved physically valid but have not been
 selected as universal defaults. Batching may fall back to scalar execution
 where zero-delay topology can add current-tick work. SIMD is not yet an
 accepted or implemented result.
+
+PSEL0 selected exact batching as an opportunistic mechanic over the AoS body.
+Across its eight workloads it halved queue operations, reduced logical bytes
+touched by roughly 44 percent, and reduced logical allocation events by roughly
+25 percent. The zero-delay workload recorded 1,024 lawful scalar fallbacks and
+remained physically exact. Batching is therefore not a universal transition
+law; it is a cost-reducing mechanic used only where current-tick closure permits.
 
 ## Why rings matter
 
