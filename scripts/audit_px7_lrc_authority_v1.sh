@@ -43,11 +43,11 @@ require_hash 653289cf42577dabb242475fd88abe24405b3e9a7e3cd4f2961489cc5fe6953a \
     experiments/pxc_active_surface_manifest_v4.csv
 require_hash d248a8af479872d8148115a405ae7332f7d24ca229378d3fde898ffd3d19e63e \
     crates/px7-lrc-arrival/src/lib.rs
-require_hash PROTOCOL_HASH_TBD \
+require_hash 827a220f12ba2c6713becb4d9f87bd1a21b0d756efbe5c9a8f88cd6dded51c8a \
     experiments/px7_lrc_cumulative_arrival_authority_protocol_v1.md
 require_hash EVALUATOR_HASH_TBD \
     arms/px7-lrc-arrival-authority/src/main.rs
-require_hash CARGO_HASH_TBD \
+require_hash 3671a215a8075596b51dad24c6793f3314b9cdfbba16fa130e12a39d9a9902d1 \
     arms/px7-lrc-arrival-authority/Cargo.toml
 
 source=arms/px7-lrc-arrival-authority/src/main.rs
