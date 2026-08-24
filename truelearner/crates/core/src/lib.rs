@@ -7,8 +7,8 @@ use truelearner_arena_format::{
 };
 
 mod mechanics;
-pub use mechanics::SchedulerKind;
 use mechanics::PendingSchedule;
+pub use mechanics::SchedulerKind;
 pub use truelearner_arena_format::{
     ArenaId, ArrowId, ArrowRef, CellId, CellRef, ContentHash, Generation,
 };
@@ -988,7 +988,12 @@ impl PlasticSubstrate {
         }
         let (id, slot, generation, prior_source) = if let Some(index) = reusable {
             let prior = &self.arrows[index];
-            (prior.id, ArrowSlot(index), prior.generation, Some(prior.from))
+            (
+                prior.id,
+                ArrowSlot(index),
+                prior.generation,
+                Some(prior.from),
+            )
         } else {
             let id = ArrowId(self.arrow_slots.len() as u64);
             (id, ArrowSlot(self.arrows.len()), Generation(1), None)
@@ -1030,16 +1035,19 @@ impl PlasticSubstrate {
             "physical arrivals cannot precede current substrate time"
         );
         let mut ignored = ExecutionCost::default();
-        self.pending.push(Spike {
-            arrival_tick: input.arrival_tick,
-            phase: input.phase,
-            origin_physical: input.origin_physical,
-            target: input.target,
-            target_generation: self.cells[self.cell_slot(input.target).unwrap().0].generation,
-            impulse: input.impulse,
-            serial: self.next_serial,
-            arrow: None,
-        }, &mut ignored);
+        self.pending.push(
+            Spike {
+                arrival_tick: input.arrival_tick,
+                phase: input.phase,
+                origin_physical: input.origin_physical,
+                target: input.target,
+                target_generation: self.cells[self.cell_slot(input.target).unwrap().0].generation,
+                impulse: input.impulse,
+                serial: self.next_serial,
+                arrow: None,
+            },
+            &mut ignored,
+        );
         self.next_serial = self.next_serial.wrapping_add(1);
     }
 
@@ -1324,8 +1332,11 @@ impl PlasticSubstrate {
                 .ok_or(CheckpointError::MissingArrow(runtime.id))?;
             substrate.arrows[slot.0].eligible_until = runtime.eligible_until;
         }
-        substrate.pending =
-            PendingSchedule::from_canonical(mechanics.scheduler, checkpoint.clock.tick, checkpoint.pending);
+        substrate.pending = PendingSchedule::from_canonical(
+            mechanics.scheduler,
+            checkpoint.clock.tick,
+            checkpoint.pending,
+        );
         substrate.next_serial = checkpoint.next_serial;
         substrate.pending_loads = checkpoint.pending_loads;
         substrate.active_cells = substrate
@@ -1520,16 +1531,19 @@ impl PlasticSubstrate {
                 live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
                 self.eligible_arrows.insert(arrow_id);
                 work.total = work.total.saturating_add(2);
-                self.pending.push(Spike {
-                    arrival_tick: self.tick.saturating_add(arrow.delay),
-                    phase: arrow.phase,
-                    origin_physical,
-                    target: arrow.to,
-                    target_generation: to.generation,
-                    impulse: arrow.coupling,
-                    serial: self.next_serial,
-                    arrow: Some((arrow_id, arrow.generation)),
-                }, &mut execution_cost);
+                self.pending.push(
+                    Spike {
+                        arrival_tick: self.tick.saturating_add(arrow.delay),
+                        phase: arrow.phase,
+                        origin_physical,
+                        target: arrow.to,
+                        target_generation: to.generation,
+                        impulse: arrow.coupling,
+                        serial: self.next_serial,
+                        arrow: Some((arrow_id, arrow.generation)),
+                    },
+                    &mut execution_cost,
+                );
                 self.next_serial = self.next_serial.wrapping_add(1);
             }
         }
@@ -1562,7 +1576,10 @@ impl PlasticSubstrate {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
             let arrow = &mut self.arrows[slot.0];
-            if arrow.live && arrow.from == cell && arrow.eligible_until.is_some_and(|end| tick <= end) {
+            if arrow.live
+                && arrow.from == cell
+                && arrow.eligible_until.is_some_and(|end| tick <= end)
+            {
                 work.total = work.total.saturating_add(3);
                 work.local_return_updates = work.local_return_updates.saturating_add(1);
                 let prior_resistance = arrow.resistance;
@@ -1576,12 +1593,7 @@ impl PlasticSubstrate {
         }
     }
 
-    fn elapse_to(
-        &mut self,
-        tick: i64,
-        work: &mut Work,
-        execution_cost: &mut ExecutionCost,
-    ) {
+    fn elapse_to(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
         if pressure_steps > 0 {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);

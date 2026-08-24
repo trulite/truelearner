@@ -79,11 +79,7 @@ impl PendingSchedule {
         spikes
     }
 
-    pub(super) fn from_canonical(
-        kind: SchedulerKind,
-        head_tick: i64,
-        spikes: Vec<Spike>,
-    ) -> Self {
+    pub(super) fn from_canonical(kind: SchedulerKind, head_tick: i64, spikes: Vec<Spike>) -> Self {
         let mut schedule = Self::new(kind, head_tick);
         let mut ignored = ExecutionCost::default();
         for spike in spikes {
@@ -126,11 +122,7 @@ impl TimingWheel {
         self.len += 1;
     }
 
-    fn pop_next<F>(
-        &mut self,
-        target_physical: F,
-        cost: &mut ExecutionCost,
-    ) -> Option<(Spike, u64)>
+    fn pop_next<F>(&mut self, target_physical: F, cost: &mut ExecutionCost) -> Option<(Spike, u64)>
     where
         F: Fn(CellId) -> u64,
     {
