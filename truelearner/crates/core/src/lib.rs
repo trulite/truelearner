@@ -2729,6 +2729,80 @@ mod tests {
     }
 
     #[test]
+    fn resident_partition_preserves_identity_pending_order_and_physics() {
+        let (base, source) = differential_body();
+        let arrivals = [
+            SpikeInput {
+                arrival_tick: 0,
+                phase: 0,
+                origin_physical: 91,
+                target: source,
+                impulse: 1,
+            },
+            SpikeInput {
+                arrival_tick: 0,
+                phase: 1,
+                origin_physical: 92,
+                target: source,
+                impulse: 1,
+            },
+            SpikeInput {
+                arrival_tick: 70,
+                phase: -1,
+                origin_physical: 93,
+                target: source,
+                impulse: 2,
+            },
+        ];
+        let mut one_arena = base.clone();
+        one_arena.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
+        let durable_reference = one_arena.cell_reference(source);
+        let mut partitioned = base;
+        partitioned.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
+        partitioned.repartition_resident(&[
+            ResidentArenaId(0),
+            ResidentArenaId(1),
+            ResidentArenaId(2),
+            ResidentArenaId(3),
+            ResidentArenaId(0),
+            ResidentArenaId(1),
+            ResidentArenaId(2),
+            ResidentArenaId(3),
+        ]);
+        assert_eq!(partitioned.resident_arena_count(), 4);
+        assert_eq!(partitioned.cell_reference(source), durable_reference);
+        assert_eq!(
+            partitioned.canonical_body_bytes(992).unwrap(),
+            one_arena.canonical_body_bytes(992).unwrap()
+        );
+        for arrival in arrivals {
+            one_arena.enter(arrival);
+            partitioned.enter(arrival);
+        }
+        assert_eq!(
+            partitioned
+                .live_checkpoint(993)
+                .unwrap()
+                .canonical_bytes()
+                .unwrap(),
+            one_arena
+                .live_checkpoint(993)
+                .unwrap()
+                .canonical_bytes()
+                .unwrap()
+        );
+        let one_arena_result = one_arena.propagate();
+        let partitioned_result = partitioned.propagate();
+        assert!(partitioned_result.execution_cost.arena_hops > 0);
+        assert_physical_equivalence(
+            &one_arena,
+            &one_arena_result,
+            &partitioned,
+            &partitioned_result,
+        );
+    }
+
+    #[test]
     fn r5_batches_safe_same_tick_activity_without_changing_physics() {
         let mut base = PlasticSubstrate::with_capacity(ArenaId(701), 2, 2);
         let target = base.add_cell(CellSpec {
