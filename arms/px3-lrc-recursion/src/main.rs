@@ -13,12 +13,20 @@ use std::process::Command;
 
 const LAW: &str = "7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cfc10";
 const AUTHORITY: &str = "3ad1df774690a71ee7e6884f56a9399a098890e14d83c7a2f03231ed9aafeb3c";
-const PROTOCOL: &str = "c249be1d74ad219896f2fe3505942166efb369e9bea4e50dfa84585f2a1d7107";
+const DEVELOPMENT_PROTOCOL: &str =
+    "c249be1d74ad219896f2fe3505942166efb369e9bea4e50dfa84585f2a1d7107";
+const DEVELOPMENT_AUDIT: &str =
+    "44ce9f414f785a434752ccaab6a7445e430a43be5cac576d7cdec1441d85fd79";
+const LIFECYCLE_DEVELOPMENT: &str =
+    "0125f52fc9e5427c558caa39b8f720fe1fefea13e16f8c4e88bd0ae46904afef";
+const RECURSION_DEVELOPMENT: &str =
+    "b59fa4b299d2ec22429255d78269ecb7fa56c22aeb4c122137fc21a299369724";
+const PROTOCOL: &str = "06a9ea4515b5ea42bf576a5bd49969c966cc63bba94ef3f4b499fb89da8345cc";
 
-const CSV: &str = "results/px3_lrc_recursion_v2.csv";
-const MD: &str = "results/px3_lrc_recursion_v2.md";
-const CSV_STAGE: &str = "results/.px3_lrc_recursion_v2.csv.staging";
-const MD_STAGE: &str = "results/.px3_lrc_recursion_v2.md.staging";
+const CSV: &str = "results/px3_lrc_recursion_definitive_v1.csv";
+const MD: &str = "results/px3_lrc_recursion_definitive_v1.md";
+const CSV_STAGE: &str = "results/.px3_lrc_recursion_definitive_v1.csv.staging";
+const MD_STAGE: &str = "results/.px3_lrc_recursion_definitive_v1.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Config {
@@ -27,27 +35,39 @@ struct Config {
     reflect: bool,
 }
 
-const CONFIGS: [Config; 4] = [
+const CONFIGS: [Config; 16] = [
     Config {
-        seed: 8401,
+        seed: 92003,
         reverse: false,
         reflect: false,
     },
     Config {
-        seed: 8419,
+        seed: 92007,
         reverse: true,
         reflect: false,
     },
     Config {
-        seed: 8423,
+        seed: 92011,
         reverse: false,
         reflect: true,
     },
     Config {
-        seed: 8431,
+        seed: 92015,
         reverse: true,
         reflect: true,
     },
+    Config { seed: 92021, reverse: false, reflect: false },
+    Config { seed: 92025, reverse: true, reflect: false },
+    Config { seed: 92029, reverse: false, reflect: true },
+    Config { seed: 92033, reverse: true, reflect: true },
+    Config { seed: 92039, reverse: false, reflect: false },
+    Config { seed: 92043, reverse: true, reflect: false },
+    Config { seed: 92047, reverse: false, reflect: true },
+    Config { seed: 92051, reverse: true, reflect: true },
+    Config { seed: 92059, reverse: false, reflect: false },
+    Config { seed: 92063, reverse: true, reflect: false },
+    Config { seed: 92067, reverse: false, reflect: true },
+    Config { seed: 92071, reverse: true, reflect: true },
 ];
 
 #[derive(Clone, Copy)]
@@ -104,6 +124,7 @@ struct Metrics {
     output_trace: [usize; 3],
     attribution: [usize; 3],
     credit: [usize; 3],
+    updates: u64,
     proposals: u64,
     quiescent: bool,
 }
@@ -111,6 +132,7 @@ struct Metrics {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Row {
     seed: u64,
+    namespace: u64,
     reverse: bool,
     reflect: bool,
     initial_candidates: usize,
@@ -133,6 +155,7 @@ struct Row {
     fingerprint: u64,
     permanent: u64,
     quiescent: bool,
+    claims: [bool; 12],
     replay: bool,
     passed: bool,
 }
@@ -145,15 +168,15 @@ fn main() {
         [argument] if argument == "--preflight" => {
             println!("PX3_LRC_RECURSION_PREFLIGHT_OK");
         }
-        [argument] if argument == "--recursion" => evidence(),
+        [argument] if argument == "--definitive" => evidence(),
         _ => std::process::exit(2),
     }
 }
 
 fn evidence() {
-    eprintln!("PX3_LRC_RECURSION_DEVELOPMENT_EVIDENCE_SPENT");
+    eprintln!("PX3_LRC_RECURSION_DEFINITIVE_EVIDENCE_SPENT");
     let rows = CONFIGS.into_iter().map(replay).collect::<Vec<_>>();
-    assert_eq!(rows.len(), 4);
+    assert_eq!(rows.len(), 16);
     publish(CSV_STAGE, CSV, &csv(&rows));
     publish(MD_STAGE, MD, &report(&rows));
 }
@@ -167,6 +190,22 @@ fn audit() {
         ),
         (
             "experiments/px3_lrc_fresh_integrated_parallel_gates_protocol_v2.md",
+            DEVELOPMENT_PROTOCOL,
+        ),
+        (
+            "experiments/px3_lrc_fresh_integrated_parallel_gates_v2_result_audit.md",
+            DEVELOPMENT_AUDIT,
+        ),
+        (
+            "results/px3_lrc_lifecycle_v2.csv",
+            LIFECYCLE_DEVELOPMENT,
+        ),
+        (
+            "results/px3_lrc_recursion_v2.csv",
+            RECURSION_DEVELOPMENT,
+        ),
+        (
+            "experiments/px3_lrc_physical_event_organization_definitive_protocol_v1.md",
             PROTOCOL,
         ),
     ] {
@@ -175,9 +214,13 @@ fn audit() {
 }
 
 fn surface() {
-    assert_eq!(CONFIGS.into_iter().collect::<BTreeSet<_>>().len(), 4);
-    assert_eq!(CONFIGS.iter().filter(|config| config.reverse).count(), 2);
-    assert_eq!(CONFIGS.iter().filter(|config| config.reflect).count(), 2);
+    assert_eq!(CONFIGS.into_iter().collect::<BTreeSet<_>>().len(), 16);
+    assert_eq!(CONFIGS.iter().filter(|config| config.reverse).count(), 8);
+    assert_eq!(CONFIGS.iter().filter(|config| config.reflect).count(), 8);
+    assert_eq!(CONFIGS.iter().filter(|config| !config.reverse && !config.reflect).count(), 4);
+    assert_eq!(CONFIGS.iter().filter(|config| config.reverse && !config.reflect).count(), 4);
+    assert_eq!(CONFIGS.iter().filter(|config| !config.reverse && config.reflect).count(), 4);
+    assert_eq!(CONFIGS.iter().filter(|config| config.reverse && config.reflect).count(), 4);
     for forbidden in [
         "arms/px3-recursive-compression-gate/src/definitive.rs",
         "arms/px3-recursive-compression-gate/src/px4.rs",
@@ -193,7 +236,8 @@ fn replay(config: Config) -> Row {
     let exact = first == second;
     let mut row = first;
     row.replay = exact;
-    row.passed &= exact;
+    row.claims[11] &= exact;
+    row.passed = row.claims.into_iter().all(|claim| claim);
     row
 }
 
@@ -292,6 +336,7 @@ fn run(config: Config) -> Row {
         && controls.iter().all(|metric| metric.quiescent);
     let mut row = Row {
         seed: config.seed,
+        namespace,
         reverse: config.reverse,
         reflect: config.reflect,
         initial_candidates,
@@ -314,14 +359,16 @@ fn run(config: Config) -> Row {
         fingerprint: world.substrate.complete_fingerprint(),
         permanent: world.substrate.permanent_fingerprint(),
         quiescent,
+        claims: [false; 12],
         replay: false,
         passed: false,
     };
-    row.passed = passes(&row);
+    row.claims = claims(&row);
+    row.passed = row.claims.into_iter().all(|claim| claim);
     row
 }
 
-fn passes(row: &Row) -> bool {
+fn claims(row: &Row) -> [bool; 12] {
     let z3 = [0; 3];
     let phase_active = [[2, 0, 0], [2, 2, 0], [2, 2, 2]];
     let phase_impulse = [[3, 0, 0], [4, 3, 0], [4, 4, 3]];
@@ -330,38 +377,63 @@ fn passes(row: &Row) -> bool {
     let phase_after_first = [[4, 0, 0], [8, 4, 0], [12, 8, 4]];
     let phase_after_train = [[6, 0, 0], [10, 6, 0], [14, 10, 6]];
 
-    row.initial_candidates == 0
-        && (0..3).all(|phase| {
-            let metric = &row.phases[phase];
-            metric.primitive_trace == phase_primitive[phase]
-                && metric.opportunity == phase_active[phase]
-                && metric.source == phase_active[phase]
-                && metric.candidate == phase_active[phase]
-                && metric.candidate_impulse == phase_impulse[phase]
-                && metric.output == phase_active[phase]
-                && metric.source_trace == phase_active[phase]
-                && metric.output_trace_arrivals == phase_active[phase].map(|x| x * 2)
-                && metric.output_trace_impulse
-                    == phase_active[phase].map(|x| i32::try_from(x * 2).expect("small"))
-                && metric.output_trace == phase_active[phase]
-                && metric.attribution == phase_active[phase]
-                && metric.credit == phase_active[phase]
-                && metric.proposals == phase_proposals[phase]
-                && metric.quiescent
-        })
-        && row.after_first == phase_after_first
+    let r0 = CONFIGS.iter().any(|config| {
+        config.seed == row.seed && config.reverse == row.reverse && config.reflect == row.reflect
+    }) && row.namespace == row.seed << 32
+        && row.initial_candidates == 0;
+    let r1 = (0..3).all(|phase| {
+        let metric = &row.phases[phase];
+        metric.primitive_trace == phase_primitive[phase]
+            && metric.opportunity == phase_active[phase]
+            && metric.source == phase_active[phase]
+            && metric.candidate == phase_active[phase]
+            && metric.proposals == phase_proposals[phase]
+    });
+    let r2 = row.one_exposure_death == z3;
+    let r3 = (0..3).all(|phase| {
+        let metric = &row.phases[phase];
+        metric.source_trace == phase_active[phase]
+            && metric.attribution == phase_active[phase]
+            && metric.credit == phase_active[phase]
+            && metric.updates == phase_active[phase].into_iter().sum::<usize>() as u64
+    });
+    let r4 = row.after_first == phase_after_first
         && row.after_train == phase_after_train
-        && row.one_exposure_death == z3
-        && row.final_resistance == [13, 9, 5]
-        && row.candidate_ids.iter().collect::<BTreeSet<_>>().len() == 3
-        && context_free(&row.ab_reuse, [1, 1, 0, 0], [1, 0, 0])
-        && empty_control(&row.c_alone, [0, 0, 1, 0])
-        && context_free(&row.xc_gapped, [1, 1, 1, 0], [1, 0, 0])
+        && row.final_resistance == [13, 9, 5];
+    let r5 = (0..3).all(|phase| {
+            let metric = &row.phases[phase];
+        metric.candidate_impulse == phase_impulse[phase]
+            && metric.output == phase_active[phase]
+            && metric.output_trace_arrivals == phase_active[phase].map(|x| x * 2)
+            && metric.output_trace_impulse
+                == phase_active[phase].map(|x| i32::try_from(x * 2).expect("small"))
+            && metric.output_trace == phase_active[phase]
+    });
+    let r6 = empty_control(&row.c_alone, [0, 0, 1, 0])
+        && empty_control(&row.d_alone, [0, 0, 0, 1]);
+    let r7 = context_free(&row.xc_gapped, [1, 1, 1, 0], [1, 0, 0])
+        && context_free(&row.yd_gapped, [1, 1, 1, 1], [1, 1, 0]);
+    let r8 = context_free(&row.ab_reuse, [1, 1, 0, 0], [1, 0, 0])
         && context_free(&row.xc_reuse, [1, 1, 1, 0], [1, 1, 0])
-        && empty_control(&row.d_alone, [0, 0, 0, 1])
-        && context_free(&row.yd_gapped, [1, 1, 1, 1], [1, 1, 0])
-        && context_free(&row.full_reuse, [1, 1, 1, 1], [1, 1, 1])
-        && row.quiescent
+        && context_free(&row.full_reuse, [1, 1, 1, 1], [1, 1, 1]);
+    let execution_only = [
+        &row.ab_reuse,
+        &row.xc_gapped,
+        &row.xc_reuse,
+        &row.yd_gapped,
+        &row.full_reuse,
+    ];
+    let r9 = execution_only.into_iter().all(|metric| {
+        metric.source_trace == [0; 3]
+            && metric.attribution == [0; 3]
+            && metric.credit == [0; 3]
+            && metric.updates == 0
+    });
+    let r10 = row.candidate_ids.iter().collect::<BTreeSet<_>>().len() == 3
+        && row.candidate_generations.into_iter().all(|generation| generation > 0)
+        && row.phases.iter().all(|metric| metric.quiescent);
+    let r11 = row.quiescent;
+    [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11]
 }
 
 fn context_free(metric: &Metrics, primitive: [usize; 4], active: [usize; 3]) -> bool {
@@ -377,6 +449,7 @@ fn context_free(metric: &Metrics, primitive: [usize; 4], active: [usize; 3]) -> 
         && metric.output_trace == active
         && metric.attribution == [0; 3]
         && metric.credit == [0; 3]
+        && metric.updates == 0
         && metric.proposals == 0
         && metric.quiescent
 }
@@ -394,6 +467,7 @@ fn empty_control(metric: &Metrics, primitive: [usize; 4]) -> bool {
         && metric.output_trace == [0; 3]
         && metric.attribution == [0; 3]
         && metric.credit == [0; 3]
+        && metric.updates == 0
         && metric.proposals == 0
         && metric.quiescent
 }
@@ -667,6 +741,7 @@ fn metrics(log: &Log, namespace: u64) -> Metrics {
                 physical(namespace, 200 + stage as u64),
             )
         }),
+        updates: log.work.local_return_updates,
         proposals: log.work.local_structural_proposals,
         quiescent: log.quiescent,
     }
@@ -818,11 +893,12 @@ fn add_work(total: &mut WorkLedger, next: &WorkLedger) {
 
 fn csv(rows: &[Row]) -> String {
     let mut output = String::from(
-        "seed,reverse,reflect,initial_candidates,phase_primitive_trace,phase_opportunity,phase_p,phase_candidate,phase_candidate_impulse,phase_output,phase_p_trace,phase_output_trace_arrivals,phase_output_trace_impulse,phase_output_trace,phase_attribution,phase_credit,phase_proposals,after_first,after_train,one_exposure_death,final_resistance,candidate_ids,candidate_generations,ab_reuse,c_alone,xc_gapped,xc_reuse,d_alone,yd_gapped,full_reuse,work,bytes,fingerprint,permanent,quiescent,replay,passed\n",
+        "seed,namespace,reverse,reflect,initial_candidates,phase_primitive_trace,phase_opportunity,phase_p,phase_candidate,phase_candidate_impulse,phase_output,phase_return_relay,phase_output_trace_arrivals,phase_output_trace_impulse,phase_output_trace,phase_modulatory_transmitter,phase_modulatory_crossing,phase_updates,phase_proposals,after_first,after_train,one_exposure_death,final_resistance,candidate_ids,candidate_generations,ab_reuse,c_alone,xc_gapped,xc_reuse,d_alone,yd_gapped,full_reuse,work,bytes,fingerprint,permanent,quiescent,claims,replay,passed\n",
     );
     for row in rows {
         let fields = vec![
             row.seed.to_string(),
+            row.namespace.to_string(),
             row.reverse.to_string(),
             row.reflect.to_string(),
             row.initial_candidates.to_string(),
@@ -838,6 +914,11 @@ fn csv(rows: &[Row]) -> String {
             join_metric_usize(&row.phases, |metric| metric.output_trace.to_vec()),
             join_metric_usize(&row.phases, |metric| metric.attribution.to_vec()),
             join_metric_usize(&row.phases, |metric| metric.credit.to_vec()),
+            row.phases
+                .iter()
+                .map(|metric| metric.updates.to_string())
+                .collect::<Vec<_>>()
+                .join("|"),
             row.phases
                 .iter()
                 .map(|metric| metric.proposals.to_string())
@@ -861,6 +942,7 @@ fn csv(rows: &[Row]) -> String {
             row.fingerprint.to_string(),
             row.permanent.to_string(),
             row.quiescent.to_string(),
+            join_bool(&row.claims),
             row.replay.to_string(),
             row.passed.to_string(),
         ];
@@ -872,10 +954,14 @@ fn csv(rows: &[Row]) -> String {
 
 fn report(rows: &[Row]) -> String {
     let passed = rows.iter().filter(|row| row.passed).count();
+    let clauses = rows
+        .iter()
+        .map(|row| row.claims.into_iter().filter(|claim| *claim).count())
+        .sum::<usize>();
     format!(
-        "# PX3 LR-C recursive compression v2\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- native proposals AB/XC/YD: `{}`;\n- one-exposure candidates dead: `{}`;\n- final AB/XC/YD resistance: `{}`;\n- final context-free X/Y/Z traces: `{}`;\n- context-free return-relay/modulatory traffic absent: `{}`;\n- lawful modulatory return is the only learning feedback: `true`;\n- active R3/R4/R5/R6 geometry: `false`;\n- level-specific participant or conjunction API: `false`;\n- definitive/authority/PX4 executed: `false`.\n",
+        "# PX3 LR-C recursive compression definitive v1\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- independent clauses: `{clauses}/192`;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- native proposals AB/XC/YD: `{}`;\n- one-exposure candidates dead: `{}`;\n- final AB/XC/YD resistance: `{}`;\n- final context-free X/Y/Z traces: `{}`;\n- context-free return-relay/modulatory traffic absent: `{}`;\n- lawful modulatory return is the only learning feedback: `true`;\n- active R3/R4/R5/R6 geometry: `false`;\n- level-specific participant or conjunction API: `false`;\n- PX4 executed: `false`.\n",
         if passed == rows.len() {
-            "PX3-LRC-RECURSION POSITIVE"
+            "PX3-LRC-RECURSION DEFINITIVE POSITIVE"
         } else {
             "NEGATIVE"
         },
@@ -907,7 +993,7 @@ fn report(rows: &[Row]) -> String {
 
 fn signature(metric: &Metrics) -> String {
     format!(
-        "prim={}~o={}~p={}~cand={}~imp={}~out={}~pt={}~arr={}~timp={}~trace={}~m={}~credit={}~prop={}~q={}",
+        "prim={}~o={}~p={}~cand={}~imp={}~out={}~relay={}~arr={}~timp={}~trace={}~tx={}~mod={}~updates={}~prop={}~q={}",
         join_usize(&metric.primitive_trace),
         join_usize(&metric.opportunity),
         join_usize(&metric.source),
@@ -920,6 +1006,7 @@ fn signature(metric: &Metrics) -> String {
         join_usize(&metric.output_trace),
         join_usize(&metric.attribution),
         join_usize(&metric.credit),
+        metric.updates,
         metric.proposals,
         metric.quiescent,
     )
@@ -973,6 +1060,14 @@ fn join_u32(values: &[u32]) -> String {
         .join("|")
 }
 
+fn join_bool(values: &[bool]) -> String {
+    values
+        .iter()
+        .map(bool::to_string)
+        .collect::<Vec<_>>()
+        .join("|")
+}
+
 fn absent(paths: &[&str]) {
     for path in paths {
         assert!(!Path::new(path).exists(), "artifact exists: {path}");
@@ -1010,11 +1105,10 @@ mod tests {
 
     #[test]
     fn matrix_is_frozen() {
-        assert_eq!(CONFIGS.map(|config| config.seed), [8401, 8419, 8423, 8431]);
-        assert_eq!(CONFIGS.len(), 4);
-        assert_eq!(CONFIGS.into_iter().collect::<BTreeSet<_>>().len(), 4);
-        assert_eq!(CONFIGS.iter().filter(|config| config.reverse).count(), 2);
-        assert_eq!(CONFIGS.iter().filter(|config| config.reflect).count(), 2);
+        surface();
+        assert_eq!(CONFIGS.len(), 16);
+        assert_eq!(CONFIGS[0].seed, 92003);
+        assert_eq!(CONFIGS[15].seed, 92071);
     }
 
     #[test]

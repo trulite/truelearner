@@ -13,15 +13,26 @@ use std::process::Command;
 
 const LAW: &str = "7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cfc10";
 const AUTHORITY: &str = "3ad1df774690a71ee7e6884f56a9399a098890e14d83c7a2f03231ed9aafeb3c";
-const PROTOCOL: &str = "c249be1d74ad219896f2fe3505942166efb369e9bea4e50dfa84585f2a1d7107";
-const SEEDS: [u64; 4] = [8303, 8311, 8317, 8329];
+const DEVELOPMENT_PROTOCOL: &str =
+    "c249be1d74ad219896f2fe3505942166efb369e9bea4e50dfa84585f2a1d7107";
+const DEVELOPMENT_AUDIT: &str =
+    "44ce9f414f785a434752ccaab6a7445e430a43be5cac576d7cdec1441d85fd79";
+const LIFECYCLE_DEVELOPMENT: &str =
+    "0125f52fc9e5427c558caa39b8f720fe1fefea13e16f8c4e88bd0ae46904afef";
+const RECURSION_DEVELOPMENT: &str =
+    "b59fa4b299d2ec22429255d78269ecb7fa56c22aeb4c122137fc21a299369724";
+const PROTOCOL: &str = "06a9ea4515b5ea42bf576a5bd49969c966cc63bba94ef3f4b499fb89da8345cc";
+const SEEDS: [u64; 16] = [
+    91001, 91002, 91003, 91004, 91005, 91006, 91007, 91008, 91009, 91010, 91011, 91012,
+    91013, 91014, 91015, 91016,
+];
 const PAIRS: [(usize, usize); 6] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
 const INITIAL: [usize; 2] = [0, 5];
 const REVERSED: [usize; 2] = [2, 3];
-const CSV: &str = "results/px3_lrc_lifecycle_v2.csv";
-const MD: &str = "results/px3_lrc_lifecycle_v2.md";
-const CSV_STAGE: &str = "results/.px3_lrc_lifecycle_v2.csv.staging";
-const MD_STAGE: &str = "results/.px3_lrc_lifecycle_v2.md.staging";
+const CSV: &str = "results/px3_lrc_lifecycle_definitive_v1.csv";
+const MD: &str = "results/px3_lrc_lifecycle_definitive_v1.md";
+const CSV_STAGE: &str = "results/.px3_lrc_lifecycle_definitive_v1.csv.staging";
+const MD_STAGE: &str = "results/.px3_lrc_lifecycle_definitive_v1.md.staging";
 
 #[derive(Clone)]
 struct World {
@@ -80,6 +91,19 @@ struct ControlMetrics {
     quiescent: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ModulationControl {
+    effect_path: usize,
+    return_relay: usize,
+    transmitter: usize,
+    modulatory_crossings: usize,
+    candidate_source_firings: usize,
+    proposals: u64,
+    updates: u64,
+    candidate_count: usize,
+    quiescent: bool,
+}
+
 #[derive(Clone, Copy)]
 enum ControlKind {
     StrongA,
@@ -90,10 +114,13 @@ enum ControlKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Row {
     seed: u64,
-    mirror: bool,
+    namespace: u64,
+    reverse: bool,
+    reflect: bool,
     strong_a: ControlMetrics,
     repeated_a: ControlMetrics,
     gapped_ab: ControlMetrics,
+    modulation_without_participation: ModulationControl,
     unsupported_updates: u64,
     unsupported_candidate_crossings: usize,
     unsupported_after_gap: u32,
@@ -151,6 +178,7 @@ struct Row {
     fingerprint: u64,
     permanent: u64,
     quiescent: bool,
+    claims: [bool; 12],
     replay: bool,
     passed: bool,
 }
@@ -163,15 +191,15 @@ fn main() {
         [argument] if argument == "--preflight" => {
             println!("PX3_LRC_LIFECYCLE_PREFLIGHT_OK");
         }
-        [argument] if argument == "--lifecycle" => evidence(),
+        [argument] if argument == "--definitive" => evidence(),
         _ => std::process::exit(2),
     }
 }
 
 fn evidence() {
-    eprintln!("PX3_LRC_LIFECYCLE_DEVELOPMENT_EVIDENCE_SPENT");
+    eprintln!("PX3_LRC_LIFECYCLE_DEFINITIVE_EVIDENCE_SPENT");
     let rows = SEEDS.into_iter().map(replay).collect::<Vec<_>>();
-    assert_eq!(rows.len(), 4);
+    assert_eq!(rows.len(), 16);
     publish(CSV_STAGE, CSV, &csv(&rows));
     publish(MD_STAGE, MD, &report(&rows));
 }
@@ -185,6 +213,22 @@ fn audit() {
         ),
         (
             "experiments/px3_lrc_fresh_integrated_parallel_gates_protocol_v2.md",
+            DEVELOPMENT_PROTOCOL,
+        ),
+        (
+            "experiments/px3_lrc_fresh_integrated_parallel_gates_v2_result_audit.md",
+            DEVELOPMENT_AUDIT,
+        ),
+        (
+            "results/px3_lrc_lifecycle_v2.csv",
+            LIFECYCLE_DEVELOPMENT,
+        ),
+        (
+            "results/px3_lrc_recursion_v2.csv",
+            RECURSION_DEVELOPMENT,
+        ),
+        (
+            "experiments/px3_lrc_physical_event_organization_definitive_protocol_v1.md",
             PROTOCOL,
         ),
     ] {
@@ -193,6 +237,11 @@ fn audit() {
 }
 
 fn surface() {
+    assert_eq!(SEEDS.into_iter().collect::<BTreeSet<_>>().len(), 16);
+    assert_eq!(SEEDS.iter().filter(|seed| **seed % 4 == 0).count(), 4);
+    assert_eq!(SEEDS.iter().filter(|seed| **seed % 4 == 1).count(), 4);
+    assert_eq!(SEEDS.iter().filter(|seed| **seed % 4 == 2).count(), 4);
+    assert_eq!(SEEDS.iter().filter(|seed| **seed % 4 == 3).count(), 4);
     assert_eq!(PAIRS.into_iter().collect::<BTreeSet<_>>().len(), 6);
     assert_eq!(INITIAL, [0, 5]);
     assert_eq!(REVERSED, [2, 3]);
@@ -210,17 +259,40 @@ fn replay(seed: u64) -> Row {
     let exact = first == second;
     let mut row = first;
     row.replay = exact;
-    row.passed &= exact;
+    row.claims[11] &= exact;
+    row.passed = row.claims.into_iter().all(|claim| claim);
     row
 }
 
 fn run(seed: u64) -> Row {
-    let mirror = seed % 4 >= 2;
+    let stratum = seed % 4;
+    let reverse = stratum == 1 || stratum == 3;
+    let reflect = stratum >= 2;
     let namespace = seed << 32;
-    let strong_a = control(namespace + 0x0100_0000, mirror, ControlKind::StrongA);
-    let repeated_a = control(namespace + 0x0200_0000, mirror, ControlKind::RepeatedA);
-    let gapped_ab = control(namespace + 0x0300_0000, mirror, ControlKind::GappedAb);
-    let mut unsupported = build(namespace + 0x1000_0000, mirror, [1; 4]);
+    let strong_a = control(
+        namespace + 0x0100_0000,
+        reverse,
+        reflect,
+        ControlKind::StrongA,
+    );
+    let repeated_a = control(
+        namespace + 0x0200_0000,
+        reverse,
+        reflect,
+        ControlKind::RepeatedA,
+    );
+    let gapped_ab = control(
+        namespace + 0x0300_0000,
+        reverse,
+        reflect,
+        ControlKind::GappedAb,
+    );
+    let modulation_without_participation = modulation_without_participation(
+        namespace + 0x0400_0000,
+        reverse,
+        reflect,
+    );
+    let mut unsupported = build(namespace + 0x1000_0000, reverse, reflect, [1; 4]);
     let mut unsupported_log = Log::new();
     expose_unsupported(&mut unsupported, 0, 0, &mut unsupported_log);
     expose_unsupported(&mut unsupported, 0, 2, &mut unsupported_log);
@@ -229,7 +301,7 @@ fn run(seed: u64) -> Row {
         candidate_crossings(&unsupported_log, unsupported.namespace, 0);
     unsupported.substrate.advance_time(50);
     let unsupported_after_gap = current_resistance(&unsupported)[0];
-    let mut world = build(namespace, mirror, [1; 4]);
+    let mut world = build(namespace, reverse, reflect, [1; 4]);
     let initial_candidate_count = variable_count(&world);
     let mut full_work = WorkLedger::default();
     let mut all_quiescent = true;
@@ -337,10 +409,13 @@ fn run(seed: u64) -> Row {
     let total_proposals = initial_proposals + reversed_proposals + proposals_during_forgetting;
     let mut row = Row {
         seed,
-        mirror,
+        namespace,
+        reverse,
+        reflect,
         strong_a,
         repeated_a,
         gapped_ab,
+        modulation_without_participation,
         unsupported_updates,
         unsupported_candidate_crossings,
         unsupported_after_gap,
@@ -398,14 +473,16 @@ fn run(seed: u64) -> Row {
         fingerprint: world.substrate.complete_fingerprint(),
         permanent: world.substrate.permanent_fingerprint(),
         quiescent: all_quiescent,
+        claims: [false; 12],
         replay: false,
         passed: false,
     };
-    row.passed = passes(&row);
+    row.claims = claims(&row);
+    row.passed = row.claims.into_iter().all(|claim| claim);
     row
 }
 
-fn passes(row: &Row) -> bool {
+fn claims(row: &Row) -> [bool; 12] {
     let initial = [2, 0, 0, 0, 0, 2];
     let initial_impulse = [3, 0, 0, 0, 0, 3];
     let initial_four = [4, 0, 0, 0, 0, 4];
@@ -418,29 +495,50 @@ fn passes(row: &Row) -> bool {
     let reversed_two = [0, 0, 2, 2, 0, 0];
     let z6 = [0; 6];
 
-    control_passes(
+    let l0 = SEEDS.contains(&row.seed)
+        && row.namespace == row.seed << 32
+        && row.reverse == matches!(row.seed % 4, 1 | 3)
+        && row.reflect == row.seed % 4 >= 2
+        && row.initial_candidate_count == 0;
+    let l1 = control_passes(
         &row.strong_a,
         [1, 0, 0, 0],
         [1, 0, 0, 0],
         [4, 0, 0, 0],
         [1, 0, 0, 0],
-    ) && control_passes(
+    );
+    let l2 = control_passes(
         &row.repeated_a,
         [1, 0, 0, 0],
         [1, 0, 0, 0],
         [1, 0, 0, 0],
         [1, 0, 0, 0],
-    ) && control_passes(
+    );
+    let l3 = control_passes(
         &row.gapped_ab,
         [1, 1, 0, 0],
         [1, 1, 0, 0],
         [1, 1, 0, 0],
         [1, 1, 0, 0],
-    ) && row.initial_candidate_count == 0
-        && row.unsupported_updates == 0
+    );
+    let l4 = row.unsupported_updates == 0
         && row.unsupported_candidate_crossings == 2
-        && row.unsupported_after_gap == 0
-        && row.initial_proposals == 2
+        && row.unsupported_after_gap == 0;
+    let modulation = &row.modulation_without_participation;
+    let l5 = modulation.effect_path == 1
+        && modulation.return_relay == 1
+        && modulation.transmitter == 1
+        && modulation.modulatory_crossings == 1
+        && modulation.candidate_source_firings == 0
+        && modulation.proposals == 0
+        && modulation.updates == 0
+        && modulation.candidate_count == 0
+        && modulation.quiescent;
+    let l6 = row.initial_after_first == initial_four
+        && row.initial_one_exposure_gap == z6
+        && row.reversed_after_first == reversed_four
+        && row.reversed_one_exposure_gap == z6;
+    let l7 = row.initial_proposals == 2
         && row.initial_primitive_trace == [2; 4]
         && row.initial_opportunity == initial
         && row.initial_p == initial
@@ -451,15 +549,8 @@ fn passes(row: &Row) -> bool {
         && row.initial_effect_trace == initial
         && row.initial_attribution == initial
         && row.initial_credit == initial
-        && row.initial_after_first == initial_four
-        && row.initial_one_exposure_gap == z6
         && row.initial_after_train == initial_six
         && row.initial_after_gap == initial_two
-        && row.pre_reversal_heldout == [1, 0, 0, 0, 0, 1]
-        && row.pre_reversal_heldout_proposals == [0, 1, 1, 1, 1, 0]
-        && row.old_after_forgetting == [0, 0]
-        && row.old_live_after_forgetting == [false, false]
-        && row.proposals_during_forgetting == 0
         && row.reversed_proposals == 2
         && row.reversed_primitive_trace == [2; 4]
         && row.reversed_opportunity == reversed
@@ -471,18 +562,24 @@ fn passes(row: &Row) -> bool {
         && row.reversed_effect_trace == reversed
         && row.reversed_attribution == reversed
         && row.reversed_credit == reversed
-        && row.reversed_after_first == reversed_four
-        && row.reversed_one_exposure_gap == z6
         && row.reversed_after_train == reversed_six
         && row.reversed_after_gap == reversed_two
-        && row.fresh_identity
+        && row.return_updates == 8
+        && row.total_proposals == 4;
+    let l8 = row.old_after_forgetting == [0, 0]
+        && row.old_live_after_forgetting == [false, false]
+        && row.proposals_during_forgetting == 0
         && row.old_still_dead == [true, true]
         && row.historical_counts == [1, 0, 1, 1, 0, 1]
-        && row.final_live_counts == [0, 0, 1, 1, 0, 0]
+        && row.deallocations == 6;
+    let l9 = row.fresh_identity && row.final_live_counts == [0, 0, 1, 1, 0, 0];
+    let l10 = row.pre_reversal_heldout == [1, 0, 0, 0, 0, 1]
+        && row.pre_reversal_heldout_proposals == [0, 1, 1, 1, 1, 0]
         && row.post_reversal_heldout == [0, 0, 1, 1, 0, 0]
         && row.post_reversal_heldout_proposals == [1, 1, 0, 0, 1, 1]
-        && row.total_proposals == 4
-        && row.quiescent
+        && row.quiescent;
+    let l11 = row.quiescent;
+    [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11]
 }
 
 fn control_passes(
@@ -505,12 +602,17 @@ fn control_passes(
         && metric.quiescent
 }
 
-fn control(namespace: u64, mirror: bool, kind: ControlKind) -> ControlMetrics {
+fn control(
+    namespace: u64,
+    reverse: bool,
+    reflect: bool,
+    kind: ControlKind,
+) -> ControlMetrics {
     let raw_couplings = match kind {
         ControlKind::StrongA => [4, 1, 1, 1],
         ControlKind::RepeatedA | ControlKind::GappedAb => [1; 4],
     };
-    let mut world = build(namespace, mirror, raw_couplings);
+    let mut world = build(namespace, reverse, reflect, raw_couplings);
     match kind {
         ControlKind::StrongA => {
             pulse(&mut world.substrate, world.sources[0], 0, 1, 0);
@@ -582,10 +684,41 @@ fn control(namespace: u64, mirror: bool, kind: ControlKind) -> ControlMetrics {
     }
 }
 
-fn build(namespace: u64, mirror: bool, raw_couplings: [i32; 4]) -> World {
+fn modulation_without_participation(
+    namespace: u64,
+    reverse: bool,
+    reflect: bool,
+) -> ModulationControl {
+    let mut world = build(namespace, reverse, reflect, [1; 4]);
+    pulse(&mut world.substrate, world.effects[0], 0, 2, 2000);
+    pulse(&mut world.substrate, world.global_return, 1, 1, 2001);
+    let execution = world.substrate.propagate();
+    ModulationControl {
+        effect_path: fires(&execution.trace, physical(namespace, 600)),
+        return_relay: fires(&execution.trace, physical(namespace, 400)),
+        transmitter: fires(&execution.trace, physical(namespace, 800)),
+        modulatory_crossings: crossings(
+            &execution.crossings,
+            physical(namespace, 800),
+            physical(namespace, 200),
+        ),
+        candidate_source_firings: fires(&execution.trace, physical(namespace, 200)),
+        proposals: execution.work.local_structural_proposals,
+        updates: execution.work.local_return_updates,
+        candidate_count: variable_count(&world),
+        quiescent: execution.naturally_quiescent,
+    }
+}
+
+fn build(
+    namespace: u64,
+    reverse: bool,
+    reflect: bool,
+    raw_couplings: [i32; 4],
+) -> World {
     let mut substrate = PlasticSubstrate::new();
-    let participant_order = if mirror { [3, 2, 1, 0] } else { [0, 1, 2, 3] };
-    let pair_order = if mirror {
+    let participant_order = if reverse { [3, 2, 1, 0] } else { [0, 1, 2, 3] };
+    let pair_order = if reverse {
         [5, 4, 3, 2, 1, 0]
     } else {
         [0, 1, 2, 3, 4, 5]
@@ -648,7 +781,7 @@ fn build(namespace: u64, mirror: bool, raw_couplings: [i32; 4]) -> World {
         )));
         effects[pair] = Some(substrate.add_cell(cell(
             physical(namespace, 300 + pair as u64),
-            p_position + 1,
+            p_position + if reflect { -1 } else { 1 },
             70 + pair as i16,
             2,
         )));
@@ -997,15 +1130,18 @@ fn add_work(total: &mut WorkLedger, next: &WorkLedger) {
 
 fn csv(rows: &[Row]) -> String {
     let mut output = String::from(
-        "seed,mirror,strong_a,repeated_a,gapped_ab,unsupported_updates,unsupported_candidate_crossings,unsupported_after_gap,initial_candidate_count,initial_proposals,initial_primitive_trace,initial_opportunity,initial_p,initial_candidate_crossings,initial_candidate_impulse,initial_effect,return_relay,downstream_path,modulatory_transmitter,modulatory_crossing,initial_after_first,initial_one_exposure_gap,initial_after_train,initial_after_gap,pre_reversal_heldout,pre_reversal_heldout_proposals,old_ids,old_generations,old_after_forgetting,old_live_after_forgetting,proposals_during_forgetting,reversed_proposals,reversed_primitive_trace,reversed_opportunity,reversed_p,reversed_candidate_crossings,reversed_candidate_impulse,reversed_effect,reversed_return_relay,reversed_downstream_path,reversed_modulatory_transmitter,reversed_modulatory_crossing,reversed_after_first,reversed_one_exposure_gap,reversed_after_train,reversed_after_gap,new_ids,new_generations,fresh_identity,old_still_dead,historical_counts,final_live_counts,post_reversal_heldout,post_reversal_heldout_proposals,total_proposals,deallocations,return_updates,work,bytes,fingerprint,permanent,quiescent,replay,passed\n",
+        "seed,namespace,reverse,reflect,strong_a,repeated_a,gapped_ab,modulation_without_participation,unsupported_updates,unsupported_candidate_crossings,unsupported_after_gap,initial_candidate_count,initial_proposals,initial_primitive_trace,initial_opportunity,initial_p,initial_candidate_crossings,initial_candidate_impulse,initial_effect,return_relay,downstream_path,modulatory_transmitter,modulatory_crossing,initial_after_first,initial_one_exposure_gap,initial_after_train,initial_after_gap,pre_reversal_heldout,pre_reversal_heldout_proposals,old_ids,old_generations,old_after_forgetting,old_live_after_forgetting,proposals_during_forgetting,reversed_proposals,reversed_primitive_trace,reversed_opportunity,reversed_p,reversed_candidate_crossings,reversed_candidate_impulse,reversed_effect,reversed_return_relay,reversed_downstream_path,reversed_modulatory_transmitter,reversed_modulatory_crossing,reversed_after_first,reversed_one_exposure_gap,reversed_after_train,reversed_after_gap,new_ids,new_generations,fresh_identity,old_still_dead,historical_counts,final_live_counts,post_reversal_heldout,post_reversal_heldout_proposals,total_proposals,deallocations,return_updates,work,bytes,fingerprint,permanent,quiescent,claims,replay,passed\n",
     );
     for row in rows {
         let fields = vec![
             row.seed.to_string(),
-            row.mirror.to_string(),
+            row.namespace.to_string(),
+            row.reverse.to_string(),
+            row.reflect.to_string(),
             control_signature(&row.strong_a),
             control_signature(&row.repeated_a),
             control_signature(&row.gapped_ab),
+            modulation_signature(&row.modulation_without_participation),
             row.unsupported_updates.to_string(),
             row.unsupported_candidate_crossings.to_string(),
             row.unsupported_after_gap.to_string(),
@@ -1063,6 +1199,7 @@ fn csv(rows: &[Row]) -> String {
             row.fingerprint.to_string(),
             row.permanent.to_string(),
             row.quiescent.to_string(),
+            join_bool(&row.claims),
             row.replay.to_string(),
             row.passed.to_string(),
         ];
@@ -1074,10 +1211,14 @@ fn csv(rows: &[Row]) -> String {
 
 fn report(rows: &[Row]) -> String {
     let passed = rows.iter().filter(|row| row.passed).count();
+    let clauses = rows
+        .iter()
+        .map(|row| row.claims.into_iter().filter(|claim| *claim).count())
+        .sum::<usize>();
     format!(
-        "# PX3 LR-C lifecycle and reversal v2\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- strong-A / repeated-A / gapped-AB controls: `{}`;\n- adjacent unsupported updates/gap: `{}`;\n- initial/reversed native proposals: `{}` / `{}`;\n- old candidates dead before reversal: `{}`;\n- fresh reversed identities: `{}`;\n- pre-reversal held-out effects: `{}`;\n- post-reversal held-out effects: `{}`;\n- total structural proposals: `{}`;\n- active R3/R4/R5/R6 geometry: `false`;\n- recursion gate executed: `false`.\n",
+        "# PX3 LR-C lifecycle and reversal definitive v1\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- independent clauses: `{clauses}/192`;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- strong-A / repeated-A / gapped-AB controls: `{}`;\n- adjacent unsupported updates/gap: `{}`;\n- modulation without participation rejected: `{}`;\n- initial/reversed native proposals: `{}` / `{}`;\n- old candidates dead before reversal: `{}`;\n- fresh reversed identities: `{}`;\n- total structural proposals: `{}`;\n- active R3/R4/R5/R6 geometry: `false`;\n- recursion half executed here: `false`.\n",
         if passed == rows.len() {
-            "PX3-LRC-LIFECYCLE POSITIVE"
+            "PX3-LRC-LIFECYCLE DEFINITIVE POSITIVE"
         } else {
             "NEGATIVE"
         },
@@ -1094,18 +1235,11 @@ fn report(rows: &[Row]) -> String {
             .map(|row| format!("{}|{}", row.unsupported_updates, row.unsupported_after_gap))
             .collect::<Vec<_>>()
             .join(";"),
+        rows.iter().all(|row| row.claims[5]),
         rows.iter().map(|row| row.initial_proposals).sum::<u64>(),
         rows.iter().map(|row| row.reversed_proposals).sum::<u64>(),
         rows.iter().all(|row| row.old_live_after_forgetting == [false, false]),
         rows.iter().all(|row| row.fresh_identity),
-        rows.iter()
-            .map(|row| join_usize(&row.pre_reversal_heldout))
-            .collect::<Vec<_>>()
-            .join(";"),
-        rows.iter()
-            .map(|row| join_usize(&row.post_reversal_heldout))
-            .collect::<Vec<_>>()
-            .join(";"),
         rows.iter().map(|row| row.total_proposals).sum::<u64>(),
     )
 }
@@ -1123,6 +1257,21 @@ fn control_signature(metric: &ControlMetrics) -> String {
         metric.proposals,
         metric.updates,
         metric.live_after_gap,
+        metric.quiescent,
+    )
+}
+
+fn modulation_signature(metric: &ModulationControl) -> String {
+    format!(
+        "effect={}~relay={}~tx={}~mod={}~p={}~prop={}~updates={}~cand={}~q={}",
+        metric.effect_path,
+        metric.return_relay,
+        metric.transmitter,
+        metric.modulatory_crossings,
+        metric.candidate_source_firings,
+        metric.proposals,
+        metric.updates,
+        metric.candidate_count,
         metric.quiescent,
     )
 }
@@ -1205,9 +1354,9 @@ mod tests {
     #[test]
     fn matrix_is_frozen() {
         surface();
-        assert_eq!(SEEDS, [8303, 8311, 8317, 8329]);
-        assert_eq!(SEEDS.into_iter().collect::<BTreeSet<_>>().len(), 4);
-        assert_eq!(SEEDS.iter().filter(|seed| **seed % 4 >= 2).count(), 2);
+        assert_eq!(SEEDS.len(), 16);
+        assert_eq!(SEEDS[0], 91001);
+        assert_eq!(SEEDS[15], 91016);
     }
 
     #[test]
