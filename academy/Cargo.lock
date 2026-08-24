@@ -28,10 +28,12 @@ dependencies = [
 name = "academy-storage"
 version = "0.1.0"
 dependencies = [
+ "academy-core",
  "aws-config",
  "aws-sdk-s3",
  "hex",
  "serde",
+ "serde_json",
  "sha2 0.10.9",
  "tokio",
 ]
