@@ -12,24 +12,31 @@ research vocabulary as product copy.
 
 ## Composition
 
-- The world and evidence are a functional split view.
-- The input world is the primary surface. Output is a smaller picture-in-picture
-  surface until it needs more room.
-- History sits above the command dock and never overlaps it.
-- The command dock owns text admission and the primary Teach or Probe action.
+- World and evidence form one translucent split deck with an internal divider.
+- Input and Output are primary surfaces in an approximately 60/40 split.
+- Runtime is a thin, full-width instrumentation strip across the top of the
+  work deck.
+- Skills and History are dock-owned spaces. Both are hidden by default and open
+  as large galleries above the dock without changing organism state.
+- History cards lead with each admitted artifact. Skills use a card gallery and
+  a focused evidence pane.
+- The command dock owns History, Skills, Teach/Probe mode, text admission, and
+  Run.
 - Runtime values are read-only observations. They never become organism input.
 
 ## Visual system
 
 - Dusk background: blue and teal through plum to ember.
-- Glass is reserved for the two work panels, history, and command dock.
+- Glass is reserved for the work deck, dock, and dock-owned spaces.
 - Text is near-white; muted text uses translucent white.
 - Mint means ready or learned. Violet distinguishes probe activity. Amber and
   red are reserved for warning and failure.
-- Panels use a 16 px radius, a thin light edge, an inset highlight, and one
-  ambient shadow.
-- Controls use 8–12 px radii. Only the command dock and its primary action are
-  pills.
+- The main deck and gallery use a 24 px radius; gallery artifacts use 16 px.
+  A thin light edge, inset highlight, and one ambient shadow establish depth.
+- Section headings are large, tightly tracked, and bold; measurements remain
+  compact with tabular numerals.
+- Controls use 8–12 px radii. The command dock, Teach/Probe switch, and primary
+  action are pills.
 - Native system typography, compact labels, tabular numerals, no uppercase
   micro-labels.
 

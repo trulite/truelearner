@@ -12,7 +12,7 @@ From the repository root:
 cargo run --locked --manifest-path academy/Cargo.toml -p academy-playground
 ```
 
-The application opens a native window titled `TrueLearner Academy` at
+The application opens a native window titled `Academy` at
 1440 × 900 logical pixels (minimum 1080 × 720).
 
 ## Crates

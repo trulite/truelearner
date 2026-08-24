@@ -6,7 +6,7 @@ publish.workspace = true
 description = "Dioxus Desktop developmental environment for TrueLearner"
 
 [[bin]]
-name = "truelearner-academy"
+name = "academy"
 path = "src/main.rs"
 
 [dependencies]
