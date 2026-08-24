@@ -1,0 +1,15 @@
+[package]
+name = "lr2-bc-dense-conformance"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+arm-b = ["dep:lr1-compartmental-physical-return"]
+arm-c = ["dep:lr1-modulatory-physical-return"]
+
+[dependencies]
+lr1-compartmental-physical-return = { path = "../../crates/lr1-compartmental-physical-return", optional = true }
+lr1-modulatory-physical-return = { path = "../../crates/lr1-modulatory-physical-return", optional = true }
+
+[workspace]
