@@ -20,18 +20,21 @@ const LIFECYCLE_DEVELOPMENT: &str =
     "0125f52fc9e5427c558caa39b8f720fe1fefea13e16f8c4e88bd0ae46904afef";
 const RECURSION_DEVELOPMENT: &str =
     "b59fa4b299d2ec22429255d78269ecb7fa56c22aeb4c122137fc21a299369724";
-const PROTOCOL: &str = "06a9ea4515b5ea42bf576a5bd49969c966cc63bba94ef3f4b499fb89da8345cc";
+const V1_PROTOCOL: &str = "06a9ea4515b5ea42bf576a5bd49969c966cc63bba94ef3f4b499fb89da8345cc";
+const V1_RESULT_AUDIT: &str =
+    "668aeb5802194a98002edd95bb55d09100825637c1f3c4a5ca1a711b9e0565a2";
+const PROTOCOL: &str = "ef16155950bf84a361ba9804f4455dbd067f81d7aa94e8cc3d917edfcf3807b9";
 const SEEDS: [u64; 16] = [
-    91001, 91002, 91003, 91004, 91005, 91006, 91007, 91008, 91009, 91010, 91011, 91012, 91013,
-    91014, 91015, 91016,
+    93001, 93002, 93003, 93004, 93005, 93006, 93007, 93008, 93009, 93010, 93011, 93012, 93013,
+    93014, 93015, 93016,
 ];
 const PAIRS: [(usize, usize); 6] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
 const INITIAL: [usize; 2] = [0, 5];
 const REVERSED: [usize; 2] = [2, 3];
-const CSV: &str = "results/px3_lrc_lifecycle_definitive_v1.csv";
-const MD: &str = "results/px3_lrc_lifecycle_definitive_v1.md";
-const CSV_STAGE: &str = "results/.px3_lrc_lifecycle_definitive_v1.csv.staging";
-const MD_STAGE: &str = "results/.px3_lrc_lifecycle_definitive_v1.md.staging";
+const CSV: &str = "results/px3_lrc_lifecycle_definitive_v2.csv";
+const MD: &str = "results/px3_lrc_lifecycle_definitive_v2.md";
+const CSV_STAGE: &str = "results/.px3_lrc_lifecycle_definitive_v2.csv.staging";
+const MD_STAGE: &str = "results/.px3_lrc_lifecycle_definitive_v2.md.staging";
 
 #[derive(Clone)]
 struct World {
@@ -97,9 +100,12 @@ struct ModulationControl {
     transmitter: usize,
     modulatory_crossings: usize,
     candidate_source_firings: usize,
-    proposals: u64,
+    global_proposals: u64,
+    unrelated_effect_to_p: usize,
+    joint_candidate_count: usize,
+    joint_candidate_crossings: usize,
+    joint_candidate_resistance: u32,
     updates: u64,
-    candidate_count: usize,
     quiescent: bool,
 }
 
@@ -196,7 +202,7 @@ fn main() {
 }
 
 fn evidence() {
-    eprintln!("PX3_LRC_LIFECYCLE_DEFINITIVE_EVIDENCE_SPENT");
+    eprintln!("PX3_LRC_LIFECYCLE_DEFINITIVE_V2_EVIDENCE_SPENT");
     let rows = SEEDS.into_iter().map(replay).collect::<Vec<_>>();
     assert_eq!(rows.len(), 16);
     publish(CSV_STAGE, CSV, &csv(&rows));
@@ -222,6 +228,14 @@ fn audit() {
         ("results/px3_lrc_recursion_v2.csv", RECURSION_DEVELOPMENT),
         (
             "experiments/px3_lrc_physical_event_organization_definitive_protocol_v1.md",
+            V1_PROTOCOL,
+        ),
+        (
+            "experiments/px3_lrc_physical_event_organization_definitive_result_audit_v1.md",
+            V1_RESULT_AUDIT,
+        ),
+        (
+            "experiments/px3_lrc_physical_event_organization_definitive_protocol_v2.md",
             PROTOCOL,
         ),
     ] {
@@ -520,9 +534,12 @@ fn claims(row: &Row) -> [bool; 12] {
         && modulation.transmitter == 1
         && modulation.modulatory_crossings == 1
         && modulation.candidate_source_firings == 0
-        && modulation.proposals == 0
+        && modulation.global_proposals == 1
+        && modulation.unrelated_effect_to_p == 1
+        && modulation.joint_candidate_count == 0
+        && modulation.joint_candidate_crossings == 0
+        && modulation.joint_candidate_resistance == 0
         && modulation.updates == 0
-        && modulation.candidate_count == 0
         && modulation.quiescent;
     let l6 = row.initial_after_first == initial_four
         && row.initial_one_exposure_gap == z6
@@ -688,9 +705,19 @@ fn modulation_without_participation(
             physical(namespace, 200),
         ),
         candidate_source_firings: fires(&execution.trace, physical(namespace, 200)),
-        proposals: execution.work.local_structural_proposals,
+        global_proposals: execution.work.local_structural_proposals,
+        unrelated_effect_to_p: world
+            .substrate
+            .arrows_between(world.effects[0], world.candidate_sources[0])
+            .len(),
+        joint_candidate_count: variable_count(&world),
+        joint_candidate_crossings: crossings(
+            &execution.crossings,
+            physical(namespace, 200),
+            physical(namespace, 300),
+        ),
+        joint_candidate_resistance: current_resistance(&world)[0],
         updates: execution.work.local_return_updates,
-        candidate_count: variable_count(&world),
         quiescent: execution.naturally_quiescent,
     }
 }
@@ -1196,7 +1223,7 @@ fn report(rows: &[Row]) -> String {
         .map(|row| row.claims.into_iter().filter(|claim| *claim).count())
         .sum::<usize>();
     format!(
-        "# PX3 LR-C lifecycle and reversal definitive v1\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- independent clauses: `{clauses}/192`;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- strong-A / repeated-A / gapped-AB controls: `{}`;\n- adjacent unsupported updates/gap: `{}`;\n- modulation without participation rejected: `{}`;\n- initial/reversed native proposals: `{}` / `{}`;\n- old candidates dead before reversal: `{}`;\n- fresh reversed identities: `{}`;\n- total structural proposals: `{}`;\n- active R3/R4/R5/R6 geometry: `false`;\n- recursion half executed here: `false`.\n",
+        "# PX3 LR-C lifecycle and reversal definitive v2\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- independent clauses: `{clauses}/192`;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- strong-A / repeated-A / gapped-AB controls: `{}`;\n- adjacent unsupported updates/gap: `{}`;\n- modulation without participation rejected: `{}`;\n- initial/reversed native proposals: `{}` / `{}`;\n- old candidates dead before reversal: `{}`;\n- fresh reversed identities: `{}`;\n- total structural proposals: `{}`;\n- active R3/R4/R5/R6 geometry: `false`;\n- recursion half executed here: `false`.\n",
         if passed == rows.len() {
             "PX3-LRC-LIFECYCLE DEFINITIVE POSITIVE"
         } else {
@@ -1243,15 +1270,18 @@ fn control_signature(metric: &ControlMetrics) -> String {
 
 fn modulation_signature(metric: &ModulationControl) -> String {
     format!(
-        "effect={}~relay={}~tx={}~mod={}~p={}~prop={}~updates={}~cand={}~q={}",
+        "effect={}~relay={}~tx={}~mod={}~p={}~global_prop={}~effect_to_p={}~joint_count={}~joint_cross={}~joint_r={}~updates={}~q={}",
         metric.effect_path,
         metric.return_relay,
         metric.transmitter,
         metric.modulatory_crossings,
         metric.candidate_source_firings,
-        metric.proposals,
+        metric.global_proposals,
+        metric.unrelated_effect_to_p,
+        metric.joint_candidate_count,
+        metric.joint_candidate_crossings,
+        metric.joint_candidate_resistance,
         metric.updates,
-        metric.candidate_count,
         metric.quiescent,
     )
 }
@@ -1335,8 +1365,8 @@ mod tests {
     fn matrix_is_frozen() {
         surface();
         assert_eq!(SEEDS.len(), 16);
-        assert_eq!(SEEDS[0], 91001);
-        assert_eq!(SEEDS[15], 91016);
+        assert_eq!(SEEDS[0], 93001);
+        assert_eq!(SEEDS[15], 93016);
     }
 
     #[test]

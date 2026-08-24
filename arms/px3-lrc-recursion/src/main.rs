@@ -20,12 +20,15 @@ const LIFECYCLE_DEVELOPMENT: &str =
     "0125f52fc9e5427c558caa39b8f720fe1fefea13e16f8c4e88bd0ae46904afef";
 const RECURSION_DEVELOPMENT: &str =
     "b59fa4b299d2ec22429255d78269ecb7fa56c22aeb4c122137fc21a299369724";
-const PROTOCOL: &str = "06a9ea4515b5ea42bf576a5bd49969c966cc63bba94ef3f4b499fb89da8345cc";
+const V1_PROTOCOL: &str = "06a9ea4515b5ea42bf576a5bd49969c966cc63bba94ef3f4b499fb89da8345cc";
+const V1_RESULT_AUDIT: &str =
+    "668aeb5802194a98002edd95bb55d09100825637c1f3c4a5ca1a711b9e0565a2";
+const PROTOCOL: &str = "ef16155950bf84a361ba9804f4455dbd067f81d7aa94e8cc3d917edfcf3807b9";
 
-const CSV: &str = "results/px3_lrc_recursion_definitive_v1.csv";
-const MD: &str = "results/px3_lrc_recursion_definitive_v1.md";
-const CSV_STAGE: &str = "results/.px3_lrc_recursion_definitive_v1.csv.staging";
-const MD_STAGE: &str = "results/.px3_lrc_recursion_definitive_v1.md.staging";
+const CSV: &str = "results/px3_lrc_recursion_definitive_v2.csv";
+const MD: &str = "results/px3_lrc_recursion_definitive_v2.md";
+const CSV_STAGE: &str = "results/.px3_lrc_recursion_definitive_v2.csv.staging";
+const MD_STAGE: &str = "results/.px3_lrc_recursion_definitive_v2.md.staging";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct Config {
@@ -36,82 +39,82 @@ struct Config {
 
 const CONFIGS: [Config; 16] = [
     Config {
-        seed: 92003,
+        seed: 94003,
         reverse: false,
         reflect: false,
     },
     Config {
-        seed: 92007,
+        seed: 94007,
         reverse: true,
         reflect: false,
     },
     Config {
-        seed: 92011,
+        seed: 94011,
         reverse: false,
         reflect: true,
     },
     Config {
-        seed: 92015,
+        seed: 94015,
         reverse: true,
         reflect: true,
     },
     Config {
-        seed: 92021,
+        seed: 94021,
         reverse: false,
         reflect: false,
     },
     Config {
-        seed: 92025,
+        seed: 94025,
         reverse: true,
         reflect: false,
     },
     Config {
-        seed: 92029,
+        seed: 94029,
         reverse: false,
         reflect: true,
     },
     Config {
-        seed: 92033,
+        seed: 94033,
         reverse: true,
         reflect: true,
     },
     Config {
-        seed: 92039,
+        seed: 94039,
         reverse: false,
         reflect: false,
     },
     Config {
-        seed: 92043,
+        seed: 94043,
         reverse: true,
         reflect: false,
     },
     Config {
-        seed: 92047,
+        seed: 94047,
         reverse: false,
         reflect: true,
     },
     Config {
-        seed: 92051,
+        seed: 94051,
         reverse: true,
         reflect: true,
     },
     Config {
-        seed: 92059,
+        seed: 94059,
         reverse: false,
         reflect: false,
     },
     Config {
-        seed: 92063,
+        seed: 94063,
         reverse: true,
         reflect: false,
     },
     Config {
-        seed: 92067,
+        seed: 94067,
         reverse: false,
         reflect: true,
     },
     Config {
-        seed: 92071,
+        seed: 94071,
         reverse: true,
         reflect: true,
     },
@@ -221,7 +224,7 @@ fn main() {
 }
 
 fn evidence() {
-    eprintln!("PX3_LRC_RECURSION_DEFINITIVE_EVIDENCE_SPENT");
+    eprintln!("PX3_LRC_RECURSION_DEFINITIVE_V2_EVIDENCE_SPENT");
     let rows = CONFIGS.into_iter().map(replay).collect::<Vec<_>>();
     assert_eq!(rows.len(), 16);
     publish(CSV_STAGE, CSV, &csv(&rows));
@@ -247,6 +250,14 @@ fn audit() {
         ("results/px3_lrc_recursion_v2.csv", RECURSION_DEVELOPMENT),
         (
             "experiments/px3_lrc_physical_event_organization_definitive_protocol_v1.md",
+            V1_PROTOCOL,
+        ),
+        (
+            "experiments/px3_lrc_physical_event_organization_definitive_result_audit_v1.md",
+            V1_RESULT_AUDIT,
+        ),
+        (
+            "experiments/px3_lrc_physical_event_organization_definitive_protocol_v2.md",
             PROTOCOL,
         ),
     ] {
@@ -1026,7 +1037,7 @@ fn report(rows: &[Row]) -> String {
         .map(|row| row.claims.into_iter().filter(|claim| *claim).count())
         .sum::<usize>();
     format!(
-        "# PX3 LR-C recursive compression definitive v1\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- independent clauses: `{clauses}/192`;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- native proposals AB/XC/YD: `{}`;\n- one-exposure candidates dead: `{}`;\n- final AB/XC/YD resistance: `{}`;\n- final context-free X/Y/Z traces: `{}`;\n- context-free return-relay/modulatory traffic absent: `{}`;\n- lawful modulatory return is the only learning feedback: `true`;\n- active R3/R4/R5/R6 geometry: `false`;\n- level-specific participant or conjunction API: `false`;\n- PX4 executed: `false`.\n",
+        "# PX3 LR-C recursive compression definitive v2\n\nOutcome: **{}**.\n\n- rows: `{passed}/{}` passed;\n- independent clauses: `{clauses}/192`;\n- exact replay: `{}`;\n- naturally quiescent: `{}`;\n- native proposals AB/XC/YD: `{}`;\n- one-exposure candidates dead: `{}`;\n- final AB/XC/YD resistance: `{}`;\n- final context-free X/Y/Z traces: `{}`;\n- context-free return-relay/modulatory traffic absent: `{}`;\n- lawful modulatory return is the only learning feedback: `true`;\n- active R3/R4/R5/R6 geometry: `false`;\n- level-specific participant or conjunction API: `false`;\n- PX4 executed: `false`.\n",
         if passed == rows.len() {
             "PX3-LRC-RECURSION DEFINITIVE POSITIVE"
         } else {
@@ -1174,8 +1185,8 @@ mod tests {
     fn matrix_is_frozen() {
         surface();
         assert_eq!(CONFIGS.len(), 16);
-        assert_eq!(CONFIGS[0].seed, 92003);
-        assert_eq!(CONFIGS[15].seed, 92071);
+        assert_eq!(CONFIGS[0].seed, 94003);
+        assert_eq!(CONFIGS[15].seed, 94071);
     }
 
     #[test]
