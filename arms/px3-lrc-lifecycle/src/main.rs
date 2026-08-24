@@ -553,8 +553,7 @@ fn control(namespace: u64, mirror: bool, kind: ControlKind) -> ControlMetrics {
             .map(|crossing| crossing.impulse)
             .sum()
     });
-    let participant_traces =
-        four(|side| fires(&log.trace, physical(namespace, 30 + side as u64)));
+    let participant_traces = four(|side| fires(&log.trace, physical(namespace, 30 + side as u64)));
     let opportunities = (0..6)
         .map(|pair| fires(&log.trace, physical(namespace, 100 + pair as u64)))
         .sum();
@@ -682,12 +681,7 @@ fn build(namespace: u64, mirror: bool, raw_couplings: [i32; 4]) -> World {
     let global_return = substrate.add_cell(cell(physical(namespace, 901), 90_000, 131, 1));
 
     for side in participant_order {
-        substrate.add_arrow(fixed(
-            sources[side],
-            outlets[side],
-            0,
-            raw_couplings[side],
-        ));
+        substrate.add_arrow(fixed(sources[side], outlets[side], 0, raw_couplings[side]));
         substrate.add_arrow(fixed(outlets[side], traces[side], 1, 1));
         substrate.add_arrow(fixed(outlets[side], hubs[side], 1, 1));
         substrate.add_arrow(fixed(hubs[side], traces[side], 0, 1));

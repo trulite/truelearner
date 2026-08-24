@@ -1010,10 +1010,7 @@ mod tests {
 
     #[test]
     fn matrix_is_frozen() {
-        assert_eq!(
-            CONFIGS.map(|config| config.seed),
-            [8401, 8419, 8423, 8431]
-        );
+        assert_eq!(CONFIGS.map(|config| config.seed), [8401, 8419, 8423, 8431]);
         assert_eq!(CONFIGS.len(), 4);
         assert_eq!(CONFIGS.into_iter().collect::<BTreeSet<_>>().len(), 4);
         assert_eq!(CONFIGS.iter().filter(|config| config.reverse).count(), 2);
