@@ -1815,8 +1815,7 @@ impl PlasticSubstrate {
                         });
                     }
                     work.total = work.total.saturating_add(2);
-                    execution_cost.arena_lookups =
-                        execution_cost.arena_lookups.saturating_add(2);
+                    execution_cost.arena_lookups = execution_cost.arena_lookups.saturating_add(2);
                     if self.resident_arenas[arrow.from.0 as usize]
                         != self.resident_arenas[arrow.to.0 as usize]
                     {

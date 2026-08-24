@@ -1,6 +1,4 @@
-use super::{
-    Arrow, ArrowId, Cell, CellId, ExecutionCost, LayoutKind, ResidentArenaId, Spike,
-};
+use super::{Arrow, ArrowId, Cell, CellId, ExecutionCost, LayoutKind, ResidentArenaId, Spike};
 
 const DEFAULT_RING_WIDTH: usize = 64;
 
@@ -412,9 +410,7 @@ impl PendingSchedule {
                 Some((spikes.remove(index), comparisons))
             }
             Self::TimingWheel(wheel) => wheel.pop_next(target_physical, cost),
-            Self::PartitionedTimingWheels(wheels) => {
-                wheels.pop_next(target_physical, cost)
-            }
+            Self::PartitionedTimingWheels(wheels) => wheels.pop_next(target_physical, cost),
         }
     }
 
@@ -487,10 +483,8 @@ impl PendingSchedule {
         cell_arenas: Vec<ResidentArenaId>,
         spikes: Vec<Spike>,
     ) -> Self {
-        let mut schedule = Self::PartitionedTimingWheels(PartitionedTimingWheels::new(
-            head_tick,
-            cell_arenas,
-        ));
+        let mut schedule =
+            Self::PartitionedTimingWheels(PartitionedTimingWheels::new(head_tick, cell_arenas));
         let mut ignored = ExecutionCost::default();
         for spike in spikes {
             schedule.push(spike, &mut ignored);
@@ -549,11 +543,7 @@ impl PartitionedTimingWheels {
         self.len = self.len.saturating_add(1);
     }
 
-    fn pop_next<F>(
-        &mut self,
-        target_physical: F,
-        cost: &mut ExecutionCost,
-    ) -> Option<(Spike, u64)>
+    fn pop_next<F>(&mut self, target_physical: F, cost: &mut ExecutionCost) -> Option<(Spike, u64)>
     where
         F: Fn(CellId) -> u64,
     {
