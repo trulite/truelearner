@@ -19,12 +19,16 @@ require_hash() {
     fi
 }
 
-git merge-base --is-ancestor "$parent" HEAD
-git merge-base --is-ancestor "$ready" HEAD
-git diff --exit-code "$parent"..HEAD -- "$law"
-git diff --exit-code "$ready"..HEAD -- "$active"
+audited_commit=${PX4_AUDITED_COMMIT:-}
+if [ -z "$audited_commit" ] || [ "$(basename "$PWD")" != "$audited_commit" ]; then
+    echo "PX4_AUDITED_COMMIT must name the exact E2B archive snapshot" >&2
+    exit 1
+fi
+test "$parent" = f9057fe78a86db9111b0b69310d03accef3bc970
+test "$ready" = 20bc9ce384b74b6e5cca04f4bed2599932a34e92
 
 require_hash 7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cfc10 "$law"
+require_hash a201674f9d558b5bda20aef71e9857b632f8a6565f372aee88994a280e0fea71 "$active"
 require_hash 98067812bc357949af5653a115b353519bede12499804818cfaf4783c0666cbd \
     experiments/px3_lrc_physical_event_organization_authority_handoff_v2.md
 require_hash a84ecf39ae1381f75edf95887aad3bcd1d7a0b623a87a1b5f874a7cb07efd4c1 \
