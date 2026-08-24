@@ -1,7 +1,6 @@
 use pxr0_physical_runtime::{
-    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, CheckpointError, ContentHash,
-    LiveCheckpoint, PendingLoad, PlasticSubstrate, QuiescentCheckpoint, SpikeInput,
-    TransmissionMode,
+    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, CheckpointError, ContentHash, LiveCheckpoint,
+    PendingLoad, PlasticSubstrate, QuiescentCheckpoint, SpikeInput, TransmissionMode,
 };
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use truelearner_arena_format::{ArenaBody, ArenaVersion, BodyVersion, Generation};
@@ -90,8 +89,8 @@ fn evaluate_inner() -> BodyEvidence {
         && arrow_slot_after.is_some()
         && compacted.arrow_reference(arrow) == arrow_reference;
     let mut ordinary = original.clone();
-    let compaction_behavior = ordinary.arrive(&[input(source, 0)], 1)
-        == compacted.arrive(&[input(source, 0)], 1);
+    let compaction_behavior =
+        ordinary.arrive(&[input(source, 0)], 1) == compacted.arrive(&[input(source, 0)], 1);
 
     let (mut quiet_source, quiet_cell, _, _) = substrate(50);
     quiet_source.advance_time(23);
@@ -130,10 +129,10 @@ fn evaluate_inner() -> BodyEvidence {
     let live_decoded = LiveCheckpoint::decode(&live_bytes).expect("live checkpoint must decode");
     let live_checkpoint_round_trip =
         live_decoded.canonical_bytes().ok().as_deref() == Some(live_bytes.as_slice());
-    let mut live_restored = PlasticSubstrate::from_live_checkpoint(live_decoded)
-        .expect("live checkpoint must restore");
-    let live_pending_continuation = live_restored == live_source
-        && live_restored.propagate() == live_source.propagate();
+    let mut live_restored =
+        PlasticSubstrate::from_live_checkpoint(live_decoded).expect("live checkpoint must restore");
+    let live_pending_continuation =
+        live_restored == live_source && live_restored.propagate() == live_source.propagate();
 
     let cell_overflow = catch_unwind(AssertUnwindSafe(|| {
         let mut limited = PlasticSubstrate::with_capacity(ArenaId(84_100_200), 1, 1);
@@ -157,7 +156,8 @@ fn evaluate_inner() -> BodyEvidence {
     let stale_reference_rejected_before_reuse = reusable.resolve_arrow(stale).is_none();
     let reused = reusable.add_arrow(arrow_spec(reuse_source, reuse_target, 4));
     let current = reusable.arrow_reference(reused);
-    let deterministic_reuse_generation = reused == reuse_arrow && current.generation != stale.generation;
+    let deterministic_reuse_generation =
+        reused == reuse_arrow && current.generation != stale.generation;
     let stale_reference_rejected = stale_reference_rejected_before_reuse
         && reusable.resolve_arrow(stale).is_none()
         && reusable.resolve_arrow(current).is_some();

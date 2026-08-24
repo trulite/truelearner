@@ -24,10 +24,8 @@ const RUNTIME_SHA: &str = "e6767845f27ddb9bb57bfb1fcab6dd1663178449faddc4a630b62
 const PXR0_ACCEPTANCE_SHA: &str =
     "fb30e4db84d5e1396b8751be16d83ca2c9ef2315f8aaee4e8a1d419630e846a7";
 const PXR0_ROWS_SHA: &str = "d1bf714bdf24bbee10c362727abec02f42066cedd05ee807c88ef2c645a96d5e";
-const PXR0_CONTROLS_SHA: &str =
-    "6900a8d6a5a504bed95ea729acec522c5cf28e30169779cad9d34f76588fbb7f";
-const PXR0_REPORT_SHA: &str =
-    "82b234bb9db445922885af29fd1b31097057372dc8417ddaa88e75cea4758848";
+const PXR0_CONTROLS_SHA: &str = "6900a8d6a5a504bed95ea729acec522c5cf28e30169779cad9d34f76588fbb7f";
+const PXR0_REPORT_SHA: &str = "82b234bb9db445922885af29fd1b31097057372dc8417ddaa88e75cea4758848";
 
 const AUTHORITY_CASES: [Case; 16] = [
     Case::new(4_100_001, false, false, 1_040),
@@ -271,30 +269,12 @@ fn run(case: Case) -> Trial {
     let mut space = PlasticSubstrate::new();
     space.advance_time(case.origin);
     let root_namespace = case.root << 32;
-    let retained = build_cascade(
-        &mut space,
-        layout(case, root_namespace + 100_000, 1, 100),
-    );
-    let partial = build_cascade(
-        &mut space,
-        layout(case, root_namespace + 200_000, 2, 100),
-    );
-    let adjacent = build_cascade(
-        &mut space,
-        layout(case, root_namespace + 300_000, 3, 100),
-    );
-    let duplicated = build_cascade(
-        &mut space,
-        layout(case, root_namespace + 400_000, 4, 100),
-    );
-    let resisted = build_cascade(
-        &mut space,
-        layout(case, root_namespace + 500_000, 5, 0),
-    );
-    let aged = build_cascade(
-        &mut space,
-        layout(case, root_namespace + 600_000, 6, 100),
-    );
+    let retained = build_cascade(&mut space, layout(case, root_namespace + 100_000, 1, 100));
+    let partial = build_cascade(&mut space, layout(case, root_namespace + 200_000, 2, 100));
+    let adjacent = build_cascade(&mut space, layout(case, root_namespace + 300_000, 3, 100));
+    let duplicated = build_cascade(&mut space, layout(case, root_namespace + 400_000, 4, 100));
+    let resisted = build_cascade(&mut space, layout(case, root_namespace + 500_000, 5, 0));
+    let aged = build_cascade(&mut space, layout(case, root_namespace + 600_000, 6, 100));
     let cascades = [retained, partial, adjacent, duplicated, resisted];
     let paired = build_pair(
         &mut space,
@@ -306,10 +286,7 @@ fn run(case: Case) -> Trial {
         layout(case, root_namespace + 800_000, 8, 100),
         0,
     );
-    let direct = build_direct(
-        &mut space,
-        layout(case, root_namespace + 900_000, 9, 100),
-    );
+    let direct = build_direct(&mut space, layout(case, root_namespace + 900_000, 9, 100));
     let duplicate_direct = build_direct(
         &mut space,
         layout(case, root_namespace + 1_000_000, 10, 100),
@@ -386,13 +363,7 @@ fn run(case: Case) -> Trial {
         61,
         false,
     ));
-    inputs.extend(cascade_reuse(
-        duplicated,
-        case.origin,
-        [true; 4],
-        61,
-        true,
-    ));
+    inputs.extend(cascade_reuse(duplicated, case.origin, [true; 4], 61, true));
     inputs.extend(cascade_reuse(resisted, case.origin, [true; 4], 61, false));
     inputs.extend(compact_inputs(direct, case.origin, 61, 1));
     inputs.extend(compact_inputs(duplicate_direct, case.origin, 61, 2));
@@ -401,13 +372,7 @@ fn run(case: Case) -> Trial {
     inputs.extend(compact_inputs(ring, case.origin, 61, 1));
     batches.push(Batch::from(space.arrive(&inputs, OUTWARD_REGION)));
 
-    inputs = cascade_reuse(
-        adjacent,
-        case.origin,
-        [true, true, true, false],
-        70,
-        false,
-    );
+    inputs = cascade_reuse(adjacent, case.origin, [true, true, true, false], 70, false);
     batches.push(Batch::from(space.arrive(&inputs, OUTWARD_REGION)));
 
     let age_work = space.advance_time(case.origin + 110);
@@ -492,8 +457,7 @@ fn run(case: Case) -> Trial {
 
 fn row(trial: Trial, replay: bool, pxr0_exact: bool) -> Row {
     let every_quiet = trial.batches.iter().all(|batch| batch.quiet);
-    let outward_only = trial.blank.outward_only()
-        && trial.batches.iter().all(Batch::outward_only);
+    let outward_only = trial.blank.outward_only() && trial.batches.iter().all(Batch::outward_only);
     let formation_each_updates = trial.batches[..6]
         .iter()
         .all(|batch| batch.work.local_return_updates > 0);
@@ -544,7 +508,11 @@ fn row(trial: Trial, replay: bool, pxr0_exact: bool) -> Row {
 }
 
 fn build_cascade(space: &mut PlasticSubstrate, layout: Layout) -> CascadeSites {
-    let sides = if layout.reverse { [3, 2, 1, 0] } else { [0, 1, 2, 3] };
+    let sides = if layout.reverse {
+        [3, 2, 1, 0]
+    } else {
+        [0, 1, 2, 3]
+    };
     let stages_order = if layout.reverse { [2, 1, 0] } else { [0, 1, 2] };
     let mut primitive = [None; 4];
     let mut outlets = [None; 4];
@@ -658,7 +626,12 @@ fn build_cascade(space: &mut PlasticSubstrate, layout: Layout) -> CascadeSites {
         normalize(space, outlets[side], traces[side], hubs[side]);
     }
     for stage in stages_order {
-        normalize(space, outputs[stage], output_traces[stage], output_hubs[stage]);
+        normalize(
+            space,
+            outputs[stage],
+            output_traces[stage],
+            output_hubs[stage],
+        );
     }
     let left = [traces[0], output_traces[0], output_traces[1]];
     let right = [traces[1], traces[2], traces[3]];
@@ -693,7 +666,11 @@ fn build_cascade(space: &mut PlasticSubstrate, layout: Layout) -> CascadeSites {
 }
 
 fn build_pair(space: &mut PlasticSubstrate, layout: Layout, output_pair: usize) -> PairSites {
-    let sides = if layout.reverse { [3, 2, 1, 0] } else { [0, 1, 2, 3] };
+    let sides = if layout.reverse {
+        [3, 2, 1, 0]
+    } else {
+        [0, 1, 2, 3]
+    };
     let pairs = if layout.reverse { [1, 0] } else { [0, 1] };
     let mut sources = [None; 4];
     let mut traces = [None; 4];
@@ -755,12 +732,7 @@ fn build_pair(space: &mut PlasticSubstrate, layout: Layout, output_pair: usize) 
     let downstream = downstream.map(Option::unwrap);
     let downstream_trace = downstream_trace.map(Option::unwrap);
     let relay = relay.map(Option::unwrap);
-    let returning = space.add_cell(cell(
-        layout.namespace + 700,
-        located(layout, 180_000),
-        0,
-        1,
-    ));
+    let returning = space.add_cell(cell(layout.namespace + 700, located(layout, 180_000), 0, 1));
     let outward = space.add_cell(cell(
         layout.namespace + 900,
         located(layout, 190_000),
@@ -885,12 +857,7 @@ fn build_drive_only(space: &mut PlasticSubstrate, layout: Layout) -> DriveSites 
     }
 }
 
-fn cascade_burst(
-    sites: CascadeSites,
-    origin: i64,
-    depth: usize,
-    start: i64,
-) -> Vec<SpikeInput> {
+fn cascade_burst(sites: CascadeSites, origin: i64, depth: usize, start: i64) -> Vec<SpikeInput> {
     let mut inputs = Vec::new();
     for side in 0..=depth {
         inputs.push(physical_input(
@@ -984,9 +951,21 @@ fn pair_maturation(sites: PairSites, origin: i64, start: i64) -> Vec<SpikeInput>
         physical_input(sites.namespace, sites.sources[0], origin + start, 1, 10),
         physical_input(sites.namespace, sites.sources[1], origin + start, 1, 11),
         physical_input(sites.namespace, sites.sources[2], origin + start + 2, 1, 12),
-        physical_input(sites.namespace, sites.downstream[0], origin + start + 2, 1, 20),
+        physical_input(
+            sites.namespace,
+            sites.downstream[0],
+            origin + start + 2,
+            1,
+            20,
+        ),
         physical_input(sites.namespace, sites.returning, origin + start + 3, 1, 21),
-        physical_input(sites.namespace, sites.downstream[1], origin + start + 4, 1, 22),
+        physical_input(
+            sites.namespace,
+            sites.downstream[1],
+            origin + start + 4,
+            1,
+            22,
+        ),
         physical_input(sites.namespace, sites.returning, origin + start + 5, 1, 23),
     ]
 }
@@ -995,7 +974,13 @@ fn pair_selective(sites: PairSites, origin: i64, start: i64) -> Vec<SpikeInput> 
     vec![
         physical_input(sites.namespace, sites.sources[0], origin + start, 1, 10),
         physical_input(sites.namespace, sites.sources[1], origin + start, 1, 11),
-        physical_input(sites.namespace, sites.downstream[0], origin + start + 2, 1, 20),
+        physical_input(
+            sites.namespace,
+            sites.downstream[0],
+            origin + start + 2,
+            1,
+            20,
+        ),
         physical_input(sites.namespace, sites.returning, origin + start + 3, 1, 21),
     ]
 }
@@ -1022,12 +1007,7 @@ fn pair_boundary(
     inputs
 }
 
-fn compact_inputs(
-    sites: CompactSites,
-    origin: i64,
-    start: i64,
-    count: usize,
-) -> Vec<SpikeInput> {
+fn compact_inputs(sites: CompactSites, origin: i64, start: i64, count: usize) -> Vec<SpikeInput> {
     (0..count)
         .map(|index| {
             physical_input(
@@ -1116,14 +1096,12 @@ fn modulatory(from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u
 }
 
 fn pxr0_inputs_exact() -> bool {
-    sha("experiments/archive/pxc-authority/results/pxr0_v2_acceptance_v1/audit.json")
-        .as_deref()
+    sha("experiments/archive/pxc-authority/results/pxr0_v2_acceptance_v1/audit.json").as_deref()
         == Some(PXR0_ACCEPTANCE_SHA)
         && sha("experiments/archive/pxc-authority/results/pxr0_successor_readiness_v2.csv")
             .as_deref()
             == Some(PXR0_ROWS_SHA)
-        && sha("experiments/archive/pxc-authority/results/pxr0_phase_controls_v2.csv")
-            .as_deref()
+        && sha("experiments/archive/pxc-authority/results/pxr0_phase_controls_v2.csv").as_deref()
             == Some(PXR0_CONTROLS_SHA)
         && sha("experiments/archive/pxc-authority/results/pxr0_successor_readiness_v2.md")
             .as_deref()
@@ -1175,11 +1153,19 @@ fn globals(mode: Mode, rows: &[Row], pxr0_exact: bool) -> [bool; 12] {
     .contains("\"gate_pass\": true");
     let published = Path::new(mode.csv()).is_file();
     [
-        roots.len() == 16 && roots.iter().copied().eq(expected_start..=expected_start + 15),
+        roots.len() == 16
+            && roots
+                .iter()
+                .copied()
+                .eq(expected_start..=expected_start + 15),
         layouts,
         origins,
         timing,
-        rows.iter().map(|row| row.trial.case.root).collect::<BTreeSet<_>>().len() == 16,
+        rows.iter()
+            .map(|row| row.trial.case.root)
+            .collect::<BTreeSet<_>>()
+            .len()
+            == 16,
         harness_gate.contains("\"gate_pass\": true"),
         sha("truelearner/crates/core/src/lib.rs").as_deref() == Some(RUNTIME_SHA),
         active_gate.contains("\"gate_pass\": true"),
@@ -1241,11 +1227,7 @@ fn csv(rows: &[Row]) -> String {
                 .collect::<Vec<_>>()
                 .join("|"),
             trial.batches.iter().all(|batch| batch.quiet).to_string(),
-            trial
-                .batches
-                .iter()
-                .all(Batch::outward_only)
-                .to_string(),
+            trial.batches.iter().all(Batch::outward_only).to_string(),
             row.replay.to_string(),
             row.clauses
                 .iter()
@@ -1260,12 +1242,7 @@ fn csv(rows: &[Row]) -> String {
     text
 }
 
-fn markdown(
-    mode: Mode,
-    rows: &[Row],
-    globals: [bool; 12],
-    body: &BodyEvidence,
-) -> String {
+fn markdown(mode: Mode, rows: &[Row], globals: [bool; 12], body: &BodyEvidence) -> String {
     let passed_rows = rows.iter().filter(|row| row.passed).count();
     let row_clauses = rows
         .iter()
@@ -1304,13 +1281,17 @@ fn markdown(
     writeln!(
         text,
         "- maximum resident bytes: `{}` / `{MEMORY_BOUND}`;",
-        rows.iter().map(|row| row.trial.max_bytes).max().unwrap_or(0)
+        rows.iter()
+            .map(|row| row.trial.max_bytes)
+            .max()
+            .unwrap_or(0)
     )
     .unwrap();
     writeln!(
         text,
         "- natural quiescence: `{}`;",
-        rows.iter().all(|row| row.trial.batches.iter().all(|batch| batch.quiet))
+        rows.iter()
+            .all(|row| row.trial.batches.iter().all(|batch| batch.quiet))
     )
     .unwrap();
     writeln!(
