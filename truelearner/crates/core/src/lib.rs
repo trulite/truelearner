@@ -1544,30 +1544,30 @@ impl PlasticSubstrate {
                     continue;
                 }
 
-            let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
-                self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
-            });
-            if self.trace_physics {
-                physical_trace.push(PhysicalTransition {
-                    tick: self.tick,
-                    phase: spike.phase,
-                    event: PhysicalEvent::Deliver {
-                        mode,
-                        target: spike.target,
-                        impulse: spike.impulse,
-                    },
+                let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
+                    self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
                 });
-            }
-            if mode == TransmissionMode::Modulatory {
+                if self.trace_physics {
+                    physical_trace.push(PhysicalTransition {
+                        tick: self.tick,
+                        phase: spike.phase,
+                        event: PhysicalEvent::Deliver {
+                            mode,
+                            target: spike.target,
+                            impulse: spike.impulse,
+                        },
+                    });
+                }
+                if mode == TransmissionMode::Modulatory {
                     work.total = work.total.saturating_add(1);
                     work.modulatory_deliveries = work.modulatory_deliveries.saturating_add(1);
                     self.apply_modulatory_return(
                         spike.target,
                         self.tick,
-                    &mut work,
-                    &mut execution_cost,
-                    spike.phase,
-                    &mut physical_trace,
+                        &mut work,
+                        &mut execution_cost,
+                        spike.phase,
+                        &mut physical_trace,
                     );
                     continue;
                 }
@@ -1592,20 +1592,20 @@ impl PlasticSubstrate {
                     target.state = 0;
                     target.refractory_until = self.tick.saturating_add(1);
                 });
-            self.active_cells.remove(&spike.target);
-            if self.trace_physics {
-                physical_trace.push(PhysicalTransition {
-                    tick: self.tick,
-                    phase: spike.phase,
-                    event: PhysicalEvent::Fire { cell: spike.target },
-                });
-            }
+                self.active_cells.remove(&spike.target);
+                if self.trace_physics {
+                    physical_trace.push(PhysicalTransition {
+                        tick: self.tick,
+                        phase: spike.phase,
+                        event: PhysicalEvent::Fire { cell: spike.target },
+                    });
+                }
                 work.total = work.total.saturating_add(1);
                 let source = spike.target;
                 let origin_physical = target.physical_id;
                 let source_generation = target.generation;
-            if external_arrival {
-                self.propose_local_arrows(source, &mut work, spike.phase, &mut physical_trace);
+                if external_arrival {
+                    self.propose_local_arrows(source, &mut work, spike.phase, &mut physical_trace);
                 }
                 let mut outgoing = match self.mechanics.traversal {
                     TraversalKind::GlobalScan => {
@@ -1640,39 +1640,39 @@ impl PlasticSubstrate {
                     let to_slot = self.cell_slot(arrow.to).unwrap();
                     let from = self.cells.get(from_slot.0);
                     let to = self.cells.get(to_slot.0);
-                if from.region != to.region {
-                    let crossing = Crossing {
-                        tick: self.tick,
+                    if from.region != to.region {
+                        let crossing = Crossing {
+                            tick: self.tick,
                             from_physical: from.physical_id,
                             to_physical: to.physical_id,
                             from_region: from.region,
                             to_region: to.region,
-                        impulse: arrow.coupling,
-                    };
-                    if self.trace_physics {
-                        physical_trace.push(PhysicalTransition {
-                            tick: self.tick,
-                            phase: spike.phase,
-                            event: PhysicalEvent::Crossing(crossing),
-                        });
-                    }
-                    crossings.push(crossing);
+                            impulse: arrow.coupling,
+                        };
+                        if self.trace_physics {
+                            physical_trace.push(PhysicalTransition {
+                                tick: self.tick,
+                                phase: spike.phase,
+                                event: PhysicalEvent::Crossing(crossing),
+                            });
+                        }
+                        crossings.push(crossing);
                     }
                     let arrow_slot = self.arrow_slot(arrow_id).unwrap();
                     self.arrows.with_mut(arrow_slot.0, |live_arrow| {
                         live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
                     });
-                self.eligible_arrows.insert(arrow_id);
-                if self.trace_physics {
-                    physical_trace.push(PhysicalTransition {
-                        tick: self.tick,
-                        phase: spike.phase,
-                        event: PhysicalEvent::Eligible {
-                            arrow: arrow_id,
-                            until: self.tick.saturating_add(LOCAL_WINDOW),
-                        },
-                    });
-                }
+                    self.eligible_arrows.insert(arrow_id);
+                    if self.trace_physics {
+                        physical_trace.push(PhysicalTransition {
+                            tick: self.tick,
+                            phase: spike.phase,
+                            event: PhysicalEvent::Eligible {
+                                arrow: arrow_id,
+                                until: self.tick.saturating_add(LOCAL_WINDOW),
+                            },
+                        });
+                    }
                     work.total = work.total.saturating_add(2);
                     self.pending.push(
                         Spike {
