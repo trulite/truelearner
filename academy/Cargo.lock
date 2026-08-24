@@ -19,6 +19,7 @@ name = "academy-playground"
 version = "0.1.0"
 dependencies = [
  "academy-core",
+ "academy-storage",
  "base64",
  "dioxus",
  "futures-timer",

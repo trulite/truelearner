@@ -132,7 +132,8 @@ pub struct EpisodePublisherWorker {
 
 impl EpisodePublisherWorker {
     pub fn spawn() -> Result<Self, StorageError> {
-        let (commands, command_receiver) = mpsc::sync_channel(PUBLICATION_CAPACITY);
+        let (commands, command_receiver) =
+            mpsc::sync_channel::<Option<A1Experience>>(PUBLICATION_CAPACITY);
         let (event_sender, events) = mpsc::sync_channel(PUBLICATION_CAPACITY);
         let join = thread::Builder::new()
             .name("academy-evidence-publisher".to_string())
