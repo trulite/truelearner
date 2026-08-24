@@ -1,0 +1,6 @@
+metric,before,after,delta,passed
+primary_seams,283,246,-37,true
+semantic_guard,119,83,-36,true
+evaluator_guard,477,318,-159,true
+new_seam_kinds,0,0,0,true
+new_semantic_surfaces,0,0,0,true
