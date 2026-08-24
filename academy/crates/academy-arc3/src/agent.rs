@@ -9,7 +9,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|value| value.parse::<u64>())
         .transpose()?
         .unwrap_or(205);
-    let mut organism = Arc3Sensorimotor::new(seed)?;
+    let spatial = std::env::args().nth(2).as_deref() == Some("spatial");
+    let mut organism = if spatial {
+        Arc3Sensorimotor::new_spatial(seed)?
+    } else {
+        Arc3Sensorimotor::new(seed)?
+    };
     let stdin = io::stdin();
     let mut stdout = io::stdout().lock();
     for line in stdin.lock().lines() {

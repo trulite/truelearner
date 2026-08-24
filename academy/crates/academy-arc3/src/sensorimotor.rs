@@ -7,7 +7,8 @@ use truelearner_core::{
     SpikeInput, TransmissionMode,
 };
 
-const CONTEXTS: usize = 16;
+const PALETTE_CONTEXTS: usize = 16;
+const SPATIAL_CONTEXTS: usize = 1_024;
 const MOTORS: usize = 4;
 const OUTWARD_REGION: i16 = 1;
 const INPUT_CAPACITY: usize = 256;
@@ -50,7 +51,7 @@ pub enum Arc3AgentResponse {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Arc3SensorimotorObservation {
     pub sequence: u64,
-    pub context: u8,
+    pub context: u16,
     pub frame_changed: Option<bool>,
     pub support_admitted: bool,
     pub babble_action: Option<u8>,
@@ -75,7 +76,7 @@ pub struct Arc3SensorimotorSnapshot {
     pub body_fingerprint: String,
     pub physical_tick: i64,
     pub pressure_phase: i64,
-    pub previous_context: Option<u8>,
+    pub previous_context: Option<u16>,
     pub previous_motor: Option<u8>,
     pub resident_bytes: usize,
 }
@@ -130,30 +131,50 @@ pub struct Arc3A1Suite {
     pub episodes: Vec<Arc3A1Episode>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SensorMode {
+    DominantPalette,
+    SpatialFingerprint,
+}
+
+#[derive(Clone)]
 struct Sites {
-    candidate_sources: [[CellId; MOTORS]; CONTEXTS],
-    context_traces: [[CellId; MOTORS]; CONTEXTS],
+    candidate_sources: Vec<[CellId; MOTORS]>,
+    context_traces: Vec<[CellId; MOTORS]>,
     motors: [CellId; MOTORS],
     returning: CellId,
-    candidates: [[ArrowId; MOTORS]; CONTEXTS],
+    candidates: Vec<[ArrowId; MOTORS]>,
 }
 
 pub struct Arc3Sensorimotor {
     seed: u64,
+    sensor_mode: SensorMode,
     boundary: BoundaryRuntime,
     sites: Sites,
     previous_frame: Option<Vec<u8>>,
-    previous_context: Option<u8>,
+    previous_context: Option<u16>,
     previous_motor: Option<u8>,
     sequence: u64,
 }
 
 impl Arc3Sensorimotor {
     pub fn new(seed: u64) -> Result<Self, Arc3SensorimotorError> {
-        let (boundary, sites) = build_body(seed)?;
+        Self::with_sensor(seed, SensorMode::DominantPalette)
+    }
+
+    pub fn new_spatial(seed: u64) -> Result<Self, Arc3SensorimotorError> {
+        Self::with_sensor(seed, SensorMode::SpatialFingerprint)
+    }
+
+    fn with_sensor(seed: u64, sensor_mode: SensorMode) -> Result<Self, Arc3SensorimotorError> {
+        let context_count = match sensor_mode {
+            SensorMode::DominantPalette => PALETTE_CONTEXTS,
+            SensorMode::SpatialFingerprint => SPATIAL_CONTEXTS,
+        };
+        let (boundary, sites) = build_body(seed, context_count)?;
         Ok(Self {
             seed,
+            sensor_mode,
             boundary,
             sites,
             previous_frame: None,
@@ -224,7 +245,8 @@ impl Arc3Sensorimotor {
             total_work = total_work.saturating_add(self.boundary.advance_time(settled).total());
         }
 
-        let context = dominant_palette(&frame)?;
+        let context = self.sensor_context(&frame)?;
+        let context_index = usize::from(context);
         let start = self.boundary.substrate().clock().tick.saturating_add(1);
         let mut inputs = Vec::with_capacity(available_motors.len().saturating_mul(2) + 1);
         for motor in &available_motors {
@@ -234,7 +256,7 @@ impl Arc3Sensorimotor {
                 origin_physical: EXTERNAL_PHYSICAL_BASE
                     .saturating_add(self.sequence.saturating_mul(100))
                     .saturating_add(u64::from(context)),
-                target: self.sites.candidate_sources[usize::from(context)][*motor],
+                target: self.sites.candidate_sources[context_index][*motor],
                 impulse: 1,
             });
             inputs.push(SpikeInput {
@@ -244,7 +266,7 @@ impl Arc3Sensorimotor {
                     .saturating_add(self.sequence.saturating_mul(100))
                     .saturating_add(50)
                     .saturating_add(u64::from(context)),
-                target: self.sites.context_traces[usize::from(context)][*motor],
+                target: self.sites.context_traces[context_index][*motor],
                 impulse: 1,
             });
         }
@@ -339,7 +361,7 @@ impl Arc3Sensorimotor {
     }
 
     pub fn reset_body(&mut self) -> Result<(), Arc3SensorimotorError> {
-        let replacement = Self::new(self.seed)?;
+        let replacement = Self::with_sensor(self.seed, self.sensor_mode)?;
         *self = replacement;
         Ok(())
     }
@@ -398,7 +420,7 @@ impl Arc3Sensorimotor {
         }
     }
 
-    fn candidate_state(&self, context: u8, motor: usize) -> (u32, i32, bool) {
+    fn candidate_state(&self, context: u16, motor: usize) -> (u32, i32, bool) {
         let id = self.sites.candidates[usize::from(context)][motor];
         self.boundary
             .substrate()
@@ -420,11 +442,18 @@ impl Arc3Sensorimotor {
             .map(|byte| format!("{byte:02x}"))
             .collect())
     }
+
+    fn sensor_context(&self, frame: &[u8]) -> Result<u16, Arc3SensorimotorError> {
+        match self.sensor_mode {
+            SensorMode::DominantPalette => dominant_palette(frame).map(u16::from),
+            SensorMode::SpatialFingerprint => spatial_context(frame),
+        }
+    }
 }
 
 pub fn dominant_palette(frame: &[u8]) -> Result<u8, Arc3SensorimotorError> {
     validate_sensor_frame(frame)?;
-    let mut counts = [0_u32; CONTEXTS];
+    let mut counts = [0_u32; PALETTE_CONTEXTS];
     for color in frame {
         counts[usize::from(*color)] = counts[usize::from(*color)].saturating_add(1);
     }
@@ -436,14 +465,33 @@ pub fn dominant_palette(frame: &[u8]) -> Result<u8, Arc3SensorimotorError> {
         .ok_or_else(|| Arc3SensorimotorError("raster has no dominant palette value".to_string()))
 }
 
-fn build_body(seed: u64) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
-    let mut body =
-        PlasticSubstrate::with_mechanics(ArenaId(seed), 512, 1_024, MechanicalConfig::PRODUCTION);
+pub fn spatial_context(frame: &[u8]) -> Result<u16, Arc3SensorimotorError> {
+    validate_sensor_frame(frame)?;
+    let digest = ContentHash::of(frame);
+    let mut prefix = [0_u8; 8];
+    prefix.copy_from_slice(&digest.as_bytes()[..8]);
+    let context = u64::from_be_bytes(prefix) % SPATIAL_CONTEXTS as u64;
+    u16::try_from(context)
+        .map_err(|_| Arc3SensorimotorError("spatial context exceeds u16".to_string()))
+}
+
+fn build_body(
+    seed: u64,
+    context_count: usize,
+) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
+    let cell_capacity = context_count.saturating_mul(MOTORS).saturating_mul(3) + 16;
+    let arrow_capacity = context_count.saturating_mul(MOTORS).saturating_mul(5) + 16;
+    let mut body = PlasticSubstrate::with_mechanics(
+        ArenaId(seed),
+        cell_capacity,
+        arrow_capacity,
+        MechanicalConfig::PRODUCTION,
+    );
     body.set_physical_tracing(true);
-    let mut candidate_sources = [[CellId(0); MOTORS]; CONTEXTS];
-    let mut context_traces = [[CellId(0); MOTORS]; CONTEXTS];
-    let mut relays = [[CellId(0); MOTORS]; CONTEXTS];
-    for context in 0..CONTEXTS {
+    let mut candidate_sources = vec![[CellId(0); MOTORS]; context_count];
+    let mut context_traces = vec![[CellId(0); MOTORS]; context_count];
+    let mut relays = vec![[CellId(0); MOTORS]; context_count];
+    for context in 0..context_count {
         for motor in 0..MOTORS {
             let pair = context.saturating_mul(MOTORS).saturating_add(motor);
             candidate_sources[context][motor] =
@@ -479,8 +527,8 @@ fn build_body(seed: u64) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorErr
         ))
     });
     let returning = body.add_cell(cell(6_000_000, 80_000, 0, 1));
-    let mut candidates = [[ArrowId(0); MOTORS]; CONTEXTS];
-    for context in 0..CONTEXTS {
+    let mut candidates = vec![[ArrowId(0); MOTORS]; context_count];
+    for context in 0..context_count {
         for motor in 0..MOTORS {
             candidates[context][motor] = body.add_arrow(drive(
                 candidate_sources[context][motor],
@@ -745,5 +793,51 @@ mod tests {
             .unwrap();
         assert_eq!(shuffled.motor_crossing, Some(0));
         assert_eq!(shuffled.action, Some(2));
+    }
+
+    #[test]
+    fn spatial_fingerprint_distinguishes_raw_raster_positions() {
+        let mut first = frame(4);
+        let mut second = frame(4);
+        first[64 * 7 + 9] = 14;
+        second[64 * 7 + 10] = 14;
+        assert_ne!(spatial_context(&first).unwrap(), spatial_context(&second).unwrap());
+    }
+
+    #[test]
+    fn spatial_body_learns_distinct_contexts_without_changing_a1_sensor() {
+        let mut organism = Arc3Sensorimotor::new_spatial(208).unwrap();
+        let first_frame = frame(4);
+        let first_context = spatial_context(&first_frame).unwrap();
+        let first = organism
+            .observe(
+                first_frame,
+                &[1, 2, 3, 4],
+                Some(1),
+                false,
+                false,
+                &[1, 2, 3, 4],
+            )
+            .unwrap();
+        assert_eq!(first.context, first_context);
+        assert_eq!(first.action, Some(1));
+
+        let mut changed = frame(4);
+        changed[0] = 3;
+        let second_context = spatial_context(&changed).unwrap();
+        assert_ne!(first_context, second_context);
+        let second = organism
+            .observe(
+                changed,
+                &[1, 2, 3, 4],
+                Some(2),
+                true,
+                true,
+                &[1, 2, 3, 4],
+            )
+            .unwrap();
+        assert_eq!(second.context, second_context);
+        assert_eq!(second.action, Some(2));
+        assert_eq!(second.plasticity_updates, 1);
     }
 }
