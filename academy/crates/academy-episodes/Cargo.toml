@@ -1,0 +1,11 @@
+[package]
+name = "academy-episodes"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Deterministic human review episodes for Academy evidence"
+
+[dependencies]
+academy-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
