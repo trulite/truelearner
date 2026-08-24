@@ -6,8 +6,8 @@ mod buffers;
 use body::{BodyEvidence, CLAUSE_NAMES};
 use buffers::{BufferEvidence, CLAUSE_NAMES as BUFFER_CLAUSE_NAMES};
 use pxr0_physical_runtime::{
-    ArrowSpec, BoundaryRuntime, CellId, CellSpec, Crossing, MechanicalConfig, PlasticSubstrate,
-    RunResult, SpikeInput, TransmissionMode, Work,
+    ArrowSpec, BoundaryRuntime, CellId, CellSpec, Crossing, MechanicalConfig, PhysicalTransition,
+    PlasticSubstrate, RunResult, SpikeInput, TransmissionMode, Work,
 };
 use std::{
     collections::BTreeSet,
@@ -124,6 +124,7 @@ struct Batch {
     work: Work,
     quiet: bool,
     bytes: usize,
+    physical_trace: Vec<PhysicalTransition>,
 }
 
 impl Batch {
@@ -133,6 +134,7 @@ impl Batch {
             work: result.work,
             quiet: result.naturally_quiescent,
             bytes: result.resident_bytes,
+            physical_trace: result.physical_trace,
         }
     }
 
@@ -281,15 +283,16 @@ fn main() {
 }
 
 fn replay(case: Case, pxr0_exact: bool) -> Row {
-    let first = run(case, MechanicalConfig::REFERENCE);
-    let second = run(case, MechanicalConfig::REFERENCE);
+    let first = run(case, MechanicalConfig::REFERENCE, false);
+    let second = run(case, MechanicalConfig::REFERENCE, false);
     let exact = first == second;
     row(first, exact, pxr0_exact)
 }
 
-fn run(case: Case, mechanics: MechanicalConfig) -> Trial {
+fn run(case: Case, mechanics: MechanicalConfig, physical_trace: bool) -> Trial {
     let mut space = PlasticSubstrate::new();
     space.reconfigure_mechanics(mechanics);
+    space.set_physical_tracing(physical_trace);
     space.advance_time(case.origin);
     let root_namespace = case.root << 32;
     let retained = build_cascade(&mut space, layout(case, root_namespace + 100_000, 1, 100));
@@ -500,23 +503,27 @@ fn run_mechanical_differential() {
     ];
     let mut comparisons = 0usize;
     for case in AUTHORITY_CASES {
-        let reference = run(case, MechanicalConfig::REFERENCE);
-        let replayed = run(case, MechanicalConfig::REFERENCE);
+        let reference = run(case, MechanicalConfig::REFERENCE, false);
+        let replayed = run(case, MechanicalConfig::REFERENCE, false);
         assert_eq!(
             reference, replayed,
             "reference replay diverged for {case:?}"
         );
         for config in configs {
-            let candidate = run(case, config);
-            let candidate_replay = run(case, config);
+            let candidate = run(case, config, false);
+            let candidate_replay = run(case, config, false);
             assert_eq!(
                 candidate, candidate_replay,
                 "candidate replay diverged for {case:?} {config:?}"
             );
-            assert!(
-                trials_match_physics(&reference, &candidate),
-                "first mechanical divergence for {case:?} {config:?}"
-            );
+            if !trials_match_physics(&reference, &candidate) {
+                let traced_reference = run(case, MechanicalConfig::REFERENCE, true);
+                let traced_candidate = run(case, config, true);
+                panic!(
+                    "first mechanical divergence for {case:?} {config:?}: {}",
+                    first_trace_divergence(&traced_reference, &traced_candidate)
+                );
+            }
             comparisons += 1;
         }
     }
@@ -524,6 +531,34 @@ fn run_mechanical_differential() {
         "R1_R5_MECHANICAL_DIFFERENTIAL_PASS cases={} comparisons={comparisons}",
         AUTHORITY_CASES.len()
     );
+}
+
+fn first_trace_divergence(reference: &Trial, candidate: &Trial) -> String {
+    let reference_trace = reference
+        .batches
+        .iter()
+        .flat_map(|batch| batch.physical_trace.iter())
+        .collect::<Vec<_>>();
+    let candidate_trace = candidate
+        .batches
+        .iter()
+        .flat_map(|batch| batch.physical_trace.iter())
+        .collect::<Vec<_>>();
+    let shared = reference_trace.len().min(candidate_trace.len());
+    for index in 0..shared {
+        if reference_trace[index] != candidate_trace[index] {
+            return format!(
+                "transition={index} reference={:?} candidate={:?}",
+                reference_trace[index], candidate_trace[index]
+            );
+        }
+    }
+    format!(
+        "no transition mismatch in shared prefix; reference_len={} candidate_len={} final_body_equal={}",
+        reference_trace.len(),
+        candidate_trace.len(),
+        reference.final_body == candidate.final_body
+    )
 }
 
 fn trials_match_physics(reference: &Trial, candidate: &Trial) -> bool {

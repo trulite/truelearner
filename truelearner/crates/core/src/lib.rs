@@ -205,6 +205,43 @@ pub struct Crossing {
     pub impulse: i32,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PhysicalEvent {
+    Deliver {
+        mode: TransmissionMode,
+        target: CellId,
+        impulse: i32,
+    },
+    Fire {
+        cell: CellId,
+    },
+    Eligible {
+        arrow: ArrowId,
+        until: i64,
+    },
+    Resistance {
+        arrow: ArrowId,
+        before: u32,
+        after: u32,
+    },
+    Deallocate {
+        arrow: ArrowId,
+    },
+    Proposal {
+        arrow: ArrowId,
+        from: CellId,
+        to: CellId,
+    },
+    Crossing(Crossing),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PhysicalTransition {
+    pub tick: i64,
+    pub phase: i32,
+    pub event: PhysicalEvent,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Work {
     total: u64,
@@ -237,6 +274,7 @@ pub struct RunResult {
     pub naturally_quiescent: bool,
     pub resident_bytes: usize,
     pub execution_cost: ExecutionCost,
+    pub physical_trace: Vec<PhysicalTransition>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -270,6 +308,7 @@ pub struct BoundaryRun {
     pub naturally_quiescent: bool,
     pub resident_bytes: usize,
     pub execution_cost: ExecutionCost,
+    pub physical_trace: Vec<PhysicalTransition>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -310,6 +349,7 @@ pub struct PlasticSubstrate {
     outgoing_index: Vec<Vec<ArrowId>>,
     active_cells: BTreeSet<CellId>,
     eligible_arrows: BTreeSet<ArrowId>,
+    trace_physics: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -790,6 +830,7 @@ impl BoundaryRuntime {
             naturally_quiescent: result.naturally_quiescent,
             resident_bytes: result.resident_bytes,
             execution_cost: result.execution_cost,
+            physical_trace: result.physical_trace,
         })
     }
 
@@ -821,6 +862,7 @@ impl BoundaryRuntime {
             naturally_quiescent: run.naturally_quiescent,
             resident_bytes: run.resident_bytes,
             execution_cost: run.execution_cost,
+            physical_trace: run.physical_trace,
         })
     }
 
@@ -910,11 +952,16 @@ impl PlasticSubstrate {
             outgoing_index: Vec::new(),
             active_cells: BTreeSet::new(),
             eligible_arrows: BTreeSet::new(),
+            trace_physics: false,
         }
     }
 
     pub fn mechanical_config(&self) -> MechanicalConfig {
         self.mechanics
+    }
+
+    pub fn set_physical_tracing(&mut self, enabled: bool) {
+        self.trace_physics = enabled;
     }
 
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
@@ -1448,6 +1495,7 @@ impl PlasticSubstrate {
         let mut crossings = Vec::new();
         let mut work = Work::default();
         let mut execution_cost = ExecutionCost::default();
+        let mut physical_trace = Vec::new();
         loop {
             let Some(first) = self.pop_scheduled(&mut execution_cost) else {
                 break;
@@ -1496,17 +1544,30 @@ impl PlasticSubstrate {
                     continue;
                 }
 
-                let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
-                    self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
+            let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
+                self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
+            });
+            if self.trace_physics {
+                physical_trace.push(PhysicalTransition {
+                    tick: self.tick,
+                    phase: spike.phase,
+                    event: PhysicalEvent::Deliver {
+                        mode,
+                        target: spike.target,
+                        impulse: spike.impulse,
+                    },
                 });
-                if mode == TransmissionMode::Modulatory {
+            }
+            if mode == TransmissionMode::Modulatory {
                     work.total = work.total.saturating_add(1);
                     work.modulatory_deliveries = work.modulatory_deliveries.saturating_add(1);
                     self.apply_modulatory_return(
                         spike.target,
                         self.tick,
-                        &mut work,
-                        &mut execution_cost,
+                    &mut work,
+                    &mut execution_cost,
+                    spike.phase,
+                    &mut physical_trace,
                     );
                     continue;
                 }
@@ -1531,13 +1592,20 @@ impl PlasticSubstrate {
                     target.state = 0;
                     target.refractory_until = self.tick.saturating_add(1);
                 });
-                self.active_cells.remove(&spike.target);
+            self.active_cells.remove(&spike.target);
+            if self.trace_physics {
+                physical_trace.push(PhysicalTransition {
+                    tick: self.tick,
+                    phase: spike.phase,
+                    event: PhysicalEvent::Fire { cell: spike.target },
+                });
+            }
                 work.total = work.total.saturating_add(1);
                 let source = spike.target;
                 let origin_physical = target.physical_id;
                 let source_generation = target.generation;
-                if external_arrival {
-                    self.propose_local_arrows(source, &mut work);
+            if external_arrival {
+                self.propose_local_arrows(source, &mut work, spike.phase, &mut physical_trace);
                 }
                 let mut outgoing = match self.mechanics.traversal {
                     TraversalKind::GlobalScan => {
@@ -1572,21 +1640,39 @@ impl PlasticSubstrate {
                     let to_slot = self.cell_slot(arrow.to).unwrap();
                     let from = self.cells.get(from_slot.0);
                     let to = self.cells.get(to_slot.0);
-                    if from.region != to.region {
-                        crossings.push(Crossing {
-                            tick: self.tick,
+                if from.region != to.region {
+                    let crossing = Crossing {
+                        tick: self.tick,
                             from_physical: from.physical_id,
                             to_physical: to.physical_id,
                             from_region: from.region,
                             to_region: to.region,
-                            impulse: arrow.coupling,
+                        impulse: arrow.coupling,
+                    };
+                    if self.trace_physics {
+                        physical_trace.push(PhysicalTransition {
+                            tick: self.tick,
+                            phase: spike.phase,
+                            event: PhysicalEvent::Crossing(crossing),
                         });
+                    }
+                    crossings.push(crossing);
                     }
                     let arrow_slot = self.arrow_slot(arrow_id).unwrap();
                     self.arrows.with_mut(arrow_slot.0, |live_arrow| {
                         live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
                     });
-                    self.eligible_arrows.insert(arrow_id);
+                self.eligible_arrows.insert(arrow_id);
+                if self.trace_physics {
+                    physical_trace.push(PhysicalTransition {
+                        tick: self.tick,
+                        phase: spike.phase,
+                        event: PhysicalEvent::Eligible {
+                            arrow: arrow_id,
+                            until: self.tick.saturating_add(LOCAL_WINDOW),
+                        },
+                    });
+                }
                     work.total = work.total.saturating_add(2);
                     self.pending.push(
                         Spike {
@@ -1611,6 +1697,7 @@ impl PlasticSubstrate {
             naturally_quiescent: self.pending.is_empty(),
             resident_bytes: self.resident_bytes(),
             execution_cost,
+            physical_trace,
         }
     }
 
@@ -1632,6 +1719,8 @@ impl PlasticSubstrate {
         tick: i64,
         work: &mut Work,
         execution_cost: &mut ExecutionCost,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
     ) {
         let candidates = match self.mechanics.traversal {
             TraversalKind::GlobalScan => {
@@ -1662,12 +1751,23 @@ impl PlasticSubstrate {
                         arrow.coupling = arrow.coupling.saturating_add(1).min(2);
                     }
                     arrow.eligible_until = None;
-                    true
+                    Some((prior_resistance, arrow.resistance))
                 } else {
-                    false
+                    None
                 }
             });
-            if updated {
+            if let Some((before, after)) = updated {
+                if self.trace_physics {
+                    physical_trace.push(PhysicalTransition {
+                        tick,
+                        phase,
+                        event: PhysicalEvent::Resistance {
+                            arrow: id,
+                            before,
+                            after,
+                        },
+                    });
+                }
                 self.eligible_arrows.remove(&id);
             }
         }
@@ -1749,7 +1849,13 @@ impl PlasticSubstrate {
         }
     }
 
-    fn propose_local_arrows(&mut self, source: CellId, work: &mut Work) {
+    fn propose_local_arrows(
+        &mut self,
+        source: CellId,
+        work: &mut Work,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
         let source_slot = self.cell_slot(source).unwrap();
         let source_position = self.cells.get(source_slot.0).position;
         let mut targets = self
@@ -1789,6 +1895,17 @@ impl PlasticSubstrate {
             });
             work.total = work.total.saturating_add(1);
             work.local_structural_proposals = work.local_structural_proposals.saturating_add(1);
+            if self.trace_physics {
+                physical_trace.push(PhysicalTransition {
+                    tick: self.tick,
+                    phase,
+                    event: PhysicalEvent::Proposal {
+                        arrow: id,
+                        from: source,
+                        to: target,
+                    },
+                });
+            }
         }
     }
 
