@@ -1,6 +1,295 @@
-use super::{CellId, ExecutionCost, Spike};
+use super::{Arrow, ArrowId, Cell, CellId, ExecutionCost, LayoutKind, Spike};
 
 const DEFAULT_RING_WIDTH: usize = 64;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum CellStore {
+    AoS(Vec<Cell>),
+    SoA(CellColumns),
+}
+
+impl CellStore {
+    pub(super) fn new(layout: LayoutKind) -> Self {
+        match layout {
+            LayoutKind::AoS => Self::AoS(Vec::new()),
+            LayoutKind::SoA => Self::SoA(CellColumns::default()),
+        }
+    }
+
+    pub(super) fn len(&self) -> usize {
+        match self {
+            Self::AoS(values) => values.len(),
+            Self::SoA(values) => values.ids.len(),
+        }
+    }
+
+    pub(super) fn get(&self, index: usize) -> Cell {
+        match self {
+            Self::AoS(values) => values[index].clone(),
+            Self::SoA(values) => values.get(index),
+        }
+    }
+
+    pub(super) fn with_mut<R>(&mut self, index: usize, change: impl FnOnce(&mut Cell) -> R) -> R {
+        match self {
+            Self::AoS(values) => change(&mut values[index]),
+            Self::SoA(values) => {
+                let mut value = values.get(index);
+                let result = change(&mut value);
+                values.set(index, value);
+                result
+            }
+        }
+    }
+
+    pub(super) fn push(&mut self, value: Cell) {
+        match self {
+            Self::AoS(values) => values.push(value),
+            Self::SoA(values) => values.push(value),
+        }
+    }
+
+    pub(super) fn values(&self) -> Vec<Cell> {
+        (0..self.len()).map(|index| self.get(index)).collect()
+    }
+
+    pub(super) fn replace_values(&mut self, values: Vec<Cell>) {
+        *self = match self {
+            Self::AoS(_) => Self::AoS(values),
+            Self::SoA(_) => Self::SoA(CellColumns::from_values(values)),
+        };
+    }
+
+    pub(super) fn convert(&mut self, layout: LayoutKind) {
+        if matches!((&*self, layout), (Self::AoS(_), LayoutKind::AoS) | (Self::SoA(_), LayoutKind::SoA)) {
+            return;
+        }
+        let values = self.values();
+        *self = match layout {
+            LayoutKind::AoS => Self::AoS(values),
+            LayoutKind::SoA => Self::SoA(CellColumns::from_values(values)),
+        };
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct CellColumns {
+    ids: Vec<CellId>,
+    physical_ids: Vec<u64>,
+    positions: Vec<i32>,
+    regions: Vec<i16>,
+    thresholds: Vec<i32>,
+    states: Vec<i32>,
+    last_update_ticks: Vec<i64>,
+    refractory_until: Vec<i64>,
+    generations: Vec<super::Generation>,
+    resistances: Vec<u32>,
+    live: Vec<bool>,
+}
+
+impl CellColumns {
+    fn from_values(values: Vec<Cell>) -> Self {
+        let mut columns = Self::default();
+        for value in values {
+            columns.push(value);
+        }
+        columns
+    }
+
+    fn get(&self, index: usize) -> Cell {
+        Cell {
+            id: self.ids[index],
+            physical_id: self.physical_ids[index],
+            position: self.positions[index],
+            region: self.regions[index],
+            threshold: self.thresholds[index],
+            state: self.states[index],
+            last_update_tick: self.last_update_ticks[index],
+            refractory_until: self.refractory_until[index],
+            generation: self.generations[index],
+            resistance: self.resistances[index],
+            live: self.live[index],
+        }
+    }
+
+    fn set(&mut self, index: usize, value: Cell) {
+        self.ids[index] = value.id;
+        self.physical_ids[index] = value.physical_id;
+        self.positions[index] = value.position;
+        self.regions[index] = value.region;
+        self.thresholds[index] = value.threshold;
+        self.states[index] = value.state;
+        self.last_update_ticks[index] = value.last_update_tick;
+        self.refractory_until[index] = value.refractory_until;
+        self.generations[index] = value.generation;
+        self.resistances[index] = value.resistance;
+        self.live[index] = value.live;
+    }
+
+    fn push(&mut self, value: Cell) {
+        self.ids.push(value.id);
+        self.physical_ids.push(value.physical_id);
+        self.positions.push(value.position);
+        self.regions.push(value.region);
+        self.thresholds.push(value.threshold);
+        self.states.push(value.state);
+        self.last_update_ticks.push(value.last_update_tick);
+        self.refractory_until.push(value.refractory_until);
+        self.generations.push(value.generation);
+        self.resistances.push(value.resistance);
+        self.live.push(value.live);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum ArrowStore {
+    AoS(Vec<Arrow>),
+    SoA(ArrowColumns),
+}
+
+impl ArrowStore {
+    pub(super) fn new(layout: LayoutKind) -> Self {
+        match layout {
+            LayoutKind::AoS => Self::AoS(Vec::new()),
+            LayoutKind::SoA => Self::SoA(ArrowColumns::default()),
+        }
+    }
+
+    pub(super) fn len(&self) -> usize {
+        match self {
+            Self::AoS(values) => values.len(),
+            Self::SoA(values) => values.ids.len(),
+        }
+    }
+
+    pub(super) fn get(&self, index: usize) -> Arrow {
+        match self {
+            Self::AoS(values) => values[index].clone(),
+            Self::SoA(values) => values.get(index),
+        }
+    }
+
+    pub(super) fn with_mut<R>(&mut self, index: usize, change: impl FnOnce(&mut Arrow) -> R) -> R {
+        match self {
+            Self::AoS(values) => change(&mut values[index]),
+            Self::SoA(values) => {
+                let mut value = values.get(index);
+                let result = change(&mut value);
+                values.set(index, value);
+                result
+            }
+        }
+    }
+
+    pub(super) fn push(&mut self, value: Arrow) {
+        match self {
+            Self::AoS(values) => values.push(value),
+            Self::SoA(values) => values.push(value),
+        }
+    }
+
+    pub(super) fn set(&mut self, index: usize, value: Arrow) {
+        match self {
+            Self::AoS(values) => values[index] = value,
+            Self::SoA(values) => values.set(index, value),
+        }
+    }
+
+    pub(super) fn values(&self) -> Vec<Arrow> {
+        (0..self.len()).map(|index| self.get(index)).collect()
+    }
+
+    pub(super) fn replace_values(&mut self, values: Vec<Arrow>) {
+        *self = match self {
+            Self::AoS(_) => Self::AoS(values),
+            Self::SoA(_) => Self::SoA(ArrowColumns::from_values(values)),
+        };
+    }
+
+    pub(super) fn convert(&mut self, layout: LayoutKind) {
+        if matches!((&*self, layout), (Self::AoS(_), LayoutKind::AoS) | (Self::SoA(_), LayoutKind::SoA)) {
+            return;
+        }
+        let values = self.values();
+        *self = match layout {
+            LayoutKind::AoS => Self::AoS(values),
+            LayoutKind::SoA => Self::SoA(ArrowColumns::from_values(values)),
+        };
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct ArrowColumns {
+    ids: Vec<ArrowId>,
+    from: Vec<CellId>,
+    to: Vec<CellId>,
+    delays: Vec<i64>,
+    phases: Vec<i32>,
+    couplings: Vec<i32>,
+    source_generations: Vec<super::Generation>,
+    generations: Vec<super::Generation>,
+    resistances: Vec<u32>,
+    live: Vec<bool>,
+    eligible_until: Vec<Option<i64>>,
+    modes: Vec<super::TransmissionMode>,
+}
+
+impl ArrowColumns {
+    fn from_values(values: Vec<Arrow>) -> Self {
+        let mut columns = Self::default();
+        for value in values {
+            columns.push(value);
+        }
+        columns
+    }
+
+    fn get(&self, index: usize) -> Arrow {
+        Arrow {
+            id: self.ids[index],
+            from: self.from[index],
+            to: self.to[index],
+            delay: self.delays[index],
+            phase: self.phases[index],
+            coupling: self.couplings[index],
+            source_generation: self.source_generations[index],
+            generation: self.generations[index],
+            resistance: self.resistances[index],
+            live: self.live[index],
+            eligible_until: self.eligible_until[index],
+            mode: self.modes[index],
+        }
+    }
+
+    fn set(&mut self, index: usize, value: Arrow) {
+        self.ids[index] = value.id;
+        self.from[index] = value.from;
+        self.to[index] = value.to;
+        self.delays[index] = value.delay;
+        self.phases[index] = value.phase;
+        self.couplings[index] = value.coupling;
+        self.source_generations[index] = value.source_generation;
+        self.generations[index] = value.generation;
+        self.resistances[index] = value.resistance;
+        self.live[index] = value.live;
+        self.eligible_until[index] = value.eligible_until;
+        self.modes[index] = value.mode;
+    }
+
+    fn push(&mut self, value: Arrow) {
+        self.ids.push(value.id);
+        self.from.push(value.from);
+        self.to.push(value.to);
+        self.delays.push(value.delay);
+        self.phases.push(value.phase);
+        self.couplings.push(value.coupling);
+        self.source_generations.push(value.source_generation);
+        self.generations.push(value.generation);
+        self.resistances.push(value.resistance);
+        self.live.push(value.live);
+        self.eligible_until.push(value.eligible_until);
+        self.modes.push(value.mode);
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SchedulerKind {
@@ -77,6 +366,18 @@ impl PendingSchedule {
         };
         spikes.sort_by_key(|spike| order_key(spike, &target_physical));
         spikes
+    }
+
+    pub(super) fn next_tick(&self) -> Option<i64> {
+        match self {
+            Self::Vec(spikes) => spikes.iter().map(|spike| spike.arrival_tick).min(),
+            Self::TimingWheel(wheel) => wheel
+                .near
+                .iter()
+                .flat_map(|bucket| bucket.iter().map(|spike| spike.arrival_tick))
+                .chain(wheel.overflow.iter().map(|spike| spike.arrival_tick))
+                .min(),
+        }
     }
 
     pub(super) fn from_canonical(kind: SchedulerKind, head_tick: i64, spikes: Vec<Spike>) -> Self {

@@ -7,7 +7,7 @@ use truelearner_arena_format::{
 };
 
 mod mechanics;
-use mechanics::PendingSchedule;
+use mechanics::{ArrowStore, CellStore, PendingSchedule};
 pub use mechanics::SchedulerKind;
 pub use truelearner_arena_format::{
     ArenaId, ArrowId, ArrowRef, CellId, CellRef, ContentHash, Generation,
@@ -296,9 +296,9 @@ pub struct BoundaryRuntime {
 pub struct PlasticSubstrate {
     mechanics: MechanicalConfig,
     arena: ArenaId,
-    cells: Vec<Cell>,
+    cells: CellStore,
     cell_slots: Vec<Option<CellSlot>>,
-    arrows: Vec<Arrow>,
+    arrows: ArrowStore,
     arrow_slots: Vec<Option<ArrowSlot>>,
     cell_capacity: u32,
     arrow_capacity: u32,
@@ -896,9 +896,9 @@ impl PlasticSubstrate {
         Self {
             mechanics,
             arena,
-            cells: Vec::new(),
+            cells: CellStore::new(mechanics.layout),
             cell_slots: Vec::new(),
-            arrows: Vec::new(),
+            arrows: ArrowStore::new(mechanics.layout),
             arrow_slots: Vec::new(),
             cell_capacity,
             arrow_capacity,
@@ -917,6 +917,20 @@ impl PlasticSubstrate {
         self.mechanics
     }
 
+    pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
+        let pending = self.pending.canonical(|id| {
+            self.cells
+                .get(self.cell_slot(id).expect("scheduled CELL must resolve").0)
+                .physical_id
+        });
+        self.cells.convert(mechanics.layout);
+        self.arrows.convert(mechanics.layout);
+        self.pending = PendingSchedule::from_canonical(mechanics.scheduler, self.tick, pending);
+        self.mechanics = mechanics;
+        self.rebuild_slot_maps();
+        self.rebuild_mechanical_indexes();
+    }
+
     pub fn clock(&self) -> PhysicalClock {
         PhysicalClock { tick: self.tick }
     }
@@ -926,7 +940,7 @@ impl PlasticSubstrate {
             return None;
         }
         let slot = self.cell_slot(reference.id)?;
-        let cell = &self.cells[slot.0];
+        let cell = self.cells.get(slot.0);
         (cell.live && cell.generation == reference.generation).then_some(slot)
     }
 
@@ -935,7 +949,7 @@ impl PlasticSubstrate {
             return None;
         }
         let slot = self.arrow_slot(reference.id)?;
-        let arrow = &self.arrows[slot.0];
+        let arrow = self.arrows.get(slot.0);
         (arrow.live && arrow.generation == reference.generation).then_some(slot)
     }
 
@@ -943,6 +957,7 @@ impl PlasticSubstrate {
         assert!(spec.threshold > 0, "threshold must be physically positive");
         assert!(
             self.cells
+                .values()
                 .iter()
                 .all(|cell| cell.physical_id != spec.physical_id),
             "physical cell identity must be unique"
@@ -978,8 +993,8 @@ impl PlasticSubstrate {
         let source_slot = self
             .cell_slot(spec.from)
             .expect("required CELL must resolve");
-        let source_generation = self.cells[source_slot.0].generation;
-        let reusable = self.arrows.iter().position(|arrow| !arrow.live);
+        let source_generation = self.cells.get(source_slot.0).generation;
+        let reusable = self.arrows.values().iter().position(|arrow| !arrow.live);
         if reusable.is_none() {
             assert!(
                 self.arrow_slots.len() < self.arrow_capacity as usize,
@@ -987,7 +1002,7 @@ impl PlasticSubstrate {
             );
         }
         let (id, slot, generation, prior_source) = if let Some(index) = reusable {
-            let prior = &self.arrows[index];
+            let prior = self.arrows.get(index);
             (
                 prior.id,
                 ArrowSlot(index),
@@ -1016,7 +1031,7 @@ impl PlasticSubstrate {
             if let Some(prior_source) = prior_source {
                 self.outgoing_index[prior_source.0 as usize].retain(|candidate| *candidate != id);
             }
-            self.arrows[slot.0] = arrow;
+            self.arrows.set(slot.0, arrow);
             self.arrow_slots[id.0 as usize] = Some(slot);
         } else {
             self.arrows.push(arrow);
@@ -1041,7 +1056,7 @@ impl PlasticSubstrate {
                 phase: input.phase,
                 origin_physical: input.origin_physical,
                 target: input.target,
-                target_generation: self.cells[self.cell_slot(input.target).unwrap().0].generation,
+                target_generation: self.cells.get(self.cell_slot(input.target).unwrap().0).generation,
                 impulse: input.impulse,
                 serial: self.next_serial,
                 arrow: None,
@@ -1078,12 +1093,14 @@ impl PlasticSubstrate {
     pub fn arena_body(&self, version: u64) -> ArenaBody {
         let minimum_position = self
             .cells
+            .values()
             .iter()
             .map(|cell| cell.position)
             .min()
             .unwrap_or(0);
         let maximum_position = self
             .cells
+            .values()
             .iter()
             .map(|cell| cell.position)
             .max()
@@ -1097,6 +1114,7 @@ impl PlasticSubstrate {
             arrow_capacity: self.arrow_capacity,
             cells: self
                 .cells
+                .values()
                 .iter()
                 .map(|cell| DurableCell {
                     id: cell.id,
@@ -1111,6 +1129,7 @@ impl PlasticSubstrate {
                 .collect(),
             arrows: self
                 .arrows
+                .values()
                 .iter()
                 .map(|arrow| DurableArrow {
                     id: arrow.id,
@@ -1191,10 +1210,10 @@ impl PlasticSubstrate {
             substrate.require_cell_result(durable.to.id)?;
             let from_slot = substrate.cell_slot(durable.from.id).unwrap();
             let to_slot = substrate.cell_slot(durable.to.id).unwrap();
-            if substrate.cells[from_slot.0].generation != durable.from.generation {
+            if substrate.cells.get(from_slot.0).generation != durable.from.generation {
                 return Err(CheckpointError::StaleCellReference(durable.from));
             }
-            if substrate.cells[to_slot.0].generation != durable.to.generation {
+            if substrate.cells.get(to_slot.0).generation != durable.to.generation {
                 return Err(CheckpointError::StaleCellReference(durable.to));
             }
             if durable.delay < 0 || durable.live != (durable.resistance > 0) {
@@ -1233,10 +1252,12 @@ impl PlasticSubstrate {
             && self.pending_loads.is_empty()
             && self
                 .cells
+                .values()
                 .iter()
                 .all(|cell| cell.state == 0 && cell.refractory_until <= self.tick)
             && self
                 .arrows
+                .values()
                 .iter()
                 .all(|arrow| arrow.eligible_until.is_none());
         if !transiently_quiet {
@@ -1261,20 +1282,23 @@ impl PlasticSubstrate {
     ) -> Result<Self, CheckpointError> {
         validate_manifest(&checkpoint.body_version, &checkpoint.body)?;
         let mut substrate = Self::from_arena_body(checkpoint.body)?;
-        substrate.mechanics = mechanics;
-        substrate.pending = PendingSchedule::new(mechanics.scheduler, checkpoint.clock.tick);
+        substrate.reconfigure_mechanics(mechanics);
         substrate.tick = checkpoint.clock.tick;
         substrate.pressure_tick = pressure_epoch(checkpoint.clock.tick);
-        for cell in &mut substrate.cells {
-            cell.last_update_tick = checkpoint.clock.tick;
-            cell.refractory_until = checkpoint.clock.tick;
+        for index in 0..substrate.cells.len() {
+            substrate.cells.with_mut(index, |cell| {
+                cell.last_update_tick = checkpoint.clock.tick;
+                cell.refractory_until = checkpoint.clock.tick;
+            });
         }
         Ok(substrate)
     }
 
     pub fn live_checkpoint(&self, body_version: u64) -> Result<LiveCheckpoint, CheckpointError> {
         let pending = self.pending.canonical(|id| {
-            self.cells[self.cell_slot(id).expect("scheduled CELL must resolve").0].physical_id
+            self.cells
+                .get(self.cell_slot(id).expect("scheduled CELL must resolve").0)
+                .physical_id
         });
         Ok(LiveCheckpoint {
             body_version: self.body_version(body_version)?,
@@ -1282,6 +1306,7 @@ impl PlasticSubstrate {
             clock: self.clock(),
             cells: self
                 .cells
+                .values()
                 .iter()
                 .map(|cell| CellRuntime {
                     id: cell.id,
@@ -1292,6 +1317,7 @@ impl PlasticSubstrate {
                 .collect(),
             arrows: self
                 .arrows
+                .values()
                 .iter()
                 .map(|arrow| ArrowRuntime {
                     id: arrow.id,
@@ -1314,26 +1340,28 @@ impl PlasticSubstrate {
     ) -> Result<Self, CheckpointError> {
         validate_manifest(&checkpoint.body_version, &checkpoint.body)?;
         let mut substrate = Self::from_arena_body(checkpoint.body)?;
-        substrate.mechanics = mechanics;
         substrate.tick = checkpoint.clock.tick;
         substrate.pressure_tick = pressure_epoch(checkpoint.clock.tick);
         for runtime in checkpoint.cells {
             let slot = substrate
                 .cell_slot(runtime.id)
                 .ok_or(CheckpointError::MissingCell(runtime.id))?;
-            let cell = &mut substrate.cells[slot.0];
-            cell.state = runtime.state;
-            cell.last_update_tick = runtime.last_update_tick;
-            cell.refractory_until = runtime.refractory_until;
+            substrate.cells.with_mut(slot.0, |cell| {
+                cell.state = runtime.state;
+                cell.last_update_tick = runtime.last_update_tick;
+                cell.refractory_until = runtime.refractory_until;
+            });
         }
         for runtime in checkpoint.arrows {
             let slot = substrate
                 .arrow_slot(runtime.id)
                 .ok_or(CheckpointError::MissingArrow(runtime.id))?;
-            substrate.arrows[slot.0].eligible_until = runtime.eligible_until;
+            substrate
+                .arrows
+                .with_mut(slot.0, |arrow| arrow.eligible_until = runtime.eligible_until);
         }
         substrate.pending = PendingSchedule::from_canonical(
-            mechanics.scheduler,
+            SchedulerKind::Vec,
             checkpoint.clock.tick,
             checkpoint.pending,
         );
@@ -1341,16 +1369,19 @@ impl PlasticSubstrate {
         substrate.pending_loads = checkpoint.pending_loads;
         substrate.active_cells = substrate
             .cells
+            .values()
             .iter()
             .filter(|cell| cell.state != 0)
             .map(|cell| cell.id)
             .collect();
         substrate.eligible_arrows = substrate
             .arrows
+            .values()
             .iter()
             .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
             .map(|arrow| arrow.id)
             .collect();
+        substrate.reconfigure_mechanics(mechanics);
         Ok(substrate)
     }
 
@@ -1401,9 +1432,12 @@ impl PlasticSubstrate {
     }
 
     pub fn compact_resident(&mut self) {
-        self.cells.sort_by_key(|cell| std::cmp::Reverse(cell.id));
-        self.arrows
-            .sort_by_key(|arrow| (!arrow.live, std::cmp::Reverse(arrow.id)));
+        let mut cells = self.cells.values();
+        cells.sort_by_key(|cell| std::cmp::Reverse(cell.id));
+        self.cells.replace_values(cells);
+        let mut arrows = self.arrows.values();
+        arrows.sort_by_key(|arrow| (!arrow.live, std::cmp::Reverse(arrow.id)));
+        self.arrows.replace_values(arrows);
         self.rebuild_slot_maps();
     }
 
@@ -1412,18 +1446,31 @@ impl PlasticSubstrate {
         let mut work = Work::default();
         let mut execution_cost = ExecutionCost::default();
         loop {
-            let cells = &self.cells;
-            let slots = &self.cell_slots;
-            let Some((spike, legacy_comparisons)) = self.pending.pop_next(
-                |id| {
-                    let slot = slots[id.0 as usize].expect("scheduled CELL must resolve");
-                    cells[slot.0].physical_id
-                },
-                &mut execution_cost,
-            ) else {
+            let Some(first) = self.pop_scheduled(&mut execution_cost) else {
                 break;
             };
-            work.total = work.total.saturating_add(legacy_comparisons);
+            let mut batch = vec![first];
+            if self.mechanics.executor == ExecutorKind::Batched {
+                execution_cost.scans = execution_cost
+                    .scans
+                    .saturating_add(self.arrows.len() as u64);
+                let zero_delay_possible = self
+                    .arrows
+                    .values()
+                    .iter()
+                    .any(|arrow| arrow.live && arrow.delay == 0);
+                if !zero_delay_possible {
+                    let tick = batch[0].0.arrival_tick;
+                    while batch.len() < 64 && self.pending.next_tick() == Some(tick) {
+                        batch.push(
+                            self.pop_scheduled(&mut execution_cost)
+                                .expect("peeked scheduled activity must pop"),
+                        );
+                    }
+                }
+            }
+            for (spike, legacy_comparisons) in batch {
+                work.total = work.total.saturating_add(legacy_comparisons);
             let external_arrival = spike.arrow.is_none();
             self.elapse_to(spike.arrival_tick, &mut work, &mut execution_cost);
             self.tick = spike.arrival_tick;
@@ -1433,7 +1480,7 @@ impl PlasticSubstrate {
                 let Some(arrow_slot) = self.arrow_slot(arrow_id) else {
                     continue;
                 };
-                let arrow = &self.arrows[arrow_slot.0];
+                let arrow = self.arrows.get(arrow_slot.0);
                 if !arrow.live || arrow.generation != generation {
                     continue;
                 }
@@ -1441,13 +1488,13 @@ impl PlasticSubstrate {
             let Some(target_slot) = self.cell_slot(spike.target) else {
                 continue;
             };
-            let target = &self.cells[target_slot.0];
+            let target = self.cells.get(target_slot.0);
             if !target.live || target.generation != spike.target_generation {
                 continue;
             }
 
             let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
-                self.arrows[self.arrow_slot(arrow).unwrap().0].mode
+                self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
             });
             if mode == TransmissionMode::Modulatory {
                 work.total = work.total.saturating_add(1);
@@ -1464,8 +1511,10 @@ impl PlasticSubstrate {
             work.drive_deliveries = work.drive_deliveries.saturating_add(1);
             self.decay_cell(spike.target, self.tick);
             let target_slot = self.cell_slot(spike.target).unwrap();
-            let target = &mut self.cells[target_slot.0];
-            target.state = target.state.saturating_add(spike.impulse);
+            let target = self.cells.with_mut(target_slot.0, |target| {
+                target.state = target.state.saturating_add(spike.impulse);
+                target.clone()
+            });
             if target.state != 0 {
                 self.active_cells.insert(spike.target);
             }
@@ -1474,8 +1523,10 @@ impl PlasticSubstrate {
                 continue;
             }
 
-            target.state = 0;
-            target.refractory_until = self.tick.saturating_add(1);
+            self.cells.with_mut(target_slot.0, |target| {
+                target.state = 0;
+                target.refractory_until = self.tick.saturating_add(1);
+            });
             self.active_cells.remove(&spike.target);
             work.total = work.total.saturating_add(1);
             let source = spike.target;
@@ -1490,6 +1541,7 @@ impl PlasticSubstrate {
                         .scans
                         .saturating_add(self.arrows.len() as u64);
                     self.arrows
+                        .values()
                         .iter()
                         .map(|arrow| (arrow.id, arrow.clone()))
                         .collect::<Vec<_>>()
@@ -1499,7 +1551,7 @@ impl PlasticSubstrate {
                     .filter_map(|id| {
                         let slot = self.arrow_slot(*id)?;
                         execution_cost.scans = execution_cost.scans.saturating_add(1);
-                        Some((*id, self.arrows[slot.0].clone()))
+                        Some((*id, self.arrows.get(slot.0)))
                     })
                     .collect(),
             };
@@ -1514,8 +1566,8 @@ impl PlasticSubstrate {
                 }
                 let from_slot = self.cell_slot(arrow.from).unwrap();
                 let to_slot = self.cell_slot(arrow.to).unwrap();
-                let from = &self.cells[from_slot.0];
-                let to = &self.cells[to_slot.0];
+                let from = self.cells.get(from_slot.0);
+                let to = self.cells.get(to_slot.0);
                 if from.region != to.region {
                     crossings.push(Crossing {
                         tick: self.tick,
@@ -1527,8 +1579,9 @@ impl PlasticSubstrate {
                     });
                 }
                 let arrow_slot = self.arrow_slot(arrow_id).unwrap();
-                let live_arrow = &mut self.arrows[arrow_slot.0];
-                live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
+                self.arrows.with_mut(arrow_slot.0, |live_arrow| {
+                    live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
+                });
                 self.eligible_arrows.insert(arrow_id);
                 work.total = work.total.saturating_add(2);
                 self.pending.push(
@@ -1546,6 +1599,7 @@ impl PlasticSubstrate {
                 );
                 self.next_serial = self.next_serial.wrapping_add(1);
             }
+            }
         }
         RunResult {
             crossings,
@@ -1554,6 +1608,18 @@ impl PlasticSubstrate {
             resident_bytes: self.resident_bytes(),
             execution_cost,
         }
+    }
+
+    fn pop_scheduled(&mut self, execution_cost: &mut ExecutionCost) -> Option<(Spike, u64)> {
+        let cells = &self.cells;
+        let slots = &self.cell_slots;
+        self.pending.pop_next(
+            |id| {
+                let slot = slots[id.0 as usize].expect("scheduled CELL must resolve");
+                cells.get(slot.0).physical_id
+            },
+            execution_cost,
+        )
     }
 
     fn apply_modulatory_return(
@@ -1568,26 +1634,36 @@ impl PlasticSubstrate {
                 execution_cost.scans = execution_cost
                     .scans
                     .saturating_add(self.arrows.len() as u64);
-                self.arrows.iter().map(|arrow| arrow.id).collect::<Vec<_>>()
+                self.arrows
+                    .values()
+                    .iter()
+                    .map(|arrow| arrow.id)
+                    .collect::<Vec<_>>()
             }
             TraversalKind::Adjacency => self.outgoing_index[cell.0 as usize].clone(),
         };
         for id in candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
-            let arrow = &mut self.arrows[slot.0];
-            if arrow.live
-                && arrow.from == cell
-                && arrow.eligible_until.is_some_and(|end| tick <= end)
-            {
-                work.total = work.total.saturating_add(3);
-                work.local_return_updates = work.local_return_updates.saturating_add(1);
-                let prior_resistance = arrow.resistance;
-                arrow.resistance = arrow.resistance.saturating_add(LOCAL_RETURN_STRENGTH);
-                if prior_resistance <= COUPLING_PLASTICITY_CEILING && arrow.coupling > 0 {
-                    arrow.coupling = arrow.coupling.saturating_add(1).min(2);
+            let updated = self.arrows.with_mut(slot.0, |arrow| {
+                if arrow.live
+                    && arrow.from == cell
+                    && arrow.eligible_until.is_some_and(|end| tick <= end)
+                {
+                    work.total = work.total.saturating_add(3);
+                    work.local_return_updates = work.local_return_updates.saturating_add(1);
+                    let prior_resistance = arrow.resistance;
+                    arrow.resistance = arrow.resistance.saturating_add(LOCAL_RETURN_STRENGTH);
+                    if prior_resistance <= COUPLING_PLASTICITY_CEILING && arrow.coupling > 0 {
+                        arrow.coupling = arrow.coupling.saturating_add(1).min(2);
+                    }
+                    arrow.eligible_until = None;
+                    true
+                } else {
+                    false
                 }
-                arrow.eligible_until = None;
+            });
+            if updated {
                 self.eligible_arrows.remove(&id);
             }
         }
@@ -1597,16 +1673,20 @@ impl PlasticSubstrate {
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
         if pressure_steps > 0 {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
-            for arrow in &mut self.arrows {
+            for index in 0..self.arrows.len() {
                 execution_cost.scans = execution_cost.scans.saturating_add(1);
-                if arrow.live {
+                let deallocated = self.arrows.with_mut(index, |arrow| {
+                    if !arrow.live {
+                        return false;
+                    }
                     let was_live = arrow.live;
                     pressure_arrow(arrow, amount);
                     work.total = work.total.saturating_add(1);
-                    if was_live && !arrow.live {
-                        work.total = work.total.saturating_add(1);
-                        work.physical_deallocations = work.physical_deallocations.saturating_add(1);
-                    }
+                    was_live && !arrow.live
+                });
+                if deallocated {
+                    work.total = work.total.saturating_add(1);
+                    work.physical_deallocations = work.physical_deallocations.saturating_add(1);
                 }
             }
             self.pressure_tick = self
@@ -1614,33 +1694,49 @@ impl PlasticSubstrate {
                 .saturating_add(pressure_steps.saturating_mul(ORDINARY_PRESSURE_PERIOD));
             self.eligible_arrows = self
                 .arrows
+                .values()
                 .iter()
                 .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
                 .map(|arrow| arrow.id)
                 .collect();
         }
         let expiry_candidates = match self.mechanics.activity {
-            ActivityKind::FullScan => self.arrows.iter().map(|arrow| arrow.id).collect::<Vec<_>>(),
+            ActivityKind::FullScan => self
+                .arrows
+                .values()
+                .iter()
+                .map(|arrow| arrow.id)
+                .collect::<Vec<_>>(),
             ActivityKind::Frontier => self.eligible_arrows.iter().copied().collect(),
         };
         for id in expiry_candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("eligible ARROW must resolve");
-            let arrow = &mut self.arrows[slot.0];
-            if arrow.live && arrow.eligible_until.is_some_and(|end| end < tick) {
+            let (expired, deallocated) = self.arrows.with_mut(slot.0, |arrow| {
+                if !(arrow.live && arrow.eligible_until.is_some_and(|end| end < tick)) {
+                    return (false, false);
+                }
                 let was_live = arrow.live;
                 pressure_arrow(arrow, UNSUPPORTED_USE_PRESSURE);
                 arrow.eligible_until = None;
+                (true, was_live && !arrow.live)
+            });
+            if expired {
                 self.eligible_arrows.remove(&id);
                 work.total = work.total.saturating_add(1);
-                if was_live && !arrow.live {
+                if deallocated {
                     work.total = work.total.saturating_add(1);
                     work.physical_deallocations = work.physical_deallocations.saturating_add(1);
                 }
             }
         }
         let cell_ids = match self.mechanics.activity {
-            ActivityKind::FullScan => self.cells.iter().map(|cell| cell.id).collect::<Vec<_>>(),
+            ActivityKind::FullScan => self
+                .cells
+                .values()
+                .iter()
+                .map(|cell| cell.id)
+                .collect::<Vec<_>>(),
             ActivityKind::Frontier => self.active_cells.iter().copied().collect(),
         };
         for id in cell_ids {
@@ -1651,9 +1747,10 @@ impl PlasticSubstrate {
 
     fn propose_local_arrows(&mut self, source: CellId, work: &mut Work) {
         let source_slot = self.cell_slot(source).unwrap();
-        let source_position = self.cells[source_slot.0].position;
+        let source_position = self.cells.get(source_slot.0).position;
         let mut targets = self
             .cells
+            .values()
             .iter()
             .filter_map(|cell| {
                 let distance = cell.position.saturating_sub(source_position).abs();
@@ -1662,6 +1759,7 @@ impl PlasticSubstrate {
                     && (1..=LOCAL_VARIATION_RADIUS).contains(&distance)
                     && !self
                         .arrows
+                        .values()
                         .iter()
                         .any(|arrow| arrow.live && arrow.from == source && arrow.to == cell.id))
                 .then_some((cell.physical_id, cell.id, distance))
@@ -1679,10 +1777,12 @@ impl PlasticSubstrate {
                 mode: TransmissionMode::Drive,
             });
             let slot = self.arrow_slot(id).unwrap();
-            if self.arrows[slot.0].generation == Generation(1) {
-                self.arrows[slot.0].generation =
-                    Generation(u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2));
-            }
+            self.arrows.with_mut(slot.0, |arrow| {
+                if arrow.generation == Generation(1) {
+                    arrow.generation =
+                        Generation(u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2));
+                }
+            });
             work.total = work.total.saturating_add(1);
             work.local_structural_proposals = work.local_structural_proposals.saturating_add(1);
         }
@@ -1690,18 +1790,20 @@ impl PlasticSubstrate {
 
     fn decay_cell(&mut self, cell: CellId, tick: i64) {
         let slot = self.cell_slot(cell).unwrap();
-        let target = &mut self.cells[slot.0];
-        let elapsed = tick.saturating_sub(target.last_update_tick);
-        if elapsed > 0 {
-            let decay = i32::try_from(elapsed).unwrap_or(i32::MAX);
-            target.state = if target.state > 0 {
-                target.state.saturating_sub(decay).max(0)
-            } else {
-                target.state.saturating_add(decay).min(0)
-            };
-            target.last_update_tick = tick;
-        }
-        if target.state == 0 {
+        let state = self.cells.with_mut(slot.0, |target| {
+            let elapsed = tick.saturating_sub(target.last_update_tick);
+            if elapsed > 0 {
+                let decay = i32::try_from(elapsed).unwrap_or(i32::MAX);
+                target.state = if target.state > 0 {
+                    target.state.saturating_sub(decay).max(0)
+                } else {
+                    target.state.saturating_add(decay).min(0)
+                };
+                target.last_update_tick = tick;
+            }
+            target.state
+        });
+        if state == 0 {
             self.active_cells.remove(&cell);
         } else {
             self.active_cells.insert(cell);
@@ -1744,7 +1846,7 @@ impl PlasticSubstrate {
         CellRef {
             arena: self.arena,
             id,
-            generation: self.cells[slot.0].generation,
+            generation: self.cells.get(slot.0).generation,
         }
     }
 
@@ -1752,7 +1854,7 @@ impl PlasticSubstrate {
         let slot = self
             .arrow_slot(id)
             .expect("stored ARROW identity must resolve");
-        let arrow = &self.arrows[slot.0];
+        let arrow = self.arrows.get(slot.0);
         ArrowRef {
             arena: self.arena,
             id,
@@ -1762,13 +1864,37 @@ impl PlasticSubstrate {
 
     fn rebuild_slot_maps(&mut self) {
         self.cell_slots.fill(None);
-        for (index, cell) in self.cells.iter().enumerate() {
+        for (index, cell) in self.cells.values().iter().enumerate() {
             self.cell_slots[cell.id.0 as usize] = Some(CellSlot(index));
         }
         self.arrow_slots.fill(None);
-        for (index, arrow) in self.arrows.iter().enumerate() {
+        for (index, arrow) in self.arrows.values().iter().enumerate() {
             self.arrow_slots[arrow.id.0 as usize] = Some(ArrowSlot(index));
         }
+    }
+
+    fn rebuild_mechanical_indexes(&mut self) {
+        self.outgoing_index = vec![Vec::new(); self.cell_slots.len()];
+        for arrow in self.arrows.values() {
+            self.outgoing_index[arrow.from.0 as usize].push(arrow.id);
+        }
+        for outgoing in &mut self.outgoing_index {
+            outgoing.sort_unstable();
+        }
+        self.active_cells = self
+            .cells
+            .values()
+            .into_iter()
+            .filter(|cell| cell.state != 0)
+            .map(|cell| cell.id)
+            .collect();
+        self.eligible_arrows = self
+            .arrows
+            .values()
+            .into_iter()
+            .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
+            .map(|arrow| arrow.id)
+            .collect();
     }
 
     fn resident_bytes(&self) -> usize {
