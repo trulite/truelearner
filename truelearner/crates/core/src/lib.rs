@@ -32,6 +32,9 @@ pub struct CellSlot(pub usize);
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ArrowSlot(pub usize);
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ResidentArenaId(pub u32);
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PhysicalClock {
     pub tick: i64,
@@ -279,6 +282,11 @@ pub struct ExecutionCost {
     pub batch_max: u64,
     pub batch_histogram: [u64; 7],
     pub batch_fallback_zero_delay: u64,
+    pub arena_lookups: u64,
+    pub arena_hops: u64,
+    pub active_arena_samples: u64,
+    pub active_arena_total: u64,
+    pub active_arena_max: u64,
 }
 
 impl ExecutionCost {
@@ -319,6 +327,13 @@ impl ExecutionCost {
             _ => 6,
         };
         self.batch_histogram[bucket] = self.batch_histogram[bucket].saturating_add(1);
+    }
+
+    fn observe_active_arenas(&mut self, active: usize) {
+        let active = u64::try_from(active).unwrap_or(u64::MAX);
+        self.active_arena_samples = self.active_arena_samples.saturating_add(1);
+        self.active_arena_total = self.active_arena_total.saturating_add(active);
+        self.active_arena_max = self.active_arena_max.max(active);
     }
 }
 
@@ -408,6 +423,7 @@ pub struct PlasticSubstrate {
     pressure_tick: i64,
     pending_loads: Vec<PendingLoad>,
     outgoing_index: Vec<Vec<ArrowId>>,
+    resident_arenas: Vec<ResidentArenaId>,
     active_cells: BTreeSet<CellId>,
     eligible_arrows: BTreeSet<ArrowId>,
     trace_physics: bool,
@@ -1012,6 +1028,7 @@ impl PlasticSubstrate {
             pressure_tick: 0,
             pending_loads: Vec::new(),
             outgoing_index: Vec::new(),
+            resident_arenas: Vec::new(),
             active_cells: BTreeSet::new(),
             eligible_arrows: BTreeSet::new(),
             trace_physics: false,
@@ -1028,6 +1045,7 @@ impl PlasticSubstrate {
     }
 
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
+        let was_partitioned = self.pending.is_partitioned();
         let pending = self.pending.canonical(|id| {
             self.cells
                 .get(self.cell_slot(id).expect("scheduled CELL must resolve").0)
@@ -1035,10 +1053,43 @@ impl PlasticSubstrate {
         });
         self.cells.convert(mechanics.layout);
         self.arrows.convert(mechanics.layout);
-        self.pending = PendingSchedule::from_canonical(mechanics.scheduler, self.tick, pending);
+        self.pending = if was_partitioned {
+            PendingSchedule::partitioned(self.tick, self.resident_arenas.clone(), pending)
+        } else {
+            PendingSchedule::from_canonical(mechanics.scheduler, self.tick, pending)
+        };
         self.mechanics = mechanics;
         self.rebuild_slot_maps();
         self.rebuild_mechanical_indexes();
+    }
+
+    pub fn repartition_resident(&mut self, placements: &[ResidentArenaId]) {
+        assert_eq!(
+            placements.len(),
+            self.cell_slots.len(),
+            "resident partition must assign every CELL identity"
+        );
+        let pending = self.pending.canonical(|id| {
+            self.cells
+                .get(self.cell_slot(id).expect("scheduled CELL must resolve").0)
+                .physical_id
+        });
+        self.resident_arenas = placements.to_vec();
+        self.pending =
+            PendingSchedule::partitioned(self.tick, self.resident_arenas.clone(), pending);
+    }
+
+    pub fn resident_arena(&self, cell: CellId) -> ResidentArenaId {
+        self.require_cell(cell);
+        self.resident_arenas[cell.0 as usize]
+    }
+
+    pub fn resident_arena_count(&self) -> usize {
+        self.resident_arenas
+            .iter()
+            .copied()
+            .collect::<BTreeSet<_>>()
+            .len()
     }
 
     pub fn clock(&self) -> PhysicalClock {
@@ -1093,6 +1144,7 @@ impl PlasticSubstrate {
         });
         self.cell_slots.push(Some(slot));
         self.outgoing_index.push(Vec::new());
+        self.resident_arenas.push(ResidentArenaId(0));
         id
     }
 
@@ -1763,6 +1815,13 @@ impl PlasticSubstrate {
                         });
                     }
                     work.total = work.total.saturating_add(2);
+                    execution_cost.arena_lookups =
+                        execution_cost.arena_lookups.saturating_add(2);
+                    if self.resident_arenas[arrow.from.0 as usize]
+                        != self.resident_arenas[arrow.to.0 as usize]
+                    {
+                        execution_cost.arena_hops = execution_cost.arena_hops.saturating_add(1);
+                    }
                     self.pending.push(
                         Spike {
                             arrival_tick: self.tick.saturating_add(arrow.delay),
@@ -2200,6 +2259,11 @@ impl PlasticSubstrate {
                             .saturating_mul(std::mem::size_of::<ArrowId>())
                     })
                     .sum::<usize>(),
+            )
+            .saturating_add(
+                self.resident_arenas
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<ResidentArenaId>()),
             )
             .saturating_add(
                 self.active_cells.len().saturating_mul(

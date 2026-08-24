@@ -1,4 +1,6 @@
-use super::{Arrow, ArrowId, Cell, CellId, ExecutionCost, LayoutKind, Spike};
+use super::{
+    Arrow, ArrowId, Cell, CellId, ExecutionCost, LayoutKind, ResidentArenaId, Spike,
+};
 
 const DEFAULT_RING_WIDTH: usize = 64;
 
@@ -354,6 +356,7 @@ pub enum SchedulerKind {
 pub(super) enum PendingSchedule {
     Vec(Vec<Spike>),
     TimingWheel(TimingWheel),
+    PartitionedTimingWheels(PartitionedTimingWheels),
 }
 
 impl PendingSchedule {
@@ -374,6 +377,7 @@ impl PendingSchedule {
         match self {
             Self::Vec(spikes) => spikes.len(),
             Self::TimingWheel(wheel) => wheel.len,
+            Self::PartitionedTimingWheels(wheels) => wheels.len,
         }
     }
 
@@ -388,6 +392,7 @@ impl PendingSchedule {
                 spikes.push(spike);
             }
             Self::TimingWheel(wheel) => wheel.push(spike, cost),
+            Self::PartitionedTimingWheels(wheels) => wheels.push(spike, cost),
         }
     }
 
@@ -407,6 +412,9 @@ impl PendingSchedule {
                 Some((spikes.remove(index), comparisons))
             }
             Self::TimingWheel(wheel) => wheel.pop_next(target_physical, cost),
+            Self::PartitionedTimingWheels(wheels) => {
+                wheels.pop_next(target_physical, cost)
+            }
         }
     }
 
@@ -435,6 +443,10 @@ impl PendingSchedule {
                 cost.queue_ops = cost.queue_ops.saturating_add(1);
                 wheel.pop_same_tick_batch(maximum, target_physical, cost)
             }
+            Self::PartitionedTimingWheels(wheels) => {
+                cost.queue_ops = cost.queue_ops.saturating_add(1);
+                wheels.pop_same_tick_batch(maximum, target_physical, cost)
+            }
         }
     }
 
@@ -450,6 +462,12 @@ impl PendingSchedule {
                 .flat_map(|bucket| bucket.iter().cloned())
                 .chain(wheel.overflow.iter().cloned())
                 .collect(),
+            Self::PartitionedTimingWheels(wheels) => wheels
+                .wheels
+                .iter()
+                .flat_map(TimingWheel::spikes)
+                .cloned()
+                .collect(),
         };
         spikes.sort_by_key(|spike| order_key(spike, &target_physical));
         spikes
@@ -464,13 +482,161 @@ impl PendingSchedule {
         schedule
     }
 
+    pub(super) fn partitioned(
+        head_tick: i64,
+        cell_arenas: Vec<ResidentArenaId>,
+        spikes: Vec<Spike>,
+    ) -> Self {
+        let mut schedule = Self::PartitionedTimingWheels(PartitionedTimingWheels::new(
+            head_tick,
+            cell_arenas,
+        ));
+        let mut ignored = ExecutionCost::default();
+        for spike in spikes {
+            schedule.push(spike, &mut ignored);
+        }
+        schedule
+    }
+
+    pub(super) fn is_partitioned(&self) -> bool {
+        matches!(self, Self::PartitionedTimingWheels(_))
+    }
+
     pub(super) fn resident_bytes(&self) -> usize {
         match self {
             Self::Vec(spikes) => spikes
                 .capacity()
                 .saturating_mul(std::mem::size_of::<Spike>()),
             Self::TimingWheel(wheel) => wheel.resident_bytes(),
+            Self::PartitionedTimingWheels(wheels) => wheels.resident_bytes(),
         }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct PartitionedTimingWheels {
+    cell_arenas: Vec<ResidentArenaId>,
+    arena_ids: Vec<ResidentArenaId>,
+    wheels: Vec<TimingWheel>,
+    len: usize,
+}
+
+impl PartitionedTimingWheels {
+    fn new(head_tick: i64, cell_arenas: Vec<ResidentArenaId>) -> Self {
+        let mut arena_ids = cell_arenas.clone();
+        arena_ids.sort_unstable();
+        arena_ids.dedup();
+        let wheels = arena_ids
+            .iter()
+            .map(|_| TimingWheel::new(head_tick, DEFAULT_RING_WIDTH))
+            .collect();
+        Self {
+            cell_arenas,
+            arena_ids,
+            wheels,
+            len: 0,
+        }
+    }
+
+    fn push(&mut self, spike: Spike, cost: &mut ExecutionCost) {
+        let arena = self.cell_arenas[spike.target.0 as usize];
+        let wheel = self
+            .arena_ids
+            .binary_search(&arena)
+            .expect("resident arena must own scheduled CELL");
+        cost.arena_lookups = cost.arena_lookups.saturating_add(1);
+        self.wheels[wheel].push(spike, cost);
+        self.len = self.len.saturating_add(1);
+    }
+
+    fn pop_next<F>(
+        &mut self,
+        target_physical: F,
+        cost: &mut ExecutionCost,
+    ) -> Option<(Spike, u64)>
+    where
+        F: Fn(CellId) -> u64,
+    {
+        let wheel = self.minimum_wheel(&target_physical, cost)?;
+        let result = self.wheels[wheel].pop_next(target_physical, cost);
+        if result.is_some() {
+            self.len = self.len.saturating_sub(1);
+        }
+        result
+    }
+
+    fn pop_same_tick_batch<F>(
+        &mut self,
+        maximum: usize,
+        target_physical: F,
+        cost: &mut ExecutionCost,
+    ) -> Vec<(Spike, u64)>
+    where
+        F: Fn(CellId) -> u64,
+    {
+        let mut batch = Vec::with_capacity(maximum.min(self.len));
+        if batch.capacity() > 0 {
+            cost.allocations = cost.allocations.saturating_add(1);
+        }
+        let Some(wheel) = self.minimum_wheel(&target_physical, cost) else {
+            return batch;
+        };
+        let Some(first) = self.wheels[wheel].pop_next(&target_physical, cost) else {
+            return batch;
+        };
+        self.len = self.len.saturating_sub(1);
+        let tick = first.0.arrival_tick;
+        batch.push(first);
+        while batch.len() < maximum {
+            let Some(wheel) = self.minimum_wheel(&target_physical, cost) else {
+                break;
+            };
+            if self.wheels[wheel]
+                .minimum_key(&target_physical, cost)
+                .is_none_or(|key| key.0 != tick)
+            {
+                break;
+            }
+            let next = self.wheels[wheel]
+                .pop_next(&target_physical, cost)
+                .expect("selected resident timing wheel must pop");
+            self.len = self.len.saturating_sub(1);
+            batch.push(next);
+        }
+        batch
+    }
+
+    fn minimum_wheel<F>(&self, target_physical: &F, cost: &mut ExecutionCost) -> Option<usize>
+    where
+        F: Fn(CellId) -> u64,
+    {
+        let active = self.wheels.iter().filter(|wheel| wheel.len > 0).count();
+        cost.observe_active_arenas(active);
+        let mut selected = None;
+        for (index, wheel) in self.wheels.iter().enumerate() {
+            let Some(key) = wheel.minimum_key(target_physical, cost) else {
+                continue;
+            };
+            cost.arena_lookups = cost.arena_lookups.saturating_add(1);
+            if selected
+                .as_ref()
+                .is_none_or(|(_, current): &(usize, (i64, i32, u64, u64, u64))| key < *current)
+            {
+                selected = Some((index, key));
+            }
+        }
+        selected.map(|(index, _)| index)
+    }
+
+    fn resident_bytes(&self) -> usize {
+        self.cell_arenas.capacity() * std::mem::size_of::<ResidentArenaId>()
+            + self.arena_ids.capacity() * std::mem::size_of::<ResidentArenaId>()
+            + self.wheels.capacity() * std::mem::size_of::<TimingWheel>()
+            + self
+                .wheels
+                .iter()
+                .map(TimingWheel::resident_bytes)
+                .sum::<usize>()
     }
 }
 
@@ -605,6 +771,35 @@ impl TimingWheel {
             }
         }
         self.overflow = retained;
+    }
+
+    fn spikes(&self) -> impl Iterator<Item = &Spike> {
+        self.near
+            .iter()
+            .flat_map(|bucket| bucket.iter())
+            .chain(self.overflow.iter())
+    }
+
+    fn minimum_key<F>(
+        &self,
+        target_physical: &F,
+        cost: &mut ExecutionCost,
+    ) -> Option<(i64, i32, u64, u64, u64)>
+    where
+        F: Fn(CellId) -> u64,
+    {
+        let mut selected = None;
+        for spike in self.spikes() {
+            cost.touch::<Spike>(1);
+            let key = order_key(spike, target_physical);
+            if selected.is_some() {
+                cost.comparisons = cost.comparisons.saturating_add(1);
+            }
+            if selected.is_none_or(|current| key < current) {
+                selected = Some(key);
+            }
+        }
+        selected
     }
 
     fn resident_bytes(&self) -> usize {
