@@ -295,7 +295,8 @@ fn observe(
         world.substrate.arrow_coupling(world.upstream_arrows[0]) == 1
             && world.substrate.arrow_coupling(world.upstream_arrows[1]) == 1
             && world.substrate.arrow_coupling(world.return_arrow) == 1,
-        world.substrate.arrow_generation(world.candidate) == 1,
+        world.substrate.arrow_generation(world.candidate)
+            == if kind == Kind::LateDownstreamReturn { 2 } else { 1 },
         execution.naturally_quiescent,
         execution.work.local_structural_proposals == 0,
     ];
@@ -516,7 +517,7 @@ fn modulatory(from: CellId, to: CellId, delay: i64, coupling: i32) -> ArrowSpec 
         delay,
         phase: 0,
         coupling,
-        resistance: 1,
+        resistance: 2,
         mode: TransmissionMode::Modulatory,
     }
 }

@@ -298,7 +298,8 @@ fn observe(
         world.substrate.arrow_coupling(world.upstream_arrows[0]) == 1
             && world.substrate.arrow_coupling(world.upstream_arrows[1]) == 1
             && world.substrate.arrow_coupling(world.return_arrow) == 1,
-        world.substrate.arrow_generation(world.candidate) == 1,
+        world.substrate.arrow_generation(world.candidate)
+            == if kind == Kind::LateDownstreamReturn { 2 } else { 1 },
         execution.naturally_quiescent,
         execution.work.local_structural_proposals == 0,
     ];
@@ -459,7 +460,7 @@ fn build(namespace: u64, reverse: bool, reflect: bool, late: bool) -> World {
         fixed(p, x, 0, 1),
         fixed(x, return_source, 1, 1),
         fixed(world, return_source, 0, 1),
-        fixed(return_source, p, if late { 5 } else { 1 }, 1),
+        return_path(return_source, p, if late { 5 } else { 1 }),
         fixed(independent_x, x, 0, 1),
     ];
     let arrow_order: Vec<usize> = if reverse {
@@ -506,6 +507,17 @@ fn fixed(from: CellId, to: CellId, delay: i64, coupling: i32) -> ArrowSpec {
         phase: 0,
         coupling,
         resistance: 1,
+    }
+}
+
+fn return_path(from: CellId, to: CellId, delay: i64) -> ArrowSpec {
+    ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling: 1,
+        resistance: 2,
     }
 }
 
