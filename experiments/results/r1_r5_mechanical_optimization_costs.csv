@@ -1,0 +1,7 @@
+configuration,queue_ops,comparisons,scans,allocations,bytes_touched,elapsed_ns,note
+reference,63328,1146224,32041520,0,0,490624720,"allocations and bytes_touched are reserved counters and were not instrumented"
+r1_timing_wheel,63328,439184,32042832,0,0,499204268,"bounded near wheel plus overflow"
+r2_adjacency,63328,439184,23586256,0,0,362278855,"source adjacency removes global traversal lookup"
+r3_frontier,63328,439184,4304544,0,0,93787874,"sparse active and eligible frontiers; pressure remains full scan"
+r4_soa,63328,439184,4304544,0,0,198173073,"real SoA resident representation; current accessor path needs optimization"
+r5_batched,63328,439184,4304544,0,0,204924723,"exact batching; frozen corpus falls back for live zero-delay topology; no SIMD claim"
