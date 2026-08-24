@@ -20,6 +20,8 @@ The application opens a native window titled `Academy` at
 - `academy-core`: headless capability evidence, physical admission records,
   deterministic raster surfaces, checkpoints/replay, and the bounded body
   worker.
+- `academy-storage`: immutable content-addressed Academy evidence in private
+  S3 storage. It remains outside TrueLearner physics.
 - `playground`: Dioxus Desktop UI, file/image selection, shared raster canvas,
   human controls, and causally inert instrumentation.
 
@@ -27,7 +29,11 @@ The dependency direction is:
 
 ```text
 playground -> academy-core -> truelearner-core
+academy-storage -> AWS S3
 ```
+
+Storage configuration and its object contract are documented in
+[`docs/s3_storage_v1.md`](docs/s3_storage_v1.md).
 
 ## Linux development prerequisites
 

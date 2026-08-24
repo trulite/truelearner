@@ -104,13 +104,19 @@ impl S3StoreConfig {
         let region = region.into();
         let prefix = prefix.into().trim_matches('/').to_owned();
         if bucket.trim().is_empty() {
-            return Err(StorageError::InvalidConfiguration("bucket must not be empty"));
+            return Err(StorageError::InvalidConfiguration(
+                "bucket must not be empty",
+            ));
         }
         if region.trim().is_empty() {
-            return Err(StorageError::InvalidConfiguration("region must not be empty"));
+            return Err(StorageError::InvalidConfiguration(
+                "region must not be empty",
+            ));
         }
         if prefix.is_empty() {
-            return Err(StorageError::InvalidConfiguration("prefix must not be empty"));
+            return Err(StorageError::InvalidConfiguration(
+                "prefix must not be empty",
+            ));
         }
         Ok(Self {
             bucket,
@@ -192,7 +198,10 @@ impl S3AcademyStore {
                 }
                 return Err(StorageError::ContentAddressCollision(key));
             }
-            Err(error) if error.as_service_error().is_some_and(|service| service.is_not_found()) => {}
+            Err(error)
+                if error
+                    .as_service_error()
+                    .is_some_and(|service| service.is_not_found()) => {}
             Err(error) => return Err(StorageError::S3(error.to_string())),
         }
 
@@ -256,9 +265,13 @@ pub enum StorageError {
 impl fmt::Display for StorageError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MissingEnvironment(name) => write!(formatter, "missing environment variable {name}"),
+            Self::MissingEnvironment(name) => {
+                write!(formatter, "missing environment variable {name}")
+            }
             Self::InvalidConfiguration(message) => formatter.write_str(message),
-            Self::InvalidContentHash(hash) => write!(formatter, "invalid SHA-256 content hash: {hash}"),
+            Self::InvalidContentHash(hash) => {
+                write!(formatter, "invalid SHA-256 content hash: {hash}")
+            }
             Self::ContentAddressCollision(key) => {
                 write!(formatter, "content-addressed object mismatch at {key}")
             }

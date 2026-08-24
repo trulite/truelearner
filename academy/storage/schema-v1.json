@@ -1,0 +1,15 @@
+{
+  "name": "truelearner-academy-store",
+  "version": 1,
+  "hash": "sha256",
+  "objects": {
+    "bodies": "immutable",
+    "checkpoints": "immutable",
+    "physical-inputs": "immutable",
+    "surfaces": "immutable",
+    "episodes": "immutable",
+    "thumbnails": "immutable",
+    "manifests": "immutable"
+  },
+  "publication": "blobs-before-manifest"
+}
