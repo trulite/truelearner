@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "title": "ARC-AGI-3 · First sensorimotor learning",
+  "episodes": [
+    {
+      "schema_version": 1,
+      "id": "arc3-a2-four-actions",
+      "title": "Four actions enter one body",
+      "summary": "Four distinct whole-raster states preserve four different motor routes.",
+      "display_name": "ls20",
+      "class": "development",
+      "outcome": "expected-silence",
+      "seed": 205,
+      "physical_work": 16868086,
+      "plasticity_updates": 2,
+      "outward_crossings": 2,
+      "naturally_quiescent": true,
+      "replay_exact": true,
+      "body_before": "ed7a3d61ee2c14e0",
+      "body_after": "6a6efc82a2e34048",
+      "video_file": "episodes/arc3-a2-four-actions/episode.mp4",
+      "poster_file": "episodes/arc3-a2-four-actions/poster.png",
+      "record_file": "episodes/arc3-a2-four-actions/record.json",
+      "frames": [
+        {
+          "file": "episodes/arc3-a2-four-actions/frame-000.png",
+          "duration_ms": 2200,
+          "caption": "State 699 · motor babbling crosses as action 1",
+          "world_fingerprint": "cfe5196fb75182bb",
+          "output_fingerprint": "67f2fa947eb2c41d"
+        },
+        {
+          "file": "episodes/arc3-a2-four-actions/frame-001.png",
+          "duration_ms": 2200,
+          "caption": "Visible return credits the prior route · state 290 babbles action 4",
+          "world_fingerprint": "dbbfea829c27a122",
+          "output_fingerprint": "86a4cc9c4beb8e99"
+        },
+        {
+          "file": "episodes/arc3-a2-four-actions/frame-002.png",
+          "duration_ms": 2200,
+          "caption": "Visible return credits the prior route · state 552 babbles action 2",
+          "world_fingerprint": "11261d553024ae28",
+          "output_fingerprint": "c5080f63400bbcf3"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "arc3-a2-action-1",
+      "title": "Action 1 changes the world",
+      "summary": "Context 699 traverses motor 1.",
+      "display_name": "ls20",
+      "class": "development",
+      "outcome": "scaffolded-action",
+      "seed": 205,
+      "physical_work": 196,
+      "plasticity_updates": 0,
+      "outward_crossings": 1,
+      "naturally_quiescent": true,
+      "replay_exact": true,
+      "body_before": "ed7a3d61ee2c14e0",
+      "body_after": "ed7a3d61ee2c14e0",
+      "video_file": "episodes/arc3-a2-action-1/episode.mp4",
+      "poster_file": "episodes/arc3-a2-action-1/poster.png",
+      "record_file": "episodes/arc3-a2-action-1/record.json",
+      "frames": [
+        {
+          "file": "episodes/arc3-a2-action-1/frame-000.png",
+          "duration_ms": 2200,
+          "caption": "State 699 · motor babbling crosses as action 1",
+          "world_fingerprint": "cfe5196fb75182bb",
+          "output_fingerprint": "67f2fa947eb2c41d"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "arc3-a2-action-4",
+      "title": "Action 4 changes the world",
+      "summary": "Context 290 traverses motor 4.",
+      "display_name": "ls20",
+      "class": "development",
+      "outcome": "scaffolded-action",
+      "seed": 205,
+      "physical_work": 8420852,
+      "plasticity_updates": 1,
+      "outward_crossings": 1,
+      "naturally_quiescent": true,
+      "replay_exact": true,
+      "body_before": "27f05d7c6248536f",
+      "body_after": "27f05d7c6248536f",
+      "video_file": "episodes/arc3-a2-action-4/episode.mp4",
+      "poster_file": "episodes/arc3-a2-action-4/poster.png",
+      "record_file": "episodes/arc3-a2-action-4/record.json",
+      "frames": [
+        {
+          "file": "episodes/arc3-a2-action-4/frame-000.png",
+          "duration_ms": 2200,
+          "caption": "Visible return credits the prior route · state 290 babbles action 4",
+          "world_fingerprint": "dbbfea829c27a122",
+          "output_fingerprint": "86a4cc9c4beb8e99"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "arc3-a2-action-2",
+      "title": "Action 2 changes the world",
+      "summary": "Context 552 traverses motor 2.",
+      "display_name": "ls20",
+      "class": "development",
+      "outcome": "expected-silence",
+      "seed": 205,
+      "physical_work": 8447038,
+      "plasticity_updates": 1,
+      "outward_crossings": 0,
+      "naturally_quiescent": true,
+      "replay_exact": true,
+      "body_before": "6a6efc82a2e34048",
+      "body_after": "6a6efc82a2e34048",
+      "video_file": "episodes/arc3-a2-action-2/episode.mp4",
+      "poster_file": "episodes/arc3-a2-action-2/poster.png",
+      "record_file": "episodes/arc3-a2-action-2/record.json",
+      "frames": [
+        {
+          "file": "episodes/arc3-a2-action-2/frame-000.png",
+          "duration_ms": 2200,
+          "caption": "Visible return credits the prior route · state 552 babbles action 2",
+          "world_fingerprint": "11261d553024ae28",
+          "output_fingerprint": "c5080f63400bbcf3"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "arc3-a2-action-3",
+      "title": "Action 3 changes the world",
+      "summary": "Context missing traverses motor 3.",
+      "display_name": "ls20",
+      "class": "development",
+      "outcome": "expected-silence",
+      "seed": 205,
+      "physical_work": 8447038,
+      "plasticity_updates": 1,
+      "outward_crossings": 0,
+      "naturally_quiescent": true,
+      "replay_exact": true,
+      "body_before": "6a6efc82a2e34048",
+      "body_after": "6a6efc82a2e34048",
+      "video_file": "episodes/arc3-a2-action-3/episode.mp4",
+      "poster_file": "episodes/arc3-a2-action-3/poster.png",
+      "record_file": "episodes/arc3-a2-action-3/record.json",
+      "frames": [
+        {
+          "file": "episodes/arc3-a2-action-3/frame-000.png",
+          "duration_ms": 2200,
+          "caption": "Visible return credits the prior route · state 552 babbles action 2",
+          "world_fingerprint": "11261d553024ae28",
+          "output_fingerprint": "c5080f63400bbcf3"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "arc3-ladder-skipped-5",
+      "title": "Later gate not executed",
+      "summary": "The sequential ladder stopped at A2; no later evidence was manufactured.",
+      "display_name": "ls20",
+      "class": "control",
+      "outcome": "expected-silence",
+      "seed": 205,
+      "physical_work": 8447038,
+      "plasticity_updates": 1,
+      "outward_crossings": 0,
+      "naturally_quiescent": true,
+      "replay_exact": true,
+      "body_before": "6a6efc82a2e34048",
+      "body_after": "6a6efc82a2e34048",
+      "video_file": "episodes/arc3-ladder-skipped-5/episode.mp4",
+      "poster_file": "episodes/arc3-ladder-skipped-5/poster.png",
+      "record_file": "episodes/arc3-ladder-skipped-5/record.json",
+      "frames": [
+        {
+          "file": "episodes/arc3-ladder-skipped-5/frame-000.png",
+          "duration_ms": 2200,
+          "caption": "Visible return credits the prior route · state 552 babbles action 2",
+          "world_fingerprint": "11261d553024ae28",
+          "output_fingerprint": "c5080f63400bbcf3"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "arc3-ladder-skipped-6",
+      "title": "Later gate not executed",
+      "summary": "The sequential ladder stopped at A2; no later evidence was manufactured.",
+      "display_name": "ls20",
+      "class": "control",
+      "outcome": "expected-silence",
+      "seed": 205,
+      "physical_work": 8447038,
+      "plasticity_updates": 1,
+      "outward_crossings": 0,
+      "naturally_quiescent": true,
+      "replay_exact": true,
+      "body_before": "6a6efc82a2e34048",
+      "body_after": "6a6efc82a2e34048",
+      "video_file": "episodes/arc3-ladder-skipped-6/episode.mp4",
+      "poster_file": "episodes/arc3-ladder-skipped-6/poster.png",
+      "record_file": "episodes/arc3-ladder-skipped-6/record.json",
+      "frames": [
+        {
+          "file": "episodes/arc3-ladder-skipped-6/frame-000.png",
+          "duration_ms": 2200,
+          "caption": "Visible return credits the prior route · state 552 babbles action 2",
+          "world_fingerprint": "11261d553024ae28",
+          "output_fingerprint": "c5080f63400bbcf3"
+        }
+      ]
+    }
+  ]
+}
