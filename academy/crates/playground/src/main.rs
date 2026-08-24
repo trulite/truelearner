@@ -283,11 +283,11 @@ fn App() -> Element {
                                             move |event| {
                                                 let worker = Arc::clone(&worker);
                                                 async move {
-                                                    if let Some(files) = event.files() {
-                                                        let names = files.files();
-                                                        if let Some(name) = names.first() {
-                                                            if let Some(bytes) = files.read_file(name).await {
-                                                                match VisualSurface::from_encoded_image(&bytes) {
+                                                    if let Some(file) = event.files().first().cloned() {
+                                                        let name = file.name();
+                                                        match file.read_bytes().await {
+                                                            Ok(bytes) => {
+                                                                match VisualSurface::from_encoded_image(bytes.as_ref()) {
                                                                     Ok(surface) => {
                                                                         shared_surface.set(surface.clone());
                                                                         admit_raster(&worker, &mut model, surface, &format!("Image · {name}"));
@@ -295,6 +295,7 @@ fn App() -> Element {
                                                                     Err(error) => set_error(&mut model, error.to_string()),
                                                                 }
                                                             }
+                                                            Err(error) => set_error(&mut model, error.to_string()),
                                                         }
                                                     }
                                                 }
@@ -311,11 +312,11 @@ fn App() -> Element {
                                             move |event| {
                                                 let worker = Arc::clone(&worker);
                                                 async move {
-                                                    if let Some(files) = event.files() {
-                                                        let names = files.files();
-                                                        if let Some(name) = names.first() {
-                                                            if let Some(bytes) = files.read_file(name).await {
-                                                                let rendered = match VisualSurface::from_encoded_image(&bytes) {
+                                                    if let Some(file) = event.files().first().cloned() {
+                                                        let name = file.name();
+                                                        match file.read_bytes().await {
+                                                            Ok(bytes) => {
+                                                                let rendered = match VisualSurface::from_encoded_image(bytes.as_ref()) {
                                                                     Ok(surface) => surface,
                                                                     Err(_) => VisualSurface::render_text(&String::from_utf8_lossy(&bytes)),
                                                                 };
@@ -323,6 +324,7 @@ fn App() -> Element {
                                                                 model.write().file_notice = format!("Rendered {name} into the raster world; path and file metadata stayed outside the organism.");
                                                                 admit_raster(&worker, &mut model, rendered, &format!("Rendered file · {name}"));
                                                             }
+                                                            Err(error) => set_error(&mut model, error.to_string()),
                                                         }
                                                     }
                                                 }
