@@ -2,7 +2,9 @@
 //! Single-file physical runtime: state, local transitions, and crossings.
 
 use std::cmp::Ordering;
-use truelearner_arena_format::{ArenaBody, DurableArrow, DurableCell, FormatError};
+use truelearner_arena_format::{
+    ArenaBody, ArenaVersion, BodyVersion, DurableArrow, DurableCell, FormatError,
+};
 pub use truelearner_arena_format::{
     ArenaId, ArrowId, ArrowRef, CellId, CellRef, ContentHash, Generation,
 };
@@ -172,12 +174,14 @@ pub struct PendingLoad {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QuiescentCheckpoint {
+    pub body_version: BodyVersion,
     pub body: ArenaBody,
     pub clock: PhysicalClock,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LiveCheckpoint {
+    body_version: BodyVersion,
     body: ArenaBody,
     clock: PhysicalClock,
     cells: Vec<CellRuntime>,
@@ -208,6 +212,7 @@ pub enum CheckpointError {
     UnsupportedTransmissionMode(u8),
     MissingCell(CellId),
     MissingArrow(ArrowId),
+    ManifestMismatch,
 }
 
 impl From<FormatError> for CheckpointError {
@@ -301,7 +306,9 @@ impl PlasticSubstrate {
         self.require_cell(spec.from);
         self.require_cell(spec.to);
         assert!(spec.delay >= 0, "delay must not run backward in time");
-        let source_slot = self.cell_slot(spec.from).expect("required CELL must resolve");
+        let source_slot = self
+            .cell_slot(spec.from)
+            .expect("required CELL must resolve");
         let source_generation = self.cells[source_slot.0].generation;
         let reusable = self.arrows.iter().position(|arrow| !arrow.live);
         if reusable.is_none() {
@@ -460,7 +467,8 @@ impl PlasticSubstrate {
             body.cells.sort_by_key(|cell| cell.id);
             body.arrows.sort_by_key(|arrow| arrow.id);
         }
-        let mut substrate = Self::with_capacity(body.arena, body.cell_capacity, body.arrow_capacity);
+        let mut substrate =
+            Self::with_capacity(body.arena, body.cell_capacity, body.arrow_capacity);
         let maximum_cell_id = body.cells.iter().map(|cell| cell.id.0).max();
         substrate.cell_slots = maximum_cell_id
             .map(|maximum| vec![None; maximum as usize + 1])
@@ -519,14 +527,19 @@ impl PlasticSubstrate {
     ) -> Result<QuiescentCheckpoint, CheckpointError> {
         let transiently_quiet = self.pending.is_empty()
             && self.pending_loads.is_empty()
-            && self.cells.iter().all(|cell| {
-                cell.state == 0 && cell.refractory_until <= self.tick
-            })
-            && self.arrows.iter().all(|arrow| arrow.eligible_until.is_none());
+            && self
+                .cells
+                .iter()
+                .all(|cell| cell.state == 0 && cell.refractory_until <= self.tick)
+            && self
+                .arrows
+                .iter()
+                .all(|arrow| arrow.eligible_until.is_none());
         if !transiently_quiet {
             return Err(CheckpointError::NotQuiescent);
         }
         Ok(QuiescentCheckpoint {
+            body_version: self.body_version(body_version)?,
             body: self.arena_body(body_version),
             clock: self.clock(),
         })
@@ -535,6 +548,7 @@ impl PlasticSubstrate {
     pub fn from_quiescent_checkpoint(
         checkpoint: QuiescentCheckpoint,
     ) -> Result<Self, CheckpointError> {
+        validate_manifest(&checkpoint.body_version, &checkpoint.body)?;
         let mut substrate = Self::from_arena_body(checkpoint.body)?;
         substrate.tick = checkpoint.clock.tick;
         substrate.pressure_tick = pressure_epoch(checkpoint.clock.tick);
@@ -545,8 +559,9 @@ impl PlasticSubstrate {
         Ok(substrate)
     }
 
-    pub fn live_checkpoint(&self, body_version: u64) -> LiveCheckpoint {
-        LiveCheckpoint {
+    pub fn live_checkpoint(&self, body_version: u64) -> Result<LiveCheckpoint, CheckpointError> {
+        Ok(LiveCheckpoint {
+            body_version: self.body_version(body_version)?,
             body: self.arena_body(body_version),
             clock: self.clock(),
             cells: self
@@ -570,10 +585,11 @@ impl PlasticSubstrate {
             pending: self.pending.clone(),
             next_serial: self.next_serial,
             pending_loads: self.pending_loads.clone(),
-        }
+        })
     }
 
     pub fn from_live_checkpoint(checkpoint: LiveCheckpoint) -> Result<Self, CheckpointError> {
+        validate_manifest(&checkpoint.body_version, &checkpoint.body)?;
         let mut substrate = Self::from_arena_body(checkpoint.body)?;
         substrate.tick = checkpoint.clock.tick;
         substrate.pressure_tick = pressure_epoch(checkpoint.clock.tick);
@@ -598,8 +614,23 @@ impl PlasticSubstrate {
         Ok(substrate)
     }
 
+    fn body_version(&self, version: u64) -> Result<BodyVersion, CheckpointError> {
+        let body = self.arena_body(version);
+        Ok(BodyVersion {
+            version,
+            parent: None,
+            arenas: vec![ArenaVersion {
+                arena: self.arena,
+                block: body.content_hash()?,
+            }],
+        })
+    }
+
     pub fn register_pending_load(&mut self, load: PendingLoad) {
-        assert!(load.issue_tick >= self.tick, "load issue cannot precede physical time");
+        assert!(
+            load.issue_tick >= self.tick,
+            "load issue cannot precede physical time"
+        );
         if let Some(availability_tick) = load.availability_tick {
             assert!(
                 availability_tick >= load.issue_tick,
@@ -608,7 +639,11 @@ impl PlasticSubstrate {
         }
         self.pending_loads.push(load);
         self.pending_loads.sort_by_key(|load| {
-            (load.availability_tick.unwrap_or(i64::MAX), load.issue_tick, load.arena)
+            (
+                load.availability_tick.unwrap_or(i64::MAX),
+                load.issue_tick,
+                load.arena,
+            )
         });
     }
 
@@ -627,7 +662,8 @@ impl PlasticSubstrate {
 
     pub fn compact_resident(&mut self) {
         self.cells.sort_by_key(|cell| std::cmp::Reverse(cell.id));
-        self.arrows.sort_by_key(|arrow| (!arrow.live, std::cmp::Reverse(arrow.id)));
+        self.arrows
+            .sort_by_key(|arrow| (!arrow.live, std::cmp::Reverse(arrow.id)));
         self.rebuild_slot_maps();
     }
 
@@ -813,9 +849,10 @@ impl PlasticSubstrate {
                 (cell.id != source
                     && cell.live
                     && (1..=LOCAL_VARIATION_RADIUS).contains(&distance)
-                    && !self.arrows.iter().any(|arrow| {
-                        arrow.live && arrow.from == source && arrow.to == cell.id
-                    }))
+                    && !self
+                        .arrows
+                        .iter()
+                        .any(|arrow| arrow.live && arrow.from == source && arrow.to == cell.id))
                 .then_some((cell.physical_id, cell.id, distance))
             })
             .collect::<Vec<_>>();
@@ -832,11 +869,8 @@ impl PlasticSubstrate {
             });
             let slot = self.arrow_slot(id).unwrap();
             if self.arrows[slot.0].generation == Generation(1) {
-                self.arrows[slot.0].generation = Generation(
-                    u32::try_from(id.0)
-                        .unwrap_or(u32::MAX)
-                        .saturating_add(2),
-                );
+                self.arrows[slot.0].generation =
+                    Generation(u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2));
             }
             work.total = work.total.saturating_add(1);
             work.local_structural_proposals = work.local_structural_proposals.saturating_add(1);
@@ -887,12 +921,26 @@ impl PlasticSubstrate {
             .flatten()
     }
 
-    fn cell_reference(&self, id: CellId) -> CellRef {
-        let slot = self.cell_slot(id).expect("stored CELL identity must resolve");
+    pub fn cell_reference(&self, id: CellId) -> CellRef {
+        let slot = self
+            .cell_slot(id)
+            .expect("stored CELL identity must resolve");
         CellRef {
             arena: self.arena,
             id,
             generation: self.cells[slot.0].generation,
+        }
+    }
+
+    pub fn arrow_reference(&self, id: ArrowId) -> ArrowRef {
+        let slot = self
+            .arrow_slot(id)
+            .expect("stored ARROW identity must resolve");
+        let arrow = &self.arrows[slot.0];
+        ArrowRef {
+            arena: self.arena,
+            id,
+            generation: arrow.generation,
         }
     }
 
@@ -958,5 +1006,138 @@ fn transmission_mode_from_byte(mode: u8) -> Result<TransmissionMode, CheckpointE
         0 => Ok(TransmissionMode::Drive),
         1 => Ok(TransmissionMode::Modulatory),
         other => Err(CheckpointError::UnsupportedTransmissionMode(other)),
+    }
+}
+
+fn validate_manifest(manifest: &BodyVersion, body: &ArenaBody) -> Result<(), CheckpointError> {
+    let hash = body.content_hash()?;
+    let matches = manifest.arenas.len() == 1
+        && manifest.arenas[0].arena == body.arena
+        && manifest.arenas[0].block == hash;
+    if matches {
+        Ok(())
+    } else {
+        Err(CheckpointError::ManifestMismatch)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn substrate(arrow_resistance: u32) -> (PlasticSubstrate, CellId, CellId, ArrowId) {
+        let mut substrate = PlasticSubstrate::with_capacity(ArenaId(42), 8, 8);
+        let source = substrate.add_cell(CellSpec {
+            physical_id: 900,
+            position: 10,
+            region: 0,
+            threshold: 1,
+            resistance: 10,
+        });
+        let target = substrate.add_cell(CellSpec {
+            physical_id: 100,
+            position: 20,
+            region: 1,
+            threshold: 1,
+            resistance: 10,
+        });
+        let arrow = substrate.add_arrow(ArrowSpec {
+            from: source,
+            to: target,
+            delay: 1,
+            phase: 0,
+            coupling: 1,
+            resistance: arrow_resistance,
+            mode: TransmissionMode::Drive,
+        });
+        (substrate, source, target, arrow)
+    }
+
+    fn input(target: CellId, tick: i64) -> SpikeInput {
+        SpikeInput {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 7,
+            target,
+            impulse: 1,
+        }
+    }
+
+    #[test]
+    fn compaction_changes_slots_not_physics() {
+        let (original, source, _, _) = substrate(50);
+        let reference = original.cell_reference(source);
+        let before = original.resolve_cell(reference).unwrap();
+        let mut compacted = original.clone();
+        compacted.compact_resident();
+        let after = compacted.resolve_cell(reference).unwrap();
+        assert_ne!(before, after);
+
+        let mut ordinary = original;
+        assert_eq!(
+            ordinary.arrive(&[input(source, 0)], 1),
+            compacted.arrive(&[input(source, 0)], 1)
+        );
+    }
+
+    #[test]
+    fn canonical_body_round_trip_is_structurally_exact() {
+        let (substrate, _, _, _) = substrate(50);
+        let bytes = substrate.canonical_body_bytes(3).unwrap();
+        let restored = PlasticSubstrate::from_body_bytes(&bytes).unwrap();
+        assert_eq!(restored.canonical_body_bytes(3).unwrap(), bytes);
+    }
+
+    #[test]
+    fn quiescent_checkpoint_preserves_clock_phase_and_future_behavior() {
+        let (mut substrate, source, _, _) = substrate(50);
+        substrate.advance_time(23);
+        let checkpoint = substrate.quiescent_checkpoint(4).unwrap();
+        assert_eq!(checkpoint.clock.pressure_phase(), 3);
+        let mut restored = PlasticSubstrate::from_quiescent_checkpoint(checkpoint).unwrap();
+        assert_eq!(restored.clock(), substrate.clock());
+        assert_eq!(
+            substrate.arrive(&[input(source, 24)], 1),
+            restored.arrive(&[input(source, 24)], 1)
+        );
+    }
+
+    #[test]
+    fn live_checkpoint_preserves_pending_activity_and_load_availability() {
+        let (mut substrate, source, _, _) = substrate(50);
+        substrate.enter(input(source, 5));
+        substrate.register_pending_load(PendingLoad {
+            arena: ArenaId(99),
+            version: ContentHash([3; 32]),
+            issue_tick: 0,
+            availability_tick: Some(7),
+            waiting_arrivals: vec![input(source, 8)],
+        });
+        let checkpoint = substrate.live_checkpoint(5).unwrap();
+        let mut restored = PlasticSubstrate::from_live_checkpoint(checkpoint).unwrap();
+        assert_eq!(restored, substrate);
+        assert_eq!(restored.propagate(), substrate.propagate());
+    }
+
+    #[test]
+    fn reused_identity_rejects_stale_generation() {
+        let (mut substrate, source, target, arrow) = substrate(1);
+        let stale = substrate.arrow_reference(arrow);
+        substrate.advance_time(10);
+        assert_eq!(substrate.resolve_arrow(stale), None);
+        let reused = substrate.add_arrow(ArrowSpec {
+            from: source,
+            to: target,
+            delay: 1,
+            phase: 0,
+            coupling: 1,
+            resistance: 4,
+            mode: TransmissionMode::Drive,
+        });
+        assert_eq!(reused, arrow);
+        let current = substrate.arrow_reference(reused);
+        assert_ne!(current.generation, stale.generation);
+        assert_eq!(substrate.resolve_arrow(stale), None);
+        assert!(substrate.resolve_arrow(current).is_some());
     }
 }

@@ -15,6 +15,7 @@ const HEADER_LEN: usize = 156;
 const CELL_RECORD_LEN: usize = 35;
 const ARROW_RECORD_LEN: usize = 74;
 const LIVE_FLAG: u8 = 1;
+const BODY_MAGIC: &[u8; 8] = b"TLBODY01";
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ArenaId(pub u64);
@@ -93,6 +94,110 @@ impl ContentHash {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ArenaVersion {
+    pub arena: ArenaId,
+    pub block: ContentHash,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BodyVersion {
+    pub version: u64,
+    pub parent: Option<ContentHash>,
+    pub arenas: Vec<ArenaVersion>,
+}
+
+impl BodyVersion {
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, FormatError> {
+        let mut arenas = self.arenas.clone();
+        arenas.sort_by_key(|entry| entry.arena);
+        if let Some(pair) = arenas
+            .windows(2)
+            .find(|pair| pair[0].arena == pair[1].arena)
+        {
+            return Err(FormatError::DuplicateArenaId(pair[0].arena));
+        }
+        let mut bytes = Vec::with_capacity(63 + arenas.len() * 40);
+        bytes.extend_from_slice(BODY_MAGIC);
+        put_u16(&mut bytes, FORMAT_VERSION);
+        put_u64(&mut bytes, self.version);
+        bytes.push(u8::from(self.parent.is_some()));
+        bytes.extend_from_slice(
+            self.parent
+                .unwrap_or(ContentHash([0; 32]))
+                .as_bytes(),
+        );
+        put_u32(
+            &mut bytes,
+            u32::try_from(arenas.len()).map_err(|_| FormatError::CapacityExceeded)?,
+        );
+        put_u64(
+            &mut bytes,
+            u64::try_from(63 + arenas.len() * 40).map_err(|_| FormatError::InvalidHeader)?,
+        );
+        for entry in arenas {
+            put_u64(&mut bytes, entry.arena.0);
+            bytes.extend_from_slice(entry.block.as_bytes());
+        }
+        Ok(bytes)
+    }
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, FormatError> {
+        if bytes.len() < 63 {
+            return Err(FormatError::Truncated);
+        }
+        if &bytes[..BODY_MAGIC.len()] != BODY_MAGIC {
+            return Err(FormatError::WrongMagic);
+        }
+        let mut cursor = Cursor::new(bytes, BODY_MAGIC.len());
+        let format = cursor.u16()?;
+        if format != FORMAT_VERSION {
+            return Err(FormatError::UnsupportedVersion(format));
+        }
+        let version = cursor.u64()?;
+        let parent_present = cursor.u8()?;
+        if parent_present > 1 {
+            return Err(FormatError::InvalidFlags(parent_present));
+        }
+        let parent_hash = ContentHash(cursor.array_32()?);
+        let count = usize::try_from(cursor.u32()?).map_err(|_| FormatError::InvalidHeader)?;
+        let total = usize::try_from(cursor.u64()?).map_err(|_| FormatError::InvalidHeader)?;
+        let expected = 63usize
+            .checked_add(count.checked_mul(40).ok_or(FormatError::InvalidHeader)?)
+            .ok_or(FormatError::InvalidHeader)?;
+        if total != expected {
+            return Err(FormatError::InvalidHeader);
+        }
+        if bytes.len() < expected {
+            return Err(FormatError::Truncated);
+        }
+        if bytes.len() > expected {
+            return Err(FormatError::TrailingBytes);
+        }
+        let mut arenas = Vec::with_capacity(count);
+        let mut seen = BTreeSet::new();
+        for _ in 0..count {
+            let arena = ArenaId(cursor.u64()?);
+            if !seen.insert(arena) {
+                return Err(FormatError::DuplicateArenaId(arena));
+            }
+            arenas.push(ArenaVersion {
+                arena,
+                block: ContentHash(cursor.array_32()?),
+            });
+        }
+        Ok(Self {
+            version,
+            parent: (parent_present == 1).then_some(parent_hash),
+            arenas,
+        })
+    }
+
+    pub fn content_hash(&self) -> Result<ContentHash, FormatError> {
+        Ok(ContentHash::of(&self.canonical_bytes()?))
+    }
+}
+
 impl fmt::Display for ContentHash {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         for byte in self.0 {
@@ -113,6 +218,7 @@ pub enum FormatError {
     DuplicateCellId(CellId),
     DuplicateArrowId(ArrowId),
     DuplicatePhysicalId(u64),
+    DuplicateArenaId(ArenaId),
     InvalidFlags(u8),
     SectionChecksum,
     TrailingBytes,
@@ -169,20 +275,44 @@ impl ArenaBody {
         let mut bytes = Vec::with_capacity(total_len);
         bytes.extend_from_slice(MAGIC);
         put_u16(&mut bytes, FORMAT_VERSION);
-        put_u16(&mut bytes, u16::try_from(HEADER_LEN).expect("fixed header fits u16"));
+        put_u16(
+            &mut bytes,
+            u16::try_from(HEADER_LEN).expect("fixed header fits u16"),
+        );
         put_u64(&mut bytes, self.arena.0);
         put_u64(&mut bytes, self.version);
         put_i32(&mut bytes, self.minimum_position);
         put_i32(&mut bytes, self.maximum_position);
         put_u32(&mut bytes, self.cell_capacity);
         put_u32(&mut bytes, self.arrow_capacity);
-        put_u32(&mut bytes, u32::try_from(cells.len()).map_err(|_| FormatError::CapacityExceeded)?);
-        put_u32(&mut bytes, u32::try_from(arrows.len()).map_err(|_| FormatError::CapacityExceeded)?);
-        put_u64(&mut bytes, u64::try_from(cell_offset).map_err(|_| FormatError::InvalidHeader)?);
-        put_u64(&mut bytes, u64::try_from(cell_bytes.len()).map_err(|_| FormatError::InvalidHeader)?);
-        put_u64(&mut bytes, u64::try_from(arrow_offset).map_err(|_| FormatError::InvalidHeader)?);
-        put_u64(&mut bytes, u64::try_from(arrow_bytes.len()).map_err(|_| FormatError::InvalidHeader)?);
-        put_u64(&mut bytes, u64::try_from(total_len).map_err(|_| FormatError::InvalidHeader)?);
+        put_u32(
+            &mut bytes,
+            u32::try_from(cells.len()).map_err(|_| FormatError::CapacityExceeded)?,
+        );
+        put_u32(
+            &mut bytes,
+            u32::try_from(arrows.len()).map_err(|_| FormatError::CapacityExceeded)?,
+        );
+        put_u64(
+            &mut bytes,
+            u64::try_from(cell_offset).map_err(|_| FormatError::InvalidHeader)?,
+        );
+        put_u64(
+            &mut bytes,
+            u64::try_from(cell_bytes.len()).map_err(|_| FormatError::InvalidHeader)?,
+        );
+        put_u64(
+            &mut bytes,
+            u64::try_from(arrow_offset).map_err(|_| FormatError::InvalidHeader)?,
+        );
+        put_u64(
+            &mut bytes,
+            u64::try_from(arrow_bytes.len()).map_err(|_| FormatError::InvalidHeader)?,
+        );
+        put_u64(
+            &mut bytes,
+            u64::try_from(total_len).map_err(|_| FormatError::InvalidHeader)?,
+        );
         bytes.extend_from_slice(cell_hash.as_bytes());
         bytes.extend_from_slice(arrow_hash.as_bytes());
         debug_assert_eq!(bytes.len(), HEADER_LEN);
@@ -220,19 +350,30 @@ impl ArenaBody {
         let arrow_count = usize::try_from(cursor.u32()?).map_err(|_| FormatError::InvalidHeader)?;
         let cell_offset = usize::try_from(cursor.u64()?).map_err(|_| FormatError::InvalidHeader)?;
         let cell_len = usize::try_from(cursor.u64()?).map_err(|_| FormatError::InvalidHeader)?;
-        let arrow_offset = usize::try_from(cursor.u64()?).map_err(|_| FormatError::InvalidHeader)?;
+        let arrow_offset =
+            usize::try_from(cursor.u64()?).map_err(|_| FormatError::InvalidHeader)?;
         let arrow_len = usize::try_from(cursor.u64()?).map_err(|_| FormatError::InvalidHeader)?;
         let total_len = usize::try_from(cursor.u64()?).map_err(|_| FormatError::InvalidHeader)?;
         let cell_hash = ContentHash(cursor.array_32()?);
         let arrow_hash = ContentHash(cursor.array_32()?);
 
-        let expected_cell_len = cell_count.checked_mul(CELL_RECORD_LEN).ok_or(FormatError::InvalidHeader)?;
-        let expected_arrow_len = arrow_count.checked_mul(ARROW_RECORD_LEN).ok_or(FormatError::InvalidHeader)?;
+        let expected_cell_len = cell_count
+            .checked_mul(CELL_RECORD_LEN)
+            .ok_or(FormatError::InvalidHeader)?;
+        let expected_arrow_len = arrow_count
+            .checked_mul(ARROW_RECORD_LEN)
+            .ok_or(FormatError::InvalidHeader)?;
         if cell_offset != HEADER_LEN
             || cell_len != expected_cell_len
-            || arrow_offset != cell_offset.checked_add(cell_len).ok_or(FormatError::InvalidHeader)?
+            || arrow_offset
+                != cell_offset
+                    .checked_add(cell_len)
+                    .ok_or(FormatError::InvalidHeader)?
             || arrow_len != expected_arrow_len
-            || total_len != arrow_offset.checked_add(arrow_len).ok_or(FormatError::InvalidHeader)?
+            || total_len
+                != arrow_offset
+                    .checked_add(arrow_len)
+                    .ok_or(FormatError::InvalidHeader)?
         {
             return Err(FormatError::InvalidHeader);
         }
@@ -244,7 +385,9 @@ impl ArenaBody {
         }
         let cell_section = &bytes[cell_offset..arrow_offset];
         let arrow_section = &bytes[arrow_offset..total_len];
-        if ContentHash::of(cell_section) != cell_hash || ContentHash::of(arrow_section) != arrow_hash {
+        if ContentHash::of(cell_section) != cell_hash
+            || ContentHash::of(arrow_section) != arrow_hash
+        {
             return Err(FormatError::SectionChecksum);
         }
 
@@ -395,7 +538,10 @@ impl<'a> Cursor<'a> {
 
     fn take<const N: usize>(&mut self) -> Result<[u8; N], FormatError> {
         let end = self.offset.checked_add(N).ok_or(FormatError::Truncated)?;
-        let slice = self.bytes.get(self.offset..end).ok_or(FormatError::Truncated)?;
+        let slice = self
+            .bytes
+            .get(self.offset..end)
+            .ok_or(FormatError::Truncated)?;
         self.offset = end;
         slice.try_into().map_err(|_| FormatError::Truncated)
     }
@@ -515,17 +661,51 @@ mod tests {
         let bytes = body().canonical_bytes().unwrap();
         let mut corrupt = bytes.clone();
         *corrupt.last_mut().unwrap() ^= 1;
-        assert_eq!(ArenaBody::decode(&corrupt), Err(FormatError::SectionChecksum));
-        assert_eq!(ArenaBody::decode(&bytes[..bytes.len() - 1]), Err(FormatError::Truncated));
+        assert_eq!(
+            ArenaBody::decode(&corrupt),
+            Err(FormatError::SectionChecksum)
+        );
+        assert_eq!(
+            ArenaBody::decode(&bytes[..bytes.len() - 1]),
+            Err(FormatError::Truncated)
+        );
         let mut trailing = bytes;
         trailing.push(0);
-        assert_eq!(ArenaBody::decode(&trailing), Err(FormatError::TrailingBytes));
+        assert_eq!(
+            ArenaBody::decode(&trailing),
+            Err(FormatError::TrailingBytes)
+        );
     }
 
     #[test]
     fn duplicate_identity_is_rejected() {
         let mut invalid = body();
         invalid.cells.push(invalid.cells[0]);
-        assert_eq!(invalid.validate(), Err(FormatError::DuplicateCellId(CellId(9))));
+        assert_eq!(
+            invalid.validate(),
+            Err(FormatError::DuplicateCellId(CellId(9)))
+        );
+    }
+
+    #[test]
+    fn body_manifest_is_canonical_and_hashed() {
+        let first = ArenaVersion {
+            arena: ArenaId(9),
+            block: ContentHash([9; 32]),
+        };
+        let second = ArenaVersion {
+            arena: ArenaId(2),
+            block: ContentHash([2; 32]),
+        };
+        let manifest = BodyVersion {
+            version: 12,
+            parent: Some(ContentHash([1; 32])),
+            arenas: vec![first, second],
+        };
+        let bytes = manifest.canonical_bytes().unwrap();
+        let decoded = BodyVersion::decode(&bytes).unwrap();
+        assert_eq!(decoded.arenas, vec![second, first]);
+        assert_eq!(decoded.canonical_bytes().unwrap(), bytes);
+        assert_eq!(decoded.content_hash().unwrap(), ContentHash::of(&bytes));
     }
 }
