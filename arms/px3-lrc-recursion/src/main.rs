@@ -161,8 +161,14 @@ fn evidence() {
 fn audit() {
     for (path, expected) in [
         ("crates/lr1-modulatory-physical-return/src/lib.rs", LAW),
-        ("results/lrc_qualified_modulatory_transmission_definitive_v2.md", AUTHORITY),
-        ("experiments/px3_lrc_fresh_integrated_parallel_gates_protocol_v1.md", PROTOCOL),
+        (
+            "results/lrc_qualified_modulatory_transmission_definitive_v2.md",
+            AUTHORITY,
+        ),
+        (
+            "experiments/px3_lrc_fresh_integrated_parallel_gates_protocol_v1.md",
+            PROTOCOL,
+        ),
     ] {
         assert_eq!(sha(path), expected, "frozen input changed: {path}");
     }

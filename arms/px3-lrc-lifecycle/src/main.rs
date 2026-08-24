@@ -154,8 +154,14 @@ fn evidence() {
 fn audit() {
     for (path, expected) in [
         ("crates/lr1-modulatory-physical-return/src/lib.rs", LAW),
-        ("results/lrc_qualified_modulatory_transmission_definitive_v2.md", AUTHORITY),
-        ("experiments/px3_lrc_fresh_integrated_parallel_gates_protocol_v1.md", PROTOCOL),
+        (
+            "results/lrc_qualified_modulatory_transmission_definitive_v2.md",
+            AUTHORITY,
+        ),
+        (
+            "experiments/px3_lrc_fresh_integrated_parallel_gates_protocol_v1.md",
+            PROTOCOL,
+        ),
     ] {
         assert_eq!(sha(path), expected, "frozen input changed: {path}");
     }
@@ -191,11 +197,8 @@ fn run(seed: u64) -> Row {
     expose_unsupported(&mut unsupported, 0, 0, &mut unsupported_log);
     expose_unsupported(&mut unsupported, 0, 2, &mut unsupported_log);
     let unsupported_updates = unsupported_log.work.local_return_updates;
-    let unsupported_candidate_crossings = candidate_crossings(
-        &unsupported_log,
-        unsupported.namespace,
-        0,
-    );
+    let unsupported_candidate_crossings =
+        candidate_crossings(&unsupported_log, unsupported.namespace, 0);
     unsupported.substrate.advance_time(50);
     let unsupported_after_gap = current_resistance(&unsupported)[0];
     let mut world = build(namespace, mirror);
@@ -599,8 +602,20 @@ fn expose(world: &mut World, pair: usize, start: i64, log: &mut Log) {
 
 fn expose_unsupported(world: &mut World, pair: usize, start: i64, log: &mut Log) {
     let (left, right) = PAIRS[pair];
-    pulse(&mut world.substrate, world.sources[left], start, 1, left as i32);
-    pulse(&mut world.substrate, world.sources[right], start, 1, right as i32);
+    pulse(
+        &mut world.substrate,
+        world.sources[left],
+        start,
+        1,
+        left as i32,
+    );
+    pulse(
+        &mut world.substrate,
+        world.sources[right],
+        start,
+        1,
+        right as i32,
+    );
     for index in 0..6 {
         pulse(
             &mut world.substrate,
