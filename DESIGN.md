@@ -13,7 +13,8 @@ research vocabulary as product copy.
 ## Composition
 
 - World and evidence form one translucent split deck with an internal divider.
-- Input and Output are primary surfaces in an approximately 60/40 split.
+- Input and Output are equal physical surfaces. The split carries no hierarchy,
+  and redundant panel headings are omitted.
 - Runtime is a thin, full-width instrumentation strip across the top of the
   work deck.
 - Skills and History are dock-owned spaces. Both are hidden by default and open

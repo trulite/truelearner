@@ -42,7 +42,7 @@ pass, superseding the protocol's remote-only operational preference:
   `-D warnings`.
 - Academy workspace formatting check passed.
 - Native app launched and emitted `ACADEMY_PLAYGROUND_READY`.
-- Native screenshot review confirmed the balanced split view, large output,
+- Native screenshot review confirmed the equal unlabeled split, large output,
   pill-shaped Teach/Probe switch, dock-owned History and Skills spaces, and a
   compact full-width runtime strip.
 
@@ -51,7 +51,7 @@ The compiler reported only the upstream future-incompatibility advisory for
 
 ## Visual artifact
 
-`output/academy-playground-runtime-strip-v1.png`
+`output/academy-playground-symmetric-v1.png`
 
 The output directory is intentionally ignored; the screenshot is review
 evidence, not runtime input.

@@ -196,22 +196,6 @@ fn App() -> Element {
                 }
 
                 section { class: "conversation-region", aria_label: "World",
-                    div { class: "section-heading",
-                        div {
-                            h2 { "World" }
-                        }
-                        div { class: "section-actions",
-                            label { class: "toggle-control",
-                                input {
-                                    r#type: "checkbox",
-                                    checked: model.read().debug_overlay,
-                                    onchange: move |event| model.write().debug_overlay = event.checked(),
-                                }
-                                span { "Overlay" }
-                            }
-                        }
-                    }
-
                     div { class: "conversation-stream",
                         for (index, message) in model.read().messages.iter().enumerate() {
                             article {
@@ -233,14 +217,20 @@ fn App() -> Element {
                     div { class: "world-layout",
                         div { class: "surface-block",
                             div { class: "surface-label",
-                                div {
-                                    strong { "Input" }
-                                    span { "{SURFACE_WIDTH}×{SURFACE_HEIGHT}" }
-                                }
-                                button {
-                                    class: "quiet-button",
-                                    onclick: move |_| shared_surface.set(VisualSurface::blank()),
-                                    "Clear"
+                                div { class: "section-actions",
+                                    label { class: "toggle-control",
+                                        input {
+                                            r#type: "checkbox",
+                                            checked: model.read().debug_overlay,
+                                            onchange: move |event| model.write().debug_overlay = event.checked(),
+                                        }
+                                        span { "Overlay" }
+                                    }
+                                    button {
+                                        class: "quiet-button",
+                                        onclick: move |_| shared_surface.set(VisualSurface::blank()),
+                                        "Clear"
+                                    }
                                 }
                             }
                             div { class: "canvas-wrap",
@@ -279,7 +269,6 @@ fn App() -> Element {
                                 }
                                 if model.read().debug_overlay {
                                     div { class: "debug-overlay", aria_hidden: "true",
-                                        span { "Overlay" }
                                         i {}
                                     }
                                 }
@@ -372,9 +361,6 @@ fn App() -> Element {
 
                 aside { class: "academy-region", aria_label: "Output",
                     section { class: "academy-section output-section",
-                        div { class: "section-heading compact",
-                            div { h2 { "Output" } }
-                        }
                         div { class: "canvas-wrap output",
                             canvas {
                                 id: "organism-canvas",
