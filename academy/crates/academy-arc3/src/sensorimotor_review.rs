@@ -90,7 +90,10 @@ fn write_episode(
     for (index, turn) in episode.turns.iter().enumerate() {
         let frame = render_turn(suite, episode, turn)?;
         let name = format!("frame-{index:03}.png");
-        fs::write(destination.join(&name), frame.png_bytes()?)?;
+        let png = frame
+            .png_bytes()
+            .map_err(|error| format!("unable to encode ARC3-A1 frame: {error:?}"))?;
+        fs::write(destination.join(&name), png)?;
         timeline.push_str(&format!("file '{name}'\nduration 2.200\n"));
         frames.push(EpisodeFrame {
             file: relative.join(&name).to_string_lossy().to_string(),
