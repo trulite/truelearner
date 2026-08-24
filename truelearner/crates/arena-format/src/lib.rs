@@ -421,8 +421,7 @@ impl ArenaBody {
 
         let mut cell_cursor = Cursor::new(cell_section, 0);
         let cell_ids = collect_values(cell_count, || cell_cursor.u64().map(CellId))?;
-        let cell_generations =
-            collect_values(cell_count, || cell_cursor.u32().map(Generation))?;
+        let cell_generations = collect_values(cell_count, || cell_cursor.u32().map(Generation))?;
         let physical_ids = collect_values(cell_count, || cell_cursor.u64())?;
         let positions = collect_values(cell_count, || cell_cursor.i32())?;
         let regions = collect_values(cell_count, || cell_cursor.i16())?;
@@ -448,8 +447,7 @@ impl ArenaBody {
 
         let mut arrow_cursor = Cursor::new(arrow_section, 0);
         let arrow_ids = collect_values(arrow_count, || arrow_cursor.u64().map(ArrowId))?;
-        let arrow_generations =
-            collect_values(arrow_count, || arrow_cursor.u32().map(Generation))?;
+        let arrow_generations = collect_values(arrow_count, || arrow_cursor.u32().map(Generation))?;
         let from = collect_values(arrow_count, || arrow_cursor.cell_ref())?;
         let to = collect_values(arrow_count, || arrow_cursor.cell_ref())?;
         let delays = collect_values(arrow_count, || arrow_cursor.i64())?;
