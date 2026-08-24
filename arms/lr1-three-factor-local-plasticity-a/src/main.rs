@@ -15,8 +15,7 @@ const PX0: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad
 const LR0: &str = "96be2143b13eb42bbfe6fda418b312123824e9f57a8904ff89ca6fd64148e6ff";
 const COLLAPSE: &str = "52072394fcf9867f23d1ec982f030fac6d5b5601c8f7294f178098743664b033";
 const PROTOCOL: &str = "07d85eba99b731f776a6c5dec56dee59019d63667598f20118a857f01346924b";
-const PARALLEL_PROTOCOL: &str =
-    "ab7dae326f25cf12cdfb4b8d580f82c13f2afc95ef3000dba9e7d188db339860";
+const PARALLEL_PROTOCOL: &str = "ab7dae326f25cf12cdfb4b8d580f82c13f2afc95ef3000dba9e7d188db339860";
 
 const CSV: &str = "results/lr1_three_factor_local_plasticity_arm_a_v1.csv";
 const MD: &str = "results/lr1_three_factor_local_plasticity_arm_a_v1.md";
@@ -190,9 +189,8 @@ fn replay(seed: u64, kind: Kind) -> Row {
     let exact = first == second;
     let mut row = first;
     row.replay = exact;
-    row.passed = exact
-        && row.observation.validity.into_iter().all(|value| value)
-        && row.observation.claim;
+    row.passed =
+        exact && row.observation.validity.into_iter().all(|value| value) && row.observation.claim;
     row
 }
 
@@ -201,7 +199,12 @@ fn run(seed: u64, kind: Kind) -> Row {
     let reverse = stratum_index == 1 || stratum_index == 3;
     let reflect = stratum_index >= 2;
     let namespace = namespace(seed, kind);
-    let mut world = build(namespace, reverse, reflect, kind == Kind::LateDownstreamReturn);
+    let mut world = build(
+        namespace,
+        reverse,
+        reflect,
+        kind == Kind::LateDownstreamReturn,
+    );
     schedule(&mut world, kind);
     let execution = world.substrate.propagate();
     observe(world, execution, seed, kind, stratum_index)
@@ -246,13 +249,7 @@ fn drive_p(world: &mut World, tick: i64) {
     }
 }
 
-fn observe(
-    world: World,
-    execution: Execution,
-    seed: u64,
-    kind: Kind,
-    stratum_index: usize,
-) -> Row {
+fn observe(world: World, execution: Execution, seed: u64, kind: Kind, stratum_index: usize) -> Row {
     let trace = &execution.trace;
     let crossings = &execution.crossings;
     let upstream_fires = [
@@ -283,7 +280,11 @@ fn observe(
         world.return_arrow,
         world.substrate.arrow_endpoints(world.return_arrow),
         world.substrate.arrow_coupling(world.return_arrow),
-        if kind == Kind::LateDownstreamReturn { 5 } else { 1 },
+        if kind == Kind::LateDownstreamReturn {
+            5
+        } else {
+            1
+        },
         world.substrate.arrow_generation(world.return_arrow),
     );
     let candidate_resistance = world.substrate.arrow_resistance(world.candidate);
@@ -299,7 +300,11 @@ fn observe(
             && world.substrate.arrow_coupling(world.upstream_arrows[1]) == 1
             && world.substrate.arrow_coupling(world.return_arrow) == 1,
         world.substrate.arrow_generation(world.candidate)
-            == if kind == Kind::LateDownstreamReturn { 2 } else { 1 },
+            == if kind == Kind::LateDownstreamReturn {
+                2
+            } else {
+                1
+            },
         execution.naturally_quiescent,
         execution.work.local_structural_proposals == 0,
     ];
@@ -619,7 +624,13 @@ fn report(rows: &[Row]) -> String {
     let passed = rows.iter().filter(|row| row.passed).count();
     let clauses = rows
         .iter()
-        .map(|row| row.observation.validity.into_iter().filter(|value| *value).count())
+        .map(|row| {
+            row.observation
+                .validity
+                .into_iter()
+                .filter(|value| *value)
+                .count()
+        })
         .sum::<usize>();
     let accepts = rows
         .iter()
@@ -693,8 +704,9 @@ mod tests {
             }
         }
         assert_eq!(failures.len(), SEEDS.len());
-        assert!(failures.iter().all(|(_, kind, quiescent)|
-            *kind == Kind::SimultaneousUpstreamAndReturn && !quiescent));
+        assert!(failures.iter().all(|(_, kind, quiescent)| *kind
+            == Kind::SimultaneousUpstreamAndReturn
+            && !quiescent));
     }
 
     #[test]
