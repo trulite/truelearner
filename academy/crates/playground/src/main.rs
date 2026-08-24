@@ -88,6 +88,8 @@ fn App() -> Element {
         use_signal(|| VisualSurface::new(SURFACE_WIDTH, SURFACE_HEIGHT, [24, 31, 37, 255]));
     let mut drawing = use_signal(|| false);
     let mut last_point = use_signal(|| None::<(u32, u32)>);
+    let mut canvas_extent = use_signal(|| (f64::from(SURFACE_WIDTH), f64::from(SURFACE_HEIGHT)));
+    let mut canvas_element = use_signal(|| None::<MountedEvent>);
 
     let polling_worker = Arc::clone(&worker);
     use_future(move || {
@@ -164,32 +166,6 @@ fn App() -> Element {
                             Metric { term: "Body", value: format_bytes(state.durable_bytes) }
                             Metric { term: "Resident", value: format_bytes(state.last_run_bytes) }
                         }
-                        div { class: "runtime-actions",
-                            button {
-                                class: "quiet-button",
-                                onclick: {
-                                    let worker = Arc::clone(&worker);
-                                    move |_| send_command(&worker, &mut model, AcademyCommand::SaveCheckpoint)
-                                },
-                                "Save"
-                            }
-                            button {
-                                class: "quiet-button",
-                                onclick: {
-                                    let worker = Arc::clone(&worker);
-                                    move |_| send_command(&worker, &mut model, AcademyCommand::RestoreCheckpoint)
-                                },
-                                "Restore"
-                            }
-                            button {
-                                class: "quiet-button",
-                                onclick: {
-                                    let worker = Arc::clone(&worker);
-                                    move |_| send_command(&worker, &mut model, AcademyCommand::ReplayLast)
-                                },
-                                "Replay"
-                            }
-                        }
                     } else {
                         div { class: "runtime-loading", "Starting…" }
                     }
@@ -239,20 +215,33 @@ fn App() -> Element {
                                     width: "{SURFACE_WIDTH}",
                                     height: "{SURFACE_HEIGHT}",
                                     aria_label: "Shared raster drawing surface",
+                                    onmounted: move |event| {
+                                        canvas_element.set(Some(event));
+                                    },
                                     onmousedown: move |event| {
                                         event.prevent_default();
-                                        drawing.set(true);
                                         let point = event.element_coordinates();
-                                        let current = clamp_canvas_point(point.x, point.y);
-                                        last_point.set(Some(current));
-                                        shared_surface.write().draw_line(current, current, [21, 92, 81, 255], 2);
+                                        let mounted = canvas_element.read().clone();
+                                        async move {
+                                            if let Some(element) = mounted {
+                                                if let Ok(rect) = element.get_client_rect().await {
+                                                    canvas_extent.set((rect.width(), rect.height()));
+                                                }
+                                            }
+                                            drawing.set(true);
+                                            let (width, height) = canvas_extent();
+                                            let current = map_canvas_point(point.x, point.y, width, height);
+                                            last_point.set(Some(current));
+                                            shared_surface.write().draw_line(current, current, [21, 92, 81, 255], 2);
+                                        }
                                     },
                                     onmousemove: move |event| {
                                         if !drawing() {
                                             return;
                                         }
                                         let point = event.element_coordinates();
-                                        let current = clamp_canvas_point(point.x, point.y);
+                                        let (width, height) = canvas_extent();
+                                        let current = map_canvas_point(point.x, point.y, width, height);
                                         if let Some(previous) = last_point() {
                                             shared_surface.write().draw_line(previous, current, [21, 92, 81, 255], 2);
                                         }
@@ -367,6 +356,32 @@ fn App() -> Element {
                                 width: "{SURFACE_WIDTH}",
                                 height: "{SURFACE_HEIGHT}",
                                 aria_label: "Organism raster output",
+                            }
+                            div { class: "output-toolbar",
+                                button {
+                                    class: "quiet-button",
+                                    onclick: {
+                                        let worker = Arc::clone(&worker);
+                                        move |_| send_command(&worker, &mut model, AcademyCommand::SaveCheckpoint)
+                                    },
+                                    "Save"
+                                }
+                                button {
+                                    class: "quiet-button",
+                                    onclick: {
+                                        let worker = Arc::clone(&worker);
+                                        move |_| send_command(&worker, &mut model, AcademyCommand::RestoreCheckpoint)
+                                    },
+                                    "Restore"
+                                }
+                                button {
+                                    class: "quiet-button",
+                                    onclick: {
+                                        let worker = Arc::clone(&worker);
+                                        move |_| send_command(&worker, &mut model, AcademyCommand::ReplayLast)
+                                    },
+                                    "Replay"
+                                }
                             }
                         }
                     }
@@ -826,10 +841,16 @@ image.src='data:image/png;base64,{data}';"#
     ));
 }
 
-fn clamp_canvas_point(x: f64, y: f64) -> (u32, u32) {
+fn map_canvas_point(x: f64, y: f64, displayed_width: f64, displayed_height: f64) -> (u32, u32) {
+    let width = displayed_width.max(1.0);
+    let height = displayed_height.max(1.0);
     (
-        x.round().clamp(0.0, f64::from(SURFACE_WIDTH - 1)) as u32,
-        y.round().clamp(0.0, f64::from(SURFACE_HEIGHT - 1)) as u32,
+        (x / width * f64::from(SURFACE_WIDTH))
+            .floor()
+            .clamp(0.0, f64::from(SURFACE_WIDTH - 1)) as u32,
+        (y / height * f64::from(SURFACE_HEIGHT))
+            .floor()
+            .clamp(0.0, f64::from(SURFACE_HEIGHT - 1)) as u32,
     )
 }
 
@@ -869,5 +890,23 @@ fn format_bytes(bytes: usize) -> String {
         format!("{:.1} KiB", bytes as f64 / 1024.0)
     } else {
         format!("{bytes} B")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn displayed_canvas_coordinates_map_to_physical_raster() {
+        assert_eq!(map_canvas_point(0.0, 0.0, 1280.0, 720.0), (0, 0));
+        assert_eq!(map_canvas_point(640.0, 360.0, 1280.0, 720.0), (320, 180));
+        assert_eq!(map_canvas_point(1280.0, 720.0, 1280.0, 720.0), (639, 359));
+    }
+
+    #[test]
+    fn coordinate_mapping_is_independent_of_display_scale() {
+        assert_eq!(map_canvas_point(160.0, 90.0, 320.0, 180.0), (320, 180));
+        assert_eq!(map_canvas_point(960.0, 540.0, 1920.0, 1080.0), (320, 180));
     }
 }

@@ -11,6 +11,8 @@ does not begin R7.
 
 - Native Dioxus Desktop window at 1440 × 900, minimum 1080 × 720.
 - Rust-owned 640 × 360 RGBA input world with deterministic drawing.
+- Display coordinates are normalized into the 640 × 360 physical raster, so
+  drawing remains exact across window sizes.
 - Text, image, file, and drawing admission.
 - Large raster output beside the input world.
 - Teach/Probe modes, capability evidence, runtime observations, history, live
@@ -42,16 +44,16 @@ pass, superseding the protocol's remote-only operational preference:
   `-D warnings`.
 - Academy workspace formatting check passed.
 - Native app launched and emitted `ACADEMY_PLAYGROUND_READY`.
-- Native screenshot review confirmed the equal unlabeled split, large output,
-  pill-shaped Teach/Probe switch, dock-owned History and Skills spaces, and a
-  compact full-width runtime strip.
+- Native screenshot review confirmed the equal unlabeled 16:9 split, matched
+  bottom action strips, pill-shaped Teach/Probe switch, dock-owned History and
+  Skills spaces, and a compact full-width runtime strip.
 
 The compiler reported only the upstream future-incompatibility advisory for
 `block 0.1.6`; it produced no project warning or failure.
 
 ## Visual artifact
 
-`output/academy-playground-symmetric-v1.png`
+`output/academy-playground-native-aspect-v1.png`
 
 The output directory is intentionally ignored; the screenshot is review
 evidence, not runtime input.
