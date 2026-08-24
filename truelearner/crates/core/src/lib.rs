@@ -7,8 +7,8 @@ use truelearner_arena_format::{
 };
 
 mod mechanics;
-use mechanics::{ArrowStore, CellStore, PendingSchedule};
 pub use mechanics::SchedulerKind;
+use mechanics::{ArrowStore, CellStore, PendingSchedule};
 pub use truelearner_arena_format::{
     ArenaId, ArrowId, ArrowRef, CellId, CellRef, ContentHash, Generation,
 };
@@ -1056,7 +1056,10 @@ impl PlasticSubstrate {
                 phase: input.phase,
                 origin_physical: input.origin_physical,
                 target: input.target,
-                target_generation: self.cells.get(self.cell_slot(input.target).unwrap().0).generation,
+                target_generation: self
+                    .cells
+                    .get(self.cell_slot(input.target).unwrap().0)
+                    .generation,
                 impulse: input.impulse,
                 serial: self.next_serial,
                 arrow: None,
@@ -1356,9 +1359,9 @@ impl PlasticSubstrate {
             let slot = substrate
                 .arrow_slot(runtime.id)
                 .ok_or(CheckpointError::MissingArrow(runtime.id))?;
-            substrate
-                .arrows
-                .with_mut(slot.0, |arrow| arrow.eligible_until = runtime.eligible_until);
+            substrate.arrows.with_mut(slot.0, |arrow| {
+                arrow.eligible_until = runtime.eligible_until
+            });
         }
         substrate.pending = PendingSchedule::from_canonical(
             SchedulerKind::Vec,
@@ -1471,134 +1474,135 @@ impl PlasticSubstrate {
             }
             for (spike, legacy_comparisons) in batch {
                 work.total = work.total.saturating_add(legacy_comparisons);
-            let external_arrival = spike.arrow.is_none();
-            self.elapse_to(spike.arrival_tick, &mut work, &mut execution_cost);
-            self.tick = spike.arrival_tick;
-            work.total = work.total.saturating_add(2);
+                let external_arrival = spike.arrow.is_none();
+                self.elapse_to(spike.arrival_tick, &mut work, &mut execution_cost);
+                self.tick = spike.arrival_tick;
+                work.total = work.total.saturating_add(2);
 
-            if let Some((arrow_id, generation)) = spike.arrow {
-                let Some(arrow_slot) = self.arrow_slot(arrow_id) else {
+                if let Some((arrow_id, generation)) = spike.arrow {
+                    let Some(arrow_slot) = self.arrow_slot(arrow_id) else {
+                        continue;
+                    };
+                    let arrow = self.arrows.get(arrow_slot.0);
+                    if !arrow.live || arrow.generation != generation {
+                        continue;
+                    }
+                }
+                let Some(target_slot) = self.cell_slot(spike.target) else {
                     continue;
                 };
-                let arrow = self.arrows.get(arrow_slot.0);
-                if !arrow.live || arrow.generation != generation {
+                let target = self.cells.get(target_slot.0);
+                if !target.live || target.generation != spike.target_generation {
                     continue;
                 }
-            }
-            let Some(target_slot) = self.cell_slot(spike.target) else {
-                continue;
-            };
-            let target = self.cells.get(target_slot.0);
-            if !target.live || target.generation != spike.target_generation {
-                continue;
-            }
 
-            let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
-                self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
-            });
-            if mode == TransmissionMode::Modulatory {
-                work.total = work.total.saturating_add(1);
-                work.modulatory_deliveries = work.modulatory_deliveries.saturating_add(1);
-                self.apply_modulatory_return(
-                    spike.target,
-                    self.tick,
-                    &mut work,
-                    &mut execution_cost,
-                );
-                continue;
-            }
-            work.total = work.total.saturating_add(3);
-            work.drive_deliveries = work.drive_deliveries.saturating_add(1);
-            self.decay_cell(spike.target, self.tick);
-            let target_slot = self.cell_slot(spike.target).unwrap();
-            let target = self.cells.with_mut(target_slot.0, |target| {
-                target.state = target.state.saturating_add(spike.impulse);
-                target.clone()
-            });
-            if target.state != 0 {
-                self.active_cells.insert(spike.target);
-            }
-            let fires = self.tick >= target.refractory_until && target.state >= target.threshold;
-            if !fires {
-                continue;
-            }
-
-            self.cells.with_mut(target_slot.0, |target| {
-                target.state = 0;
-                target.refractory_until = self.tick.saturating_add(1);
-            });
-            self.active_cells.remove(&spike.target);
-            work.total = work.total.saturating_add(1);
-            let source = spike.target;
-            let origin_physical = target.physical_id;
-            let source_generation = target.generation;
-            if external_arrival {
-                self.propose_local_arrows(source, &mut work);
-            }
-            let mut outgoing = match self.mechanics.traversal {
-                TraversalKind::GlobalScan => {
-                    execution_cost.scans = execution_cost
-                        .scans
-                        .saturating_add(self.arrows.len() as u64);
-                    self.arrows
-                        .values()
-                        .iter()
-                        .map(|arrow| (arrow.id, arrow.clone()))
-                        .collect::<Vec<_>>()
-                }
-                TraversalKind::Adjacency => self.outgoing_index[source.0 as usize]
-                    .iter()
-                    .filter_map(|id| {
-                        let slot = self.arrow_slot(*id)?;
-                        execution_cost.scans = execution_cost.scans.saturating_add(1);
-                        Some((*id, self.arrows.get(slot.0)))
-                    })
-                    .collect(),
-            };
-            outgoing.sort_by_key(|(id, _)| *id);
-            for (arrow_id, arrow) in outgoing {
-                work.total = work.total.saturating_add(1);
-                if !arrow.live
-                    || arrow.from != source
-                    || arrow.source_generation != source_generation
-                {
-                    continue;
-                }
-                let from_slot = self.cell_slot(arrow.from).unwrap();
-                let to_slot = self.cell_slot(arrow.to).unwrap();
-                let from = self.cells.get(from_slot.0);
-                let to = self.cells.get(to_slot.0);
-                if from.region != to.region {
-                    crossings.push(Crossing {
-                        tick: self.tick,
-                        from_physical: from.physical_id,
-                        to_physical: to.physical_id,
-                        from_region: from.region,
-                        to_region: to.region,
-                        impulse: arrow.coupling,
-                    });
-                }
-                let arrow_slot = self.arrow_slot(arrow_id).unwrap();
-                self.arrows.with_mut(arrow_slot.0, |live_arrow| {
-                    live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
+                let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
+                    self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
                 });
-                self.eligible_arrows.insert(arrow_id);
-                work.total = work.total.saturating_add(2);
-                self.pending.push(
-                    Spike {
-                        arrival_tick: self.tick.saturating_add(arrow.delay),
-                        phase: arrow.phase,
-                        origin_physical,
-                        target: arrow.to,
-                        target_generation: to.generation,
-                        impulse: arrow.coupling,
-                        serial: self.next_serial,
-                        arrow: Some((arrow_id, arrow.generation)),
-                    },
-                    &mut execution_cost,
-                );
-                self.next_serial = self.next_serial.wrapping_add(1);
-            }
+                if mode == TransmissionMode::Modulatory {
+                    work.total = work.total.saturating_add(1);
+                    work.modulatory_deliveries = work.modulatory_deliveries.saturating_add(1);
+                    self.apply_modulatory_return(
+                        spike.target,
+                        self.tick,
+                        &mut work,
+                        &mut execution_cost,
+                    );
+                    continue;
+                }
+                work.total = work.total.saturating_add(3);
+                work.drive_deliveries = work.drive_deliveries.saturating_add(1);
+                self.decay_cell(spike.target, self.tick);
+                let target_slot = self.cell_slot(spike.target).unwrap();
+                let target = self.cells.with_mut(target_slot.0, |target| {
+                    target.state = target.state.saturating_add(spike.impulse);
+                    target.clone()
+                });
+                if target.state != 0 {
+                    self.active_cells.insert(spike.target);
+                }
+                let fires =
+                    self.tick >= target.refractory_until && target.state >= target.threshold;
+                if !fires {
+                    continue;
+                }
+
+                self.cells.with_mut(target_slot.0, |target| {
+                    target.state = 0;
+                    target.refractory_until = self.tick.saturating_add(1);
+                });
+                self.active_cells.remove(&spike.target);
+                work.total = work.total.saturating_add(1);
+                let source = spike.target;
+                let origin_physical = target.physical_id;
+                let source_generation = target.generation;
+                if external_arrival {
+                    self.propose_local_arrows(source, &mut work);
+                }
+                let mut outgoing = match self.mechanics.traversal {
+                    TraversalKind::GlobalScan => {
+                        execution_cost.scans = execution_cost
+                            .scans
+                            .saturating_add(self.arrows.len() as u64);
+                        self.arrows
+                            .values()
+                            .iter()
+                            .map(|arrow| (arrow.id, arrow.clone()))
+                            .collect::<Vec<_>>()
+                    }
+                    TraversalKind::Adjacency => self.outgoing_index[source.0 as usize]
+                        .iter()
+                        .filter_map(|id| {
+                            let slot = self.arrow_slot(*id)?;
+                            execution_cost.scans = execution_cost.scans.saturating_add(1);
+                            Some((*id, self.arrows.get(slot.0)))
+                        })
+                        .collect(),
+                };
+                outgoing.sort_by_key(|(id, _)| *id);
+                for (arrow_id, arrow) in outgoing {
+                    work.total = work.total.saturating_add(1);
+                    if !arrow.live
+                        || arrow.from != source
+                        || arrow.source_generation != source_generation
+                    {
+                        continue;
+                    }
+                    let from_slot = self.cell_slot(arrow.from).unwrap();
+                    let to_slot = self.cell_slot(arrow.to).unwrap();
+                    let from = self.cells.get(from_slot.0);
+                    let to = self.cells.get(to_slot.0);
+                    if from.region != to.region {
+                        crossings.push(Crossing {
+                            tick: self.tick,
+                            from_physical: from.physical_id,
+                            to_physical: to.physical_id,
+                            from_region: from.region,
+                            to_region: to.region,
+                            impulse: arrow.coupling,
+                        });
+                    }
+                    let arrow_slot = self.arrow_slot(arrow_id).unwrap();
+                    self.arrows.with_mut(arrow_slot.0, |live_arrow| {
+                        live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
+                    });
+                    self.eligible_arrows.insert(arrow_id);
+                    work.total = work.total.saturating_add(2);
+                    self.pending.push(
+                        Spike {
+                            arrival_tick: self.tick.saturating_add(arrow.delay),
+                            phase: arrow.phase,
+                            origin_physical,
+                            target: arrow.to,
+                            target_generation: to.generation,
+                            impulse: arrow.coupling,
+                            serial: self.next_serial,
+                            arrow: Some((arrow_id, arrow.generation)),
+                        },
+                        &mut execution_cost,
+                    );
+                    self.next_serial = self.next_serial.wrapping_add(1);
+                }
             }
         }
         RunResult {

@@ -61,7 +61,10 @@ impl CellStore {
     }
 
     pub(super) fn convert(&mut self, layout: LayoutKind) {
-        if matches!((&*self, layout), (Self::AoS(_), LayoutKind::AoS) | (Self::SoA(_), LayoutKind::SoA)) {
+        if matches!(
+            (&*self, layout),
+            (Self::AoS(_), LayoutKind::AoS) | (Self::SoA(_), LayoutKind::SoA)
+        ) {
             return;
         }
         let values = self.values();
@@ -207,7 +210,10 @@ impl ArrowStore {
     }
 
     pub(super) fn convert(&mut self, layout: LayoutKind) {
-        if matches!((&*self, layout), (Self::AoS(_), LayoutKind::AoS) | (Self::SoA(_), LayoutKind::SoA)) {
+        if matches!(
+            (&*self, layout),
+            (Self::AoS(_), LayoutKind::AoS) | (Self::SoA(_), LayoutKind::SoA)
+        ) {
             return;
         }
         let values = self.values();
