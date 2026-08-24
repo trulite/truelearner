@@ -57,12 +57,14 @@ struct LoadedEpisode {
     record_uri: String,
 }
 
+#[derive(Clone)]
 struct EpisodeLibrary {
     title: String,
     root: PathBuf,
     episodes: Vec<LoadedEpisode>,
 }
 
+#[derive(Clone)]
 enum LibraryState {
     Ready(EpisodeLibrary),
     Unavailable { root: PathBuf, reason: String },
@@ -134,8 +136,8 @@ fn App() -> Element {
                             muted: true,
                             playsinline: true,
                             preload: "auto",
+                            src: "{episode.video_uri}",
                             poster: "{episode.poster_uri}",
-                            source { src: "{episode.video_uri}", r#type: "video/mp4" }
                         }
                     }
 
@@ -199,16 +201,7 @@ fn App() -> Element {
                     button {
                         r#type: "button",
                         class: if filter() == option { "filter-button active" } else { "filter-button" },
-                        onclick: move |_| {
-                            filter.set(option);
-                            if let Some(index) = library
-                                .episodes
-                                .iter()
-                                .position(|episode| option.accepts(episode.evidence.class))
-                            {
-                                selected.set(index);
-                            }
-                        },
+                        onclick: move |_| filter.set(option),
                         "{option.label()}"
                     }
                 }

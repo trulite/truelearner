@@ -12,19 +12,19 @@ Dioxus Desktop in Rust for the first Playground, with a headless Academy core an
 
 ## Users
 
-The primary users are TrueLearner researchers and teachers who need to interact with a developing physical organism, teach it through embodied experience, probe it with fresh worlds, and inspect evidence without adding semantic machinery to the organism.
+The primary users are TrueLearner researchers and teachers who need to review how a developing physical organism was taught, inspect held-out probes and controls, and verify evidence without adding semantic machinery to the organism.
 
 ## Product Purpose
 
-Academy Playground is the external developmental environment for TrueLearner. It makes multimodal interaction, curriculum evidence, deterministic replay, physical-work inspection, and developmental history visible in one place. Success means a person can teach and probe the organism while clearly separating human semantics from the physical inputs admitted to TrueLearner.
+Academy runs development and test curricula headlessly. The Playground is its episode review surface: it turns canonical physical evidence into watchable videos, galleries, and compact inspection without changing the evidence. Success means a person can see what the organism experienced, what appeared at its output, what changed, and whether fresh tests and controls behaved correctly.
 
 ## Positioning
 
-The Playground is a microscope for a continuously executing physical learner: Academy may understand tasks and expected outcomes, but the learner itself receives only physical arrivals and raster surfaces through its established body boundary.
+The Playground is a film room for a continuously executing physical learner: Academy may understand tasks and expected outcomes, but the learner itself receives only physical arrivals and raster surfaces through its established body boundary.
 
 ## Operating Context
 
-Users work in a desktop application with a shared visual surface, conversation, Teach/Probe controls, capability evidence, body instrumentation, checkpoints, replay, and a development timeline. Academy records semantic annotations outside the learner; the body worker admits explicit physical inputs and runs independently of UI timing.
+Academy executes development, held-out test, and negative-control episodes without UI timing. Users open a desktop gallery, play deterministic episode videos, filter collections, inspect physical measurements, and download the canonical record. Academy's captions and overlays remain external annotations.
 
 ## Capabilities and Constraints
 
@@ -33,11 +33,13 @@ Users work in a desktop application with a shared visual surface, conversation, 
 - The organism-facing visual truth is a Rust-owned RGBA raster framebuffer.
 - Text may initially use the documented direct byte/glyph embodiment affordance; it must not introduce tokenization or language concepts into TrueLearner.
 - UI, WebView, file, and async timing may not silently define organism time.
-- Commands and events use bounded channels and explicit backpressure.
 - Every admitted physical input must be recordable and replayable.
 - Capability states are external evidence labels, never organism state.
 - Resident arena partitioning is causally inert instrumentation.
-- R7 non-residence, storage latency, foveation, simulators, audio, video, robotics, and distributed Playground work are out of scope for V0.
+- Episode video encoding is observational infrastructure and cannot feed back
+  into TrueLearner.
+- R7 non-residence, storage latency, foveation, simulators, audio input,
+  robotics, and distributed Playground work are out of scope for V0.
 
 ## Brand Commitments
 

@@ -1,8 +1,22 @@
-# TrueLearner Academy Playground
+# Academy episodes
 
-The Academy Playground is an external developmental instrument for the frozen
-TrueLearner physical organism. It is a native Dioxus Desktop application; the
-organism never depends on Dioxus or on Academy semantics.
+Academy develops and probes the frozen TrueLearner physical organism headlessly.
+It records canonical evidence first, then derives review videos. The native
+Dioxus application is only an episode gallery and player; the organism never
+depends on Dioxus, video encoding, or Academy semantics.
+
+## Generate episodes
+
+From the repository root:
+
+```sh
+cargo run --locked --manifest-path academy/Cargo.toml \
+  -p academy-runner -- output/academy-episodes
+```
+
+This writes a catalog plus six A1 episodes: one development run, one fresh
+learned-relation test, and four negative controls. Each episode contains its
+canonical JSON record, frame evidence, poster, and derived MP4.
 
 ## Run on macOS
 
@@ -12,7 +26,7 @@ From the repository root:
 cargo run --locked --manifest-path academy/Cargo.toml -p academy-playground
 ```
 
-The application opens a native window titled `Academy` at
+The application opens a native window titled `Academy Episodes` at
 1440 × 900 logical pixels (minimum 1080 × 720).
 
 ## Crates
@@ -20,15 +34,18 @@ The application opens a native window titled `Academy` at
 - `academy-core`: headless capability evidence, physical admission records,
   deterministic raster surfaces, checkpoints/replay, and the bounded body
   worker.
+- `academy-episodes`: canonical episode catalog plus deterministic review-frame
+  and video generation.
+- `academy-runner`: headless development/test/control runner.
 - `academy-storage`: immutable content-addressed Academy evidence in private
   S3 storage. It remains outside TrueLearner physics.
-- `playground`: Dioxus Desktop UI, file/image selection, shared raster canvas,
-  human controls, and causally inert instrumentation.
+- `playground`: causally inert Dioxus Desktop episode gallery and player.
 
 The dependency direction is:
 
 ```text
-playground -> academy-core -> truelearner-core
+playground -> academy-episodes -> academy-core -> truelearner-core
+academy-runner -> academy-episodes
 academy-storage -> AWS S3
 ```
 

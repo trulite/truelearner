@@ -1,10 +1,10 @@
-# Academy Playground design
+# Academy episode viewer design
 
 ## Direction
 
 Academy uses TrueLearner's Spherical Desk language: a full-bleed dusk field,
-quiet ambient identity, glass work panels, and a centered command dock. The
-result should feel closer to Apple TV than a web dashboard.
+quiet ambient identity, glass review panels, and a centered collection dock.
+The result should feel closer to Apple TV than a web dashboard.
 
 The interface copy follows an operational rule: name the object or action and
 stop. Do not narrate the architecture, explain an obvious control, or expose
@@ -12,20 +12,17 @@ research vocabulary as product copy.
 
 ## Composition
 
-- World and evidence form one translucent split deck with an internal divider.
-- Input and Output are equal physical surfaces. The split carries no hierarchy,
-  and redundant panel headings are omitted.
-- Both surfaces retain the native 16:9 raster geometry. Their bottom action
-  strips occupy matching space and never change the coordinate transform.
-- Runtime is a thin, full-width instrumentation strip across the top of the
-  work deck.
-- Skills and History are dock-owned spaces. Both are hidden by default and open
-  as large galleries above the dock without changing organism state.
-- History cards lead with each admitted artifact. Skills use a card gallery and
-  a focused evidence pane.
-- The command dock owns History, Skills, Teach/Probe mode, text admission, and
-  Run.
-- Runtime values are read-only observations. They never become organism input.
+- A large video stage is the primary review surface.
+- A narrow evidence inspector shows the selected episode's outcome, physical
+  work, crossings, plasticity updates, quiescence, replay status, and body
+  fingerprints.
+- A horizontal poster gallery holds development, held-out test, and negative
+  control episodes without crowding the stage.
+- The centered dock filters the gallery by collection. It does not execute or
+  modify the organism.
+- Episode videos are derived views of canonical evidence. Selecting, playing,
+  pausing, or filtering them never becomes organism input.
+- World and output remain equal 16:9 surfaces inside every recorded frame.
 
 ## Visual system
 
@@ -45,8 +42,8 @@ research vocabulary as product copy.
 
 ## Copy
 
-Prefer `World`, `Input`, `Output`, `Skills`, `Runtime`, `History`, `Teach`,
-`Probe`, `Save`, `Restore`, and `Replay`.
+Prefer `Development`, `Tests`, `Controls`, `Outcome`, `Physical work`,
+`Crossings`, `Learning updates`, `Quiescent`, `Replay`, and `Episode record`.
 
 Avoid explanatory UI copy such as `physical development instrument`,
 `causally inert runtime view`, `human semantics are rendered here`, or
