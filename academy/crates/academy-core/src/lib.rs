@@ -19,8 +19,8 @@ use truelearner_core::{
 
 mod a1;
 pub use a1::{
-    A1Experience, A1ExperienceKind, A1ProbeFamily, A1ReplayOutcome, A1WorldObservation,
-    GenuineTeachingLab, TeachingCase,
+    A1Experience, A1ExperienceKind, A1LabSnapshot, A1ProbeFamily, A1ReplayOutcome,
+    A1WorldObservation, GenuineTeachingLab, TeachingCase,
 };
 
 pub const SURFACE_WIDTH: u32 = 640;
@@ -530,8 +530,6 @@ impl PhysicalInput {
 pub struct InteractionRequest {
     pub mode: ExperienceMode,
     pub input: PhysicalInput,
-    pub capability_ids: Vec<String>,
-    pub expected_text: Option<String>,
     pub academy_note: String,
 }
 
@@ -649,6 +647,8 @@ pub struct SessionSnapshot {
     pub inspector: InspectorSnapshot,
     pub capabilities: CapabilityGraph,
     pub timeline: Vec<ExperienceRecord>,
+    pub a1_timeline: Vec<A1Experience>,
+    pub active_teaching_case: Option<TeachingCase>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -677,6 +677,8 @@ pub struct AcademySession {
     placements: Vec<ResidentArenaId>,
     capabilities: CapabilityGraph,
     timeline: VecDeque<ExperienceRecord>,
+    a1_timeline: VecDeque<A1Experience>,
+    a1_lab: Option<GenuineTeachingLab>,
     body_version: u64,
     experience_sequence: u64,
     crossing_total: u64,
@@ -699,6 +701,8 @@ impl AcademySession {
             placements,
             capabilities: CapabilityGraph::default(),
             timeline: VecDeque::with_capacity(256),
+            a1_timeline: VecDeque::with_capacity(64),
+            a1_lab: None,
             body_version: 0,
             experience_sequence: 0,
             crossing_total: 0,
@@ -746,16 +750,16 @@ impl AcademySession {
         if body_after != body_before {
             self.body_version = self.body_version.saturating_add(1);
         }
-        let probe_passed = request
-            .expected_text
-            .as_ref()
-            .map(|expected| normalize_text(expected) == normalize_text(&organism_text));
+        // Free-form boundary interactions are observations, not capability
+        // probes. Genuine evaluation is performed by generated A1 cases that
+        // never admit their expected result to the organism.
+        let probe_passed = None;
         let record = ExperienceRecord {
             id: self.experience_sequence,
             mode: request.mode,
             admission,
             academy_note: request.academy_note,
-            capability_ids: request.capability_ids.clone(),
+            capability_ids: Vec::new(),
             probe_passed,
             organism_text,
             crossings: crossings.clone(),
@@ -772,12 +776,6 @@ impl AcademySession {
             resident_bytes: result.resident_bytes,
             naturally_quiescent: result.naturally_quiescent,
         };
-        self.capabilities.record(
-            &request.capability_ids,
-            request.mode,
-            probe_passed.unwrap_or(false),
-            result.work.total(),
-        );
         self.crossing_total = self
             .crossing_total
             .saturating_add(result.crossings.len() as u64);
@@ -810,6 +808,107 @@ impl AcademySession {
                 .canonical_bytes()?,
         );
         Ok(self.body_version)
+    }
+
+    pub fn start_teaching_case(&mut self, case: TeachingCase) -> Result<(), AcademyError> {
+        self.a1_lab = Some(GenuineTeachingLab::new(case)?);
+        self.replay_exact = None;
+        Ok(())
+    }
+
+    pub fn teach_active_case(&mut self) -> Result<A1Experience, AcademyError> {
+        let mut experience = self
+            .a1_lab
+            .as_mut()
+            .ok_or(AcademyError::NoTeachingCase)?
+            .teach_supported()?;
+        self.finish_a1_experience(&mut experience, false)?;
+        Ok(experience)
+    }
+
+    pub fn probe_active_case(
+        &mut self,
+        family: A1ProbeFamily,
+    ) -> Result<A1Experience, AcademyError> {
+        let mut experience = self
+            .a1_lab
+            .as_mut()
+            .ok_or(AcademyError::NoTeachingCase)?
+            .probe(family)?;
+        let passed = match family {
+            A1ProbeFamily::LearnedRelation => {
+                experience.observation.outward_relation_crossings == 1
+                    && experience.observation.outward_distractor_crossings == 0
+                    && experience.observation.plasticity_updates == 0
+                    && experience.observation.naturally_quiescent
+            }
+            _ => {
+                experience.observation.outward_relation_crossings == 0
+                    && experience.observation.outward_distractor_crossings == 0
+                    && experience.observation.plasticity_updates == 0
+                    && experience.observation.naturally_quiescent
+            }
+        };
+        self.finish_a1_experience(&mut experience, passed)?;
+        Ok(experience)
+    }
+
+    pub fn replay_experience(
+        &mut self,
+        experience_id: &str,
+    ) -> Result<A1ReplayOutcome, AcademyError> {
+        let outcome = self
+            .a1_lab
+            .as_ref()
+            .ok_or(AcademyError::NoTeachingCase)?
+            .replay(experience_id)?;
+        self.replay_exact = Some(outcome.exact);
+        Ok(outcome)
+    }
+
+    fn finish_a1_experience(
+        &mut self,
+        experience: &mut A1Experience,
+        passed: bool,
+    ) -> Result<(), AcademyError> {
+        let replay = self
+            .a1_lab
+            .as_ref()
+            .ok_or(AcademyError::NoTeachingCase)?
+            .replay(&experience.id)?;
+        experience.replay_exact = Some(replay.exact);
+        self.replay_exact = Some(replay.exact);
+        match experience.kind {
+            A1ExperienceKind::Teach => self.capabilities.record(
+                std::slice::from_ref(&experience.capability_id),
+                ExperienceMode::Teach,
+                false,
+                experience.observation.physical_work,
+            ),
+            A1ExperienceKind::Probe(A1ProbeFamily::LearnedRelation) => self.capabilities.record(
+                std::slice::from_ref(&experience.capability_id),
+                ExperienceMode::Probe,
+                passed,
+                experience.observation.physical_work,
+            ),
+            A1ExperienceKind::Probe(_) => {}
+        }
+        self.crossing_total = self.crossing_total.saturating_add(
+            u64::try_from(experience.crossings.len()).unwrap_or(u64::MAX),
+        );
+        self.work_total = self
+            .work_total
+            .saturating_add(experience.observation.physical_work);
+        self.last_run_work = experience.observation.physical_work;
+        self.experience_sequence = self.experience_sequence.saturating_add(1);
+        self.body_version = self.body_version.saturating_add(
+            u64::from(experience.observation.body_before != experience.observation.body_after),
+        );
+        if self.a1_timeline.len() == 64 {
+            self.a1_timeline.pop_front();
+        }
+        self.a1_timeline.push_back(experience.clone());
+        Ok(())
     }
 
     pub fn restore_checkpoint(&mut self) -> Result<u64, AcademyError> {
@@ -852,19 +951,33 @@ impl AcademySession {
 
     pub fn snapshot(&self) -> Result<SessionSnapshot, AcademyError> {
         let body_bytes = self.boundary.substrate().canonical_body_bytes(0)?;
+        let lab = self
+            .a1_lab
+            .as_ref()
+            .map(GenuineTeachingLab::snapshot)
+            .transpose()?;
         Ok(SessionSnapshot {
             inspector: InspectorSnapshot {
                 body_version: self.body_version,
-                body_fingerprint: short_hash(ContentHash::of(&body_bytes).as_bytes()),
-                physical_tick: self.boundary.substrate().clock().tick,
-                pressure_phase: self.boundary.substrate().clock().pressure_phase(),
+                body_fingerprint: lab
+                    .as_ref()
+                    .map_or_else(|| short_hash(ContentHash::of(&body_bytes).as_bytes()), |lab| lab.body_fingerprint.clone()),
+                physical_tick: lab
+                    .as_ref()
+                    .map_or(self.boundary.substrate().clock().tick, |lab| lab.physical_tick),
+                pressure_phase: lab
+                    .as_ref()
+                    .map_or(self.boundary.substrate().clock().pressure_phase(), |lab| lab.pressure_phase),
                 pending_inputs: self.boundary.input_len(),
                 pending_outputs: self.boundary.output_len(),
-                resident_arenas: self.boundary.substrate().resident_arena_count(),
+                resident_arenas: lab.as_ref().map_or(
+                    self.boundary.substrate().resident_arena_count(),
+                    |lab| lab.resident_arenas,
+                ),
                 active_arena_max: self.last_active_arena_max,
                 crossing_total: self.crossing_total,
                 physical_work_total: self.work_total,
-                durable_bytes: body_bytes.len(),
+                durable_bytes: lab.as_ref().map_or(body_bytes.len(), |lab| lab.durable_bytes),
                 last_run_bytes: self.last_run_bytes,
                 last_run_work: self.last_run_work,
                 queue_backpressure: self.queue_backpressure,
@@ -873,6 +986,8 @@ impl AcademySession {
             },
             capabilities: self.capabilities.clone(),
             timeline: self.timeline.iter().cloned().collect(),
+            a1_timeline: self.a1_timeline.iter().cloned().collect(),
+            active_teaching_case: self.a1_lab.as_ref().map(|lab| lab.case().clone()),
         })
     }
 
@@ -912,9 +1027,14 @@ impl AcademySession {
 #[derive(Clone, Debug)]
 pub enum AcademyCommand {
     Interact(InteractionRequest),
+    StartTeachingCase(TeachingCase),
+    StartAndTeach(TeachingCase),
+    TeachActiveCase,
+    ProbeActiveCase(A1ProbeFamily),
     SaveCheckpoint,
     RestoreCheckpoint,
     ReplayLast,
+    ReplayExperience(String),
     Shutdown,
 }
 
@@ -924,6 +1044,14 @@ pub enum AcademyEvent {
     Completed {
         record: Box<ExperienceRecord>,
         organism_surface: Box<VisualSurface>,
+        snapshot: Box<SessionSnapshot>,
+    },
+    TeachingCaseReady {
+        case: Box<TeachingCase>,
+        snapshot: Box<SessionSnapshot>,
+    },
+    A1Completed {
+        record: Box<A1Experience>,
         snapshot: Box<SessionSnapshot>,
     },
     CheckpointSaved {
@@ -936,6 +1064,10 @@ pub enum AcademyEvent {
     },
     ReplayVerified {
         outcome: Box<ReplayOutcome>,
+        snapshot: Box<SessionSnapshot>,
+    },
+    A1ReplayVerified {
+        outcome: Box<A1ReplayOutcome>,
         snapshot: Box<SessionSnapshot>,
     },
     Error(String),
@@ -976,6 +1108,45 @@ impl AcademyWorker {
                                     });
                             send_event(&event_sender, event);
                         }
+                        AcademyCommand::StartTeachingCase(case) => {
+                            let event = session.start_teaching_case(case.clone()).and_then(|()| {
+                                Ok(AcademyEvent::TeachingCaseReady {
+                                    case: Box::new(case),
+                                    snapshot: Box::new(session.snapshot()?),
+                                })
+                            });
+                            send_event(&event_sender, event);
+                        }
+                        AcademyCommand::StartAndTeach(case) => {
+                            let event = session
+                                .start_teaching_case(case)
+                                .and_then(|()| session.teach_active_case())
+                                .and_then(|record| {
+                                    Ok(AcademyEvent::A1Completed {
+                                        record: Box::new(record),
+                                        snapshot: Box::new(session.snapshot()?),
+                                    })
+                                });
+                            send_event(&event_sender, event);
+                        }
+                        AcademyCommand::TeachActiveCase => {
+                            let event = session.teach_active_case().and_then(|record| {
+                                Ok(AcademyEvent::A1Completed {
+                                    record: Box::new(record),
+                                    snapshot: Box::new(session.snapshot()?),
+                                })
+                            });
+                            send_event(&event_sender, event);
+                        }
+                        AcademyCommand::ProbeActiveCase(family) => {
+                            let event = session.probe_active_case(family).and_then(|record| {
+                                Ok(AcademyEvent::A1Completed {
+                                    record: Box::new(record),
+                                    snapshot: Box::new(session.snapshot()?),
+                                })
+                            });
+                            send_event(&event_sender, event);
+                        }
                         AcademyCommand::SaveCheckpoint => {
                             let event = session.save_checkpoint().and_then(|body_version| {
                                 Ok(AcademyEvent::CheckpointSaved {
@@ -997,6 +1168,15 @@ impl AcademyWorker {
                         AcademyCommand::ReplayLast => {
                             let event = session.replay_last().and_then(|outcome| {
                                 Ok(AcademyEvent::ReplayVerified {
+                                    outcome: Box::new(outcome),
+                                    snapshot: Box::new(session.snapshot()?),
+                                })
+                            });
+                            send_event(&event_sender, event);
+                        }
+                        AcademyCommand::ReplayExperience(experience_id) => {
+                            let event = session.replay_experience(&experience_id).and_then(|outcome| {
+                                Ok(AcademyEvent::A1ReplayVerified {
                                     outcome: Box::new(outcome),
                                     snapshot: Box::new(session.snapshot()?),
                                 })
@@ -1068,6 +1248,7 @@ pub enum AcademyError {
     EmptyPhysicalInput,
     NoCheckpoint,
     NoReplay,
+    NoTeachingCase,
     Worker(String),
 }
 
@@ -1083,6 +1264,7 @@ impl fmt::Display for AcademyError {
                 formatter,
                 "no completed physical interaction is available to replay"
             ),
+            Self::NoTeachingCase => write!(formatter, "no generated teaching case is active"),
             Self::Worker(message) => write!(formatter, "worker error: {message}"),
         }
     }
@@ -1347,15 +1529,12 @@ mod tests {
         let request = InteractionRequest {
             mode: ExperienceMode::Probe,
             input: PhysicalInput::Text("dax".to_string()),
-            capability_ids: vec![
-                "interaction-response".to_string(),
-                "copy-symbol".to_string(),
-            ],
-            expected_text: Some("dax".to_string()),
-            academy_note: "fresh probe".to_string(),
+            academy_note: "unscored physical interaction".to_string(),
         };
         let (record, _) = session.interact(request).unwrap();
         assert!(!record.admission.spikes.is_empty());
+        assert_eq!(record.probe_passed, None);
+        assert!(record.capability_ids.is_empty());
         assert!(record.naturally_quiescent);
         let replay = session.replay_last().unwrap();
         assert!(replay.exact, "{replay:?}");
@@ -1373,6 +1552,29 @@ mod tests {
             MechanicalConfig::PRODUCTION
         );
         assert_eq!(session.boundary.substrate().resident_arena_count(), 8);
+    }
+
+    #[test]
+    fn generated_teaching_and_selected_probe_replay_are_session_visible() {
+        let mut session = AcademySession::starter().unwrap();
+        session
+            .start_teaching_case(TeachingCase::generated_text(0xa1))
+            .unwrap();
+        let teaching = session.teach_active_case().unwrap();
+        assert_eq!(teaching.replay_exact, Some(true));
+        let probe = session
+            .probe_active_case(A1ProbeFamily::LearnedRelation)
+            .unwrap();
+        assert_eq!(probe.observation.outward_relation_crossings, 1);
+        assert_eq!(probe.observation.plasticity_updates, 0);
+        assert!(session.replay_experience(&probe.id).unwrap().exact);
+        let snapshot = session.snapshot().unwrap();
+        assert_eq!(snapshot.a1_timeline.len(), 2);
+        assert_eq!(snapshot.active_teaching_case.unwrap().seed, 0xa1);
+        assert_eq!(
+            snapshot.capabilities.capability("novel-binding").unwrap().status,
+            CapabilityStatus::Emerging
+        );
     }
 
     #[test]

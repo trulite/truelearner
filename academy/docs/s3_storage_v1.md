@@ -35,8 +35,14 @@ and its manifest has been stored:
 payloads -> verify hashes -> manifest -> lineage index/head
 ```
 
-The initial crate implements content-addressed payload storage. Lineage
-manifests and conditional head advancement land with A1-V episode recording.
+`publish_a1_experience` implements blobs-before-manifest publication for A1-V.
+It stores both live checkpoints, the exact admitted spike stream,
+organism/shared raster views, and the complete episode record before publishing
+one immutable manifest that references them. Publication happens after physics
+and cannot change an Academy result. Missing S3 configuration leaves the
+in-memory experience fully replayable.
+
+Lineage indexing and conditional head advancement remain later work.
 
 ## Local authentication
 

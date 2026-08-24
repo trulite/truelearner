@@ -124,6 +124,16 @@ pub struct A1ReplayOutcome {
     pub quiescence_exact: bool,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct A1LabSnapshot {
+    pub body_fingerprint: String,
+    pub physical_tick: i64,
+    pub pressure_phase: i64,
+    pub resident_arenas: usize,
+    pub durable_bytes: usize,
+    pub experience_count: u64,
+}
+
 #[derive(Clone, Copy)]
 struct Sites {
     sources: [CellId; 4],
@@ -166,6 +176,18 @@ impl GenuineTeachingLab {
 
     pub fn experiences(&self) -> &[A1Experience] {
         &self.experiences
+    }
+
+    pub fn snapshot(&self) -> Result<A1LabSnapshot, AcademyError> {
+        let body = self.boundary.substrate().canonical_body_bytes(0)?;
+        Ok(A1LabSnapshot {
+            body_fingerprint: body_fingerprint(&self.boundary)?,
+            physical_tick: self.boundary.substrate().clock().tick,
+            pressure_phase: self.boundary.substrate().clock().pressure_phase(),
+            resident_arenas: self.boundary.substrate().resident_arena_count(),
+            durable_bytes: body.len(),
+            experience_count: self.sequence,
+        })
     }
 
     pub fn teach_supported(&mut self) -> Result<A1Experience, AcademyError> {

@@ -5,6 +5,7 @@
 
 use aws_config::{BehaviorVersion, Region};
 use aws_sdk_s3::{primitives::ByteStream, Client};
+use academy_core::A1Experience;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{env, error::Error, fmt};
@@ -77,6 +78,28 @@ pub struct BlobRef {
     pub sha256: ContentHash,
     pub bytes: u64,
     pub key: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EpisodeManifest {
+    pub schema_version: u16,
+    pub experience_id: String,
+    pub case_id: String,
+    pub capability_id: String,
+    pub seed: u64,
+    pub checkpoint_before: BlobRef,
+    pub checkpoint_after: BlobRef,
+    pub physical_inputs: BlobRef,
+    pub organism_surface: BlobRef,
+    pub shared_world_surface: BlobRef,
+    pub episode_record: BlobRef,
+    pub replay_exact: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PublishedEpisode {
+    pub manifest: EpisodeManifest,
+    pub manifest_ref: BlobRef,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -246,6 +269,89 @@ impl S3AcademyStore {
         }
         Ok(bytes)
     }
+
+    /// Publish one complete A1 experience using blobs-before-manifest ordering.
+    ///
+    /// Publication is observational infrastructure. It is deliberately called
+    /// after the physical experience and cannot affect its body or outcome.
+    pub async fn publish_a1_experience(
+        &self,
+        experience: &A1Experience,
+    ) -> Result<PublishedEpisode, StorageError> {
+        let checkpoint_before = self
+            .put_blob(
+                BlobKind::Checkpoint,
+                experience.checkpoint_before.clone(),
+                "application/octet-stream",
+            )
+            .await?;
+        let checkpoint_after = self
+            .put_blob(
+                BlobKind::Checkpoint,
+                experience.checkpoint_after.clone(),
+                "application/octet-stream",
+            )
+            .await?;
+        let physical_inputs = self
+            .put_blob(
+                BlobKind::PhysicalInput,
+                canonical_json(&experience.admitted_inputs)?,
+                "application/json",
+            )
+            .await?;
+        let organism_surface = self
+            .put_blob(
+                BlobKind::Surface,
+                experience
+                    .organism_surface
+                    .png_bytes()
+                    .map_err(|error| StorageError::Surface(error.to_string()))?,
+                "image/png",
+            )
+            .await?;
+        let shared_world_surface = self
+            .put_blob(
+                BlobKind::Surface,
+                experience
+                    .shared_world_surface
+                    .png_bytes()
+                    .map_err(|error| StorageError::Surface(error.to_string()))?,
+                "image/png",
+            )
+            .await?;
+        let episode_record = self
+            .put_blob(
+                BlobKind::Episode,
+                canonical_json(experience)?,
+                "application/json",
+            )
+            .await?;
+        let manifest = EpisodeManifest {
+            schema_version: 1,
+            experience_id: experience.id.clone(),
+            case_id: experience.case_id.clone(),
+            capability_id: experience.capability_id.clone(),
+            seed: experience.seed,
+            checkpoint_before,
+            checkpoint_after,
+            physical_inputs,
+            organism_surface,
+            shared_world_surface,
+            episode_record,
+            replay_exact: experience.replay_exact,
+        };
+        let manifest_ref = self
+            .put_blob(
+                BlobKind::Manifest,
+                canonical_json(&manifest)?,
+                "application/json",
+            )
+            .await?;
+        Ok(PublishedEpisode {
+            manifest,
+            manifest_ref,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -259,6 +365,8 @@ pub enum StorageError {
         expected: ContentHash,
         observed: ContentHash,
     },
+    Serialization(String),
+    Surface(String),
     S3(String),
 }
 
@@ -283,9 +391,15 @@ impl fmt::Display for StorageError {
                 formatter,
                 "integrity failure for {key}: expected {expected}, observed {observed}"
             ),
+            Self::Serialization(message) => write!(formatter, "serialization failed: {message}"),
+            Self::Surface(message) => write!(formatter, "surface encoding failed: {message}"),
             Self::S3(message) => write!(formatter, "S3 operation failed: {message}"),
         }
     }
+}
+
+fn canonical_json<T: Serialize>(value: &T) -> Result<Vec<u8>, StorageError> {
+    serde_json::to_vec(value).map_err(|error| StorageError::Serialization(error.to_string()))
 }
 
 impl Error for StorageError {}
@@ -321,5 +435,24 @@ mod tests {
     fn malformed_hashes_are_rejected() {
         assert!(ContentHash::parse("ABC").is_err());
         assert!(ContentHash::parse("z".repeat(64)).is_err());
+    }
+
+    #[test]
+    fn complete_a1_experience_has_stable_episode_bytes() {
+        let mut lab = academy_core::GenuineTeachingLab::new(
+            academy_core::TeachingCase::generated_text(0xa1a1),
+        )
+        .unwrap();
+        let experience = lab.teach_supported().unwrap();
+        let first = canonical_json(&experience).unwrap();
+        let second = canonical_json(&experience).unwrap();
+        assert_eq!(first, second);
+        assert!(!experience.checkpoint_before.is_empty());
+        assert!(!experience.checkpoint_after.is_empty());
+        assert!(!experience.admitted_inputs.is_empty());
+        assert_ne!(
+            experience.observation.body_before,
+            experience.observation.body_after
+        );
     }
 }

@@ -1,9 +1,10 @@
 #![forbid(unsafe_code)]
 
 use academy_core::{
-    AcademyCommand, AcademyEvent, AcademyWorker, Capability, CapabilityGraph, ExperienceMode,
-    ExperienceRecord, InspectorSnapshot, InteractionRequest, PhysicalInput, SessionSnapshot,
-    VisualSurface, SURFACE_HEIGHT, SURFACE_WIDTH,
+    A1Experience, A1ExperienceKind, A1ProbeFamily, AcademyCommand, AcademyEvent, AcademyWorker,
+    Capability, CapabilityGraph, ExperienceMode, ExperienceRecord, InspectorSnapshot,
+    InteractionRequest, PhysicalInput, SessionSnapshot, TeachingCase, VisualSurface, SURFACE_HEIGHT,
+    SURFACE_WIDTH,
 };
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
@@ -44,6 +45,7 @@ struct UiModel {
     messages: Vec<Message>,
     capabilities: CapabilityGraph,
     timeline: Vec<ExperienceRecord>,
+    a1_timeline: Vec<A1Experience>,
     inspector: Option<InspectorSnapshot>,
     mode: ExperienceMode,
     selected_capability: String,
@@ -60,6 +62,7 @@ impl Default for UiModel {
             messages: Vec::new(),
             capabilities: CapabilityGraph::default(),
             timeline: Vec::new(),
+            a1_timeline: Vec::new(),
             inspector: None,
             mode: ExperienceMode::Teach,
             selected_capability: "interaction-response".to_string(),
@@ -104,7 +107,12 @@ fn App() -> Element {
                 }
                 if !events.is_empty() {
                     for event in events {
-                        apply_worker_event(event, &mut model, &mut organism_surface);
+                        apply_worker_event(
+                            event,
+                            &mut model,
+                            &mut shared_surface,
+                            &mut organism_surface,
+                        );
                     }
                 }
                 Delay::new(Duration::from_millis(48)).await;
@@ -396,28 +404,13 @@ fn App() -> Element {
                     move |event| {
                         event.prevent_default();
                         let text = composer.read().trim().to_string();
-                        if text.is_empty() || model.read().busy {
+                        let mode = model.read().mode;
+                        if model.read().busy
+                            || (mode == ExperienceMode::Teach && text.is_empty())
+                        {
                             return;
                         }
-                        let mode = model.read().mode;
-                        let request = InteractionRequest {
-                            mode,
-                            input: PhysicalInput::Text(text.clone()),
-                            capability_ids: vec!["interaction-response".to_string(), "copy-symbol".to_string()],
-                            expected_text: (mode != ExperienceMode::Teach).then_some(text.clone()),
-                            academy_note: if mode == ExperienceMode::Teach {
-                                "Text example".to_string()
-                            } else {
-                                "Text probe".to_string()
-                            },
-                        };
-                        model.write().messages.push(Message {
-                            speaker: Speaker::Human,
-                            title: "You".to_string(),
-                            body: text,
-                            detail: mode.label().to_string(),
-                        });
-                        send_command(&worker, &mut model, AcademyCommand::Interact(request));
+                        submit_text(&worker, &mut model, &text);
                         composer.set(String::new());
                     }
                 },
@@ -477,9 +470,9 @@ fn App() -> Element {
                 textarea {
                     value: "{composer}",
                     placeholder: if model.read().mode == ExperienceMode::Teach {
-                        "Show an example…"
+                        "Name a generated teaching case…"
                     } else {
-                        "Test with something new…"
+                        "Run a fresh held-out probe"
                     },
                     aria_label: "Experience",
                     oninput: move |event| composer.set(event.value()),
@@ -492,21 +485,7 @@ fn App() -> Element {
                                 if text.is_empty() || model.read().busy {
                                     return;
                                 }
-                                let mode = model.read().mode;
-                                let request = InteractionRequest {
-                                    mode,
-                                    input: PhysicalInput::Text(text.clone()),
-                                    capability_ids: vec!["interaction-response".to_string(), "copy-symbol".to_string()],
-                                    expected_text: (mode != ExperienceMode::Teach).then_some(text.clone()),
-                                    academy_note: "Text input".to_string(),
-                                };
-                                model.write().messages.push(Message {
-                                    speaker: Speaker::Human,
-                                    title: "You".to_string(),
-                                    body: text,
-                                    detail: mode.label().to_string(),
-                                });
-                                send_command(&worker, &mut model, AcademyCommand::Interact(request));
+                                submit_text(&worker, &mut model, &text);
                                 composer.set(String::new());
                             }
                         }
@@ -515,7 +494,9 @@ fn App() -> Element {
                 button {
                     class: "primary-button",
                     r#type: "submit",
-                    disabled: model.read().busy || composer.read().trim().is_empty(),
+                    disabled: model.read().busy
+                        || (model.read().mode == ExperienceMode::Teach
+                            && composer.read().trim().is_empty()),
                     if model.read().busy { "Running…" } else { "Run" }
                 }
             }
@@ -527,7 +508,7 @@ fn App() -> Element {
                             h2 { "History" }
                         }
                         div { class: "timeline-actions",
-                            span { "{model.read().timeline.len()} records" }
+                            span { "{model.read().timeline.len() + model.read().a1_timeline.len()} records" }
                             button {
                                 class: "quiet-button",
                                 r#type: "button",
@@ -537,9 +518,59 @@ fn App() -> Element {
                         }
                     }
                     div { class: "timeline-track",
-                        if model.read().timeline.is_empty() {
+                        if model.read().timeline.is_empty() && model.read().a1_timeline.is_empty() {
                             div { class: "timeline-empty",
                                 strong { "No activity yet" }
+                            }
+                        }
+                        for record in model.read().a1_timeline.iter().rev().take(24) {
+                            article { class: "history-card", key: "a1-experience-{record.id}",
+                                div { class: match record.kind {
+                                    A1ExperienceKind::Teach => "history-preview teach",
+                                    A1ExperienceKind::Probe(_) => "history-preview probe",
+                                },
+                                    div { class: "history-topline",
+                                        span { class: match record.kind {
+                                            A1ExperienceKind::Teach => "mode-label teach",
+                                            A1ExperienceKind::Probe(_) => "mode-label probe",
+                                        },
+                                            {match record.kind {
+                                                A1ExperienceKind::Teach => "Teach",
+                                                A1ExperienceKind::Probe(_) => "Probe",
+                                            }}
+                                        }
+                                        strong { "{record.case_id}" }
+                                        if record.replay_exact == Some(true) {
+                                            span { class: "probe-result pass", "Exact" }
+                                        }
+                                    }
+                                    p { "{record.capability_id}" }
+                                    div { class: "history-signal", aria_hidden: "true",
+                                        i {}
+                                        i {}
+                                        i {}
+                                        i {}
+                                    }
+                                }
+                                dl { class: "history-facts",
+                                    div { dt { "Work" } dd { "{record.observation.physical_work}" } }
+                                    div { dt { "Crossings" } dd { "{record.crossings.len()}" } }
+                                    div { dt { "Clock" } dd { "{record.observation.clock_start}→{record.observation.clock_end}" } }
+                                }
+                                button {
+                                    class: "quiet-button",
+                                    r#type: "button",
+                                    onclick: {
+                                        let worker = Arc::clone(&worker);
+                                        let id = record.id.clone();
+                                        move |_| send_command(
+                                            &worker,
+                                            &mut model,
+                                            AcademyCommand::ReplayExperience(id.clone()),
+                                        )
+                                    },
+                                    "Replay"
+                                }
                             }
                         }
                         for record in model.read().timeline.iter().rev().take(24) {
@@ -667,6 +698,7 @@ fn Metric(term: String, value: String) -> Element {
 fn apply_worker_event(
     event: AcademyEvent,
     model: &mut Signal<UiModel>,
+    shared_surface: &mut Signal<VisualSurface>,
     organism_surface: &mut Signal<VisualSurface>,
 ) {
     match event {
@@ -712,6 +744,61 @@ fn apply_worker_event(
             state.status = "Ready".to_string();
             state.busy = false;
         }
+        AcademyEvent::TeachingCaseReady { case, snapshot } => {
+            update_snapshot(model, *snapshot);
+            let mut state = model.write();
+            state.status = "Teaching case ready".to_string();
+            state.replay_message = format!("{} · seed {}", case.id, case.seed);
+            state.busy = false;
+        }
+        AcademyEvent::A1Completed { record, snapshot } => {
+            let record = *record;
+            shared_surface.set(record.shared_world_surface.clone());
+            organism_surface.set(record.organism_surface.clone());
+            let (title, body) = match record.kind {
+                A1ExperienceKind::Teach => (
+                    "Teaching".to_string(),
+                    format!(
+                        "Completed physical consequence loop · {} updates",
+                        record.observation.plasticity_updates
+                    ),
+                ),
+                A1ExperienceKind::Probe(family) => (
+                    "Fresh probe".to_string(),
+                    format!(
+                        "{family:?} · {} relation crossing(s) · no teaching",
+                        record.observation.outward_relation_crossings
+                    ),
+                ),
+            };
+            model.write().messages.push(Message {
+                speaker: Speaker::Academy,
+                title,
+                body,
+                detail: format!(
+                    "{} work · replay {}",
+                    record.observation.physical_work,
+                    if record.replay_exact == Some(true) {
+                        "exact"
+                    } else {
+                        "pending"
+                    }
+                ),
+            });
+            update_snapshot(model, *snapshot);
+            let mut state = model.write();
+            state.status = match record.kind {
+                A1ExperienceKind::Teach => "Taught",
+                A1ExperienceKind::Probe(A1ProbeFamily::LearnedRelation)
+                    if record.observation.outward_relation_crossings == 1 =>
+                {
+                    "Probe passed"
+                }
+                A1ExperienceKind::Probe(_) => "Control observed",
+            }
+            .to_string();
+            state.busy = false;
+        }
         AcademyEvent::CheckpointSaved {
             body_version,
             snapshot,
@@ -755,6 +842,26 @@ fn apply_worker_event(
             };
             state.busy = false;
         }
+        AcademyEvent::A1ReplayVerified { outcome, snapshot } => {
+            let outcome = *outcome;
+            update_snapshot(model, *snapshot);
+            let mut state = model.write();
+            state.status = if outcome.exact {
+                "Replay exact"
+            } else {
+                "Replay diverged"
+            }
+            .to_string();
+            state.replay_message = format!(
+                "{} · crossings {} · body {} · clock {} · work {}",
+                outcome.experience_id,
+                outcome.crossings_exact,
+                outcome.body_exact,
+                outcome.clock_exact,
+                outcome.work_exact,
+            );
+            state.busy = false;
+        }
         AcademyEvent::Error(message) => set_error(model, message),
     }
 }
@@ -764,6 +871,39 @@ fn update_snapshot(model: &mut Signal<UiModel>, snapshot: SessionSnapshot) {
     state.inspector = Some(snapshot.inspector);
     state.capabilities = snapshot.capabilities;
     state.timeline = snapshot.timeline;
+    state.a1_timeline = snapshot.a1_timeline;
+}
+
+fn submit_text(
+    worker: &Arc<Mutex<AcademyWorker>>,
+    model: &mut Signal<UiModel>,
+    text: &str,
+) {
+    let mode = model.read().mode;
+    let command = if mode == ExperienceMode::Teach {
+        AcademyCommand::StartAndTeach(TeachingCase::generated_text(stable_seed(text)))
+    } else {
+        AcademyCommand::ProbeActiveCase(A1ProbeFamily::LearnedRelation)
+    };
+    model.write().messages.push(Message {
+        speaker: Speaker::Human,
+        title: "You".to_string(),
+        body: if mode == ExperienceMode::Teach {
+            text.to_string()
+        } else {
+            "Run a fresh held-out relation probe".to_string()
+        },
+        detail: mode.label().to_string(),
+    });
+    send_command(worker, model, command);
+}
+
+fn stable_seed(text: &str) -> u64 {
+    text.as_bytes()
+        .iter()
+        .fold(0xcbf29ce484222325_u64, |state, byte| {
+            state.wrapping_mul(0x100000001b3) ^ u64::from(*byte)
+        })
 }
 
 fn send_command(
@@ -794,12 +934,7 @@ fn admit_raster(
     let request = InteractionRequest {
         mode,
         input: PhysicalInput::Raster(surface),
-        capability_ids: vec![
-            "interaction-response".to_string(),
-            "visual-difference".to_string(),
-        ],
-        expected_text: None,
-        academy_note: label.to_string(),
+        academy_note: format!("Unscored raster interaction · {label}"),
     };
     model.write().messages.push(Message {
         speaker: Speaker::Human,
