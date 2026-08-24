@@ -1,0 +1,7 @@
+layer,path,surface
+PX0-PX3+LR-C,crates/lr1-modulatory-physical-return/src/lib.rs,authoritative-physical-foundation
+PX4,arms/px4-lrc-lifetime/src/lib.rs,development-candidate
+PX5,crates/lr1-modulatory-physical-return/src/lib.rs,shared-authoritative-physical-allocation
+PX6,crates/lr1-modulatory-physical-return/src/lib.rs,shared-authoritative-physical-consequence
+PX7,crates/px7-lrc-arrival/src/lib.rs,authoritative-physical-arrival-initiation
+PX8,src/post_m7_ds5_closure_emission.rs,predecessor-target
