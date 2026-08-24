@@ -671,7 +671,8 @@ mod tests {
     fn registered_matrix_passes_in_development() {
         for seed in SEEDS {
             for kind in Kind::ALL {
-                assert!(replay(seed, kind).passed, "{seed} {}", kind.name());
+                let row = replay(seed, kind);
+                assert!(row.passed, "{seed} {} {row:?}", kind.name());
             }
         }
     }
