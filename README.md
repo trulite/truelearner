@@ -10,5 +10,7 @@ and separates it from its research history.
 
 Physical Body V1 preserves the authoritative PX-C physics and adds stable
 arena identity, canonical durable bodies, compaction invariance, and clocked
-quiescent/live restart. Cold storage and distributed execution remain future
-successors.
+quiescent/live restart. Boundary Buffers V1 adds bounded FIFO staging for
+`SpikeInput` and outward `Crossing` values, transactional backpressure, and
+exact buffered live continuation. Cold storage, visual framebuffers, and
+distributed execution remain future successors.

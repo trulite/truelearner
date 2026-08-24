@@ -2,7 +2,7 @@
 
 This document is the architectural oracle for the physical organism runtime.
 
-The PXR0/PX-C scientific lineage and its Physical Body V1 successor are complete and authoritative as of 2026-08-24. Sections 1–3 describe the accepted organism, its resolved runtime boundary, and its current production body. Sections 4–24 preserve forward-runtime intent except for the narrowly accepted V1 arena, identity, checkpoint, and physical-clock facts called out below; they do not authorize further implementation or substrate-law changes.
+The PXR0/PX-C scientific lineage, Physical Body V1, and Boundary Buffers V1 are complete and authoritative as of 2026-08-24. Sections 1–3 describe the accepted organism, its resolved runtime boundary, and its current production body. Sections 4–24 preserve forward-runtime intent except for the narrowly accepted arena, identity, checkpoint, physical-clock, and boundary-buffer facts called out below; they do not authorize further implementation or substrate-law changes.
 
 The authority pins are:
 
@@ -32,9 +32,16 @@ Physical Body V1 result audit
     commit  90e0328d5ca38ad6fa90ac5dc0b3eb215d819a79
     tag     physical-body-v1-authority-result-audit-v1
 
+Boundary Buffers V1 authority evidence
+    commit  a712850
+    result  16/16 rows, 548/548 clauses
+
+Boundary Buffers V1 result audit
+    commit  4b5a85c411655f3f8866cbf5107e40ad6ad1231f
+
 canonical production body
     truelearner/crates/core/src/lib.rs
-    SHA-256 e6767845f27ddb9bb57bfb1fcab6dd1663178449faddc4a630b628e3d1148a8d
+    SHA-256 8a0f0c862a9aa6bfaf74a3a09ca5ee0eb6b3dc95e75ce76e5a136c9a8890ff0a
     truelearner/crates/arena-format/src/lib.rs
     SHA-256 8c35c3c07fe95b2cc76cbe9ceb47d83f250c5e0c7c40481e7371583afa48a812
     two production packages
@@ -44,7 +51,9 @@ canonical production body
 
 PXR0 v2 passed its frozen `466/466` development matrix. PX-C independently passed `524/524` in development and `524/524` in its disjoint authority execution. Physical Body V1 then passed a fresh `540/540` successor authority matrix: all `512` cumulative PX0–PX8 row clauses, all `12` cumulative globals, and all `16` body clauses. Exact replay, natural quiescence, outward-only boundary observation, work and memory bounds, stable identity across compaction, canonical persistence, exact clocked restart, bounded allocation, generation safety, and corrupt-input rejection passed.
 
-Physical Body V1 is now the oracle parent. Future work must begin as an explicitly preregistered successor. After successor authority is established, update this oracle deliberately; do not silently reinterpret it from an experimental branch.
+Boundary Buffers V1 then passed `548/548`: the same `540/540` cumulative and body clauses through bounded buffered execution plus `8/8` input, output, backpressure, ordering, and buffered-checkpoint clauses.
+
+Boundary Buffers V1 is now the oracle parent. Future work must begin as an explicitly preregistered successor. After successor authority is established, update this oracle deliberately; do not silently reinterpret it from an experimental branch.
 
 ---
 
@@ -158,6 +167,13 @@ PHYSICAL BODY
     QuiescentCheckpoint = body + clock
     LiveCheckpoint = body + clock + transient physical state
     pending load availability admitted as a physical tick
+
+BOUNDARY RUNTIME
+    bounded FIFO SpikeInput staging
+    bounded FIFO Crossing staging
+    explicit enqueue → run-to-quiescence → drain
+    transactional output backpressure
+    buffered live checkpoint continuation
 ```
 
 Core physics:
@@ -191,9 +207,12 @@ queue empty
 
 anonymous physical inputs
 → arrive
-→ enter the same spike queue
+→ enter the bounded input buffer
+→ enter the same spike queue when the runtime runs
 → existing physics runs to quiescence
 → already-produced crossings are filtered by outward region
+→ enter the bounded output buffer
+→ drain outward without changing organism physics
 ```
 
 This should remain expressible exhaustively on one page.
@@ -298,11 +317,45 @@ The V1 authority does **not** claim a cold arena cache, actual asynchronous
 storage service, network transport, replication, distributed scheduling,
 foveated sensors, or organism-visible fetch/prefetch/pin behavior.
 
+## G. Boundary Buffers V1
+
+The accepted production boundary now has bounded buffers for ordinary physical
+inputs and outputs:
+
+```text
+host/world SpikeInput
+    → bounded input FIFO
+    → unchanged PlasticSubstrate physics
+    → outward Crossing
+    → bounded output FIFO
+    → host/world drain
+```
+
+Input enqueue is atomic. Output backpressure is transactional: if all crossings
+from the pending physical run cannot fit, the substrate and queued inputs remain
+unchanged. Draining may be partial and preserves FIFO order.
+
+The live boundary checkpoint contains the canonical core live checkpoint plus
+the outward region, buffer capacities, queued inputs, and queued outputs.
+Save/reload therefore cannot lose or duplicate an already-admitted boundary
+event.
+
+These buffers do not interpret, combine, label, or synthesize activity. They
+add no learning or cognitive law. They also do not yet implement the visual
+framebuffers or foveated sensory encoding described in Section 4; those remain
+forward-runtime successors.
+
+The V1 implementation guarantees transactional output backpressure with a
+candidate substrate clone. This is a correctness reference, not a claim that
+whole-body cloning belongs in the eventual hot path. A later performance
+successor may replace it with resumable propagation or another bounded
+zero-loss mechanism only if it preserves the accepted observable behavior.
+
 ---
 
 Everything from Section 4 through Section 24 remains forward-runtime intent
-unless it is exactly one of the Physical Body V1 facts frozen above. Those
-sections are not general implementation authorization.
+unless it is exactly one of the Physical Body V1 or Boundary Buffers V1 facts
+frozen above. Those sections are not general implementation authorization.
 
 ---
 
