@@ -122,11 +122,7 @@ impl BodyVersion {
         put_u16(&mut bytes, FORMAT_VERSION);
         put_u64(&mut bytes, self.version);
         bytes.push(u8::from(self.parent.is_some()));
-        bytes.extend_from_slice(
-            self.parent
-                .unwrap_or(ContentHash([0; 32]))
-                .as_bytes(),
-        );
+        bytes.extend_from_slice(self.parent.unwrap_or(ContentHash([0; 32])).as_bytes());
         put_u32(
             &mut bytes,
             u32::try_from(arenas.len()).map_err(|_| FormatError::CapacityExceeded)?,
