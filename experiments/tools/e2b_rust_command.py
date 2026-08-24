@@ -9,6 +9,7 @@ import argparse
 import os
 from pathlib import Path
 import subprocess
+import uuid
 
 from e2b import Sandbox, SandboxNotFoundException
 
@@ -104,12 +105,14 @@ def main() -> None:
     print(f"sandbox_reused={str(reused).lower()}")
     print(f"commit={commit}")
     try:
-        sandbox.files.write("/tmp/source.tar.gz", archive, use_octet_stream=True)
+        source_archive = f"/tmp/truelearner-source-{uuid.uuid4().hex}.tar.gz"
+        sandbox.files.write(source_archive, archive, use_octet_stream=True)
         setup = (
             "export PATH=/home/user/.cargo/bin:$PATH && "
             "rm -rf /home/user/truelearner && "
             "mkdir -p /home/user/truelearner /home/user/truelearner-target && "
-            "tar -xzf /tmp/source.tar.gz -C /home/user/truelearner && "
+            f"tar -xzf {source_archive} -C /home/user/truelearner && "
+            f"rm -f {source_archive} && "
             "cd /home/user/truelearner && "
             "export CARGO_TARGET_DIR=/home/user/truelearner-target && "
             "export CARGO_INCREMENTAL=0 && "
