@@ -92,12 +92,8 @@ fn evaluate_inner() -> BodyEvidence {
     let mut ordinary = original.clone();
     let ordinary_result = ordinary.arrive(&[input(source, 0)], 1);
     let compacted_result = compacted.arrive(&[input(source, 0)], 1);
-    let compaction_behavior = same_physics(
-        &ordinary,
-        &ordinary_result,
-        &compacted,
-        &compacted_result,
-    );
+    let compaction_behavior =
+        same_physics(&ordinary, &ordinary_result, &compacted, &compacted_result);
 
     let (mut quiet_source, quiet_cell, _, _) = substrate(50);
     quiet_source.advance_time(23);
