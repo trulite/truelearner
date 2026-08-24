@@ -479,10 +479,9 @@ fn build_body(
     seed: u64,
     context_count: usize,
 ) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
-    let cell_capacity = u32::try_from(
-        (context_count.saturating_mul(MOTORS).saturating_mul(3) + 16).max(512),
-    )
-    .map_err(|_| Arc3SensorimotorError("cell capacity exceeds u32".to_string()))?;
+    let cell_capacity =
+        u32::try_from((context_count.saturating_mul(MOTORS).saturating_mul(3) + 16).max(512))
+            .map_err(|_| Arc3SensorimotorError("cell capacity exceeds u32".to_string()))?;
     let arrow_capacity = u32::try_from(
         context_count
             .saturating_mul(MOTORS)
@@ -539,24 +538,12 @@ fn build_body(
             let pair = context.saturating_mul(MOTORS).saturating_add(motor);
             let offset = i32::try_from(pair.saturating_mul(20))
                 .map_err(|_| Arc3SensorimotorError("context position exceeds i32".to_string()))?;
-            candidate_sources[context][motor] = body.add_cell(cell(
-                1_000_000 + pair as u64,
-                100 + offset,
-                0,
-                1,
-            ));
-            context_traces[context][motor] = body.add_cell(cell(
-                2_000_000 + pair as u64,
-                trace_base + offset,
-                0,
-                1,
-            ));
-            relays[context][motor] = body.add_cell(cell(
-                3_000_000 + pair as u64,
-                relay_base + offset,
-                0,
-                3,
-            ));
+            candidate_sources[context][motor] =
+                body.add_cell(cell(1_000_000 + pair as u64, 100 + offset, 0, 1));
+            context_traces[context][motor] =
+                body.add_cell(cell(2_000_000 + pair as u64, trace_base + offset, 0, 1));
+            relays[context][motor] =
+                body.add_cell(cell(3_000_000 + pair as u64, relay_base + offset, 0, 3));
         }
     }
     let motors = std::array::from_fn(|motor| {
@@ -575,12 +562,7 @@ fn build_body(
             1,
         ))
     });
-    let returning = body.add_cell(cell(
-        6_000_000,
-        return_position,
-        0,
-        1,
-    ));
+    let returning = body.add_cell(cell(6_000_000, return_position, 0, 1));
     let mut candidates = vec![[ArrowId(0); MOTORS]; context_count];
     for context in 0..context_count {
         for motor in 0..MOTORS {
