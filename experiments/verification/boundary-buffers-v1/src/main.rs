@@ -534,8 +534,8 @@ fn run_mechanical_differential() {
     for case in AUTHORITY_CASES {
         let reference_started = Instant::now();
         let reference = run(case, MechanicalConfig::REFERENCE, false);
-        reference_elapsed_ns = reference_elapsed_ns
-            .saturating_add(reference_started.elapsed().as_nanos());
+        reference_elapsed_ns =
+            reference_elapsed_ns.saturating_add(reference_started.elapsed().as_nanos());
         add_execution_cost(&mut reference_cost, reference.execution_cost);
         let replayed = run(case, MechanicalConfig::REFERENCE, false);
         assert_eq!(
