@@ -50,7 +50,7 @@ The compiler reported only the upstream future-incompatibility advisory for
 
 ## Visual artifact
 
-`output/academy-playground-macos-bbb-final-candidate.png`
+`output/academy-playground-macos-final.png`
 
 The output directory is intentionally ignored; the screenshot is review
 evidence, not runtime input.
