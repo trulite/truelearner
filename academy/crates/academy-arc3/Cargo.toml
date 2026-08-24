@@ -15,3 +15,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "academy-arc3-ingest"
 path = "src/main.rs"
+
+[[bin]]
+name = "academy-arc3-review"
+path = "src/review.rs"
