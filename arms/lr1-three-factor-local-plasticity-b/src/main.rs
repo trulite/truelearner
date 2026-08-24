@@ -15,6 +15,7 @@ const PX0: &str = "3ee8b2bfc9c9ac2d4b9726d60d93759c66eaeec6cd2e61db7041bde753aad
 const LR0: &str = "96be2143b13eb42bbfe6fda418b312123824e9f57a8904ff89ca6fd64148e6ff";
 const COLLAPSE: &str = "52072394fcf9867f23d1ec982f030fac6d5b5601c8f7294f178098743664b033";
 const PARALLEL_PROTOCOL: &str = "ab7dae326f25cf12cdfb4b8d580f82c13f2afc95ef3000dba9e7d188db339860";
+const EXECUTION_PROTOCOL: &str = "27e84a06521e21e8d2515f0f02a8d7ca016edbd6e3b6b26cbf5a1e832e2db37d";
 
 const CSV: &str = "results/lr1_three_factor_local_plasticity_arm_b_v1.csv";
 const MD: &str = "results/lr1_three_factor_local_plasticity_arm_b_v1.md";
@@ -161,6 +162,10 @@ fn audit() {
         (
             "experiments/lr1_three_factor_local_plasticity_parallel_arms_protocol_v1.md",
             PARALLEL_PROTOCOL,
+        ),
+        (
+            "experiments/lr1_three_factor_local_plasticity_parallel_execution_protocol_v1.md",
+            EXECUTION_PROTOCOL,
         ),
     ] {
         assert_eq!(sha(path), expected, "frozen input changed: {path}");
