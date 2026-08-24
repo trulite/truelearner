@@ -531,6 +531,7 @@ fn run_mechanical_differential() {
     let mut reference_elapsed_ns = 0u128;
     let mut costs = [ExecutionCost::default(); 5];
     let mut elapsed_ns = [0u128; 5];
+    let mut reference_rows = Vec::new();
     for case in AUTHORITY_CASES {
         let reference_started = Instant::now();
         let reference = run(case, MechanicalConfig::REFERENCE, false);
@@ -542,6 +543,12 @@ fn run_mechanical_differential() {
             reference, replayed,
             "reference replay diverged for {case:?}"
         );
+        let reference_row = row(reference.clone(), true, true);
+        assert!(
+            reference_row.passed,
+            "accepted behavioral clauses regressed for {case:?}"
+        );
+        reference_rows.push(reference_row);
         for (config_index, config) in configs.into_iter().enumerate() {
             let started = Instant::now();
             let candidate = run(case, config, false);
@@ -564,8 +571,19 @@ fn run_mechanical_differential() {
             comparisons += 1;
         }
     }
+    let body = body::evaluate();
+    let buffers = buffers::evaluate();
+    assert!(
+        body.clauses.into_iter().all(|value| value),
+        "physical-body regression clause failed"
+    );
+    assert!(
+        buffers.clauses.into_iter().all(|value| value),
+        "boundary-buffer regression clause failed"
+    );
+    assert_eq!(reference_rows.len(), 16);
     println!(
-        "R1_R5_MECHANICAL_DIFFERENTIAL_PASS cases={} comparisons={comparisons}",
+        "R1_R5_MECHANICAL_DIFFERENTIAL_PASS cases={} comparisons={comparisons} behavioral_clauses=536/536",
         AUTHORITY_CASES.len()
     );
     println!(
