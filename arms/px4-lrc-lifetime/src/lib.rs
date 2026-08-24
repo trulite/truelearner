@@ -35,11 +35,8 @@ pub fn field(mark: u64, flip: bool, mirror: bool, mode: TransmissionMode) -> Fie
     let regions = [10, 20, 30];
     let mut cells = [None; 3];
     for index in order {
-        cells[index] = Some(space.add_cell(cell(
-            physical[index],
-            positions[index],
-            regions[index],
-        )));
+        cells[index] =
+            Some(space.add_cell(cell(physical[index], positions[index], regions[index])));
     }
     let [source, effect, returner] = cells.map(|item| item.unwrap());
     space.add_arrow(arrow(returner, source, 1, 1, 100, mode));
@@ -67,14 +64,10 @@ pub fn fork(mark: u64, flip: bool, mirror: bool) -> Fork {
     let regions = [10, 20, 30, 40, 50];
     let mut cells = [None; 5];
     for index in order {
-        cells[index] = Some(space.add_cell(cell(
-            physical[index],
-            positions[index],
-            regions[index],
-        )));
+        cells[index] =
+            Some(space.add_cell(cell(physical[index], positions[index], regions[index])));
     }
-    let [source_a, effect_a, source_b, effect_b, returner] =
-        cells.map(|item| item.unwrap());
+    let [source_a, effect_a, source_b, effect_b, returner] = cells.map(|item| item.unwrap());
     space.add_arrow(arrow(
         returner,
         source_a,
@@ -140,4 +133,3 @@ fn arrow(
         mode,
     }
 }
-

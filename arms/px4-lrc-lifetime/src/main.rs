@@ -193,13 +193,7 @@ impl Stage {
                 (152_102, true, true),
             ],
             Self::Gate => (0..8)
-                .map(|index| {
-                    (
-                        153_001 + index as u64,
-                        index % 2 == 1,
-                        (index / 2) % 2 == 1,
-                    )
-                })
+                .map(|index| (153_001 + index as u64, index % 2 == 1, (index / 2) % 2 == 1))
                 .collect(),
         }
     }
@@ -222,9 +216,9 @@ fn main() {
     let all_layouts = rows
         .iter()
         .all(|row| row.core.curve.resistance == rows[0].core.curve.resistance)
-        && rows.iter().all(|row| {
-            row.core.curve.deallocation_steps == rows[0].core.curve.deallocation_steps
-        });
+        && rows
+            .iter()
+            .all(|row| row.core.curve.deallocation_steps == rows[0].core.curve.deallocation_steps);
     let passed = all_layouts && rows.iter().all(|row| row.passed);
     let csv = csv(stage, &rows, all_layouts, passed);
     let markdown = markdown(stage, &rows, all_layouts, passed);
@@ -316,8 +310,8 @@ fn one_exposure(mark: u64, flip: bool, mirror: bool) -> OneExposure {
     let late_first = expose(&mut late, 0, false);
     let late_arrow = only_candidate(&late);
     let late_second = return_only(&mut late, 6);
-    let late_return_rejected = !late.space.arrow_is_live(late_arrow)
-        && late_second.work.local_return_updates == 0;
+    let late_return_rejected =
+        !late.space.arrow_is_live(late_arrow) && late_second.work.local_return_updates == 0;
 
     let mut drive = field(mark + 400, flip, mirror, TransmissionMode::Drive);
     let drive_flow = expose(&mut drive, 0, true);
@@ -367,21 +361,21 @@ fn curve(mark: u64, flip: bool, mirror: bool) -> Curve {
         }
         let mut before = world.clone();
         before.space.advance_time(
-            pressure_tick
-                + i64::from(resistance[index].saturating_sub(1)).saturating_mul(10),
+            pressure_tick + i64::from(resistance[index].saturating_sub(1)).saturating_mul(10),
         );
         penultimate_live[index] = before.space.arrow_is_live(candidate);
         let mut after = world.clone();
-        after.space.advance_time(
-            pressure_tick + i64::from(resistance[index]).saturating_mul(10),
-        );
+        after
+            .space
+            .advance_time(pressure_tick + i64::from(resistance[index]).saturating_mul(10));
         final_dead[index] = !after.space.arrow_is_live(candidate);
-        fingerprint ^= after.space.complete_fingerprint().rotate_left(index as u32 * 7);
+        fingerprint ^= after
+            .space
+            .complete_fingerprint()
+            .rotate_left(index as u32 * 7);
     }
     let strict = resistance.windows(2).all(|pair| pair[0] < pair[1])
-        && deallocation_steps
-            .windows(2)
-            .all(|pair| pair[0] < pair[1]);
+        && deallocation_steps.windows(2).all(|pair| pair[0] < pair[1]);
     Curve {
         resistance,
         deallocation_steps,
@@ -474,20 +468,8 @@ fn shift(mark: u64, flip: bool, mirror: bool) -> Shift {
 
 fn stale(mark: u64, flip: bool, mirror: bool) -> Stale {
     let mut world = field(mark, flip, mirror, TransmissionMode::Modulatory);
-    arrive(
-        &mut world.space,
-        world.source,
-        9,
-        1,
-        world.mark + 1_000,
-    );
-    arrive(
-        &mut world.space,
-        world.source,
-        10,
-        2,
-        world.mark + 2_000,
-    );
+    arrive(&mut world.space, world.source, 9, 1, world.mark + 1_000);
+    arrive(&mut world.space, world.source, 10, 2, world.mark + 2_000);
     let flow = Flow::one(world.space.propagate());
     let arrows = world.space.arrows_between(world.source, world.effect);
     let old = arrows[0];
@@ -514,7 +496,10 @@ fn stale(mark: u64, flip: bool, mirror: bool) -> Stale {
 fn direction_check(mark: u64, flip: bool, mirror: bool) -> bool {
     let mut world = field(mark, flip, mirror, TransmissionMode::Modulatory);
     let flow = expose(&mut world, 0, true);
-    world.space.arrows_between(world.effect, world.source).is_empty()
+    world
+        .space
+        .arrows_between(world.effect, world.source)
+        .is_empty()
         && world.space.arrows_between(world.source, world.effect).len() == 1
         && crossing_impulse(
             &flow.crossings,
@@ -523,12 +508,7 @@ fn direction_check(mark: u64, flip: bool, mirror: bool) -> bool {
         ) == 1
 }
 
-fn trained(
-    mark: u64,
-    flip: bool,
-    mirror: bool,
-    count: usize,
-) -> (Field, ArrowId, Vec<Flow>, i64) {
+fn trained(mark: u64, flip: bool, mirror: bool, count: usize) -> (Field, ArrowId, Vec<Flow>, i64) {
     let mut world = field(mark, flip, mirror, TransmissionMode::Modulatory);
     let mut flows = Vec::new();
     for index in 0..count {
@@ -728,7 +708,10 @@ fn publish_pair(base: &str, csv: &str, markdown: &str) {
     let csv_path = format!("{base}.csv");
     let markdown_path = format!("{base}.md");
     assert!(!Path::new(&csv_path).exists(), "CSV already exists");
-    assert!(!Path::new(&markdown_path).exists(), "Markdown already exists");
+    assert!(
+        !Path::new(&markdown_path).exists(),
+        "Markdown already exists"
+    );
     let csv_stage = format!("{base}.csv.staging");
     let markdown_stage = format!("{base}.md.staging");
     write_new(&csv_stage, csv);
@@ -748,10 +731,7 @@ fn write_new(path: &str, content: &str) {
 }
 
 fn verify_frozen_inputs() {
-    require_hash(
-        "crates/lr1-modulatory-physical-return/src/lib.rs",
-        LAW_HASH,
-    );
+    require_hash("crates/lr1-modulatory-physical-return/src/lib.rs", LAW_HASH);
     require_hash(
         "experiments/px3_lrc_physical_event_organization_authority_handoff_v2.md",
         HANDOFF_HASH,
@@ -766,7 +746,11 @@ fn require_hash(path: &str, required: &str) {
     let output = Command::new("sha256sum").arg(path).output().unwrap();
     assert!(output.status.success(), "sha256sum failed for {path}");
     let actual = String::from_utf8(output.stdout).unwrap();
-    assert_eq!(actual.split_whitespace().next().unwrap(), required, "{path}");
+    assert_eq!(
+        actual.split_whitespace().next().unwrap(),
+        required,
+        "{path}"
+    );
 }
 
 #[allow(dead_code)]
