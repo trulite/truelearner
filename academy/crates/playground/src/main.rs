@@ -73,13 +73,16 @@ impl Default for UiModel {
 
 #[component]
 fn App() -> Element {
-    let worker = use_hook(|| Arc::new(Mutex::new(AcademyWorker::spawn().expect("Academy worker must start"))));
+    let worker = use_hook(|| {
+        Arc::new(Mutex::new(
+            AcademyWorker::spawn().expect("Academy worker must start"),
+        ))
+    });
     let mut model = use_signal(UiModel::default);
     let mut composer = use_signal(String::new);
     let mut shared_surface = use_signal(VisualSurface::blank);
-    let mut organism_surface = use_signal(|| {
-        VisualSurface::new(SURFACE_WIDTH, SURFACE_HEIGHT, [24, 31, 37, 255])
-    });
+    let mut organism_surface =
+        use_signal(|| VisualSurface::new(SURFACE_WIDTH, SURFACE_HEIGHT, [24, 31, 37, 255]));
     let mut drawing = use_signal(|| false);
     let mut last_point = use_signal(|| None::<(u32, u32)>);
 
@@ -612,7 +615,11 @@ fn Metric(term: String, value: String) -> Element {
     }
 }
 
-fn apply_worker_event(event: AcademyEvent, model: &mut Signal<UiModel>, organism_surface: &mut Signal<VisualSurface>) {
+fn apply_worker_event(
+    event: AcademyEvent,
+    model: &mut Signal<UiModel>,
+    organism_surface: &mut Signal<VisualSurface>,
+) {
     match event {
         AcademyEvent::Ready(snapshot) => {
             update_snapshot(model, *snapshot);
@@ -622,15 +629,26 @@ fn apply_worker_event(event: AcademyEvent, model: &mut Signal<UiModel>, organism
             state.messages.push(Message {
                 speaker: Speaker::Academy,
                 title: "Academy".to_string(),
-                body: "The production body is resident across eight causally inert execution arenas.".to_string(),
+                body:
+                    "The production body is resident across eight causally inert execution arenas."
+                        .to_string(),
                 detail: "Ready · selected production mechanics".to_string(),
             });
         }
-        AcademyEvent::Completed { record, organism_surface: output, snapshot } => {
+        AcademyEvent::Completed {
+            record,
+            organism_surface: output,
+            snapshot,
+        } => {
             let record = *record;
-            let result = record.probe_passed.map(|passed| if passed { "PASS" } else { "NOT YET" });
+            let result = record
+                .probe_passed
+                .map(|passed| if passed { "PASS" } else { "NOT YET" });
             let body = if record.organism_text.is_empty() {
-                format!("{} outward crossing(s); no text decoded.", record.crossings.len())
+                format!(
+                    "{} outward crossing(s); no text decoded.",
+                    record.crossings.len()
+                )
             } else {
                 record.organism_text.clone()
             };
@@ -639,7 +657,13 @@ fn apply_worker_event(event: AcademyEvent, model: &mut Signal<UiModel>, organism
                 title: "TrueLearner outward activity".to_string(),
                 body,
                 detail: result.map_or_else(
-                    || format!("{} work · {} crossing(s)", record.physical_work, record.crossings.len()),
+                    || {
+                        format!(
+                            "{} work · {} crossing(s)",
+                            record.physical_work,
+                            record.crossings.len()
+                        )
+                    },
                     |result| format!("Academy probe {result} · {} work", record.physical_work),
                 ),
             });
@@ -649,29 +673,47 @@ fn apply_worker_event(event: AcademyEvent, model: &mut Signal<UiModel>, organism
             state.status = "Body quiescent".to_string();
             state.busy = false;
         }
-        AcademyEvent::CheckpointSaved { body_version, snapshot } => {
+        AcademyEvent::CheckpointSaved {
+            body_version,
+            snapshot,
+        } => {
             update_snapshot(model, *snapshot);
             let mut state = model.write();
             state.status = "Checkpoint saved".to_string();
             state.replay_message = format!("Saved exact live checkpoint at body v{body_version}");
             state.busy = false;
         }
-        AcademyEvent::CheckpointRestored { body_version, snapshot } => {
+        AcademyEvent::CheckpointRestored {
+            body_version,
+            snapshot,
+        } => {
             update_snapshot(model, *snapshot);
             let mut state = model.write();
             state.status = "Checkpoint restored".to_string();
-            state.replay_message = format!("Restored body as v{body_version}; production mechanics reapplied");
+            state.replay_message =
+                format!("Restored body as v{body_version}; production mechanics reapplied");
             state.busy = false;
         }
         AcademyEvent::ReplayVerified { outcome, snapshot } => {
             let outcome = *outcome;
             update_snapshot(model, *snapshot);
             let mut state = model.write();
-            state.status = if outcome.exact { "Replay exact" } else { "Replay diverged" }.to_string();
-            state.replay_message = if outcome.exact {
-                format!("Exact physical replay · tick {} · work {}", outcome.observed_clock, outcome.observed_work)
+            state.status = if outcome.exact {
+                "Replay exact"
             } else {
-                format!("Replay diverged · expected {}, observed {}", outcome.expected_body, outcome.observed_body)
+                "Replay diverged"
+            }
+            .to_string();
+            state.replay_message = if outcome.exact {
+                format!(
+                    "Exact physical replay · tick {} · work {}",
+                    outcome.observed_clock, outcome.observed_work
+                )
+            } else {
+                format!(
+                    "Replay diverged · expected {}, observed {}",
+                    outcome.expected_body, outcome.observed_body
+                )
             };
             state.busy = false;
         }
@@ -686,7 +728,11 @@ fn update_snapshot(model: &mut Signal<UiModel>, snapshot: SessionSnapshot) {
     state.timeline = snapshot.timeline;
 }
 
-fn send_command(worker: &Arc<Mutex<AcademyWorker>>, model: &mut Signal<UiModel>, command: AcademyCommand) {
+fn send_command(
+    worker: &Arc<Mutex<AcademyWorker>>,
+    model: &mut Signal<UiModel>,
+    command: AcademyCommand,
+) {
     match worker.lock() {
         Ok(locked) => match locked.try_command(command) {
             Ok(()) => {
@@ -710,7 +756,10 @@ fn admit_raster(
     let request = InteractionRequest {
         mode,
         input: PhysicalInput::Raster(surface),
-        capability_ids: vec!["interaction-response".to_string(), "visual-difference".to_string()],
+        capability_ids: vec![
+            "interaction-response".to_string(),
+            "visual-difference".to_string(),
+        ],
         expected_text: None,
         academy_note: format!("{label}; raster pixels admitted without file or DOM semantics"),
     };
