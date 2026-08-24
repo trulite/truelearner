@@ -479,8 +479,11 @@ fn build_body(
     seed: u64,
     context_count: usize,
 ) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
-    let cell_capacity = context_count.saturating_mul(MOTORS).saturating_mul(3) + 16;
-    let arrow_capacity = context_count.saturating_mul(MOTORS).saturating_mul(5) + 16;
+    let cell_capacity = u32::try_from(context_count.saturating_mul(MOTORS).saturating_mul(3) + 16)
+        .map_err(|_| Arc3SensorimotorError("cell capacity exceeds u32".to_string()))?;
+    let arrow_capacity =
+        u32::try_from(context_count.saturating_mul(MOTORS).saturating_mul(5) + 16)
+            .map_err(|_| Arc3SensorimotorError("arrow capacity exceeds u32".to_string()))?;
     let mut body = PlasticSubstrate::with_mechanics(
         ArenaId(seed),
         cell_capacity,
