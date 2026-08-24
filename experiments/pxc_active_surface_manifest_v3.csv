@@ -1,0 +1,8 @@
+layer,path,surface
+PX0-PX3+LR-C,crates/lr1-modulatory-physical-return/src/lib.rs,authoritative-physical-foundation
+PX4,arms/px4-lrc-lifetime/src/lib.rs,development-candidate
+PX5,crates/lr1-modulatory-physical-return/src/lib.rs,shared-authoritative-physical-allocation
+PX6,src/ds8_cumulative_semantic_credit_probe.rs,predecessor-target
+PX6,src/ds8_cumulative_semantic_credit_gate.rs,predecessor-target
+PX7,src/post_m6_ds4_arrival_initiation.rs,predecessor-target
+PX8,src/post_m7_ds5_closure_emission.rs,predecessor-target
