@@ -302,9 +302,7 @@ impl Arc3Sensorimotor {
                         SensorMode::DominantPalette if index < MOTORS as u64 => {
                             u8::try_from(index).ok()
                         }
-                        SensorMode::SpatialFingerprint => {
-                            u8::try_from(index % MOTORS as u64).ok()
-                        }
+                        SensorMode::SpatialFingerprint => u8::try_from(index % MOTORS as u64).ok(),
                         SensorMode::DominantPalette => None,
                     })
             })
