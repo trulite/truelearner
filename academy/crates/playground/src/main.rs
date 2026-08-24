@@ -87,20 +87,23 @@ fn App() -> Element {
     let mut last_point = use_signal(|| None::<(u32, u32)>);
 
     let polling_worker = Arc::clone(&worker);
-    use_future(move || async move {
-        loop {
-            let mut events = Vec::new();
-            if let Ok(locked) = polling_worker.lock() {
-                while let Ok(Some(event)) = locked.try_event() {
-                    events.push(event);
+    use_future(move || {
+        let polling_worker = Arc::clone(&polling_worker);
+        async move {
+            loop {
+                let mut events = Vec::new();
+                if let Ok(locked) = polling_worker.lock() {
+                    while let Ok(Some(event)) = locked.try_event() {
+                        events.push(event);
+                    }
                 }
-            }
-            if !events.is_empty() {
-                for event in events {
-                    apply_worker_event(event, &mut model, &mut organism_surface);
+                if !events.is_empty() {
+                    for event in events {
+                        apply_worker_event(event, &mut model, &mut organism_surface);
+                    }
                 }
+                Delay::new(Duration::from_millis(48)).await;
             }
-            Delay::new(Duration::from_millis(48)).await;
         }
     });
 
