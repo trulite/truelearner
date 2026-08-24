@@ -502,7 +502,10 @@ fn run_mechanical_differential() {
     for case in AUTHORITY_CASES {
         let reference = run(case, MechanicalConfig::REFERENCE);
         let replayed = run(case, MechanicalConfig::REFERENCE);
-        assert_eq!(reference, replayed, "reference replay diverged for {case:?}");
+        assert_eq!(
+            reference, replayed,
+            "reference replay diverged for {case:?}"
+        );
         for config in configs {
             let candidate = run(case, config);
             let candidate_replay = run(case, config);
