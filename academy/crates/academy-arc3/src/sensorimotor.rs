@@ -249,7 +249,11 @@ impl Arc3Sensorimotor {
 
         let context = self.sensor_context(&frame)?;
         let context_index = usize::from(context);
-        let start = self.boundary.substrate().clock().tick.saturating_add(1);
+        let current_tick = self.boundary.substrate().clock().tick;
+        let start = match self.sensor_mode {
+            SensorMode::DominantPalette => current_tick.saturating_add(1),
+            SensorMode::SpatialFingerprint => current_tick,
+        };
         let mut inputs = Vec::with_capacity(available_motors.len().saturating_mul(2) + 1);
         for motor in &available_motors {
             inputs.push(SpikeInput {

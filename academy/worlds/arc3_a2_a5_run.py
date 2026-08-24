@@ -30,6 +30,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--report-output", type=Path, required=True)
     parser.add_argument("--replay-output", type=Path)
     parser.add_argument("--stop-after-a3", action="store_true")
+    parser.add_argument("--initial-gap", type=int, default=0)
     return parser.parse_args()
 
 
@@ -176,6 +177,7 @@ def run_ladder(
     seed: int,
     held_out_seed: int,
     stop_after_a3: bool,
+    initial_gap: int,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     arcade = arc_agi.Arcade()
     agent = Agent.start(agent_path, seed)
@@ -184,6 +186,8 @@ def run_ladder(
     first_failure: str | None = None
     try:
         agent.command({"command": "reset_body"})
+        if initial_gap:
+            agent.command({"command": "advance_gap", "ticks": initial_gap})
         instance, observation = environment(arcade, game, seed)
         development_turns: list[dict[str, Any]] = []
         action_turns: list[list[dict[str, Any]]] = [[] for _ in CURRICULUM]
@@ -538,6 +542,7 @@ def run_ladder(
         "game_id": game,
         "development_seed": seed,
         "held_out_seed": held_out_seed,
+        "initial_gap": initial_gap,
         "curriculum": CURRICULUM,
         "first_failure": first_failure,
         "all_gates_passed": first_failure is None and not stop_after_a3,
@@ -555,11 +560,23 @@ def canonical_bytes(value: dict[str, Any]) -> bytes:
 
 def main() -> None:
     args = arguments()
+    if args.initial_gap < 0:
+        raise SystemExit("--initial-gap must be non-negative")
     first_suite, first_report = run_ladder(
-        args.agent, args.game, args.seed, args.held_out_seed, args.stop_after_a3
+        args.agent,
+        args.game,
+        args.seed,
+        args.held_out_seed,
+        args.stop_after_a3,
+        args.initial_gap,
     )
     replay_suite, replay_report = run_ladder(
-        args.agent, args.game, args.seed, args.held_out_seed, args.stop_after_a3
+        args.agent,
+        args.game,
+        args.seed,
+        args.held_out_seed,
+        args.stop_after_a3,
+        args.initial_gap,
     )
     if canonical_bytes(first_suite) != canonical_bytes(replay_suite):
         raise SystemExit("ARC3 A2-A5 suite replay diverged")
