@@ -1,6 +1,7 @@
 use pxr0_physical_runtime::{
     ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, CheckpointError, ContentHash, LiveCheckpoint,
-    PendingLoad, PlasticSubstrate, QuiescentCheckpoint, SpikeInput, TransmissionMode,
+    PendingLoad, PlasticSubstrate, QuiescentCheckpoint, RunResult, SpikeInput, TransmissionMode,
+    Work,
 };
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use truelearner_arena_format::{ArenaBody, ArenaVersion, BodyVersion, Generation};
@@ -89,8 +90,14 @@ fn evaluate_inner() -> BodyEvidence {
         && arrow_slot_after.is_some()
         && compacted.arrow_reference(arrow) == arrow_reference;
     let mut ordinary = original.clone();
-    let compaction_behavior =
-        ordinary.arrive(&[input(source, 0)], 1) == compacted.arrive(&[input(source, 0)], 1);
+    let ordinary_result = ordinary.arrive(&[input(source, 0)], 1);
+    let compacted_result = compacted.arrive(&[input(source, 0)], 1);
+    let compaction_behavior = same_physics(
+        &ordinary,
+        &ordinary_result,
+        &compacted,
+        &compacted_result,
+    );
 
     let (mut quiet_source, quiet_cell, _, _) = substrate(50);
     quiet_source.advance_time(23);
@@ -108,8 +115,14 @@ fn evaluate_inner() -> BodyEvidence {
         .expect("quiescent checkpoint must restore");
     let quiescent_clock_phase = quiet_restored.clock() == quiet_source.clock()
         && quiet_restored.clock().pressure_phase() == 3;
-    let quiescent_future_behavior = quiet_source.arrive(&[input(quiet_cell, 24)], 1)
-        == quiet_restored.arrive(&[input(quiet_cell, 24)], 1);
+    let quiet_source_result = quiet_source.arrive(&[input(quiet_cell, 24)], 1);
+    let quiet_restored_result = quiet_restored.arrive(&[input(quiet_cell, 24)], 1);
+    let quiescent_future_behavior = same_physics(
+        &quiet_source,
+        &quiet_source_result,
+        &quiet_restored,
+        &quiet_restored_result,
+    );
 
     let (mut live_source, live_cell, _, _) = substrate(50);
     live_source.enter(input(live_cell, 5));
@@ -131,8 +144,16 @@ fn evaluate_inner() -> BodyEvidence {
         live_decoded.canonical_bytes().ok().as_deref() == Some(live_bytes.as_slice());
     let mut live_restored =
         PlasticSubstrate::from_live_checkpoint(live_decoded).expect("live checkpoint must restore");
-    let live_pending_continuation =
-        live_restored == live_source && live_restored.propagate() == live_source.propagate();
+    let live_checkpoint_state_equal = live_restored == live_source;
+    let live_restored_result = live_restored.propagate();
+    let live_source_result = live_source.propagate();
+    let live_pending_continuation = live_checkpoint_state_equal
+        && same_physics(
+            &live_source,
+            &live_source_result,
+            &live_restored,
+            &live_restored_result,
+        );
 
     let cell_overflow = catch_unwind(AssertUnwindSafe(|| {
         let mut limited = PlasticSubstrate::with_capacity(ArenaId(84_100_200), 1, 1);
@@ -220,6 +241,29 @@ fn evaluate_inner() -> BodyEvidence {
             current.generation.0,
         ),
     }
+}
+
+fn same_physics(
+    left: &PlasticSubstrate,
+    left_result: &RunResult,
+    right: &PlasticSubstrate,
+    right_result: &RunResult,
+) -> bool {
+    left_result.crossings == right_result.crossings
+        && physical_work(left_result.work) == physical_work(right_result.work)
+        && left.clock() == right.clock()
+        && left.canonical_body_bytes(999).ok() == right.canonical_body_bytes(999).ok()
+        && left_result.naturally_quiescent == right_result.naturally_quiescent
+}
+
+fn physical_work(work: Work) -> [u64; 5] {
+    [
+        work.drive_deliveries,
+        work.modulatory_deliveries,
+        work.local_return_updates,
+        work.local_structural_proposals,
+        work.physical_deallocations,
+    ]
 }
 
 fn substrate(arrow_resistance: u32) -> (PlasticSubstrate, CellId, CellId, ArrowId) {
