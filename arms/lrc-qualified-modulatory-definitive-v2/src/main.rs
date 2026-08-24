@@ -20,8 +20,7 @@ const DEV_SEEDS: [u64; 16] = [
     6101, 6113, 6121, 6131, 6143, 6151, 6163, 6173, 6197, 6203, 6211, 6221, 6229, 6247, 6257, 6263,
 ];
 const AUTH_SEEDS: [u64; 16] = [
-    7103, 7109, 7121, 7127, 7129, 7151, 7159, 7177, 7187, 7193, 7207, 7211, 7213, 7219,
-    7229, 7237,
+    7103, 7109, 7121, 7127, 7129, 7151, 7159, 7177, 7187, 7193, 7207, 7211, 7213, 7219, 7229, 7237,
 ];
 const BASE: u64 = 0x7_4400_0000_0000;
 
@@ -373,7 +372,9 @@ fn surface() {
     assert_eq!(CASES.into_iter().collect::<BTreeSet<_>>().len(), 31);
     assert_eq!(DEV_SEEDS.into_iter().collect::<BTreeSet<_>>().len(), 16);
     assert_eq!(AUTH_SEEDS.into_iter().collect::<BTreeSet<_>>().len(), 16);
-    assert!(DEV_SEEDS.into_iter().all(|seed| !AUTH_SEEDS.contains(&seed)));
+    assert!(DEV_SEEDS
+        .into_iter()
+        .all(|seed| !AUTH_SEEDS.contains(&seed)));
     assert_eq!(CASES.iter().filter(|c| c.suite == Suite::Law).count(), 12);
     assert_eq!(CASES.iter().filter(|c| c.suite == Suite::Px0).count(), 6);
     assert_eq!(CASES.iter().filter(|c| c.suite == Suite::Px1).count(), 6);
@@ -1252,9 +1253,7 @@ fn namespace(seed: u64, case: Case) -> u64 {
 }
 
 fn return_delay(seed: u64) -> i64 {
-    i64::try_from(seed_position(seed) % 4)
-    .expect("small delay")
-        + 1
+    i64::try_from(seed_position(seed) % 4).expect("small delay") + 1
 }
 
 fn seed_position(seed: u64) -> usize {
