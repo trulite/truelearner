@@ -3,8 +3,8 @@
 use academy_core::{
     A1Experience, A1ExperienceKind, A1ProbeFamily, AcademyCommand, AcademyEvent, AcademyWorker,
     Capability, CapabilityGraph, ExperienceMode, ExperienceRecord, InspectorSnapshot,
-    InteractionRequest, PhysicalInput, SessionSnapshot, TeachingCase, VisualSurface, SURFACE_HEIGHT,
-    SURFACE_WIDTH,
+    InteractionRequest, PhysicalInput, SessionSnapshot, TeachingCase, VisualSurface,
+    SURFACE_HEIGHT, SURFACE_WIDTH,
 };
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
@@ -874,11 +874,7 @@ fn update_snapshot(model: &mut Signal<UiModel>, snapshot: SessionSnapshot) {
     state.a1_timeline = snapshot.a1_timeline;
 }
 
-fn submit_text(
-    worker: &Arc<Mutex<AcademyWorker>>,
-    model: &mut Signal<UiModel>,
-    text: &str,
-) {
+fn submit_text(worker: &Arc<Mutex<AcademyWorker>>, model: &mut Signal<UiModel>, text: &str) {
     let mode = model.read().mode;
     let command = if mode == ExperienceMode::Teach {
         AcademyCommand::StartAndTeach(TeachingCase::generated_text(stable_seed(text)))

@@ -3,9 +3,9 @@
 //! This crate is intentionally outside `truelearner-core`: object storage is
 //! Academy infrastructure and has no effect on organism physics.
 
+use academy_core::A1Experience;
 use aws_config::{BehaviorVersion, Region};
 use aws_sdk_s3::{primitives::ByteStream, Client};
-use academy_core::A1Experience;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{env, error::Error, fmt};

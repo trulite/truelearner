@@ -893,17 +893,17 @@ impl AcademySession {
             ),
             A1ExperienceKind::Probe(_) => {}
         }
-        self.crossing_total = self.crossing_total.saturating_add(
-            u64::try_from(experience.crossings.len()).unwrap_or(u64::MAX),
-        );
+        self.crossing_total = self
+            .crossing_total
+            .saturating_add(u64::try_from(experience.crossings.len()).unwrap_or(u64::MAX));
         self.work_total = self
             .work_total
             .saturating_add(experience.observation.physical_work);
         self.last_run_work = experience.observation.physical_work;
         self.experience_sequence = self.experience_sequence.saturating_add(1);
-        self.body_version = self.body_version.saturating_add(
-            u64::from(experience.observation.body_before != experience.observation.body_after),
-        );
+        self.body_version = self.body_version.saturating_add(u64::from(
+            experience.observation.body_before != experience.observation.body_after,
+        ));
         if self.a1_timeline.len() == 64 {
             self.a1_timeline.pop_front();
         }
@@ -959,25 +959,33 @@ impl AcademySession {
         Ok(SessionSnapshot {
             inspector: InspectorSnapshot {
                 body_version: self.body_version,
-                body_fingerprint: lab
-                    .as_ref()
-                    .map_or_else(|| short_hash(ContentHash::of(&body_bytes).as_bytes()), |lab| lab.body_fingerprint.clone()),
+                body_fingerprint: lab.as_ref().map_or_else(
+                    || short_hash(ContentHash::of(&body_bytes).as_bytes()),
+                    |lab| lab.body_fingerprint.clone(),
+                ),
                 physical_tick: lab
                     .as_ref()
-                    .map_or(self.boundary.substrate().clock().tick, |lab| lab.physical_tick),
+                    .map_or(self.boundary.substrate().clock().tick, |lab| {
+                        lab.physical_tick
+                    }),
                 pressure_phase: lab
                     .as_ref()
-                    .map_or(self.boundary.substrate().clock().pressure_phase(), |lab| lab.pressure_phase),
+                    .map_or(self.boundary.substrate().clock().pressure_phase(), |lab| {
+                        lab.pressure_phase
+                    }),
                 pending_inputs: self.boundary.input_len(),
                 pending_outputs: self.boundary.output_len(),
-                resident_arenas: lab.as_ref().map_or(
-                    self.boundary.substrate().resident_arena_count(),
-                    |lab| lab.resident_arenas,
-                ),
+                resident_arenas: lab
+                    .as_ref()
+                    .map_or(self.boundary.substrate().resident_arena_count(), |lab| {
+                        lab.resident_arenas
+                    }),
                 active_arena_max: self.last_active_arena_max,
                 crossing_total: self.crossing_total,
                 physical_work_total: self.work_total,
-                durable_bytes: lab.as_ref().map_or(body_bytes.len(), |lab| lab.durable_bytes),
+                durable_bytes: lab
+                    .as_ref()
+                    .map_or(body_bytes.len(), |lab| lab.durable_bytes),
                 last_run_bytes: self.last_run_bytes,
                 last_run_work: self.last_run_work,
                 queue_backpressure: self.queue_backpressure,
@@ -1175,12 +1183,15 @@ impl AcademyWorker {
                             send_event(&event_sender, event);
                         }
                         AcademyCommand::ReplayExperience(experience_id) => {
-                            let event = session.replay_experience(&experience_id).and_then(|outcome| {
-                                Ok(AcademyEvent::A1ReplayVerified {
-                                    outcome: Box::new(outcome),
-                                    snapshot: Box::new(session.snapshot()?),
-                                })
-                            });
+                            let event =
+                                session
+                                    .replay_experience(&experience_id)
+                                    .and_then(|outcome| {
+                                        Ok(AcademyEvent::A1ReplayVerified {
+                                            outcome: Box::new(outcome),
+                                            snapshot: Box::new(session.snapshot()?),
+                                        })
+                                    });
                             send_event(&event_sender, event);
                         }
                         AcademyCommand::Shutdown => break,
@@ -1572,7 +1583,11 @@ mod tests {
         assert_eq!(snapshot.a1_timeline.len(), 2);
         assert_eq!(snapshot.active_teaching_case.unwrap().seed, 0xa1);
         assert_eq!(
-            snapshot.capabilities.capability("novel-binding").unwrap().status,
+            snapshot
+                .capabilities
+                .capability("novel-binding")
+                .unwrap()
+                .status,
             CapabilityStatus::Emerging
         );
     }
