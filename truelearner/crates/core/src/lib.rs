@@ -17,6 +17,9 @@ const LOCAL_VARIATION_RADIUS: i32 = 2;
 const COUPLING_PLASTICITY_CEILING: u32 = 16;
 const DEFAULT_CELL_CAPACITY: u32 = 65_536;
 const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
+const CHECKPOINT_VERSION: u16 = 1;
+const QUIESCENT_MAGIC: &[u8; 8] = b"TLQUIE01";
+const LIVE_MAGIC: &[u8; 8] = b"TLLIVE01";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CellSlot(pub usize);
@@ -213,11 +216,236 @@ pub enum CheckpointError {
     MissingCell(CellId),
     MissingArrow(ArrowId),
     ManifestMismatch,
+    Truncated,
+    WrongMagic,
+    UnsupportedCheckpointVersion(u16),
+    InvalidCheckpoint,
+    Checksum,
+    TrailingBytes,
 }
 
 impl From<FormatError> for CheckpointError {
     fn from(error: FormatError) -> Self {
         Self::Format(error)
+    }
+}
+
+impl QuiescentCheckpoint {
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CheckpointError> {
+        validate_manifest(&self.body_version, &self.body)?;
+        let manifest = self.body_version.canonical_bytes()?;
+        let body = self.body.canonical_bytes()?;
+        let mut payload = Vec::with_capacity(manifest.len() + body.len());
+        payload.extend_from_slice(&manifest);
+        payload.extend_from_slice(&body);
+        let mut bytes = Vec::with_capacity(66 + payload.len());
+        bytes.extend_from_slice(QUIESCENT_MAGIC);
+        checkpoint_put_u16(&mut bytes, CHECKPOINT_VERSION);
+        checkpoint_put_i64(&mut bytes, self.clock.tick);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(manifest.len())?);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(body.len())?);
+        bytes.extend_from_slice(ContentHash::of(&payload).as_bytes());
+        bytes.extend_from_slice(&payload);
+        Ok(bytes)
+    }
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, CheckpointError> {
+        if bytes.len() < 66 {
+            return Err(CheckpointError::Truncated);
+        }
+        if &bytes[..8] != QUIESCENT_MAGIC {
+            return Err(CheckpointError::WrongMagic);
+        }
+        let mut cursor = CheckpointCursor::new(bytes, 8);
+        let version = cursor.u16()?;
+        if version != CHECKPOINT_VERSION {
+            return Err(CheckpointError::UnsupportedCheckpointVersion(version));
+        }
+        let tick = cursor.i64()?;
+        let manifest_len = cursor.usize_from_u64()?;
+        let body_len = cursor.usize_from_u64()?;
+        let checksum = ContentHash(cursor.array_32()?);
+        let payload_len = manifest_len
+            .checked_add(body_len)
+            .ok_or(CheckpointError::InvalidCheckpoint)?;
+        let payload = cursor.bytes(payload_len)?;
+        cursor.finish()?;
+        if ContentHash::of(payload) != checksum {
+            return Err(CheckpointError::Checksum);
+        }
+        let body_version = BodyVersion::decode(&payload[..manifest_len])?;
+        let body = ArenaBody::decode(&payload[manifest_len..])?;
+        validate_manifest(&body_version, &body)?;
+        Ok(Self {
+            body_version,
+            body,
+            clock: PhysicalClock { tick },
+        })
+    }
+}
+
+impl LiveCheckpoint {
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CheckpointError> {
+        validate_manifest(&self.body_version, &self.body)?;
+        let manifest = self.body_version.canonical_bytes()?;
+        let body = self.body.canonical_bytes()?;
+        let mut cells = self.cells.clone();
+        cells.sort_by_key(|cell| cell.id);
+        let mut arrows = self.arrows.clone();
+        arrows.sort_by_key(|arrow| arrow.id);
+        let mut pending = self.pending.clone();
+        pending.sort_by_key(|spike| {
+            (
+                spike.arrival_tick,
+                spike.phase,
+                spike.origin_physical,
+                spike.target,
+                spike.serial,
+            )
+        });
+        let mut loads = self.pending_loads.clone();
+        loads.sort_by_key(|load| {
+            (
+                load.availability_tick.unwrap_or(i64::MAX),
+                load.issue_tick,
+                load.arena,
+            )
+        });
+
+        let mut payload = Vec::new();
+        payload.extend_from_slice(&manifest);
+        payload.extend_from_slice(&body);
+        for cell in &cells {
+            checkpoint_put_u64(&mut payload, cell.id.0);
+            checkpoint_put_i32(&mut payload, cell.state);
+            checkpoint_put_i64(&mut payload, cell.last_update_tick);
+            checkpoint_put_i64(&mut payload, cell.refractory_until);
+        }
+        for arrow in &arrows {
+            checkpoint_put_u64(&mut payload, arrow.id.0);
+            checkpoint_put_optional_tick(&mut payload, arrow.eligible_until);
+        }
+        for spike in &pending {
+            encode_spike(&mut payload, spike);
+        }
+        for load in &loads {
+            checkpoint_put_u64(&mut payload, load.arena.0);
+            payload.extend_from_slice(load.version.as_bytes());
+            checkpoint_put_i64(&mut payload, load.issue_tick);
+            checkpoint_put_optional_tick(&mut payload, load.availability_tick);
+            checkpoint_put_u32(
+                &mut payload,
+                checkpoint_len_u32(load.waiting_arrivals.len())?,
+            );
+            for input in &load.waiting_arrivals {
+                encode_input(&mut payload, input);
+            }
+        }
+
+        let mut bytes = Vec::with_capacity(98 + payload.len());
+        bytes.extend_from_slice(LIVE_MAGIC);
+        checkpoint_put_u16(&mut bytes, CHECKPOINT_VERSION);
+        checkpoint_put_i64(&mut bytes, self.clock.tick);
+        checkpoint_put_u64(&mut bytes, self.next_serial);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(manifest.len())?);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(body.len())?);
+        checkpoint_put_u32(&mut bytes, checkpoint_len_u32(cells.len())?);
+        checkpoint_put_u32(&mut bytes, checkpoint_len_u32(arrows.len())?);
+        checkpoint_put_u32(&mut bytes, checkpoint_len_u32(pending.len())?);
+        checkpoint_put_u32(&mut bytes, checkpoint_len_u32(loads.len())?);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(payload.len())?);
+        bytes.extend_from_slice(ContentHash::of(&payload).as_bytes());
+        bytes.extend_from_slice(&payload);
+        Ok(bytes)
+    }
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, CheckpointError> {
+        if bytes.len() < 98 {
+            return Err(CheckpointError::Truncated);
+        }
+        if &bytes[..8] != LIVE_MAGIC {
+            return Err(CheckpointError::WrongMagic);
+        }
+        let mut cursor = CheckpointCursor::new(bytes, 8);
+        let version = cursor.u16()?;
+        if version != CHECKPOINT_VERSION {
+            return Err(CheckpointError::UnsupportedCheckpointVersion(version));
+        }
+        let tick = cursor.i64()?;
+        let next_serial = cursor.u64()?;
+        let manifest_len = cursor.usize_from_u64()?;
+        let body_len = cursor.usize_from_u64()?;
+        let cell_count = cursor.usize_from_u32()?;
+        let arrow_count = cursor.usize_from_u32()?;
+        let pending_count = cursor.usize_from_u32()?;
+        let load_count = cursor.usize_from_u32()?;
+        let payload_len = cursor.usize_from_u64()?;
+        let checksum = ContentHash(cursor.array_32()?);
+        let payload = cursor.bytes(payload_len)?;
+        cursor.finish()?;
+        if ContentHash::of(payload) != checksum {
+            return Err(CheckpointError::Checksum);
+        }
+        let structural_len = manifest_len
+            .checked_add(body_len)
+            .ok_or(CheckpointError::InvalidCheckpoint)?;
+        if structural_len > payload.len() {
+            return Err(CheckpointError::Truncated);
+        }
+        let body_version = BodyVersion::decode(&payload[..manifest_len])?;
+        let body = ArenaBody::decode(&payload[manifest_len..structural_len])?;
+        validate_manifest(&body_version, &body)?;
+        let mut transient = CheckpointCursor::new(payload, structural_len);
+        let mut cells = Vec::with_capacity(cell_count);
+        for _ in 0..cell_count {
+            cells.push(CellRuntime {
+                id: CellId(transient.u64()?),
+                state: transient.i32()?,
+                last_update_tick: transient.i64()?,
+                refractory_until: transient.i64()?,
+            });
+        }
+        let mut arrows = Vec::with_capacity(arrow_count);
+        for _ in 0..arrow_count {
+            arrows.push(ArrowRuntime {
+                id: ArrowId(transient.u64()?),
+                eligible_until: transient.optional_tick()?,
+            });
+        }
+        let mut pending = Vec::with_capacity(pending_count);
+        for _ in 0..pending_count {
+            pending.push(decode_spike(&mut transient)?);
+        }
+        let mut pending_loads = Vec::with_capacity(load_count);
+        for _ in 0..load_count {
+            let arena = ArenaId(transient.u64()?);
+            let version = ContentHash(transient.array_32()?);
+            let issue_tick = transient.i64()?;
+            let availability_tick = transient.optional_tick()?;
+            let waiting_count = transient.usize_from_u32()?;
+            let mut waiting_arrivals = Vec::with_capacity(waiting_count);
+            for _ in 0..waiting_count {
+                waiting_arrivals.push(decode_input(&mut transient)?);
+            }
+            pending_loads.push(PendingLoad {
+                arena,
+                version,
+                issue_tick,
+                availability_tick,
+                waiting_arrivals,
+            });
+        }
+        transient.finish()?;
+        Ok(Self {
+            body_version,
+            body,
+            clock: PhysicalClock { tick },
+            cells,
+            arrows,
+            pending,
+            next_serial,
+            pending_loads,
+        })
     }
 }
 
@@ -1021,6 +1249,188 @@ fn validate_manifest(manifest: &BodyVersion, body: &ArenaBody) -> Result<(), Che
     }
 }
 
+fn checkpoint_put_u16(bytes: &mut Vec<u8>, value: u16) {
+    bytes.extend_from_slice(&value.to_le_bytes());
+}
+
+fn checkpoint_len_u32(length: usize) -> Result<u32, CheckpointError> {
+    u32::try_from(length).map_err(|_| CheckpointError::InvalidCheckpoint)
+}
+
+fn checkpoint_len_u64(length: usize) -> Result<u64, CheckpointError> {
+    u64::try_from(length).map_err(|_| CheckpointError::InvalidCheckpoint)
+}
+
+fn checkpoint_put_u32(bytes: &mut Vec<u8>, value: u32) {
+    bytes.extend_from_slice(&value.to_le_bytes());
+}
+
+fn checkpoint_put_i32(bytes: &mut Vec<u8>, value: i32) {
+    bytes.extend_from_slice(&value.to_le_bytes());
+}
+
+fn checkpoint_put_u64(bytes: &mut Vec<u8>, value: u64) {
+    bytes.extend_from_slice(&value.to_le_bytes());
+}
+
+fn checkpoint_put_i64(bytes: &mut Vec<u8>, value: i64) {
+    bytes.extend_from_slice(&value.to_le_bytes());
+}
+
+fn checkpoint_put_optional_tick(bytes: &mut Vec<u8>, tick: Option<i64>) {
+    bytes.push(u8::from(tick.is_some()));
+    checkpoint_put_i64(bytes, tick.unwrap_or_default());
+}
+
+fn encode_input(bytes: &mut Vec<u8>, input: &SpikeInput) {
+    checkpoint_put_i64(bytes, input.arrival_tick);
+    checkpoint_put_i32(bytes, input.phase);
+    checkpoint_put_u64(bytes, input.origin_physical);
+    checkpoint_put_u64(bytes, input.target.0);
+    checkpoint_put_i32(bytes, input.impulse);
+}
+
+fn decode_input(cursor: &mut CheckpointCursor<'_>) -> Result<SpikeInput, CheckpointError> {
+    Ok(SpikeInput {
+        arrival_tick: cursor.i64()?,
+        phase: cursor.i32()?,
+        origin_physical: cursor.u64()?,
+        target: CellId(cursor.u64()?),
+        impulse: cursor.i32()?,
+    })
+}
+
+fn encode_spike(bytes: &mut Vec<u8>, spike: &Spike) {
+    checkpoint_put_i64(bytes, spike.arrival_tick);
+    checkpoint_put_i32(bytes, spike.phase);
+    checkpoint_put_u64(bytes, spike.origin_physical);
+    checkpoint_put_u64(bytes, spike.target.0);
+    checkpoint_put_u32(bytes, spike.target_generation.0);
+    checkpoint_put_i32(bytes, spike.impulse);
+    checkpoint_put_u64(bytes, spike.serial);
+    bytes.push(u8::from(spike.arrow.is_some()));
+    let (arrow, generation) = spike.arrow.unwrap_or((ArrowId(0), Generation(0)));
+    checkpoint_put_u64(bytes, arrow.0);
+    checkpoint_put_u32(bytes, generation.0);
+}
+
+fn decode_spike(cursor: &mut CheckpointCursor<'_>) -> Result<Spike, CheckpointError> {
+    let arrival_tick = cursor.i64()?;
+    let phase = cursor.i32()?;
+    let origin_physical = cursor.u64()?;
+    let target = CellId(cursor.u64()?);
+    let target_generation = Generation(cursor.u32()?);
+    let impulse = cursor.i32()?;
+    let serial = cursor.u64()?;
+    let arrow_present = cursor.u8()?;
+    if arrow_present > 1 {
+        return Err(CheckpointError::InvalidCheckpoint);
+    }
+    let arrow_id = ArrowId(cursor.u64()?);
+    let arrow_generation = Generation(cursor.u32()?);
+    Ok(Spike {
+        arrival_tick,
+        phase,
+        origin_physical,
+        target,
+        target_generation,
+        impulse,
+        serial,
+        arrow: (arrow_present == 1).then_some((arrow_id, arrow_generation)),
+    })
+}
+
+struct CheckpointCursor<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> CheckpointCursor<'a> {
+    fn new(bytes: &'a [u8], offset: usize) -> Self {
+        Self { bytes, offset }
+    }
+
+    fn take<const N: usize>(&mut self) -> Result<[u8; N], CheckpointError> {
+        let end = self
+            .offset
+            .checked_add(N)
+            .ok_or(CheckpointError::Truncated)?;
+        let value = self
+            .bytes
+            .get(self.offset..end)
+            .ok_or(CheckpointError::Truncated)?;
+        self.offset = end;
+        value.try_into().map_err(|_| CheckpointError::Truncated)
+    }
+
+    fn bytes(&mut self, length: usize) -> Result<&'a [u8], CheckpointError> {
+        let end = self
+            .offset
+            .checked_add(length)
+            .ok_or(CheckpointError::Truncated)?;
+        let value = self
+            .bytes
+            .get(self.offset..end)
+            .ok_or(CheckpointError::Truncated)?;
+        self.offset = end;
+        Ok(value)
+    }
+
+    fn finish(&self) -> Result<(), CheckpointError> {
+        if self.offset == self.bytes.len() {
+            Ok(())
+        } else {
+            Err(CheckpointError::TrailingBytes)
+        }
+    }
+
+    fn u8(&mut self) -> Result<u8, CheckpointError> {
+        Ok(self.take::<1>()?[0])
+    }
+
+    fn u16(&mut self) -> Result<u16, CheckpointError> {
+        Ok(u16::from_le_bytes(self.take()?))
+    }
+
+    fn u32(&mut self) -> Result<u32, CheckpointError> {
+        Ok(u32::from_le_bytes(self.take()?))
+    }
+
+    fn i32(&mut self) -> Result<i32, CheckpointError> {
+        Ok(i32::from_le_bytes(self.take()?))
+    }
+
+    fn u64(&mut self) -> Result<u64, CheckpointError> {
+        Ok(u64::from_le_bytes(self.take()?))
+    }
+
+    fn i64(&mut self) -> Result<i64, CheckpointError> {
+        Ok(i64::from_le_bytes(self.take()?))
+    }
+
+    fn usize_from_u32(&mut self) -> Result<usize, CheckpointError> {
+        usize::try_from(self.u32()?).map_err(|_| CheckpointError::InvalidCheckpoint)
+    }
+
+    fn usize_from_u64(&mut self) -> Result<usize, CheckpointError> {
+        usize::try_from(self.u64()?).map_err(|_| CheckpointError::InvalidCheckpoint)
+    }
+
+    fn array_32(&mut self) -> Result<[u8; 32], CheckpointError> {
+        self.take()
+    }
+
+    fn optional_tick(&mut self) -> Result<Option<i64>, CheckpointError> {
+        let present = self.u8()?;
+        let tick = self.i64()?;
+        match present {
+            0 => Ok(None),
+            1 => Ok(Some(tick)),
+            _ => Err(CheckpointError::InvalidCheckpoint),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1094,7 +1504,10 @@ mod tests {
         substrate.advance_time(23);
         let checkpoint = substrate.quiescent_checkpoint(4).unwrap();
         assert_eq!(checkpoint.clock.pressure_phase(), 3);
-        let mut restored = PlasticSubstrate::from_quiescent_checkpoint(checkpoint).unwrap();
+        let bytes = checkpoint.canonical_bytes().unwrap();
+        let decoded = QuiescentCheckpoint::decode(&bytes).unwrap();
+        assert_eq!(decoded.canonical_bytes().unwrap(), bytes);
+        let mut restored = PlasticSubstrate::from_quiescent_checkpoint(decoded).unwrap();
         assert_eq!(restored.clock(), substrate.clock());
         assert_eq!(
             substrate.arrive(&[input(source, 24)], 1),
@@ -1114,7 +1527,10 @@ mod tests {
             waiting_arrivals: vec![input(source, 8)],
         });
         let checkpoint = substrate.live_checkpoint(5).unwrap();
-        let mut restored = PlasticSubstrate::from_live_checkpoint(checkpoint).unwrap();
+        let bytes = checkpoint.canonical_bytes().unwrap();
+        let decoded = LiveCheckpoint::decode(&bytes).unwrap();
+        assert_eq!(decoded.canonical_bytes().unwrap(), bytes);
+        let mut restored = PlasticSubstrate::from_live_checkpoint(decoded).unwrap();
         assert_eq!(restored, substrate);
         assert_eq!(restored.propagate(), substrate.propagate());
     }
