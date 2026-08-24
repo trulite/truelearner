@@ -1366,6 +1366,7 @@ impl PlasticSubstrate {
             });
         }
         substrate.outgoing_index = vec![Vec::new(); substrate.cell_slots.len()];
+        substrate.resident_arenas = vec![ResidentArenaId(0); substrate.cell_slots.len()];
         let maximum_arrow_id = body.arrows.iter().map(|arrow| arrow.id.0).max();
         substrate.arrow_slots = maximum_arrow_id
             .map(|maximum| vec![None; maximum as usize + 1])
