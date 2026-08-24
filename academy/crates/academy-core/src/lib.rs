@@ -735,7 +735,7 @@ impl AcademySession {
     }
 
     pub fn snapshot(&self) -> Result<SessionSnapshot, AcademyError> {
-        let body_bytes = self.boundary.substrate().canonical_body_bytes(self.body_version)?;
+        let body_bytes = self.boundary.substrate().canonical_body_bytes(0)?;
         Ok(SessionSnapshot {
             inspector: InspectorSnapshot {
                 body_version: self.body_version,
@@ -1041,8 +1041,10 @@ fn restore_boundary(bytes: &[u8], placements: &[ResidentArenaId]) -> Result<Boun
     Ok(boundary)
 }
 
-fn fingerprint_body(boundary: &BoundaryRuntime, version: u64) -> Result<String, AcademyError> {
-    let bytes = boundary.substrate().canonical_body_bytes(version)?;
+fn fingerprint_body(boundary: &BoundaryRuntime, _version: u64) -> Result<String, AcademyError> {
+    // Academy lineage labels are not physical state. Differential replay uses
+    // a neutral durable version so only the organism body is compared.
+    let bytes = boundary.substrate().canonical_body_bytes(0)?;
     Ok(short_hash(ContentHash::of(&bytes).as_bytes()))
 }
 
