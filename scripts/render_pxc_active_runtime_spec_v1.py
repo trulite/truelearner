@@ -60,7 +60,7 @@ def main() -> None:
     data = json.loads(DATA.read_text())
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     width, height = A4
-    canvas = Canvas(str(OUTPUT), pagesize=A4, pageCompression=1)
+    canvas = Canvas(str(OUTPUT), pagesize=A4, pageCompression=1, invariant=1)
     canvas.setTitle(data["title"])
     canvas.setFont(FONT_BOLD, 13)
     canvas.drawString(MARGIN, height - MARGIN, data["title"])
