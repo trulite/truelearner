@@ -17,7 +17,7 @@ use std::{
 const OUTWARD_REGION: i16 = 1;
 const WORK_BOUND: u64 = 200_000;
 const MEMORY_BOUND: usize = 65_536;
-const RUNTIME_SHA: &str = "fe31b77c3709b6e797297b27f325c5fa466fa55afd9c63c46bff23c58922eb24";
+const RUNTIME_SHA: &str = "838aace86cda1b9d60503a39788c58de90523855011daac2adf7891221454c6f";
 const PXR0_ACCEPTANCE_SHA: &str =
     "fb30e4db84d5e1396b8751be16d83ca2c9ef2315f8aaee4e8a1d419630e846a7";
 const PXR0_ROWS_SHA: &str = "d1bf714bdf24bbee10c362727abec02f42066cedd05ee807c88ef2c645a96d5e";
