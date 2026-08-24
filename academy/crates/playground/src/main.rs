@@ -624,6 +624,7 @@ fn apply_worker_event(
 ) {
     match event {
         AcademyEvent::Ready(snapshot) => {
+            eprintln!("ACADEMY_PLAYGROUND_READY");
             update_snapshot(model, *snapshot);
             let mut state = model.write();
             state.status = "Body quiescent".to_string();
