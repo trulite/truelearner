@@ -1,0 +1,43 @@
+{
+  "title": "PX-C single-file continuous physical runtime - exhaustive active specification v1",
+  "authority": "Accepted PXR0 v2 parent b76f4f1c276555a6f80ff697dbc9b9ef850df76e; PX-C candidate",
+  "sections": [
+    "Retained state: cells, arrows, queued spikes, local tick, generation/live state, resistance, eligibility and activation.",
+    "Local rules: threshold/refractory firing, Drive traversal, qualified Modulation, decay, pressure, deallocation and nearby proposal.",
+    "Continuous loop: arrive appends anonymous physical inputs and advances the retained queue to natural quiescence; later calls retain the same body.",
+    "External crossings: arrive returns only ordinary crossings into its requested outward region; RunResult also reports bounded work, quiescence and resident bytes."
+  ],
+  "types": [
+    ["CellId", "tuple index naming one cell."],
+    ["ArrowId", "tuple index naming one arrow."],
+    ["CellSpec", "physical_id, position, region, threshold, resistance bootstrap fields."],
+    ["TransmissionMode", "Drive or Modulatory physical transmission."],
+    ["ArrowSpec", "from, to, delay, phase, coupling, resistance, mode bootstrap fields."],
+    ["SpikeInput", "arrival_tick, phase, origin_physical, target, impulse boundary fields."],
+    ["Cell", "physical_id, position, region, threshold, activation, last tick, refractory limit, generation, resistance, live."],
+    ["Arrow", "from/to, delay, phase, coupling, source generation, generation, resistance, live, eligibility, mode."],
+    ["Spike", "arrival tick, phase, physical origin, target/generation, impulse, serial, optional arrow/generation."],
+    ["Crossing", "tick, physical endpoints, endpoint regions and impulse."],
+    ["Work", "total plus Drive, Modulation, local-update, proposal and deallocation counts."],
+    ["RunResult", "crossings, work, natural-quiescence flag and resident bytes."],
+    ["PlasticSubstrate", "cell/arrow/spike vectors, tick, next serial and pressure tick."]
+  ],
+  "functions": [
+    ["Work::total", "returns accumulated bounded-work count without mutation."],
+    ["PlasticSubstrate::new", "creates empty physical state."],
+    ["PlasticSubstrate::add_cell", "validates and appends one generic cell."],
+    ["PlasticSubstrate::add_arrow", "validates endpoints/delay and appends one generic arrow."],
+    ["PlasticSubstrate::enter", "validates time/target and appends one external spike."],
+    ["PlasticSubstrate::arrive", "enters anonymous inputs, propagates to quiescence, then selects outward-region crossings."],
+    ["PlasticSubstrate::advance_time", "applies local elapsed-time dynamics with an empty queue."],
+    ["PlasticSubstrate::propagate", "delivers the ordered queue to natural quiescence and returns crossings/work."],
+    ["PlasticSubstrate::apply_modulatory_return", "strengthens only live eligible arrows from the reached cell."],
+    ["PlasticSubstrate::elapse_to", "applies ordinary pressure, expiry pressure and cell decay."],
+    ["PlasticSubstrate::propose_local_arrows", "adds deterministic nearby Drive arrows after external firing."],
+    ["PlasticSubstrate::decay_cell", "moves activation toward zero over elapsed local time."],
+    ["PlasticSubstrate::require_cell", "enforces substrate-local cell identity."],
+    ["PlasticSubstrate::spike_order", "orders arrival tick, phase, origin, target identity and serial."],
+    ["PlasticSubstrate::resident_bytes", "reports cell plus arrow storage for the registered bound."],
+    ["pressure_arrow", "reduces resistance and retires a zero-resistance arrow by generation."]
+  ]
+}

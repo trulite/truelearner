@@ -206,6 +206,17 @@ impl PlasticSubstrate {
         self.next_serial = self.next_serial.wrapping_add(1);
     }
 
+    pub fn arrive(&mut self, inputs: &[SpikeInput], outward_region: i16) -> RunResult {
+        for input in inputs {
+            self.enter(*input);
+        }
+        let mut result = self.propagate();
+        result
+            .crossings
+            .retain(|crossing| crossing.to_region == outward_region);
+        result
+    }
+
     pub fn advance_time(&mut self, tick: i64) -> Work {
         assert!(tick >= self.tick, "physical time cannot run backward");
         assert!(
