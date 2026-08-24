@@ -1,0 +1,18 @@
+[package]
+name = "academy-storage"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Immutable content-addressed S3 storage for TrueLearner Academy evidence"
+
+[dependencies]
+aws-config.workspace = true
+aws-sdk-s3.workspace = true
+hex.workspace = true
+serde.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+
+[[bin]]
+name = "academy-s3-smoke"
+path = "src/bin/s3_smoke.rs"

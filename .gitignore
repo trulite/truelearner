@@ -2,6 +2,8 @@ target/
 /output/
 /.DS_Store
 .env.e2b
+.env
+academy/.env
 *.profraw
 *.profdata
 __pycache__/
