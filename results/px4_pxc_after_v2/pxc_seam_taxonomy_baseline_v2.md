@@ -2,7 +2,7 @@
 
 Frozen v1 reference: **368 occurrences / 295 source lines**.
 
-Audited commit: `8714ce55f2c261b5209b0b42ccbad35b3d31b26d`.
+Audited commit: `b0ac4b3c2e9ea49a9d3a13098088a62108d508e8`.
 
 Manifest: `experiments/pxc_active_surface_manifest_v2.csv`.
 

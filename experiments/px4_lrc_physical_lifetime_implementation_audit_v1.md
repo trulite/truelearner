@@ -12,7 +12,8 @@ Status: **IMPLEMENTATION FROZEN; E2B PREFLIGHT PASSED; DEVELOPMENT EVIDENCE UNSP
   `px4-lrc-lifetime-development-implementation-v1`;
 - successful fresh E2B preflight sandbox: `ix50ch0df4g0bfyvfb6ce`;
 - failed compile-only preflight sandbox before the mechanical shadowing fix:
-  `ic74p4yt92m9ho1xyx1kr`; it contained no experimental run;
+  `ic74p4yt92m9ho1xyx1kr`; it contained no experimental run and was later
+  terminated to release capacity for the final taxonomy replay;
 - formatting-only fresh E2B sandbox: `ieehzs5xzu8ivdqo1y7nk`.
 
 The earlier compile-only preflight stopped on a Rust name-shadowing error.

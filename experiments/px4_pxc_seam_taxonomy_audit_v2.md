@@ -2,12 +2,14 @@
 
 Status: **DEVELOPMENT TAXONOMY POSITIVE; COMPARATOR UNSPENT; AUTHORITY ABSENT**.
 
-Fresh E2B sandbox `ivhh9mi0wathsydi2wbiq` audited clean functional-result
-commit `8714ce55f2c261b5209b0b42ccbad35b3d31b26d` with the frozen v2 taxonomy
+Fresh E2B sandbox `i6mlrh7u2iv4abtdkz01e` audited clean readiness commit
+`b0ac4b3c2e9ea49a9d3a13098088a62108d508e8` with the frozen v2 taxonomy
 script and manifest SHA-256
 `28924746e951645047225d8d20f5c5f98d93f349f46f7c6d7019e68632ce51b9`.
-It used unique state file `px4-pxc-taxonomy-20260824.json` and was left
-running.
+It used unique state file `px4-pxc-taxonomy-final-20260824-b.json` and was
+left running. This final replay supersedes the byte-equal inventories and
+counts from earlier fresh taxonomy sandbox `ivhh9mi0wathsydi2wbiq`; only the
+generated report's audited-commit line differs.
 
 The E2B invocation enforced:
 
@@ -27,7 +29,7 @@ v1 baseline artifact hashes before scanning.
 | taxonomy inventory | `742532d904622ecf4c5641b55f078fbd9f732b7f5898d5120b0f730c3a0ccec0` |
 | guard inventory | `5a23d1f89476d87f2a630d89145cd87a8a6169d9a1a72d6b309cf859400d8675` |
 | summary | `59c48919e91d698033a7931c15690fa148691a8afaf89cd22a4b7794ce4e2ee0` |
-| generated report | `32816a7a11af853b21ea82831f349f5fa1187128641156f225de2f20a7507f11` |
+| generated report | `0949eb76b65ca6f45d46fdb3d8178267c133f9f32cdfee222f651d3fea7d68f6` |
 
 ## Exact taxonomy result
 

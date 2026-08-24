@@ -10,7 +10,7 @@ Status: **PX4 DEVELOPMENT READY; AUTHORITY NOT RUN AND NOT CLAIMED**.
   `7c39b45fa9e7edfd393240368684185f46883dd5` /
   `px4-lrc-lifetime-development-implementation-v1`;
 - functional GATE result commit/tag:
-  `8714ce55f2c261b5209b0b42ccbad35b3d31b26d` /
+  `8714ce5e53717572551b8bc53edf3cb9d649d861` /
   `px4-lrc-lifetime-gate-positive-v1`;
 - before active-surface manifest SHA-256:
   `472440f5e989387044fa3d36c5364b2d65f30d01659742a829d007cb67f7ef9a`;
@@ -18,11 +18,13 @@ Status: **PX4 DEVELOPMENT READY; AUTHORITY NOT RUN AND NOT CLAIMED**.
   `28924746e951645047225d8d20f5c5f98d93f349f46f7c6d7019e68632ce51b9`;
 - functional GATE E2B sandbox: `i9y7kazos146gzwuphwk6`;
 - exact artifact-replay E2B sandbox: `i05mu61g04ubqr5aqn6n5`;
-- taxonomy E2B sandbox: `ivhh9mi0wathsydi2wbiq`;
+- final taxonomy E2B sandbox: `i6mlrh7u2iv4abtdkz01e`;
 - readiness comparator E2B sandbox: `iuc23g8o1zr7bcxh7sndx`.
 
-All sandboxes were fresh, used unique state files through the established
-launcher, and were left running.
+All evidence sandboxes were fresh, used unique state files through the
+established launcher, and were left running. Failed compile-only sandbox
+`ic74p4yt92m9ho1xyx1kr` contained no evidence and was terminated to release
+capacity for the final taxonomy replay.
 
 ## Functional result
 
@@ -119,7 +121,7 @@ methods whose implementation is independently manifested.
 | after taxonomy inventory | `742532d904622ecf4c5641b55f078fbd9f732b7f5898d5120b0f730c3a0ccec0` |
 | after guard inventory | `5a23d1f89476d87f2a630d89145cd87a8a6169d9a1a72d6b309cf859400d8675` |
 | after taxonomy summary | `59c48919e91d698033a7931c15690fa148691a8afaf89cd22a4b7794ce4e2ee0` |
-| after taxonomy report | `32816a7a11af853b21ea82831f349f5fa1187128641156f225de2f20a7507f11` |
+| after taxonomy report | `0949eb76b65ca6f45d46fdb3d8178267c133f9f32cdfee222f651d3fea7d68f6` |
 
 The immutable before inventory, guard and summary hashes remained
 `b19bf54d7d3133cca0caf98ecca89d483499cae8a6fe53ac0faac464df186441`,
