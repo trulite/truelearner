@@ -107,7 +107,7 @@ pub struct PublishedEpisode {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PublicationEvent {
-    Published(PublishedEpisode),
+    Published(Box<PublishedEpisode>),
     Unconfigured {
         experience_id: String,
         reason: String,
@@ -135,7 +135,9 @@ impl EpisodePublisherWorker {
         Self::spawn_with_config(S3StoreConfig::from_env())
     }
 
-    fn spawn_with_config(config: Result<S3StoreConfig, StorageError>) -> Result<Self, StorageError> {
+    fn spawn_with_config(
+        config: Result<S3StoreConfig, StorageError>,
+    ) -> Result<Self, StorageError> {
         let (commands, command_receiver) =
             mpsc::sync_channel::<Option<A1Experience>>(PUBLICATION_CAPACITY);
         let (event_sender, events) = mpsc::sync_channel(PUBLICATION_CAPACITY);
@@ -163,13 +165,17 @@ impl EpisodePublisherWorker {
                         break;
                     };
                     let event = match &store {
-                        Ok(store) => match runtime.block_on(store.publish_a1_experience(&experience)) {
-                            Ok(published) => PublicationEvent::Published(published),
-                            Err(error) => PublicationEvent::Failed {
-                                experience_id: experience.id,
-                                reason: error.to_string(),
-                            },
-                        },
+                        Ok(store) => {
+                            match runtime.block_on(store.publish_a1_experience(&experience)) {
+                                Ok(published) => {
+                                    PublicationEvent::Published(Box::new(published))
+                                }
+                                Err(error) => PublicationEvent::Failed {
+                                    experience_id: experience.id,
+                                    reason: error.to_string(),
+                                },
+                            }
+                        }
                         Err(error) => PublicationEvent::Unconfigured {
                             experience_id: experience.id,
                             reason: error.to_string(),
@@ -186,10 +192,7 @@ impl EpisodePublisherWorker {
         })
     }
 
-    pub fn try_publish(
-        &self,
-        experience: A1Experience,
-    ) -> Result<(), PublicationBackpressure> {
+    pub fn try_publish(&self, experience: A1Experience) -> Result<(), PublicationBackpressure> {
         self.commands
             .try_send(Some(experience))
             .map_err(|error| match error {
