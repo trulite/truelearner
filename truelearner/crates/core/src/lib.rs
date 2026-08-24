@@ -1496,10 +1496,7 @@ impl PlasticSubstrate {
         let mut work = Work::default();
         let mut execution_cost = ExecutionCost::default();
         let mut physical_trace = Vec::new();
-        loop {
-            let Some(first) = self.pop_scheduled(&mut execution_cost) else {
-                break;
-            };
+        while let Some(first) = self.pop_scheduled(&mut execution_cost) {
             let mut batch = vec![first];
             if self.mechanics.executor == ExecutorKind::Batched {
                 execution_cost.scans = execution_cost

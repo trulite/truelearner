@@ -5,14 +5,14 @@ const DEFAULT_RING_WIDTH: usize = 64;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum CellStore {
     AoS(Vec<Cell>),
-    SoA(CellColumns),
+    SoA(Box<CellColumns>),
 }
 
 impl CellStore {
     pub(super) fn new(layout: LayoutKind) -> Self {
         match layout {
             LayoutKind::AoS => Self::AoS(Vec::new()),
-            LayoutKind::SoA => Self::SoA(CellColumns::default()),
+            LayoutKind::SoA => Self::SoA(Box::default()),
         }
     }
 
@@ -56,7 +56,7 @@ impl CellStore {
     pub(super) fn replace_values(&mut self, values: Vec<Cell>) {
         *self = match self {
             Self::AoS(_) => Self::AoS(values),
-            Self::SoA(_) => Self::SoA(CellColumns::from_values(values)),
+            Self::SoA(_) => Self::SoA(Box::new(CellColumns::from_values(values))),
         };
     }
 
@@ -70,7 +70,7 @@ impl CellStore {
         let values = self.values();
         *self = match layout {
             LayoutKind::AoS => Self::AoS(values),
-            LayoutKind::SoA => Self::SoA(CellColumns::from_values(values)),
+            LayoutKind::SoA => Self::SoA(Box::new(CellColumns::from_values(values))),
         };
     }
 }
@@ -147,14 +147,14 @@ impl CellColumns {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum ArrowStore {
     AoS(Vec<Arrow>),
-    SoA(ArrowColumns),
+    SoA(Box<ArrowColumns>),
 }
 
 impl ArrowStore {
     pub(super) fn new(layout: LayoutKind) -> Self {
         match layout {
             LayoutKind::AoS => Self::AoS(Vec::new()),
-            LayoutKind::SoA => Self::SoA(ArrowColumns::default()),
+            LayoutKind::SoA => Self::SoA(Box::default()),
         }
     }
 
@@ -205,7 +205,7 @@ impl ArrowStore {
     pub(super) fn replace_values(&mut self, values: Vec<Arrow>) {
         *self = match self {
             Self::AoS(_) => Self::AoS(values),
-            Self::SoA(_) => Self::SoA(ArrowColumns::from_values(values)),
+            Self::SoA(_) => Self::SoA(Box::new(ArrowColumns::from_values(values))),
         };
     }
 
@@ -219,7 +219,7 @@ impl ArrowStore {
         let values = self.values();
         *self = match layout {
             LayoutKind::AoS => Self::AoS(values),
-            LayoutKind::SoA => Self::SoA(ArrowColumns::from_values(values)),
+            LayoutKind::SoA => Self::SoA(Box::new(ArrowColumns::from_values(values))),
         };
     }
 }
