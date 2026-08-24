@@ -479,10 +479,19 @@ fn build_body(
     seed: u64,
     context_count: usize,
 ) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
-    let cell_capacity = u32::try_from(context_count.saturating_mul(MOTORS).saturating_mul(3) + 16)
-        .map_err(|_| Arc3SensorimotorError("cell capacity exceeds u32".to_string()))?;
-    let arrow_capacity = u32::try_from(context_count.saturating_mul(MOTORS).saturating_mul(5) + 16)
-        .map_err(|_| Arc3SensorimotorError("arrow capacity exceeds u32".to_string()))?;
+    let cell_capacity = u32::try_from(
+        (context_count.saturating_mul(MOTORS).saturating_mul(3) + 16).max(512),
+    )
+    .map_err(|_| Arc3SensorimotorError("cell capacity exceeds u32".to_string()))?;
+    let arrow_capacity = u32::try_from(
+        context_count
+            .saturating_mul(MOTORS)
+            .saturating_mul(5)
+            .saturating_add(context_count.saturating_mul(8))
+            .saturating_add(256)
+            .max(1_024),
+    )
+    .map_err(|_| Arc3SensorimotorError("arrow capacity exceeds u32".to_string()))?;
     let mut body = PlasticSubstrate::with_mechanics(
         ArenaId(seed),
         cell_capacity,
@@ -493,20 +502,58 @@ fn build_body(
     let mut candidate_sources = vec![[CellId(0); MOTORS]; context_count];
     let mut context_traces = vec![[CellId(0); MOTORS]; context_count];
     let mut relays = vec![[CellId(0); MOTORS]; context_count];
+    let band_span = i32::try_from(
+        context_count
+            .saturating_mul(MOTORS)
+            .saturating_mul(20)
+            .saturating_add(1_000),
+    )
+    .map_err(|_| Arc3SensorimotorError("spatial sensor band exceeds i32".to_string()))?;
+    let trace_base = if context_count == PALETTE_CONTEXTS {
+        20_000
+    } else {
+        band_span + 100
+    };
+    let relay_base = if context_count == PALETTE_CONTEXTS {
+        40_000
+    } else {
+        band_span.saturating_mul(2) + 100
+    };
+    let motor_base = if context_count == PALETTE_CONTEXTS {
+        60_000
+    } else {
+        band_span.saturating_mul(3) + 100
+    };
+    let output_base = if context_count == PALETTE_CONTEXTS {
+        70_000
+    } else {
+        band_span.saturating_mul(4) + 100
+    };
+    let return_position = if context_count == PALETTE_CONTEXTS {
+        80_000
+    } else {
+        band_span.saturating_mul(5) + 100
+    };
     for context in 0..context_count {
         for motor in 0..MOTORS {
             let pair = context.saturating_mul(MOTORS).saturating_add(motor);
-            candidate_sources[context][motor] =
-                body.add_cell(cell(1_000_000 + pair as u64, 100 + pair as i32 * 20, 0, 1));
+            let offset = i32::try_from(pair.saturating_mul(20))
+                .map_err(|_| Arc3SensorimotorError("context position exceeds i32".to_string()))?;
+            candidate_sources[context][motor] = body.add_cell(cell(
+                1_000_000 + pair as u64,
+                100 + offset,
+                0,
+                1,
+            ));
             context_traces[context][motor] = body.add_cell(cell(
                 2_000_000 + pair as u64,
-                20_000 + pair as i32 * 20,
+                trace_base + offset,
                 0,
                 1,
             ));
             relays[context][motor] = body.add_cell(cell(
                 3_000_000 + pair as u64,
-                40_000 + pair as i32 * 20,
+                relay_base + offset,
                 0,
                 3,
             ));
@@ -515,7 +562,7 @@ fn build_body(
     let motors = std::array::from_fn(|motor| {
         body.add_cell(cell(
             MOTOR_PHYSICAL_BASE + motor as u64,
-            60_000 + motor as i32 * 20,
+            motor_base + motor as i32 * 20,
             0,
             2,
         ))
@@ -523,12 +570,17 @@ fn build_body(
     let outputs: [CellId; MOTORS] = std::array::from_fn(|motor| {
         body.add_cell(cell(
             OUTPUT_PHYSICAL_BASE + motor as u64,
-            70_000 + motor as i32 * 20,
+            output_base + motor as i32 * 20,
             OUTWARD_REGION,
             1,
         ))
     });
-    let returning = body.add_cell(cell(6_000_000, 80_000, 0, 1));
+    let returning = body.add_cell(cell(
+        6_000_000,
+        return_position,
+        0,
+        1,
+    ));
     let mut candidates = vec![[ArrowId(0); MOTORS]; context_count];
     for context in 0..context_count {
         for motor in 0..MOTORS {
