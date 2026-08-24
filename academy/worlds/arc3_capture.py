@@ -19,6 +19,7 @@ def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--game", default="ls20")
     parser.add_argument("--turns", type=int, default=12)
+    parser.add_argument("--seed", type=int, default=205)
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
@@ -73,7 +74,7 @@ def main() -> None:
     if args.turns < 0:
         raise SystemExit("--turns must be non-negative")
     arcade = arc_agi.Arcade()
-    environment = arcade.make(args.game, include_frame_data=True)
+    environment = arcade.make(args.game, seed=args.seed, include_frame_data=True)
     if environment is None:
         raise SystemExit(f"unable to create ARC-AGI-3 environment {args.game}")
     first = environment.reset()
@@ -87,6 +88,7 @@ def main() -> None:
             "kind": "metadata",
             "game_id": args.game,
             "toolkit_revision": TOOLKIT_REVISION,
+            "seed": args.seed,
             "available_actions": [int(action_id) for action_id in first.available_actions],
         }
         destination.write(json.dumps(metadata, separators=(",", ":"), sort_keys=True) + "\n")

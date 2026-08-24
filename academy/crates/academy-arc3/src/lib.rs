@@ -39,6 +39,7 @@ pub struct Arc3Metadata {
     pub kind: String,
     pub game_id: String,
     pub toolkit_revision: String,
+    pub seed: u64,
     pub available_actions: Vec<u8>,
 }
 
@@ -252,7 +253,7 @@ mod tests {
     fn parses_and_renders_a_normalized_recording() {
         let frame = vec![9_u8; ARC3_FRAME_PIXELS];
         let input = format!(
-            "{{\"schema_version\":1,\"kind\":\"metadata\",\"game_id\":\"ls20\",\"toolkit_revision\":\"test\",\"available_actions\":[1]}}\n{{\"schema_version\":1,\"kind\":\"observation\",\"game_id\":\"ls20\",\"turn\":0,\"action\":null,\"state\":\"NOT_FINISHED\",\"levels_completed\":0,\"win_levels\":1,\"full_reset\":false,\"available_actions\":[1],\"frames\":{}}}\n",
+            "{{\"schema_version\":1,\"kind\":\"metadata\",\"game_id\":\"ls20\",\"toolkit_revision\":\"test\",\"seed\":205,\"available_actions\":[1]}}\n{{\"schema_version\":1,\"kind\":\"observation\",\"game_id\":\"ls20\",\"turn\":0,\"action\":null,\"state\":\"NOT_FINISHED\",\"levels_completed\":0,\"win_levels\":1,\"full_reset\":false,\"available_actions\":[1],\"frames\":{}}}\n",
             serde_json::to_string(&vec![frame]).expect("frame JSON")
         );
         let recording = Arc3Recording::parse_jsonl(&input).expect("valid recording");
