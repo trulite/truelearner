@@ -24,7 +24,7 @@ const WORK_BOUND: u64 = 200_000;
 const MEMORY_BOUND: usize = 65_536;
 const INPUT_CAPACITY: usize = 4_096;
 const OUTPUT_CAPACITY: usize = 4_096;
-const RUNTIME_SHA: &str = "CURRENT_RUNTIME_SHA";
+const RUNTIME_SHA: &str = "8a0f0c862a9aa6bfaf74a3a09ca5ee0eb6b3dc95e75ce76e5a136c9a8890ff0a";
 const PXR0_ACCEPTANCE_SHA: &str =
     "fb30e4db84d5e1396b8751be16d83ca2c9ef2315f8aaee4e8a1d419630e846a7";
 const PXR0_ROWS_SHA: &str = "d1bf714bdf24bbee10c362727abec02f42066cedd05ee807c88ef2c645a96d5e";
@@ -253,7 +253,10 @@ fn main() {
     let globals = globals(mode, &rows, pxr0_exact);
     let body = body::evaluate();
     let buffers = buffers::evaluate();
-    publish(mode.report(), &markdown(mode, &rows, globals, &body, &buffers));
+    publish(
+        mode.report(),
+        &markdown(mode, &rows, globals, &body, &buffers),
+    );
     assert!(rows.iter().all(|row| row.passed), "PX-C row failed");
     assert!(globals.into_iter().all(|value| value), "PX-C global failed");
     assert!(
@@ -1274,11 +1277,7 @@ fn markdown(
     writeln!(
         text,
         "Outcome: **{}**.\n",
-        if passed_rows == 16
-            && global_clauses == 12
-            && body_clauses == 16
-            && buffer_clauses == 8
-        {
+        if passed_rows == 16 && global_clauses == 12 && body_clauses == 16 && buffer_clauses == 8 {
             "AUTHORITY ESTABLISHED"
         } else {
             "NEGATIVE"

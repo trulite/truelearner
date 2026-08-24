@@ -42,7 +42,8 @@ pub fn evaluate() -> BufferEvidence {
     let first = output_limited.drain_output(1);
     output_limited.run_until_quiescent().unwrap();
     let second = output_limited.drain_output(1);
-    let partial_drain_fifo = first.len() == 1 && second.len() == 1 && first[0].tick < second[0].tick;
+    let partial_drain_fifo =
+        first.len() == 1 && second.len() == 1 && first[0].tick < second[0].tick;
 
     let (two_crossing, two_source) = two_crossing_body();
     let mut oversize = BoundaryRuntime::new(two_crossing, 1, 2, 1).unwrap();
@@ -61,7 +62,8 @@ pub fn evaluate() -> BufferEvidence {
     let direct_result = direct.arrive(&same_tick, 1);
     let mut buffered = BoundaryRuntime::new(substrate.clone(), 1, 4, 4).unwrap();
     let buffered_result = buffered.arrive(&same_tick, 1).unwrap();
-    let direct_buffered_equivalence = direct_result == buffered_result && buffered.substrate() == &direct;
+    let direct_buffered_equivalence =
+        direct_result == buffered_result && buffered.substrate() == &direct;
 
     let mut checkpointed = BoundaryRuntime::new(substrate, 1, 4, 4).unwrap();
     checkpointed.enqueue(input(source, 0, 40)).unwrap();
@@ -70,7 +72,8 @@ pub fn evaluate() -> BufferEvidence {
     let checkpoint = checkpointed.live_checkpoint(100).unwrap();
     let bytes = checkpoint.canonical_bytes().unwrap();
     let decoded = BoundaryLiveCheckpoint::decode(&bytes).unwrap();
-    let boundary_checkpoint_canonical = decoded.canonical_bytes().ok().as_deref() == Some(bytes.as_slice());
+    let boundary_checkpoint_canonical =
+        decoded.canonical_bytes().ok().as_deref() == Some(bytes.as_slice());
     let mut restored = BoundaryRuntime::from_live_checkpoint(decoded).unwrap();
     let exact_state = restored == checkpointed;
     let first_original = checkpointed.drain_all_output();
@@ -84,8 +87,7 @@ pub fn evaluate() -> BufferEvidence {
         && checkpointed == restored;
 
     let invalid_boundary_configuration_rejected =
-        BoundaryRuntime::new(one_crossing_body().0, 1, 0, 1)
-            == Err(BoundaryError::ZeroCapacity)
+        BoundaryRuntime::new(one_crossing_body().0, 1, 0, 1) == Err(BoundaryError::ZeroCapacity)
             && BoundaryRuntime::new(one_crossing_body().0, 1, 1, 0)
                 == Err(BoundaryError::ZeroCapacity)
             && matches!(
