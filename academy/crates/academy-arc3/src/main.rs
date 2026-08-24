@@ -11,7 +11,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let recording = Arc3Recording::read_jsonl(&source)?;
     let destination = std::env::args_os().nth(2).map(PathBuf::from);
     if let Some(destination) = destination {
-        std::fs::write(destination, recording.final_surface(8)?.png_bytes()?)?;
+        let png = recording
+            .final_surface(8)?
+            .png_bytes()
+            .map_err(|error| format!("unable to encode final ARC frame: {error:?}"))?;
+        std::fs::write(destination, png)?;
     }
     println!(
         "ARC3_RECORDING_OK game={} turns={} actions={:?}",

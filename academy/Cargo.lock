@@ -3,6 +3,15 @@
 version = 4
 
 [[package]]
+name = "academy-arc3"
+version = "0.1.0"
+dependencies = [
+ "academy-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "academy-core"
 version = "0.1.0"
 dependencies = [

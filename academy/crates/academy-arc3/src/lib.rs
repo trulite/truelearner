@@ -102,8 +102,7 @@ impl Arc3Recording {
                     );
                 }
                 Some("observation") => observations.push(
-                    serde_json::from_value(value)
-                        .map_err(|error| Arc3Error(error.to_string()))?,
+                    serde_json::from_value(value).map_err(|error| Arc3Error(error.to_string()))?,
                 ),
                 other => return Err(Arc3Error(format!("unsupported record kind {other:?}"))),
             }
@@ -125,17 +124,25 @@ impl Arc3Recording {
         }
         for (index, observation) in self.observations.iter().enumerate() {
             if observation.schema_version != 1 || observation.kind != "observation" {
-                return Err(Arc3Error(format!("observation {index} has unsupported schema")));
+                return Err(Arc3Error(format!(
+                    "observation {index} has unsupported schema"
+                )));
             }
             if observation.game_id != self.metadata.game_id {
-                return Err(Arc3Error(format!("observation {index} changes game identity")));
+                return Err(Arc3Error(format!(
+                    "observation {index} changes game identity"
+                )));
             }
             if observation.turn != u32::try_from(index).unwrap_or(u32::MAX) {
-                return Err(Arc3Error(format!("observation {index} has a noncanonical turn")));
+                return Err(Arc3Error(format!(
+                    "observation {index} has a noncanonical turn"
+                )));
             }
             for action in &observation.available_actions {
                 if !(1..=7).contains(action) {
-                    return Err(Arc3Error(format!("observation {index} exposes action {action}")));
+                    return Err(Arc3Error(format!(
+                        "observation {index} exposes action {action}"
+                    )));
                 }
             }
             if let Some(action) = observation.action {
@@ -191,21 +198,28 @@ fn validate_frame(frame: &[u8]) -> Result<(), Arc3Error> {
         )));
     }
     if let Some(color) = frame.iter().copied().find(|color| *color > 15) {
-        return Err(Arc3Error(format!("ARC-AGI-3 color {color} is outside 0..15")));
+        return Err(Arc3Error(format!(
+            "ARC-AGI-3 color {color} is outside 0..15"
+        )));
     }
     Ok(())
 }
 
 fn validate_action(action: Arc3Action) -> Result<(), Arc3Error> {
     if action.id > 7 {
-        return Err(Arc3Error(format!("ARC-AGI-3 action {} is outside 0..7", action.id)));
+        return Err(Arc3Error(format!(
+            "ARC-AGI-3 action {} is outside 0..7",
+            action.id
+        )));
     }
     if action.id == 6 {
         let point = action
             .data
             .ok_or_else(|| Arc3Error("ACTION6 requires coordinates".to_string()))?;
         if point.x > 63 || point.y > 63 {
-            return Err(Arc3Error("ACTION6 coordinates are outside 0..63".to_string()));
+            return Err(Arc3Error(
+                "ACTION6 coordinates are outside 0..63".to_string(),
+            ));
         }
     } else if action.data.is_some() {
         return Err(Arc3Error("only ACTION6 accepts coordinates".to_string()));
