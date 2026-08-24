@@ -498,7 +498,7 @@ fn claims(row: &Row) -> [bool; 12] {
     let l0 = SEEDS.contains(&row.seed)
         && row.namespace == row.seed << 32
         && row.reverse == matches!(row.seed % 4, 1 | 3)
-        && row.reflect == row.seed % 4 >= 2
+        && row.reflect == (row.seed % 4 >= 2)
         && row.initial_candidate_count == 0;
     let l1 = control_passes(
         &row.strong_a,
