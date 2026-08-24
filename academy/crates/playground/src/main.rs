@@ -15,7 +15,13 @@ use std::time::Duration;
 const STYLESHEET: &str = include_str!("styles.css");
 
 fn main() {
-    dioxus::launch(App);
+    let window = dioxus::desktop::WindowBuilder::new()
+        .with_title("TrueLearner Academy")
+        .with_inner_size(dioxus::desktop::LogicalSize::new(1440.0, 900.0))
+        .with_min_inner_size(dioxus::desktop::LogicalSize::new(1080.0, 720.0));
+    dioxus::LaunchBuilder::desktop()
+        .with_cfg(dioxus::desktop::Config::new().with_window(window))
+        .launch(App);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
