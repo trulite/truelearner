@@ -2749,12 +2749,7 @@ mod tests {
         let mut ordinary = original;
         let ordinary_result = ordinary.arrive(&[input(source, 0)], 1);
         let compacted_result = compacted.arrive(&[input(source, 0)], 1);
-        assert_physical_equivalence(
-            &ordinary,
-            &ordinary_result,
-            &compacted,
-            &compacted_result,
-        );
+        assert_physical_equivalence(&ordinary, &ordinary_result, &compacted, &compacted_result);
     }
 
     #[test]
@@ -2778,12 +2773,7 @@ mod tests {
         assert_eq!(restored.clock(), substrate.clock());
         let substrate_result = substrate.arrive(&[input(source, 24)], 1);
         let restored_result = restored.arrive(&[input(source, 24)], 1);
-        assert_physical_equivalence(
-            &substrate,
-            &substrate_result,
-            &restored,
-            &restored_result,
-        );
+        assert_physical_equivalence(&substrate, &substrate_result, &restored, &restored_result);
     }
 
     #[test]
@@ -2811,12 +2801,7 @@ mod tests {
         assert_eq!(restored, substrate);
         let restored_result = restored.propagate();
         let substrate_result = substrate.propagate();
-        assert_physical_equivalence(
-            &substrate,
-            &substrate_result,
-            &restored,
-            &restored_result,
-        );
+        assert_physical_equivalence(&substrate, &substrate_result, &restored, &restored_result);
     }
 
     #[test]
