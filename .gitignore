@@ -1,5 +1,6 @@
 target/
 /.DS_Store
+.env.e2b
 *.profraw
 *.profdata
 __pycache__/
