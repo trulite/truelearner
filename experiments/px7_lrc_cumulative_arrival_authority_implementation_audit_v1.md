@@ -23,7 +23,7 @@ one marker, and atomic create-new publication.
 
 | artifact | SHA-256 |
 |---|---|
-| authority evaluator | `EVALUATOR_HASH_TBD` |
+| authority evaluator | `3f94662ea73d663e0fb6eaabd0ea381037bdf2e5a622a47bd1c9f8b872c7fe66` |
 | authority Cargo manifest | `3671a215a8075596b51dad24c6793f3314b9cdfbba16fa130e12a39d9a9902d1` |
 | authority protocol | `827a220f12ba2c6713becb4d9f87bd1a21b0d756efbe5c9a8f88cd6dded51c8a` |
 | active PX7 source | `d248a8af479872d8148115a405ae7332f7d24ca229378d3fde898ffd3d19e63e` |
