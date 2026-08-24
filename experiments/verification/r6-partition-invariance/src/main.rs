@@ -4,9 +4,8 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 use truelearner_core::{
-    ArenaId, ArrowSpec, CellId, CellSpec, Crossing, ExecutionCost, MechanicalConfig,
-    PhysicalClock, PhysicalTransition, PlasticSubstrate, ResidentArenaId, SpikeInput,
-    TransmissionMode, Work,
+    ArenaId, ArrowSpec, CellId, CellSpec, Crossing, ExecutionCost, MechanicalConfig, PhysicalClock,
+    PhysicalTransition, PlasticSubstrate, ResidentArenaId, SpikeInput, TransmissionMode, Work,
 };
 
 const OUTWARD_REGION: i16 = 1;
@@ -261,7 +260,11 @@ fn arrow(
         from: CellId(from as u64),
         to: CellId(to as u64),
         delay,
-        phase: if mode == TransmissionMode::Drive { 0 } else { 1 },
+        phase: if mode == TransmissionMode::Drive {
+            0
+        } else {
+            1
+        },
         coupling,
         resistance: 1_000,
         mode,
@@ -469,7 +472,12 @@ fn quiescent_repartition_control() -> bool {
     let future = input(1, 10, 1);
     let baseline_result = baseline.arrive(&[future], OUTWARD_REGION);
     let partitioned_result = partitioned.arrive(&[future], OUTWARD_REGION);
-    same_physics(&baseline, &baseline_result, &partitioned, &partitioned_result)
+    same_physics(
+        &baseline,
+        &baseline_result,
+        &partitioned,
+        &partitioned_result,
+    )
 }
 
 fn live_repartition_control() -> bool {
@@ -484,10 +492,18 @@ fn live_repartition_control() -> bool {
     baseline.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
     let mut partitioned = PlasticSubstrate::from_live_checkpoint(checkpoint).unwrap();
     partitioned.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
-    partitioned.repartition_resident(&placements(Partition::DeterministicRandom, world.cell_count));
+    partitioned.repartition_resident(&placements(
+        Partition::DeterministicRandom,
+        world.cell_count,
+    ));
     let baseline_result = baseline.propagate();
     let partitioned_result = partitioned.propagate();
-    same_physics(&baseline, &baseline_result, &partitioned, &partitioned_result)
+    same_physics(
+        &baseline,
+        &baseline_result,
+        &partitioned,
+        &partitioned_result,
+    )
 }
 
 fn same_physics(
