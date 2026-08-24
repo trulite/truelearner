@@ -29,6 +29,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--report-output", type=Path, required=True)
     parser.add_argument("--replay-output", type=Path)
+    parser.add_argument("--stop-after-a3", action="store_true")
     return parser.parse_args()
 
 
@@ -169,7 +170,13 @@ def skipped_gate(identifier: str, claim: str, reason: str) -> dict[str, Any]:
     return gate(identifier, "skipped", claim, {"reason": reason})
 
 
-def run_ladder(agent_path: Path, game: str, seed: int, held_out_seed: int) -> tuple[dict[str, Any], dict[str, Any]]:
+def run_ladder(
+    agent_path: Path,
+    game: str,
+    seed: int,
+    held_out_seed: int,
+    stop_after_a3: bool,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     arcade = arc_agi.Arcade()
     agent = Agent.start(agent_path, seed)
     episodes: list[dict[str, Any]] = []
@@ -352,6 +359,13 @@ def run_ladder(agent_path: Path, game: str, seed: int, held_out_seed: int) -> tu
                         skipped_gate("A5", "held-out-seed transfer", "A3 failed"),
                     ]
                 )
+            elif stop_after_a3:
+                gates.extend(
+                    [
+                        skipped_gate("A4", "autonomous official level completion", "diagnostic stops after A3 replay"),
+                        skipped_gate("A5", "held-out-seed transfer", "diagnostic stops after A3 replay"),
+                    ]
+                )
             else:
                 agent.command({"command": "clear_episode"})
                 autonomous_environment, autonomous_observation = environment(arcade, game, seed)
@@ -526,7 +540,9 @@ def run_ladder(agent_path: Path, game: str, seed: int, held_out_seed: int) -> tu
         "held_out_seed": held_out_seed,
         "curriculum": CURRICULUM,
         "first_failure": first_failure,
-        "all_gates_passed": first_failure is None,
+        "all_gates_passed": first_failure is None and not stop_after_a3,
+        "executed_gates_passed": first_failure is None,
+        "completion_scope": "A3" if stop_after_a3 else "A5",
         "exact_replay": False,
         "gates": gates,
     }
@@ -540,10 +556,10 @@ def canonical_bytes(value: dict[str, Any]) -> bytes:
 def main() -> None:
     args = arguments()
     first_suite, first_report = run_ladder(
-        args.agent, args.game, args.seed, args.held_out_seed
+        args.agent, args.game, args.seed, args.held_out_seed, args.stop_after_a3
     )
     replay_suite, replay_report = run_ladder(
-        args.agent, args.game, args.seed, args.held_out_seed
+        args.agent, args.game, args.seed, args.held_out_seed, args.stop_after_a3
     )
     if canonical_bytes(first_suite) != canonical_bytes(replay_suite):
         raise SystemExit("ARC3 A2-A5 suite replay diverged")
