@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 //! Single-file physical runtime: state, local transitions, and crossings.
 
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::VecDeque};
 use truelearner_arena_format::{
     ArenaBody, ArenaVersion, BodyVersion, DurableArrow, DurableCell, FormatError,
 };
@@ -20,6 +20,7 @@ const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
 const CHECKPOINT_VERSION: u16 = 1;
 const QUIESCENT_MAGIC: &[u8; 8] = b"TLQUIE01";
 const LIVE_MAGIC: &[u8; 8] = b"TLLIVE01";
+const BOUNDARY_LIVE_MAGIC: &[u8; 8] = b"TLBNDY01";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CellSlot(pub usize);
@@ -148,6 +149,58 @@ pub struct RunResult {
     pub work: Work,
     pub naturally_quiescent: bool,
     pub resident_bytes: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BoundaryError {
+    ZeroCapacity,
+    InputFull {
+        capacity: usize,
+        occupied: usize,
+        attempted: usize,
+    },
+    OutputFull {
+        capacity: usize,
+        occupied: usize,
+        required: usize,
+    },
+    OutputBatchTooLarge {
+        capacity: usize,
+        required: usize,
+    },
+    WrongOutwardRegion {
+        configured: i16,
+        requested: i16,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BoundaryRun {
+    pub consumed_inputs: usize,
+    pub produced_outputs: usize,
+    pub work: Work,
+    pub naturally_quiescent: bool,
+    pub resident_bytes: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BoundaryLiveCheckpoint {
+    core: LiveCheckpoint,
+    outward_region: i16,
+    input_capacity: usize,
+    output_capacity: usize,
+    inputs: Vec<SpikeInput>,
+    outputs: Vec<Crossing>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BoundaryRuntime {
+    substrate: PlasticSubstrate,
+    outward_region: i16,
+    input_capacity: usize,
+    output_capacity: usize,
+    inputs: VecDeque<SpikeInput>,
+    outputs: VecDeque<Crossing>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -447,6 +500,274 @@ impl LiveCheckpoint {
             pending,
             next_serial,
             pending_loads,
+        })
+    }
+}
+
+impl BoundaryLiveCheckpoint {
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CheckpointError> {
+        if self.input_capacity == 0
+            || self.output_capacity == 0
+            || self.inputs.len() > self.input_capacity
+            || self.outputs.len() > self.output_capacity
+        {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
+        let core = self.core.canonical_bytes()?;
+        let mut payload = Vec::with_capacity(
+            core.len()
+                .saturating_add((self.inputs.len() + self.outputs.len()).saturating_mul(32)),
+        );
+        payload.extend_from_slice(&core);
+        for input in &self.inputs {
+            encode_input(&mut payload, input);
+        }
+        for crossing in &self.outputs {
+            encode_crossing(&mut payload, crossing);
+        }
+
+        let mut bytes = Vec::with_capacity(92 + payload.len());
+        bytes.extend_from_slice(BOUNDARY_LIVE_MAGIC);
+        checkpoint_put_u16(&mut bytes, CHECKPOINT_VERSION);
+        checkpoint_put_i16(&mut bytes, self.outward_region);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(self.input_capacity)?);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(self.output_capacity)?);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(self.inputs.len())?);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(self.outputs.len())?);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(core.len())?);
+        checkpoint_put_u64(&mut bytes, checkpoint_len_u64(payload.len())?);
+        bytes.extend_from_slice(ContentHash::of(&payload).as_bytes());
+        bytes.extend_from_slice(&payload);
+        Ok(bytes)
+    }
+
+    pub fn decode(bytes: &[u8]) -> Result<Self, CheckpointError> {
+        if bytes.len() < 92 {
+            return Err(CheckpointError::Truncated);
+        }
+        if &bytes[..8] != BOUNDARY_LIVE_MAGIC {
+            return Err(CheckpointError::WrongMagic);
+        }
+        let mut cursor = CheckpointCursor::new(bytes, 8);
+        let version = cursor.u16()?;
+        if version != CHECKPOINT_VERSION {
+            return Err(CheckpointError::UnsupportedCheckpointVersion(version));
+        }
+        let outward_region = cursor.i16()?;
+        let input_capacity = cursor.usize_from_u64()?;
+        let output_capacity = cursor.usize_from_u64()?;
+        let input_count = cursor.usize_from_u64()?;
+        let output_count = cursor.usize_from_u64()?;
+        let core_len = cursor.usize_from_u64()?;
+        let payload_len = cursor.usize_from_u64()?;
+        let checksum = ContentHash(cursor.array_32()?);
+        let payload = cursor.bytes(payload_len)?;
+        cursor.finish()?;
+        if ContentHash::of(payload) != checksum {
+            return Err(CheckpointError::Checksum);
+        }
+        if input_capacity == 0
+            || output_capacity == 0
+            || input_count > input_capacity
+            || output_count > output_capacity
+        {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
+        let entries = input_count
+            .checked_add(output_count)
+            .and_then(|count| count.checked_mul(32))
+            .ok_or(CheckpointError::InvalidCheckpoint)?;
+        let expected = core_len
+            .checked_add(entries)
+            .ok_or(CheckpointError::InvalidCheckpoint)?;
+        if expected != payload_len || core_len > payload.len() {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
+        let core = LiveCheckpoint::decode(&payload[..core_len])?;
+        let mut transient = CheckpointCursor::new(payload, core_len);
+        let mut inputs = Vec::with_capacity(input_count);
+        for _ in 0..input_count {
+            inputs.push(decode_input(&mut transient)?);
+        }
+        let mut outputs = Vec::with_capacity(output_count);
+        for _ in 0..output_count {
+            outputs.push(decode_crossing(&mut transient)?);
+        }
+        transient.finish()?;
+        Ok(Self {
+            core,
+            outward_region,
+            input_capacity,
+            output_capacity,
+            inputs,
+            outputs,
+        })
+    }
+}
+
+impl BoundaryRuntime {
+    pub fn new(
+        substrate: PlasticSubstrate,
+        outward_region: i16,
+        input_capacity: usize,
+        output_capacity: usize,
+    ) -> Result<Self, BoundaryError> {
+        if input_capacity == 0 || output_capacity == 0 {
+            return Err(BoundaryError::ZeroCapacity);
+        }
+        Ok(Self {
+            substrate,
+            outward_region,
+            input_capacity,
+            output_capacity,
+            inputs: VecDeque::with_capacity(input_capacity),
+            outputs: VecDeque::with_capacity(output_capacity),
+        })
+    }
+
+    pub fn substrate(&self) -> &PlasticSubstrate {
+        &self.substrate
+    }
+
+    pub fn input_capacity(&self) -> usize {
+        self.input_capacity
+    }
+
+    pub fn output_capacity(&self) -> usize {
+        self.output_capacity
+    }
+
+    pub fn input_len(&self) -> usize {
+        self.inputs.len()
+    }
+
+    pub fn output_len(&self) -> usize {
+        self.outputs.len()
+    }
+
+    pub fn enqueue(&mut self, input: SpikeInput) -> Result<(), BoundaryError> {
+        self.enqueue_batch(&[input])
+    }
+
+    pub fn enqueue_batch(&mut self, inputs: &[SpikeInput]) -> Result<(), BoundaryError> {
+        let occupied = self.inputs.len();
+        if inputs.len() > self.input_capacity.saturating_sub(occupied) {
+            return Err(BoundaryError::InputFull {
+                capacity: self.input_capacity,
+                occupied,
+                attempted: inputs.len(),
+            });
+        }
+        self.inputs.extend(inputs.iter().copied());
+        Ok(())
+    }
+
+    pub fn run_until_quiescent(&mut self) -> Result<BoundaryRun, BoundaryError> {
+        let consumed_inputs = self.inputs.len();
+        let mut candidate = self.substrate.clone();
+        for input in &self.inputs {
+            candidate.enter(*input);
+        }
+        let mut result = candidate.propagate();
+        result
+            .crossings
+            .retain(|crossing| crossing.to_region == self.outward_region);
+        let required = result.crossings.len();
+        if required > self.output_capacity {
+            return Err(BoundaryError::OutputBatchTooLarge {
+                capacity: self.output_capacity,
+                required,
+            });
+        }
+        let occupied = self.outputs.len();
+        if required > self.output_capacity.saturating_sub(occupied) {
+            return Err(BoundaryError::OutputFull {
+                capacity: self.output_capacity,
+                occupied,
+                required,
+            });
+        }
+        self.substrate = candidate;
+        self.inputs.clear();
+        self.outputs.extend(result.crossings);
+        Ok(BoundaryRun {
+            consumed_inputs,
+            produced_outputs: required,
+            work: result.work,
+            naturally_quiescent: result.naturally_quiescent,
+            resident_bytes: result.resident_bytes,
+        })
+    }
+
+    pub fn drain_output(&mut self, maximum: usize) -> Vec<Crossing> {
+        let count = maximum.min(self.outputs.len());
+        self.outputs.drain(..count).collect()
+    }
+
+    pub fn drain_all_output(&mut self) -> Vec<Crossing> {
+        self.drain_output(self.outputs.len())
+    }
+
+    pub fn arrive(
+        &mut self,
+        inputs: &[SpikeInput],
+        outward_region: i16,
+    ) -> Result<RunResult, BoundaryError> {
+        if outward_region != self.outward_region {
+            return Err(BoundaryError::WrongOutwardRegion {
+                configured: self.outward_region,
+                requested: outward_region,
+            });
+        }
+        self.enqueue_batch(inputs)?;
+        let run = self.run_until_quiescent()?;
+        Ok(RunResult {
+            crossings: self.drain_all_output(),
+            work: run.work,
+            naturally_quiescent: run.naturally_quiescent,
+            resident_bytes: run.resident_bytes,
+        })
+    }
+
+    pub fn advance_time(&mut self, tick: i64) -> Work {
+        assert!(
+            self.inputs.is_empty() && self.outputs.is_empty(),
+            "boundary buffers must be drained before advancing time"
+        );
+        self.substrate.advance_time(tick)
+    }
+
+    pub fn live_checkpoint(
+        &self,
+        body_version: u64,
+    ) -> Result<BoundaryLiveCheckpoint, CheckpointError> {
+        Ok(BoundaryLiveCheckpoint {
+            core: self.substrate.live_checkpoint(body_version)?,
+            outward_region: self.outward_region,
+            input_capacity: self.input_capacity,
+            output_capacity: self.output_capacity,
+            inputs: self.inputs.iter().copied().collect(),
+            outputs: self.outputs.iter().copied().collect(),
+        })
+    }
+
+    pub fn from_live_checkpoint(
+        checkpoint: BoundaryLiveCheckpoint,
+    ) -> Result<Self, CheckpointError> {
+        if checkpoint.input_capacity == 0
+            || checkpoint.output_capacity == 0
+            || checkpoint.inputs.len() > checkpoint.input_capacity
+            || checkpoint.outputs.len() > checkpoint.output_capacity
+        {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
+        Ok(Self {
+            substrate: PlasticSubstrate::from_live_checkpoint(checkpoint.core)?,
+            outward_region: checkpoint.outward_region,
+            input_capacity: checkpoint.input_capacity,
+            output_capacity: checkpoint.output_capacity,
+            inputs: checkpoint.inputs.into(),
+            outputs: checkpoint.outputs.into(),
         })
     }
 }
@@ -1269,6 +1590,10 @@ fn checkpoint_put_u16(bytes: &mut Vec<u8>, value: u16) {
     bytes.extend_from_slice(&value.to_le_bytes());
 }
 
+fn checkpoint_put_i16(bytes: &mut Vec<u8>, value: i16) {
+    bytes.extend_from_slice(&value.to_le_bytes());
+}
+
 fn checkpoint_len_u32(length: usize) -> Result<u32, CheckpointError> {
     u32::try_from(length).map_err(|_| CheckpointError::InvalidCheckpoint)
 }
@@ -1312,6 +1637,26 @@ fn decode_input(cursor: &mut CheckpointCursor<'_>) -> Result<SpikeInput, Checkpo
         phase: cursor.i32()?,
         origin_physical: cursor.u64()?,
         target: CellId(cursor.u64()?),
+        impulse: cursor.i32()?,
+    })
+}
+
+fn encode_crossing(bytes: &mut Vec<u8>, crossing: &Crossing) {
+    checkpoint_put_i64(bytes, crossing.tick);
+    checkpoint_put_u64(bytes, crossing.from_physical);
+    checkpoint_put_u64(bytes, crossing.to_physical);
+    checkpoint_put_i16(bytes, crossing.from_region);
+    checkpoint_put_i16(bytes, crossing.to_region);
+    checkpoint_put_i32(bytes, crossing.impulse);
+}
+
+fn decode_crossing(cursor: &mut CheckpointCursor<'_>) -> Result<Crossing, CheckpointError> {
+    Ok(Crossing {
+        tick: cursor.i64()?,
+        from_physical: cursor.u64()?,
+        to_physical: cursor.u64()?,
+        from_region: cursor.i16()?,
+        to_region: cursor.i16()?,
         impulse: cursor.i32()?,
     })
 }
@@ -1406,6 +1751,10 @@ impl<'a> CheckpointCursor<'a> {
 
     fn u16(&mut self) -> Result<u16, CheckpointError> {
         Ok(u16::from_le_bytes(self.take()?))
+    }
+
+    fn i16(&mut self) -> Result<i16, CheckpointError> {
+        Ok(i16::from_le_bytes(self.take()?))
     }
 
     fn u32(&mut self) -> Result<u32, CheckpointError> {
@@ -1589,5 +1938,117 @@ mod tests {
             PlasticSubstrate::from_body_bytes(&bytes),
             Err(CheckpointError::StaleCellReference(_))
         ));
+    }
+
+    #[test]
+    fn input_capacity_rejects_batches_atomically() {
+        let (substrate, source, _, _) = substrate(50);
+        let mut runtime = BoundaryRuntime::new(substrate, 1, 2, 4).unwrap();
+        runtime.enqueue(input(source, 0)).unwrap();
+        let before = runtime.clone();
+        assert_eq!(
+            runtime.enqueue_batch(&[input(source, 1), input(source, 2)]),
+            Err(BoundaryError::InputFull {
+                capacity: 2,
+                occupied: 1,
+                attempted: 2,
+            })
+        );
+        assert_eq!(runtime, before);
+    }
+
+    #[test]
+    fn output_backpressure_is_bounded_transactional_and_fifo() {
+        let (substrate, source, _, _) = substrate(50);
+        let mut runtime = BoundaryRuntime::new(substrate, 1, 4, 1).unwrap();
+        runtime.enqueue(input(source, 0)).unwrap();
+        let first = runtime.run_until_quiescent().unwrap();
+        assert_eq!(first.produced_outputs, 1);
+        runtime.enqueue(input(source, 2)).unwrap();
+        let before = runtime.clone();
+        assert_eq!(
+            runtime.run_until_quiescent(),
+            Err(BoundaryError::OutputFull {
+                capacity: 1,
+                occupied: 1,
+                required: 1,
+            })
+        );
+        assert_eq!(runtime, before);
+        let first_output = runtime.drain_output(1);
+        assert_eq!(first_output.len(), 1);
+        runtime.run_until_quiescent().unwrap();
+        let second_output = runtime.drain_output(1);
+        assert_eq!(second_output.len(), 1);
+        assert!(first_output[0].tick < second_output[0].tick);
+    }
+
+    #[test]
+    fn output_batch_larger_than_capacity_changes_nothing() {
+        let mut substrate = PlasticSubstrate::with_capacity(ArenaId(55), 4, 4);
+        let source = substrate.add_cell(CellSpec {
+            physical_id: 1,
+            position: 0,
+            region: 0,
+            threshold: 1,
+            resistance: 10,
+        });
+        for physical_id in [2, 3] {
+            let target = substrate.add_cell(CellSpec {
+                physical_id,
+                position: physical_id as i32,
+                region: 1,
+                threshold: 1,
+                resistance: 10,
+            });
+            substrate.add_arrow(ArrowSpec {
+                from: source,
+                to: target,
+                delay: 1,
+                phase: 0,
+                coupling: 1,
+                resistance: 50,
+                mode: TransmissionMode::Drive,
+            });
+        }
+        let mut runtime = BoundaryRuntime::new(substrate, 1, 2, 1).unwrap();
+        runtime.enqueue(input(source, 0)).unwrap();
+        let before = runtime.clone();
+        assert_eq!(
+            runtime.run_until_quiescent(),
+            Err(BoundaryError::OutputBatchTooLarge {
+                capacity: 1,
+                required: 2,
+            })
+        );
+        assert_eq!(runtime, before);
+    }
+
+    #[test]
+    fn buffered_path_and_live_checkpoint_preserve_exact_behavior() {
+        let (mut direct, source, _, _) = substrate(50);
+        let inputs = [input(source, 0), input(source, 2)];
+        let expected = direct.arrive(&inputs, 1);
+
+        let (buffered, buffered_source, _, _) = substrate(50);
+        assert_eq!(source, buffered_source);
+        let mut runtime = BoundaryRuntime::new(buffered, 1, 4, 4).unwrap();
+        runtime.enqueue(inputs[0]).unwrap();
+        runtime.run_until_quiescent().unwrap();
+        runtime.enqueue(inputs[1]).unwrap();
+        let checkpoint = runtime.live_checkpoint(6).unwrap();
+        let bytes = checkpoint.canonical_bytes().unwrap();
+        let decoded = BoundaryLiveCheckpoint::decode(&bytes).unwrap();
+        assert_eq!(decoded.canonical_bytes().unwrap(), bytes);
+        let mut restored = BoundaryRuntime::from_live_checkpoint(decoded).unwrap();
+        assert_eq!(restored, runtime);
+
+        let first = restored.drain_all_output();
+        let second_run = restored.run_until_quiescent().unwrap();
+        let mut actual = first;
+        actual.extend(restored.drain_all_output());
+        assert_eq!(actual, expected.crossings);
+        assert!(second_run.naturally_quiescent);
+        assert_eq!(restored.substrate(), &direct);
     }
 }
