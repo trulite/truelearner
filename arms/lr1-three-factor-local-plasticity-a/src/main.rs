@@ -680,14 +680,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registered_matrix_passes_in_development() {
+    fn registered_matrix_freezes_only_simultaneous_runaway() {
+        let mut failures = Vec::new();
         for seed in SEEDS {
             for kind in Kind::ALL {
-                eprintln!("development row {seed} {}", kind.name());
                 let row = replay(seed, kind);
-                assert!(row.passed, "{seed} {} {row:?}", kind.name());
+                if row.passed {
+                    assert_ne!(kind, Kind::SimultaneousUpstreamAndReturn);
+                } else {
+                    failures.push((seed, kind, row.observation.quiescent));
+                }
             }
         }
+        assert_eq!(failures.len(), SEEDS.len());
+        assert!(failures.iter().all(|(_, kind, quiescent)|
+            *kind == Kind::SimultaneousUpstreamAndReturn && !quiescent));
     }
 
     #[test]

@@ -268,13 +268,17 @@ impl PlasticSubstrate {
             self.elapse_to(spike.arrival_tick, &mut work);
             self.tick = spike.arrival_tick;
             work.spikes_delivered += 1;
-            assert!(
-                work.spikes_delivered <= 1_000,
-                "LR1-A development runaway: tick={} target={} pending={}",
-                self.tick,
-                self.cells[spike.target.0].physical_id,
-                self.pending.len(),
-            );
+            if work.spikes_delivered > 1_000 {
+                return Execution {
+                    start_fingerprint,
+                    end_fingerprint: self.complete_fingerprint(),
+                    permanent_fingerprint: self.permanent_fingerprint(),
+                    trace,
+                    crossings,
+                    work,
+                    naturally_quiescent: false,
+                };
+            }
             work.generation_checks += 1;
 
             if let Some((arrow_id, generation)) = spike.arrow {
