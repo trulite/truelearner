@@ -45,16 +45,16 @@ require_hash 497c559f9477252195e870d2b4be8dfd38f09b163438ecce7047e2f63077c443 \
     experiments/px5_lrc_cumulative_allocation_authority_protocol_v1.md
 
 manifest=experiments/pxc_active_surface_manifest_v3.csv
-expected_manifest=${PX5_EXPECT_MANIFEST_HASH:-}
-if [ -z "$expected_manifest" ] || [ "$(sha "$manifest")" != "$expected_manifest" ]; then
-    echo "PX5_EXPECT_MANIFEST_HASH must match manifest v3" >&2
+expected_manifest=32fda2d86f6c836438fdd01fc5433c8731f4ec92e3e052e5d1a64fe751d15388
+if [ "$(sha "$manifest")" != "$expected_manifest" ]; then
+    echo "manifest v3 changed" >&2
     exit 1
 fi
 
 source=arms/px5-lrc-allocation-authority/src/main.rs
-expected_source=${PX5_EXPECT_EVALUATOR_HASH:-}
-if [ -z "$expected_source" ] || [ "$(sha "$source")" != "$expected_source" ]; then
-    echo "PX5_EXPECT_EVALUATOR_HASH must match frozen evaluator" >&2
+expected_source=d44c806ac7ecc61ed3b561d210f4d542d9189537f93b33f5f16114ee060b11e3
+if [ "$(sha "$source")" != "$expected_source" ]; then
+    echo "frozen evaluator changed" >&2
     exit 1
 fi
 

@@ -12,18 +12,15 @@ use std::path::Path;
 use std::process::Command;
 
 const LAW_HASH: &str = "7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cfc10";
-const PX4_SOURCE_HASH: &str =
-    "a201674f9d558b5bda20aef71e9857b632f8a6565f372aee88994a280e0fea71";
-const PX4_HANDOFF_HASH: &str =
-    "848c3b030824d6bc404dddad9498046b55d1f71c4d7e4ff10fda05cffb29e995";
-const PX4_CSV_HASH: &str =
-    "050a2b489e41d13e8d8a3d55dd7d69c6e06894b85b2c172f7dc24614af09aeaa";
-const PX4_REPORT_HASH: &str =
-    "445c465ba61cc12c0ece84a8ebb9a83bea1e67c1a4d640964cc7d93c0dbe4390";
-const PROTOCOL_HASH: &str =
-    "497c559f9477252195e870d2b4be8dfd38f09b163438ecce7047e2f63077c443";
+const PX4_SOURCE_HASH: &str = "a201674f9d558b5bda20aef71e9857b632f8a6565f372aee88994a280e0fea71";
+const PX4_HANDOFF_HASH: &str = "848c3b030824d6bc404dddad9498046b55d1f71c4d7e4ff10fda05cffb29e995";
+const PX4_CSV_HASH: &str = "050a2b489e41d13e8d8a3d55dd7d69c6e06894b85b2c172f7dc24614af09aeaa";
+const PX4_REPORT_HASH: &str = "445c465ba61cc12c0ece84a8ebb9a83bea1e67c1a4d640964cc7d93c0dbe4390";
+const PROTOCOL_HASH: &str = "497c559f9477252195e870d2b4be8dfd38f09b163438ecce7047e2f63077c443";
 
-const ROOTS: [u64; 8] = [561001, 561002, 561003, 561004, 561005, 561006, 561007, 561008];
+const ROOTS: [u64; 8] = [
+    561001, 561002, 561003, 561004, 561005, 561006, 561007, 561008,
+];
 const LOADS: [usize; 3] = [8, 32, 128];
 const WORK_LIMIT: u64 = 100_000;
 const BYTE_LIMIT: usize = 24_000;
@@ -186,7 +183,13 @@ fn run_row(root: u64, load: usize) -> Row {
     let mut world = build_world(root, load, returned_last, mirror);
     let blank = variable_arrows(&world).len();
     for site in sites(&world) {
-        arrive(&mut world.space, site.source, 0, 0, site.source_physical + 8);
+        arrive(
+            &mut world.space,
+            site.source,
+            0,
+            0,
+            site.source_physical + 8,
+        );
     }
     let first = world.space.propagate();
     let returned_arrow = only_live(&world.space, world.returned);
@@ -516,7 +519,9 @@ fn global_claims(rows: &[Row]) -> [bool; 4] {
             .collect::<BTreeSet<_>>();
         signatures.len() == 1
     });
-    let cumulative = rows.iter().all(|row| row.claims[13] && row.claims[14] && row.claims[15]);
+    let cumulative = rows
+        .iter()
+        .all(|row| row.claims[13] && row.claims[14] && row.claims[15]);
     [complete, strata, invariant, cumulative]
 }
 
@@ -710,7 +715,10 @@ fn absent(paths: &[&str]) {
 
 fn publish(path: &str, contents: &str) {
     let staging = format!("{path}.staging");
-    assert!(!Path::new(&staging).exists(), "staging path exists: {staging}");
+    assert!(
+        !Path::new(&staging).exists(),
+        "staging path exists: {staging}"
+    );
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
