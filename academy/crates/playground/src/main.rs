@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 const STYLESHEET: &str = include_str!("styles.css");
+const OUTPUT_BACKGROUND: [u8; 4] = [24, 31, 37, 255];
 
 fn main() {
     let window = dioxus::desktop::WindowBuilder::new()
@@ -96,7 +97,7 @@ fn App() -> Element {
     let mut skills_open = use_signal(|| false);
     let mut shared_surface = use_signal(VisualSurface::blank);
     let mut organism_surface =
-        use_signal(|| VisualSurface::new(SURFACE_WIDTH, SURFACE_HEIGHT, [24, 31, 37, 255]));
+        use_signal(|| VisualSurface::new(SURFACE_WIDTH, SURFACE_HEIGHT, OUTPUT_BACKGROUND));
     let mut drawing = use_signal(|| false);
     let mut last_point = use_signal(|| None::<(u32, u32)>);
     let mut canvas_extent = use_signal(|| (f64::from(SURFACE_WIDTH), f64::from(SURFACE_HEIGHT)));
@@ -409,6 +410,17 @@ fn App() -> Element {
                                         move |_| send_command(&worker, &mut model, AcademyCommand::ReplayLast)
                                     },
                                     "Replay"
+                                }
+                                button {
+                                    class: "quiet-button",
+                                    onclick: move |_| {
+                                        organism_surface.set(VisualSurface::new(
+                                            SURFACE_WIDTH,
+                                            SURFACE_HEIGHT,
+                                            OUTPUT_BACKGROUND,
+                                        ));
+                                    },
+                                    "Clear"
                                 }
                             }
                         }
