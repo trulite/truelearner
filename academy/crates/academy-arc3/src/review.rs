@@ -4,7 +4,7 @@ use academy_arc3::{frame_surface, Arc3Observation, Arc3Recording};
 use academy_core::VisualSurface;
 use serde::Serialize;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 const WIDTH: u32 = 1280;
@@ -86,7 +86,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !status.success() {
         return Err(format!("ffmpeg exited with status {status}").into());
     }
-    fs::copy(destination.join(&final_frame), destination.join("poster.png"))?;
+    fs::copy(
+        destination.join(&final_frame),
+        destination.join("poster.png"),
+    )?;
     fs::copy(&source, destination.join("recording.jsonl"))?;
 
     let final_observation = recording
@@ -132,7 +135,12 @@ fn render_observation(
     let mut review = VisualSurface::new(WIDTH, HEIGHT, DARK);
     fill_rect(&mut review, 24, 24, WIDTH - 48, 64, PANEL);
     review.draw_text("ARC-AGI-3", (46, 43), 2, VIOLET);
-    review.draw_text(&recording.metadata.game_id.to_uppercase(), (1_090, 46), 1, MUTED);
+    review.draw_text(
+        &recording.metadata.game_id.to_uppercase(),
+        (1_090, 46),
+        1,
+        MUTED,
+    );
     blit(&mut review, &game, 40, 112);
 
     review.draw_text(&format!("TURN {}", observation.turn), (664, 138), 3, WHITE);
@@ -142,7 +150,12 @@ fn render_observation(
         2,
         VIOLET,
     );
-    review.draw_text(&format!("STATE {}", observation.state), (664, 286), 1, MUTED);
+    review.draw_text(
+        &format!("STATE {}", observation.state),
+        (664, 286),
+        1,
+        MUTED,
+    );
     review.draw_text(
         &format!(
             "LEVELS {} / {}",
@@ -175,14 +188,7 @@ fn action_label(observation: &Arc3Observation) -> String {
     }
 }
 
-fn fill_rect(
-    surface: &mut VisualSurface,
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-    color: [u8; 4],
-) {
+fn fill_rect(surface: &mut VisualSurface, x: u32, y: u32, width: u32, height: u32, color: [u8; 4]) {
     for py in y..y.saturating_add(height) {
         for px in x..x.saturating_add(width) {
             surface.set_pixel(px, py, color);
@@ -192,8 +198,10 @@ fn fill_rect(
 
 fn blit(destination: &mut VisualSurface, source: &VisualSurface, x: u32, y: u32) {
     for (index, pixel) in source.rgba_pixels().chunks_exact(4).enumerate() {
-        let source_x = u32::try_from(index % usize::try_from(source.width()).unwrap_or(1)).unwrap_or(0);
-        let source_y = u32::try_from(index / usize::try_from(source.width()).unwrap_or(1)).unwrap_or(0);
+        let source_x =
+            u32::try_from(index % usize::try_from(source.width()).unwrap_or(1)).unwrap_or(0);
+        let source_y =
+            u32::try_from(index / usize::try_from(source.width()).unwrap_or(1)).unwrap_or(0);
         destination.set_pixel(
             x.saturating_add(source_x),
             y.saturating_add(source_y),
