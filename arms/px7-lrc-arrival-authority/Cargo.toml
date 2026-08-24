@@ -1,0 +1,12 @@
+[package]
+name = "px7-lrc-arrival-authority"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+px7-lrc-arrival = { path = "../../crates/px7-lrc-arrival" }
+px4-lrc-lifetime = { path = "../px4-lrc-lifetime" }
+lr1-modulatory-physical-return = { path = "../../crates/lr1-modulatory-physical-return" }
+
+[workspace]
