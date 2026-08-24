@@ -90,3 +90,15 @@ Those require subsequent developmental gates.
 The official live suite ran twice. Rendering occurred afterward and did not
 rerun or feed media back into the organism. No file under `truelearner/` was
 modified.
+
+Focused validation in the same reusable E2B development worker passed:
+
+- Rust formatting check for `academy-arc3` and `academy-episodes`;
+- strict Clippy for both packages and all of their targets;
+- all five `academy-arc3` tests, including the three sensorimotor causal
+  discriminators;
+- compilation of the persistent agent, both review renderers, and ingestion
+  binary;
+- validation and rendering of all seven frozen episode records.
+
+No workspace-wide compilation or unrelated regression suite was run.
