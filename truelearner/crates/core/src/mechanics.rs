@@ -357,6 +357,35 @@ impl PendingSchedule {
         }
     }
 
+    pub(super) fn pop_same_tick_batch<F>(
+        &mut self,
+        maximum: usize,
+        target_physical: F,
+        cost: &mut ExecutionCost,
+    ) -> Vec<(Spike, u64)>
+    where
+        F: Fn(CellId) -> u64,
+    {
+        if maximum == 0 {
+            return Vec::new();
+        }
+        match self {
+            Self::Vec(spikes) => {
+                cost.queue_ops = cost.queue_ops.saturating_add(1);
+                let Some(index) = minimum_index(spikes, &target_physical, cost) else {
+                    return Vec::new();
+                };
+                let comparisons =
+                    u64::try_from(spikes.len().saturating_sub(1)).unwrap_or(u64::MAX);
+                vec![(spikes.remove(index), comparisons)]
+            }
+            Self::TimingWheel(wheel) => {
+                cost.queue_ops = cost.queue_ops.saturating_add(1);
+                wheel.pop_same_tick_batch(maximum, target_physical, cost)
+            }
+        }
+    }
+
     pub(super) fn canonical<F>(&self, target_physical: F) -> Vec<Spike>
     where
         F: Fn(CellId) -> u64,
@@ -372,18 +401,6 @@ impl PendingSchedule {
         };
         spikes.sort_by_key(|spike| order_key(spike, &target_physical));
         spikes
-    }
-
-    pub(super) fn next_tick(&self) -> Option<i64> {
-        match self {
-            Self::Vec(spikes) => spikes.iter().map(|spike| spike.arrival_tick).min(),
-            Self::TimingWheel(wheel) => wheel
-                .near
-                .iter()
-                .flat_map(|bucket| bucket.iter().map(|spike| spike.arrival_tick))
-                .chain(wheel.overflow.iter().map(|spike| spike.arrival_tick))
-                .min(),
-        }
     }
 
     pub(super) fn from_canonical(kind: SchedulerKind, head_tick: i64, spikes: Vec<Spike>) -> Self {
@@ -458,6 +475,47 @@ impl TimingWheel {
         self.len -= 1;
         let comparisons = u64::try_from(before.saturating_sub(1)).unwrap_or(u64::MAX);
         Some((spike, comparisons))
+    }
+
+    fn pop_same_tick_batch<F>(
+        &mut self,
+        maximum: usize,
+        target_physical: F,
+        cost: &mut ExecutionCost,
+    ) -> Vec<(Spike, u64)>
+    where
+        F: Fn(CellId) -> u64,
+    {
+        if self.len == 0 {
+            return Vec::new();
+        }
+        self.promote_overflow(cost);
+        let Some(next_tick) = self
+            .near
+            .iter()
+            .flat_map(|bucket| bucket.iter().map(|spike| spike.arrival_tick))
+            .min()
+            .or_else(|| self.overflow.iter().map(|spike| spike.arrival_tick).min())
+        else {
+            return Vec::new();
+        };
+        if next_tick >= self.head_tick.saturating_add(self.near.len() as i64) {
+            self.head_tick = next_tick;
+            self.promote_overflow(cost);
+        } else {
+            self.head_tick = next_tick;
+        }
+        let index = self.bucket_index(next_tick);
+        let bucket = &mut self.near[index];
+        bucket.sort_by_key(|spike| order_key(spike, &target_physical));
+        let count = bucket
+            .iter()
+            .take_while(|spike| spike.arrival_tick == next_tick)
+            .count()
+            .min(maximum);
+        cost.allocations = cost.allocations.saturating_add(1);
+        self.len -= count;
+        bucket.drain(..count).map(|spike| (spike, 0)).collect()
     }
 
     fn promote_overflow(&mut self, cost: &mut ExecutionCost) {

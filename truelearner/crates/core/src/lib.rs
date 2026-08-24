@@ -350,6 +350,7 @@ pub struct PlasticSubstrate {
     active_cells: BTreeSet<CellId>,
     eligible_arrows: BTreeSet<ArrowId>,
     trace_physics: bool,
+    zero_delay_live_arrows: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -953,6 +954,7 @@ impl PlasticSubstrate {
             active_cells: BTreeSet::new(),
             eligible_arrows: BTreeSet::new(),
             trace_physics: false,
+            zero_delay_live_arrows: 0,
         }
     }
 
@@ -1087,6 +1089,9 @@ impl PlasticSubstrate {
         let outgoing = &mut self.outgoing_index[spec.from.0 as usize];
         outgoing.push(id);
         outgoing.sort_unstable();
+        if spec.resistance > 0 && spec.delay == 0 {
+            self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_add(1);
+        }
         id
     }
 
@@ -1291,6 +1296,7 @@ impl PlasticSubstrate {
         for outgoing in &mut substrate.outgoing_index {
             outgoing.sort_unstable();
         }
+        substrate.rebuild_mechanical_indexes();
         Ok(substrate)
     }
 
@@ -1496,27 +1502,17 @@ impl PlasticSubstrate {
         let mut work = Work::default();
         let mut execution_cost = ExecutionCost::default();
         let mut physical_trace = Vec::new();
-        while let Some(first) = self.pop_scheduled(&mut execution_cost) {
-            let mut batch = vec![first];
-            if self.mechanics.executor == ExecutorKind::Batched {
-                execution_cost.scans = execution_cost
-                    .scans
-                    .saturating_add(self.arrows.len() as u64);
-                let zero_delay_possible = self
-                    .arrows
-                    .values()
-                    .iter()
-                    .any(|arrow| arrow.live && arrow.delay == 0);
-                if !zero_delay_possible {
-                    let tick = batch[0].0.arrival_tick;
-                    while batch.len() < 64 && self.pending.next_tick() == Some(tick) {
-                        batch.push(
-                            self.pop_scheduled(&mut execution_cost)
-                                .expect("peeked scheduled activity must pop"),
-                        );
-                    }
-                }
-            }
+        while !self.pending.is_empty() {
+            let batch = if self.mechanics.executor == ExecutorKind::Batched
+                && self.zero_delay_live_arrows == 0
+            {
+                self.pop_scheduled_batch(64, &mut execution_cost)
+            } else {
+                vec![
+                    self.pop_scheduled(&mut execution_cost)
+                        .expect("nonempty schedule must pop"),
+                ]
+            };
             for (spike, legacy_comparisons) in batch {
                 work.total = work.total.saturating_add(legacy_comparisons);
                 let external_arrival = spike.arrow.is_none();
@@ -1710,6 +1706,23 @@ impl PlasticSubstrate {
         )
     }
 
+    fn pop_scheduled_batch(
+        &mut self,
+        maximum: usize,
+        execution_cost: &mut ExecutionCost,
+    ) -> Vec<(Spike, u64)> {
+        let cells = &self.cells;
+        let slots = &self.cell_slots;
+        self.pending.pop_same_tick_batch(
+            maximum,
+            |id| {
+                let slot = slots[id.0 as usize].expect("scheduled CELL must resolve");
+                cells.get(slot.0).physical_id
+            },
+            execution_cost,
+        )
+    }
+
     fn apply_modulatory_return(
         &mut self,
         cell: CellId,
@@ -1776,15 +1789,18 @@ impl PlasticSubstrate {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
             for index in 0..self.arrows.len() {
                 execution_cost.scans = execution_cost.scans.saturating_add(1);
-                let deallocated = self.arrows.with_mut(index, |arrow| {
+                let (deallocated, zero_delay) = self.arrows.with_mut(index, |arrow| {
                     if !arrow.live {
-                        return false;
+                        return (false, false);
                     }
                     let was_live = arrow.live;
                     pressure_arrow(arrow, amount);
                     work.total = work.total.saturating_add(1);
-                    was_live && !arrow.live
+                    (was_live && !arrow.live, arrow.delay == 0)
                 });
+                if deallocated && zero_delay {
+                    self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
+                }
                 if deallocated {
                     work.total = work.total.saturating_add(1);
                     work.physical_deallocations = work.physical_deallocations.saturating_add(1);
@@ -1813,19 +1829,23 @@ impl PlasticSubstrate {
         for id in expiry_candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("eligible ARROW must resolve");
-            let (expired, deallocated) = self.arrows.with_mut(slot.0, |arrow| {
+            let (expired, deallocated, zero_delay) = self.arrows.with_mut(slot.0, |arrow| {
                 if !(arrow.live && arrow.eligible_until.is_some_and(|end| end < tick)) {
-                    return (false, false);
+                    return (false, false, false);
                 }
                 let was_live = arrow.live;
                 pressure_arrow(arrow, UNSUPPORTED_USE_PRESSURE);
                 arrow.eligible_until = None;
-                (true, was_live && !arrow.live)
+                (true, was_live && !arrow.live, arrow.delay == 0)
             });
             if expired {
                 self.eligible_arrows.remove(&id);
                 work.total = work.total.saturating_add(1);
                 if deallocated {
+                    if zero_delay {
+                        self.zero_delay_live_arrows =
+                            self.zero_delay_live_arrows.saturating_sub(1);
+                    }
                     work.total = work.total.saturating_add(1);
                     work.physical_deallocations = work.physical_deallocations.saturating_add(1);
                 }
@@ -2013,6 +2033,12 @@ impl PlasticSubstrate {
             .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
             .map(|arrow| arrow.id)
             .collect();
+        self.zero_delay_live_arrows = self
+            .arrows
+            .values()
+            .into_iter()
+            .filter(|arrow| arrow.live && arrow.delay == 0)
+            .count();
     }
 
     fn resident_bytes(&self) -> usize {
@@ -2469,6 +2495,41 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn r5_batches_safe_same_tick_activity_without_changing_physics() {
+        let mut base = PlasticSubstrate::with_capacity(ArenaId(701), 2, 2);
+        let target = base.add_cell(CellSpec {
+            physical_id: 55_000,
+            position: 0,
+            region: 0,
+            threshold: 100,
+            resistance: 20,
+        });
+        let arrivals = (0..100)
+            .map(|serial| SpikeInput {
+                arrival_tick: 10,
+                phase: serial % 3,
+                origin_physical: 70_000 + serial as u64,
+                target,
+                impulse: 1,
+            })
+            .collect::<Vec<_>>();
+
+        let mut scalar = base.clone();
+        scalar.reconfigure_mechanics(MechanicalConfig::R4);
+        let scalar_result = scalar.arrive(&arrivals, 1);
+
+        let mut batched = base;
+        batched.reconfigure_mechanics(MechanicalConfig::R5);
+        let batched_result = batched.arrive(&arrivals, 1);
+
+        assert_physical_equivalence(&scalar, &scalar_result, &batched, &batched_result);
+        assert!(
+            batched_result.execution_cost.queue_ops < scalar_result.execution_cost.queue_ops,
+            "batched scheduler must consume fewer queue operations"
+        );
     }
 
     #[test]
