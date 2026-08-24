@@ -67,7 +67,8 @@ def main() -> None:
             setup
             + " && { "
             + checks
-            + "; remote_status=$?; printf '\\n__E2B_REMOTE_EXIT__=%s\\n' "$remote_status"; exit 0; }"
+            + "; remote_status=$?; printf '\\n__E2B_REMOTE_EXIT__=%s\\n' "
+            + '"$remote_status"; exit 0; }'
         )
         result = sandbox.commands.run(command, timeout=args.command_timeout)
         stdout = result.stdout or ""
