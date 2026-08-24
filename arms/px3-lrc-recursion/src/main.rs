@@ -21,8 +21,7 @@ const LIFECYCLE_DEVELOPMENT: &str =
 const RECURSION_DEVELOPMENT: &str =
     "b59fa4b299d2ec22429255d78269ecb7fa56c22aeb4c122137fc21a299369724";
 const V1_PROTOCOL: &str = "06a9ea4515b5ea42bf576a5bd49969c966cc63bba94ef3f4b499fb89da8345cc";
-const V1_RESULT_AUDIT: &str =
-    "668aeb5802194a98002edd95bb55d09100825637c1f3c4a5ca1a711b9e0565a2";
+const V1_RESULT_AUDIT: &str = "668aeb5802194a98002edd95bb55d09100825637c1f3c4a5ca1a711b9e0565a2";
 const PROTOCOL: &str = "ef16155950bf84a361ba9804f4455dbd067f81d7aa94e8cc3d917edfcf3807b9";
 
 const CSV: &str = "results/px3_lrc_recursion_definitive_v2.csv";
