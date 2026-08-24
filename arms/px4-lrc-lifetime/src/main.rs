@@ -14,8 +14,17 @@ const AUTHORITY: &str = "f9057fe78a86db9111b0b69310d03accef3bc970";
 const LAW_HASH: &str = "7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cfc10";
 const HANDOFF_HASH: &str = "98067812bc357949af5653a115b353519bede12499804818cfaf4783c0666cbd";
 const PROTOCOL_HASH: &str = "dc1bb5efe1a5cfe2f2be0b6c21d1df675213d3334ca784c0844b1b61bc1577dc";
+const DEVELOPMENT_HANDOFF_HASH: &str =
+    "a84ecf39ae1381f75edf95887aad3bcd1d7a0b623a87a1b5f874a7cb07efd4c1";
+const DEVELOPMENT_GATE_HASH: &str =
+    "7789fe652e39e77e8d909b2cd34ec71b8fcdc3ee6564d8f18ba1840f8fdb9d54";
+const ACTIVE_MANIFEST_HASH: &str =
+    "28924746e951645047225d8d20f5c5f98d93f349f46f7c6d7019e68632ce51b9";
+const AUTHORITY_PROTOCOL_HASH: &str =
+    "fa04de4ec43c10f3878b86d920c2a67243b84201e8759950075c069548153ba8";
 const COUNTS: [usize; 4] = [1, 2, 4, 8];
 const RESISTANCES: [u32; 4] = [4, 7, 12, 22];
+const PRESSURE_OBSERVATIONS: u32 = 24;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct Flow {
@@ -102,41 +111,51 @@ struct Core {
     shift: Shift,
     stale: Stale,
     fresh_layout: bool,
-    conformance: [bool; 4],
+    conformance: [bool; 5],
 }
 
 impl Core {
     fn passed(&self) -> bool {
-        self.one.unsupported_dead
-            && self.one.qualified_resistance == 4
-            && self.one.qualified_coupling == 2
-            && self.one.return_alone_empty
-            && self.one.late_return_rejected
-            && self.one.drive_return_rejected
-            && self.one.quiescent
-            && self.curve.resistance == RESISTANCES
-            && self.curve.deallocation_steps == RESISTANCES
-            && self.curve.penultimate_live.into_iter().all(|value| value)
-            && self.curve.final_dead.into_iter().all(|value| value)
-            && self.curve.strict
-            && self.curve.quiescent
-            && self.reuse.no_proposal
-            && self.reuse.crossing_impulse == 2
-            && self.reuse.resistance_after == self.reuse.resistance_before + 3
-            && self.reuse.disuse_dead
-            && self.reuse.reacquired
-            && self.reuse.quiescent
-            && self.shift.old_dead
-            && self.shift.new_live
-            && self.shift.new_resistance > 0
-            && self.shift.new_reused
-            && self.shift.quiescent
-            && self.stale.blocked
-            && self.stale.effect_firings == 1
-            && self.stale.deallocations == 1
-            && self.stale.quiescent
-            && self.fresh_layout
-            && self.conformance.into_iter().all(|value| value)
+        self.clauses().into_iter().all(|value| value)
+    }
+
+    fn clauses(&self) -> Vec<bool> {
+        let mut clauses = vec![
+            self.one.unsupported_dead,
+            self.one.qualified_resistance == 4,
+            self.one.qualified_coupling == 2,
+            self.one.return_alone_empty,
+            self.one.late_return_rejected,
+            self.one.drive_return_rejected,
+            self.one.quiescent,
+            self.curve.resistance == RESISTANCES,
+            self.curve.deallocation_steps == RESISTANCES,
+        ];
+        clauses.extend(self.curve.penultimate_live);
+        clauses.extend(self.curve.final_dead);
+        clauses.extend([
+            self.curve.strict,
+            self.curve.quiescent,
+            self.reuse.no_proposal,
+            self.reuse.crossing_impulse == 2,
+            self.reuse.resistance_after == self.reuse.resistance_before + 3,
+            self.reuse.disuse_dead,
+            self.reuse.reacquired,
+            self.reuse.quiescent,
+            self.shift.old_dead,
+            self.shift.new_live,
+            self.shift.new_resistance > 0,
+            self.shift.new_reused,
+            self.shift.quiescent,
+            self.stale.blocked,
+            self.stale.effect_firings == 1,
+            self.stale.deallocations == 1,
+            self.stale.quiescent,
+            self.fresh_layout,
+        ]);
+        clauses.extend(self.conformance);
+        debug_assert_eq!(clauses.len(), 40);
+        clauses
     }
 
     fn quiescent(&self) -> bool {
@@ -154,6 +173,8 @@ struct Row {
     mark: u64,
     flip: bool,
     mirror: bool,
+    schedule_origin: i64,
+    replicate: u8,
     core: Core,
     replay: bool,
     passed: bool,
@@ -164,6 +185,7 @@ enum Stage {
     Probe,
     Micro,
     Gate,
+    Authority,
 }
 
 impl Stage {
@@ -172,6 +194,7 @@ impl Stage {
             Self::Probe => "probe",
             Self::Micro => "micro",
             Self::Gate => "gate",
+            Self::Authority => "authority",
         }
     }
 
@@ -180,38 +203,69 @@ impl Stage {
             Self::Probe => "px4-lrc-physical-lifetime-probe-v1",
             Self::Micro => "px4-lrc-physical-lifetime-micro-v1",
             Self::Gate => "px4-lrc-physical-lifetime-gate-v1",
+            Self::Authority => "px4-lrc-cumulative-lifetime-authority-v1",
         }
     }
 
-    fn marks(self) -> Vec<(u64, bool, bool)> {
+    fn marks(self) -> Vec<(u64, bool, bool, i64, u8)> {
         match self {
-            Self::Probe => vec![(151_001, false, false)],
+            Self::Probe => vec![(151_001, false, false, 0, 1)],
             Self::Micro => vec![
-                (152_001, false, false),
-                (152_002, true, false),
-                (152_101, false, true),
-                (152_102, true, true),
+                (152_001, false, false, 0, 1),
+                (152_002, true, false, 0, 1),
+                (152_101, false, true, 0, 1),
+                (152_102, true, true, 0, 1),
             ],
             Self::Gate => (0..8)
-                .map(|index| (153_001 + index as u64, index % 2 == 1, (index / 2) % 2 == 1))
+                .map(|index| {
+                    (
+                        153_001 + index as u64,
+                        index % 2 == 1,
+                        (index / 2) % 2 == 1,
+                        0,
+                        1,
+                    )
+                })
+                .collect(),
+            Self::Authority => (0..16)
+                .map(|index| {
+                    (
+                        461_001 + index as u64,
+                        index % 2 == 1,
+                        (index / 2) % 2 == 1,
+                        if (index / 4) % 2 == 0 { 200 } else { 400 },
+                        (index / 8 + 1) as u8,
+                    )
+                })
                 .collect(),
         }
     }
 }
 
-fn main() {
-    let stage = match std::env::args().nth(1).as_deref() {
+pub fn main() {
+    let argument = std::env::args().nth(1);
+    if argument.as_deref() == Some("--authority-preflight") {
+        verify_frozen_inputs();
+        authority_preflight();
+        return;
+    }
+    let stage = match argument.as_deref() {
         Some("--probe") => Stage::Probe,
         Some("--micro") => Stage::Micro,
         Some("--gate") => Stage::Gate,
-        _ => panic!("use exactly one of --probe, --micro, or --gate"),
+        Some("--authority-v1") => Stage::Authority,
+        _ => panic!(
+            "use exactly one of --probe, --micro, --gate, --authority-preflight, or --authority-v1"
+        ),
     };
     verify_frozen_inputs();
     let rows = stage
         .marks()
         .into_iter()
         .enumerate()
-        .map(|(index, (mark, flip, mirror))| replay_row(index, mark, flip, mirror))
+        .map(|(index, (mark, flip, mirror, schedule_origin, replicate))| {
+            replay_row(index, mark, flip, mirror, schedule_origin, replicate)
+        })
         .collect::<Vec<_>>();
     let all_layouts = rows
         .iter()
@@ -220,15 +274,30 @@ fn main() {
             .iter()
             .all(|row| row.core.curve.deallocation_steps == rows[0].core.curve.deallocation_steps);
     let passed = all_layouts && rows.iter().all(|row| row.passed);
+    let clause_total = rows
+        .iter()
+        .map(|row| row.core.clauses().len() + 1)
+        .sum::<usize>()
+        + 1;
+    let clause_passed = rows
+        .iter()
+        .map(|row| {
+            row.core.clauses().into_iter().filter(|value| *value).count()
+                + usize::from(row.replay)
+        })
+        .sum::<usize>()
+        + usize::from(all_layouts);
     let csv = csv(stage, &rows, all_layouts, passed);
     let markdown = markdown(stage, &rows, all_layouts, passed);
     let base = format!("results/px4_lrc_lifetime_{}_v1", stage.name());
     publish_pair(&base, &csv, &markdown);
     println!(
-        "PX4 LR-C physical lifetime {}: rows={}/{} replay={} quiescent={} layouts={} verdict={}",
+        "PX4 LR-C physical lifetime {}: rows={}/{} clauses={}/{} replay={} quiescent={} layouts={} verdict={}",
         stage.name().to_uppercase(),
         rows.iter().filter(|row| row.passed).count(),
         rows.len(),
+        clause_passed,
+        clause_total,
         rows.iter().all(|row| row.replay),
         rows.iter().all(|row| row.core.quiescent()),
         all_layouts,
@@ -239,9 +308,16 @@ fn main() {
     }
 }
 
-fn replay_row(index: usize, mark: u64, flip: bool, mirror: bool) -> Row {
-    let first = run_core(mark, flip, mirror);
-    let second = run_core(mark, flip, mirror);
+fn replay_row(
+    index: usize,
+    mark: u64,
+    flip: bool,
+    mirror: bool,
+    schedule_origin: i64,
+    replicate: u8,
+) -> Row {
+    let first = run_core(mark, flip, mirror, schedule_origin);
+    let second = run_core(mark, flip, mirror, schedule_origin);
     let replay = first == second;
     let passed = replay && first.passed();
     Row {
@@ -249,29 +325,36 @@ fn replay_row(index: usize, mark: u64, flip: bool, mirror: bool) -> Row {
         mark,
         flip,
         mirror,
+        schedule_origin,
+        replicate,
         core: first,
         replay,
         passed,
     }
 }
 
-fn run_core(mark: u64, flip: bool, mirror: bool) -> Core {
-    let one = one_exposure(mark + 10_000, flip, mirror);
-    let base_curve = curve(mark + 20_000, flip, mirror);
-    let reflected = curve(mark + 30_000, !flip, !mirror);
+fn run_core(mark: u64, flip: bool, mirror: bool, schedule_origin: i64) -> Core {
+    let one = one_exposure(mark + 10_000, flip, mirror, schedule_origin);
+    let base_curve = curve(mark + 20_000, flip, mirror, schedule_origin);
+    let reflected = curve(mark + 30_000, !flip, !mirror, schedule_origin);
     let fresh_layout = base_curve.resistance == reflected.resistance
         && base_curve.deallocation_steps == reflected.deallocation_steps
         && base_curve.penultimate_live == reflected.penultimate_live
         && base_curve.final_dead == reflected.final_dead;
-    let reuse = reuse(mark + 40_000, flip, mirror);
-    let shift = shift(mark + 50_000, flip, mirror);
-    let stale = stale(mark + 60_000, flip, mirror);
-    let forward_only = direction_check(mark + 70_000, flip, mirror);
+    let reuse = reuse(mark + 40_000, flip, mirror, schedule_origin);
+    let shift = shift(mark + 50_000, flip, mirror, schedule_origin);
+    let stale = stale(mark + 60_000, flip, mirror, schedule_origin);
+    let forward_only = direction_check(mark + 70_000, flip, mirror, schedule_origin);
+    let lrc = one.qualified_resistance == 4
+        && one.qualified_coupling == 2
+        && one.drive_return_rejected
+        && reuse.resistance_after == reuse.resistance_before + 3;
     let conformance = [
         one.unsupported_dead && reuse.disuse_dead && reuse.reacquired && stale.blocked,
         one.return_alone_empty && one.late_return_rejected,
         forward_only,
         base_curve.strict && reuse.no_proposal && shift.old_dead && shift.new_live,
+        lrc,
     ];
     Core {
         one,
@@ -284,22 +367,22 @@ fn run_core(mark: u64, flip: bool, mirror: bool) -> Core {
     }
 }
 
-fn one_exposure(mark: u64, flip: bool, mirror: bool) -> OneExposure {
+fn one_exposure(mark: u64, flip: bool, mirror: bool, schedule_origin: i64) -> OneExposure {
     let mut unsupported = field(mark, flip, mirror, TransmissionMode::Modulatory);
-    let unsupported_flow = expose(&mut unsupported, 0, false);
+    let unsupported_flow = expose(&mut unsupported, schedule_origin, false);
     let unsupported_arrow = only_candidate(&unsupported);
-    let unsupported_pressure = unsupported.space.advance_time(5);
+    let unsupported_pressure = unsupported.space.advance_time(schedule_origin + 5);
     let unsupported_dead = !unsupported.space.arrow_is_live(unsupported_arrow)
         && unsupported_pressure.physical_deallocations == 1;
 
     let mut qualified = field(mark + 100, flip, mirror, TransmissionMode::Modulatory);
-    let qualified_flow = expose(&mut qualified, 0, true);
+    let qualified_flow = expose(&mut qualified, schedule_origin, true);
     let qualified_arrow = only_candidate(&qualified);
     let qualified_resistance = qualified.space.arrow_resistance(qualified_arrow);
     let qualified_coupling = qualified.space.arrow_coupling(qualified_arrow);
 
     let mut return_alone = field(mark + 200, flip, mirror, TransmissionMode::Modulatory);
-    let return_flow = return_only(&mut return_alone, 0);
+    let return_flow = return_only(&mut return_alone, schedule_origin);
     let return_alone_empty = return_alone
         .space
         .arrows_between(return_alone.source, return_alone.effect)
@@ -307,17 +390,17 @@ fn one_exposure(mark: u64, flip: bool, mirror: bool) -> OneExposure {
         && return_flow.work.local_return_updates == 0;
 
     let mut late = field(mark + 300, flip, mirror, TransmissionMode::Modulatory);
-    let late_first = expose(&mut late, 0, false);
+    let late_first = expose(&mut late, schedule_origin, false);
     let late_arrow = only_candidate(&late);
-    let late_second = return_only(&mut late, 6);
+    let late_second = return_only(&mut late, schedule_origin + 6);
     let late_return_rejected =
         !late.space.arrow_is_live(late_arrow) && late_second.work.local_return_updates == 0;
 
     let mut drive = field(mark + 400, flip, mirror, TransmissionMode::Drive);
-    let drive_flow = expose(&mut drive, 0, true);
+    let drive_flow = expose(&mut drive, schedule_origin, true);
     let drive_arrow = only_candidate(&drive);
     let drive_resistance = drive.space.arrow_resistance(drive_arrow);
-    let drive_pressure = drive.space.advance_time(8);
+    let drive_pressure = drive.space.advance_time(schedule_origin + 8);
     let drive_return_rejected = drive_resistance == 1
         && drive_flow.work.local_return_updates == 0
         && !drive.space.arrow_is_live(drive_arrow)
@@ -340,7 +423,7 @@ fn one_exposure(mark: u64, flip: bool, mirror: bool) -> OneExposure {
     }
 }
 
-fn curve(mark: u64, flip: bool, mirror: bool) -> Curve {
+fn curve(mark: u64, flip: bool, mirror: bool, schedule_origin: i64) -> Curve {
     let mut resistance = [0; 4];
     let mut deallocation_steps = [0; 4];
     let mut penultimate_live = [false; 4];
@@ -348,27 +431,35 @@ fn curve(mark: u64, flip: bool, mirror: bool) -> Curve {
     let mut quiescent = true;
     let mut fingerprint = 0;
     for (index, count) in COUNTS.into_iter().enumerate() {
-        let (world, candidate, flows, pressure_tick) =
-            trained(mark + index as u64 * 100, flip, mirror, count);
+        let (world, candidate, flows, pressure_tick) = trained(
+            mark + index as u64 * 100,
+            flip,
+            mirror,
+            count,
+            schedule_origin,
+        );
         quiescent &= flows.iter().all(|flow| flow.quiescent);
         resistance[index] = world.space.arrow_resistance(candidate);
-        let mut walker = world.clone();
-        while walker.space.arrow_is_live(candidate) && deallocation_steps[index] < 64 {
-            deallocation_steps[index] += 1;
-            walker.space.advance_time(
-                pressure_tick + i64::from(deallocation_steps[index]).saturating_mul(10),
-            );
+        let mut observations = Vec::with_capacity(PRESSURE_OBSERVATIONS as usize);
+        for step in 1..=PRESSURE_OBSERVATIONS {
+            let mut observation = world.clone();
+            observation
+                .space
+                .advance_time(pressure_tick + i64::from(step).saturating_mul(10));
+            observations.push(observation.space.arrow_is_live(candidate));
         }
-        let mut before = world.clone();
-        before.space.advance_time(
-            pressure_tick + i64::from(resistance[index].saturating_sub(1)).saturating_mul(10),
-        );
-        penultimate_live[index] = before.space.arrow_is_live(candidate);
+        deallocation_steps[index] = observations
+            .iter()
+            .position(|live| !live)
+            .map(|position| position as u32 + 1)
+            .unwrap_or(0);
+        let expected = RESISTANCES[index] as usize;
+        penultimate_live[index] = observations[expected - 2];
+        final_dead[index] = !observations[expected - 1];
         let mut after = world.clone();
         after
             .space
-            .advance_time(pressure_tick + i64::from(resistance[index]).saturating_mul(10));
-        final_dead[index] = !after.space.arrow_is_live(candidate);
+            .advance_time(pressure_tick + i64::from(RESISTANCES[index]).saturating_mul(10));
         fingerprint ^= after
             .space
             .complete_fingerprint()
@@ -387,11 +478,11 @@ fn curve(mark: u64, flip: bool, mirror: bool) -> Curve {
     }
 }
 
-fn reuse(mark: u64, flip: bool, mirror: bool) -> Reuse {
-    let (mut world, candidate, flows, _) = trained(mark, flip, mirror, 3);
-    world.space.advance_time(50);
+fn reuse(mark: u64, flip: bool, mirror: bool, schedule_origin: i64) -> Reuse {
+    let (mut world, candidate, flows, _) = trained(mark, flip, mirror, 3, schedule_origin);
+    world.space.advance_time(schedule_origin + 50);
     let resistance_before = world.space.arrow_resistance(candidate);
-    let flow = expose(&mut world, 51, true);
+    let flow = expose(&mut world, schedule_origin + 51, true);
     let resistance_after = world.space.arrow_resistance(candidate);
     let crossing_impulse = crossing_impulse(
         &flow.crossings,
@@ -401,12 +492,12 @@ fn reuse(mark: u64, flip: bool, mirror: bool) -> Reuse {
     let no_proposal = flow.work.local_structural_proposals == 0;
 
     let mut spent = field(mark + 100, flip, mirror, TransmissionMode::Modulatory);
-    let first = expose(&mut spent, 0, true);
+    let first = expose(&mut spent, schedule_origin, true);
     let old = only_candidate(&spent);
-    spent.space.advance_time(40);
+    spent.space.advance_time(schedule_origin + 40);
     let disuse_dead = !spent.space.arrow_is_live(old);
     let old_generation = spent.space.arrow_generation(old);
-    let reacquire_flow = expose(&mut spent, 41, true);
+    let reacquire_flow = expose(&mut spent, schedule_origin + 41, true);
     let arrows = spent.space.arrows_between(spent.source, spent.effect);
     let new = *arrows.last().unwrap();
     let new_generation = spent.space.arrow_generation(new);
@@ -433,22 +524,22 @@ fn reuse(mark: u64, flip: bool, mirror: bool) -> Reuse {
     }
 }
 
-fn shift(mark: u64, flip: bool, mirror: bool) -> Shift {
+fn shift(mark: u64, flip: bool, mirror: bool, schedule_origin: i64) -> Shift {
     let mut world = fork(mark, flip, mirror);
     let mut quiescent = true;
     for start in [0, 5, 10] {
-        quiescent &= expose_fork(&mut world, 0, start).quiescent;
+        quiescent &= expose_fork(&mut world, 0, schedule_origin + start).quiescent;
     }
     let old = only_fork_candidate(&world, 0);
     for start in [30, 40, 50, 60] {
-        quiescent &= expose_fork(&mut world, 1, start).quiescent;
+        quiescent &= expose_fork(&mut world, 1, schedule_origin + start).quiescent;
     }
     let new = only_fork_candidate(&world, 1);
-    world.space.advance_time(100);
+    world.space.advance_time(schedule_origin + 100);
     let old_dead = !world.space.arrow_is_live(old);
     let new_live = world.space.arrow_is_live(new);
     let new_resistance = world.space.arrow_resistance(new);
-    let reuse = expose_fork(&mut world, 1, 101);
+    let reuse = expose_fork(&mut world, 1, schedule_origin + 101);
     quiescent &= reuse.quiescent;
     let new_reused = reuse.work.local_structural_proposals == 0
         && crossing_impulse(
@@ -466,10 +557,22 @@ fn shift(mark: u64, flip: bool, mirror: bool) -> Shift {
     }
 }
 
-fn stale(mark: u64, flip: bool, mirror: bool) -> Stale {
+fn stale(mark: u64, flip: bool, mirror: bool, schedule_origin: i64) -> Stale {
     let mut world = field(mark, flip, mirror, TransmissionMode::Modulatory);
-    arrive(&mut world.space, world.source, 9, 1, world.mark + 1_000);
-    arrive(&mut world.space, world.source, 10, 2, world.mark + 2_000);
+    arrive(
+        &mut world.space,
+        world.source,
+        schedule_origin + 9,
+        1,
+        world.mark + 1_000,
+    );
+    arrive(
+        &mut world.space,
+        world.source,
+        schedule_origin + 10,
+        2,
+        world.mark + 2_000,
+    );
     let flow = Flow::one(world.space.propagate());
     let arrows = world.space.arrows_between(world.source, world.effect);
     let old = arrows[0];
@@ -493,9 +596,9 @@ fn stale(mark: u64, flip: bool, mirror: bool) -> Stale {
     }
 }
 
-fn direction_check(mark: u64, flip: bool, mirror: bool) -> bool {
+fn direction_check(mark: u64, flip: bool, mirror: bool, schedule_origin: i64) -> bool {
     let mut world = field(mark, flip, mirror, TransmissionMode::Modulatory);
-    let flow = expose(&mut world, 0, true);
+    let flow = expose(&mut world, schedule_origin, true);
     world
         .space
         .arrows_between(world.effect, world.source)
@@ -508,14 +611,24 @@ fn direction_check(mark: u64, flip: bool, mirror: bool) -> bool {
         ) == 1
 }
 
-fn trained(mark: u64, flip: bool, mirror: bool, count: usize) -> (Field, ArrowId, Vec<Flow>, i64) {
+fn trained(
+    mark: u64,
+    flip: bool,
+    mirror: bool,
+    count: usize,
+    schedule_origin: i64,
+) -> (Field, ArrowId, Vec<Flow>, i64) {
     let mut world = field(mark, flip, mirror, TransmissionMode::Modulatory);
     let mut flows = Vec::new();
     for index in 0..count {
-        flows.push(expose(&mut world, index as i64 * 5, true));
+        flows.push(expose(
+            &mut world,
+            schedule_origin + index as i64 * 5,
+            true,
+        ));
     }
     let candidate = only_candidate(&world);
-    let last_tick = (count as i64 - 1) * 5 + 3;
+    let last_tick = schedule_origin + (count as i64 - 1) * 5 + 3;
     let pressure_tick = last_tick / 10 * 10;
     (world, candidate, flows, pressure_tick)
 }
@@ -600,67 +713,106 @@ fn crossing_impulse(crossings: &[Crossing], from: u64, to: u64) -> i32 {
 
 fn csv(stage: Stage, rows: &[Row], all_layouts: bool, passed: bool) -> String {
     let mut output = String::from(
-        "stage,protocol,authority,index,mark,flip,mirror,resistance,deallocation_steps,one_dead,qualified_resistance,return_alone,late_return,drive_return,reuse_no_proposal,reuse_impulse,disuse_dead,reacquired,old_generation,new_generation,shift_old_dead,shift_new_live,shift_new_resistance,shift_new_reused,stale_blocked,stale_generations,stale_effect_firings,stale_deallocations,fresh_layout,px0,px1,px2,px3,quiescent,replay,row_passed,all_layouts,verdict\n",
+        "stage,protocol,authority,index,mark,flip,mirror,schedule_origin,replicate,resistance,deallocation_steps,one_dead,qualified_resistance,qualified_coupling,return_alone,late_return,drive_return,reuse_no_proposal,reuse_impulse,disuse_dead,reacquired,old_generation,new_generation,shift_old_dead,shift_new_live,shift_new_resistance,shift_new_reused,stale_blocked,stale_generations,stale_effect_firings,stale_deallocations,fresh_layout,px0,px1,px2,px3,lrc,quiescent,replay,row_clauses_passed,row_clauses_total,row_passed,all_layouts,verdict\n",
     );
     for row in rows {
-        writeln!(
-            output,
-            "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}|{},{},{},{},{},{},{},{},{},{},{},{},{}",
-            stage.name(),
-            stage.protocol(),
-            AUTHORITY,
-            row.index,
-            row.mark,
-            row.flip,
-            row.mirror,
+        let core_passed = row
+            .core
+            .clauses()
+            .into_iter()
+            .filter(|value| *value)
+            .count();
+        let fields = vec![
+            stage.name().to_owned(),
+            stage.protocol().to_owned(),
+            AUTHORITY.to_owned(),
+            row.index.to_string(),
+            row.mark.to_string(),
+            row.flip.to_string(),
+            row.mirror.to_string(),
+            row.schedule_origin.to_string(),
+            row.replicate.to_string(),
             join_u32(&row.core.curve.resistance),
             join_u32(&row.core.curve.deallocation_steps),
-            row.core.one.unsupported_dead,
-            row.core.one.qualified_resistance,
-            row.core.one.return_alone_empty,
-            row.core.one.late_return_rejected,
-            row.core.one.drive_return_rejected,
-            row.core.reuse.no_proposal,
-            row.core.reuse.crossing_impulse,
-            row.core.reuse.disuse_dead,
-            row.core.reuse.reacquired,
-            row.core.reuse.old_generation,
-            row.core.reuse.new_generation,
-            row.core.shift.old_dead,
-            row.core.shift.new_live,
-            row.core.shift.new_resistance,
-            row.core.shift.new_reused,
-            row.core.stale.blocked,
-            row.core.stale.old_generation,
-            row.core.stale.new_generation,
-            row.core.stale.effect_firings,
-            row.core.stale.deallocations,
-            row.core.fresh_layout,
-            row.core.conformance[0],
-            row.core.conformance[1],
-            row.core.conformance[2],
-            row.core.conformance[3],
-            row.core.quiescent(),
-            row.replay,
-            row.passed,
-            all_layouts,
-            if passed { "PASS" } else { "FAIL" },
-        )
-        .unwrap();
+            row.core.one.unsupported_dead.to_string(),
+            row.core.one.qualified_resistance.to_string(),
+            row.core.one.qualified_coupling.to_string(),
+            row.core.one.return_alone_empty.to_string(),
+            row.core.one.late_return_rejected.to_string(),
+            row.core.one.drive_return_rejected.to_string(),
+            row.core.reuse.no_proposal.to_string(),
+            row.core.reuse.crossing_impulse.to_string(),
+            row.core.reuse.disuse_dead.to_string(),
+            row.core.reuse.reacquired.to_string(),
+            row.core.reuse.old_generation.to_string(),
+            row.core.reuse.new_generation.to_string(),
+            row.core.shift.old_dead.to_string(),
+            row.core.shift.new_live.to_string(),
+            row.core.shift.new_resistance.to_string(),
+            row.core.shift.new_reused.to_string(),
+            row.core.stale.blocked.to_string(),
+            format!(
+                "{}|{}",
+                row.core.stale.old_generation, row.core.stale.new_generation
+            ),
+            row.core.stale.effect_firings.to_string(),
+            row.core.stale.deallocations.to_string(),
+            row.core.fresh_layout.to_string(),
+            row.core.conformance[0].to_string(),
+            row.core.conformance[1].to_string(),
+            row.core.conformance[2].to_string(),
+            row.core.conformance[3].to_string(),
+            row.core.conformance[4].to_string(),
+            row.core.quiescent().to_string(),
+            row.replay.to_string(),
+            (core_passed + usize::from(row.replay)).to_string(),
+            (row.core.clauses().len() + 1).to_string(),
+            row.passed.to_string(),
+            all_layouts.to_string(),
+            if passed { "PASS" } else { "FAIL" }.to_owned(),
+        ];
+        output.push_str(&fields.join(","));
+        output.push('\n');
     }
     output
 }
 
 fn markdown(stage: Stage, rows: &[Row], all_layouts: bool, passed: bool) -> String {
-    let clauses = rows.iter().filter(|row| row.passed).count();
+    let row_passed = rows.iter().filter(|row| row.passed).count();
+    let clause_total = rows
+        .iter()
+        .map(|row| row.core.clauses().len() + 1)
+        .sum::<usize>()
+        + 1;
+    let clause_passed = rows
+        .iter()
+        .map(|row| {
+            row.core.clauses().into_iter().filter(|value| *value).count()
+                + usize::from(row.replay)
+        })
+        .sum::<usize>()
+        + usize::from(all_layouts);
+    let status = if stage == Stage::Authority {
+        format!(
+            "DEFINITIVE MATRIX {}; authority pending coverage and PX-C audits",
+            if passed { "POSITIVE" } else { "NEGATIVE" }
+        )
+    } else {
+        format!(
+            "DEVELOPMENT {}; authority absent",
+            if passed { "POSITIVE" } else { "NEGATIVE" }
+        )
+    };
     let mut output = format!(
-        "# PX4 LR-C physical lifetime {} v1\n\nStatus: **DEVELOPMENT {}**; authority absent.\n\nProtocol: `{}`.\n\nAuthority ancestor: `{}`.\n\n- rows: `{}/{}`;\n- resistance sequence: `{}`;\n- deallocation-pressure sequence: `{}`;\n- exact replay: `{}`;\n- natural quiescence: `{}`;\n- fresh identity/layout invariance: `{}`;\n- PX0--PX3 conformance: `{}`.\n\n| row | identity | flip | mirror | one exposure | recurrence/pressure | reuse/reacquisition | changed experience | stale generation | controls | replay | result |\n|---:|---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|\n",
+        "# PX4 LR-C physical lifetime {} v1\n\nStatus: **{}**.\n\nProtocol: `{}`.\n\nAuthority ancestor: `{}`.\n\n- rows: `{}/{}`;\n- clauses: `{}/{}`;\n- resistance sequence: `{}`;\n- deallocation-pressure sequence: `{}`;\n- exact replay: `{}`;\n- natural quiescence: `{}`;\n- fresh identity/layout/schedule invariance: `{}`;\n- PX0--PX3+LR-C conformance: `{}`.\n\n| row | identity | flip | mirror | origin | replicate | one exposure | recurrence/pressure | reuse/reacquisition | changed experience | stale generation | controls | replay | clauses | result |\n|---:|---:|:---:|:---:|---:|---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---:|:---:|\n",
         stage.name().to_uppercase(),
-        if passed { "POSITIVE" } else { "NEGATIVE" },
+        status,
         stage.protocol(),
         AUTHORITY,
-        clauses,
+        row_passed,
         rows.len(),
+        clause_passed,
+        clause_total,
         join_u32(&rows[0].core.curve.resistance),
         join_u32(&rows[0].core.curve.deallocation_steps),
         rows.iter().all(|row| row.replay),
@@ -674,11 +826,13 @@ fn markdown(stage: Stage, rows: &[Row], all_layouts: bool, passed: bool) -> Stri
             && row.core.one.drive_return_rejected;
         writeln!(
             output,
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {}/{} | {} |",
             row.index,
             row.mark,
             row.flip,
             row.mirror,
+            row.schedule_origin,
+            row.replicate,
             row.core.one.unsupported_dead && row.core.one.qualified_resistance == 4,
             row.core.curve.strict,
             row.core.reuse.no_proposal && row.core.reuse.reacquired,
@@ -686,13 +840,22 @@ fn markdown(stage: Stage, rows: &[Row], all_layouts: bool, passed: bool) -> Stri
             row.core.stale.blocked,
             controls,
             row.replay,
+            row.core.clauses().into_iter().filter(|value| *value).count()
+                + usize::from(row.replay),
+            row.core.clauses().len() + 1,
             if row.passed { "PASS" } else { "FAIL" },
         )
         .unwrap();
     }
-    output.push_str(
-        "\nThe measured quantity is ordinary ARROW resistance under ordinary pressure. No organism-visible lifetime representation, episode boundary, cleanup call or delete operation was added. This artifact is development evidence only and does not advance authority.\n",
-    );
+    if stage == Stage::Authority {
+        output.push_str(
+            "\nThe measured quantity is ordinary ARROW resistance under ordinary pressure. No organism-visible lifetime representation, History, episode/reset boundary, cleanup/delete semantic, evaluator-derived lifetime input, typed lifetime handoff or explicit lifetime mechanism invocation was added. This artifact freezes the one-shot definitive matrix only; authority still requires the preregistered coverage, leakage and PX-C audits.\n",
+        );
+    } else {
+        output.push_str(
+            "\nThe measured quantity is ordinary ARROW resistance under ordinary pressure. No organism-visible lifetime representation, episode boundary, cleanup call or delete operation was added. This artifact is development evidence only and does not advance authority.\n",
+        );
+    }
     output
 }
 
@@ -730,6 +893,38 @@ fn write_new(path: &str, content: &str) {
     file.sync_all().unwrap();
 }
 
+fn authority_preflight() {
+    use std::collections::BTreeSet;
+
+    let matrix = Stage::Authority.marks();
+    assert_eq!(matrix.len(), 16);
+    let identities = matrix.iter().map(|item| item.0).collect::<BTreeSet<_>>();
+    assert_eq!(identities.len(), 16);
+    assert_eq!(identities.first(), Some(&461_001));
+    assert_eq!(identities.last(), Some(&461_016));
+    assert!(identities.iter().all(|mark| !(151_001..=153_008).contains(mark)));
+    let strata = matrix
+        .iter()
+        .map(|item| (item.1, item.2, item.3, item.4))
+        .collect::<BTreeSet<_>>();
+    assert_eq!(strata.len(), 16);
+    assert_eq!(matrix.iter().filter(|item| item.3 == 200).count(), 8);
+    assert_eq!(matrix.iter().filter(|item| item.3 == 400).count(), 8);
+    assert_eq!(matrix.iter().filter(|item| item.4 == 1).count(), 8);
+    assert_eq!(matrix.iter().filter(|item| item.4 == 2).count(), 8);
+    for path in [
+        "results/px4_lrc_lifetime_authority_v1.csv",
+        "results/px4_lrc_lifetime_authority_v1.md",
+        "results/px4_lrc_lifetime_authority_v1.csv.staging",
+        "results/px4_lrc_lifetime_authority_v1.md.staging",
+    ] {
+        assert!(!Path::new(path).exists(), "authority artifact exists: {path}");
+    }
+    println!(
+        "PX4 authority preflight: worlds=0 identities=16 strata=16 origins=200|400 artifacts=absent"
+    );
+}
+
 fn verify_frozen_inputs() {
     require_hash("crates/lr1-modulatory-physical-return/src/lib.rs", LAW_HASH);
     require_hash(
@@ -739,6 +934,19 @@ fn verify_frozen_inputs() {
     require_hash(
         "experiments/px4_lrc_physical_lifetime_development_protocol_v1.md",
         PROTOCOL_HASH,
+    );
+    require_hash(
+        "experiments/px4_lrc_development_readiness_handoff_v1.md",
+        DEVELOPMENT_HANDOFF_HASH,
+    );
+    require_hash("results/px4_lrc_lifetime_gate_v1.csv", DEVELOPMENT_GATE_HASH);
+    require_hash(
+        "experiments/pxc_active_surface_manifest_v2.csv",
+        ACTIVE_MANIFEST_HASH,
+    );
+    require_hash(
+        "experiments/px4_lrc_physical_lifetime_authority_protocol_v1.md",
+        AUTHORITY_PROTOCOL_HASH,
     );
 }
 
