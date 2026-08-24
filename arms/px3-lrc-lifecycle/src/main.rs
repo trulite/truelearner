@@ -15,16 +15,15 @@ const LAW: &str = "7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cf
 const AUTHORITY: &str = "3ad1df774690a71ee7e6884f56a9399a098890e14d83c7a2f03231ed9aafeb3c";
 const DEVELOPMENT_PROTOCOL: &str =
     "c249be1d74ad219896f2fe3505942166efb369e9bea4e50dfa84585f2a1d7107";
-const DEVELOPMENT_AUDIT: &str =
-    "44ce9f414f785a434752ccaab6a7445e430a43be5cac576d7cdec1441d85fd79";
+const DEVELOPMENT_AUDIT: &str = "44ce9f414f785a434752ccaab6a7445e430a43be5cac576d7cdec1441d85fd79";
 const LIFECYCLE_DEVELOPMENT: &str =
     "0125f52fc9e5427c558caa39b8f720fe1fefea13e16f8c4e88bd0ae46904afef";
 const RECURSION_DEVELOPMENT: &str =
     "b59fa4b299d2ec22429255d78269ecb7fa56c22aeb4c122137fc21a299369724";
 const PROTOCOL: &str = "06a9ea4515b5ea42bf576a5bd49969c966cc63bba94ef3f4b499fb89da8345cc";
 const SEEDS: [u64; 16] = [
-    91001, 91002, 91003, 91004, 91005, 91006, 91007, 91008, 91009, 91010, 91011, 91012,
-    91013, 91014, 91015, 91016,
+    91001, 91002, 91003, 91004, 91005, 91006, 91007, 91008, 91009, 91010, 91011, 91012, 91013,
+    91014, 91015, 91016,
 ];
 const PAIRS: [(usize, usize); 6] = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
 const INITIAL: [usize; 2] = [0, 5];
@@ -219,14 +218,8 @@ fn audit() {
             "experiments/px3_lrc_fresh_integrated_parallel_gates_v2_result_audit.md",
             DEVELOPMENT_AUDIT,
         ),
-        (
-            "results/px3_lrc_lifecycle_v2.csv",
-            LIFECYCLE_DEVELOPMENT,
-        ),
-        (
-            "results/px3_lrc_recursion_v2.csv",
-            RECURSION_DEVELOPMENT,
-        ),
+        ("results/px3_lrc_lifecycle_v2.csv", LIFECYCLE_DEVELOPMENT),
+        ("results/px3_lrc_recursion_v2.csv", RECURSION_DEVELOPMENT),
         (
             "experiments/px3_lrc_physical_event_organization_definitive_protocol_v1.md",
             PROTOCOL,
@@ -287,11 +280,8 @@ fn run(seed: u64) -> Row {
         reflect,
         ControlKind::GappedAb,
     );
-    let modulation_without_participation = modulation_without_participation(
-        namespace + 0x0400_0000,
-        reverse,
-        reflect,
-    );
+    let modulation_without_participation =
+        modulation_without_participation(namespace + 0x0400_0000, reverse, reflect);
     let mut unsupported = build(namespace + 0x1000_0000, reverse, reflect, [1; 4]);
     let mut unsupported_log = Log::new();
     expose_unsupported(&mut unsupported, 0, 0, &mut unsupported_log);
@@ -602,12 +592,7 @@ fn control_passes(
         && metric.quiescent
 }
 
-fn control(
-    namespace: u64,
-    reverse: bool,
-    reflect: bool,
-    kind: ControlKind,
-) -> ControlMetrics {
+fn control(namespace: u64, reverse: bool, reflect: bool, kind: ControlKind) -> ControlMetrics {
     let raw_couplings = match kind {
         ControlKind::StrongA => [4, 1, 1, 1],
         ControlKind::RepeatedA | ControlKind::GappedAb => [1; 4],
@@ -710,12 +695,7 @@ fn modulation_without_participation(
     }
 }
 
-fn build(
-    namespace: u64,
-    reverse: bool,
-    reflect: bool,
-    raw_couplings: [i32; 4],
-) -> World {
+fn build(namespace: u64, reverse: bool, reflect: bool, raw_couplings: [i32; 4]) -> World {
     let mut substrate = PlasticSubstrate::new();
     let participant_order = if reverse { [3, 2, 1, 0] } else { [0, 1, 2, 3] };
     let pair_order = if reverse {

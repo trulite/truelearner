@@ -15,8 +15,7 @@ const LAW: &str = "7226a0e4af0ff484c6fd61c46c9073ce8363692100c2a090b0ce64483f3cf
 const AUTHORITY: &str = "3ad1df774690a71ee7e6884f56a9399a098890e14d83c7a2f03231ed9aafeb3c";
 const DEVELOPMENT_PROTOCOL: &str =
     "c249be1d74ad219896f2fe3505942166efb369e9bea4e50dfa84585f2a1d7107";
-const DEVELOPMENT_AUDIT: &str =
-    "44ce9f414f785a434752ccaab6a7445e430a43be5cac576d7cdec1441d85fd79";
+const DEVELOPMENT_AUDIT: &str = "44ce9f414f785a434752ccaab6a7445e430a43be5cac576d7cdec1441d85fd79";
 const LIFECYCLE_DEVELOPMENT: &str =
     "0125f52fc9e5427c558caa39b8f720fe1fefea13e16f8c4e88bd0ae46904afef";
 const RECURSION_DEVELOPMENT: &str =
@@ -56,18 +55,66 @@ const CONFIGS: [Config; 16] = [
         reverse: true,
         reflect: true,
     },
-    Config { seed: 92021, reverse: false, reflect: false },
-    Config { seed: 92025, reverse: true, reflect: false },
-    Config { seed: 92029, reverse: false, reflect: true },
-    Config { seed: 92033, reverse: true, reflect: true },
-    Config { seed: 92039, reverse: false, reflect: false },
-    Config { seed: 92043, reverse: true, reflect: false },
-    Config { seed: 92047, reverse: false, reflect: true },
-    Config { seed: 92051, reverse: true, reflect: true },
-    Config { seed: 92059, reverse: false, reflect: false },
-    Config { seed: 92063, reverse: true, reflect: false },
-    Config { seed: 92067, reverse: false, reflect: true },
-    Config { seed: 92071, reverse: true, reflect: true },
+    Config {
+        seed: 92021,
+        reverse: false,
+        reflect: false,
+    },
+    Config {
+        seed: 92025,
+        reverse: true,
+        reflect: false,
+    },
+    Config {
+        seed: 92029,
+        reverse: false,
+        reflect: true,
+    },
+    Config {
+        seed: 92033,
+        reverse: true,
+        reflect: true,
+    },
+    Config {
+        seed: 92039,
+        reverse: false,
+        reflect: false,
+    },
+    Config {
+        seed: 92043,
+        reverse: true,
+        reflect: false,
+    },
+    Config {
+        seed: 92047,
+        reverse: false,
+        reflect: true,
+    },
+    Config {
+        seed: 92051,
+        reverse: true,
+        reflect: true,
+    },
+    Config {
+        seed: 92059,
+        reverse: false,
+        reflect: false,
+    },
+    Config {
+        seed: 92063,
+        reverse: true,
+        reflect: false,
+    },
+    Config {
+        seed: 92067,
+        reverse: false,
+        reflect: true,
+    },
+    Config {
+        seed: 92071,
+        reverse: true,
+        reflect: true,
+    },
 ];
 
 #[derive(Clone, Copy)]
@@ -196,14 +243,8 @@ fn audit() {
             "experiments/px3_lrc_fresh_integrated_parallel_gates_v2_result_audit.md",
             DEVELOPMENT_AUDIT,
         ),
-        (
-            "results/px3_lrc_lifecycle_v2.csv",
-            LIFECYCLE_DEVELOPMENT,
-        ),
-        (
-            "results/px3_lrc_recursion_v2.csv",
-            RECURSION_DEVELOPMENT,
-        ),
+        ("results/px3_lrc_lifecycle_v2.csv", LIFECYCLE_DEVELOPMENT),
+        ("results/px3_lrc_recursion_v2.csv", RECURSION_DEVELOPMENT),
         (
             "experiments/px3_lrc_physical_event_organization_definitive_protocol_v1.md",
             PROTOCOL,
@@ -217,10 +258,34 @@ fn surface() {
     assert_eq!(CONFIGS.into_iter().collect::<BTreeSet<_>>().len(), 16);
     assert_eq!(CONFIGS.iter().filter(|config| config.reverse).count(), 8);
     assert_eq!(CONFIGS.iter().filter(|config| config.reflect).count(), 8);
-    assert_eq!(CONFIGS.iter().filter(|config| !config.reverse && !config.reflect).count(), 4);
-    assert_eq!(CONFIGS.iter().filter(|config| config.reverse && !config.reflect).count(), 4);
-    assert_eq!(CONFIGS.iter().filter(|config| !config.reverse && config.reflect).count(), 4);
-    assert_eq!(CONFIGS.iter().filter(|config| config.reverse && config.reflect).count(), 4);
+    assert_eq!(
+        CONFIGS
+            .iter()
+            .filter(|config| !config.reverse && !config.reflect)
+            .count(),
+        4
+    );
+    assert_eq!(
+        CONFIGS
+            .iter()
+            .filter(|config| config.reverse && !config.reflect)
+            .count(),
+        4
+    );
+    assert_eq!(
+        CONFIGS
+            .iter()
+            .filter(|config| !config.reverse && config.reflect)
+            .count(),
+        4
+    );
+    assert_eq!(
+        CONFIGS
+            .iter()
+            .filter(|config| config.reverse && config.reflect)
+            .count(),
+        4
+    );
     for forbidden in [
         "arms/px3-recursive-compression-gate/src/definitive.rs",
         "arms/px3-recursive-compression-gate/src/px4.rs",
@@ -401,7 +466,7 @@ fn claims(row: &Row) -> [bool; 12] {
         && row.after_train == phase_after_train
         && row.final_resistance == [13, 9, 5];
     let r5 = (0..3).all(|phase| {
-            let metric = &row.phases[phase];
+        let metric = &row.phases[phase];
         metric.candidate_impulse == phase_impulse[phase]
             && metric.output == phase_active[phase]
             && metric.output_trace_arrivals == phase_active[phase].map(|x| x * 2)
@@ -409,8 +474,7 @@ fn claims(row: &Row) -> [bool; 12] {
                 == phase_active[phase].map(|x| i32::try_from(x * 2).expect("small"))
             && metric.output_trace == phase_active[phase]
     });
-    let r6 = empty_control(&row.c_alone, [0, 0, 1, 0])
-        && empty_control(&row.d_alone, [0, 0, 0, 1]);
+    let r6 = empty_control(&row.c_alone, [0, 0, 1, 0]) && empty_control(&row.d_alone, [0, 0, 0, 1]);
     let r7 = context_free(&row.xc_gapped, [1, 1, 1, 0], [1, 0, 0])
         && context_free(&row.yd_gapped, [1, 1, 1, 1], [1, 1, 0]);
     let r8 = context_free(&row.ab_reuse, [1, 1, 0, 0], [1, 0, 0])
@@ -430,7 +494,10 @@ fn claims(row: &Row) -> [bool; 12] {
             && metric.updates == 0
     });
     let r10 = row.candidate_ids.iter().collect::<BTreeSet<_>>().len() == 3
-        && row.candidate_generations.into_iter().all(|generation| generation > 0)
+        && row
+            .candidate_generations
+            .into_iter()
+            .all(|generation| generation > 0)
         && row.phases.iter().all(|metric| metric.quiescent);
     let r11 = row.quiescent;
     [r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11]
