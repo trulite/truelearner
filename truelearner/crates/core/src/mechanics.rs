@@ -375,8 +375,7 @@ impl PendingSchedule {
                 let Some(index) = minimum_index(spikes, &target_physical, cost) else {
                     return Vec::new();
                 };
-                let comparisons =
-                    u64::try_from(spikes.len().saturating_sub(1)).unwrap_or(u64::MAX);
+                let comparisons = u64::try_from(spikes.len().saturating_sub(1)).unwrap_or(u64::MAX);
                 vec![(spikes.remove(index), comparisons)]
             }
             Self::TimingWheel(wheel) => {

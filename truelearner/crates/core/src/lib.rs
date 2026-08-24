@@ -1508,10 +1508,9 @@ impl PlasticSubstrate {
             {
                 self.pop_scheduled_batch(64, &mut execution_cost)
             } else {
-                vec![
-                    self.pop_scheduled(&mut execution_cost)
-                        .expect("nonempty schedule must pop"),
-                ]
+                vec![self
+                    .pop_scheduled(&mut execution_cost)
+                    .expect("nonempty schedule must pop")]
             };
             for (spike, legacy_comparisons) in batch {
                 work.total = work.total.saturating_add(legacy_comparisons);
@@ -1843,8 +1842,7 @@ impl PlasticSubstrate {
                 work.total = work.total.saturating_add(1);
                 if deallocated {
                     if zero_delay {
-                        self.zero_delay_live_arrows =
-                            self.zero_delay_live_arrows.saturating_sub(1);
+                        self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
                     }
                     work.total = work.total.saturating_add(1);
                     work.physical_deallocations = work.physical_deallocations.saturating_add(1);
