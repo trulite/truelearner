@@ -11,6 +11,12 @@ use std::fmt;
 use std::fs;
 use std::path::Path;
 
+mod sensorimotor;
+pub use sensorimotor::{
+    dominant_palette, Arc3AgentCommand, Arc3AgentResponse, Arc3Sensorimotor,
+    Arc3SensorimotorError, Arc3SensorimotorObservation, Arc3SensorimotorSnapshot,
+};
+
 pub const ARC3_FRAME_SIDE: usize = 64;
 pub const ARC3_FRAME_PIXELS: usize = ARC3_FRAME_SIDE * ARC3_FRAME_SIDE;
 

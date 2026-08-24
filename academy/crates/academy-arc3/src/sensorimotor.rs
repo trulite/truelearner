@@ -1,0 +1,689 @@
+use crate::ARC3_FRAME_PIXELS;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use truelearner_arena_format::{ArenaId, ArrowId, CellId, ContentHash};
+use truelearner_core::{
+    ArrowSpec, BoundaryError, BoundaryRuntime, CellSpec, MechanicalConfig, PlasticSubstrate,
+    SpikeInput, TransmissionMode,
+};
+
+const CONTEXTS: usize = 16;
+const MOTORS: usize = 4;
+const OUTWARD_REGION: i16 = 1;
+const INPUT_CAPACITY: usize = 256;
+const OUTPUT_CAPACITY: usize = 32;
+const SCAFFOLD_RESISTANCE: u32 = 64;
+const CANDIDATE_RESISTANCE: u32 = 1;
+const MOTOR_PHYSICAL_BASE: u64 = 4_000_000;
+const OUTPUT_PHYSICAL_BASE: u64 = 5_000_000;
+const EXTERNAL_PHYSICAL_BASE: u64 = 9_000_000;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "command", rename_all = "snake_case")]
+pub enum Arc3AgentCommand {
+    Observe {
+        frame: Vec<u8>,
+        available_actions: Vec<u8>,
+        babble_action: Option<u8>,
+        support_previous: bool,
+        settle_pressure: bool,
+        action_map: Vec<u8>,
+    },
+    ClearEpisode,
+    AdvanceGap { ticks: i64 },
+    ResetBody,
+    Snapshot,
+    Shutdown,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "response", rename_all = "snake_case")]
+pub enum Arc3AgentResponse {
+    Observation(Arc3SensorimotorObservation),
+    Snapshot(Arc3SensorimotorSnapshot),
+    Ack,
+    Error { message: String },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Arc3SensorimotorObservation {
+    pub sequence: u64,
+    pub context: u8,
+    pub frame_changed: Option<bool>,
+    pub support_admitted: bool,
+    pub babble_action: Option<u8>,
+    pub motor_crossing: Option<u8>,
+    pub action: Option<u8>,
+    pub outward_crossings: usize,
+    pub plasticity_updates: u64,
+    pub modulatory_deliveries: u64,
+    pub physical_work: u64,
+    pub naturally_quiescent: bool,
+    pub candidate_resistance: u32,
+    pub candidate_coupling: i32,
+    pub candidate_live: bool,
+    pub body_fingerprint: String,
+    pub physical_tick: i64,
+    pub pressure_phase: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Arc3SensorimotorSnapshot {
+    pub sequence: u64,
+    pub body_fingerprint: String,
+    pub physical_tick: i64,
+    pub pressure_phase: i64,
+    pub previous_context: Option<u8>,
+    pub previous_motor: Option<u8>,
+    pub resident_bytes: usize,
+}
+
+#[derive(Clone, Copy)]
+struct Sites {
+    candidate_sources: [[CellId; MOTORS]; CONTEXTS],
+    context_traces: [[CellId; MOTORS]; CONTEXTS],
+    motors: [CellId; MOTORS],
+    returning: CellId,
+    candidates: [[ArrowId; MOTORS]; CONTEXTS],
+}
+
+pub struct Arc3Sensorimotor {
+    seed: u64,
+    boundary: BoundaryRuntime,
+    sites: Sites,
+    previous_frame: Option<Vec<u8>>,
+    previous_context: Option<u8>,
+    previous_motor: Option<u8>,
+    sequence: u64,
+}
+
+impl Arc3Sensorimotor {
+    pub fn new(seed: u64) -> Result<Self, Arc3SensorimotorError> {
+        let (boundary, sites) = build_body(seed)?;
+        Ok(Self {
+            seed,
+            boundary,
+            sites,
+            previous_frame: None,
+            previous_context: None,
+            previous_motor: None,
+            sequence: 0,
+        })
+    }
+
+    pub fn observe(
+        &mut self,
+        frame: Vec<u8>,
+        available_actions: &[u8],
+        babble_action: Option<u8>,
+        support_previous: bool,
+        settle_pressure: bool,
+        action_map: &[u8],
+    ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
+        validate_sensor_frame(&frame)?;
+        let available_motors = available_motor_indices(available_actions)?;
+        validate_action_map(action_map)?;
+        if let Some(action) = babble_action {
+            if !available_actions.contains(&action) {
+                return Err(Arc3SensorimotorError(format!(
+                    "babble action {action} is not available"
+                )));
+            }
+        }
+
+        let frame_changed = self
+            .previous_frame
+            .as_ref()
+            .map(|previous| previous != &frame);
+        let mut total_work = 0_u64;
+        let mut plasticity_updates = 0_u64;
+        let mut modulatory_deliveries = 0_u64;
+        let mut naturally_quiescent = true;
+        let support_admitted = support_previous
+            && frame_changed == Some(true)
+            && self.previous_context.is_some()
+            && self.previous_motor.is_some();
+
+        if support_admitted {
+            let tick = self.boundary.substrate().clock().tick;
+            let result = self.boundary.arrive(
+                &[SpikeInput {
+                    arrival_tick: tick,
+                    phase: 20,
+                    origin_physical: EXTERNAL_PHYSICAL_BASE
+                        .saturating_add(self.sequence)
+                        .saturating_add(1_000),
+                    target: self.sites.returning,
+                    impulse: 1,
+                }],
+                OUTWARD_REGION,
+            )?;
+            total_work = total_work.saturating_add(result.work.total());
+            plasticity_updates = plasticity_updates
+                .saturating_add(result.work.local_return_updates);
+            modulatory_deliveries = modulatory_deliveries
+                .saturating_add(result.work.modulatory_deliveries);
+            naturally_quiescent &= result.naturally_quiescent;
+        }
+
+        if settle_pressure && self.previous_frame.is_some() {
+            let tick = self.boundary.substrate().clock().tick;
+            let settled = tick
+                .div_euclid(10)
+                .saturating_add(1)
+                .saturating_mul(10);
+            total_work = total_work
+                .saturating_add(self.boundary.advance_time(settled).total());
+        }
+
+        let context = dominant_palette(&frame)?;
+        let start = self.boundary.substrate().clock().tick.saturating_add(1);
+        let mut inputs = Vec::with_capacity(available_motors.len().saturating_mul(2) + 1);
+        for motor in &available_motors {
+            inputs.push(SpikeInput {
+                arrival_tick: start,
+                phase: i32::try_from(*motor).unwrap_or(0),
+                origin_physical: EXTERNAL_PHYSICAL_BASE
+                    .saturating_add(self.sequence.saturating_mul(100))
+                    .saturating_add(u64::from(context)),
+                target: self.sites.candidate_sources[usize::from(context)][*motor],
+                impulse: 1,
+            });
+            inputs.push(SpikeInput {
+                arrival_tick: start,
+                phase: i32::try_from(*motor).unwrap_or(0).saturating_add(8),
+                origin_physical: EXTERNAL_PHYSICAL_BASE
+                    .saturating_add(self.sequence.saturating_mul(100))
+                    .saturating_add(50)
+                    .saturating_add(u64::from(context)),
+                target: self.sites.context_traces[usize::from(context)][*motor],
+                impulse: 1,
+            });
+        }
+        if let Some(action) = babble_action {
+            let motor = action_index(action)?;
+            inputs.push(SpikeInput {
+                arrival_tick: start.saturating_add(1),
+                phase: 30,
+                origin_physical: EXTERNAL_PHYSICAL_BASE
+                    .saturating_add(self.sequence.saturating_mul(100))
+                    .saturating_add(99),
+                target: self.sites.motors[motor],
+                impulse: 1,
+            });
+        }
+
+        let result = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
+        total_work = total_work.saturating_add(result.work.total());
+        plasticity_updates =
+            plasticity_updates.saturating_add(result.work.local_return_updates);
+        modulatory_deliveries =
+            modulatory_deliveries.saturating_add(result.work.modulatory_deliveries);
+        naturally_quiescent &= result.naturally_quiescent;
+        let motor_crossings = result
+            .crossings
+            .iter()
+            .filter_map(|crossing| {
+                crossing
+                    .from_physical
+                    .checked_sub(MOTOR_PHYSICAL_BASE)
+                    .and_then(|index| u8::try_from(index).ok())
+                    .filter(|index| usize::from(*index) < MOTORS)
+            })
+            .collect::<Vec<_>>();
+        if motor_crossings.len() > 1 {
+            return Err(Arc3SensorimotorError(format!(
+                "ambiguous organism output: {} motor crossings",
+                motor_crossings.len()
+            )));
+        }
+        let motor_crossing = motor_crossings.first().copied();
+        let action = motor_crossing.map(|motor| action_map[usize::from(motor)]);
+        let inspected_motor = motor_crossing
+            .map(usize::from)
+            .or_else(|| babble_action.and_then(|action| action_index(action).ok()))
+            .unwrap_or(0);
+        let (candidate_resistance, candidate_coupling, candidate_live) =
+            self.candidate_state(context, inspected_motor);
+
+        self.previous_frame = Some(frame);
+        self.previous_context = Some(context);
+        self.previous_motor = motor_crossing;
+        let observation = Arc3SensorimotorObservation {
+            sequence: self.sequence,
+            context,
+            frame_changed,
+            support_admitted,
+            babble_action,
+            motor_crossing,
+            action,
+            outward_crossings: result.crossings.len(),
+            plasticity_updates,
+            modulatory_deliveries,
+            physical_work: total_work,
+            naturally_quiescent,
+            candidate_resistance,
+            candidate_coupling,
+            candidate_live,
+            body_fingerprint: self.body_fingerprint()?,
+            physical_tick: self.boundary.substrate().clock().tick,
+            pressure_phase: self.boundary.substrate().clock().pressure_phase(),
+        };
+        self.sequence = self.sequence.saturating_add(1);
+        Ok(observation)
+    }
+
+    pub fn clear_episode(&mut self) {
+        self.previous_frame = None;
+        self.previous_context = None;
+        self.previous_motor = None;
+    }
+
+    pub fn advance_gap(&mut self, ticks: i64) -> Result<(), Arc3SensorimotorError> {
+        if ticks < 0 {
+            return Err(Arc3SensorimotorError(
+                "retention gap cannot be negative".to_string(),
+            ));
+        }
+        let target = self.boundary.substrate().clock().tick.saturating_add(ticks);
+        self.boundary.advance_time(target);
+        self.clear_episode();
+        Ok(())
+    }
+
+    pub fn reset_body(&mut self) -> Result<(), Arc3SensorimotorError> {
+        let replacement = Self::new(self.seed)?;
+        *self = replacement;
+        Ok(())
+    }
+
+    pub fn snapshot(&self) -> Result<Arc3SensorimotorSnapshot, Arc3SensorimotorError> {
+        Ok(Arc3SensorimotorSnapshot {
+            sequence: self.sequence,
+            body_fingerprint: self.body_fingerprint()?,
+            physical_tick: self.boundary.substrate().clock().tick,
+            pressure_phase: self.boundary.substrate().clock().pressure_phase(),
+            previous_context: self.previous_context,
+            previous_motor: self.previous_motor,
+            resident_bytes: self.boundary.substrate().resident_bytes(),
+        })
+    }
+
+    pub fn handle(
+        &mut self,
+        command: Arc3AgentCommand,
+    ) -> Result<Option<Arc3AgentResponse>, Arc3SensorimotorError> {
+        match command {
+            Arc3AgentCommand::Observe {
+                frame,
+                available_actions,
+                babble_action,
+                support_previous,
+                settle_pressure,
+                action_map,
+            } => self
+                .observe(
+                    frame,
+                    &available_actions,
+                    babble_action,
+                    support_previous,
+                    settle_pressure,
+                    &action_map,
+                )
+                .map(Arc3AgentResponse::Observation)
+                .map(Some),
+            Arc3AgentCommand::ClearEpisode => {
+                self.clear_episode();
+                Ok(Some(Arc3AgentResponse::Ack))
+            }
+            Arc3AgentCommand::AdvanceGap { ticks } => {
+                self.advance_gap(ticks)?;
+                Ok(Some(Arc3AgentResponse::Ack))
+            }
+            Arc3AgentCommand::ResetBody => {
+                self.reset_body()?;
+                Ok(Some(Arc3AgentResponse::Ack))
+            }
+            Arc3AgentCommand::Snapshot => self
+                .snapshot()
+                .map(Arc3AgentResponse::Snapshot)
+                .map(Some),
+            Arc3AgentCommand::Shutdown => Ok(None),
+        }
+    }
+
+    fn candidate_state(&self, context: u8, motor: usize) -> (u32, i32, bool) {
+        let id = self.sites.candidates[usize::from(context)][motor];
+        self.boundary
+            .substrate()
+            .arena_body(0)
+            .arrows
+            .into_iter()
+            .find(|arrow| arrow.id == id)
+            .map_or((0, 0, false), |arrow| {
+                (arrow.resistance, arrow.coupling, arrow.live)
+            })
+    }
+
+    fn body_fingerprint(&self) -> Result<String, Arc3SensorimotorError> {
+        let bytes = self.boundary.substrate().canonical_body_bytes(0)?;
+        Ok(ContentHash::of(&bytes)
+            .as_bytes()
+            .iter()
+            .take(8)
+            .map(|byte| format!("{byte:02x}"))
+            .collect())
+    }
+}
+
+pub fn dominant_palette(frame: &[u8]) -> Result<u8, Arc3SensorimotorError> {
+    validate_sensor_frame(frame)?;
+    let mut counts = [0_u32; CONTEXTS];
+    for color in frame {
+        counts[usize::from(*color)] = counts[usize::from(*color)].saturating_add(1);
+    }
+    counts
+        .iter()
+        .enumerate()
+        .max_by_key(|(color, count)| (**count, std::cmp::Reverse(*color)))
+        .and_then(|(color, _)| u8::try_from(color).ok())
+        .ok_or_else(|| Arc3SensorimotorError("raster has no dominant palette value".to_string()))
+}
+
+fn build_body(seed: u64) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
+    let mut body = PlasticSubstrate::with_mechanics(
+        ArenaId(seed),
+        512,
+        1_024,
+        MechanicalConfig::PRODUCTION,
+    );
+    body.set_physical_tracing(true);
+    let mut candidate_sources = [[CellId(0); MOTORS]; CONTEXTS];
+    let mut context_traces = [[CellId(0); MOTORS]; CONTEXTS];
+    let mut relays = [[CellId(0); MOTORS]; CONTEXTS];
+    for context in 0..CONTEXTS {
+        for motor in 0..MOTORS {
+            let pair = context.saturating_mul(MOTORS).saturating_add(motor);
+            candidate_sources[context][motor] = body.add_cell(cell(
+                1_000_000 + pair as u64,
+                100 + pair as i32 * 20,
+                0,
+                1,
+            ));
+            context_traces[context][motor] = body.add_cell(cell(
+                2_000_000 + pair as u64,
+                20_000 + pair as i32 * 20,
+                0,
+                1,
+            ));
+            relays[context][motor] = body.add_cell(cell(
+                3_000_000 + pair as u64,
+                40_000 + pair as i32 * 20,
+                0,
+                3,
+            ));
+        }
+    }
+    let motors = std::array::from_fn(|motor| {
+        body.add_cell(cell(
+            MOTOR_PHYSICAL_BASE + motor as u64,
+            60_000 + motor as i32 * 20,
+            0,
+            2,
+        ))
+    });
+    let outputs = std::array::from_fn(|motor| {
+        body.add_cell(cell(
+            OUTPUT_PHYSICAL_BASE + motor as u64,
+            70_000 + motor as i32 * 20,
+            OUTWARD_REGION,
+            1,
+        ))
+    });
+    let returning = body.add_cell(cell(6_000_000, 80_000, 0, 1));
+    let mut candidates = [[ArrowId(0); MOTORS]; CONTEXTS];
+    for context in 0..CONTEXTS {
+        for motor in 0..MOTORS {
+            candidates[context][motor] = body.add_arrow(drive(
+                candidate_sources[context][motor],
+                motors[motor],
+                1,
+                1,
+                CANDIDATE_RESISTANCE,
+            ));
+            body.add_arrow(drive(
+                context_traces[context][motor],
+                relays[context][motor],
+                3,
+                1,
+                SCAFFOLD_RESISTANCE,
+            ));
+            body.add_arrow(drive(
+                motors[motor],
+                relays[context][motor],
+                2,
+                1,
+                SCAFFOLD_RESISTANCE,
+            ));
+            body.add_arrow(drive(
+                returning,
+                relays[context][motor],
+                0,
+                1,
+                SCAFFOLD_RESISTANCE,
+            ));
+            body.add_arrow(modulatory(
+                relays[context][motor],
+                candidate_sources[context][motor],
+                0,
+                1,
+                SCAFFOLD_RESISTANCE,
+            ));
+        }
+    }
+    for motor in 0..MOTORS {
+        body.add_arrow(drive(
+            motors[motor],
+            outputs[motor],
+            0,
+            1,
+            SCAFFOLD_RESISTANCE,
+        ));
+    }
+    let sites = Sites {
+        candidate_sources,
+        context_traces,
+        motors,
+        returning,
+        candidates,
+    };
+    Ok((
+        BoundaryRuntime::new(body, OUTWARD_REGION, INPUT_CAPACITY, OUTPUT_CAPACITY)?,
+        sites,
+    ))
+}
+
+fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
+    CellSpec {
+        physical_id,
+        position,
+        region,
+        threshold,
+        resistance: SCAFFOLD_RESISTANCE,
+    }
+}
+
+fn drive(from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u32) -> ArrowSpec {
+    ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling,
+        resistance,
+        mode: TransmissionMode::Drive,
+    }
+}
+
+fn modulatory(
+    from: CellId,
+    to: CellId,
+    delay: i64,
+    coupling: i32,
+    resistance: u32,
+) -> ArrowSpec {
+    ArrowSpec {
+        from,
+        to,
+        delay,
+        phase: 0,
+        coupling,
+        resistance,
+        mode: TransmissionMode::Modulatory,
+    }
+}
+
+fn validate_sensor_frame(frame: &[u8]) -> Result<(), Arc3SensorimotorError> {
+    if frame.len() != ARC3_FRAME_PIXELS {
+        return Err(Arc3SensorimotorError(format!(
+            "ARC raster has {} cells; expected {ARC3_FRAME_PIXELS}",
+            frame.len()
+        )));
+    }
+    if let Some(color) = frame.iter().copied().find(|color| *color > 15) {
+        return Err(Arc3SensorimotorError(format!(
+            "ARC raster color {color} is outside 0..15"
+        )));
+    }
+    Ok(())
+}
+
+fn available_motor_indices(actions: &[u8]) -> Result<Vec<usize>, Arc3SensorimotorError> {
+    let mut motors = Vec::new();
+    for action in actions {
+        let motor = action_index(*action)?;
+        if !motors.contains(&motor) {
+            motors.push(motor);
+        }
+    }
+    motors.sort_unstable();
+    if motors.is_empty() {
+        return Err(Arc3SensorimotorError(
+            "no supported simple motor is available".to_string(),
+        ));
+    }
+    Ok(motors)
+}
+
+fn action_index(action: u8) -> Result<usize, Arc3SensorimotorError> {
+    if !(1..=MOTORS as u8).contains(&action) {
+        return Err(Arc3SensorimotorError(format!(
+            "ARC3-A1 supports simple actions 1..={MOTORS}; received {action}"
+        )));
+    }
+    Ok(usize::from(action - 1))
+}
+
+fn validate_action_map(map: &[u8]) -> Result<(), Arc3SensorimotorError> {
+    if map.len() != MOTORS || map.iter().any(|action| !(1..=7).contains(action)) {
+        return Err(Arc3SensorimotorError(
+            "action map must contain four ARC action identifiers in 1..=7".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Arc3SensorimotorError(String);
+
+impl fmt::Display for Arc3SensorimotorError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for Arc3SensorimotorError {}
+
+impl From<BoundaryError> for Arc3SensorimotorError {
+    fn from(error: BoundaryError) -> Self {
+        Self(format!("boundary error: {error:?}"))
+    }
+}
+
+impl From<truelearner_arena_format::FormatError> for Arc3SensorimotorError {
+    fn from(error: truelearner_arena_format::FormatError) -> Self {
+        Self(format!("format error: {error:?}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn frame(color: u8) -> Vec<u8> {
+        vec![color; ARC3_FRAME_PIXELS]
+    }
+
+    #[test]
+    fn changed_raster_supports_one_motor_and_probe_needs_no_babble() {
+        let mut organism = Arc3Sensorimotor::new(205).unwrap();
+        let first = organism
+            .observe(frame(4), &[1, 2, 3, 4], Some(1), false, false, &[1, 2, 3, 4])
+            .unwrap();
+        assert_eq!(first.action, Some(1));
+        assert_eq!(first.candidate_coupling, 1);
+
+        let mut changed = frame(4);
+        changed[0] = 3;
+        let learned = organism
+            .observe(changed, &[1, 2, 3, 4], None, true, true, &[1, 2, 3, 4])
+            .unwrap();
+        assert_eq!(learned.plasticity_updates, 1);
+        assert_eq!(learned.action, Some(1));
+        assert_eq!(learned.babble_action, None);
+        assert_eq!(learned.candidate_coupling, 2);
+        assert!(learned.naturally_quiescent);
+    }
+
+    #[test]
+    fn blocked_return_cannot_mature_adjacent_babbled_episodes() {
+        let mut organism = Arc3Sensorimotor::new(206).unwrap();
+        let first = organism
+            .observe(frame(4), &[1, 2, 3, 4], Some(1), false, false, &[1, 2, 3, 4])
+            .unwrap();
+        assert_eq!(first.action, Some(1));
+        let mut changed = frame(4);
+        changed[1] = 3;
+        let second = organism
+            .observe(changed.clone(), &[1, 2, 3, 4], Some(1), false, false, &[1, 2, 3, 4])
+            .unwrap();
+        assert_eq!(second.action, Some(1));
+        assert_eq!(second.plasticity_updates, 0);
+        changed[2] = 3;
+        let settled = organism
+            .observe(changed, &[1, 2, 3, 4], None, false, true, &[1, 2, 3, 4])
+            .unwrap();
+        assert_eq!(settled.action, None);
+        assert_eq!(settled.plasticity_updates, 0);
+        assert!(!settled.candidate_live);
+    }
+
+    #[test]
+    fn action_meaning_follows_the_external_map() {
+        let mut organism = Arc3Sensorimotor::new(207).unwrap();
+        let _ = organism
+            .observe(frame(4), &[1, 2, 3, 4], Some(1), false, false, &[1, 2, 3, 4])
+            .unwrap();
+        let mut changed = frame(4);
+        changed[0] = 3;
+        let _ = organism
+            .observe(changed, &[1, 2, 3, 4], None, true, true, &[1, 2, 3, 4])
+            .unwrap();
+        organism.clear_episode();
+        let shuffled = organism
+            .observe(frame(4), &[1, 2, 3, 4], None, false, false, &[2, 1, 3, 4])
+            .unwrap();
+        assert_eq!(shuffled.motor_crossing, Some(0));
+        assert_eq!(shuffled.action, Some(2));
+    }
+}
