@@ -2254,7 +2254,10 @@ mod tests {
         candidate_result: &RunResult,
     ) {
         assert_eq!(candidate_result.crossings, reference_result.crossings);
-        assert_eq!(physical_work(candidate_result.work), physical_work(reference_result.work));
+        assert_eq!(
+            physical_work(candidate_result.work),
+            physical_work(reference_result.work)
+        );
         assert_eq!(candidate.clock(), reference.clock());
         assert_eq!(
             candidate.clock().pressure_phase(),
@@ -2308,7 +2311,11 @@ mod tests {
             for arrival in arrivals {
                 reference.enter(arrival);
             }
-            let canonical_pending = reference.live_checkpoint(990).unwrap().canonical_bytes().unwrap();
+            let canonical_pending = reference
+                .live_checkpoint(990)
+                .unwrap()
+                .canonical_bytes()
+                .unwrap();
             let reference_result = reference.propagate();
             for config in configs {
                 let mut candidate = base.clone();
@@ -2317,7 +2324,11 @@ mod tests {
                     candidate.enter(arrival);
                 }
                 assert_eq!(
-                    candidate.live_checkpoint(990).unwrap().canonical_bytes().unwrap(),
+                    candidate
+                        .live_checkpoint(990)
+                        .unwrap()
+                        .canonical_bytes()
+                        .unwrap(),
                     canonical_pending,
                     "canonical pending activity differs for {config:?}"
                 );
