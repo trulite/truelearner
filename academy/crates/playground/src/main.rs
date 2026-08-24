@@ -57,21 +57,16 @@ struct UiModel {
 impl Default for UiModel {
     fn default() -> Self {
         Self {
-            messages: vec![Message {
-                speaker: Speaker::Academy,
-                title: "Physical body readying".to_string(),
-                body: "Academy is starting the bounded TrueLearner worker. No UI timing enters physical time.".to_string(),
-                detail: "External instrument · awaiting worker".to_string(),
-            }],
+            messages: Vec::new(),
             capabilities: CapabilityGraph::default(),
             timeline: Vec::new(),
             inspector: None,
             mode: ExperienceMode::Teach,
             selected_capability: "interaction-response".to_string(),
-            status: "Starting body".to_string(),
+            status: "Starting".to_string(),
             busy: false,
             debug_overlay: true,
-            replay_message: "No replay yet".to_string(),
+            replay_message: String::new(),
             file_notice: String::new(),
         }
     }
@@ -143,8 +138,7 @@ fn App() -> Element {
                         span {}
                     }
                     div {
-                        h1 { "TrueLearner Academy" }
-                        p { "Playground · physical development instrument" }
+                        h1 { "TrueLearner" }
                     }
                 }
                 div { class: "mode-switch", role: "group", aria_label: "Experience mode",
@@ -156,7 +150,7 @@ fn App() -> Element {
                     button {
                         class: if model.read().mode == ExperienceMode::Probe { "mode-button active" } else { "mode-button" },
                         onclick: move |_| model.write().mode = ExperienceMode::Probe,
-                        "Probe understanding"
+                        "Probe"
                     }
                 }
                 div { class: "run-status",
@@ -165,9 +159,9 @@ fn App() -> Element {
                         strong { "{model.read().status}" }
                         span {
                             if let Some(ref state) = inspector {
-                                "tick {state.physical_tick} · body {state.body_fingerprint}"
+                                "t{state.physical_tick} · {state.body_fingerprint}"
                             } else {
-                                "bounded worker starting"
+                                "Starting"
                             }
                         }
                     }
@@ -175,11 +169,10 @@ fn App() -> Element {
             }
 
             main { class: "workspace",
-                section { class: "conversation-region", aria_label: "Conversation and shared world",
+                section { class: "conversation-region", aria_label: "World",
                     div { class: "section-heading",
                         div {
-                            h2 { "Conversation & world" }
-                            p { "Human semantics are rendered here; only admitted physical input reaches the body." }
+                            h2 { "World" }
                         }
                         div { class: "section-actions",
                             label { class: "toggle-control",
@@ -188,7 +181,7 @@ fn App() -> Element {
                                     checked: model.read().debug_overlay,
                                     onchange: move |event| model.write().debug_overlay = event.checked(),
                                 }
-                                span { "Causally inert overlay" }
+                                span { "Overlay" }
                             }
                         }
                     }
@@ -215,13 +208,13 @@ fn App() -> Element {
                         div { class: "surface-block",
                             div { class: "surface-label",
                                 div {
-                                    strong { "Shared raster world" }
-                                    span { "Rust-owned RGBA · {SURFACE_WIDTH}×{SURFACE_HEIGHT}" }
+                                    strong { "Input" }
+                                    span { "{SURFACE_WIDTH}×{SURFACE_HEIGHT}" }
                                 }
                                 button {
                                     class: "quiet-button",
                                     onclick: move |_| shared_surface.set(VisualSurface::blank()),
-                                    "Clear drawing"
+                                    "Clear"
                                 }
                             }
                             div { class: "canvas-wrap",
@@ -260,7 +253,7 @@ fn App() -> Element {
                                 }
                                 if model.read().debug_overlay {
                                     div { class: "debug-overlay", aria_hidden: "true",
-                                        span { "DISPLAY ONLY" }
+                                        span { "Overlay" }
                                         i {}
                                     }
                                 }
@@ -276,14 +269,14 @@ fn App() -> Element {
                                                 &worker,
                                                 &mut model,
                                                 shared_surface.read().clone(),
-                                                "Human drawing",
+                                                "Drawing",
                                             );
                                         }
                                     },
-                                    "Admit drawing"
+                                    "Admit"
                                 }
                                 label { class: "file-button",
-                                    "Open image"
+                                    "Image"
                                     input {
                                         r#type: "file",
                                         accept: "image/png,image/jpeg,image/gif,image/webp,image/bmp",
@@ -313,7 +306,7 @@ fn App() -> Element {
                                     }
                                 }
                                 label { class: "file-button",
-                                    "Open file"
+                                    "File"
                                     input {
                                         r#type: "file",
                                         onchange: {
@@ -330,7 +323,7 @@ fn App() -> Element {
                                                                     Err(_) => VisualSurface::render_text(&String::from_utf8_lossy(&bytes)),
                                                                 };
                                                                 shared_surface.set(rendered.clone());
-                                                                model.write().file_notice = format!("Rendered {name} into the raster world; path and file metadata stayed outside the organism.");
+                                                                model.write().file_notice = format!("Loaded {name}");
                                                                 admit_raster(&worker, &mut model, rendered, &format!("Rendered file · {name}"));
                                                             }
                                                             Err(error) => set_error(&mut model, error.to_string()),
@@ -350,8 +343,7 @@ fn App() -> Element {
                         div { class: "surface-block output-block",
                             div { class: "surface-label",
                                 div {
-                                    strong { "Outward raster activity" }
-                                    span { "Crossings rendered for the human view" }
+                                    strong { "Output" }
                                 }
                             }
                             div { class: "canvas-wrap output",
@@ -362,7 +354,6 @@ fn App() -> Element {
                                     aria_label: "Organism raster output",
                                 }
                             }
-                            p { class: "surface-caption", "A dark field means no outward crossings. This renderer adds no feedback unless you explicitly admit it." }
                         }
                     }
 
@@ -383,16 +374,16 @@ fn App() -> Element {
                                     capability_ids: vec!["interaction-response".to_string(), "copy-symbol".to_string()],
                                     expected_text: (mode != ExperienceMode::Teach).then_some(text.clone()),
                                     academy_note: if mode == ExperienceMode::Teach {
-                                        "Human-presented physical example".to_string()
+                                        "Text example".to_string()
                                     } else {
-                                        "Fresh exact-copy probe; expectation remained Academy-side".to_string()
+                                        "Text probe".to_string()
                                     },
                                 };
                                 model.write().messages.push(Message {
                                     speaker: Speaker::Human,
-                                    title: "Human".to_string(),
+                                    title: "You".to_string(),
                                     body: text,
-                                    detail: format!("{} · byte/glyph embodiment affordance", mode.label()),
+                                    detail: mode.label().to_string(),
                                 });
                                 send_command(&worker, &mut model, AcademyCommand::Interact(request));
                                 composer.set(String::new());
@@ -401,9 +392,9 @@ fn App() -> Element {
                         textarea {
                             value: "{composer}",
                             placeholder: if model.read().mode == ExperienceMode::Teach {
-                                "Present a physical example…"
+                                "Show an example…"
                             } else {
-                                "Run a fresh held-out probe…"
+                                "Test with something new…"
                             },
                             aria_label: "Message to admit to TrueLearner",
                             oninput: move |event| composer.set(event.value()),
@@ -422,13 +413,13 @@ fn App() -> Element {
                                             input: PhysicalInput::Text(text.clone()),
                                             capability_ids: vec!["interaction-response".to_string(), "copy-symbol".to_string()],
                                             expected_text: (mode != ExperienceMode::Teach).then_some(text.clone()),
-                                            academy_note: "Keyboard-admitted physical text".to_string(),
+                                            academy_note: "Text input".to_string(),
                                         };
                                         model.write().messages.push(Message {
                                             speaker: Speaker::Human,
-                                            title: "Human".to_string(),
+                                            title: "You".to_string(),
                                             body: text,
-                                            detail: format!("{} · admitted explicitly", mode.label()),
+                                            detail: mode.label().to_string(),
                                         });
                                         send_command(&worker, &mut model, AcademyCommand::Interact(request));
                                         composer.set(String::new());
@@ -440,17 +431,16 @@ fn App() -> Element {
                             class: "primary-button",
                             r#type: "submit",
                             disabled: model.read().busy || composer.read().trim().is_empty(),
-                            if model.read().busy { "Running physical activity…" } else { "Admit experience" }
+                            if model.read().busy { "Running…" } else if model.read().mode == ExperienceMode::Teach { "Teach" } else { "Probe" }
                         }
                     }
                 }
 
-                aside { class: "academy-region", aria_label: "Academy evidence and body inspector",
+                aside { class: "academy-region", aria_label: "Evidence and runtime",
                     section { class: "academy-section frontier-section",
                         div { class: "section-heading compact",
                             div {
-                                h2 { "Development frontier" }
-                                p { "External evidence, never organism state." }
+                                h2 { "Skills" }
                             }
                         }
                         div { class: "frontier-summary",
@@ -460,11 +450,11 @@ fn App() -> Element {
                             }
                             div {
                                 strong { "{model.read().capabilities.frontier_count()}" }
-                                span { "at frontier" }
+                                span { "learning" }
                             }
                             div {
                                 strong { "{model.read().capabilities.capabilities().count()}" }
-                                span { "mapped" }
+                                span { "total" }
                             }
                         }
                         div { class: "capability-list",
@@ -479,7 +469,7 @@ fn App() -> Element {
                                     span { class: status_class(capability), "{capability.status.label()}" }
                                     strong { "{capability.title}" }
                                     small {
-                                        "{capability.evidence.fresh_passes}/{capability.evidence.fresh_attempts} fresh"
+                                        "{capability.evidence.fresh_passes}/{capability.evidence.fresh_attempts}"
                                     }
                                 }
                             }
@@ -493,22 +483,21 @@ fn App() -> Element {
                     section { class: "academy-section inspector-section",
                         div { class: "section-heading compact",
                             div {
-                                h2 { "Physical body" }
-                                p { "Causally inert runtime view" }
+                                h2 { "Runtime" }
                             }
                         }
                         if let Some(state) = inspector {
                             dl { class: "inspector-grid",
-                                Metric { term: "Body version", value: format!("v{}", state.body_version) }
-                                Metric { term: "Physical tick", value: state.physical_tick.to_string() }
-                                Metric { term: "Pressure phase", value: state.pressure_phase.to_string() }
-                                Metric { term: "Resident arenas", value: state.resident_arenas.to_string() }
-                                Metric { term: "Active max", value: state.active_arena_max.to_string() }
+                                Metric { term: "Version", value: format!("v{}", state.body_version) }
+                                Metric { term: "Tick", value: state.physical_tick.to_string() }
+                                Metric { term: "Phase", value: state.pressure_phase.to_string() }
+                                Metric { term: "Arenas", value: state.resident_arenas.to_string() }
+                                Metric { term: "Peak active", value: state.active_arena_max.to_string() }
                                 Metric { term: "Crossings", value: state.crossing_total.to_string() }
                                 Metric { term: "Last work", value: state.last_run_work.to_string() }
                                 Metric { term: "Total work", value: state.physical_work_total.to_string() }
-                                Metric { term: "Durable body", value: format_bytes(state.durable_bytes) }
-                                Metric { term: "Resident bytes", value: format_bytes(state.last_run_bytes) }
+                                Metric { term: "Body", value: format_bytes(state.durable_bytes) }
+                                Metric { term: "Resident", value: format_bytes(state.last_run_bytes) }
                             }
                             div { class: "checkpoint-actions",
                                 button {
@@ -517,7 +506,7 @@ fn App() -> Element {
                                         let worker = Arc::clone(&worker);
                                         move |_| send_command(&worker, &mut model, AcademyCommand::SaveCheckpoint)
                                     },
-                                    "Save checkpoint"
+                                    "Save"
                                 }
                                 button {
                                     class: "quiet-button",
@@ -533,7 +522,7 @@ fn App() -> Element {
                                         let worker = Arc::clone(&worker);
                                         move |_| send_command(&worker, &mut model, AcademyCommand::ReplayLast)
                                     },
-                                    "Replay last"
+                                    "Replay"
                                 }
                             }
                             p { class: "replay-status", "{model.read().replay_message}" }
@@ -548,19 +537,17 @@ fn App() -> Element {
                 }
             }
 
-            section { class: "timeline-region", aria_label: "Development timeline",
+            section { class: "timeline-region", aria_label: "History",
                 div { class: "timeline-heading",
                     div {
-                        h2 { "Development timeline" }
-                        p { "Each item joins body versions, physical admission, outward activity, work, and Academy annotation." }
+                        h2 { "History" }
                     }
-                    span { "{model.read().timeline.len()} recorded experience(s)" }
+                    span { "{model.read().timeline.len()} records" }
                 }
                 div { class: "timeline-track",
                     if model.read().timeline.is_empty() {
                         div { class: "timeline-empty",
-                            strong { "No admitted experience yet" }
-                            span { "Teach or probe once; the physical record will appear here." }
+                            strong { "No activity yet" }
                         }
                     }
                     for record in model.read().timeline.iter().rev().take(24) {
@@ -598,19 +585,18 @@ fn CapabilityDetail(capability: Capability) -> Element {
                 span { class: status_class(&capability), "{capability.status.label()}" }
                 h3 { "{capability.title}" }
             }
-            p { "{capability.description}" }
             if !capability.prerequisites.is_empty() {
                 div { class: "prerequisites",
-                    strong { "Prerequisites" }
+                    strong { "Requires" }
                     span { {capability.prerequisites.join(" · ")} }
                 }
             }
             dl { class: "evidence-table",
-                div { dt { "Teach experiences" } dd { "{evidence.teach_experiences}" } }
-                div { dt { "Fresh probes" } dd { "{evidence.fresh_passes} / {evidence.fresh_attempts}" } }
-                div { dt { "Transfer probes" } dd { "{evidence.transfer_passes} / {evidence.transfer_attempts}" } }
-                div { dt { "Retention probes" } dd { "{evidence.retention_passes} / {evidence.retention_attempts}" } }
-                div { dt { "Median successful work" } dd { {evidence.median_work().map_or("—".to_string(), |value| value.to_string())} } }
+                div { dt { "Teach" } dd { "{evidence.teach_experiences}" } }
+                div { dt { "Fresh" } dd { "{evidence.fresh_passes} / {evidence.fresh_attempts}" } }
+                div { dt { "Transfer" } dd { "{evidence.transfer_passes} / {evidence.transfer_attempts}" } }
+                div { dt { "Retention" } dd { "{evidence.retention_passes} / {evidence.retention_attempts}" } }
+                div { dt { "Median work" } dd { {evidence.median_work().map_or("—".to_string(), |value| value.to_string())} } }
             }
         }
     }
@@ -636,16 +622,8 @@ fn apply_worker_event(
             eprintln!("ACADEMY_PLAYGROUND_READY");
             update_snapshot(model, *snapshot);
             let mut state = model.write();
-            state.status = "Body quiescent".to_string();
+            state.status = "Ready".to_string();
             state.busy = false;
-            state.messages.push(Message {
-                speaker: Speaker::Academy,
-                title: "Academy".to_string(),
-                body:
-                    "The production body is resident across eight causally inert execution arenas."
-                        .to_string(),
-                detail: "Ready · selected production mechanics".to_string(),
-            });
         }
         AcademyEvent::Completed {
             record,
@@ -657,32 +635,29 @@ fn apply_worker_event(
                 .probe_passed
                 .map(|passed| if passed { "PASS" } else { "NOT YET" });
             let body = if record.organism_text.is_empty() {
-                format!(
-                    "{} outward crossing(s); no text decoded.",
-                    record.crossings.len()
-                )
+                format!("{} crossings", record.crossings.len())
             } else {
                 record.organism_text.clone()
             };
             model.write().messages.push(Message {
                 speaker: Speaker::Organism,
-                title: "TrueLearner outward activity".to_string(),
+                title: "Output".to_string(),
                 body,
                 detail: result.map_or_else(
                     || {
                         format!(
-                            "{} work · {} crossing(s)",
+                            "{} work · {} crossings",
                             record.physical_work,
                             record.crossings.len()
                         )
                     },
-                    |result| format!("Academy probe {result} · {} work", record.physical_work),
+                    |result| format!("{result} · {} work", record.physical_work),
                 ),
             });
             organism_surface.set(*output);
             update_snapshot(model, *snapshot);
             let mut state = model.write();
-            state.status = "Body quiescent".to_string();
+            state.status = "Ready".to_string();
             state.busy = false;
         }
         AcademyEvent::CheckpointSaved {
@@ -691,8 +666,8 @@ fn apply_worker_event(
         } => {
             update_snapshot(model, *snapshot);
             let mut state = model.write();
-            state.status = "Checkpoint saved".to_string();
-            state.replay_message = format!("Saved exact live checkpoint at body v{body_version}");
+            state.status = "Saved".to_string();
+            state.replay_message = format!("Saved v{body_version}");
             state.busy = false;
         }
         AcademyEvent::CheckpointRestored {
@@ -701,9 +676,8 @@ fn apply_worker_event(
         } => {
             update_snapshot(model, *snapshot);
             let mut state = model.write();
-            state.status = "Checkpoint restored".to_string();
-            state.replay_message =
-                format!("Restored body as v{body_version}; production mechanics reapplied");
+            state.status = "Restored".to_string();
+            state.replay_message = format!("Restored v{body_version}");
             state.busy = false;
         }
         AcademyEvent::ReplayVerified { outcome, snapshot } => {
@@ -718,7 +692,7 @@ fn apply_worker_event(
             .to_string();
             state.replay_message = if outcome.exact {
                 format!(
-                    "Exact physical replay · tick {} · work {}",
+                    "Exact · t{} · {} work",
                     outcome.observed_clock, outcome.observed_work
                 )
             } else {
@@ -750,7 +724,7 @@ fn send_command(
             Ok(()) => {
                 let mut state = model.write();
                 state.busy = true;
-                state.status = "Physical activity running".to_string();
+                state.status = "Running".to_string();
             }
             Err(error) => set_error(model, error.to_string()),
         },
@@ -773,26 +747,26 @@ fn admit_raster(
             "visual-difference".to_string(),
         ],
         expected_text: None,
-        academy_note: format!("{label}; raster pixels admitted without file or DOM semantics"),
+        academy_note: label.to_string(),
     };
     model.write().messages.push(Message {
         speaker: Speaker::Human,
-        title: "Human raster world".to_string(),
+        title: "You".to_string(),
         body: label.to_string(),
-        detail: format!("{} · canonical pixels", mode.label()),
+        detail: mode.label().to_string(),
     });
     send_command(worker, model, AcademyCommand::Interact(request));
 }
 
 fn set_error(model: &mut Signal<UiModel>, message: String) {
     let mut state = model.write();
-    state.status = "Needs attention".to_string();
+    state.status = "Error".to_string();
     state.busy = false;
     state.messages.push(Message {
         speaker: Speaker::Academy,
-        title: "Academy boundary".to_string(),
+        title: "Error".to_string(),
         body: message,
-        detail: "No physical input was silently admitted".to_string(),
+        detail: String::new(),
     });
 }
 

@@ -1,4 +1,5 @@
 target/
+/output/
 /.DS_Store
 .env.e2b
 *.profraw
