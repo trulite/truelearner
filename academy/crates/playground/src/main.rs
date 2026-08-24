@@ -537,7 +537,7 @@ fn App() -> Element {
                 }
             }
 
-            section { class: "timeline-region", aria-label: "Development timeline",
+            section { class: "timeline-region", aria_label: "Development timeline",
                 div { class: "timeline-heading",
                     div {
                         h2 { "Development timeline" }
