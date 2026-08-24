@@ -635,6 +635,16 @@ fn surface_for_port(seed: u64, port: usize) -> VisualSurface {
                 [255 - color[0], 255 - color[1], 255 - color[2], 255],
                 2,
             );
+            surface.set_pixel(
+                31,
+                31,
+                [
+                    index as u8,
+                    index.rotate_right(8) as u8,
+                    index.rotate_right(16) as u8,
+                    255,
+                ],
+            );
             surface
         })
         .find(|surface| physical_port(&PhysicalInput::Raster(surface.clone())) == port)
