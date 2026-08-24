@@ -1,13 +1,10 @@
 #![forbid(unsafe_code)]
 
 use academy_arc3::{
-    frame_surface, Arc3A1Episode, Arc3A1EpisodeClass, Arc3A1EpisodeOutcome, Arc3A1Suite,
-    Arc3A1Turn,
+    frame_surface, Arc3A1Episode, Arc3A1EpisodeClass, Arc3A1EpisodeOutcome, Arc3A1Suite, Arc3A1Turn,
 };
 use academy_core::VisualSurface;
-use academy_episodes::{
-    EpisodeCatalog, EpisodeClass, EpisodeFrame, EpisodeOutcome, ReviewEpisode,
-};
+use academy_episodes::{EpisodeCatalog, EpisodeClass, EpisodeFrame, EpisodeOutcome, ReviewEpisode};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -133,7 +130,10 @@ fn write_episode(
     if !status.success() {
         return Err(format!("ffmpeg exited with {status}").into());
     }
-    fs::copy(destination.join(&final_name), destination.join("poster.png"))?;
+    fs::copy(
+        destination.join(&final_name),
+        destination.join("poster.png"),
+    )?;
     fs::write(
         destination.join("record.json"),
         serde_json::to_vec_pretty(episode)?,

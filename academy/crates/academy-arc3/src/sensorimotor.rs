@@ -30,7 +30,9 @@ pub enum Arc3AgentCommand {
         action_map: Vec<u8>,
     },
     ClearEpisode,
-    AdvanceGap { ticks: i64 },
+    AdvanceGap {
+        ticks: i64,
+    },
     ResetBody,
     Snapshot,
     Shutdown,
@@ -209,21 +211,17 @@ impl Arc3Sensorimotor {
                 OUTWARD_REGION,
             )?;
             total_work = total_work.saturating_add(result.work.total());
-            plasticity_updates = plasticity_updates
-                .saturating_add(result.work.local_return_updates);
-            modulatory_deliveries = modulatory_deliveries
-                .saturating_add(result.work.modulatory_deliveries);
+            plasticity_updates =
+                plasticity_updates.saturating_add(result.work.local_return_updates);
+            modulatory_deliveries =
+                modulatory_deliveries.saturating_add(result.work.modulatory_deliveries);
             naturally_quiescent &= result.naturally_quiescent;
         }
 
         if settle_pressure && self.previous_frame.is_some() {
             let tick = self.boundary.substrate().clock().tick;
-            let settled = tick
-                .div_euclid(10)
-                .saturating_add(1)
-                .saturating_mul(10);
-            total_work = total_work
-                .saturating_add(self.boundary.advance_time(settled).total());
+            let settled = tick.div_euclid(10).saturating_add(1).saturating_mul(10);
+            total_work = total_work.saturating_add(self.boundary.advance_time(settled).total());
         }
 
         let context = dominant_palette(&frame)?;
@@ -265,8 +263,7 @@ impl Arc3Sensorimotor {
 
         let result = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
         total_work = total_work.saturating_add(result.work.total());
-        plasticity_updates =
-            plasticity_updates.saturating_add(result.work.local_return_updates);
+        plasticity_updates = plasticity_updates.saturating_add(result.work.local_return_updates);
         modulatory_deliveries =
             modulatory_deliveries.saturating_add(result.work.modulatory_deliveries);
         naturally_quiescent &= result.naturally_quiescent;
@@ -394,10 +391,9 @@ impl Arc3Sensorimotor {
                 self.reset_body()?;
                 Ok(Some(Arc3AgentResponse::Ack))
             }
-            Arc3AgentCommand::Snapshot => self
-                .snapshot()
-                .map(Arc3AgentResponse::Snapshot)
-                .map(Some),
+            Arc3AgentCommand::Snapshot => {
+                self.snapshot().map(Arc3AgentResponse::Snapshot).map(Some)
+            }
             Arc3AgentCommand::Shutdown => Ok(None),
         }
     }
@@ -441,12 +437,8 @@ pub fn dominant_palette(frame: &[u8]) -> Result<u8, Arc3SensorimotorError> {
 }
 
 fn build_body(seed: u64) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
-    let mut body = PlasticSubstrate::with_mechanics(
-        ArenaId(seed),
-        512,
-        1_024,
-        MechanicalConfig::PRODUCTION,
-    );
+    let mut body =
+        PlasticSubstrate::with_mechanics(ArenaId(seed), 512, 1_024, MechanicalConfig::PRODUCTION);
     body.set_physical_tracing(true);
     let mut candidate_sources = [[CellId(0); MOTORS]; CONTEXTS];
     let mut context_traces = [[CellId(0); MOTORS]; CONTEXTS];
@@ -454,12 +446,8 @@ fn build_body(seed: u64) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorErr
     for context in 0..CONTEXTS {
         for motor in 0..MOTORS {
             let pair = context.saturating_mul(MOTORS).saturating_add(motor);
-            candidate_sources[context][motor] = body.add_cell(cell(
-                1_000_000 + pair as u64,
-                100 + pair as i32 * 20,
-                0,
-                1,
-            ));
+            candidate_sources[context][motor] =
+                body.add_cell(cell(1_000_000 + pair as u64, 100 + pair as i32 * 20, 0, 1));
             context_traces[context][motor] = body.add_cell(cell(
                 2_000_000 + pair as u64,
                 20_000 + pair as i32 * 20,
@@ -575,13 +563,7 @@ fn drive(from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u32) -
     }
 }
 
-fn modulatory(
-    from: CellId,
-    to: CellId,
-    delay: i64,
-    coupling: i32,
-    resistance: u32,
-) -> ArrowSpec {
+fn modulatory(from: CellId, to: CellId, delay: i64, coupling: i32, resistance: u32) -> ArrowSpec {
     ArrowSpec {
         from,
         to,
@@ -678,7 +660,14 @@ mod tests {
     fn changed_raster_supports_one_motor_and_probe_needs_no_babble() {
         let mut organism = Arc3Sensorimotor::new(205).unwrap();
         let first = organism
-            .observe(frame(4), &[1, 2, 3, 4], Some(1), false, false, &[1, 2, 3, 4])
+            .observe(
+                frame(4),
+                &[1, 2, 3, 4],
+                Some(1),
+                false,
+                false,
+                &[1, 2, 3, 4],
+            )
             .unwrap();
         assert_eq!(first.action, Some(1));
         assert_eq!(first.candidate_coupling, 1);
@@ -699,13 +688,27 @@ mod tests {
     fn blocked_return_cannot_mature_adjacent_babbled_episodes() {
         let mut organism = Arc3Sensorimotor::new(206).unwrap();
         let first = organism
-            .observe(frame(4), &[1, 2, 3, 4], Some(1), false, false, &[1, 2, 3, 4])
+            .observe(
+                frame(4),
+                &[1, 2, 3, 4],
+                Some(1),
+                false,
+                false,
+                &[1, 2, 3, 4],
+            )
             .unwrap();
         assert_eq!(first.action, Some(1));
         let mut changed = frame(4);
         changed[1] = 3;
         let second = organism
-            .observe(changed.clone(), &[1, 2, 3, 4], Some(1), false, false, &[1, 2, 3, 4])
+            .observe(
+                changed.clone(),
+                &[1, 2, 3, 4],
+                Some(1),
+                false,
+                false,
+                &[1, 2, 3, 4],
+            )
             .unwrap();
         assert_eq!(second.action, Some(1));
         assert_eq!(second.plasticity_updates, 0);
@@ -722,7 +725,14 @@ mod tests {
     fn action_meaning_follows_the_external_map() {
         let mut organism = Arc3Sensorimotor::new(207).unwrap();
         let _ = organism
-            .observe(frame(4), &[1, 2, 3, 4], Some(1), false, false, &[1, 2, 3, 4])
+            .observe(
+                frame(4),
+                &[1, 2, 3, 4],
+                Some(1),
+                false,
+                false,
+                &[1, 2, 3, 4],
+            )
             .unwrap();
         let mut changed = frame(4);
         changed[0] = 3;
