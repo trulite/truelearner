@@ -1528,6 +1528,9 @@ mod tests {
         });
         let checkpoint = substrate.live_checkpoint(5).unwrap();
         let bytes = checkpoint.canonical_bytes().unwrap();
+        let mut corrupt = bytes.clone();
+        *corrupt.last_mut().unwrap() ^= 1;
+        assert_eq!(LiveCheckpoint::decode(&corrupt), Err(CheckpointError::Checksum));
         let decoded = LiveCheckpoint::decode(&bytes).unwrap();
         assert_eq!(decoded.canonical_bytes().unwrap(), bytes);
         let mut restored = PlasticSubstrate::from_live_checkpoint(decoded).unwrap();
