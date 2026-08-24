@@ -1021,15 +1021,6 @@ fn lawful_a_at(world: &mut PairWorld, arrival_tick: i64) {
         20,
     );
 }
-fn lawful_b_at(world: &mut PairWorld, arrival_tick: i64) {
-    pulse(
-        &mut world.substrate,
-        world.return_b,
-        arrival_tick.saturating_sub(world.return_delay),
-        1,
-        21,
-    );
-}
 fn distract(world: &mut PairWorld, tick: i64, index: usize) {
     let source = world.distractors[index];
     pulse(&mut world.substrate, source, tick, 1, 30 + index as i32);
@@ -1350,6 +1341,16 @@ mod tests {
             for case in CASES {
                 let row = replay(seed, case);
                 assert!(row.replay, "{seed} {case:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn registered_matrix_passes_in_development() {
+        for seed in SEEDS {
+            for case in CASES {
+                let row = replay(seed, case);
+                assert!(row.passed, "{seed} {case:?} {:#?}", row.observation);
             }
         }
     }
