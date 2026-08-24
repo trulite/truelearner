@@ -1,10 +1,14 @@
 #![forbid(unsafe_code)]
 //! Single-file physical runtime: state, local transitions, and crossings.
 
-use std::{cmp::Ordering, collections::VecDeque};
+use std::collections::{BTreeSet, VecDeque};
 use truelearner_arena_format::{
     ArenaBody, ArenaVersion, BodyVersion, DurableArrow, DurableCell, FormatError,
 };
+
+mod mechanics;
+pub use mechanics::SchedulerKind;
+use mechanics::PendingSchedule;
 pub use truelearner_arena_format::{
     ArenaId, ArrowId, ArrowRef, CellId, CellRef, ContentHash, Generation,
 };
@@ -52,6 +56,80 @@ pub struct CellSpec {
 pub enum TransmissionMode {
     Drive,
     Modulatory,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TraversalKind {
+    GlobalScan,
+    Adjacency,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActivityKind {
+    FullScan,
+    Frontier,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LayoutKind {
+    AoS,
+    SoA,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExecutorKind {
+    Scalar,
+    Batched,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MechanicalConfig {
+    pub scheduler: SchedulerKind,
+    pub traversal: TraversalKind,
+    pub activity: ActivityKind,
+    pub layout: LayoutKind,
+    pub executor: ExecutorKind,
+}
+
+impl MechanicalConfig {
+    pub const REFERENCE: Self = Self {
+        scheduler: SchedulerKind::Vec,
+        traversal: TraversalKind::GlobalScan,
+        activity: ActivityKind::FullScan,
+        layout: LayoutKind::AoS,
+        executor: ExecutorKind::Scalar,
+    };
+
+    pub const R1: Self = Self {
+        scheduler: SchedulerKind::TimingWheel,
+        ..Self::REFERENCE
+    };
+
+    pub const R2: Self = Self {
+        traversal: TraversalKind::Adjacency,
+        ..Self::R1
+    };
+
+    pub const R3: Self = Self {
+        activity: ActivityKind::Frontier,
+        ..Self::R2
+    };
+
+    pub const R4: Self = Self {
+        layout: LayoutKind::SoA,
+        ..Self::R3
+    };
+
+    pub const R5: Self = Self {
+        executor: ExecutorKind::Batched,
+        ..Self::R4
+    };
+}
+
+impl Default for MechanicalConfig {
+    fn default() -> Self {
+        Self::REFERENCE
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -137,6 +215,15 @@ pub struct Work {
     pub physical_deallocations: u64,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ExecutionCost {
+    pub queue_ops: u64,
+    pub comparisons: u64,
+    pub scans: u64,
+    pub allocations: u64,
+    pub bytes_touched: u64,
+}
+
 impl Work {
     pub fn total(&self) -> u64 {
         self.total
@@ -149,6 +236,7 @@ pub struct RunResult {
     pub work: Work,
     pub naturally_quiescent: bool,
     pub resident_bytes: usize,
+    pub execution_cost: ExecutionCost,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -181,6 +269,7 @@ pub struct BoundaryRun {
     pub work: Work,
     pub naturally_quiescent: bool,
     pub resident_bytes: usize,
+    pub execution_cost: ExecutionCost,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -205,6 +294,7 @@ pub struct BoundaryRuntime {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlasticSubstrate {
+    mechanics: MechanicalConfig,
     arena: ArenaId,
     cells: Vec<Cell>,
     cell_slots: Vec<Option<CellSlot>>,
@@ -212,11 +302,14 @@ pub struct PlasticSubstrate {
     arrow_slots: Vec<Option<ArrowSlot>>,
     cell_capacity: u32,
     arrow_capacity: u32,
-    pending: Vec<Spike>,
+    pending: PendingSchedule,
     tick: i64,
     next_serial: u64,
     pressure_tick: i64,
     pending_loads: Vec<PendingLoad>,
+    outgoing_index: Vec<Vec<ArrowId>>,
+    active_cells: BTreeSet<CellId>,
+    eligible_arrows: BTreeSet<ArrowId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -696,6 +789,7 @@ impl BoundaryRuntime {
             work: result.work,
             naturally_quiescent: result.naturally_quiescent,
             resident_bytes: result.resident_bytes,
+            execution_cost: result.execution_cost,
         })
     }
 
@@ -726,6 +820,7 @@ impl BoundaryRuntime {
             work: run.work,
             naturally_quiescent: run.naturally_quiescent,
             resident_bytes: run.resident_bytes,
+            execution_cost: run.execution_cost,
         })
     }
 
@@ -784,7 +879,22 @@ impl PlasticSubstrate {
     }
 
     pub fn with_capacity(arena: ArenaId, cell_capacity: u32, arrow_capacity: u32) -> Self {
+        Self::with_mechanics(
+            arena,
+            cell_capacity,
+            arrow_capacity,
+            MechanicalConfig::REFERENCE,
+        )
+    }
+
+    pub fn with_mechanics(
+        arena: ArenaId,
+        cell_capacity: u32,
+        arrow_capacity: u32,
+        mechanics: MechanicalConfig,
+    ) -> Self {
         Self {
+            mechanics,
             arena,
             cells: Vec::new(),
             cell_slots: Vec::new(),
@@ -792,12 +902,19 @@ impl PlasticSubstrate {
             arrow_slots: Vec::new(),
             cell_capacity,
             arrow_capacity,
-            pending: Vec::new(),
+            pending: PendingSchedule::new(mechanics.scheduler, 0),
             tick: 0,
             next_serial: 0,
             pressure_tick: 0,
             pending_loads: Vec::new(),
+            outgoing_index: Vec::new(),
+            active_cells: BTreeSet::new(),
+            eligible_arrows: BTreeSet::new(),
         }
+    }
+
+    pub fn mechanical_config(&self) -> MechanicalConfig {
+        self.mechanics
     }
 
     pub fn clock(&self) -> PhysicalClock {
@@ -850,6 +967,7 @@ impl PlasticSubstrate {
             live: spec.resistance > 0,
         });
         self.cell_slots.push(Some(slot));
+        self.outgoing_index.push(Vec::new());
         id
     }
 
@@ -868,12 +986,12 @@ impl PlasticSubstrate {
                 "resident arena has no free ARROW identity"
             );
         }
-        let (id, slot, generation) = if let Some(index) = reusable {
+        let (id, slot, generation, prior_source) = if let Some(index) = reusable {
             let prior = &self.arrows[index];
-            (prior.id, ArrowSlot(index), prior.generation)
+            (prior.id, ArrowSlot(index), prior.generation, Some(prior.from))
         } else {
             let id = ArrowId(self.arrow_slots.len() as u64);
-            (id, ArrowSlot(self.arrows.len()), Generation(1))
+            (id, ArrowSlot(self.arrows.len()), Generation(1), None)
         };
         let arrow = Arrow {
             id,
@@ -890,12 +1008,18 @@ impl PlasticSubstrate {
             mode: spec.mode,
         };
         if slot.0 < self.arrows.len() {
+            if let Some(prior_source) = prior_source {
+                self.outgoing_index[prior_source.0 as usize].retain(|candidate| *candidate != id);
+            }
             self.arrows[slot.0] = arrow;
             self.arrow_slots[id.0 as usize] = Some(slot);
         } else {
             self.arrows.push(arrow);
             self.arrow_slots.push(Some(slot));
         }
+        let outgoing = &mut self.outgoing_index[spec.from.0 as usize];
+        outgoing.push(id);
+        outgoing.sort_unstable();
         id
     }
 
@@ -905,6 +1029,7 @@ impl PlasticSubstrate {
             input.arrival_tick >= self.tick,
             "physical arrivals cannot precede current substrate time"
         );
+        let mut ignored = ExecutionCost::default();
         self.pending.push(Spike {
             arrival_tick: input.arrival_tick,
             phase: input.phase,
@@ -914,7 +1039,7 @@ impl PlasticSubstrate {
             impulse: input.impulse,
             serial: self.next_serial,
             arrow: None,
-        });
+        }, &mut ignored);
         self.next_serial = self.next_serial.wrapping_add(1);
     }
 
@@ -936,7 +1061,8 @@ impl PlasticSubstrate {
             "queued activity must propagate first"
         );
         let mut work = Work::default();
-        self.elapse_to(tick, &mut work);
+        let mut ignored = ExecutionCost::default();
+        self.elapse_to(tick, &mut work, &mut ignored);
         self.tick = tick;
         work
     }
@@ -1044,6 +1170,7 @@ impl PlasticSubstrate {
                 live: durable.live,
             });
         }
+        substrate.outgoing_index = vec![Vec::new(); substrate.cell_slots.len()];
         let maximum_arrow_id = body.arrows.iter().map(|arrow| arrow.id.0).max();
         substrate.arrow_slots = maximum_arrow_id
             .map(|maximum| vec![None; maximum as usize + 1])
@@ -1082,6 +1209,10 @@ impl PlasticSubstrate {
                 eligible_until: None,
                 mode,
             });
+            substrate.outgoing_index[durable.from.id.0 as usize].push(durable.id);
+        }
+        for outgoing in &mut substrate.outgoing_index {
+            outgoing.sort_unstable();
         }
         Ok(substrate)
     }
@@ -1113,8 +1244,17 @@ impl PlasticSubstrate {
     pub fn from_quiescent_checkpoint(
         checkpoint: QuiescentCheckpoint,
     ) -> Result<Self, CheckpointError> {
+        Self::from_quiescent_checkpoint_with_mechanics(checkpoint, MechanicalConfig::REFERENCE)
+    }
+
+    pub fn from_quiescent_checkpoint_with_mechanics(
+        checkpoint: QuiescentCheckpoint,
+        mechanics: MechanicalConfig,
+    ) -> Result<Self, CheckpointError> {
         validate_manifest(&checkpoint.body_version, &checkpoint.body)?;
         let mut substrate = Self::from_arena_body(checkpoint.body)?;
+        substrate.mechanics = mechanics;
+        substrate.pending = PendingSchedule::new(mechanics.scheduler, checkpoint.clock.tick);
         substrate.tick = checkpoint.clock.tick;
         substrate.pressure_tick = pressure_epoch(checkpoint.clock.tick);
         for cell in &mut substrate.cells {
@@ -1125,6 +1265,9 @@ impl PlasticSubstrate {
     }
 
     pub fn live_checkpoint(&self, body_version: u64) -> Result<LiveCheckpoint, CheckpointError> {
+        let pending = self.pending.canonical(|id| {
+            self.cells[self.cell_slot(id).expect("scheduled CELL must resolve").0].physical_id
+        });
         Ok(LiveCheckpoint {
             body_version: self.body_version(body_version)?,
             body: self.arena_body(body_version),
@@ -1147,15 +1290,23 @@ impl PlasticSubstrate {
                     eligible_until: arrow.eligible_until,
                 })
                 .collect(),
-            pending: self.pending.clone(),
+            pending,
             next_serial: self.next_serial,
             pending_loads: self.pending_loads.clone(),
         })
     }
 
     pub fn from_live_checkpoint(checkpoint: LiveCheckpoint) -> Result<Self, CheckpointError> {
+        Self::from_live_checkpoint_with_mechanics(checkpoint, MechanicalConfig::REFERENCE)
+    }
+
+    pub fn from_live_checkpoint_with_mechanics(
+        checkpoint: LiveCheckpoint,
+        mechanics: MechanicalConfig,
+    ) -> Result<Self, CheckpointError> {
         validate_manifest(&checkpoint.body_version, &checkpoint.body)?;
         let mut substrate = Self::from_arena_body(checkpoint.body)?;
+        substrate.mechanics = mechanics;
         substrate.tick = checkpoint.clock.tick;
         substrate.pressure_tick = pressure_epoch(checkpoint.clock.tick);
         for runtime in checkpoint.cells {
@@ -1173,9 +1324,22 @@ impl PlasticSubstrate {
                 .ok_or(CheckpointError::MissingArrow(runtime.id))?;
             substrate.arrows[slot.0].eligible_until = runtime.eligible_until;
         }
-        substrate.pending = checkpoint.pending;
+        substrate.pending =
+            PendingSchedule::from_canonical(mechanics.scheduler, checkpoint.clock.tick, checkpoint.pending);
         substrate.next_serial = checkpoint.next_serial;
         substrate.pending_loads = checkpoint.pending_loads;
+        substrate.active_cells = substrate
+            .cells
+            .iter()
+            .filter(|cell| cell.state != 0)
+            .map(|cell| cell.id)
+            .collect();
+        substrate.eligible_arrows = substrate
+            .arrows
+            .iter()
+            .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
+            .map(|arrow| arrow.id)
+            .collect();
         Ok(substrate)
     }
 
@@ -1235,17 +1399,22 @@ impl PlasticSubstrate {
     pub fn propagate(&mut self) -> RunResult {
         let mut crossings = Vec::new();
         let mut work = Work::default();
-        while !self.pending.is_empty() {
-            let mut first = 0;
-            for candidate in 1..self.pending.len() {
-                work.total = work.total.saturating_add(1);
-                if self.spike_order(candidate, first) == Ordering::Less {
-                    first = candidate;
-                }
-            }
-            let spike = self.pending.remove(first);
+        let mut execution_cost = ExecutionCost::default();
+        loop {
+            let cells = &self.cells;
+            let slots = &self.cell_slots;
+            let Some((spike, legacy_comparisons)) = self.pending.pop_next(
+                |id| {
+                    let slot = slots[id.0 as usize].expect("scheduled CELL must resolve");
+                    cells[slot.0].physical_id
+                },
+                &mut execution_cost,
+            ) else {
+                break;
+            };
+            work.total = work.total.saturating_add(legacy_comparisons);
             let external_arrival = spike.arrow.is_none();
-            self.elapse_to(spike.arrival_tick, &mut work);
+            self.elapse_to(spike.arrival_tick, &mut work, &mut execution_cost);
             self.tick = spike.arrival_tick;
             work.total = work.total.saturating_add(2);
 
@@ -1272,7 +1441,12 @@ impl PlasticSubstrate {
             if mode == TransmissionMode::Modulatory {
                 work.total = work.total.saturating_add(1);
                 work.modulatory_deliveries = work.modulatory_deliveries.saturating_add(1);
-                self.apply_modulatory_return(spike.target, self.tick, &mut work);
+                self.apply_modulatory_return(
+                    spike.target,
+                    self.tick,
+                    &mut work,
+                    &mut execution_cost,
+                );
                 continue;
             }
             work.total = work.total.saturating_add(3);
@@ -1281,6 +1455,9 @@ impl PlasticSubstrate {
             let target_slot = self.cell_slot(spike.target).unwrap();
             let target = &mut self.cells[target_slot.0];
             target.state = target.state.saturating_add(spike.impulse);
+            if target.state != 0 {
+                self.active_cells.insert(spike.target);
+            }
             let fires = self.tick >= target.refractory_until && target.state >= target.threshold;
             if !fires {
                 continue;
@@ -1288,6 +1465,7 @@ impl PlasticSubstrate {
 
             target.state = 0;
             target.refractory_until = self.tick.saturating_add(1);
+            self.active_cells.remove(&spike.target);
             work.total = work.total.saturating_add(1);
             let source = spike.target;
             let origin_physical = target.physical_id;
@@ -1295,11 +1473,25 @@ impl PlasticSubstrate {
             if external_arrival {
                 self.propose_local_arrows(source, &mut work);
             }
-            let mut outgoing = self
-                .arrows
-                .iter()
-                .map(|arrow| (arrow.id, arrow.clone()))
-                .collect::<Vec<_>>();
+            let mut outgoing = match self.mechanics.traversal {
+                TraversalKind::GlobalScan => {
+                    execution_cost.scans = execution_cost
+                        .scans
+                        .saturating_add(self.arrows.len() as u64);
+                    self.arrows
+                        .iter()
+                        .map(|arrow| (arrow.id, arrow.clone()))
+                        .collect::<Vec<_>>()
+                }
+                TraversalKind::Adjacency => self.outgoing_index[source.0 as usize]
+                    .iter()
+                    .filter_map(|id| {
+                        let slot = self.arrow_slot(*id)?;
+                        execution_cost.scans = execution_cost.scans.saturating_add(1);
+                        Some((*id, self.arrows[slot.0].clone()))
+                    })
+                    .collect(),
+            };
             outgoing.sort_by_key(|(id, _)| *id);
             for (arrow_id, arrow) in outgoing {
                 work.total = work.total.saturating_add(1);
@@ -1326,6 +1518,7 @@ impl PlasticSubstrate {
                 let arrow_slot = self.arrow_slot(arrow_id).unwrap();
                 let live_arrow = &mut self.arrows[arrow_slot.0];
                 live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
+                self.eligible_arrows.insert(arrow_id);
                 work.total = work.total.saturating_add(2);
                 self.pending.push(Spike {
                     arrival_tick: self.tick.saturating_add(arrow.delay),
@@ -1336,7 +1529,7 @@ impl PlasticSubstrate {
                     impulse: arrow.coupling,
                     serial: self.next_serial,
                     arrow: Some((arrow_id, arrow.generation)),
-                });
+                }, &mut execution_cost);
                 self.next_serial = self.next_serial.wrapping_add(1);
             }
         }
@@ -1345,15 +1538,31 @@ impl PlasticSubstrate {
             work,
             naturally_quiescent: self.pending.is_empty(),
             resident_bytes: self.resident_bytes(),
+            execution_cost,
         }
     }
 
-    fn apply_modulatory_return(&mut self, cell: CellId, tick: i64, work: &mut Work) {
-        for arrow in &mut self.arrows {
-            if arrow.live
-                && arrow.from == cell
-                && arrow.eligible_until.is_some_and(|end| tick <= end)
-            {
+    fn apply_modulatory_return(
+        &mut self,
+        cell: CellId,
+        tick: i64,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+    ) {
+        let candidates = match self.mechanics.traversal {
+            TraversalKind::GlobalScan => {
+                execution_cost.scans = execution_cost
+                    .scans
+                    .saturating_add(self.arrows.len() as u64);
+                self.arrows.iter().map(|arrow| arrow.id).collect::<Vec<_>>()
+            }
+            TraversalKind::Adjacency => self.outgoing_index[cell.0 as usize].clone(),
+        };
+        for id in candidates {
+            execution_cost.scans = execution_cost.scans.saturating_add(1);
+            let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
+            let arrow = &mut self.arrows[slot.0];
+            if arrow.live && arrow.from == cell && arrow.eligible_until.is_some_and(|end| tick <= end) {
                 work.total = work.total.saturating_add(3);
                 work.local_return_updates = work.local_return_updates.saturating_add(1);
                 let prior_resistance = arrow.resistance;
@@ -1362,15 +1571,22 @@ impl PlasticSubstrate {
                     arrow.coupling = arrow.coupling.saturating_add(1).min(2);
                 }
                 arrow.eligible_until = None;
+                self.eligible_arrows.remove(&id);
             }
         }
     }
 
-    fn elapse_to(&mut self, tick: i64, work: &mut Work) {
+    fn elapse_to(
+        &mut self,
+        tick: i64,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+    ) {
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
         if pressure_steps > 0 {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
             for arrow in &mut self.arrows {
+                execution_cost.scans = execution_cost.scans.saturating_add(1);
                 if arrow.live {
                     let was_live = arrow.live;
                     pressure_arrow(arrow, amount);
@@ -1384,12 +1600,26 @@ impl PlasticSubstrate {
             self.pressure_tick = self
                 .pressure_tick
                 .saturating_add(pressure_steps.saturating_mul(ORDINARY_PRESSURE_PERIOD));
+            self.eligible_arrows = self
+                .arrows
+                .iter()
+                .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
+                .map(|arrow| arrow.id)
+                .collect();
         }
-        for arrow in &mut self.arrows {
+        let expiry_candidates = match self.mechanics.activity {
+            ActivityKind::FullScan => self.arrows.iter().map(|arrow| arrow.id).collect::<Vec<_>>(),
+            ActivityKind::Frontier => self.eligible_arrows.iter().copied().collect(),
+        };
+        for id in expiry_candidates {
+            execution_cost.scans = execution_cost.scans.saturating_add(1);
+            let slot = self.arrow_slot(id).expect("eligible ARROW must resolve");
+            let arrow = &mut self.arrows[slot.0];
             if arrow.live && arrow.eligible_until.is_some_and(|end| end < tick) {
                 let was_live = arrow.live;
                 pressure_arrow(arrow, UNSUPPORTED_USE_PRESSURE);
                 arrow.eligible_until = None;
+                self.eligible_arrows.remove(&id);
                 work.total = work.total.saturating_add(1);
                 if was_live && !arrow.live {
                     work.total = work.total.saturating_add(1);
@@ -1397,8 +1627,12 @@ impl PlasticSubstrate {
                 }
             }
         }
-        let cell_ids = self.cells.iter().map(|cell| cell.id).collect::<Vec<_>>();
+        let cell_ids = match self.mechanics.activity {
+            ActivityKind::FullScan => self.cells.iter().map(|cell| cell.id).collect::<Vec<_>>(),
+            ActivityKind::Frontier => self.active_cells.iter().copied().collect(),
+        };
         for id in cell_ids {
+            execution_cost.scans = execution_cost.scans.saturating_add(1);
             self.decay_cell(id, tick);
         }
     }
@@ -1454,6 +1688,11 @@ impl PlasticSubstrate {
                 target.state.saturating_add(decay).min(0)
             };
             target.last_update_tick = tick;
+        }
+        if target.state == 0 {
+            self.active_cells.remove(&cell);
+        } else {
+            self.active_cells.insert(cell);
         }
     }
 
@@ -1518,25 +1757,6 @@ impl PlasticSubstrate {
         for (index, arrow) in self.arrows.iter().enumerate() {
             self.arrow_slots[arrow.id.0 as usize] = Some(ArrowSlot(index));
         }
-    }
-
-    fn spike_order(&self, left: usize, right: usize) -> Ordering {
-        let left = &self.pending[left];
-        let right = &self.pending[right];
-        (
-            left.arrival_tick,
-            left.phase,
-            left.origin_physical,
-            self.cells[self.cell_slot(left.target).unwrap().0].physical_id,
-            left.serial,
-        )
-            .cmp(&(
-                right.arrival_tick,
-                right.phase,
-                right.origin_physical,
-                self.cells[self.cell_slot(right.target).unwrap().0].physical_id,
-                right.serial,
-            ))
     }
 
     fn resident_bytes(&self) -> usize {
