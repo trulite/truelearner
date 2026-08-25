@@ -1,0 +1,11 @@
+[package]
+name = "tc-ds0-old-window"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core" }
+
+[workspace]
+
