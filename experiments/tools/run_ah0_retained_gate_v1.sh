@@ -16,8 +16,10 @@ cargo run --release --manifest-path experiments/verification/r6-partition-invari
 
 cargo run --release --manifest-path experiments/arms/si0-simultaneous-local-incidence/Cargo.toml \
     -- "$output/si0"
-cargo run --release --manifest-path experiments/arms/pc0-cpc0-successor-conformance/Cargo.toml \
+cargo run --release --manifest-path experiments/arms/ah0-cpc0-parent-differential/Cargo.toml \
     -- "$output/cpc0"
+cmp experiments/baselines/ah0_cpc0_parent_v1/matrix.csv "$output/cpc0/matrix.csv"
+cmp experiments/baselines/ah0_cpc0_parent_v1/report.md "$output/cpc0/report.md"
 cargo run --release --manifest-path experiments/arms/cpc1-local-temporal-participation/Cargo.toml \
     -- "$output/cpc1"
 cargo run --release --manifest-path experiments/arms/pqlc0-participation-qualified-local-closure/Cargo.toml \
