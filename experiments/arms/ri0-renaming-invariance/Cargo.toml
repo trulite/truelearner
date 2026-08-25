@@ -1,0 +1,11 @@
+[package]
+name = "ri0-renaming-invariance"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["cv0j0", "rs0"] }
+
+[workspace]
+
