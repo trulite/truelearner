@@ -551,6 +551,20 @@ fn mechanics_name(mechanics: MechanicalConfig) -> &'static str {
     }
 }
 
+fn normalized_trace_hash(trace: &[PhysicalTransition]) -> ContentHash {
+    let mut observations = trace
+        .iter()
+        .map(|transition| {
+            format!(
+                "{}|{}|{:?}",
+                transition.tick, transition.phase, transition.event
+            )
+        })
+        .collect::<Vec<_>>();
+    observations.sort();
+    ContentHash::of(observations.join("\n").as_bytes())
+}
+
 fn write_row(
     csv: &mut String,
     case_id: usize,
@@ -562,7 +576,7 @@ fn write_row(
 ) {
     writeln!(
         csv,
-        "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{normalized_trace_hash}",
         scenario.name(),
         mechanics_name(mechanics),
         observation.a_updates,
@@ -591,6 +605,7 @@ fn write_row(
         ContentHash::of(format!("{:?}", observation.trace).as_bytes()),
         observation.body_hash,
         u8::from(observation.quiescent),
+        normalized_trace_hash = normalized_trace_hash(&observation.trace),
     )
     .unwrap();
 }
@@ -612,7 +627,7 @@ fn main() {
     fs::create_dir_all(&output).unwrap();
     let mechanics = [MechanicalConfig::REFERENCE, MechanicalConfig::PRODUCTION];
     let mut csv = String::from(
-        "case_id,root,initial_phase,scenario,mechanics,a_updates,b_updates,a_initial_resistance,a_final_resistance,a_initial_coupling,a_final_coupling,a_live,b_initial_resistance,b_final_resistance,b_initial_coupling,b_final_coupling,b_live,drive_deliveries,modulatory_deliveries,fires,resistance_events,proposals,deallocations,crossings,ca_fires,physical_work,final_tick,pressure_phase,trace_hash,body_hash,quiescent\n",
+        "case_id,root,initial_phase,scenario,mechanics,a_updates,b_updates,a_initial_resistance,a_final_resistance,a_initial_coupling,a_final_coupling,a_live,b_initial_resistance,b_final_resistance,b_initial_coupling,b_final_coupling,b_live,drive_deliveries,modulatory_deliveries,fires,resistance_events,proposals,deallocations,crossings,ca_fires,physical_work,final_tick,pressure_phase,raw_trace_hash,body_hash,quiescent,normalized_trace_hash\n",
     );
     let mut cases = 0_usize;
     let mut old_alias_cases = 0_usize;
