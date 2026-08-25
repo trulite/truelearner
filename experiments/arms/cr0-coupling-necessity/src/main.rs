@@ -6,9 +6,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig,
-    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode,
-    TransmissionTrigger, Work,
+    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig, PhysicalEvent,
+    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, TransmissionTrigger, Work,
 };
 
 const ROOTS: [u64; 2] = [5_100_000, 5_200_000];
@@ -312,9 +311,7 @@ fn count_events(trace: &[PhysicalTransition]) -> EventCounts {
             PhysicalEvent::Resistance { .. } => {
                 counts.resistance = counts.resistance.saturating_add(1)
             }
-            PhysicalEvent::Proposal { .. } => {
-                counts.proposals = counts.proposals.saturating_add(1)
-            }
+            PhysicalEvent::Proposal { .. } => counts.proposals = counts.proposals.saturating_add(1),
             PhysicalEvent::Deallocate { .. } => {
                 counts.deallocations = counts.deallocations.saturating_add(1)
             }
@@ -360,25 +357,9 @@ fn cpc1(root: u64, phase: i64, arm: Arm, mechanics: MechanicalConfig) -> Observa
     for index in 0..5_u64 {
         let base = root + 100 + index * 10;
         let contact = world.cell(base + 1, i32::try_from(index * 100).unwrap(), 0, 1);
-        let target = world.cell(
-            base + 2,
-            i32::try_from(index * 100 + 20).unwrap(),
-            0,
-            10,
-        );
-        let effect = world.cell(
-            base + 3,
-            i32::try_from(index * 100 + 40).unwrap(),
-            0,
-            1,
-        );
-        candidates.push(world.arrow(
-            contact,
-            target,
-            arm.coupling(),
-            4,
-            TransmissionMode::Drive,
-        ));
+        let target = world.cell(base + 2, i32::try_from(index * 100 + 20).unwrap(), 0, 10);
+        let effect = world.cell(base + 3, i32::try_from(index * 100 + 40).unwrap(), 0, 1);
+        candidates.push(world.arrow(contact, target, arm.coupling(), 4, TransmissionMode::Drive));
         world.arrow(effect, contact, 1, 100_000, TransmissionMode::Modulatory);
         contacts.push(contact);
         effects.push(effect);
@@ -493,10 +474,7 @@ fn pqlc1(root: u64, phase: i64, arm: Arm, mechanics: MechanicalConfig) -> Observ
         .iter()
         .map(|candidate| world.state(*candidate))
         .collect::<Vec<_>>();
-    let supported = states
-        .iter()
-        .filter(|state| state.support > 0)
-        .count();
+    let supported = states.iter().filter(|state| state.support > 0).count();
     world.finish(states, vec![u64::try_from(supported).unwrap()])
 }
 
@@ -581,7 +559,9 @@ fn efficacy_world(
     let target_fires = world
         .trace
         .iter()
-        .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target))
+        .filter(
+            |transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target),
+        )
         .count();
     let state = world.state(candidate);
     let outward_crossings = world.outward_crossings;
@@ -591,12 +571,7 @@ fn efficacy_world(
     )
 }
 
-fn threshold_two(
-    root: u64,
-    phase: i64,
-    arm: Arm,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn threshold_two(root: u64, phase: i64, arm: Arm, mechanics: MechanicalConfig) -> Observation {
     let mut world = Session::new(root, phase, mechanics);
     let post_source = world.cell(root + 1, 0, 0, 1);
     let post_target = world.cell(root + 2, 100, 0, 2);
@@ -677,7 +652,9 @@ fn two_inputs(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation
     let target_fires = world
         .trace
         .iter()
-        .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target))
+        .filter(
+            |transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target),
+        )
         .count();
     let a_state = world.state(a);
     let b_state = world.state(b);
@@ -696,8 +673,13 @@ fn run_case(
     mechanics: MechanicalConfig,
 ) -> Observation {
     let family_root = root
-        .saturating_add(u64::try_from(Family::ALL.iter().position(|item| *item == family).unwrap()).unwrap() * 10_000)
-        .saturating_add(u64::try_from(Arm::ALL.iter().position(|item| *item == arm).unwrap()).unwrap() * 1_000);
+        .saturating_add(
+            u64::try_from(Family::ALL.iter().position(|item| *item == family).unwrap()).unwrap()
+                * 10_000,
+        )
+        .saturating_add(
+            u64::try_from(Arm::ALL.iter().position(|item| *item == arm).unwrap()).unwrap() * 1_000,
+        );
     match family {
         Family::Cpc0ContactLocality => cpc0(family_root, phase, arm, mechanics),
         Family::Cpc1TemporalParticipation => cpc1(family_root, phase, arm, mechanics),
