@@ -275,6 +275,12 @@ pub enum PhysicalEvent {
         before: u32,
         after: u32,
     },
+    #[cfg(feature = "cv0")]
+    CellProposal {
+        cell: CellId,
+        source: CellId,
+        target: CellId,
+    },
     Proposal {
         arrow: ArrowId,
         from: CellId,
@@ -305,6 +311,8 @@ pub struct Work {
     pub cell_deallocations: u64,
     #[cfg(feature = "cc0")]
     pub cell_return_updates: u64,
+    #[cfg(feature = "cv0")]
+    pub local_cell_proposals: u64,
     pub qualified_local_traversals: u64,
 }
 
@@ -393,6 +401,8 @@ impl Work {
         let total = total.saturating_add(self.cell_deallocations);
         #[cfg(feature = "cc0")]
         let total = total.saturating_add(self.cell_return_updates);
+        #[cfg(feature = "cv0")]
+        let total = total.saturating_add(self.local_cell_proposals);
         total.saturating_add(self.qualified_local_traversals)
     }
 }
@@ -2632,6 +2642,21 @@ impl PlasticSubstrate {
         phase: i32,
         physical_trace: &mut Vec<PhysicalTransition>,
     ) {
+        #[cfg(feature = "cv0")]
+        self.propose_local_contacts(source, work, execution_cost, phase, physical_trace);
+        #[cfg(not(feature = "cv0"))]
+        self.propose_direct_local_arrows(source, work, execution_cost, phase, physical_trace);
+    }
+
+    #[cfg(not(feature = "cv0"))]
+    fn propose_direct_local_arrows(
+        &mut self,
+        source: CellId,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
         execution_cost.allocations = execution_cost.allocations.saturating_add(1);
         let source_slot = self.cell_slot(source).unwrap();
         let source_position = self.cells.get(source_slot.0).position;
@@ -2688,6 +2713,147 @@ impl PlasticSubstrate {
                             to: target,
                         },
                     });
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "cv0")]
+    fn propose_local_contacts(
+        &mut self,
+        source: CellId,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
+        execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+        let source_slot = self.cell_slot(source).expect("proposal source must resolve");
+        let source_cell = self.cells.get(source_slot.0);
+        let source_position = source_cell.position;
+        let source_region = source_cell.region;
+        let source_physical = source_cell.physical_id;
+        execution_cost.touch::<Cell>(1);
+
+        let cells = self.cells.values();
+        let arrows = self.arrows.values();
+        execution_cost.touch::<Cell>(cells.len());
+        execution_cost.touch::<Arrow>(arrows.len());
+        execution_cost.scans = execution_cost
+            .scans
+            .saturating_add(u64::try_from(cells.len() + arrows.len()).unwrap_or(u64::MAX));
+        let mut targets = cells
+            .iter()
+            .filter_map(|target| {
+                let distance = target.position.saturating_sub(source_position).abs();
+                if target.id == source
+                    || !target.live
+                    || !(1..=LOCAL_VARIATION_RADIUS).contains(&distance)
+                {
+                    return None;
+                }
+                let existing_direct = arrows
+                    .iter()
+                    .any(|arrow| arrow.live && arrow.from == source && arrow.to == target.id);
+                let existing_contact_relation = cells.iter().any(|contact| {
+                    contact.live
+                        && contact.id != source
+                        && contact.id != target.id
+                        && contact.position == source_position
+                        && arrows.iter().any(|arrow| {
+                            arrow.live && arrow.from == source && arrow.to == contact.id
+                        })
+                        && arrows.iter().any(|arrow| {
+                            arrow.live && arrow.from == contact.id && arrow.to == target.id
+                        })
+                });
+                (!existing_direct && !existing_contact_relation).then_some((
+                    target.physical_id,
+                    target.id,
+                    distance,
+                ))
+            })
+            .collect::<Vec<_>>();
+        targets.sort_by_key(|(physical_id, _, _)| *physical_id);
+
+        for (target_physical, target, distance) in targets {
+            let free_cells = self
+                .cell_capacity
+                .saturating_sub(u32::try_from(self.cells.values().iter().filter(|cell| cell.live).count()).unwrap_or(u32::MAX));
+            let free_arrows = self
+                .arrow_capacity
+                .saturating_sub(u32::try_from(self.arrows.values().iter().filter(|arrow| arrow.live).count()).unwrap_or(u32::MAX));
+            if free_cells < 2 || free_arrows < 4 {
+                continue;
+            }
+            let next_physical = self
+                .cells
+                .values()
+                .iter()
+                .map(|cell| cell.physical_id)
+                .max()
+                .unwrap_or(0)
+                .checked_add(1)
+                .expect("generated CELL physical identity exhausted");
+            let signs = if (source_physical ^ target_physical) & 1 == 0 {
+                [1, -1]
+            } else {
+                [-1, 1]
+            };
+            for (offset, coupling) in signs.into_iter().enumerate() {
+                let contact = self.add_cell(CellSpec {
+                    physical_id: next_physical
+                        .checked_add(u64::try_from(offset).unwrap_or(u64::MAX))
+                        .expect("generated CELL physical identity exhausted"),
+                    position: source_position,
+                    region: source_region,
+                    threshold: 1,
+                    resistance: 1,
+                });
+                work.total = work.total.saturating_add(1);
+                work.local_cell_proposals = work.local_cell_proposals.saturating_add(1);
+                if self.trace_physics {
+                    physical_trace.push(PhysicalTransition {
+                        tick: self.tick,
+                        phase,
+                        event: PhysicalEvent::CellProposal {
+                            cell: contact,
+                            source,
+                            target,
+                        },
+                    });
+                }
+                for (from, to, arrow_coupling, delay) in [
+                    (source, contact, 1, 1),
+                    (contact, target, coupling, i64::from(distance.max(1))),
+                ] {
+                    let id = self.add_arrow(ArrowSpec {
+                        from,
+                        to,
+                        delay,
+                        phase: 0,
+                        coupling: arrow_coupling,
+                        resistance: 1,
+                        mode: TransmissionMode::Drive,
+                    });
+                    let slot = self.arrow_slot(id).expect("proposed ARROW must resolve");
+                    self.arrows.with_mut(slot.0, |arrow| {
+                        if arrow.generation == Generation(1) {
+                            arrow.generation = Generation(
+                                u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2),
+                            );
+                        }
+                    });
+                    work.total = work.total.saturating_add(1);
+                    work.local_structural_proposals =
+                        work.local_structural_proposals.saturating_add(1);
+                    if self.trace_physics {
+                        physical_trace.push(PhysicalTransition {
+                            tick: self.tick,
+                            phase,
+                            event: PhysicalEvent::Proposal { arrow: id, from, to },
+                        });
+                    }
                 }
             }
         }
