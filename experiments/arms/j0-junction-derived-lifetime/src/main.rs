@@ -11,7 +11,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowRef, ArrowSpec, CellId, CellRef, CellSpec, ContentHash,
+    ArenaId, ArrowId, ArrowRef, ArrowSpec, CellId, CellSpec, ContentHash,
     MechanicalConfig, PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput,
     TransmissionMode, Work,
 };
@@ -494,7 +494,8 @@ fn observe_all_gone(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obser
             world.death_age(c) == Some(10),
         ),
     ];
-    world.finish(vec![format!("death={:?}", world.death_age(c))], checks)
+    let death = world.death_age(c);
+    world.finish(vec![format!("death={death:?}")], checks)
 }
 
 fn observe_reuse(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
