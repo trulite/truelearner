@@ -6,8 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig,
-    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode,
+    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig, PhysicalEvent,
+    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode,
 };
 
 const ROOTS: [u64; 2] = [2_100_000, 2_200_000];
@@ -241,7 +241,13 @@ fn build_chain(
     (effect, contacts, arrows, vec![source])
 }
 
-fn geometry(root: u64, phase: i64, arm: Arm, world: World, mechanics: MechanicalConfig) -> Geometry {
+fn geometry(
+    root: u64,
+    phase: i64,
+    arm: Arm,
+    world: World,
+    mechanics: MechanicalConfig,
+) -> Geometry {
     let mut builder = Builder::new(root, phase, mechanics);
     match world {
         World::OneContact | World::TwoContacts | World::ThreeContacts => {
@@ -306,14 +312,7 @@ fn geometry(root: u64, phase: i64, arm: Arm, world: World, mechanics: Mechanical
             let d_a = builder.arrow(d1, d2, TransmissionMode::Drive);
             let d_b = builder.arrow(d2, d_effect, TransmissionMode::Drive);
             inputs.push(d_source);
-            builder.finish(
-                effect,
-                contacts,
-                arrows,
-                vec![d_a, d_b],
-                inputs,
-                None,
-            )
+            builder.finish(effect, contacts, arrows, vec![d_a, d_b], inputs, None)
         }
         World::BranchBoth | World::BranchOne => {
             let a = builder.cell(1);
@@ -358,9 +357,7 @@ fn admit(
 ) {
     let result = geometry.body.arrive(inputs, 256);
     assert!(result.naturally_quiescent);
-    totals.physical = totals
-        .physical
-        .saturating_add(result.work.physical_total());
+    totals.physical = totals.physical.saturating_add(result.work.physical_total());
     totals.drive = totals.drive.saturating_add(result.work.drive_deliveries);
     totals.modulation = totals
         .modulation
@@ -371,13 +368,7 @@ fn admit(
     trace.extend(result.physical_trace);
 }
 
-fn run(
-    root: u64,
-    phase: i64,
-    arm: Arm,
-    world: World,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn run(root: u64, phase: i64, arm: Arm, world: World, mechanics: MechanicalConfig) -> Observation {
     let mut geometry = geometry(root, phase, arm, world, mechanics);
     let mut trace = Vec::new();
     let mut work = WorkTotals::default();
@@ -481,8 +472,18 @@ fn run(
 }
 
 fn predicate(world: World, observation: &Observation) -> bool {
-    let positive = |index: usize| observation.support.get(index).is_some_and(|value| *value > 0);
-    let zero = |index: usize| observation.support.get(index).is_some_and(|value| *value == 0);
+    let positive = |index: usize| {
+        observation
+            .support
+            .get(index)
+            .is_some_and(|value| *value > 0)
+    };
+    let zero = |index: usize| {
+        observation
+            .support
+            .get(index)
+            .is_some_and(|value| *value == 0)
+    };
     let no_modulation = |index: usize| {
         observation
             .modulation_at_contacts
@@ -500,16 +501,15 @@ fn predicate(world: World, observation: &Observation) -> bool {
         World::ParallelDistractor => {
             positive(0)
                 && positive(1)
-                && observation.distractor_support.iter().all(|value| *value == 0)
+                && observation
+                    .distractor_support
+                    .iter()
+                    .all(|value| *value == 0)
         }
         World::BranchBoth => positive(0) && positive(1),
         World::BranchOne => positive(0) && zero(1),
         World::TemporalBreak => {
-            zero(0)
-                && zero(1)
-                && positive(2)
-                && no_modulation(0)
-                && no_modulation(1)
+            zero(0) && zero(1) && positive(2) && no_modulation(0) && no_modulation(1)
         }
     }
 }
