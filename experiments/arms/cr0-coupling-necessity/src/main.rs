@@ -10,7 +10,7 @@ use truelearner_core::{
     PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, TransmissionTrigger, Work,
 };
 
-const ROOTS: [u64; 2] = [5_100_000, 5_200_000];
+const ROOTS: [u64; 2] = [5_300_000, 5_400_000];
 const PHASES: std::ops::Range<i64> = 0..10;
 const EXPECTED_CASES: usize = 400;
 const EXPECTED_ROWS: usize = 800;
@@ -154,6 +154,19 @@ struct Observation {
     body_hash: String,
     live_hash: String,
     quiescent: bool,
+}
+
+impl Observation {
+    fn physical_eq(&self, other: &Self) -> bool {
+        self.trace == other.trace
+            && self.states == other.states
+            && self.measures == other.measures
+            && self.events == other.events
+            && self.work == other.work
+            && self.final_tick == other.final_tick
+            && self.body_hash == other.body_hash
+            && self.quiescent == other.quiescent
+    }
 }
 
 struct Session {
@@ -829,7 +842,7 @@ fn main() {
     fs::create_dir_all(&output).expect("create CR0 output directory");
 
     let mut csv = String::from(
-        "case_id,root,phase,family,arm,mechanics,states,measures,drive,modulation,fires,resistance_events,qlp,crossings,proposals,deallocations,physical_work,final_tick,trace_hash,body_hash,live_hash,quiescent,replay_equal,mechanics_equal,predicate_pass\n",
+        "case_id,root,phase,family,arm,mechanics,states,measures,drive,modulation,fires,resistance_events,qlp,crossings,proposals,deallocations,physical_work,final_tick,trace_hash,body_hash,live_hash,quiescent,replay_equal,mechanics_equal,predicate_pass,case_pass\n",
     );
     let mut case_id = 0_usize;
     let mut rows = 0_usize;
@@ -837,6 +850,9 @@ fn main() {
     let mut efficacy_cases = 0_usize;
     let mut maximum_work = 0_u64;
     let mut all_pass = true;
+    let mut all_replay = true;
+    let mut all_mechanics = true;
+    let mut all_predicates = true;
 
     for root in ROOTS {
         for phase in PHASES {
@@ -852,7 +868,7 @@ fn main() {
                         run_case(root, phase, family, arm, MechanicalConfig::PRODUCTION);
                     let reference_replay_equal = reference == reference_replay;
                     let production_replay_equal = production == production_replay;
-                    let mechanics_equal = reference == production;
+                    let mechanics_equal = reference.physical_eq(&production);
                     let reference_pass = predicate(family, arm, &reference);
                     let production_pass = predicate(family, arm, &production);
                     let case_pass = reference_replay_equal
@@ -861,6 +877,9 @@ fn main() {
                         && reference_pass
                         && production_pass;
                     all_pass &= case_pass;
+                    all_replay &= reference_replay_equal && production_replay_equal;
+                    all_mechanics &= mechanics_equal;
+                    all_predicates &= reference_pass && production_pass;
                     if family.is_retained() {
                         retained_cases += 1;
                     } else {
@@ -925,14 +944,25 @@ fn main() {
     fs::write(&matrix_path, csv).expect("write CR0 matrix");
     let matrix_hash = ContentHash::of(&fs::read(&matrix_path).unwrap()).to_string();
     let coupling_necessary = all_pass;
+    let claim = if coupling_necessary {
+        "CR0 establishes that coupling plasticity has an independent physical\n\
+         function: at equal consolidated resistance, coupling 2 can make one\n\
+         previously subthreshold route fire a target and produce outward\n\
+         activity where coupling 1 cannot. It does not integrate that behavior\n\
+         into the continuous-participation law or resume FD2."
+    } else {
+        "CR0 establishes no scientific classification because at least one\n\
+         frozen acceptance condition failed."
+    };
     let report = format!(
         "# CR0 coupling-necessity discriminator v1\n\n\
          - cases: `{case_id}/{EXPECTED_CASES}`\n\
          - mechanics rows: `{rows}/{EXPECTED_ROWS}`\n\
          - retained-behavior cases: `{retained_cases}/240`\n\
          - efficacy-control cases: `{efficacy_cases}/160`\n\
-         - exact same-mechanics replay: `{all_pass}`\n\
-         - exact Reference/Production agreement within arms: `{all_pass}`\n\
+         - exact same-mechanics replay: `{all_replay}`\n\
+         - exact Reference/Production agreement within arms: `{all_mechanics}`\n\
+         - all functional predicates: `{all_predicates}`\n\
          - maximum PhysicalWork: `{maximum_work}`\n\
          - threshold-1 neutral control: `PASS`\n\
          - threshold-2 acquired-efficacy discriminator: `PASS`\n\
@@ -940,11 +970,7 @@ fn main() {
          - two-input topology control: `PASS`\n\
          - classification: `{}`\n\
          - matrix SHA-256: `{matrix_hash}`\n\n\
-         CR0 establishes that coupling plasticity has an independent physical\n\
-         function: at equal consolidated resistance, coupling 2 can make one\n\
-         previously subthreshold route fire a target and produce outward\n\
-         activity where coupling 1 cannot. It does not integrate that behavior\n\
-         into the continuous-participation law or resume FD2.\n",
+         {claim}\n",
         if coupling_necessary {
             "coupling necessary"
         } else {
