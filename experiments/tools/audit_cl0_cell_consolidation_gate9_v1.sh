@@ -8,7 +8,8 @@ modulation_body="$(sed -n '/    fn apply_modulatory_return(/,/    fn propagate_q
 
 test "$(printf '%s\n' "$modulation_body" | grep -Ec 'cell\.resistance|target\.resistance|cells\.with_mut' || true)" -eq 0
 test "$(grep -Ec 'cell\.resistance[[:space:]]*=[^;]*saturating_add|target\.resistance[[:space:]]*=[^;]*saturating_add' "$core" || true)" -eq 0
-grep -Fq 'arrow.resistance = arrow.resistance.saturating_add(gain);' "$modulation_body"
+printf '%s\n' "$modulation_body" \
+  | grep -Fq 'arrow.resistance = arrow.resistance.saturating_add(gain);'
 
 printf 'gate_9=negative\n'
 printf 'accepted_arrow_consolidation=true\n'
