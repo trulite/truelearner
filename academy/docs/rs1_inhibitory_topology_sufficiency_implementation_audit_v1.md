@@ -66,3 +66,8 @@ ARROW-construction helper accepted eight mechanical arguments. Those existing
 fields were grouped into the existing `ArrowSpec`; no world geometry, law,
 predicate, or matrix dimension changed. The corrected evaluator then passed
 formatting and strict Clippy in the same reusable worker.
+
+The first static-audit invocation then stopped because its negative-decay
+source sentinel named a nonexistent expression. The sentinel was corrected to
+the accepted `saturating_add(decay).min(0)` expression. This audit-only repair
+changed no executable Rust or experimental predicate.

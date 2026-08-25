@@ -38,7 +38,7 @@ fi
 
 grep -Fq 'coupling: i32' "$core"
 grep -Fq 'target.state.saturating_add(spike.impulse)' "$core"
-grep -Fq 'target.state.saturating_add(target.spec.decay)' "$core"
+grep -Fq 'target.state.saturating_add(decay).min(0)' "$core"
 grep -Fq 'const EXPECTED_CASES: usize = 440;' "$evaluator"
 grep -Fq 'const EXPECTED_ROWS: usize = 880;' "$evaluator"
 grep -Fq 'const OBSERVATION_CEILING: u64 = 256;' "$evaluator"
