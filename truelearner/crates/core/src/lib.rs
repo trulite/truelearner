@@ -14,7 +14,7 @@ pub use truelearner_arena_format::{
 };
 
 const LOCAL_RETURN_STRENGTH: u32 = 3;
-const ORDINARY_PRESSURE_PERIOD: i64 = 10;
+const LOCAL_DECAY_PERIOD: i64 = 10;
 const LOCAL_VARIATION_RADIUS: i32 = 2;
 const PARTICIPATION_IMPULSE: u64 = 1_u64 << 32;
 const PARTICIPATION_RELAX_NUMERATOR: u64 = 15;
@@ -42,7 +42,7 @@ pub struct PhysicalClock {
 
 impl PhysicalClock {
     pub fn pressure_phase(self) -> i64 {
-        self.tick.rem_euclid(ORDINARY_PRESSURE_PERIOD)
+        self.tick.rem_euclid(LOCAL_DECAY_PERIOD)
     }
 }
 
@@ -199,7 +199,7 @@ struct Arrow {
     live: bool,
     participation_level: u64,
     plastic_support: u64,
-    pressure_load: u64,
+    decay_load: u64,
     mode: TransmissionMode,
     trigger: TransmissionTrigger,
 }
@@ -485,7 +485,7 @@ struct ArrowRuntime {
     id: ArrowId,
     participation_level: u64,
     plastic_support: u64,
-    pressure_load: u64,
+    decay_load: u64,
     trigger: TransmissionTrigger,
 }
 
@@ -608,7 +608,7 @@ impl LiveCheckpoint {
             checkpoint_put_u64(&mut payload, arrow.id.0);
             checkpoint_put_u64(&mut payload, arrow.participation_level);
             checkpoint_put_u64(&mut payload, arrow.plastic_support);
-            checkpoint_put_u64(&mut payload, arrow.pressure_load);
+            checkpoint_put_u64(&mut payload, arrow.decay_load);
             payload.push(transmission_trigger_byte(arrow.trigger));
         }
         for spike in &pending {
@@ -697,7 +697,7 @@ impl LiveCheckpoint {
                 id: ArrowId(transient.u64()?),
                 participation_level: transient.u64()?,
                 plastic_support: transient.u64()?,
-                pressure_load: transient.u64()?,
+                decay_load: transient.u64()?,
                 trigger: transmission_trigger_from_byte(transient.u8()?)?,
             });
         }
@@ -1221,7 +1221,7 @@ impl PlasticSubstrate {
             live: spec.resistance > 0,
             participation_level: 0,
             plastic_support: 0,
-            pressure_load: 0,
+            decay_load: 0,
             mode: spec.mode,
             trigger: TransmissionTrigger::SourceFires,
         };
@@ -1463,7 +1463,7 @@ impl PlasticSubstrate {
                 live: durable.live,
                 participation_level: 0,
                 plastic_support: 0,
-                pressure_load: 0,
+                decay_load: 0,
                 mode,
                 trigger: TransmissionTrigger::SourceFires,
             });
@@ -1491,7 +1491,7 @@ impl PlasticSubstrate {
                 .arrows
                 .values()
                 .iter()
-                .all(|arrow| arrow.participation_level == 0 && arrow.pressure_load == 0);
+                .all(|arrow| arrow.participation_level == 0 && arrow.decay_load == 0);
         if !transiently_quiet {
             return Err(CheckpointError::NotQuiescent);
         }
@@ -1555,7 +1555,7 @@ impl PlasticSubstrate {
                     id: arrow.id,
                     participation_level: arrow.participation_level,
                     plastic_support: arrow.plastic_support,
-                    pressure_load: arrow.pressure_load,
+                    decay_load: arrow.decay_load,
                     trigger: arrow.trigger,
                 })
                 .collect(),
@@ -1594,7 +1594,7 @@ impl PlasticSubstrate {
             substrate.arrows.with_mut(slot.0, |arrow| {
                 arrow.participation_level = runtime.participation_level;
                 arrow.plastic_support = runtime.plastic_support;
-                arrow.pressure_load = runtime.pressure_load;
+                arrow.decay_load = runtime.decay_load;
                 arrow.trigger = runtime.trigger;
             });
         }
@@ -2081,7 +2081,7 @@ impl PlasticSubstrate {
     }
 
     fn elapse_to(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
-        self.elapse_pd1_pressure(tick, work, execution_cost);
+        self.elapse_fd0_decay(tick, work, execution_cost);
         execution_cost.observe_frontier(self.active_cells.len());
         let cell_ids = match self.mechanics.activity {
             ActivityKind::FullScan => {
@@ -2105,64 +2105,45 @@ impl PlasticSubstrate {
         }
     }
 
-    fn elapse_pd1_pressure(
+    fn elapse_fd0_decay(
         &mut self,
         tick: i64,
         work: &mut Work,
         execution_cost: &mut ExecutionCost,
     ) {
-        let mut cursor = self.tick;
-        let mut pressure_tick = self.pressure_tick.saturating_add(ORDINARY_PRESSURE_PERIOD);
-        while pressure_tick <= tick {
-            let elapsed = pressure_tick.saturating_sub(cursor);
-            for index in 0..self.arrows.len() {
-                self.arrows.with_mut(index, |arrow| {
-                    if arrow.live {
-                        arrow.participation_level =
-                            relax_participation(arrow.participation_level, elapsed);
-                    }
-                });
-            }
-            cursor = pressure_tick;
-            for index in 0..self.arrows.len() {
-                execution_cost.scans = execution_cost.scans.saturating_add(1);
-                let (deallocated, zero_delay) = self.arrows.with_mut(index, |arrow| {
-                    if !arrow.live {
-                        return (false, false);
-                    }
-                    let attenuation = arrow.participation_level.min(PARTICIPATION_IMPULSE);
-                    arrow.pressure_load = arrow
-                        .pressure_load
-                        .saturating_add(PARTICIPATION_IMPULSE.saturating_sub(attenuation));
-                    let durable_loss = arrow.pressure_load / PARTICIPATION_IMPULSE;
-                    arrow.pressure_load %= PARTICIPATION_IMPULSE;
-                    let was_live = arrow.live;
-                    if durable_loss > 0 {
-                        pressure_arrow(arrow, u32::try_from(durable_loss).unwrap_or(u32::MAX));
-                    }
-                    work.total = work.total.saturating_add(1);
-                    (was_live && !arrow.live, arrow.delay == 0)
-                });
-                execution_cost.touch::<Arrow>(1);
-                if deallocated && zero_delay {
-                    self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
-                }
-                if deallocated {
-                    work.total = work.total.saturating_add(1);
-                    work.physical_deallocations = work.physical_deallocations.saturating_add(1);
-                }
-            }
-            self.pressure_tick = pressure_tick;
-            pressure_tick = pressure_tick.saturating_add(ORDINARY_PRESSURE_PERIOD);
-        }
-        let remaining = tick.saturating_sub(cursor);
+        let elapsed = tick.saturating_sub(self.tick);
+        let elapsed_u64 = u64::try_from(elapsed).unwrap_or(u64::MAX);
         for index in 0..self.arrows.len() {
-            self.arrows.with_mut(index, |arrow| {
-                if arrow.live {
-                    arrow.participation_level =
-                        relax_participation(arrow.participation_level, remaining);
+            execution_cost.scans = execution_cost.scans.saturating_add(1);
+            let (deallocated, zero_delay, active_ticks) = self.arrows.with_mut(index, |arrow| {
+                if !arrow.live {
+                    return (false, false, 0);
                 }
+                arrow.participation_level =
+                    relax_participation(arrow.participation_level, elapsed);
+                let lifetime_remaining = u64::from(arrow.resistance)
+                    .saturating_mul(u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX))
+                    .saturating_sub(arrow.decay_load);
+                let active_ticks = elapsed_u64.min(lifetime_remaining);
+                let total_decay = arrow.decay_load.saturating_add(elapsed_u64);
+                let durable_loss = total_decay / u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(1);
+                arrow.decay_load = total_decay
+                    % u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX);
+                let was_live = arrow.live;
+                if durable_loss > 0 {
+                    decay_arrow(arrow, u32::try_from(durable_loss).unwrap_or(u32::MAX));
+                }
+                (was_live && !arrow.live, arrow.delay == 0, active_ticks)
             });
+            work.total = work.total.saturating_add(active_ticks);
+            execution_cost.touch::<Arrow>(1);
+            if deallocated && zero_delay {
+                self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
+            }
+            if deallocated {
+                work.total = work.total.saturating_add(1);
+                work.physical_deallocations = work.physical_deallocations.saturating_add(1);
+            }
         }
     }
 
@@ -2316,9 +2297,13 @@ impl PlasticSubstrate {
     }
 
     pub fn local_pressure_load(&self, id: ArrowId) -> u64 {
+        self.local_decay_load(id)
+    }
+
+    pub fn local_decay_load(&self, id: ArrowId) -> u64 {
         self.arrows
             .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
-            .pressure_load
+            .decay_load
     }
 
     fn rebuild_slot_maps(&mut self) {
@@ -2402,14 +2387,14 @@ impl PlasticSubstrate {
     }
 }
 
-fn pressure_arrow(arrow: &mut Arrow, amount: u32) {
+fn decay_arrow(arrow: &mut Arrow, amount: u32) {
     arrow.resistance = arrow.resistance.saturating_sub(amount);
     if arrow.resistance == 0 && arrow.live {
         arrow.live = false;
         arrow.generation = Generation(arrow.generation.0.wrapping_add(1));
         arrow.participation_level = 0;
         arrow.plastic_support = 0;
-        arrow.pressure_load = 0;
+        arrow.decay_load = 0;
     }
 }
 
@@ -2422,8 +2407,8 @@ fn relax_participation(mut level: u64, elapsed: i64) -> u64 {
 }
 
 fn pressure_epoch(tick: i64) -> i64 {
-    tick.div_euclid(ORDINARY_PRESSURE_PERIOD)
-        .saturating_mul(ORDINARY_PRESSURE_PERIOD)
+    tick.div_euclid(LOCAL_DECAY_PERIOD)
+        .saturating_mul(LOCAL_DECAY_PERIOD)
 }
 
 fn transmission_mode_byte(mode: TransmissionMode) -> u8 {
