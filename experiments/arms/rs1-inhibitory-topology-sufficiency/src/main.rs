@@ -372,22 +372,10 @@ fn add_arrow(
     body: &mut PlasticSubstrate,
     arrows: &mut Vec<ArrowId>,
     expected_couplings: &mut Vec<i32>,
-    from: CellId,
-    to: CellId,
-    coupling: i32,
-    delay: i64,
-    phase: i32,
+    spec: ArrowSpec,
 ) {
-    arrows.push(body.add_arrow(ArrowSpec {
-        from,
-        to,
-        delay,
-        phase,
-        coupling,
-        resistance: RESISTANCE,
-        mode: TransmissionMode::Drive,
-    }));
-    expected_couplings.push(coupling);
+    expected_couplings.push(spec.coupling);
+    arrows.push(body.add_arrow(spec));
 }
 
 fn build_world(
@@ -422,11 +410,15 @@ fn build_world(
                     &mut body,
                     &mut arrows,
                     &mut expected_couplings,
-                    excit_cells[index],
-                    excit_cells[(index + 1) % geometry.cells],
-                    geometry.coupling,
-                    geometry.delays[index],
-                    0,
+                    ArrowSpec {
+                        from: excit_cells[index],
+                        to: excit_cells[(index + 1) % geometry.cells],
+                        delay: geometry.delays[index],
+                        phase: 0,
+                        coupling: geometry.coupling,
+                        resistance: RESISTANCE,
+                        mode: TransmissionMode::Drive,
+                    },
                 );
             }
         }
@@ -436,11 +428,15 @@ fn build_world(
                     &mut body,
                     &mut arrows,
                     &mut expected_couplings,
-                    excit_cells[index],
-                    excit_cells[index + 1],
-                    geometry.coupling,
-                    geometry.delays[index],
-                    0,
+                    ArrowSpec {
+                        from: excit_cells[index],
+                        to: excit_cells[index + 1],
+                        delay: geometry.delays[index],
+                        phase: 0,
+                        coupling: geometry.coupling,
+                        resistance: RESISTANCE,
+                        mode: TransmissionMode::Drive,
+                    },
                 );
             }
         }
@@ -450,11 +446,15 @@ fn build_world(
                     &mut body,
                     &mut arrows,
                     &mut expected_couplings,
-                    excit_cells[from],
-                    excit_cells[to],
-                    geometry.coupling,
-                    delay,
-                    0,
+                    ArrowSpec {
+                        from: excit_cells[from],
+                        to: excit_cells[to],
+                        delay,
+                        phase: 0,
+                        coupling: geometry.coupling,
+                        resistance: RESISTANCE,
+                        mode: TransmissionMode::Drive,
+                    },
                 );
             }
         }
@@ -494,11 +494,15 @@ fn build_world(
             &mut body,
             &mut arrows,
             &mut expected_couplings,
-            excit_cells[index],
-            inhibitor,
-            1,
-            0,
-            relay_phase,
+            ArrowSpec {
+                from: excit_cells[index],
+                to: inhibitor,
+                delay: 0,
+                phase: relay_phase,
+                coupling: 1,
+                resistance: RESISTANCE,
+                mode: TransmissionMode::Drive,
+            },
         );
         let negative_target = if wrong_path {
             body.add_cell(CellSpec {
@@ -515,11 +519,15 @@ fn build_world(
             &mut body,
             &mut arrows,
             &mut expected_couplings,
-            inhibitor,
-            negative_target,
-            -strength,
-            0,
-            relay_phase.saturating_add(1),
+            ArrowSpec {
+                from: inhibitor,
+                to: negative_target,
+                delay: 0,
+                phase: relay_phase.saturating_add(1),
+                coupling: -strength,
+                resistance: RESISTANCE,
+                mode: TransmissionMode::Drive,
+            },
         );
     }
 
