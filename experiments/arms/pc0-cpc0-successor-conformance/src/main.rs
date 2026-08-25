@@ -718,6 +718,8 @@ fn main() {
     fs::write(output.join("matrix.csv"), csv).unwrap();
     fs::write(output.join("report.md"), report).unwrap();
     write_checksums(&output);
-    println!("PC0_CPC0_SUCCESSOR_COMPLETE cases={cases} rows={}", EXPECTED_CASES * 2);
+    println!(
+        "PC0_CPC0_SUCCESSOR_COMPLETE cases={cases} rows={}",
+        EXPECTED_CASES * 2
+    );
 }
-
