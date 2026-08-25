@@ -523,10 +523,7 @@ impl PendingSchedule {
     }
 
     #[cfg(feature = "si0")]
-    pub(super) fn drain_minimum_wave(
-        &mut self,
-        cost: &mut ExecutionCost,
-    ) -> Vec<(Spike, u64)> {
+    pub(super) fn drain_minimum_wave(&mut self, cost: &mut ExecutionCost) -> Vec<(Spike, u64)> {
         let Some(first) = self.pop_next(cost) else {
             return Vec::new();
         };
@@ -777,8 +774,8 @@ impl TimingWheel {
         let index = self.bucket_index(next_tick);
         let bucket = &mut self.near[index];
         let before = bucket.len();
-        let selected = minimum_index(bucket, cost)
-            .expect("next timing-wheel bucket must contain an arrival");
+        let selected =
+            minimum_index(bucket, cost).expect("next timing-wheel bucket must contain an arrival");
         let spike = bucket.remove(selected);
         self.len -= 1;
         let comparisons = u64::try_from(before.saturating_sub(1)).unwrap_or(u64::MAX);

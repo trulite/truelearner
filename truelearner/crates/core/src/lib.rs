@@ -2084,7 +2084,7 @@ impl PlasticSubstrate {
                                 .collect()
                         }
                     };
-                outgoing.sort_by_key(|(_, arrow)| self.physical_arrow_order(arrow));
+                    outgoing.sort_by_key(|(_, arrow)| self.physical_arrow_order(arrow));
                     for (arrow_id, arrow) in outgoing {
                         execution_cost.touch::<Arrow>(1);
                         work.total = work.total.saturating_add(1);
@@ -2499,8 +2499,7 @@ impl PlasticSubstrate {
         maximum: usize,
         execution_cost: &mut ExecutionCost,
     ) -> Vec<(Spike, u64)> {
-        self.pending
-            .pop_same_tick_batch(maximum, execution_cost)
+        self.pending.pop_same_tick_batch(maximum, execution_cost)
     }
 
     #[cfg(not(feature = "si0"))]
@@ -3303,9 +3302,7 @@ impl PlasticSubstrate {
         let from = self
             .cell_slot(arrow.from)
             .map(|slot| self.cells.get(slot.0));
-        let to = self
-            .cell_slot(arrow.to)
-            .map(|slot| self.cells.get(slot.0));
+        let to = self.cell_slot(arrow.to).map(|slot| self.cells.get(slot.0));
         PhysicalArrowOrder {
             phase: arrow.phase,
             delay: arrow.delay,
