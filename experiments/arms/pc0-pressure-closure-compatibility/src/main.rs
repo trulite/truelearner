@@ -300,12 +300,8 @@ fn repeated_use(root: u64, phase: i32, mechanics: MechanicalConfig) -> Observati
 fn run(root: u64, phase: i32, family: Family, mechanics: MechanicalConfig) -> Observation {
     match family {
         Family::GradedPressure => graded(root, phase, mechanics),
-        Family::PressureBeforeModulation => {
-            pressure_and_modulation(root, phase, mechanics, true)
-        }
-        Family::PressureAfterModulation => {
-            pressure_and_modulation(root, phase, mechanics, false)
-        }
+        Family::PressureBeforeModulation => pressure_and_modulation(root, phase, mechanics, true),
+        Family::PressureAfterModulation => pressure_and_modulation(root, phase, mechanics, false),
         Family::NoConsequence => no_consequence(root, phase, mechanics),
         Family::WrongPath => wrong_path(root, phase, mechanics),
         Family::RepeatedUse => repeated_use(root, phase, mechanics),
@@ -318,9 +314,11 @@ fn predicate(family: Family, observation: &Observation) -> bool {
     }
     match family {
         Family::GradedPressure => {
-            observation.participation
-                == vec![0, relax(Q, 9), relax(Q, 5), relax(Q, 1)]
-                && observation.effective_pressure.windows(2).all(|pair| pair[0] > pair[1])
+            observation.participation == vec![0, relax(Q, 9), relax(Q, 5), relax(Q, 1)]
+                && observation
+                    .effective_pressure
+                    .windows(2)
+                    .all(|pair| pair[0] > pair[1])
                 && observation.effective_pressure[0] == Q
                 && observation.support.iter().all(|value| *value == 0)
         }
@@ -398,7 +396,8 @@ fn main() {
                 family_pass[family_index] &= pass;
                 passed += usize::from(pass);
                 max_work = max_work.max(reference.work.physical);
-                for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)] {
+                for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)]
+                {
                     writeln!(
                         csv,
                         "{cases},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
