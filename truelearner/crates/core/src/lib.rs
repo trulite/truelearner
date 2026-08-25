@@ -374,6 +374,14 @@ pub struct RunResult {
     pub physical_trace: Vec<PhysicalTransition>,
 }
 
+#[cfg(feature = "rs0")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObservedRun {
+    pub run: RunResult,
+    pub scheduled_deliveries: u64,
+    pub observation_ceiling_reached: bool,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BoundaryError {
     ZeroCapacity,
@@ -1679,15 +1687,42 @@ impl PlasticSubstrate {
     }
 
     pub fn propagate(&mut self) -> RunResult {
+        self.propagate_with_optional_ceiling(None).0
+    }
+
+    #[cfg(feature = "rs0")]
+    pub fn propagate_with_observation_ceiling(&mut self, ceiling: u64) -> ObservedRun {
+        assert!(ceiling > 0, "observation ceiling must be positive");
+        let (run, scheduled_deliveries) =
+            self.propagate_with_optional_ceiling(Some(ceiling));
+        ObservedRun {
+            observation_ceiling_reached: scheduled_deliveries == ceiling
+                && !run.naturally_quiescent,
+            run,
+            scheduled_deliveries,
+        }
+    }
+
+    fn propagate_with_optional_ceiling(
+        &mut self,
+        ceiling: Option<u64>,
+    ) -> (RunResult, u64) {
         let mut crossings = Vec::new();
         let mut work = Work::default();
         let mut execution_cost = ExecutionCost::default();
         let mut physical_trace = Vec::new();
+        let mut scheduled_deliveries = 0_u64;
         execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
         while !self.pending.is_empty() {
+            if ceiling.is_some_and(|limit| scheduled_deliveries >= limit) {
+                break;
+            }
+            let maximum_batch = ceiling.map_or(64, |limit| {
+                usize::try_from(limit.saturating_sub(scheduled_deliveries).min(64)).unwrap_or(1)
+            });
             let batch = if self.mechanics.executor == ExecutorKind::Batched {
                 if self.zero_delay_live_arrows == 0 {
-                    let batch = self.pop_scheduled_batch(64, &mut execution_cost);
+                    let batch = self.pop_scheduled_batch(maximum_batch, &mut execution_cost);
                     execution_cost.observe_batch(batch.len());
                     batch
                 } else {
@@ -1705,6 +1740,7 @@ impl PlasticSubstrate {
                     .expect("nonempty schedule must pop")]
             };
             for (spike, legacy_comparisons) in batch {
+                scheduled_deliveries = scheduled_deliveries.saturating_add(1);
                 execution_cost.touch::<Spike>(1);
                 work.total = work.total.saturating_add(legacy_comparisons);
                 let external_arrival = spike.arrow.is_none();
@@ -1901,14 +1937,17 @@ impl PlasticSubstrate {
             }
             execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
         }
-        RunResult {
-            crossings,
-            work,
-            naturally_quiescent: self.pending.is_empty(),
-            resident_bytes: self.resident_bytes(),
-            execution_cost,
-            physical_trace,
-        }
+        (
+            RunResult {
+                crossings,
+                work,
+                naturally_quiescent: self.pending.is_empty(),
+                resident_bytes: self.resident_bytes(),
+                execution_cost,
+                physical_trace,
+            },
+            scheduled_deliveries,
+        )
     }
 
     fn pop_scheduled(&mut self, execution_cost: &mut ExecutionCost) -> Option<(Spike, u64)> {
