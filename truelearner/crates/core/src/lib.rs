@@ -21,7 +21,10 @@ const PARTICIPATION_RELAX_NUMERATOR: u64 = 15;
 const PARTICIPATION_RELAX_DENOMINATOR: u64 = 16;
 const DEFAULT_CELL_CAPACITY: u32 = 65_536;
 const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
+#[cfg(not(feature = "cl0"))]
 const CHECKPOINT_VERSION: u16 = 2;
+#[cfg(feature = "cl0")]
+const CHECKPOINT_VERSION: u16 = 3;
 const QUIESCENT_MAGIC: &[u8; 8] = b"TLQUIE01";
 const LIVE_MAGIC: &[u8; 8] = b"TLLIVE01";
 const BOUNDARY_LIVE_MAGIC: &[u8; 8] = b"TLBNDY01";
@@ -183,6 +186,8 @@ struct Cell {
     generation: Generation,
     resistance: u32,
     live: bool,
+    #[cfg(feature = "cl0")]
+    decay_load: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -194,6 +199,8 @@ struct Arrow {
     phase: i32,
     coupling: i32,
     source_generation: Generation,
+    #[cfg(feature = "cl0")]
+    target_generation: Generation,
     generation: Generation,
     resistance: u32,
     live: bool,
@@ -209,6 +216,8 @@ struct Spike {
     arrival_tick: i64,
     phase: i32,
     origin_physical: u64,
+    #[cfg(feature = "cl0")]
+    target_physical: u64,
     target: CellId,
     target_generation: Generation,
     impulse: i32,
@@ -250,6 +259,12 @@ pub enum PhysicalEvent {
     Deallocate {
         arrow: ArrowId,
     },
+    #[cfg(feature = "cl0")]
+    CellDeallocate {
+        cell: CellId,
+        before_generation: Generation,
+        after_generation: Generation,
+    },
     Proposal {
         arrow: ArrowId,
         from: CellId,
@@ -276,6 +291,8 @@ pub struct Work {
     pub local_return_updates: u64,
     pub local_structural_proposals: u64,
     pub physical_deallocations: u64,
+    #[cfg(feature = "cl0")]
+    pub cell_deallocations: u64,
     pub qualified_local_traversals: u64,
 }
 
@@ -360,6 +377,8 @@ impl Work {
             .saturating_add(self.local_return_updates)
             .saturating_add(self.local_structural_proposals)
             .saturating_add(self.physical_deallocations);
+        #[cfg(feature = "cl0")]
+        let total = total.saturating_add(self.cell_deallocations);
         total.saturating_add(self.qualified_local_traversals)
     }
 }
@@ -492,6 +511,8 @@ struct CellRuntime {
     state: i32,
     last_update_tick: i64,
     refractory_until: i64,
+    #[cfg(feature = "cl0")]
+    decay_load: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -596,7 +617,10 @@ impl LiveCheckpoint {
                 spike.arrival_tick,
                 spike.phase,
                 spike.origin_physical,
-                spike.target,
+                #[cfg(not(feature = "cl0"))]
+                spike.target.0,
+                #[cfg(feature = "cl0")]
+                spike.target_physical,
                 spike.serial,
             )
         });
@@ -617,6 +641,8 @@ impl LiveCheckpoint {
             checkpoint_put_i32(&mut payload, cell.state);
             checkpoint_put_i64(&mut payload, cell.last_update_tick);
             checkpoint_put_i64(&mut payload, cell.refractory_until);
+            #[cfg(feature = "cl0")]
+            checkpoint_put_u64(&mut payload, cell.decay_load);
         }
         for arrow in &arrows {
             checkpoint_put_u64(&mut payload, arrow.id.0);
@@ -703,6 +729,8 @@ impl LiveCheckpoint {
                 state: transient.i32()?,
                 last_update_tick: transient.i64()?,
                 refractory_until: transient.i64()?,
+                #[cfg(feature = "cl0")]
+                decay_load: transient.u64()?,
             });
         }
         let mut arrows = Vec::with_capacity(arrow_count);
@@ -1149,7 +1177,8 @@ impl PlasticSubstrate {
         }
         let slot = self.cell_slot(reference.id)?;
         let cell = self.cells.get(slot.0);
-        (cell.live && cell.generation == reference.generation).then_some(slot)
+        (cell.id == reference.id && cell.live && cell.generation == reference.generation)
+            .then_some(slot)
     }
 
     pub fn resolve_arrow(&self, reference: ArrowRef) -> Option<ArrowSlot> {
@@ -1170,13 +1199,27 @@ impl PlasticSubstrate {
                 .all(|cell| cell.physical_id != spec.physical_id),
             "physical cell identity must be unique"
         );
+        #[cfg(feature = "cl0")]
+        let reusable = self.cells.values().iter().position(|cell| !cell.live);
+        #[cfg(not(feature = "cl0"))]
+        let reusable: Option<usize> = None;
         assert!(
-            self.cell_slots.len() < self.cell_capacity as usize,
-            "resident arena has no free CELL identity"
+            reusable.is_some() || self.cells.len() < self.cell_capacity as usize,
+            "resident arena has no free CELL slot"
         );
         let id = CellId(self.cell_slots.len() as u64);
-        let slot = CellSlot(self.cells.len());
-        self.cells.push(Cell {
+        let (slot, generation, resident_arena) = reusable.map_or_else(
+            || (CellSlot(self.cells.len()), Generation(1), ResidentArenaId(0)),
+            |index| {
+                let prior = self.cells.get(index);
+                (
+                    CellSlot(index),
+                    prior.generation,
+                    self.resident_arenas[prior.id.0 as usize],
+                )
+            },
+        );
+        let cell = Cell {
             id,
             physical_id: spec.physical_id,
             position: spec.position,
@@ -1185,13 +1228,20 @@ impl PlasticSubstrate {
             state: 0,
             last_update_tick: self.tick,
             refractory_until: self.tick,
-            generation: Generation(1),
+            generation,
             resistance: spec.resistance,
             live: spec.resistance > 0,
-        });
-        self.cell_slots.push(Some(slot));
+            #[cfg(feature = "cl0")]
+            decay_load: 0,
+        };
+        if slot.0 < self.cells.len() {
+            self.cells.with_mut(slot.0, |resident| *resident = cell);
+        } else {
+            self.cells.push(cell);
+        }
+        self.cell_slots.push((spec.resistance > 0).then_some(slot));
         self.outgoing_index.push(Vec::new());
-        self.resident_arenas.push(ResidentArenaId(0));
+        self.resident_arenas.push(resident_arena);
         id
     }
 
@@ -1203,6 +1253,11 @@ impl PlasticSubstrate {
             .cell_slot(spec.from)
             .expect("required CELL must resolve");
         let source_generation = self.cells.get(source_slot.0).generation;
+        #[cfg(feature = "cl0")]
+        let target_generation = self
+            .cells
+            .get(self.cell_slot(spec.to).expect("required CELL must resolve").0)
+            .generation;
         let reusable = self.arrows.values().iter().position(|arrow| !arrow.live);
         if reusable.is_none() {
             assert!(
@@ -1230,6 +1285,8 @@ impl PlasticSubstrate {
             phase: spec.phase,
             coupling: spec.coupling,
             source_generation,
+            #[cfg(feature = "cl0")]
+            target_generation,
             generation,
             resistance: spec.resistance,
             live: spec.resistance > 0,
@@ -1293,6 +1350,11 @@ impl PlasticSubstrate {
                 arrival_tick: input.arrival_tick,
                 phase: input.phase,
                 origin_physical: input.origin_physical,
+                #[cfg(feature = "cl0")]
+                target_physical: self
+                    .cells
+                    .get(self.cell_slot(input.target).unwrap().0)
+                    .physical_id,
                 target: input.target,
                 target_generation: self
                     .cells
@@ -1329,6 +1391,35 @@ impl PlasticSubstrate {
         self.elapse_to(tick, &mut work, &mut ignored);
         self.tick = tick;
         work
+    }
+
+    #[cfg(feature = "cl0")]
+    pub fn advance_time_traced(&mut self, tick: i64) -> RunResult {
+        assert!(tick >= self.tick, "physical time cannot run backward");
+        assert!(
+            self.pending.is_empty(),
+            "queued activity must propagate first"
+        );
+        let mut work = Work::default();
+        let mut execution_cost = ExecutionCost::default();
+        let mut physical_trace = Vec::new();
+        self.elapse_to_observed(
+            tick,
+            &mut work,
+            &mut execution_cost,
+            0,
+            &mut physical_trace,
+        );
+        self.tick = tick;
+        execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
+        RunResult {
+            crossings: Vec::new(),
+            work,
+            naturally_quiescent: self.pending.is_empty(),
+            resident_bytes: self.resident_bytes(),
+            execution_cost,
+            physical_trace,
+        }
     }
 
     pub fn arena_body(&self, version: u64) -> ArenaBody {
@@ -1375,8 +1466,19 @@ impl PlasticSubstrate {
                 .map(|arrow| DurableArrow {
                     id: arrow.id,
                     generation: arrow.generation,
-                    from: self.cell_reference(arrow.from),
-                    to: self.cell_reference(arrow.to),
+                    from: CellRef {
+                        arena: self.arena,
+                        id: arrow.from,
+                        generation: arrow.source_generation,
+                    },
+                    to: CellRef {
+                        arena: self.arena,
+                        id: arrow.to,
+                        #[cfg(not(feature = "cl0"))]
+                        generation: self.cell_reference(arrow.to).generation,
+                        #[cfg(feature = "cl0")]
+                        generation: arrow.target_generation,
+                    },
                     delay: arrow.delay,
                     phase: arrow.phase,
                     coupling: arrow.coupling,
@@ -1423,7 +1525,7 @@ impl PlasticSubstrate {
                 return Err(CheckpointError::InvalidPhysicalBody);
             }
             let slot = CellSlot(substrate.cells.len());
-            substrate.cell_slots[durable.id.0 as usize] = Some(slot);
+            substrate.cell_slots[durable.id.0 as usize] = durable.live.then_some(slot);
             substrate.cells.push(Cell {
                 id: durable.id,
                 physical_id: durable.physical_id,
@@ -1436,6 +1538,8 @@ impl PlasticSubstrate {
                 generation: durable.generation,
                 resistance: durable.resistance,
                 live: durable.live,
+                #[cfg(feature = "cl0")]
+                decay_load: 0,
             });
         }
         substrate.outgoing_index = vec![Vec::new(); substrate.cell_slots.len()];
@@ -1472,6 +1576,8 @@ impl PlasticSubstrate {
                 phase: durable.phase,
                 coupling: durable.coupling,
                 source_generation: durable.from.generation,
+                #[cfg(feature = "cl0")]
+                target_generation: durable.to.generation,
                 generation: durable.generation,
                 resistance: durable.resistance,
                 live: durable.live,
@@ -1500,7 +1606,20 @@ impl PlasticSubstrate {
                 .cells
                 .values()
                 .iter()
-                .all(|cell| cell.state == 0 && cell.refractory_until <= self.tick)
+                .all(|cell| {
+                    cell.state == 0
+                        && cell.refractory_until <= self.tick
+                        && {
+                            #[cfg(feature = "cl0")]
+                            {
+                                cell.decay_load == 0
+                            }
+                            #[cfg(not(feature = "cl0"))]
+                            {
+                                true
+                            }
+                        }
+                })
             && self
                 .arrows
                 .values()
@@ -1559,6 +1678,8 @@ impl PlasticSubstrate {
                     state: cell.state,
                     last_update_tick: cell.last_update_tick,
                     refractory_until: cell.refractory_until,
+                    #[cfg(feature = "cl0")]
+                    decay_load: cell.decay_load,
                 })
                 .collect(),
             arrows: self
@@ -1599,6 +1720,10 @@ impl PlasticSubstrate {
                 cell.state = runtime.state;
                 cell.last_update_tick = runtime.last_update_tick;
                 cell.refractory_until = runtime.refractory_until;
+                #[cfg(feature = "cl0")]
+                {
+                    cell.decay_load = runtime.decay_load;
+                }
             });
         }
         for runtime in checkpoint.arrows {
@@ -1744,7 +1869,13 @@ impl PlasticSubstrate {
                 execution_cost.touch::<Spike>(1);
                 work.total = work.total.saturating_add(legacy_comparisons);
                 let external_arrival = spike.arrow.is_none();
-                self.elapse_to(spike.arrival_tick, &mut work, &mut execution_cost);
+                self.elapse_to_observed(
+                    spike.arrival_tick,
+                    &mut work,
+                    &mut execution_cost,
+                    spike.phase,
+                    &mut physical_trace,
+                );
                 self.tick = spike.arrival_tick;
                 work.total = work.total.saturating_add(2);
 
@@ -1763,7 +1894,10 @@ impl PlasticSubstrate {
                 };
                 let target = self.cells.get(target_slot.0);
                 execution_cost.touch::<Cell>(1);
-                if !target.live || target.generation != spike.target_generation {
+                if target.id != spike.target
+                    || !target.live
+                    || target.generation != spike.target_generation
+                {
                     continue;
                 }
 
@@ -1882,11 +2016,33 @@ impl PlasticSubstrate {
                     if arrow.trigger != TransmissionTrigger::SourceFires {
                         continue;
                     }
-                    let from_slot = self.cell_slot(arrow.from).unwrap();
-                    let to_slot = self.cell_slot(arrow.to).unwrap();
+                    let Some(from_slot) = self.cell_slot(arrow.from) else {
+                        continue;
+                    };
+                    let Some(to_slot) = self.cell_slot(arrow.to) else {
+                        continue;
+                    };
                     let from = self.cells.get(from_slot.0);
                     let to = self.cells.get(to_slot.0);
                     execution_cost.touch::<Cell>(2);
+                    if from.id != arrow.from
+                        || !from.live
+                        || from.generation != arrow.source_generation
+                        || to.id != arrow.to
+                        || !to.live
+                        || {
+                            #[cfg(feature = "cl0")]
+                            {
+                                to.generation != arrow.target_generation
+                            }
+                            #[cfg(not(feature = "cl0"))]
+                            {
+                                false
+                            }
+                        }
+                    {
+                        continue;
+                    }
                     if from.region != to.region {
                         let crossing = Crossing {
                             tick: self.tick,
@@ -1924,6 +2080,8 @@ impl PlasticSubstrate {
                             arrival_tick: self.tick.saturating_add(arrow.delay),
                             phase: arrow.phase,
                             origin_physical,
+                            #[cfg(feature = "cl0")]
+                            target_physical: to.physical_id,
                             target: arrow.to,
                             target_generation: to.generation,
                             impulse: arrow.coupling,
@@ -2136,8 +2294,32 @@ impl PlasticSubstrate {
                 continue;
             }
             assert_eq!(arrow.mode, TransmissionMode::Modulatory);
-            let source = self.cells.get(self.cell_slot(arrow.from).unwrap().0);
-            let target = self.cells.get(self.cell_slot(arrow.to).unwrap().0);
+            let Some(source_slot) = self.cell_slot(arrow.from) else {
+                continue;
+            };
+            let Some(target_slot) = self.cell_slot(arrow.to) else {
+                continue;
+            };
+            let source = self.cells.get(source_slot.0);
+            let target = self.cells.get(target_slot.0);
+            if source.id != arrow.from
+                || !source.live
+                || source.generation != arrow.source_generation
+                || target.id != arrow.to
+                || !target.live
+                || {
+                    #[cfg(feature = "cl0")]
+                    {
+                        target.generation != arrow.target_generation
+                    }
+                    #[cfg(not(feature = "cl0"))]
+                    {
+                        false
+                    }
+                }
+            {
+                continue;
+            }
             let arrival_tick = tick.saturating_add(arrow.delay);
             let arrival_phase = arrow.phase;
             let generation = arrow.generation;
@@ -2164,6 +2346,8 @@ impl PlasticSubstrate {
                     arrival_tick,
                     phase: arrival_phase,
                     origin_physical,
+                    #[cfg(feature = "cl0")]
+                    target_physical: target.physical_id,
                     target: target_id,
                     target_generation,
                     impulse: coupling,
@@ -2177,7 +2361,37 @@ impl PlasticSubstrate {
     }
 
     fn elapse_to(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
-        self.elapse_fd0_decay(tick, work, execution_cost);
+        self.elapse_fd0_decay(tick, work, execution_cost, None, 0);
+        self.elapse_cells_to(tick, work, execution_cost, None, 0);
+        self.elapse_activation_to(tick, execution_cost);
+    }
+
+    fn elapse_to_observed(
+        &mut self,
+        tick: i64,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
+        self.elapse_fd0_decay(
+            tick,
+            work,
+            execution_cost,
+            Some(&mut *physical_trace),
+            phase,
+        );
+        self.elapse_cells_to(
+            tick,
+            work,
+            execution_cost,
+            Some(&mut *physical_trace),
+            phase,
+        );
+        self.elapse_activation_to(tick, execution_cost);
+    }
+
+    fn elapse_activation_to(&mut self, tick: i64, execution_cost: &mut ExecutionCost) {
         execution_cost.observe_frontier(self.active_cells.len());
         let cell_ids = match self.mechanics.activity {
             ActivityKind::FullScan => {
@@ -2186,6 +2400,7 @@ impl PlasticSubstrate {
                 self.cells
                     .values()
                     .iter()
+                    .filter(|cell| cell.live)
                     .map(|cell| cell.id)
                     .collect::<Vec<_>>()
             }
@@ -2195,13 +2410,23 @@ impl PlasticSubstrate {
             }
         };
         for id in cell_ids {
+            if self.cell_slot(id).is_none() {
+                continue;
+            }
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             execution_cost.touch::<Cell>(1);
             self.decay_cell(id, tick);
         }
     }
 
-    fn elapse_fd0_decay(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
+    fn elapse_fd0_decay(
+        &mut self,
+        tick: i64,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+        mut physical_trace: Option<&mut Vec<PhysicalTransition>>,
+        phase: i32,
+    ) {
         let elapsed = tick.saturating_sub(self.tick);
         let elapsed_u64 = u64::try_from(elapsed).unwrap_or(u64::MAX);
         for index in 0..self.arrows.len() {
@@ -2233,6 +2458,96 @@ impl PlasticSubstrate {
             if deallocated {
                 work.total = work.total.saturating_add(1);
                 work.physical_deallocations = work.physical_deallocations.saturating_add(1);
+                #[cfg(feature = "cl0")]
+                if let Some(trace) = physical_trace.as_deref_mut() {
+                    trace.push(PhysicalTransition {
+                        tick,
+                        phase,
+                        event: PhysicalEvent::Deallocate {
+                            arrow: self.arrows.get(index).id,
+                        },
+                    });
+                }
+            }
+        }
+    }
+
+    fn elapse_cells_to(
+        &mut self,
+        tick: i64,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+        mut physical_trace: Option<&mut Vec<PhysicalTransition>>,
+        phase: i32,
+    ) {
+        #[cfg(not(feature = "cl0"))]
+        {
+            let _ = (tick, work, execution_cost, physical_trace, phase);
+        }
+        #[cfg(feature = "cl0")]
+        {
+            let elapsed = tick.saturating_sub(self.tick);
+            let elapsed_u64 = u64::try_from(elapsed).unwrap_or(u64::MAX);
+            for index in 0..self.cells.len() {
+                execution_cost.scans = execution_cost.scans.saturating_add(1);
+                let (id, deallocated, active_ticks, before_generation, after_generation) =
+                    self.cells.with_mut(index, |cell| {
+                        if !cell.live {
+                            return (
+                                cell.id,
+                                false,
+                                0,
+                                cell.generation,
+                                cell.generation,
+                            );
+                        }
+                        let lifetime_remaining = u64::from(cell.resistance)
+                            .saturating_mul(
+                                u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX),
+                            )
+                            .saturating_sub(cell.decay_load);
+                        let active_ticks = elapsed_u64.min(lifetime_remaining);
+                        let total_decay = cell.decay_load.saturating_add(elapsed_u64);
+                        let durable_loss =
+                            total_decay / u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(1);
+                        cell.decay_load = total_decay
+                            % u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX);
+                        let before_generation = cell.generation;
+                        if durable_loss > 0 {
+                            decay_cell_structure(
+                                cell,
+                                u32::try_from(durable_loss).unwrap_or(u32::MAX),
+                            );
+                        }
+                        (
+                            cell.id,
+                            before_generation != cell.generation,
+                            active_ticks,
+                            before_generation,
+                            cell.generation,
+                        )
+                    });
+                work.total = work.total.saturating_add(active_ticks);
+                execution_cost.touch::<Cell>(1);
+                if deallocated {
+                    if let Some(mapping) = self.cell_slots.get_mut(id.0 as usize) {
+                        *mapping = None;
+                    }
+                    self.active_cells.remove(&id);
+                    work.total = work.total.saturating_add(1);
+                    work.cell_deallocations = work.cell_deallocations.saturating_add(1);
+                    if let Some(trace) = physical_trace.as_deref_mut() {
+                        trace.push(PhysicalTransition {
+                            tick,
+                            phase,
+                            event: PhysicalEvent::CellDeallocate {
+                                cell: id,
+                                before_generation,
+                                after_generation,
+                            },
+                        });
+                    }
+                }
             }
         }
     }
@@ -2331,14 +2646,19 @@ impl PlasticSubstrate {
     }
 
     fn require_cell(&self, id: CellId) {
-        assert!(
-            self.cell_slot(id).is_some(),
-            "cell must belong to this substrate"
-        );
+        let valid = self.cell_slot(id).is_some_and(|slot| {
+            let cell = self.cells.get(slot.0);
+            cell.id == id && cell.live
+        });
+        assert!(valid, "cell must be live in this substrate");
     }
 
     fn require_cell_result(&self, id: CellId) -> Result<(), CheckpointError> {
         self.cell_slot(id)
+            .filter(|slot| {
+                let cell = self.cells.get(slot.0);
+                cell.id == id && cell.live
+            })
             .map(|_| ())
             .ok_or(CheckpointError::MissingCell(id))
     }
@@ -2363,6 +2683,7 @@ impl PlasticSubstrate {
         let slot = self
             .cell_slot(id)
             .expect("stored CELL identity must resolve");
+        assert_eq!(self.cells.get(slot.0).id, id, "CELL identity must be current");
         CellRef {
             arena: self.arena,
             id,
@@ -2404,10 +2725,55 @@ impl PlasticSubstrate {
             .decay_load
     }
 
+    #[cfg(feature = "cl0")]
+    pub fn cell_resistance(&self, id: CellId) -> Option<u32> {
+        self.cells
+            .values()
+            .iter()
+            .find(|cell| cell.id == id)
+            .map(|cell| cell.resistance)
+    }
+
+    #[cfg(feature = "cl0")]
+    pub fn cell_generation(&self, id: CellId) -> Option<Generation> {
+        self.cells
+            .values()
+            .iter()
+            .find(|cell| cell.id == id)
+            .map(|cell| cell.generation)
+    }
+
+    #[cfg(feature = "cl0")]
+    pub fn cell_is_live(&self, id: CellId) -> Option<bool> {
+        self.cells
+            .values()
+            .iter()
+            .find(|cell| cell.id == id)
+            .map(|cell| cell.live)
+    }
+
+    #[cfg(feature = "cl0")]
+    pub fn cell_decay_load(&self, id: CellId) -> Option<u64> {
+        self.cells
+            .values()
+            .iter()
+            .find(|cell| cell.id == id)
+            .map(|cell| cell.decay_load)
+    }
+
+    #[cfg(feature = "cl0")]
+    pub fn cell_resident_slot(&self, id: CellId) -> Option<CellSlot> {
+        self.cells
+            .values()
+            .iter()
+            .position(|cell| cell.id == id)
+            .map(CellSlot)
+    }
+
     fn rebuild_slot_maps(&mut self) {
         self.cell_slots.fill(None);
         for (index, cell) in self.cells.values().iter().enumerate() {
-            self.cell_slots[cell.id.0 as usize] = Some(CellSlot(index));
+            self.cell_slots[cell.id.0 as usize] = cell.live.then_some(CellSlot(index));
         }
         self.arrow_slots.fill(None);
         for (index, arrow) in self.arrows.values().iter().enumerate() {
@@ -2493,6 +2859,18 @@ fn decay_arrow(arrow: &mut Arrow, amount: u32) {
         arrow.participation_level = 0;
         arrow.plastic_support = 0;
         arrow.decay_load = 0;
+    }
+}
+
+#[cfg(feature = "cl0")]
+fn decay_cell_structure(cell: &mut Cell, amount: u32) {
+    cell.resistance = cell.resistance.saturating_sub(amount);
+    if cell.resistance == 0 && cell.live {
+        cell.live = false;
+        cell.generation = Generation(cell.generation.0.wrapping_add(1));
+        cell.state = 0;
+        cell.refractory_until = 0;
+        cell.decay_load = 0;
     }
 }
 
@@ -2630,6 +3008,8 @@ fn encode_spike(bytes: &mut Vec<u8>, spike: &Spike) {
     checkpoint_put_i64(bytes, spike.arrival_tick);
     checkpoint_put_i32(bytes, spike.phase);
     checkpoint_put_u64(bytes, spike.origin_physical);
+    #[cfg(feature = "cl0")]
+    checkpoint_put_u64(bytes, spike.target_physical);
     checkpoint_put_u64(bytes, spike.target.0);
     checkpoint_put_u32(bytes, spike.target_generation.0);
     checkpoint_put_i32(bytes, spike.impulse);
@@ -2644,6 +3024,8 @@ fn decode_spike(cursor: &mut CheckpointCursor<'_>) -> Result<Spike, CheckpointEr
     let arrival_tick = cursor.i64()?;
     let phase = cursor.i32()?;
     let origin_physical = cursor.u64()?;
+    #[cfg(feature = "cl0")]
+    let target_physical = cursor.u64()?;
     let target = CellId(cursor.u64()?);
     let target_generation = Generation(cursor.u32()?);
     let impulse = cursor.i32()?;
@@ -2658,6 +3040,8 @@ fn decode_spike(cursor: &mut CheckpointCursor<'_>) -> Result<Spike, CheckpointEr
         arrival_tick,
         phase,
         origin_physical,
+        #[cfg(feature = "cl0")]
+        target_physical,
         target,
         target_generation,
         impulse,

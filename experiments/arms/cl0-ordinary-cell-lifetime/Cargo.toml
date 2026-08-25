@@ -1,0 +1,10 @@
+[package]
+name = "cl0-ordinary-cell-lifetime"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["cl0"] }
+
+[workspace]

@@ -97,6 +97,8 @@ pub(super) struct CellColumns {
     generations: Vec<super::Generation>,
     resistances: Vec<u32>,
     live: Vec<bool>,
+    #[cfg(feature = "cl0")]
+    decay_loads: Vec<u64>,
 }
 
 impl CellColumns {
@@ -121,6 +123,8 @@ impl CellColumns {
             generation: self.generations[index],
             resistance: self.resistances[index],
             live: self.live[index],
+            #[cfg(feature = "cl0")]
+            decay_load: self.decay_loads[index],
         }
     }
 
@@ -136,6 +140,10 @@ impl CellColumns {
         self.generations[index] = value.generation;
         self.resistances[index] = value.resistance;
         self.live[index] = value.live;
+        #[cfg(feature = "cl0")]
+        {
+            self.decay_loads[index] = value.decay_load;
+        }
     }
 
     fn push(&mut self, value: Cell) {
@@ -150,6 +158,8 @@ impl CellColumns {
         self.generations.push(value.generation);
         self.resistances.push(value.resistance);
         self.live.push(value.live);
+        #[cfg(feature = "cl0")]
+        self.decay_loads.push(value.decay_load);
     }
 
     fn resident_bytes(&self) -> usize {
@@ -164,6 +174,18 @@ impl CellColumns {
             + self.generations.capacity() * std::mem::size_of::<super::Generation>()
             + self.resistances.capacity() * std::mem::size_of::<u32>()
             + self.live.capacity() * std::mem::size_of::<bool>()
+            + if cfg!(feature = "cl0") {
+                #[cfg(feature = "cl0")]
+                {
+                    self.decay_loads.capacity() * std::mem::size_of::<u64>()
+                }
+                #[cfg(not(feature = "cl0"))]
+                {
+                    0
+                }
+            } else {
+                0
+            }
     }
 }
 
@@ -265,6 +287,8 @@ pub(super) struct ArrowColumns {
     phases: Vec<i32>,
     couplings: Vec<i32>,
     source_generations: Vec<super::Generation>,
+    #[cfg(feature = "cl0")]
+    target_generations: Vec<super::Generation>,
     generations: Vec<super::Generation>,
     resistances: Vec<u32>,
     live: Vec<bool>,
@@ -293,6 +317,8 @@ impl ArrowColumns {
             phase: self.phases[index],
             coupling: self.couplings[index],
             source_generation: self.source_generations[index],
+            #[cfg(feature = "cl0")]
+            target_generation: self.target_generations[index],
             generation: self.generations[index],
             resistance: self.resistances[index],
             live: self.live[index],
@@ -312,6 +338,10 @@ impl ArrowColumns {
         self.phases[index] = value.phase;
         self.couplings[index] = value.coupling;
         self.source_generations[index] = value.source_generation;
+        #[cfg(feature = "cl0")]
+        {
+            self.target_generations[index] = value.target_generation;
+        }
         self.generations[index] = value.generation;
         self.resistances[index] = value.resistance;
         self.live[index] = value.live;
@@ -330,6 +360,8 @@ impl ArrowColumns {
         self.phases.push(value.phase);
         self.couplings.push(value.coupling);
         self.source_generations.push(value.source_generation);
+        #[cfg(feature = "cl0")]
+        self.target_generations.push(value.target_generation);
         self.generations.push(value.generation);
         self.resistances.push(value.resistance);
         self.live.push(value.live);
@@ -348,6 +380,19 @@ impl ArrowColumns {
             + self.phases.capacity() * std::mem::size_of::<i32>()
             + self.couplings.capacity() * std::mem::size_of::<i32>()
             + self.source_generations.capacity() * std::mem::size_of::<super::Generation>()
+            + if cfg!(feature = "cl0") {
+                #[cfg(feature = "cl0")]
+                {
+                    self.target_generations.capacity()
+                        * std::mem::size_of::<super::Generation>()
+                }
+                #[cfg(not(feature = "cl0"))]
+                {
+                    0
+                }
+            } else {
+                0
+            }
             + self.generations.capacity() * std::mem::size_of::<super::Generation>()
             + self.resistances.capacity() * std::mem::size_of::<u32>()
             + self.live.capacity() * std::mem::size_of::<bool>()
@@ -854,11 +899,15 @@ fn order_key<F>(spike: &Spike, target_physical: &F) -> (i64, i32, u64, u64, u64)
 where
     F: Fn(CellId) -> u64,
 {
+    #[cfg(feature = "cl0")]
+    let target_physical = spike.target_physical;
+    #[cfg(not(feature = "cl0"))]
+    let target_physical = target_physical(spike.target);
     (
         spike.arrival_tick,
         spike.phase,
         spike.origin_physical,
-        target_physical(spike.target),
+        target_physical,
         spike.serial,
     )
 }
