@@ -455,17 +455,19 @@ fn normalize_trace(world: &LogicalWorld, trace: &[PhysicalTransition]) -> Vec<St
     }
     waves
         .into_iter()
-        .map(|((tick, phase, wave), (mut incidences, mut fires, mut effects))| {
-            incidences.sort();
-            fires.sort();
-            effects.sort();
-            format!(
-                "{tick}:{phase}:wave={wave}:INCIDENCES=[{}]:FIRES=[{}]:EFFECTS=[{}]",
-                incidences.join("|"),
-                fires.join("|"),
-                effects.join("|")
-            )
-        })
+        .map(
+            |((tick, phase, wave), (mut incidences, mut fires, mut effects))| {
+                incidences.sort();
+                fires.sort();
+                effects.sort();
+                format!(
+                    "{tick}:{phase}:wave={wave}:INCIDENCES=[{}]:FIRES=[{}]:EFFECTS=[{}]",
+                    incidences.join("|"),
+                    fires.join("|"),
+                    effects.join("|")
+                )
+            },
+        )
         .collect()
 }
 
@@ -628,7 +630,7 @@ fn mechanics_name(mechanics: MechanicalConfig) -> &'static str {
 
 fn main() {
     let output = env::args_os().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-            PathBuf::from("experiments/results/si0_simultaneous_local_incidence_v2")
+        PathBuf::from("experiments/results/si0_simultaneous_local_incidence_v2")
     });
     fs::create_dir_all(&output).unwrap();
     let mut csv = String::from(
