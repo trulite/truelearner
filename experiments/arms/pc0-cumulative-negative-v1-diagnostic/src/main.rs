@@ -754,8 +754,8 @@ fn main() {
                 .iter()
                 .filter(|arrow| arrow.participation >= Q)
                 .count() as u64;
-            magnitude_cases_at_or_above_q = magnitude_cases_at_or_above_q
-                .saturating_add(u64::from(at_or_above_q > 0));
+            magnitude_cases_at_or_above_q =
+                magnitude_cases_at_or_above_q.saturating_add(u64::from(at_or_above_q > 0));
             magnitude_contacts_at_or_above_q =
                 magnitude_contacts_at_or_above_q.saturating_add(at_or_above_q);
             maximum_magnitude_participation = maximum_magnitude_participation.max(
@@ -810,4 +810,3 @@ fn main() {
         case_specs.len()
     );
 }
-
