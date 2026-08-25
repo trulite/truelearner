@@ -7,8 +7,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig,
-    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
+    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig, PhysicalEvent,
+    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -173,7 +173,13 @@ fn build(family: Family, permutation: Permutation, mechanics: MechanicalConfig) 
 
 fn normalize_transition(world: &LogicalWorld, transition: &PhysicalTransition) -> String {
     let cell = |id: CellId| world.cell_names.get(&id).copied().unwrap_or("generated");
-    let arrow = |id: ArrowId| world.arrow_names.get(&id).copied().unwrap_or("generated_link");
+    let arrow = |id: ArrowId| {
+        world
+            .arrow_names
+            .get(&id)
+            .copied()
+            .unwrap_or("generated_link")
+    };
     let event = match &transition.event {
         PhysicalEvent::Deliver {
             mode,
@@ -193,7 +199,9 @@ fn normalize_transition(world: &LogicalWorld, transition: &PhysicalTransition) -
             after_generation,
         } => format!(
             "CELL_DEALLOCATE:{}:{}:{}",
-            cell(*id), before_generation.0, after_generation.0
+            cell(*id),
+            before_generation.0,
+            after_generation.0
         ),
         PhysicalEvent::CellProposal {
             cell: proposed,
@@ -255,7 +263,11 @@ fn read_i64(bytes: &[u8], offset: &mut usize) -> i64 {
     value
 }
 
-fn normalized_transient(world: &LogicalWorld, checkpoint: &[u8], tick: i64) -> (Vec<String>, usize, usize) {
+fn normalized_transient(
+    world: &LogicalWorld,
+    checkpoint: &[u8],
+    tick: i64,
+) -> (Vec<String>, usize, usize) {
     assert_eq!(&checkpoint[..8], b"TLLIVE01");
     let mut offset = 10;
     let checkpoint_tick = read_i64(checkpoint, &mut offset);
@@ -341,9 +353,9 @@ fn observe(family: Family, permutation: Permutation, mechanics: MechanicalConfig
     let target_fires = run
         .physical_trace
         .iter()
-        .filter(|transition| {
-            matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target)
-        })
+        .filter(
+            |transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target),
+        )
         .count();
     let arena = world.body.arena_body(1);
     let mut cells = arena
@@ -423,16 +435,10 @@ fn main() {
     let mut passed = 0usize;
     let mut first_divergence = String::new();
     for family in Family::ALL {
-        let baseline_reference = observe(
-            family,
-            Permutation::Identity,
-            MechanicalConfig::REFERENCE,
-        );
-        let baseline_production = observe(
-            family,
-            Permutation::Identity,
-            MechanicalConfig::PRODUCTION,
-        );
+        let baseline_reference =
+            observe(family, Permutation::Identity, MechanicalConfig::REFERENCE);
+        let baseline_production =
+            observe(family, Permutation::Identity, MechanicalConfig::PRODUCTION);
         for permutation in Permutation::ALL {
             let reference = observe(family, permutation, MechanicalConfig::REFERENCE);
             let reference_replay = observe(family, permutation, MechanicalConfig::REFERENCE);
@@ -496,7 +502,11 @@ fn main() {
         }
     }
     fs::write(output.join("matrix.csv"), &csv).unwrap();
-    let verdict = if passed == total { "PASS" } else { "REAL_NEGATIVE" };
+    let verdict = if passed == total {
+        "PASS"
+    } else {
+        "REAL_NEGATIVE"
+    };
     let report = format!(
         "# RI0 opaque-identity renaming invariance v1\n\n\
          - rows passing: `{passed}/{total}`\n\
@@ -512,7 +522,6 @@ fn main() {
     assert_eq!(passed, total, "RI0 renaming changed physical history");
     println!("RI0_RENAMING_INVARIANCE_POSITIVE_V1");
 }
-
 trait WorkTotal {
     fn physical_total(self) -> u64;
 }
@@ -522,4 +531,3 @@ impl WorkTotal for Work {
         self.total()
     }
 }
-
