@@ -218,6 +218,7 @@ struct Arrow {
     trigger: TransmissionTrigger,
 }
 
+#[cfg(not(feature = "si0"))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct PhysicalArrowOrder {
     phase: i32,
@@ -3298,6 +3299,7 @@ impl PlasticSubstrate {
         }
     }
 
+    #[cfg(not(feature = "si0"))]
     fn physical_arrow_order(&self, arrow: &Arrow) -> PhysicalArrowOrder {
         let from = self
             .cell_slot(arrow.from)
@@ -3330,6 +3332,7 @@ impl PlasticSubstrate {
         }
     }
 
+    #[cfg(not(feature = "si0"))]
     fn sort_arrow_ids_by_physics(&self, arrows: &mut [ArrowId]) {
         arrows.sort_by_key(|id| {
             let slot = self.arrow_slot(*id).expect("indexed ARROW must resolve");
