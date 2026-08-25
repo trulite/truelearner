@@ -1,0 +1,11 @@
+[package]
+name = "ah0-cpc0-parent-differential"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core" }
+
+[workspace]
+
