@@ -808,7 +808,10 @@ fn hardened_main(output: PathBuf, roots: [u64; 2], version: &str) {
     write_checksums(&output);
     assert_eq!(cases, EXPECTED_CASES);
     assert_eq!(rows, EXPECTED_ROWS);
-    assert!(all_pass, "FD1 {version} focused gate failed; artifacts serialized");
+    assert!(
+        all_pass,
+        "FD1 {version} focused gate failed; artifacts serialized"
+    );
     println!("FD1_COMPLETE version={version} physical_cases={cases} pass=true");
 }
 
