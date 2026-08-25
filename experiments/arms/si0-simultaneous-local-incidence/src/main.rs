@@ -410,6 +410,15 @@ fn logical_event(world: &LogicalWorld, event: &PhysicalEvent) -> String {
             "INCIDENCE:{}:arrivals={arrivals}:impulse={impulse}:wave={causal_wave}",
             cell(*target)
         ),
+        PhysicalEvent::ModulatoryIncidence {
+            target,
+            arrivals,
+            impulse,
+            causal_wave,
+        } => format!(
+            "MODULATORY_INCIDENCE:{}:arrivals={arrivals}:impulse={impulse}:wave={causal_wave}",
+            cell(*target)
+        ),
         PhysicalEvent::Deliver {
             mode,
             target,
@@ -440,7 +449,8 @@ fn normalize_trace(world: &LogicalWorld, trace: &[PhysicalTransition]) -> Vec<St
     let mut current_wave = None;
     for transition in trace {
         match &transition.event {
-            PhysicalEvent::DriveIncidence { causal_wave, .. } => {
+            PhysicalEvent::DriveIncidence { causal_wave, .. }
+            | PhysicalEvent::ModulatoryIncidence { causal_wave, .. } => {
                 let key = (transition.tick, transition.phase, *causal_wave);
                 waves
                     .entry(key)

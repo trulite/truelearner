@@ -956,7 +956,6 @@ pub use truelearner_arena_format::{
     ArenaId, ArrowId, ArrowRef, CellId, CellRef, ContentHash, Generation,
 };
 
-#[cfg(not(feature = "si0"))]
 const LOCAL_RETURN_STRENGTH: u32 = 3;
 const LOCAL_DECAY_PERIOD: i64 = 10;
 const LOCAL_VARIATION_RADIUS: i32 = 2;
@@ -1216,6 +1215,13 @@ pub struct Crossing {
 pub enum PhysicalEvent {
     #[cfg(feature = "si0")]
     DriveIncidence {
+        target: CellId,
+        arrivals: u32,
+        impulse: i32,
+        causal_wave: u64,
+    },
+    #[cfg(feature = "si0")]
+    ModulatoryIncidence {
         target: CellId,
         arrivals: u32,
         impulse: i32,
@@ -2948,6 +2954,7 @@ impl PlasticSubstrate {
                             &mut execution_cost,
                             spike.phase,
                             &mut physical_trace,
+                            0,
                         );
                         continue;
                     }
@@ -3175,10 +3182,10 @@ impl PlasticSubstrate {
             scheduled_deliveries =
                 scheduled_deliveries.saturating_add(u64::try_from(batch.len()).unwrap_or(u64::MAX));
 
-            let mut incidences: Vec<(CellId, Vec<Spike>)> = Vec::new();
+            let mut incidences: Vec<(CellId, Vec<Spike>, Vec<Spike>)> = Vec::new();
             for (spike, _mechanical_comparisons) in batch {
                 execution_cost.touch::<Spike>(1);
-                if let Some((arrow_id, generation)) = spike.arrow {
+                let mode = if let Some((arrow_id, generation)) = spike.arrow {
                     let Some(arrow_slot) = self.arrow_slot(arrow_id) else {
                         continue;
                     };
@@ -3187,12 +3194,10 @@ impl PlasticSubstrate {
                     if !arrow.live || arrow.generation != generation {
                         continue;
                     }
-                    assert_eq!(
-                        arrow.mode,
-                        TransmissionMode::Drive,
-                        "SI0 defines Drive incidence only"
-                    );
-                }
+                    arrow.mode
+                } else {
+                    TransmissionMode::Drive
+                };
                 let Some(target_slot) = self.cell_slot(spike.target) else {
                     continue;
                 };
@@ -3204,18 +3209,73 @@ impl PlasticSubstrate {
                 {
                     continue;
                 }
-                if let Some((_, arrivals)) = incidences
+                if let Some((_, drive_arrivals, modulatory_arrivals)) = incidences
                     .iter_mut()
-                    .find(|(target, _)| *target == spike.target)
+                    .find(|(target, _, _)| *target == spike.target)
                 {
-                    arrivals.push(spike);
+                    match mode {
+                        TransmissionMode::Drive => drive_arrivals.push(spike),
+                        TransmissionMode::Modulatory => modulatory_arrivals.push(spike),
+                    }
                 } else {
-                    incidences.push((spike.target, vec![spike]));
+                    let (drive_arrivals, modulatory_arrivals) = match mode {
+                        TransmissionMode::Drive => (vec![spike], Vec::new()),
+                        TransmissionMode::Modulatory => (Vec::new(), vec![spike]),
+                    };
+                    incidences.push((spike.target, drive_arrivals, modulatory_arrivals));
+                }
+            }
+
+            // WS0_SYNCHRONOUS_INCIDENCE: Modulatory and Drive incidence update
+            // disjoint local state from the same drained wave. Neither packet
+            // order nor junction iteration order is a causal fact. All caused
+            // transmissions are queued only after this incidence stage.
+            for (target_id, _, spikes) in &incidences {
+                if spikes.is_empty() {
+                    continue;
+                }
+                let arrivals = u32::try_from(spikes.len()).unwrap_or(u32::MAX);
+                let impulse = spikes
+                    .iter()
+                    .fold(0_i32, |sum, spike| sum.saturating_add(spike.impulse));
+                work.total = work.total.saturating_add(
+                    u64::try_from(spikes.len())
+                        .unwrap_or(u64::MAX)
+                        .saturating_mul(2),
+                );
+                work.modulatory_deliveries = work
+                    .modulatory_deliveries
+                    .saturating_add(u64::try_from(spikes.len()).unwrap_or(u64::MAX));
+                if self.trace_physics {
+                    physical_trace.push(PhysicalTransition {
+                        tick: self.tick,
+                        phase,
+                        event: PhysicalEvent::ModulatoryIncidence {
+                            target: *target_id,
+                            arrivals,
+                            impulse,
+                            causal_wave,
+                        },
+                    });
+                }
+                for _ in spikes {
+                    self.apply_modulatory_return(
+                        *target_id,
+                        self.tick,
+                        &mut work,
+                        &mut execution_cost,
+                        phase,
+                        &mut physical_trace,
+                        causal_wave,
+                    );
                 }
             }
 
             let mut firings = Vec::new();
-            for (target_id, spikes) in incidences {
+            for (target_id, spikes, _) in incidences {
+                if spikes.is_empty() {
+                    continue;
+                }
                 let arrivals = u32::try_from(spikes.len()).unwrap_or(u32::MAX);
                 let impulse = spikes
                     .iter()
@@ -3360,11 +3420,6 @@ impl PlasticSubstrate {
                     {
                         continue;
                     }
-                    assert_eq!(
-                        arrow.mode,
-                        TransmissionMode::Drive,
-                        "SI0 defines Drive incidence only"
-                    );
                     work.total = work.total.saturating_add(2);
                     if from.region != to.region {
                         let crossing = Crossing {
@@ -3451,7 +3506,6 @@ impl PlasticSubstrate {
         self.pending.pop_same_tick_batch(maximum, execution_cost)
     }
 
-    #[cfg(not(feature = "si0"))]
     fn apply_modulatory_return(
         &mut self,
         cell: CellId,
@@ -3460,6 +3514,7 @@ impl PlasticSubstrate {
         execution_cost: &mut ExecutionCost,
         phase: i32,
         physical_trace: &mut Vec<PhysicalTransition>,
+        causal_wave: u64,
     ) {
         #[cfg(feature = "cc0")]
         {
@@ -3534,6 +3589,7 @@ impl PlasticSubstrate {
                 self.outgoing_index[cell.0 as usize].clone()
             }
         };
+        #[cfg(not(feature = "si0"))]
         self.sort_arrow_ids_by_physics(&mut candidates);
         let qualified_local = candidates.iter().any(|id| {
             let slot = self.arrow_slot(*id).expect("indexed ARROW must resolve");
@@ -3634,11 +3690,18 @@ impl PlasticSubstrate {
             }
         }
         if qualified_local {
-            self.propagate_qualified_local(cell, tick, phase, work, execution_cost, physical_trace);
+            self.propagate_qualified_local(
+                cell,
+                tick,
+                phase,
+                work,
+                execution_cost,
+                physical_trace,
+                causal_wave,
+            );
         }
     }
 
-    #[cfg(not(feature = "si0"))]
     fn propagate_qualified_local(
         &mut self,
         cell: CellId,
@@ -3647,8 +3710,10 @@ impl PlasticSubstrate {
         work: &mut Work,
         execution_cost: &mut ExecutionCost,
         physical_trace: &mut Vec<PhysicalTransition>,
+        causal_wave: u64,
     ) {
         let mut outgoing = self.outgoing_index[cell.0 as usize].clone();
+        #[cfg(not(feature = "si0"))]
         self.sort_arrow_ids_by_physics(&mut outgoing);
         for id in outgoing {
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
@@ -3714,7 +3779,11 @@ impl PlasticSubstrate {
                     arrival_tick,
                     phase: arrival_phase,
                     #[cfg(feature = "si0")]
-                    causal_wave: 0,
+                    causal_wave: if arrow.delay == 0 && arrival_phase == phase {
+                        causal_wave.saturating_add(1)
+                    } else {
+                        0
+                    },
                     origin_physical,
                     #[cfg(feature = "cl0")]
                     target_physical: target.physical_id,

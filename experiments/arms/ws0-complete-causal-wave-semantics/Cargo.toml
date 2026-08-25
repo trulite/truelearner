@@ -1,0 +1,10 @@
+[package]
+name = "ws0-complete-causal-wave-semantics"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["ce0", "cv0j0", "si0"] }
+
+[workspace]

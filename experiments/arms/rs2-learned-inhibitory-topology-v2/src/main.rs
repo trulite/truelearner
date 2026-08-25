@@ -614,6 +614,15 @@ fn logical_event(
             "INCIDENCE:{}:arrivals={arrivals}:impulse={impulse}:wave={causal_wave}",
             cell_name(cell_names, *target)
         ),
+        PhysicalEvent::ModulatoryIncidence {
+            target,
+            arrivals,
+            impulse,
+            causal_wave,
+        } => format!(
+            "MODULATORY_INCIDENCE:{}:arrivals={arrivals}:impulse={impulse}:wave={causal_wave}",
+            cell_name(cell_names, *target)
+        ),
         PhysicalEvent::Deliver {
             mode,
             target,
