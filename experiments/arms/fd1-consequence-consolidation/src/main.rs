@@ -702,9 +702,113 @@ fn diagnostic_main(output: PathBuf) {
     println!("FD1_DIAGNOSTIC_COMPLETE classification={classification}");
 }
 
+fn v2_main(output: PathBuf) {
+    fs::create_dir_all(&output).unwrap();
+    let roots = [4_700_000_u64, 4_800_000_u64];
+    let mechanics = [MechanicalConfig::REFERENCE, MechanicalConfig::PRODUCTION];
+    let mut csv = String::from(
+        "case_id,root,creation_phase,family,mechanics,points,trace_hash,physical_work,drive,modulation,updates,proposals,deallocations,qlp,final_tick,body_hash,quiescent,equivalent_future,replay_equal,mechanics_equal,predicate_pass\n",
+    );
+    let mut cases = 0_usize;
+    let mut rows = 0_usize;
+    let mut family_passes = [0_u64; 7];
+    let mut maximum_work = 0_u64;
+    let mut all_pass = true;
+
+    for root in roots {
+        for phase in PHASES {
+            for family in Family::ALL {
+                cases += 1;
+                let reference = execute(root, phase, family, mechanics[0]);
+                let reference_replay = execute(root, phase, family, mechanics[0]);
+                let reference_replay_equal = reference_replay == reference;
+                let production = execute(root, phase, family, mechanics[1]);
+                let production_replay = execute(root, phase, family, mechanics[1]);
+                let production_replay_equal = production_replay == production;
+                let mechanics_equal = production == reference;
+                let passed = predicate(family, &reference);
+                let case_pass = reference_replay_equal
+                    && production_replay_equal
+                    && mechanics_equal
+                    && passed
+                    && reference.naturally_quiescent
+                    && production.naturally_quiescent;
+                all_pass &= case_pass;
+                if case_pass {
+                    family_passes[family as usize] =
+                        family_passes[family as usize].saturating_add(1);
+                }
+                maximum_work = maximum_work.max(reference.work.physical);
+                for (kind, observation, replay_equal) in [
+                    (mechanics[0], &reference, reference_replay_equal),
+                    (mechanics[1], &production, production_replay_equal),
+                ] {
+                    rows += 1;
+                    writeln!(
+                        csv,
+                        "{cases},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                        family.name(),
+                        mechanics_name(kind),
+                        points_string(&observation.points),
+                        ContentHash::of(format!("{:?}", observation.trace).as_bytes()),
+                        observation.work.physical,
+                        observation.work.drive,
+                        observation.work.modulation,
+                        observation.work.updates,
+                        observation.work.proposals,
+                        observation.work.deallocations,
+                        observation.work.qlp,
+                        observation.final_tick,
+                        observation.body_hash,
+                        u8::from(observation.naturally_quiescent),
+                        u8::from(observation.equivalent_future),
+                        u8::from(replay_equal),
+                        u8::from(mechanics_equal),
+                        u8::from(passed),
+                    )
+                    .unwrap();
+                }
+            }
+        }
+    }
+
+    let family_line = Family::ALL
+        .into_iter()
+        .map(|family| format!("{}={}/20", family.name(), family_passes[family as usize]))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let report = format!(
+        "# FD1 consequence consolidation result v2\n\n\
+         - physical cases: `{cases}/{EXPECTED_CASES}`\n\
+         - mechanics rows: `{rows}/{EXPECTED_ROWS}`\n\
+         - frozen families: `{family_line}`\n\
+         - all focused gates: `{all_pass}`\n\
+         - maximum PhysicalWork: `{maximum_work}`\n\
+         - one consequence resistance/lifetime: `1->4 / death age 45`\n\
+         - two consequences resistance/lifetime: `1->4->7 / death age 76`\n\
+         - observations serialized before acceptance assertion: `true`\n\
+         - FD1 v1 relabeled or rerun: `false`\n",
+    );
+    fs::write(output.join("matrix.csv"), csv).unwrap();
+    fs::write(output.join("report.md"), report).unwrap();
+    write_checksums(&output);
+    assert_eq!(cases, EXPECTED_CASES);
+    assert_eq!(rows, EXPECTED_ROWS);
+    assert!(all_pass, "FD1 v2 focused gate failed; artifacts serialized");
+    println!("FD1_V2_COMPLETE physical_cases={cases} pass=true");
+}
+
 fn main() {
     let mut arguments = env::args_os().skip(1);
     let first = arguments.next();
+    if first.as_deref() == Some(std::ffi::OsStr::new("--v2")) {
+        let output = arguments
+            .next()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("results/fd1_consequence_consolidation_v2"));
+        v2_main(output);
+        return;
+    }
     if first.as_deref() == Some(std::ffi::OsStr::new("--diagnostic")) {
         let output = arguments
             .next()
