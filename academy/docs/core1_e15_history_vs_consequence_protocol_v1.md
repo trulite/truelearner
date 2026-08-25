@@ -25,7 +25,8 @@ eight balanced seeds:
 - permute action order deterministically;
 - permute which action produces distinguishing evidence;
 - prime the same CORE1-B generic candidate topology;
-- execute every exploratory action once in the same permuted order using the
+- execute every exploratory action once, in the same permuted order and from
+  an exact clone of the same unresolved physical snapshot, using the
   already-established transient-history resolver;
 - only the opaque useful action changes the evidence state;
 - after that evidence, admit the ordinary downstream consequence;
@@ -40,6 +41,12 @@ any E15 organism execution.
 
 The actual exploratory actions, evidence, consequences, timings, experience
 count, body, and budgets are identical for H and C.
+
+Exploratory attempts are separate episodes from the shared unresolved
+snapshot. This prevents an earlier action's refractory state or variation from
+silently changing the starting condition of a later action. Only the branch
+that physically produces distinguishing evidence continues into the two
+ordinary consequence experiences.
 
 ## Arm H — explicit history preference
 
