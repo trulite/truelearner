@@ -2410,9 +2410,8 @@ fn pressure_arrow(arrow: &mut Arrow, amount: u32) {
 #[cfg(feature = "tc-ds1")]
 fn relax_participation(mut level: u64, elapsed: i64) -> u64 {
     for _ in 0..u64::try_from(elapsed).unwrap_or(u64::MAX) {
-        level = level
-            .saturating_mul(PARTICIPATION_RELAX_NUMERATOR)
-            / PARTICIPATION_RELAX_DENOMINATOR;
+        level =
+            level.saturating_mul(PARTICIPATION_RELAX_NUMERATOR) / PARTICIPATION_RELAX_DENOMINATOR;
     }
     level
 }
