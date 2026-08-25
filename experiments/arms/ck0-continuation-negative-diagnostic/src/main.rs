@@ -268,7 +268,8 @@ fn main() {
                 let traced_body_equal = traced.body_hash == expected.body_hash;
                 let default_checkpoint_hash_equal =
                     default.checkpoint_hash == expected.checkpoint_hash;
-                let traced_checkpoint_hash_equal = traced.checkpoint_hash == expected.checkpoint_hash;
+                let traced_checkpoint_hash_equal =
+                    traced.checkpoint_hash == expected.checkpoint_hash;
                 let default_quiescence_equal = default.quiescent == expected.quiescent;
                 let traced_quiescence_equal = traced.quiescent == expected.quiescent;
                 let physics_exact = traced_trace_equal
@@ -322,6 +323,9 @@ fn main() {
     );
     fs::write(output_dir.join("matrix.csv"), csv).unwrap();
     fs::write(output_dir.join("report.md"), report).unwrap();
-    assert!(all_physics_exact, "CK0 diagnostic found physical divergence");
+    assert!(
+        all_physics_exact,
+        "CK0 diagnostic found physical divergence"
+    );
     println!("CK0_CONTINUATION_NEGATIVE_DIAGNOSTIC_COMPLETE_V1");
 }
