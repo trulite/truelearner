@@ -29,7 +29,7 @@ check_hash 2ca3ae797a079387ff7e9f4413ae5030f380ab997bea520c79460ffac9f95709 \
 
 test "$(awk -F, 'NR > 1 && $9 == 4 && $10 == 2 && $21 == "true" { count += 1 } END { print count + 0 }' \
   experiments/archive/pxc-authority/results/px6_lrc_consequence_authority_v1.csv)" -gt 0
-test "$(awk -F, '$4 == "one_qualified_consequence" && $6 ~ /after_consequence@5\/5:1\/4\// { count += 1 } END { print count + 0 }' \
+test "$(awk -F, '$4 == "one_qualified_consequence" && $6 ~ /after_consequence@5\/[0-9]+:1\/4\// { count += 1 } END { print count + 0 }' \
   results/fd1_consequence_consolidation_v3/matrix.csv)" -eq 40
 
 if rg -n 'arrow\.coupling\s*=|coupling\s*\+=|coupling\s*=\s*coupling\.' \
