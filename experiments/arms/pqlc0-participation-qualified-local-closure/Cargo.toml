@@ -1,0 +1,11 @@
+[package]
+name = "pqlc0-participation-qualified-local-closure"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["pqlc0"] }
+
+[workspace]
+

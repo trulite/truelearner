@@ -10,6 +10,7 @@ path = "src/lib.rs"
 
 [features]
 cpc1 = []
+pqlc0 = ["cpc1"]
 
 [[bin]]
 name = "truelearner"

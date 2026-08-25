@@ -69,6 +69,14 @@ pub enum TransmissionMode {
     Modulatory,
 }
 
+#[cfg(feature = "pqlc0")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TransmissionTrigger {
+    #[default]
+    SourceFires,
+    QualifiedLocalParticipation,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TraversalKind {
     GlobalScan,
@@ -204,6 +212,8 @@ struct Arrow {
     #[cfg(feature = "cpc1")]
     plastic_support: u64,
     mode: TransmissionMode,
+    #[cfg(feature = "pqlc0")]
+    trigger: TransmissionTrigger,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -256,6 +266,10 @@ pub enum PhysicalEvent {
         to: CellId,
     },
     Crossing(Crossing),
+    #[cfg(feature = "pqlc0")]
+    QualifiedLocalTraversal {
+        arrow: ArrowId,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -273,6 +287,8 @@ pub struct Work {
     pub local_return_updates: u64,
     pub local_structural_proposals: u64,
     pub physical_deallocations: u64,
+    #[cfg(feature = "pqlc0")]
+    pub qualified_local_traversals: u64,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -355,11 +371,20 @@ impl Work {
     }
 
     pub fn physical_total(&self) -> u64 {
-        self.drive_deliveries
+        let total = self
+            .drive_deliveries
             .saturating_add(self.modulatory_deliveries)
             .saturating_add(self.local_return_updates)
             .saturating_add(self.local_structural_proposals)
-            .saturating_add(self.physical_deallocations)
+            .saturating_add(self.physical_deallocations);
+        #[cfg(feature = "pqlc0")]
+        {
+            total.saturating_add(self.qualified_local_traversals)
+        }
+        #[cfg(not(feature = "pqlc0"))]
+        {
+            total
+        }
     }
 }
 
@@ -1223,6 +1248,8 @@ impl PlasticSubstrate {
             #[cfg(feature = "cpc1")]
             plastic_support: 0,
             mode: spec.mode,
+            #[cfg(feature = "pqlc0")]
+            trigger: TransmissionTrigger::SourceFires,
         };
         if slot.0 < self.arrows.len() {
             if let Some(prior_source) = prior_source {
@@ -1241,6 +1268,30 @@ impl PlasticSubstrate {
             self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_add(1);
         }
         id
+    }
+
+    #[cfg(feature = "pqlc0")]
+    pub fn add_arrow_with_trigger(
+        &mut self,
+        spec: ArrowSpec,
+        trigger: TransmissionTrigger,
+    ) -> ArrowId {
+        assert!(
+            trigger == TransmissionTrigger::SourceFires
+                || spec.mode == TransmissionMode::Modulatory,
+            "qualified local transmission must have Modulatory effect"
+        );
+        let id = self.add_arrow(spec);
+        let slot = self.arrow_slot(id).expect("new ARROW must resolve");
+        self.arrows.with_mut(slot.0, |arrow| arrow.trigger = trigger);
+        id
+    }
+
+    #[cfg(feature = "pqlc0")]
+    pub fn transmission_trigger(&self, id: ArrowId) -> TransmissionTrigger {
+        self.arrows
+            .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
+            .trigger
     }
 
     pub fn enter(&mut self, input: SpikeInput) {
@@ -1443,6 +1494,8 @@ impl PlasticSubstrate {
                 #[cfg(feature = "cpc1")]
                 plastic_support: 0,
                 mode,
+                #[cfg(feature = "pqlc0")]
+                trigger: TransmissionTrigger::SourceFires,
             });
             substrate.outgoing_index[durable.from.id.0 as usize].push(durable.id);
         }
@@ -1815,6 +1868,10 @@ impl PlasticSubstrate {
                     {
                         continue;
                     }
+                    #[cfg(feature = "pqlc0")]
+                    if arrow.trigger != TransmissionTrigger::SourceFires {
+                        continue;
+                    }
                     let from_slot = self.cell_slot(arrow.from).unwrap();
                     let to_slot = self.cell_slot(arrow.to).unwrap();
                     let from = self.cells.get(from_slot.0);
@@ -1956,6 +2013,15 @@ impl PlasticSubstrate {
                 self.outgoing_index[cell.0 as usize].clone()
             }
         };
+        #[cfg(feature = "pqlc0")]
+        let qualified_local = candidates.iter().any(|id| {
+            let slot = self.arrow_slot(*id).expect("indexed ARROW must resolve");
+            let arrow = self.arrows.get(slot.0);
+            arrow.live
+                && arrow.from == cell
+                && arrow.mode == TransmissionMode::Drive
+                && arrow.participation_level > 0
+        });
         for id in candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
@@ -2016,6 +2082,91 @@ impl PlasticSubstrate {
                 }
                 self.eligible_arrows.remove(&id);
             }
+        }
+        #[cfg(feature = "pqlc0")]
+        if qualified_local {
+            self.propagate_qualified_local(
+                cell,
+                tick,
+                phase,
+                work,
+                execution_cost,
+                physical_trace,
+            );
+        }
+    }
+
+    #[cfg(feature = "pqlc0")]
+    fn propagate_qualified_local(
+        &mut self,
+        cell: CellId,
+        tick: i64,
+        phase: i32,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
+        let outgoing = self.outgoing_index[cell.0 as usize].clone();
+        for id in outgoing {
+            let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
+            let arrow = self.arrows.get(slot.0);
+            execution_cost.scans = execution_cost.scans.saturating_add(1);
+            execution_cost.touch::<Arrow>(1);
+            if !arrow.live
+                || arrow.from != cell
+                || arrow.trigger != TransmissionTrigger::QualifiedLocalParticipation
+            {
+                continue;
+            }
+            assert_eq!(arrow.mode, TransmissionMode::Modulatory);
+            let source = self.cells.get(self.cell_slot(arrow.from).unwrap().0);
+            let target = self.cells.get(self.cell_slot(arrow.to).unwrap().0);
+            let arrival_tick = tick.saturating_add(arrow.delay);
+            let arrival_phase = arrow.phase;
+            let generation = arrow.generation;
+            let coupling = arrow.coupling;
+            let target_generation = target.generation;
+            let target_id = arrow.to;
+            let origin_physical = source.physical_id;
+            self.arrows.with_mut(slot.0, |live_arrow| {
+                live_arrow.eligible_until = Some(tick.saturating_add(LOCAL_WINDOW));
+                live_arrow.participation_level = live_arrow
+                    .participation_level
+                    .saturating_add(PARTICIPATION_IMPULSE);
+            });
+            self.eligible_arrows.insert(id);
+            work.total = work.total.saturating_add(2);
+            work.qualified_local_traversals =
+                work.qualified_local_traversals.saturating_add(1);
+            if self.trace_physics {
+                physical_trace.push(PhysicalTransition {
+                    tick,
+                    phase,
+                    event: PhysicalEvent::QualifiedLocalTraversal { arrow: id },
+                });
+                physical_trace.push(PhysicalTransition {
+                    tick,
+                    phase,
+                    event: PhysicalEvent::Eligible {
+                        arrow: id,
+                        until: tick.saturating_add(LOCAL_WINDOW),
+                    },
+                });
+            }
+            self.pending.push(
+                Spike {
+                    arrival_tick,
+                    phase: arrival_phase,
+                    origin_physical,
+                    target: target_id,
+                    target_generation,
+                    impulse: coupling,
+                    serial: self.next_serial,
+                    arrow: Some((id, generation)),
+                },
+                execution_cost,
+            );
+            self.next_serial = self.next_serial.wrapping_add(1);
         }
     }
 

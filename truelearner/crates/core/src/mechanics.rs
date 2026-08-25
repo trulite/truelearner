@@ -274,6 +274,8 @@ pub(super) struct ArrowColumns {
     #[cfg(feature = "cpc1")]
     plastic_supports: Vec<u64>,
     modes: Vec<super::TransmissionMode>,
+    #[cfg(feature = "pqlc0")]
+    triggers: Vec<super::TransmissionTrigger>,
 }
 
 impl ArrowColumns {
@@ -303,6 +305,8 @@ impl ArrowColumns {
             #[cfg(feature = "cpc1")]
             plastic_support: self.plastic_supports[index],
             mode: self.modes[index],
+            #[cfg(feature = "pqlc0")]
+            trigger: self.triggers[index],
         }
     }
 
@@ -324,6 +328,10 @@ impl ArrowColumns {
             self.plastic_supports[index] = value.plastic_support;
         }
         self.modes[index] = value.mode;
+        #[cfg(feature = "pqlc0")]
+        {
+            self.triggers[index] = value.trigger;
+        }
     }
 
     fn push(&mut self, value: Arrow) {
@@ -344,6 +352,10 @@ impl ArrowColumns {
             self.plastic_supports.push(value.plastic_support);
         }
         self.modes.push(value.mode);
+        #[cfg(feature = "pqlc0")]
+        {
+            self.triggers.push(value.trigger);
+        }
     }
 
     fn resident_bytes(&self) -> usize {
@@ -361,9 +373,19 @@ impl ArrowColumns {
             + self.modes.capacity() * std::mem::size_of::<super::TransmissionMode>();
         #[cfg(feature = "cpc1")]
         {
-            bytes
+            let bytes = bytes
                 + self.participation_levels.capacity() * std::mem::size_of::<u64>()
-                + self.plastic_supports.capacity() * std::mem::size_of::<u64>()
+                + self.plastic_supports.capacity() * std::mem::size_of::<u64>();
+            #[cfg(feature = "pqlc0")]
+            {
+                bytes
+                    + self.triggers.capacity()
+                        * std::mem::size_of::<super::TransmissionTrigger>()
+            }
+            #[cfg(not(feature = "pqlc0"))]
+            {
+                bytes
+            }
         }
         #[cfg(not(feature = "cpc1"))]
         {
