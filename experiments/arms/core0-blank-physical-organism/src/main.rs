@@ -1093,8 +1093,23 @@ fn run_matrix() -> Vec<Row> {
             }
             let root =
                 8_000_000 + u64::try_from(profile_index * 100_000 + gate_index * 1_000).unwrap();
+            eprintln!(
+                "CORE0_DIAGNOSTIC profile={} gate={:?} mechanics=reference replay=0",
+                profile_name(profile),
+                gate
+            );
             let reference = execute(gate, profile, MechanicalConfig::REFERENCE, root);
+            eprintln!(
+                "CORE0_DIAGNOSTIC profile={} gate={:?} mechanics=reference replay=1",
+                profile_name(profile),
+                gate
+            );
             let replay = execute(gate, profile, MechanicalConfig::REFERENCE, root);
+            eprintln!(
+                "CORE0_DIAGNOSTIC profile={} gate={:?} mechanics=production replay=0",
+                profile_name(profile),
+                gate
+            );
             let production = execute(gate, profile, MechanicalConfig::PRODUCTION, root);
             let replay_exact = equivalent(&reference, &replay);
             let mechanics_exact = equivalent(&reference, &production);
