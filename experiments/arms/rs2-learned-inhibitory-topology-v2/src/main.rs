@@ -303,7 +303,9 @@ impl World {
             })
             .collect::<Vec<_>>();
         candidates.sort_by_key(|candidate| candidate.sign);
-        candidates.try_into().expect("exactly two signed candidates")
+        candidates
+            .try_into()
+            .expect("exactly two signed candidates")
     }
 
     fn modulate(&mut self, contact: CellId, age: i64) {
@@ -330,7 +332,11 @@ impl World {
         self.add_drive(w, a, 1, 1, 1, 500);
     }
 
-    fn probe_observed(&mut self, target: CellId, age: i64) -> (Vec<PhysicalTransition>, bool, bool) {
+    fn probe_observed(
+        &mut self,
+        target: CellId,
+        age: i64,
+    ) -> (Vec<PhysicalTransition>, bool, bool) {
         self.body.enter(SpikeInput {
             arrival_tick: self.origin.saturating_add(age),
             phase: 0,
@@ -445,7 +451,9 @@ fn train_selected(
 
 fn observe(family: Family, root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     match family {
-        Family::LearnedNegative => observe_learned_negative(root, phase, mechanics, false, 0, false),
+        Family::LearnedNegative => {
+            observe_learned_negative(root, phase, mechanics, false, 0, false)
+        }
         Family::NoModulation => observe_no_modulation(root, phase, mechanics),
         Family::IdentityPermutation => {
             observe_learned_negative(root, phase, mechanics, true, 0, false)
@@ -499,11 +507,23 @@ fn observe_learned_negative(
     )];
     let checks = vec![
         ("negative_selected".into(), selected.sign == -1),
-        ("selected_relation_consolidated".into(), selected_r == [Some(4), Some(4)]),
+        (
+            "selected_relation_consolidated".into(),
+            selected_r == [Some(4), Some(4)],
+        ),
         ("unsupported_relation_removed".into(), !unsupported_live),
-        ("anchor_credit_absent".into(), anchors_after == [Some(500), Some(500)]),
-        ("intended_cycle_executes_once".into(), a_fires == 1 && b_fires == 1),
-        ("learned_negative_traverses".into(), selected_contact_fires == 1),
+        (
+            "anchor_credit_absent".into(),
+            anchors_after == [Some(500), Some(500)],
+        ),
+        (
+            "intended_cycle_executes_once".into(),
+            a_fires == 1 && b_fires == 1,
+        ),
+        (
+            "learned_negative_traverses".into(),
+            selected_contact_fires == 1,
+        ),
         ("recurrence_settles".into(), quiescent && !ceiling),
         ("only_two_training_updates".into(), world.work.updates == 2),
     ];
@@ -527,8 +547,14 @@ fn observe_no_modulation(root: u64, phase: i64, mechanics: MechanicalConfig) -> 
     let checks = vec![
         ("no_modulation_no_updates".into(), world.work.updates == 0),
         ("unsupported_candidates_removed".into(), candidates_gone),
-        ("anchor_credit_absent".into(), anchors_after == [Some(500), Some(500)]),
-        ("uninhibited_recurrence_persists".into(), !quiescent && ceiling),
+        (
+            "anchor_credit_absent".into(),
+            anchors_after == [Some(500), Some(500)],
+        ),
+        (
+            "uninhibited_recurrence_persists".into(),
+            !quiescent && ceiling,
+        ),
     ];
     world.finish(markers, quiescent, ceiling, checks)
 }
@@ -589,7 +615,10 @@ fn observe_useful_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -
             contact_after == contact_before.saturating_add(1)
                 && target_after == target_before.saturating_add(1),
         ),
-        ("anchor_credit_absent".into(), anchors_after == [Some(500), Some(500)]),
+        (
+            "anchor_credit_absent".into(),
+            anchors_after == [Some(500), Some(500)],
+        ),
     ];
     world.finish(markers, true, false, checks)
 }
@@ -604,7 +633,8 @@ fn observe_disconnected(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
     world.modulate(negative_elsewhere.contact, 2);
     world.advance_age(10);
     let disconnected_live = world.relation_live(negative_elsewhere);
-    let a_candidates_gone = !world.relation_live(negative_to_a) && !world.relation_live(positive_to_a);
+    let a_candidates_gone =
+        !world.relation_live(negative_to_a) && !world.relation_live(positive_to_a);
     let positive_elsewhere_gone = !world.relation_live(positive_elsewhere);
     let a = world.target_a;
     let b = world.source_b;
@@ -614,9 +644,19 @@ fn observe_disconnected(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
         ("disconnected_negative_learned".into(), disconnected_live),
         ("target_candidates_absent".into(), a_candidates_gone),
         ("other_sign_absent".into(), positive_elsewhere_gone),
-        ("disconnected_inhibition_cannot_settle".into(), !quiescent && ceiling),
+        (
+            "disconnected_inhibition_cannot_settle".into(),
+            !quiescent && ceiling,
+        ),
     ];
-    world.finish(vec![format!("disconnected={disconnected_live};ceiling={ceiling}")], quiescent, ceiling, checks)
+    world.finish(
+        vec![format!(
+            "disconnected={disconnected_live};ceiling={ceiling}"
+        )],
+        quiescent,
+        ceiling,
+        checks,
+    )
 }
 
 fn observe_untraversed(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
@@ -628,14 +668,28 @@ fn observe_untraversed(root: u64, phase: i64, mechanics: MechanicalConfig) -> Ob
     world.add_recurrence(a, q, 300);
     let (probe, quiescent, ceiling) = world.probe_observed(a, 10);
     let checks = vec![
-        ("learned_negative_present".into(), world.relation_live(selected)),
+        (
+            "learned_negative_present".into(),
+            world.relation_live(selected),
+        ),
         (
             "learned_contact_not_traversed".into(),
             fire_count(&probe, selected.contact) == 0,
         ),
-        ("untraversed_inhibition_cannot_settle".into(), !quiescent && ceiling),
+        (
+            "untraversed_inhibition_cannot_settle".into(),
+            !quiescent && ceiling,
+        ),
     ];
-    world.finish(vec![format!("contact_fires={}", fire_count(&probe, selected.contact))], quiescent, ceiling, checks)
+    world.finish(
+        vec![format!(
+            "contact_fires={}",
+            fire_count(&probe, selected.contact)
+        )],
+        quiescent,
+        ceiling,
+        checks,
+    )
 }
 
 fn mechanics_name(config: MechanicalConfig) -> &'static str {
@@ -672,7 +726,11 @@ fn main() {
                 let cross_equal = reference == production;
                 for (mechanics, observation, replay) in [
                     (MechanicalConfig::REFERENCE, &reference, &reference_replay),
-                    (MechanicalConfig::PRODUCTION, &production, &production_replay),
+                    (
+                        MechanicalConfig::PRODUCTION,
+                        &production,
+                        &production_replay,
+                    ),
                 ] {
                     rows += 1;
                     let replay_equal = observation == replay;
@@ -712,9 +770,8 @@ fn main() {
             }
         }
     }
-    let expected_cases = ROOTS.len()
-        * usize::try_from(PHASES.end - PHASES.start).unwrap()
-        * Family::ALL.len();
+    let expected_cases =
+        ROOTS.len() * usize::try_from(PHASES.end - PHASES.start).unwrap() * Family::ALL.len();
     let expected_rows = expected_cases.saturating_mul(2);
     assert_eq!(cases, expected_cases);
     assert_eq!(rows, expected_rows);
