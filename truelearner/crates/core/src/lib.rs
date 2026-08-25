@@ -2541,7 +2541,11 @@ impl PlasticSubstrate {
             .map(|maximum| vec![None; maximum as usize + 1])
             .unwrap_or_default();
         for durable in body.cells {
-            if durable.threshold <= 0 || durable.live != (durable.resistance > 0) {
+            #[cfg(feature = "j0")]
+            let invalid_liveness = false;
+            #[cfg(not(feature = "j0"))]
+            let invalid_liveness = durable.live != (durable.resistance > 0);
+            if durable.threshold <= 0 || invalid_liveness {
                 return Err(CheckpointError::InvalidPhysicalBody);
             }
             let slot = CellSlot(substrate.cells.len());
@@ -2574,15 +2578,32 @@ impl PlasticSubstrate {
             if durable.from.arena != substrate.arena || durable.to.arena != substrate.arena {
                 return Err(CheckpointError::MissingCell(durable.from.id));
             }
-            substrate.require_cell_result(durable.from.id)?;
-            substrate.require_cell_result(durable.to.id)?;
-            let from_slot = substrate.cell_slot(durable.from.id).unwrap();
-            let to_slot = substrate.cell_slot(durable.to.id).unwrap();
-            if substrate.cells.get(from_slot.0).generation != durable.from.generation {
-                return Err(CheckpointError::StaleCellReference(durable.from));
-            }
-            if substrate.cells.get(to_slot.0).generation != durable.to.generation {
-                return Err(CheckpointError::StaleCellReference(durable.to));
+            let from_slot = substrate
+                .cells
+                .values()
+                .iter()
+                .position(|cell| cell.id == durable.from.id)
+                .map(CellSlot)
+                .ok_or(CheckpointError::MissingCell(durable.from.id))?;
+            let to_slot = substrate
+                .cells
+                .values()
+                .iter()
+                .position(|cell| cell.id == durable.to.id)
+                .map(CellSlot)
+                .ok_or(CheckpointError::MissingCell(durable.to.id))?;
+            if durable.live {
+                if substrate.cells.get(from_slot.0).generation != durable.from.generation {
+                    return Err(CheckpointError::StaleCellReference(durable.from));
+                }
+                if substrate.cells.get(to_slot.0).generation != durable.to.generation {
+                    return Err(CheckpointError::StaleCellReference(durable.to));
+                }
+                if !substrate.cells.get(from_slot.0).live
+                    || !substrate.cells.get(to_slot.0).live
+                {
+                    return Err(CheckpointError::InvalidPhysicalBody);
+                }
             }
             if durable.delay < 0 || durable.live != (durable.resistance > 0) {
                 return Err(CheckpointError::InvalidPhysicalBody);
@@ -2734,7 +2755,11 @@ impl PlasticSubstrate {
         substrate.pressure_tick = pressure_epoch(checkpoint.clock.tick);
         for runtime in checkpoint.cells {
             let slot = substrate
-                .cell_slot(runtime.id)
+                .cells
+                .values()
+                .iter()
+                .position(|cell| cell.id == runtime.id)
+                .map(CellSlot)
                 .ok_or(CheckpointError::MissingCell(runtime.id))?;
             substrate.cells.with_mut(slot.0, |cell| {
                 cell.state = runtime.state;
