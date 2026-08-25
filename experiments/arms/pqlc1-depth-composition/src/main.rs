@@ -746,16 +746,20 @@ fn main() {
                     (mechanics[0], &reference),
                     (mechanics[1], &production_run.0),
                 ] {
-                    write_row(&mut csv, physical_cases, EvidenceRow {
-                        root,
-                        phase,
-                        case,
-                        mechanics: kind,
-                        observation,
-                        expected_support: &expected_support,
-                        expected_qlp,
-                        recurrent,
-                    });
+                    write_row(
+                        &mut csv,
+                        physical_cases,
+                        EvidenceRow {
+                            root,
+                            phase,
+                            case,
+                            mechanics: kind,
+                            observation,
+                            expected_support: &expected_support,
+                            expected_qlp,
+                            recurrent,
+                        },
+                    );
                 }
             }
         }
