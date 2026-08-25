@@ -1,0 +1,11 @@
+[package]
+name = "tc-ds1-continuous-participation"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["tc-ds1"] }
+
+[workspace]
+

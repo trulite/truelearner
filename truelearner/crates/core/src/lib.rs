@@ -25,6 +25,12 @@ const CHECKPOINT_VERSION: u16 = 1;
 const QUIESCENT_MAGIC: &[u8; 8] = b"TLQUIE01";
 const LIVE_MAGIC: &[u8; 8] = b"TLLIVE01";
 const BOUNDARY_LIVE_MAGIC: &[u8; 8] = b"TLBNDY01";
+#[cfg(feature = "tc-ds1")]
+const PARTICIPATION_IMPULSE: u64 = 1_u64 << 32;
+#[cfg(feature = "tc-ds1")]
+const PARTICIPATION_RELAX_NUMERATOR: u64 = 15;
+#[cfg(feature = "tc-ds1")]
+const PARTICIPATION_RELAX_DENOMINATOR: u64 = 16;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CellSlot(pub usize);
@@ -191,6 +197,8 @@ struct Arrow {
     resistance: u32,
     live: bool,
     eligible_until: Option<i64>,
+    #[cfg(feature = "tc-ds1")]
+    participation_level: u64,
     mode: TransmissionMode,
 }
 
@@ -229,6 +237,17 @@ pub enum PhysicalEvent {
     Eligible {
         arrow: ArrowId,
         until: i64,
+    },
+    #[cfg(feature = "tc-ds1")]
+    Participation {
+        arrow: ArrowId,
+        before: u64,
+        after: u64,
+    },
+    #[cfg(feature = "tc-ds1")]
+    ParticipationContact {
+        arrow: ArrowId,
+        level: u64,
     },
     Resistance {
         arrow: ArrowId,
@@ -1206,6 +1225,8 @@ impl PlasticSubstrate {
             resistance: spec.resistance,
             live: spec.resistance > 0,
             eligible_until: None,
+            #[cfg(feature = "tc-ds1")]
+            participation_level: 0,
             mode: spec.mode,
         };
         if slot.0 < self.arrows.len() {
@@ -1422,6 +1443,8 @@ impl PlasticSubstrate {
                 resistance: durable.resistance,
                 live: durable.live,
                 eligible_until: None,
+                #[cfg(feature = "tc-ds1")]
+                participation_level: 0,
                 mode,
             });
             substrate.outgoing_index[durable.from.id.0 as usize].push(durable.id);
@@ -1819,8 +1842,18 @@ impl PlasticSubstrate {
                         crossings.push(crossing);
                     }
                     let arrow_slot = self.arrow_slot(arrow_id).unwrap();
+                    #[cfg(not(feature = "tc-ds1"))]
                     self.arrows.with_mut(arrow_slot.0, |live_arrow| {
                         live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
+                    });
+                    #[cfg(feature = "tc-ds1")]
+                    let participation_change = self.arrows.with_mut(arrow_slot.0, |live_arrow| {
+                        live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
+                        let before = live_arrow.participation_level;
+                        live_arrow.participation_level = live_arrow
+                            .participation_level
+                            .saturating_add(PARTICIPATION_IMPULSE);
+                        (before, live_arrow.participation_level)
                     });
                     execution_cost.touch::<Arrow>(1);
                     self.eligible_arrows.insert(arrow_id);
@@ -1831,6 +1864,16 @@ impl PlasticSubstrate {
                             event: PhysicalEvent::Eligible {
                                 arrow: arrow_id,
                                 until: self.tick.saturating_add(LOCAL_WINDOW),
+                            },
+                        });
+                        #[cfg(feature = "tc-ds1")]
+                        physical_trace.push(PhysicalTransition {
+                            tick: self.tick,
+                            phase: spike.phase,
+                            event: PhysicalEvent::Participation {
+                                arrow: arrow_id,
+                                before: participation_change.0,
+                                after: participation_change.1,
                             },
                         });
                     }
@@ -1933,6 +1976,20 @@ impl PlasticSubstrate {
         for id in candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
+            #[cfg(feature = "tc-ds1")]
+            if self.trace_physics {
+                let arrow = self.arrows.get(slot.0);
+                if arrow.live {
+                    physical_trace.push(PhysicalTransition {
+                        tick,
+                        phase,
+                        event: PhysicalEvent::ParticipationContact {
+                            arrow: id,
+                            level: arrow.participation_level,
+                        },
+                    });
+                }
+            }
             let updated = self.arrows.with_mut(slot.0, |arrow| {
                 if arrow.live
                     && arrow.from == cell
@@ -1971,6 +2028,20 @@ impl PlasticSubstrate {
 
     fn elapse_to(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
         execution_cost.observe_frontiers(self.active_cells.len(), self.eligible_arrows.len());
+        #[cfg(feature = "tc-ds1")]
+        {
+            let elapsed = tick.saturating_sub(self.tick);
+            for index in 0..self.arrows.len() {
+                self.arrows.with_mut(index, |arrow| {
+                    arrow.participation_level = if arrow.live {
+                        relax_participation(arrow.participation_level, elapsed)
+                    } else {
+                        0
+                    };
+                });
+                execution_cost.touch::<Arrow>(1);
+            }
+        }
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
         if pressure_steps > 0 {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
@@ -2222,6 +2293,14 @@ impl PlasticSubstrate {
         }
     }
 
+    #[cfg(feature = "tc-ds1")]
+    pub fn path_participation(&self, id: ArrowId) -> u64 {
+        let slot = self
+            .arrow_slot(id)
+            .expect("observed ARROW identity must resolve");
+        self.arrows.get(slot.0).participation_level
+    }
+
     fn rebuild_slot_maps(&mut self) {
         self.cell_slots.fill(None);
         for (index, cell) in self.cells.values().iter().enumerate() {
@@ -2321,7 +2400,21 @@ fn pressure_arrow(arrow: &mut Arrow, amount: u32) {
         arrow.live = false;
         arrow.generation = Generation(arrow.generation.0.wrapping_add(1));
         arrow.eligible_until = None;
+        #[cfg(feature = "tc-ds1")]
+        {
+            arrow.participation_level = 0;
+        }
     }
+}
+
+#[cfg(feature = "tc-ds1")]
+fn relax_participation(mut level: u64, elapsed: i64) -> u64 {
+    for _ in 0..u64::try_from(elapsed).unwrap_or(u64::MAX) {
+        level = level
+            .saturating_mul(PARTICIPATION_RELAX_NUMERATOR)
+            / PARTICIPATION_RELAX_DENOMINATOR;
+    }
+    level
 }
 
 fn pressure_epoch(tick: i64) -> i64 {
