@@ -463,19 +463,17 @@ fn normalize_trace(world: &LogicalWorld, trace: &[PhysicalTransition]) -> Vec<St
     }
     waves
         .into_iter()
-        .map(
-            |((tick, phase, wave), mut observation)| {
-                observation.incidences.sort();
-                observation.fires.sort();
-                observation.effects.sort();
-                format!(
-                    "{tick}:{phase}:wave={wave}:INCIDENCES=[{}]:FIRES=[{}]:EFFECTS=[{}]",
-                    observation.incidences.join("|"),
-                    observation.fires.join("|"),
-                    observation.effects.join("|")
-                )
-            },
-        )
+        .map(|((tick, phase, wave), mut observation)| {
+            observation.incidences.sort();
+            observation.fires.sort();
+            observation.effects.sort();
+            format!(
+                "{tick}:{phase}:wave={wave}:INCIDENCES=[{}]:FIRES=[{}]:EFFECTS=[{}]",
+                observation.incidences.join("|"),
+                observation.fires.join("|"),
+                observation.effects.join("|")
+            )
+        })
         .collect()
 }
 
