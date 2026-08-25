@@ -617,6 +617,9 @@ fn recurrent(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation 
     let mut world = Session::new(root, phase, mechanics);
     let b = world.cell(root + 1, 0, 0, 2);
     let a = world.cell(root + 2, 1, 0, 2);
+    let anchor = world.cell(root + 3, 10_000, 0, 100);
+    world.arrow(anchor, b, 1, 500, 1, TransmissionMode::Drive);
+    world.arrow(a, anchor, 1, 500, 1, TransmissionMode::Drive);
 
     // Ordinary variation supplies both signs in separate contact junctions.
     // A qualified consequence selects the negative relation without any sign
@@ -856,7 +859,7 @@ fn measures_text(measures: &[u64]) -> String {
 
 fn main() {
     let output = env::args_os().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from("experiments/results/ce1_consequence_supported_efficacy_v1")
+        PathBuf::from("experiments/results/ce1_consequence_supported_efficacy_v2")
     });
     fs::create_dir_all(&output).expect("create CE1 output directory");
 
@@ -954,7 +957,7 @@ fn main() {
         "CE1 is an immutable negative: at least one frozen condition failed."
     };
     let report = format!(
-        "# CE1 consequence-supported efficacy v1\n\n\
+        "# CE1 consequence-supported efficacy v2\n\n\
          - cases: `{case_id}/{EXPECTED_CASES}`\n\
          - mechanics rows: `{rows}/{EXPECTED_ROWS}`\n\
          - exact same-mechanics replay: `{all_replay}`\n\
@@ -965,7 +968,7 @@ fn main() {
          {claim}\n"
     );
     fs::write(output.join("report.md"), report).expect("write CE1 report");
-    assert!(all_pass, "CE1 matrix failed");
-    println!("CE1_CONSEQUENCE_SUPPORTED_EFFICACY_V1_PASS");
+    assert!(all_pass, "CE1 v2 matrix failed");
+    println!("CE1_CONSEQUENCE_SUPPORTED_EFFICACY_V2_PASS");
     println!("matrix_sha256={matrix_hash}");
 }
