@@ -226,10 +226,7 @@ impl World {
                 impulse: 1,
             })
             .collect::<Vec<_>>();
-        let result = self.body.arrive(
-            &inputs,
-            i16::MAX,
-        );
+        let result = self.body.arrive(&inputs, i16::MAX);
         self.trace.extend(result.physical_trace);
         self.work.add(result.work);
         self.naturally_quiescent &= result.naturally_quiescent;
