@@ -6,8 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig,
-    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
+    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig, PhysicalEvent,
+    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
 };
 
 const RESISTANCES: [u32; 3] = [1, 2, 4];
@@ -221,10 +221,7 @@ impl Recorder {
             .work
             .modulation
             .saturating_add(work.modulatory_deliveries);
-        self.work.updates = self
-            .work
-            .updates
-            .saturating_add(work.local_return_updates);
+        self.work.updates = self.work.updates.saturating_add(work.local_return_updates);
         self.work.proposals = self
             .work
             .proposals
@@ -245,12 +242,7 @@ impl Recorder {
         live && !self.consumed && self.deadline.is_some_and(|until| tick <= until)
     }
 
-    fn point(
-        &mut self,
-        body: &PlasticSubstrate,
-        geometry: Geometry,
-        stage: &'static str,
-    ) -> Point {
+    fn point(&mut self, body: &PlasticSubstrate, geometry: Geometry, stage: &'static str) -> Point {
         let tick = body.clock().tick;
         let durable = durable_state(body, geometry.candidate);
         self.maximum_resistance = self.maximum_resistance.max(durable.resistance);
@@ -405,11 +397,7 @@ fn durable_state(body: &PlasticSubstrate, candidate: ArrowId) -> DurableState {
     }
 }
 
-fn execute(
-    case_id: usize,
-    case: CaseSpec,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn execute(case_id: usize, case: CaseSpec, mechanics: MechanicalConfig) -> Observation {
     let (mut body, geometry, root) = build(case_id, case, mechanics);
     let mut recorder = Recorder {
         naturally_quiescent: true,
@@ -652,20 +640,20 @@ fn main() {
         assert!(reference.naturally_quiescent);
         assert_eq!(reference.work.proposals, 0);
 
-        eligible_pressure_observed = eligible_pressure_observed
-            .saturating_add(reference.eligible_pressure_observed);
-        eligible_pressure_unchanged = eligible_pressure_unchanged
-            .saturating_add(reference.eligible_pressure_unchanged);
-        ineligible_pressure_observed = ineligible_pressure_observed
-            .saturating_add(reference.ineligible_pressure_observed);
-        ineligible_pressure_reduced = ineligible_pressure_reduced
-            .saturating_add(reference.ineligible_pressure_reduced);
+        eligible_pressure_observed =
+            eligible_pressure_observed.saturating_add(reference.eligible_pressure_observed);
+        eligible_pressure_unchanged =
+            eligible_pressure_unchanged.saturating_add(reference.eligible_pressure_unchanged);
+        ineligible_pressure_observed =
+            ineligible_pressure_observed.saturating_add(reference.ineligible_pressure_observed);
+        ineligible_pressure_reduced =
+            ineligible_pressure_reduced.saturating_add(reference.ineligible_pressure_reduced);
         let resistance_index = RESISTANCES
             .iter()
             .position(|candidate| *candidate == case.resistance)
             .unwrap();
-        final_live[case.family.index()][resistance_index] = final_live
-            [case.family.index()][resistance_index]
+        final_live[case.family.index()][resistance_index] = final_live[case.family.index()]
+            [resistance_index]
             .saturating_add(if reference.final_state.live { 1 } else { 0 });
 
         if case.family == Family::TimedConsequence {
@@ -692,9 +680,7 @@ fn main() {
             }
         }
 
-        for (kind, observation) in
-            [(mechanics[0], &reference), (mechanics[1], &production)]
-        {
+        for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)] {
             write_row(
                 &mut csv,
                 EvidenceRow {
@@ -752,5 +738,8 @@ fn main() {
     fs::write(output.join("matrix.csv"), csv).unwrap();
     fs::write(output.join("report.md"), report).unwrap();
     write_checksums(&output);
-    println!("PD0_COMPLETE physical_cases={} characterized=true", case_specs.len());
+    println!(
+        "PD0_COMPLETE physical_cases={} characterized=true",
+        case_specs.len()
+    );
 }
