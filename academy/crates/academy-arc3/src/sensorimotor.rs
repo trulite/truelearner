@@ -189,6 +189,15 @@ impl Arc3Sensorimotor {
             SensorMode::DominantPalette => PALETTE_CONTEXTS,
             SensorMode::SpatialFingerprint => SPATIAL_CONTEXTS,
         };
+        Self::with_sensor_context_count(seed, sensor_mode, context_count, mechanics)
+    }
+
+    fn with_sensor_context_count(
+        seed: u64,
+        sensor_mode: SensorMode,
+        context_count: usize,
+        mechanics: MechanicalConfig,
+    ) -> Result<Self, Arc3SensorimotorError> {
         let (boundary, sites) = build_body(seed, sensor_mode, context_count, mechanics)?;
         Ok(Self {
             seed,
@@ -848,24 +857,38 @@ mod tests {
         mechanics: MechanicalConfig,
         initial_gap: i64,
     ) -> Vec<Arc3SensorimotorObservation> {
-        let mut organism = Arc3Sensorimotor::new_spatial_with_mechanics(205, mechanics).unwrap();
+        const TEST_CONTEXTS: usize = 32;
+        let mut organism = Arc3Sensorimotor::with_sensor_context_count(
+            205,
+            SensorMode::SpatialFingerprint,
+            TEST_CONTEXTS,
+            mechanics,
+        )
+        .unwrap();
         organism.advance_gap(initial_gap).unwrap();
         let mut frames = Vec::new();
-        let mut current = frame(4);
-        frames.push(current.clone());
-        for (index, color) in [9, 11, 14].into_iter().enumerate() {
-            current[index * 257 + 3] = color;
-            frames.push(current.clone());
+        let mut contexts = BTreeSet::new();
+        for nonce in 0_u16..u16::MAX {
+            let mut candidate = frame(4);
+            candidate[0] = (nonce & 0x0f) as u8;
+            candidate[1] = (nonce >> 4 & 0x0f) as u8;
+            candidate[2] = (nonce >> 8 & 0x0f) as u8;
+            candidate[3] = (nonce >> 12 & 0x0f) as u8;
+            let context = spatial_context(&candidate).unwrap();
+            if usize::from(context) < TEST_CONTEXTS && contexts.insert(context) {
+                frames.push(candidate);
+                if frames.len() == 5 {
+                    break;
+                }
+            }
         }
-        let contexts = frames
-            .iter()
-            .map(|value| spatial_context(value).unwrap())
-            .collect::<BTreeSet<_>>();
-        assert_eq!(contexts.len(), 4);
+        assert_eq!(frames.len(), 5);
 
         let mut observations = Vec::new();
         for (index, (value, action)) in frames
-            .into_iter()
+            .iter()
+            .take(4)
+            .cloned()
             .zip([1, 4, 2, 3])
             .enumerate()
         {
@@ -882,12 +905,10 @@ mod tests {
                     .unwrap(),
             );
         }
-        let mut returned = frame(4);
-        returned[ARC3_FRAME_PIXELS - 1] = 12;
         observations.push(
             organism
                 .observe(
-                    returned,
+                    frames[4].clone(),
                     &[1, 2, 3, 4],
                     None,
                     true,
