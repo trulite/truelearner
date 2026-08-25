@@ -151,6 +151,7 @@ struct Sites {
 pub struct Arc3Sensorimotor {
     seed: u64,
     sensor_mode: SensorMode,
+    mechanics: MechanicalConfig,
     boundary: BoundaryRuntime,
     sites: Sites,
     previous_frame: Option<Vec<u8>>,
@@ -168,15 +169,31 @@ impl Arc3Sensorimotor {
         Self::with_sensor(seed, SensorMode::SpatialFingerprint)
     }
 
+    pub fn new_spatial_with_mechanics(
+        seed: u64,
+        mechanics: MechanicalConfig,
+    ) -> Result<Self, Arc3SensorimotorError> {
+        Self::with_sensor_and_mechanics(seed, SensorMode::SpatialFingerprint, mechanics)
+    }
+
     fn with_sensor(seed: u64, sensor_mode: SensorMode) -> Result<Self, Arc3SensorimotorError> {
+        Self::with_sensor_and_mechanics(seed, sensor_mode, MechanicalConfig::PRODUCTION)
+    }
+
+    fn with_sensor_and_mechanics(
+        seed: u64,
+        sensor_mode: SensorMode,
+        mechanics: MechanicalConfig,
+    ) -> Result<Self, Arc3SensorimotorError> {
         let context_count = match sensor_mode {
             SensorMode::DominantPalette => PALETTE_CONTEXTS,
             SensorMode::SpatialFingerprint => SPATIAL_CONTEXTS,
         };
-        let (boundary, sites) = build_body(seed, sensor_mode, context_count)?;
+        let (boundary, sites) = build_body(seed, sensor_mode, context_count, mechanics)?;
         Ok(Self {
             seed,
             sensor_mode,
+            mechanics,
             boundary,
             sites,
             previous_frame: None,
@@ -372,7 +389,8 @@ impl Arc3Sensorimotor {
     }
 
     pub fn reset_body(&mut self) -> Result<(), Arc3SensorimotorError> {
-        let replacement = Self::with_sensor(self.seed, self.sensor_mode)?;
+        let replacement =
+            Self::with_sensor_and_mechanics(self.seed, self.sensor_mode, self.mechanics)?;
         *self = replacement;
         Ok(())
     }
@@ -500,6 +518,7 @@ fn build_body(
     seed: u64,
     sensor_mode: SensorMode,
     context_count: usize,
+    mechanics: MechanicalConfig,
 ) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
     let spatial = sensor_mode == SensorMode::SpatialFingerprint;
     let cells_per_pair = if spatial { 6 } else { 3 };
@@ -525,7 +544,7 @@ fn build_body(
         ArenaId(seed),
         cell_capacity,
         arrow_capacity,
-        MechanicalConfig::PRODUCTION,
+        mechanics,
     );
     body.set_physical_tracing(true);
     let mut candidate_sources = vec![[CellId(0); MOTORS]; context_count];
@@ -819,9 +838,65 @@ impl From<truelearner_arena_format::FormatError> for Arc3SensorimotorError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
 
     fn frame(color: u8) -> Vec<u8> {
         vec![color; ARC3_FRAME_PIXELS]
+    }
+
+    fn four_context_regimen(
+        mechanics: MechanicalConfig,
+        initial_gap: i64,
+    ) -> Vec<Arc3SensorimotorObservation> {
+        let mut organism = Arc3Sensorimotor::new_spatial_with_mechanics(205, mechanics).unwrap();
+        organism.advance_gap(initial_gap).unwrap();
+        let mut frames = Vec::new();
+        let mut current = frame(4);
+        frames.push(current.clone());
+        for (index, color) in [9, 11, 14].into_iter().enumerate() {
+            current[index * 257 + 3] = color;
+            frames.push(current.clone());
+        }
+        let contexts = frames
+            .iter()
+            .map(|value| spatial_context(value).unwrap())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(contexts.len(), 4);
+
+        let mut observations = Vec::new();
+        for (index, (value, action)) in frames
+            .into_iter()
+            .zip([1, 4, 2, 3])
+            .enumerate()
+        {
+            observations.push(
+                organism
+                    .observe(
+                        value,
+                        &[1, 2, 3, 4],
+                        Some(action),
+                        index > 0,
+                        false,
+                        &[1, 2, 3, 4],
+                    )
+                    .unwrap(),
+            );
+        }
+        let mut returned = frame(4);
+        returned[ARC3_FRAME_PIXELS - 1] = 12;
+        observations.push(
+            organism
+                .observe(
+                    returned,
+                    &[1, 2, 3, 4],
+                    None,
+                    true,
+                    false,
+                    &[1, 2, 3, 4],
+                )
+                .unwrap(),
+        );
+        observations
     }
 
     #[test]
@@ -958,5 +1033,30 @@ mod tests {
         assert_eq!(second.action, Some(2));
         assert_eq!(second.plasticity_updates, 1);
         assert_eq!(organism.candidate_state(first_context, 0), (4, 2, true));
+    }
+
+    #[test]
+    fn four_context_pressure_regimen_matches_reference_and_physical_organism() {
+        for initial_gap in [0, 9] {
+            let reference = four_context_regimen(MechanicalConfig::REFERENCE, initial_gap);
+            let production = four_context_regimen(MechanicalConfig::PRODUCTION, initial_gap);
+            assert_eq!(production, reference);
+            assert_eq!(
+                reference
+                    .iter()
+                    .take(4)
+                    .map(|value| value.action)
+                    .collect::<Vec<_>>(),
+                [Some(1), Some(4), Some(2), Some(3)]
+            );
+            assert_eq!(
+                reference
+                    .iter()
+                    .map(|value| value.plasticity_updates)
+                    .collect::<Vec<_>>(),
+                [0, 1, 1, 1, 1]
+            );
+            assert!(reference.iter().all(|value| value.naturally_quiescent));
+        }
     }
 }

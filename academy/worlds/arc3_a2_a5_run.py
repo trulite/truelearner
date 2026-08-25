@@ -32,6 +32,7 @@ def arguments() -> argparse.Namespace:
     parser.add_argument("--stop-after-a2", action="store_true")
     parser.add_argument("--stop-after-a3", action="store_true")
     parser.add_argument("--initial-gap", type=int, default=0)
+    parser.add_argument("--mechanics", choices=("reference", "production"), default="production")
     return parser.parse_args()
 
 
@@ -40,10 +41,10 @@ class Agent:
     process: subprocess.Popen[str]
 
     @classmethod
-    def start(cls, executable: Path, seed: int) -> "Agent":
+    def start(cls, executable: Path, seed: int, mechanics: str) -> "Agent":
         return cls(
             subprocess.Popen(
-                [str(executable), str(seed), "spatial"],
+                [str(executable), str(seed), "spatial", mechanics],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -180,9 +181,10 @@ def run_ladder(
     stop_after_a2: bool,
     stop_after_a3: bool,
     initial_gap: int,
+    mechanics: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     arcade = arc_agi.Arcade()
-    agent = Agent.start(agent_path, seed)
+    agent = Agent.start(agent_path, seed, mechanics)
     episodes: list[dict[str, Any]] = []
     gates: list[dict[str, Any]] = []
     first_failure: str | None = None
@@ -550,6 +552,7 @@ def run_ladder(
         "game_id": game,
         "toolkit_revision": TOOLKIT_REVISION,
         "seed": seed,
+        "mechanics": mechanics,
         "exact_replay": False,
         "episodes": episodes,
     }
@@ -558,6 +561,7 @@ def run_ladder(
         "game_id": game,
         "development_seed": seed,
         "held_out_seed": held_out_seed,
+        "mechanics": mechanics,
         "initial_gap": initial_gap,
         "curriculum": CURRICULUM,
         "first_failure": first_failure,
@@ -592,6 +596,7 @@ def main() -> None:
         args.stop_after_a2,
         args.stop_after_a3,
         args.initial_gap,
+        args.mechanics,
     )
     replay_suite, replay_report = run_ladder(
         args.agent,
@@ -601,6 +606,7 @@ def main() -> None:
         args.stop_after_a2,
         args.stop_after_a3,
         args.initial_gap,
+        args.mechanics,
     )
     if canonical_bytes(first_suite) != canonical_bytes(replay_suite):
         raise SystemExit("ARC3 A2-A5 suite replay diverged")

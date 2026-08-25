@@ -1966,14 +1966,35 @@ impl PlasticSubstrate {
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
         if pressure_steps > 0 {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
+            let first_pressure_tick = self
+                .pressure_tick
+                .saturating_add(ORDINARY_PRESSURE_PERIOD);
             for index in 0..self.arrows.len() {
                 execution_cost.scans = execution_cost.scans.saturating_add(1);
                 let (deallocated, zero_delay) = self.arrows.with_mut(index, |arrow| {
                     if !arrow.live {
                         return (false, false);
                     }
+                    let protected_steps = arrow.eligible_until.map_or(0, |eligible_until| {
+                        if eligible_until < first_pressure_tick {
+                            0
+                        } else {
+                            let protected_through = eligible_until.min(tick);
+                            protected_through
+                                .saturating_sub(first_pressure_tick)
+                                .div_euclid(ORDINARY_PRESSURE_PERIOD)
+                                .saturating_add(1)
+                                .min(pressure_steps)
+                        }
+                    });
+                    let applicable = amount.saturating_sub(
+                        u32::try_from(protected_steps).unwrap_or(u32::MAX),
+                    );
+                    if applicable == 0 {
+                        return (false, arrow.delay == 0);
+                    }
                     let was_live = arrow.live;
-                    pressure_arrow(arrow, amount);
+                    pressure_arrow(arrow, applicable);
                     work.total = work.total.saturating_add(1);
                     (was_live && !arrow.live, arrow.delay == 0)
                 });
@@ -2653,6 +2674,137 @@ mod tests {
             candidate_result.naturally_quiescent,
             reference_result.naturally_quiescent
         );
+        assert_eq!(candidate_result.physical_trace, reference_result.physical_trace);
+    }
+
+    #[derive(Clone, Copy)]
+    enum EligibilityPressureCase {
+        ModulationWithinWindow,
+        UnsupportedExpiry,
+        DormantOrdinaryPressure,
+        LateModulation,
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct EligibilityPressureObservation {
+        candidate_live: bool,
+        candidate_resistance: u32,
+        candidate_coupling: i32,
+        candidate_eligible_until: Option<i64>,
+        return_updates: u64,
+        deallocations: u64,
+        clock: PhysicalClock,
+        body: Vec<u8>,
+        replay_exact: bool,
+        quiescent: bool,
+    }
+
+    fn run_eligibility_pressure_case(
+        mechanics: MechanicalConfig,
+        case: EligibilityPressureCase,
+    ) -> EligibilityPressureObservation {
+        let mut body = PlasticSubstrate::with_mechanics(ArenaId(704), 4, 4, mechanics);
+        body.set_physical_tracing(true);
+        let source = body.add_cell(CellSpec {
+            physical_id: 70_401,
+            position: 0,
+            region: 0,
+            threshold: 1,
+            resistance: 20,
+        });
+        let target = body.add_cell(CellSpec {
+            physical_id: 70_402,
+            position: 10,
+            region: 0,
+            threshold: 1,
+            resistance: 20,
+        });
+        let returning = body.add_cell(CellSpec {
+            physical_id: 70_403,
+            position: 20,
+            region: 0,
+            threshold: 1,
+            resistance: 20,
+        });
+        let candidate = body.add_arrow(ArrowSpec {
+            from: source,
+            to: target,
+            delay: 1,
+            phase: 0,
+            coupling: 1,
+            resistance: 1,
+            mode: TransmissionMode::Drive,
+        });
+        body.add_arrow(ArrowSpec {
+            from: returning,
+            to: source,
+            delay: 0,
+            phase: 0,
+            coupling: 1,
+            resistance: 50,
+            mode: TransmissionMode::Modulatory,
+        });
+        body.advance_time(9);
+
+        let mut total_updates = 0;
+        let mut total_deallocations = 0;
+        if !matches!(case, EligibilityPressureCase::DormantOrdinaryPressure) {
+            let traversed = body.arrive(&[input(source, 9)], 1);
+            total_updates += traversed.work.local_return_updates;
+            total_deallocations += traversed.work.physical_deallocations;
+            let slot = body.arrow_slot(candidate).unwrap();
+            assert!(body.arrows.get(slot.0).live, "eligible R1 route died at tick 10");
+            assert_eq!(body.arrows.get(slot.0).eligible_until, Some(13));
+        }
+
+        match case {
+            EligibilityPressureCase::ModulationWithinWindow => {
+                let returned = body.arrive(&[input(returning, 11)], 1);
+                total_updates += returned.work.local_return_updates;
+                total_deallocations += returned.work.physical_deallocations;
+            }
+            EligibilityPressureCase::UnsupportedExpiry => {
+                let work = body.advance_time(14);
+                total_updates += work.local_return_updates;
+                total_deallocations += work.physical_deallocations;
+            }
+            EligibilityPressureCase::DormantOrdinaryPressure => {
+                let work = body.advance_time(10);
+                total_updates += work.local_return_updates;
+                total_deallocations += work.physical_deallocations;
+            }
+            EligibilityPressureCase::LateModulation => {
+                let expired = body.advance_time(14);
+                total_updates += expired.local_return_updates;
+                total_deallocations += expired.physical_deallocations;
+                let returned = body.arrive(&[input(returning, 15)], 1);
+                total_updates += returned.work.local_return_updates;
+                total_deallocations += returned.work.physical_deallocations;
+            }
+        }
+
+        let replay_checkpoint = body.live_checkpoint(704).unwrap();
+        let replay_bytes = replay_checkpoint.canonical_bytes().unwrap();
+        let restored = PlasticSubstrate::from_live_checkpoint_with_mechanics(
+            LiveCheckpoint::decode(&replay_bytes).unwrap(),
+            mechanics,
+        )
+        .unwrap();
+        let candidate_slot = body.arrow_slot(candidate).unwrap();
+        let arrow = body.arrows.get(candidate_slot.0);
+        EligibilityPressureObservation {
+            candidate_live: arrow.live,
+            candidate_resistance: arrow.resistance,
+            candidate_coupling: arrow.coupling,
+            candidate_eligible_until: arrow.eligible_until,
+            return_updates: total_updates,
+            deallocations: total_deallocations,
+            clock: body.clock(),
+            body: body.canonical_body_bytes(704).unwrap(),
+            replay_exact: restored.live_checkpoint(704).unwrap().canonical_bytes().unwrap()
+                == replay_bytes,
+            quiescent: body.pending.is_empty(),
+        }
     }
 
     #[test]
@@ -2735,6 +2887,51 @@ mod tests {
                     physical_work(reference_pressure),
                     "pressure work differs for {config:?}"
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn eligibility_pressure_regressions_match_reference_and_physical_organism() {
+        let cases = [
+            EligibilityPressureCase::ModulationWithinWindow,
+            EligibilityPressureCase::UnsupportedExpiry,
+            EligibilityPressureCase::DormantOrdinaryPressure,
+            EligibilityPressureCase::LateModulation,
+        ];
+        for case in cases {
+            let reference = run_eligibility_pressure_case(MechanicalConfig::REFERENCE, case);
+            let production = run_eligibility_pressure_case(MechanicalConfig::PRODUCTION, case);
+            assert_eq!(production, reference);
+            assert!(reference.replay_exact);
+            assert!(reference.quiescent);
+            match case {
+                EligibilityPressureCase::ModulationWithinWindow => {
+                    assert!(reference.candidate_live);
+                    assert_eq!(reference.candidate_resistance, 4);
+                    assert_eq!(reference.candidate_coupling, 2);
+                    assert_eq!(reference.candidate_eligible_until, None);
+                    assert_eq!(reference.return_updates, 1);
+                    assert_eq!(reference.deallocations, 0);
+                }
+                EligibilityPressureCase::UnsupportedExpiry => {
+                    assert!(!reference.candidate_live);
+                    assert_eq!(reference.candidate_resistance, 0);
+                    assert_eq!(reference.return_updates, 0);
+                    assert_eq!(reference.deallocations, 1);
+                }
+                EligibilityPressureCase::DormantOrdinaryPressure => {
+                    assert!(!reference.candidate_live);
+                    assert_eq!(reference.candidate_resistance, 0);
+                    assert_eq!(reference.return_updates, 0);
+                    assert_eq!(reference.deallocations, 1);
+                }
+                EligibilityPressureCase::LateModulation => {
+                    assert!(!reference.candidate_live);
+                    assert_eq!(reference.candidate_resistance, 0);
+                    assert_eq!(reference.return_updates, 0);
+                    assert_eq!(reference.deallocations, 1);
+                }
             }
         }
     }
