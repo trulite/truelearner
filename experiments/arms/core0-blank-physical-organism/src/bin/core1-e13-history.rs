@@ -27,6 +27,7 @@ struct ContextResult {
     prime_action: Option<u8>,
     negative_early_action: Option<u8>,
     positive_early_action: Option<u8>,
+    reinforcement_action: Option<u8>,
     consequence_admitted: bool,
     consequence_modulation: u64,
     consequence_updates: u64,
@@ -74,7 +75,7 @@ fn history(
     frame: &[u8],
     action: u8,
     early_material_sign: i8,
-) -> academy_arc3::Arc3SensorimotorObservation {
+) -> Result<academy_arc3::Arc3SensorimotorObservation, String> {
     organism
         .observe_with_transient_history(Arc3TransientHistoryRequest {
             frame: frame.to_vec(),
@@ -85,7 +86,7 @@ fn history(
             action_map: &AVAILABLE,
             early_material_sign,
         })
-        .expect("transient-history observation")
+        .map_err(|error| error.to_string())
 }
 
 fn run(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Run {
@@ -99,32 +100,6 @@ fn run(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Run {
         Arc3Sensorimotor::new_spatial_with_profile(root, mechanics, profile).expect("Academy body");
     let mut rows: Vec<ContextResult> = Vec::new();
     for (index, intended) in ACTIONS.into_iter().enumerate() {
-        if index > 0 {
-            let transition = organism
-                .observe(
-                    frames[index].clone(),
-                    &AVAILABLE,
-                    None,
-                    true,
-                    false,
-                    &AVAILABLE,
-                )
-                .expect("world consequence transition");
-            let preceding = rows
-                .get_mut(index - 1)
-                .expect("preceding context result exists");
-            preceding.consequence_admitted = transition.support_admitted;
-            preceding.consequence_modulation = transition.modulatory_deliveries;
-            preceding.consequence_updates = transition.plasticity_updates;
-            preceding.after_consequence = organism
-                .diagnostic_context(contexts[index - 1], motor(ACTIONS[index - 1]))
-                .expect("preceding consequence material");
-            preceding.quiescent &= transition.naturally_quiescent;
-            preceding.work = preceding.work.saturating_add(transition.physical_work);
-            organism
-                .advance_gap(12)
-                .expect("ordinary local forgetting gap");
-        }
         let prime = organism
             .observe(
                 frames[index].clone(),
@@ -151,8 +126,32 @@ fn run(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Run {
             .advance_gap(1)
             .expect("ordinary refractory recovery before history controls");
         let mut negative_branch = organism.clone();
-        let negative = history(&mut negative_branch, &frames[index], intended, -1);
-        let positive = history(&mut organism, &frames[index], intended, 1);
+        let negative = match history(&mut negative_branch, &frames[index], intended, -1) {
+            Ok(observation) => observation,
+            Err(error) => {
+                return Run {
+                    rows,
+                    pass: false,
+                    reason: format!(
+                        "context {} action {intended} has no exercisable signed contact pair: {error}",
+                        contexts[index]
+                    ),
+                };
+            }
+        };
+        let positive = match history(&mut organism, &frames[index], intended, 1) {
+            Ok(observation) => observation,
+            Err(error) => {
+                return Run {
+                    rows,
+                    pass: false,
+                    reason: format!(
+                        "context {} action {intended} positive history failed: {error}",
+                        contexts[index]
+                    ),
+                };
+            }
+        };
         let material = organism
             .diagnostic_context(contexts[index], motor(intended))
             .expect("post-history material");
@@ -162,6 +161,7 @@ fn run(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Run {
             prime_action: prime.action.or(second_prime.action),
             negative_early_action: negative.action,
             positive_early_action: positive.action,
+            reinforcement_action: None,
             consequence_admitted: false,
             consequence_modulation: 0,
             consequence_updates: 0,
@@ -179,22 +179,59 @@ fn run(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Run {
                 .saturating_add(negative.physical_work)
                 .saturating_add(positive.physical_work),
         });
+        let consequence = organism
+            .admit_previous_consequence()
+            .expect("separate world consequence");
+        let current = rows.last_mut().expect("current context result exists");
+        current.consequence_admitted = consequence.admitted;
+        current.consequence_modulation = consequence.modulatory_deliveries;
+        current.consequence_updates = consequence.plasticity_updates;
+        current.after_consequence = organism
+            .diagnostic_context(contexts[index], motor(intended))
+            .expect("consequence material");
+        current.quiescent &= consequence.naturally_quiescent;
+        current.work = current.work.saturating_add(consequence.physical_work);
+        organism
+            .advance_gap(1)
+            .expect("ordinary recovery before fixed reinforcement");
+        let reinforcement = match history(&mut organism, &frames[index], intended, 1) {
+            Ok(observation) => observation,
+            Err(error) => {
+                return Run {
+                    rows,
+                    pass: false,
+                    reason: format!(
+                        "context {} action {intended} route is absent before fixed reinforcement: {error}",
+                        contexts[index]
+                    ),
+                };
+            }
+        };
+        let reinforced_consequence = organism
+            .admit_previous_consequence()
+            .expect("fixed reinforcement consequence");
+        let current = rows.last_mut().expect("current context result exists");
+        current.reinforcement_action = reinforcement.action;
+        current.consequence_admitted &= reinforced_consequence.admitted;
+        current.consequence_modulation = current
+            .consequence_modulation
+            .saturating_add(reinforced_consequence.modulatory_deliveries);
+        current.consequence_updates = current
+            .consequence_updates
+            .saturating_add(reinforced_consequence.plasticity_updates);
+        current.after_consequence = organism
+            .diagnostic_context(contexts[index], motor(intended))
+            .expect("reinforced consequence material");
+        current.quiescent &=
+            reinforcement.naturally_quiescent && reinforced_consequence.naturally_quiescent;
+        current.work = current
+            .work
+            .saturating_add(reinforcement.physical_work)
+            .saturating_add(reinforced_consequence.physical_work);
+        organism
+            .advance_gap(12)
+            .expect("ordinary cleanup after fixed supported experiences");
     }
-    let closure = organism
-        .observe(frames[4].clone(), &AVAILABLE, None, true, false, &AVAILABLE)
-        .expect("final consequence");
-    let last = rows.last_mut().expect("four context rows");
-    last.consequence_admitted = closure.support_admitted;
-    last.consequence_modulation = closure.modulatory_deliveries;
-    last.consequence_updates = closure.plasticity_updates;
-    last.after_consequence = organism
-        .diagnostic_context(contexts[3], motor(ACTIONS[3]))
-        .expect("final consequence material");
-    last.quiescent &= closure.naturally_quiescent;
-    last.work = last.work.saturating_add(closure.physical_work);
-    organism
-        .advance_gap(12)
-        .expect("final ordinary local forgetting gap");
 
     organism.clear_episode();
     for (index, intended) in ACTIONS.into_iter().enumerate() {
@@ -229,6 +266,11 @@ fn run(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Run {
             pass = false;
             reason =
                 "fixed early/late history pair does not resolve the intended action".to_string();
+            break;
+        }
+        if row.reinforcement_action != Some(row.intended) {
+            pass = false;
+            reason = "fixed second supported experience does not re-express the action".to_string();
             break;
         }
         if !row.consequence_admitted
@@ -271,7 +313,7 @@ fn write_rows(csv: &mut BufWriter<File>, profile: &str, mechanics: &str, run: &R
     for row in &run.rows {
         writeln!(
             csv,
-            "{profile},{mechanics},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{profile},{mechanics},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             row.context,
             row.intended,
             row.prime_action
@@ -279,6 +321,8 @@ fn write_rows(csv: &mut BufWriter<File>, profile: &str, mechanics: &str, run: &R
             row.negative_early_action
                 .map_or_else(|| "none".to_string(), |v| v.to_string()),
             row.positive_early_action
+                .map_or_else(|| "none".to_string(), |v| v.to_string()),
+            row.reinforcement_action
                 .map_or_else(|| "none".to_string(), |v| v.to_string()),
             row.consequence_admitted,
             row.consequence_modulation,
@@ -300,25 +344,28 @@ fn write_rows(csv: &mut BufWriter<File>, profile: &str, mechanics: &str, run: &R
 
 fn main() {
     let args = env::args().collect::<Vec<_>>();
-    if args.iter().any(|arg| arg == "--preflight") {
-        let result = run(
-            Core0Profile::GenericExternal,
-            MechanicalConfig::REFERENCE,
-            75_000_000,
-        );
+    if args.iter().any(|arg| arg.starts_with("--preflight")) {
+        let (profile, root) = if args.iter().any(|arg| arg == "--preflight-a") {
+            (Core0Profile::B, 70_000_000)
+        } else if args.iter().any(|arg| arg == "--preflight-c") {
+            (Core0Profile::GenericActivity, 80_000_000)
+        } else {
+            (Core0Profile::GenericExternal, 75_000_000)
+        };
+        let result = run(profile, MechanicalConfig::REFERENCE, root);
         println!("{result:#?}");
         return;
     }
 
-    eprintln!("CORE1_E13_HISTORY_COMPOSITION_V2_EVIDENCE_SPENT");
+    eprintln!("CORE1_E13_PQLC_COMPOSITION_V3_EVIDENCE_SPENT");
     let destination = args
         .get(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("experiments/results/core1_e13_history_v2"));
+        .unwrap_or_else(|| PathBuf::from("experiments/results/core1_e13_pqlc_v3"));
     fs::create_dir_all(&destination).expect("create result directory");
     let mut csv =
         BufWriter::new(File::create(destination.join("matrix.csv")).expect("create matrix"));
-    csv.write_all(b"profile,mechanics,context,intended,prime_action,negative_early_action,positive_early_action,consequence_admitted,modulatory_deliveries,plasticity_updates,probe_action,quiescent,physical_work,pass,reason,after_histories_material,after_consequence_material,after_probe_material\n").expect("write matrix header");
+    csv.write_all(b"profile,mechanics,context,intended,prime_action,negative_early_action,positive_early_action,reinforcement_action,consequence_admitted,modulatory_deliveries,plasticity_updates,probe_action,quiescent,physical_work,pass,reason,after_histories_material,after_consequence_material,after_probe_material\n").expect("write matrix header");
     let mut summary = String::from(
         "# CORE1 E13 history-composition result\n\n| Profile | E13 | Replay | Mechanics | First result |\n|---|---|---|---|---|\n",
     );
@@ -341,5 +388,5 @@ fn main() {
         .expect("write summary row");
         fs::write(destination.join("summary.md"), &summary).expect("stream summary");
     }
-    println!("CORE1_E13_HISTORY_COMPOSITION_V2_COMPLETE profiles=3 contexts=4");
+    println!("CORE1_E13_PQLC_COMPOSITION_V3_COMPLETE profiles=3 contexts=4");
 }

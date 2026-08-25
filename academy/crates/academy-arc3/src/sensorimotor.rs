@@ -6,7 +6,7 @@ use truelearner_arena_format::{ArenaId, ArrowId, CellId, ContentHash};
 use truelearner_core::Core0Profile;
 use truelearner_core::{
     ArrowSpec, BoundaryError, BoundaryRuntime, CellSpec, MechanicalConfig, PlasticSubstrate,
-    SpikeInput, TransmissionMode,
+    SpikeInput, TransmissionMode, TransmissionTrigger,
 };
 
 const PALETTE_CONTEXTS: usize = 16;
@@ -82,6 +82,16 @@ pub struct Arc3SensorimotorSnapshot {
     pub previous_context: Option<u16>,
     pub previous_motor: Option<u8>,
     pub resident_bytes: usize,
+}
+
+#[cfg(feature = "core0")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Arc3ConsequenceObservation {
+    pub admitted: bool,
+    pub plasticity_updates: u64,
+    pub modulatory_deliveries: u64,
+    pub physical_work: u64,
+    pub naturally_quiescent: bool,
 }
 
 #[cfg(feature = "core0")]
@@ -186,6 +196,7 @@ enum SensorMode {
 struct Sites {
     candidate_sources: Vec<[CellId; MOTORS]>,
     context_traces: Vec<[CellId; MOTORS]>,
+    relays: Vec<[CellId; MOTORS]>,
     motors: Vec<[CellId; MOTORS]>,
     babblers: Vec<[CellId; MOTORS]>,
     returning: CellId,
@@ -392,7 +403,9 @@ impl Arc3Sensorimotor {
                     )
                 })?;
                 let motor = action_index(action)?;
-                Some(self.transient_history_contacts(context_index, motor, early_sign)?)
+                let contacts = self.transient_history_contacts(context_index, motor, early_sign)?;
+                self.ensure_transient_history_closure(context_index, motor, &contacts);
+                Some(contacts)
             }
             #[cfg(not(feature = "core0"))]
             {
@@ -584,10 +597,91 @@ impl Arc3Sensorimotor {
         Ok(contacts)
     }
 
+    #[cfg(feature = "core0")]
+    fn ensure_transient_history_closure(
+        &mut self,
+        context: usize,
+        motor: usize,
+        contacts: &[(CellId, u64, bool)],
+    ) {
+        let relay = self.sites.relays[context][motor];
+        let source = self.sites.candidate_sources[context][motor];
+        let target = self.sites.motors[context][motor];
+        let substrate = self.boundary.substrate();
+        let durable = substrate.arena_body(0);
+        let downstream_return_exists = durable
+            .arrows
+            .iter()
+            .any(|arrow| arrow.live && arrow.from.id == relay && arrow.to.id == target);
+        let missing_qlp = contacts
+            .iter()
+            .flat_map(|(contact, _, _)| [(target, *contact), (*contact, source)])
+            .filter(|(from, to)| {
+                !durable.arrows.iter().any(|arrow| {
+                    arrow.live
+                        && arrow.from.id == *from
+                        && arrow.to.id == *to
+                        && substrate.transmission_trigger(arrow.id)
+                            == TransmissionTrigger::QualifiedLocalParticipation
+                })
+            })
+            .collect::<Vec<_>>();
+
+        if !downstream_return_exists {
+            self.boundary.add_arrow_with_trigger(
+                modulatory(relay, target, 0, 1, SCAFFOLD_RESISTANCE),
+                TransmissionTrigger::SourceFires,
+            );
+        }
+        for (from, to) in missing_qlp {
+            self.boundary.add_arrow_with_trigger(
+                modulatory(from, to, 0, 1, CANDIDATE_RESISTANCE),
+                TransmissionTrigger::QualifiedLocalParticipation,
+            );
+        }
+    }
+
     pub fn clear_episode(&mut self) {
         self.previous_frame = None;
         self.previous_context = None;
         self.previous_motor = None;
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn admit_previous_consequence(
+        &mut self,
+    ) -> Result<Arc3ConsequenceObservation, Arc3SensorimotorError> {
+        let admitted = self.previous_context.is_some() && self.previous_motor.is_some();
+        if !admitted {
+            return Ok(Arc3ConsequenceObservation {
+                admitted: false,
+                plasticity_updates: 0,
+                modulatory_deliveries: 0,
+                physical_work: 0,
+                naturally_quiescent: true,
+            });
+        }
+        let tick = self.boundary.substrate().clock().tick;
+        let result = self.boundary.arrive(
+            &[SpikeInput {
+                arrival_tick: tick,
+                phase: 20,
+                origin_physical: EXTERNAL_PHYSICAL_BASE
+                    .saturating_add(self.sequence)
+                    .saturating_add(1_000),
+                target: self.sites.returning,
+                impulse: 1,
+            }],
+            OUTWARD_REGION,
+        )?;
+        self.clear_episode();
+        Ok(Arc3ConsequenceObservation {
+            admitted: true,
+            plasticity_updates: result.work.local_return_updates,
+            modulatory_deliveries: result.work.modulatory_deliveries,
+            physical_work: result.work.physical_total(),
+            naturally_quiescent: result.naturally_quiescent,
+        })
     }
 
     pub fn advance_gap(&mut self, ticks: i64) -> Result<(), Arc3SensorimotorError> {
@@ -1003,6 +1097,7 @@ fn build_body(
     let sites = Sites {
         candidate_sources,
         context_traces,
+        relays,
         motors,
         babblers,
         returning,

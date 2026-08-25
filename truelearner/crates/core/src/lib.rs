@@ -2039,6 +2039,14 @@ impl BoundaryRuntime {
         &self.substrate
     }
 
+    pub fn add_arrow_with_trigger(
+        &mut self,
+        spec: ArrowSpec,
+        trigger: TransmissionTrigger,
+    ) -> ArrowId {
+        self.substrate.add_arrow_with_trigger(spec, trigger)
+    }
+
     #[cfg(feature = "core0")]
     pub fn set_core0_profile(&mut self, profile: Core0Profile) {
         self.substrate.set_core0_profile(profile);
