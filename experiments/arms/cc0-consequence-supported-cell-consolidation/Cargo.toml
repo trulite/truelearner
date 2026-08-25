@@ -1,0 +1,10 @@
+[package]
+name = "cc0-consequence-supported-cell-consolidation"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["cc0"] }
+
+[workspace]
