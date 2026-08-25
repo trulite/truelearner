@@ -2130,11 +2130,10 @@ impl PlasticSubstrate {
                     if !arrow.live {
                         return (false, false);
                     }
-                    let absorbed = arrow.participation_level.min(PARTICIPATION_IMPULSE);
-                    arrow.participation_level = arrow.participation_level.saturating_sub(absorbed);
+                    let attenuation = arrow.participation_level.min(PARTICIPATION_IMPULSE);
                     arrow.pressure_load = arrow
                         .pressure_load
-                        .saturating_add(PARTICIPATION_IMPULSE.saturating_sub(absorbed));
+                        .saturating_add(PARTICIPATION_IMPULSE.saturating_sub(attenuation));
                     let durable_loss = arrow.pressure_load / PARTICIPATION_IMPULSE;
                     arrow.pressure_load %= PARTICIPATION_IMPULSE;
                     let was_live = arrow.live;
