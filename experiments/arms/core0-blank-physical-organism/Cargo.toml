@@ -1,11 +1,11 @@
 [package]
-name = "core0-blank-physical-organism"
+name = "core1-radical-desupply"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [dependencies]
-academy-arc3 = { path = "../../../academy/crates/academy-arc3", features = ["core0"] }
-truelearner-core = { path = "../../../truelearner/crates/core", features = ["core0"] }
+academy-arc3 = { path = "../../../academy/crates/academy-arc3", features = ["core1"] }
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["core1"] }
 
 [workspace]

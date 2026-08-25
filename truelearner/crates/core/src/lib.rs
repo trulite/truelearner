@@ -1056,6 +1056,14 @@ pub enum Core0Profile {
     B,
     C,
     D,
+    #[cfg(feature = "core1")]
+    GenericExternal,
+    #[cfg(feature = "core1")]
+    GenericActivity,
+    #[cfg(feature = "core1")]
+    GenericDistance,
+    #[cfg(feature = "core1")]
+    GenericDistanceNoQlp,
 }
 
 #[cfg(feature = "core0")]
@@ -1069,7 +1077,39 @@ impl Core0Profile {
     }
 
     fn proposal_on_every_firing(self) -> bool {
-        matches!(self, Self::D)
+        if self == Self::D {
+            return true;
+        }
+        #[cfg(feature = "core1")]
+        {
+            return matches!(
+                self,
+                Self::GenericActivity | Self::GenericDistance | Self::GenericDistanceNoQlp
+            );
+        }
+        #[cfg(not(feature = "core1"))]
+        false
+    }
+
+    #[cfg(feature = "core1")]
+    fn generic_variation(self) -> bool {
+        matches!(
+            self,
+            Self::GenericExternal
+                | Self::GenericActivity
+                | Self::GenericDistance
+                | Self::GenericDistanceNoQlp
+        )
+    }
+
+    #[cfg(feature = "core1")]
+    fn distance_graded_variation(self) -> bool {
+        matches!(self, Self::GenericDistance | Self::GenericDistanceNoQlp)
+    }
+
+    #[cfg(feature = "core1")]
+    fn qlp_enabled(self) -> bool {
+        self != Self::GenericDistanceNoQlp
     }
 }
 
@@ -3971,7 +4011,11 @@ impl PlasticSubstrate {
                 }
             }
         }
-        if qualified_local {
+        #[cfg(feature = "core1")]
+        let qlp_enabled = self.core0_profile.qlp_enabled();
+        #[cfg(not(feature = "core1"))]
+        let qlp_enabled = true;
+        if qualified_local && qlp_enabled {
             self.propagate_qualified_local(
                 cell,
                 tick,
@@ -4401,6 +4445,17 @@ impl PlasticSubstrate {
     ) {
         #[cfg(feature = "core0")]
         {
+            #[cfg(feature = "core1")]
+            if self.core0_profile.generic_variation() {
+                self.propose_generic_local_edits(
+                    source,
+                    work,
+                    execution_cost,
+                    phase,
+                    physical_trace,
+                );
+                return;
+            }
             if self.core0_profile.contact_variation() {
                 self.propose_local_contacts(source, work, execution_cost, phase, physical_trace);
             } else {
@@ -4421,6 +4476,218 @@ impl PlasticSubstrate {
             #[cfg(not(any(feature = "cv0", feature = "cv0j0")))]
             self.propose_direct_local_arrows(source, work, execution_cost, phase, physical_trace);
         }
+    }
+
+    #[cfg(feature = "core1")]
+    fn propose_generic_local_edits(
+        &mut self,
+        source: CellId,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
+        let source_slot = self.cell_slot(source).expect("generic source must resolve");
+        let source_cell = self.cells.get(source_slot.0);
+        let source_position = source_cell.position;
+        let source_region = source_cell.region;
+        let distance_graded = self.core0_profile.distance_graded_variation();
+        let cells = self.cells.values().clone();
+        let arrows = self.arrows.values().clone();
+        execution_cost.allocations = execution_cost.allocations.saturating_add(2);
+        execution_cost.touch::<Cell>(cells.len());
+        execution_cost.touch::<Arrow>(arrows.len());
+
+        let mut targets = cells
+            .iter()
+            .filter_map(|cell| {
+                let distance = cell.position.saturating_sub(source_position).abs();
+                (cell.live
+                    && cell.id != source
+                    && distance > 0
+                    && (distance_graded || distance <= LOCAL_VARIATION_RADIUS))
+                    .then_some((distance, cell.position, cell.id))
+            })
+            .collect::<Vec<_>>();
+        targets.sort_by_key(|target| (target.0, target.1));
+
+        for (distance, _, target) in &targets {
+            for sign in [1_i64, -1_i64] {
+                let exists = arrows.iter().any(|arrow| {
+                    arrow.live
+                        && arrow.from == source
+                        && arrow.to == *target
+                        && arrow.mode == TransmissionMode::Drive
+                        && self.core0_coupling[arrow.id.0 as usize].signum() == sign
+                });
+                if exists {
+                    continue;
+                }
+                let magnitude = if distance_graded {
+                    MATERIAL_ONE / i64::from(distance.saturating_add(1))
+                } else {
+                    MATERIAL_ONE
+                };
+                self.add_generic_arrow(
+                    source,
+                    *target,
+                    magnitude.saturating_mul(sign),
+                    i64::from((*distance).max(1)),
+                    work,
+                    phase,
+                    physical_trace,
+                );
+            }
+        }
+
+        let source_is_subdivision = arrows.iter().any(|arrow| {
+            arrow.live
+                && arrow.to == source
+                && self
+                    .cell_slot(arrow.from)
+                    .is_some_and(|slot| self.cells.get(slot.0).position == source_position)
+        });
+        if source_is_subdivision {
+            return;
+        }
+
+        let direct = arrows
+            .iter()
+            .filter(|arrow| {
+                if !arrow.live
+                    || arrow.from != source
+                    || arrow.mode != TransmissionMode::Drive
+                    || arrow.trigger != TransmissionTrigger::SourceFires
+                {
+                    return false;
+                }
+                self.cell_slot(arrow.to).is_some_and(|slot| {
+                    let target = self.cells.get(slot.0);
+                    let distance = target.position.saturating_sub(source_position).abs();
+                    distance > 0 && (distance_graded || distance <= LOCAL_VARIATION_RADIUS)
+                })
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
+        for candidate in direct {
+            let sign = self.core0_coupling[candidate.id.0 as usize].signum();
+            let exists = cells.iter().any(|contact| {
+                contact.live
+                    && contact.id != source
+                    && contact.id != candidate.to
+                    && contact.position == source_position
+                    && arrows
+                        .iter()
+                        .any(|arrow| arrow.live && arrow.from == source && arrow.to == contact.id)
+                    && arrows.iter().any(|arrow| {
+                        arrow.live
+                            && arrow.from == contact.id
+                            && arrow.to == candidate.to
+                            && self.core0_coupling[arrow.id.0 as usize].signum() == sign
+                    })
+            });
+            if exists {
+                continue;
+            }
+            let next_physical = self
+                .cells
+                .values()
+                .iter()
+                .map(|cell| cell.physical_id)
+                .max()
+                .unwrap_or(0)
+                .checked_add(1)
+                .expect("generic CELL physical identity exhausted");
+            let contact = self.add_cell(CellSpec {
+                physical_id: next_physical,
+                position: source_position,
+                region: source_region,
+                threshold: 1,
+                resistance: 1,
+            });
+            work.total = work.total.saturating_add(1);
+            work.local_cell_proposals = work.local_cell_proposals.saturating_add(1);
+            if self.trace_physics {
+                physical_trace.push(PhysicalTransition {
+                    tick: self.tick,
+                    phase,
+                    event: PhysicalEvent::CellProposal {
+                        cell: contact,
+                        source,
+                        target: candidate.to,
+                    },
+                });
+            }
+            let target_position = self
+                .cell_slot(candidate.to)
+                .map(|slot| self.cells.get(slot.0).position)
+                .expect("generic target must resolve");
+            let distance = target_position.saturating_sub(source_position).abs();
+            self.add_generic_arrow(
+                source,
+                contact,
+                MATERIAL_ONE,
+                1,
+                work,
+                phase,
+                physical_trace,
+            );
+            self.add_generic_arrow(
+                contact,
+                candidate.to,
+                self.core0_coupling[candidate.id.0 as usize],
+                i64::from(distance.max(1)),
+                work,
+                phase,
+                physical_trace,
+            );
+        }
+    }
+
+    #[cfg(feature = "core1")]
+    fn add_generic_arrow(
+        &mut self,
+        from: CellId,
+        to: CellId,
+        material: i64,
+        delay: i64,
+        work: &mut Work,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) -> ArrowId {
+        let id = self.add_arrow(ArrowSpec {
+            from,
+            to,
+            delay,
+            phase: 0,
+            coupling: i32::try_from(material / MATERIAL_ONE).unwrap_or(0),
+            resistance: 1,
+            mode: TransmissionMode::Drive,
+        });
+        self.core0_coupling[id.0 as usize] = material;
+        let slot = self.arrow_slot(id).expect("generic ARROW must resolve");
+        self.arrows.with_mut(slot.0, |arrow| {
+            arrow.coupling = material.signum() as i32;
+            if arrow.generation == Generation(1) {
+                arrow.generation =
+                    Generation(u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2));
+            }
+        });
+        work.total = work.total.saturating_add(1);
+        work.local_structural_proposals = work.local_structural_proposals.saturating_add(1);
+        if self.trace_physics {
+            physical_trace.push(PhysicalTransition {
+                tick: self.tick,
+                phase,
+                event: PhysicalEvent::Proposal {
+                    arrow: id,
+                    from,
+                    to,
+                },
+            });
+        }
+        id
     }
 
     #[cfg(any(feature = "core0", not(any(feature = "cv0", feature = "cv0j0"))))]

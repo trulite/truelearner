@@ -17,6 +17,7 @@ path = "src/lib.rs"
 
 [features]
 core0 = ["truelearner-core/core0"]
+core1 = ["core0", "truelearner-core/core1"]
 
 [[bin]]
 name = "academy-arc3-ingest"

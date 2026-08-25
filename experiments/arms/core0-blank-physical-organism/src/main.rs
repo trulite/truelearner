@@ -14,6 +14,13 @@ use truelearner_core::{
 
 const HIGH_RESISTANCE: u32 = 10_000;
 const CEILING: u64 = 20_000;
+const CORE1_PROFILES: [Core0Profile; 5] = [
+    Core0Profile::B,
+    Core0Profile::GenericExternal,
+    Core0Profile::GenericActivity,
+    Core0Profile::GenericDistance,
+    Core0Profile::GenericDistanceNoQlp,
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Gate {
@@ -75,11 +82,12 @@ impl Gate {
 
     fn experiences(self) -> u32 {
         match self {
-            Self::E0 | Self::E1 | Self::E3 | Self::E7 | Self::E11 => 1,
+            Self::E0 | Self::E3 | Self::E11 => 1,
+            Self::E1 | Self::E7 => 3,
             Self::E2 | Self::E4 | Self::E5 | Self::E8 | Self::E9 => 2,
             Self::E6 => 3,
             Self::E10 => 10,
-            Self::E12 => 3,
+            Self::E12 => 6,
             Self::E13 | Self::E14 => 5,
         }
     }
@@ -121,15 +129,20 @@ struct Row {
     live_arrows: usize,
     proposals: u64,
     deallocations: u64,
+    qlp: u64,
+    replay_exact: bool,
+    mechanics_exact: bool,
     reason: String,
 }
 
 fn profile_name(profile: Core0Profile) -> &'static str {
     match profile {
-        Core0Profile::A => "CORE-A",
-        Core0Profile::B => "CORE-B",
-        Core0Profile::C => "CORE-C",
-        Core0Profile::D => "CORE-D",
+        Core0Profile::B => "CORE1-A",
+        Core0Profile::GenericExternal => "CORE1-B",
+        Core0Profile::GenericActivity => "CORE1-C",
+        Core0Profile::GenericDistance => "CORE1-D",
+        Core0Profile::GenericDistanceNoQlp => "CORE1-E",
+        Core0Profile::A | Core0Profile::C | Core0Profile::D => "UNUSED",
     }
 }
 
@@ -202,6 +215,27 @@ fn pulse(
         }],
         i16::MAX,
     )
+}
+
+fn pulse_many(
+    body: &mut PlasticSubstrate,
+    targets: &[CellId],
+    tick: i64,
+    impulse: i32,
+    origin: u64,
+) -> truelearner_core::RunResult {
+    let inputs = targets
+        .iter()
+        .enumerate()
+        .map(|(index, target)| SpikeInput {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: origin.saturating_add(u64::try_from(index).unwrap_or(u64::MAX)),
+            target: *target,
+            impulse,
+        })
+        .collect::<Vec<_>>();
+    body.arrive(&inputs, i16::MAX)
 }
 
 fn modulate(
@@ -366,9 +400,23 @@ fn gate_e1(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Obs
     let target = cell(&mut body, root + 2, 1, 100);
     anchor(&mut body, root, &[source, target]);
     let run = pulse(&mut body, source, 0, 1, root + 1_000);
+    let second_tick = body.clock().tick.saturating_add(1);
+    let second = pulse(&mut body, source, second_tick, 1, root + 2_000);
+    let third_tick = body.clock().tick.saturating_add(1);
+    let third = pulse(&mut body, source, third_tick, 1, root + 3_000);
     let (exists, _, _) = relation(&body, source, target);
-    let pass = exists && run.work.local_structural_proposals > 0 && run.naturally_quiescent;
-    let (trace, work, proposals, deallocations, qlp, quiescent) = sum_runs(&[&run]);
+    let proposals = run
+        .work
+        .local_structural_proposals
+        .saturating_add(second.work.local_structural_proposals)
+        .saturating_add(third.work.local_structural_proposals);
+    let pass = exists
+        && proposals > 0
+        && run.naturally_quiescent
+        && second.naturally_quiescent
+        && third.naturally_quiescent;
+    let (trace, work, proposals, deallocations, qlp, quiescent) =
+        sum_runs(&[&run, &second, &third]);
     finish(
         &body,
         pass,
@@ -635,10 +683,20 @@ fn competing(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> O
 }
 
 fn gate_e7(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Observation {
-    let (body, source, target, run) = generated_world(profile, mechanics, root);
+    let (mut body, source, target, run) = generated_world(profile, mechanics, root);
+    let second_tick = body.clock().tick.saturating_add(1);
+    let second = pulse(&mut body, source, second_tick, 1, root + 2_000);
+    let third_tick = body.clock().tick.saturating_add(1);
+    let third = pulse(&mut body, source, third_tick, 1, root + 3_000);
     let (_, _, contacts) = relation(&body, source, target);
-    let pass = contacts.len() >= 2 && run.work.local_cell_proposals == 2;
-    let (trace, work, proposals, deallocations, qlp, quiescent) = sum_runs(&[&run]);
+    let cell_proposals = run
+        .work
+        .local_cell_proposals
+        .saturating_add(second.work.local_cell_proposals)
+        .saturating_add(third.work.local_cell_proposals);
+    let pass = contacts.len() >= 2 && cell_proposals >= 2;
+    let (trace, work, proposals, deallocations, qlp, quiescent) =
+        sum_runs(&[&run, &second, &third]);
     finish(
         &body,
         pass,
@@ -810,12 +868,60 @@ fn recurrence_world(
     let ia = cell(&mut body, root + 3, 20, 1);
     let ib = cell(&mut body, root + 4, 30, 1);
     anchor(&mut body, root, &[a, b, ia, ib]);
-    arrow(&mut body, a, b, 2, 1, TransmissionMode::Drive, 100);
-    arrow(&mut body, b, a, 2, 1, TransmissionMode::Drive, 100);
-    let ia_link = arrow(&mut body, a, ia, 1, 0, TransmissionMode::Drive, 100);
-    let ib_link = arrow(&mut body, b, ib, 1, 0, TransmissionMode::Drive, 100);
-    let na = arrow(&mut body, ia, a, -2, 0, TransmissionMode::Drive, 100);
-    let nb = arrow(&mut body, ib, b, -2, 0, TransmissionMode::Drive, 100);
+    arrow(
+        &mut body,
+        a,
+        b,
+        2,
+        1,
+        TransmissionMode::Drive,
+        HIGH_RESISTANCE,
+    );
+    arrow(
+        &mut body,
+        b,
+        a,
+        2,
+        1,
+        TransmissionMode::Drive,
+        HIGH_RESISTANCE,
+    );
+    let ia_link = arrow(
+        &mut body,
+        a,
+        ia,
+        1,
+        0,
+        TransmissionMode::Drive,
+        HIGH_RESISTANCE,
+    );
+    let ib_link = arrow(
+        &mut body,
+        b,
+        ib,
+        1,
+        0,
+        TransmissionMode::Drive,
+        HIGH_RESISTANCE,
+    );
+    let na = arrow(
+        &mut body,
+        ia,
+        a,
+        -16,
+        0,
+        TransmissionMode::Drive,
+        HIGH_RESISTANCE,
+    );
+    let nb = arrow(
+        &mut body,
+        ib,
+        b,
+        -16,
+        0,
+        TransmissionMode::Drive,
+        HIGH_RESISTANCE,
+    );
     if learned {
         let train = pulse(&mut body, a, 0, 2, root + 1_000);
         let _ = modulate(&mut body, root, ia, 2);
@@ -853,61 +959,354 @@ fn recurrence_world(
     )
 }
 
-fn gate_e12(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Observation {
-    let (mut body, source, target, generation) = generated_world(profile, mechanics, root);
-    let Some((contact, links)) = selected_contact(&body, source, target, false) else {
-        let (trace, work, proposals, deallocations, qlp, quiescent) = sum_runs(&[&generation]);
-        return finish(
-            &body,
-            false,
-            "no generated negative contact",
-            trace,
-            work,
-            proposals,
-            deallocations,
-            qlp,
-            quiescent,
-        );
+#[derive(Clone, Copy)]
+enum E12Consequence {
+    Local,
+    None,
+    Wrong,
+}
+
+struct E12Body {
+    body: PlasticSubstrate,
+    a: CellId,
+    b: CellId,
+    ia: CellId,
+    ib: CellId,
+    unrelated: CellId,
+    modulator: CellId,
+    negative: [ArrowId; 2],
+    unrelated_negative: ArrowId,
+    positive: [ArrowId; 2],
+}
+
+struct E12Training {
+    world: E12Body,
+    coupling_curve: Vec<i64>,
+    stable_probe: Vec<bool>,
+    traces: Vec<Vec<PhysicalTransition>>,
+    work: u64,
+    quiescent: bool,
+}
+
+fn e12_body(
+    profile: Core0Profile,
+    mechanics: MechanicalConfig,
+    root: u64,
+    permuted: bool,
+    consequence: E12Consequence,
+) -> E12Body {
+    let mut body = body(root, profile, mechanics);
+    let a = cell(&mut body, root + 1, 0, 100);
+    let b = cell(&mut body, root + 2, 100, 100);
+    let (ia, ib, pa, pb, unrelated) = if permuted {
+        let pb = cell(&mut body, root + 30, 40_000, 1);
+        let unrelated = cell(&mut body, root + 50, 50_000, 1);
+        let ib = cell(&mut body, root + 4, 20_000, 1);
+        let pa = cell(&mut body, root + 20, 30_000, 1);
+        let ia = cell(&mut body, root + 3, 10_000, 1);
+        (ia, ib, pa, pb, unrelated)
+    } else {
+        (
+            cell(&mut body, root + 3, 10_000, 1),
+            cell(&mut body, root + 4, 20_000, 1),
+            cell(&mut body, root + 20, 30_000, 1),
+            cell(&mut body, root + 30, 40_000, 1),
+            cell(&mut body, root + 50, 50_000, 1),
+        )
     };
-    let before = links
-        .iter()
-        .map(|id| body.core0_resistance_material(*id))
-        .collect::<Vec<_>>();
-    let support = modulate(&mut body, root, contact, 2);
-    let selected = links
-        .iter()
-        .zip(before)
-        .all(|(id, before)| body.core0_resistance_material(*id) > before);
-    let a = source;
-    let b = target;
-    arrow(&mut body, a, b, 2, 1, TransmissionMode::Drive, 100);
-    arrow(&mut body, b, a, 2, 1, TransmissionMode::Drive, 100);
+    let modulator = cell(&mut body, root + 60, 60_000, 1);
+    let wrong = cell(&mut body, root + 70, 70_000, 100);
+    let negative = [
+        arrow(
+            &mut body,
+            ia,
+            a,
+            -2,
+            0,
+            TransmissionMode::Drive,
+            HIGH_RESISTANCE,
+        ),
+        arrow(
+            &mut body,
+            ib,
+            b,
+            -2,
+            0,
+            TransmissionMode::Drive,
+            HIGH_RESISTANCE,
+        ),
+    ];
+    let unrelated_negative = arrow(
+        &mut body,
+        unrelated,
+        a,
+        -2,
+        0,
+        TransmissionMode::Drive,
+        HIGH_RESISTANCE,
+    );
+    let positive = [
+        arrow(
+            &mut body,
+            pa,
+            a,
+            2,
+            0,
+            TransmissionMode::Drive,
+            HIGH_RESISTANCE,
+        ),
+        arrow(
+            &mut body,
+            pb,
+            b,
+            2,
+            0,
+            TransmissionMode::Drive,
+            HIGH_RESISTANCE,
+        ),
+    ];
+    if !matches!(consequence, E12Consequence::None) {
+        let targets = if matches!(consequence, E12Consequence::Wrong) {
+            [wrong, wrong]
+        } else {
+            [ia, ib]
+        };
+        for target in targets {
+            arrow(
+                &mut body,
+                modulator,
+                target,
+                2,
+                0,
+                TransmissionMode::Modulatory,
+                HIGH_RESISTANCE,
+            );
+        }
+    }
+    E12Body {
+        body,
+        a,
+        b,
+        ia,
+        ib,
+        unrelated,
+        modulator,
+        negative,
+        unrelated_negative,
+        positive,
+    }
+}
+
+fn e12_probe(world: &E12Body) -> (bool, usize, usize, u64, Vec<PhysicalTransition>) {
+    let mut body = world.body.clone();
+    for (from, to, coupling) in [
+        (world.a, world.b, 2),
+        (world.b, world.a, 2),
+        (world.a, world.ia, 1),
+        (world.b, world.ib, 1),
+    ] {
+        arrow(
+            &mut body,
+            from,
+            to,
+            coupling,
+            if coupling == 2 { 1 } else { 0 },
+            TransmissionMode::Drive,
+            HIGH_RESISTANCE,
+        );
+    }
     body.enter(SpikeInput {
-        arrival_tick: 3,
+        arrival_tick: body.clock().tick.saturating_add(1),
         phase: 0,
-        origin_physical: root + 9_000,
-        target: a,
+        origin_physical: 98_000_000,
+        target: world.a,
         impulse: 2,
     });
-    let probe = body.propagate_with_observation_ceiling(CEILING);
-    let pass = selected
-        && fires(&probe.run.physical_trace, b) >= 1
-        && probe.run.naturally_quiescent
-        && !probe.observation_ceiling_reached;
-    let (mut trace, mut work, proposals, deallocations, qlp, _) =
-        sum_runs(&[&generation, &support]);
-    trace.extend(probe.run.physical_trace.clone());
-    work = work.saturating_add(probe.run.work.physical_total());
+    let first = body.propagate_with_observation_ceiling(256);
+    let mut trace = first.run.physical_trace.clone();
+    let mut work = first.run.work.physical_total();
+    let mut quiescent = first.run.naturally_quiescent;
+    if first.observation_ceiling_reached {
+        let continuation = body.propagate_with_observation_ceiling(32);
+        trace.extend(continuation.run.physical_trace.clone());
+        work = work.saturating_add(continuation.run.work.physical_total());
+        quiescent = continuation.run.naturally_quiescent;
+    }
+    (
+        quiescent,
+        fires(&trace, world.a),
+        fires(&trace, world.b),
+        work,
+        trace,
+    )
+}
+
+fn e12_train(
+    profile: Core0Profile,
+    mechanics: MechanicalConfig,
+    root: u64,
+    permuted: bool,
+    consequence: E12Consequence,
+) -> E12Training {
+    let mut world = e12_body(profile, mechanics, root, permuted, consequence);
+    let mut curve = vec![-world.body.core0_coupling_material(world.negative[0])];
+    let initial_probe = e12_probe(&world);
+    let mut probe_classes = vec![initial_probe.0 && initial_probe.1 == 1 && initial_probe.2 == 1];
+    let mut traces = vec![initial_probe.4];
+    let mut work = initial_probe.3;
+    let mut quiescent = true;
+    for experience in 0..6_u64 {
+        let start = world.body.clock().tick.saturating_add(1);
+        let traversal = pulse_many(
+            &mut world.body,
+            &[world.ia, world.ib, world.unrelated],
+            start,
+            1,
+            root + 10_000 + experience * 1_000,
+        );
+        work = work.saturating_add(traversal.work.physical_total());
+        traces.push(traversal.physical_trace);
+        quiescent &= traversal.naturally_quiescent;
+        if !matches!(consequence, E12Consequence::None) {
+            let closure = pulse(
+                &mut world.body,
+                world.modulator,
+                start.saturating_add(12),
+                1,
+                root + 20_000 + experience * 1_000,
+            );
+            work = work.saturating_add(closure.work.physical_total());
+            traces.push(closure.physical_trace);
+            quiescent &= closure.naturally_quiescent;
+        } else {
+            world.body.advance_time(start.saturating_add(12));
+        }
+        curve.push(-world.body.core0_coupling_material(world.negative[0]));
+        let probe = e12_probe(&world);
+        probe_classes.push(probe.0 && probe.1 == 1 && probe.2 == 1);
+        work = work.saturating_add(probe.3);
+        traces.push(probe.4);
+    }
+    E12Training {
+        world,
+        coupling_curve: curve,
+        stable_probe: probe_classes,
+        traces,
+        work,
+        quiescent,
+    }
+}
+
+fn gate_e12(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Observation {
+    let primary = e12_train(profile, mechanics, root, false, E12Consequence::Local);
+    let permuted = e12_train(
+        profile,
+        mechanics,
+        root + 100_000,
+        true,
+        E12Consequence::Local,
+    );
+    let none = e12_train(
+        profile,
+        mechanics,
+        root + 200_000,
+        false,
+        E12Consequence::None,
+    );
+    let wrong = e12_train(
+        profile,
+        mechanics,
+        root + 300_000,
+        false,
+        E12Consequence::Wrong,
+    );
+    let E12Training {
+        world: mut learned,
+        coupling_curve: curve,
+        stable_probe: stable,
+        traces,
+        mut work,
+        mut quiescent,
+    } = primary;
+    let unrelated_before = learned
+        .body
+        .core0_coupling_material(learned.unrelated_negative);
+    let positive_before = learned
+        .positive
+        .map(|id| learned.body.core0_coupling_material(id));
+    let learned_before = learned
+        .negative
+        .map(|id| learned.body.core0_coupling_material(id));
+    let tick = learned.body.clock().tick.saturating_add(1);
+    let final_use = pulse_many(
+        &mut learned.body,
+        &[learned.ia, learned.ib, learned.unrelated],
+        tick,
+        1,
+        root + 900_000,
+    );
+    work = work.saturating_add(final_use.work.physical_total());
+    quiescent &= final_use.naturally_quiescent;
+    let learned_after = learned
+        .negative
+        .map(|id| learned.body.core0_coupling_material(id));
+    let monotonic = curve.windows(2).all(|pair| pair[1] > pair[0]);
+    let zero_active = !stable[0];
+    let later_stable = stable.iter().skip(1).any(|value| *value);
+    let controls = none
+        .coupling_curve
+        .iter()
+        .all(|value| *value == none.coupling_curve[0])
+        && wrong
+            .coupling_curve
+            .iter()
+            .all(|value| *value == wrong.coupling_curve[0])
+        && curve == permuted.coupling_curve
+        && stable == permuted.stable_probe
+        && learned_before == learned_after
+        && unrelated_before
+            == learned
+                .body
+                .core0_coupling_material(learned.unrelated_negative)
+        && positive_before
+            == learned
+                .positive
+                .map(|id| learned.body.core0_coupling_material(id));
+    let pass = monotonic
+        && zero_active
+        && later_stable
+        && controls
+        && quiescent
+        && permuted.quiescent
+        && none.quiescent
+        && wrong.quiescent;
+    let trace = traces.into_iter().flatten().collect::<Vec<_>>();
+    let reason = format!(
+        "six fixed experiences curve={} stable={}",
+        curve
+            .iter()
+            .map(i64::to_string)
+            .collect::<Vec<_>>()
+            .join("|"),
+        stable
+            .iter()
+            .map(bool::to_string)
+            .collect::<Vec<_>>()
+            .join("|")
+    );
+    let proposals = final_use.work.local_structural_proposals;
+    let deallocations = final_use.work.physical_deallocations;
+    let qlp = final_use.work.qualified_local_traversals;
     finish(
-        &body,
+        &learned.body,
         pass,
-        "generated consequence-selected negative topology settles fresh recurrence",
+        reason,
         trace,
         work,
-        proposals.saturating_add(probe.run.work.local_structural_proposals),
-        deallocations.saturating_add(probe.run.work.physical_deallocations),
-        qlp.saturating_add(probe.run.work.qualified_local_traversals),
-        probe.run.naturally_quiescent,
+        proposals,
+        deallocations,
+        qlp,
+        quiescent,
     )
 }
 
@@ -1065,15 +1464,7 @@ fn equivalent(left: &Observation, right: &Observation) -> bool {
 
 fn run_matrix() -> Vec<Row> {
     let mut rows = Vec::new();
-    for (profile_index, profile) in [
-        Core0Profile::A,
-        Core0Profile::B,
-        Core0Profile::C,
-        Core0Profile::D,
-    ]
-    .into_iter()
-    .enumerate()
-    {
+    for (profile_index, profile) in CORE1_PROFILES.into_iter().enumerate() {
         let mut reached = true;
         for (gate_index, gate) in Gate::ALL.into_iter().enumerate() {
             if !reached {
@@ -1087,6 +1478,9 @@ fn run_matrix() -> Vec<Row> {
                     live_arrows: 0,
                     proposals: 0,
                     deallocations: 0,
+                    qlp: 0,
+                    replay_exact: false,
+                    mechanics_exact: false,
                     reason: "earlier capability failed".to_string(),
                 });
                 continue;
@@ -1094,19 +1488,19 @@ fn run_matrix() -> Vec<Row> {
             let root =
                 8_000_000 + u64::try_from(profile_index * 100_000 + gate_index * 1_000).unwrap();
             eprintln!(
-                "CORE0_DIAGNOSTIC profile={} gate={:?} mechanics=reference replay=0",
+                "CORE1_DIAGNOSTIC profile={} gate={:?} mechanics=reference replay=0",
                 profile_name(profile),
                 gate
             );
             let reference = execute(gate, profile, MechanicalConfig::REFERENCE, root);
             eprintln!(
-                "CORE0_DIAGNOSTIC profile={} gate={:?} mechanics=reference replay=1",
+                "CORE1_DIAGNOSTIC profile={} gate={:?} mechanics=reference replay=1",
                 profile_name(profile),
                 gate
             );
             let replay = execute(gate, profile, MechanicalConfig::REFERENCE, root);
             eprintln!(
-                "CORE0_DIAGNOSTIC profile={} gate={:?} mechanics=production replay=0",
+                "CORE1_DIAGNOSTIC profile={} gate={:?} mechanics=production replay=0",
                 profile_name(profile),
                 gate
             );
@@ -1135,6 +1529,9 @@ fn run_matrix() -> Vec<Row> {
                 live_arrows: reference.live_arrows,
                 proposals: reference.proposals,
                 deallocations: reference.deallocations,
+                qlp: reference.qlp,
+                replay_exact,
+                mechanics_exact,
                 reason,
             });
             reached = pass;
@@ -1144,12 +1541,12 @@ fn run_matrix() -> Vec<Row> {
 }
 
 fn write_results(destination: &Path, rows: &[Row]) {
-    fs::create_dir_all(destination).expect("create CORE0 result directory");
-    let mut csv = String::from("profile,gate,capability,status,experiences,physical_work,live_cells,live_arrows,proposals,deallocations,new_physics,reason\n");
+    fs::create_dir_all(destination).expect("create CORE1 result directory");
+    let mut csv = String::from("profile,gate,capability,status,experiences,physical_work,live_cells,live_arrows,proposals,deallocations,qlp_traversals,replay_exact,mechanics_exact,new_physics,reason\n");
     for row in rows {
         writeln!(
             csv,
-            "{},{:?},{},{},{},{},{},{},{},{},false,{}",
+            "{},{:?},{},{},{},{},{},{},{},{},{},{},{},false,{}",
             profile_name(row.profile),
             row.gate,
             row.gate.name(),
@@ -1160,19 +1557,17 @@ fn write_results(destination: &Path, rows: &[Row]) {
             row.live_arrows,
             row.proposals,
             row.deallocations,
+            row.qlp,
+            row.replay_exact,
+            row.mechanics_exact,
             row.reason.replace(',', ";")
         )
         .unwrap();
     }
-    fs::write(destination.join("matrix.csv"), csv).expect("write CORE0 CSV");
+    fs::write(destination.join("matrix.csv"), csv).expect("write CORE1 CSV");
 
-    let mut report = String::from("# CORE0 blank physical organism result\n\n| Profile | First failure | Passed prefix |\n|---|---|---:|\n");
-    for profile in [
-        Core0Profile::A,
-        Core0Profile::B,
-        Core0Profile::C,
-        Core0Profile::D,
-    ] {
+    let mut report = String::from("# CORE1 radical de-supply result\n\n| Profile | First failure | Passed prefix |\n|---|---|---:|\n");
+    for profile in CORE1_PROFILES {
         let profile_rows = rows
             .iter()
             .filter(|row| row.profile == profile)
@@ -1211,25 +1606,25 @@ fn write_results(destination: &Path, rows: &[Row]) {
         )
         .unwrap();
     }
-    fs::write(destination.join("report.md"), report).expect("write CORE0 report");
+    fs::write(destination.join("report.md"), report).expect("write CORE1 report");
 }
 
 fn main() {
-    eprintln!("CORE0_V3_EVIDENCE_SPENT");
+    eprintln!("CORE1_RADICAL_DESUPPLY_V1_EVIDENCE_SPENT");
     let destination = env::args()
         .nth(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("experiments/results/core0_blank_physical_organism_v1"));
+        .unwrap_or_else(|| PathBuf::from("experiments/results/core1_radical_desupply_v1"));
     let rows = run_matrix();
     write_results(&destination, &rows);
     let failures = rows.iter().filter(|row| row.status == "FAIL").count();
-    assert_eq!(rows.len(), 60);
+    assert_eq!(rows.len(), 75);
     assert!(
         failures > 0,
         "destructive ablation unexpectedly has no frontier"
     );
     println!(
-        "CORE0_COMPLETE rows={} first_failures={failures}",
+        "CORE1_COMPLETE rows={} first_failures={failures}",
         rows.len()
     );
 }
