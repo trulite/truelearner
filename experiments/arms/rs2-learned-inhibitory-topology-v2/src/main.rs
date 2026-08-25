@@ -1046,13 +1046,11 @@ fn observe_useful_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -
     let selected_live = world.relation_live(selected);
     let unsupported_live = world.relation_live(unsupported);
     let contact_before = fire_count(&world.trace, selected.contact);
-    let positive_incidences_before =
-        positive_drive_incidence_count(&world.trace, world.target_a);
+    let positive_incidences_before = positive_drive_incidence_count(&world.trace, world.target_a);
     let source = world.source_b;
     world.pulse_full(source, 10, 2);
     let contact_after = fire_count(&world.trace, selected.contact);
-    let positive_incidences_after =
-        positive_drive_incidence_count(&world.trace, world.target_a);
+    let positive_incidences_after = positive_drive_incidence_count(&world.trace, world.target_a);
     let markers = vec![format!(
         "selected_sign={};live={selected_live}/{unsupported_live};contact_fires={contact_before}->{contact_after};positive_incidences={positive_incidences_before}->{positive_incidences_after};anchors={anchors_after:?}",
         selected.sign
@@ -1166,9 +1164,10 @@ fn mechanics_name(config: MechanicalConfig) -> &'static str {
 }
 
 fn main() {
-    let output_dir = env::args().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_v6")
-    });
+    let output_dir = env::args()
+        .nth(1)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_v6"));
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
         "case,family,root,phase,mechanics,replay_equal,cross_equal,renaming_equal,checks_pass,failed,quiescent,ceiling,physical_work,updates,proposals,cell_proposals,arrow_deallocations,cell_deallocations,normalized_trace_len,final_tick,normalized_trace_hash,raw_trace_hash,normalized_body_hash,raw_body_hash,live_hash,pending_continuation_hash,admitted_continuation_hash,markers\n",
