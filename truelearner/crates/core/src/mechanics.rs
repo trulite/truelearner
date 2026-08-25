@@ -341,7 +341,7 @@ impl ArrowColumns {
     }
 
     fn resident_bytes(&self) -> usize {
-        let bytes = self.ids.capacity() * std::mem::size_of::<ArrowId>()
+        self.ids.capacity() * std::mem::size_of::<ArrowId>()
             + self.from.capacity() * std::mem::size_of::<CellId>()
             + self.to.capacity() * std::mem::size_of::<CellId>()
             + self.delays.capacity() * std::mem::size_of::<i64>()
@@ -355,8 +355,7 @@ impl ArrowColumns {
             + self.participation_levels.capacity() * std::mem::size_of::<u64>()
             + self.plastic_supports.capacity() * std::mem::size_of::<u64>()
             + self.decay_loads.capacity() * std::mem::size_of::<u64>()
-            + self.triggers.capacity() * std::mem::size_of::<super::TransmissionTrigger>();
-        bytes
+            + self.triggers.capacity() * std::mem::size_of::<super::TransmissionTrigger>()
     }
 }
 
