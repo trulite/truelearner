@@ -435,6 +435,7 @@ fn execute(mut geometry: Geometry) -> Observation {
                 .find(|arrow| arrow.id == *id)
                 .is_some_and(|arrow| arrow.live)
         });
+    let within_work_ceiling = work.physical <= CYCLE_WORK_CEILING;
     Observation {
         trace,
         participation,
@@ -447,7 +448,7 @@ fn execute(mut geometry: Geometry) -> Observation {
         pressure_phase: geometry.body.clock().pressure_phase(),
         body_hash: ContentHash::of(&geometry.body.canonical_body_bytes(1).unwrap()).to_string(),
         live,
-        quiescent: quiescent && work.physical <= CYCLE_WORK_CEILING,
+        quiescent: quiescent && within_work_ceiling,
     }
 }
 
@@ -532,7 +533,7 @@ fn write_row(
 ) {
     writeln!(
         csv,
-        "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         world.name(),
         mechanics_name(mechanics),
         vector(&observation.participation),
