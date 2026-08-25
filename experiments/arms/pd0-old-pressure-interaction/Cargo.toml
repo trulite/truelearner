@@ -1,0 +1,9 @@
+[package]
+name = "pd0-old-pressure-interaction"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["pqlc0"] }
+
+[workspace]
