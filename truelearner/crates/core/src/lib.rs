@@ -2195,13 +2195,7 @@ impl PlasticSubstrate {
                 if !cell_state.live || cell_state.participation_level == 0 {
                     return None;
                 }
-                let bounded = cell_state.participation_level.min(PARTICIPATION_IMPULSE);
-                let numerator =
-                    u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
-                let gain = numerator
-                    .saturating_add(u128::from(PARTICIPATION_IMPULSE).saturating_sub(1))
-                    / u128::from(PARTICIPATION_IMPULSE);
-                let gain = u32::try_from(gain).unwrap_or(LOCAL_RETURN_STRENGTH);
+                let gain = local_consequence_gain(cell_state.participation_level);
                 let before = cell_state.resistance;
                 cell_state.resistance = cell_state.resistance.saturating_add(gain);
                 if cell_state.resistance != before {
@@ -2280,13 +2274,7 @@ impl PlasticSubstrate {
                     let efficacy_gain = i32::try_from(efficacy_gain).unwrap_or(i32::MAX);
                     arrow.coupling = arrow.coupling.saturating_add(efficacy_gain);
                 }
-                let bounded = participation.min(PARTICIPATION_IMPULSE);
-                let numerator =
-                    u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
-                let gain = numerator
-                    .saturating_add(u128::from(PARTICIPATION_IMPULSE).saturating_sub(1))
-                    / u128::from(PARTICIPATION_IMPULSE);
-                let gain = u32::try_from(gain).unwrap_or(LOCAL_RETURN_STRENGTH);
+                let gain = local_consequence_gain(participation);
                 let before = arrow.resistance;
                 arrow.resistance = arrow.resistance.saturating_add(gain);
                 if arrow.resistance != before {
@@ -2979,6 +2967,14 @@ fn relax_participation(mut level: u64, elapsed: i64) -> u64 {
             level.saturating_mul(PARTICIPATION_RELAX_NUMERATOR) / PARTICIPATION_RELAX_DENOMINATOR;
     }
     level
+}
+
+fn local_consequence_gain(participation: u64) -> u32 {
+    let bounded = participation.min(PARTICIPATION_IMPULSE);
+    let numerator = u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
+    let gain = numerator.saturating_add(u128::from(PARTICIPATION_IMPULSE).saturating_sub(1))
+        / u128::from(PARTICIPATION_IMPULSE);
+    u32::try_from(gain).unwrap_or(LOCAL_RETURN_STRENGTH)
 }
 
 fn pressure_epoch(tick: i64) -> i64 {
