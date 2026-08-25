@@ -214,10 +214,7 @@ impl World {
                 impulse: 1,
             })
             .collect::<Vec<_>>();
-        let result = self.body.arrive(
-            &arrivals,
-            i16::MAX,
-        );
+        let result = self.body.arrive(&arrivals, i16::MAX);
         self.trace.extend(result.physical_trace);
         self.work.add(result.work);
         self.naturally_quiescent &= result.naturally_quiescent;
@@ -636,7 +633,10 @@ fn observe_selected(
         selected.contact, selected.contact_slot, unsupported.contact, unsupported.contact_slot
     )];
     let checks = vec![
-        ("selected_sign_matches_world".into(), selected.sign == selected_sign),
+        (
+            "selected_sign_matches_world".into(),
+            selected.sign == selected_sign,
+        ),
         (
             "junction_resistance_unchanged".into(),
             selected_contact_before == Some(1)
@@ -644,8 +644,14 @@ fn observe_selected(
                 && unsupported_contact_before == Some(1)
                 && unsupported_contact_after == Some(1),
         ),
-        ("selected_stem_consolidated".into(), selected_stem_r == Some(4)),
-        ("selected_outgoing_consolidated".into(), selected_out_r == Some(4)),
+        (
+            "selected_stem_consolidated".into(),
+            selected_stem_r == Some(4),
+        ),
+        (
+            "selected_outgoing_consolidated".into(),
+            selected_out_r == Some(4),
+        ),
         (
             "unsupported_stem_not_consolidated".into(),
             unsupported_stem_r == Some(1),
@@ -670,7 +676,10 @@ fn observe_selected(
             "unsupported_relation_stays_inert".into(),
             unsupported_fires_after_probe == unsupported_fires_before_probe,
         ),
-        ("two_link_updates_only".into(), world.work.arrow_updates == 2),
+        (
+            "two_link_updates_only".into(),
+            world.work.arrow_updates == 2,
+        ),
         (
             "one_orphan_reclaimed".into(),
             world.work.cell_deallocations == 1,
@@ -692,7 +701,10 @@ fn observe_both(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observati
     let positive_modulator = world.add_modulation_to(root, 101, positive.contact);
     world.pulse_many(
         2,
-        &[(negative_modulator, root + 102), (positive_modulator, root + 103)],
+        &[
+            (negative_modulator, root + 102),
+            (positive_modulator, root + 103),
+        ],
     );
     let resistances = [
         arrow_resistance(&world, negative.stem),
@@ -734,16 +746,15 @@ fn observe_both(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observati
                 && positive_after == positive_before.saturating_add(1),
         ),
         ("four_link_updates".into(), world.work.arrow_updates == 4),
-        ("no_orphan_reclamation".into(), world.work.cell_deallocations == 0),
+        (
+            "no_orphan_reclamation".into(),
+            world.work.cell_deallocations == 0,
+        ),
     ];
     world.finish(markers, checks)
 }
 
-fn observe_shared_contact(
-    root: u64,
-    phase: i64,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn observe_shared_contact(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = World::new(root, phase, mechanics);
     let contact = world.body.add_cell(truelearner_core::CellSpec {
         physical_id: root + 3,
@@ -793,7 +804,10 @@ fn observe_shared_contact(
     let contact_resistance = world.body.cell_resistance(contact);
     world.advance_age(10);
     let live = (
-        world.body.resolve_cell(world.body.cell_reference(contact)).is_some(),
+        world
+            .body
+            .resolve_cell(world.body.cell_reference(contact))
+            .is_some(),
         world.body.resolve_arrow(stem).is_some(),
         world.body.resolve_arrow(positive).is_some(),
         world.body.resolve_arrow(negative).is_some(),
@@ -834,11 +848,7 @@ fn mechanics_name(config: MechanicalConfig) -> &'static str {
 }
 
 fn main() {
-    let stage = Stage::parse(
-        &env::args()
-            .nth(1)
-            .unwrap_or_else(|| "gate-e".to_string()),
-    );
+    let stage = Stage::parse(&env::args().nth(1).unwrap_or_else(|| "gate-e".to_string()));
     let output_dir = env::args()
         .nth(2)
         .map(PathBuf::from)
@@ -928,8 +938,8 @@ fn main() {
         }
     }
 
-    let expected_cases = ROOTS.len() * usize::try_from(PHASES.end - PHASES.start).unwrap()
-        * stage.families().len();
+    let expected_cases =
+        ROOTS.len() * usize::try_from(PHASES.end - PHASES.start).unwrap() * stage.families().len();
     let expected_rows = expected_cases.saturating_mul(2);
     assert_eq!(cases, expected_cases);
     assert_eq!(rows, expected_rows);
