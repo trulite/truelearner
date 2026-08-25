@@ -4608,7 +4608,6 @@ fn relax_participation(mut level: u64, elapsed: i64) -> u64 {
     level
 }
 
-#[cfg(not(feature = "si0"))]
 fn local_consequence_gain(participation: u64) -> u32 {
     let bounded = participation.min(PARTICIPATION_IMPULSE);
     let numerator = u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
