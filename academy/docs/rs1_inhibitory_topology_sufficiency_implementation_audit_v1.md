@@ -41,7 +41,7 @@ physical equivalence.
 ```text
 core lib.rs       45dd6af368776d68574ff2b00dd4db109d469bfeedc99b57eb76ad6b26ca111c
 core Cargo.toml   5d794eae058f5cdd896064b0a37a6dfb124d9d7b6d03f8cfa9c53651e58460ef
-evaluator         58eb5f6098048feaff5c801f5b3007c97958e54fda974399e3b17aa216f47766
+evaluator         c3d1b95ea1f568702230a4bc31832f6575bc4d3db0c5c31f8454c62f595ca786
 arm Cargo.toml    677943e3b525101a5cdef8a0219a4a780e7d0cbc14fcf5a467c12f4fedba4016
 protocol          bb175daa3a22fc03e99d8ad8f0a462054fa468a025469af4babadaf4ac6d8cee
 ```
@@ -60,3 +60,9 @@ same-mechanics replay. The matrix has not run.
 
 The standalone evaluator was remotely formatted and compiled in reusable E2B
 worker `iz0fwqk6a9bkvd4fgbtp1`. No Rust or project command ran locally.
+
+The first strict-Clippy preflight stopped before evidence because the local
+ARROW-construction helper accepted eight mechanical arguments. Those existing
+fields were grouped into the existing `ArrowSpec`; no world geometry, law,
+predicate, or matrix dimension changed. The corrected evaluator then passed
+formatting and strict Clippy in the same reusable worker.
