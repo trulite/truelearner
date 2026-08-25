@@ -1966,9 +1966,7 @@ impl PlasticSubstrate {
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
         if pressure_steps > 0 {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
-            let first_pressure_tick = self
-                .pressure_tick
-                .saturating_add(ORDINARY_PRESSURE_PERIOD);
+            let first_pressure_tick = self.pressure_tick.saturating_add(ORDINARY_PRESSURE_PERIOD);
             for index in 0..self.arrows.len() {
                 execution_cost.scans = execution_cost.scans.saturating_add(1);
                 let (deallocated, zero_delay) = self.arrows.with_mut(index, |arrow| {
@@ -1987,9 +1985,8 @@ impl PlasticSubstrate {
                                 .min(pressure_steps)
                         }
                     });
-                    let applicable = amount.saturating_sub(
-                        u32::try_from(protected_steps).unwrap_or(u32::MAX),
-                    );
+                    let applicable =
+                        amount.saturating_sub(u32::try_from(protected_steps).unwrap_or(u32::MAX));
                     if applicable == 0 {
                         return (false, arrow.delay == 0);
                     }
@@ -2674,7 +2671,10 @@ mod tests {
             candidate_result.naturally_quiescent,
             reference_result.naturally_quiescent
         );
-        assert_eq!(candidate_result.physical_trace, reference_result.physical_trace);
+        assert_eq!(
+            candidate_result.physical_trace,
+            reference_result.physical_trace
+        );
     }
 
     #[derive(Clone, Copy)]
@@ -2753,7 +2753,10 @@ mod tests {
             total_updates += traversed.work.local_return_updates;
             total_deallocations += traversed.work.physical_deallocations;
             let slot = body.arrow_slot(candidate).unwrap();
-            assert!(body.arrows.get(slot.0).live, "eligible R1 route died at tick 10");
+            assert!(
+                body.arrows.get(slot.0).live,
+                "eligible R1 route died at tick 10"
+            );
             assert_eq!(body.arrows.get(slot.0).eligible_until, Some(13));
         }
 
@@ -2801,7 +2804,11 @@ mod tests {
             deallocations: total_deallocations,
             clock: body.clock(),
             body: body.canonical_body_bytes(704).unwrap(),
-            replay_exact: restored.live_checkpoint(704).unwrap().canonical_bytes().unwrap()
+            replay_exact: restored
+                .live_checkpoint(704)
+                .unwrap()
+                .canonical_bytes()
+                .unwrap()
                 == replay_bytes,
             quiescent: body.pending.is_empty(),
         }
