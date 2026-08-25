@@ -3,10 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use truelearner_arena_format::{ArenaId, ArrowId, CellId, ContentHash};
 #[cfg(feature = "core0")]
-use truelearner_core::Core0Profile;
+use truelearner_core::{Core0Profile, TransmissionTrigger};
 use truelearner_core::{
     ArrowSpec, BoundaryError, BoundaryRuntime, CellSpec, MechanicalConfig, PlasticSubstrate,
-    SpikeInput, TransmissionMode, TransmissionTrigger,
+    SpikeInput, TransmissionMode,
 };
 
 const PALETTE_CONTEXTS: usize = 16;
@@ -196,6 +196,7 @@ enum SensorMode {
 struct Sites {
     candidate_sources: Vec<[CellId; MOTORS]>,
     context_traces: Vec<[CellId; MOTORS]>,
+    #[cfg(feature = "core0")]
     relays: Vec<[CellId; MOTORS]>,
     motors: Vec<[CellId; MOTORS]>,
     babblers: Vec<[CellId; MOTORS]>,
@@ -394,7 +395,8 @@ impl Arc3Sensorimotor {
             SensorMode::DominantPalette => current_tick.saturating_add(1),
             SensorMode::SpatialFingerprint => current_tick,
         };
-        let history_contacts = if let Some(early_sign) = early_material_sign {
+        let history_contacts: Option<Vec<(CellId, u64, bool)>> =
+            if let Some(early_sign) = early_material_sign {
             #[cfg(feature = "core0")]
             {
                 let action = babble_action.ok_or_else(|| {
@@ -414,9 +416,9 @@ impl Arc3Sensorimotor {
                     "transient history requires the core0 integration surface".to_string(),
                 ));
             }
-        } else {
-            None
-        };
+            } else {
+                None
+            };
         let mut inputs = Vec::with_capacity(
             available_motors
                 .len()
@@ -1097,6 +1099,7 @@ fn build_body(
     let sites = Sites {
         candidate_sources,
         context_traces,
+        #[cfg(feature = "core0")]
         relays,
         motors,
         babblers,
