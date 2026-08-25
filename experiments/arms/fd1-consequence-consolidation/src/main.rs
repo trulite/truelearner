@@ -407,12 +407,7 @@ fn repeated_consequence(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
     world.finish(points, true)
 }
 
-fn execute(
-    root: u64,
-    phase: i64,
-    family: Family,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn execute(root: u64, phase: i64, family: Family, mechanics: MechanicalConfig) -> Observation {
     match family {
         Family::Unused => unused(root, phase, mechanics),
         Family::UseOnly => use_only(root, phase, mechanics),
@@ -575,8 +570,7 @@ fn main() {
                 assert_eq!(production, reference);
                 let passed = predicate(family, &reference);
                 assert!(passed, "FD1 family failed: {}", family.name());
-                family_passes[family as usize] =
-                    family_passes[family as usize].saturating_add(1);
+                family_passes[family as usize] = family_passes[family as usize].saturating_add(1);
                 maximum_work = maximum_work.max(reference.work.physical);
                 for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)]
                 {
