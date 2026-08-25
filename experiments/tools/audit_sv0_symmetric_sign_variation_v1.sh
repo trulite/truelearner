@@ -19,7 +19,7 @@ check_hash b6b7f2a47818d84ac2fd69aab466f5f917e6d3ba7cfc8f8c5db4ce91b97fbae5 \
   truelearner/crates/core/src/lib.rs
 check_hash 4cb6d665d738cdea61f928975fa34ddf89d62aa9150420748d94d574ed731aeb \
   truelearner/crates/core/Cargo.toml
-check_hash 509d5133899cd457cf9c46f7bd1a75e8922cbbcad4311bf70863c13943f2fecb \
+check_hash 40617eb3deba55ff108633dc352962dc176d6e9ee99cbd00aa5384be7b78fa78 \
   experiments/arms/sv0-symmetric-sign-variation/src/main.rs
 check_hash 7a1331848974e21f45353da459b00c580bdd73c1d0a9433d6b1f153e7c52ddf0 \
   experiments/arms/sv0-symmetric-sign-variation/Cargo.toml
@@ -59,7 +59,7 @@ fi
 grep -Fq 'const EXPECTED_CASES: usize = 72;' "$evaluator"
 grep -Fq 'const EXPECTED_ROWS: usize = 144;' "$evaluator"
 test "$(sed -n '/const ALL: \[Self; 6\]/,/];/p' "$evaluator" | grep -c 'Self::')" -eq 6
-grep -Fq 'if selected_crossing_present {' "$evaluator"
+grep -Fq 'if selected_crossing_present =>' "$evaluator"
 grep -Fq 'observation.work.updates == 0' "$evaluator"
 grep -Fq 'observation.work.updates == 1' "$evaluator"
 grep -Fq 'observation.work.updates == 4' "$evaluator"

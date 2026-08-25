@@ -42,7 +42,7 @@ pre-consequence body/history are unchanged.
 ```text
 core lib.rs       b6b7f2a47818d84ac2fd69aab466f5f917e6d3ba7cfc8f8c5db4ce91b97fbae5
 core Cargo.toml   4cb6d665d738cdea61f928975fa34ddf89d62aa9150420748d94d574ed731aeb
-evaluator         509d5133899cd457cf9c46f7bd1a75e8922cbbcad4311bf70863c13943f2fecb
+evaluator         40617eb3deba55ff108633dc352962dc176d6e9ee99cbd00aa5384be7b78fa78
 arm Cargo.toml    7a1331848974e21f45353da459b00c580bdd73c1d0a9433d6b1f153e7c52ddf0
 protocol          a5a5f5286e58ad8996026e9dbe0d38d1a1b61dc9ea2c2cd562efd1b6811d96fe
 ```
@@ -58,3 +58,8 @@ position origins, Reference/Production, and exact same-mechanics replay yield
 The standalone evaluator and feature-gated core compiled in reusable E2B
 worker `igk8z307lfx74zbk20yeg`. The matrix has not run. No Rust or project
 command ran locally.
+
+The first strict-Clippy preflight stopped before evidence on a collapsible
+match/if style warning. The nested condition was expressed as the equivalent
+match guard; no consequence admission, world, predicate, or candidate law
+changed.
