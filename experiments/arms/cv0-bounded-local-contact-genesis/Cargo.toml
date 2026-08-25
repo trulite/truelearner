@@ -1,0 +1,10 @@
+[package]
+name = "cv0-bounded-local-contact-genesis"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["cv0"] }
+
+[workspace]
