@@ -32,7 +32,7 @@ printf '%s\n' "$add_cell_body" | grep -Fq 'live: spec.resistance > 0,'
 test "$(printf '%s\n' "$add_cell_body" | grep -c 'position(|cell| !cell.live)' || true)" -eq 0
 test "$(printf '%s\n' "$cell_decay_body" | grep -Ec 'resistance|\.live|generation')" -eq 0
 test "$(grep -Ec 'cell\.live[[:space:]]*=[[:space:]]*false|target\.live[[:space:]]*=[[:space:]]*false' "$core")" -eq 0
-test "$(grep -Ec 'cells\.remove|cell_slots\[[^]]+\][[:space:]]*=[[:space:]]*None' "$core")" -eq 0
+test "$(grep -Ec 'self\.cells\.remove|self\.cell_slots\[[^]]+\][[:space:]]*=[[:space:]]*None' "$core")" -eq 0
 
 printf '%s\n' "$arrow_decay_body" | grep -Fq 'arrow.live = false;'
 printf '%s\n' "$arrow_decay_body" | grep -Fq 'arrow.generation = Generation('
