@@ -6,9 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig,
-    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode,
-    TransmissionTrigger,
+    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig, PhysicalEvent,
+    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, TransmissionTrigger,
 };
 
 const ROOTS: [u64; 2] = [2_700_000, 2_800_000];
@@ -351,12 +350,8 @@ fn linear_geometry(
 fn branch_geometry(mut builder: Builder, depth: usize, fanout: bool) -> Geometry {
     assert!(depth >= 2);
     let branch_len = depth - 1;
-    let branch_a = (0..branch_len)
-        .map(|_| builder.cell(1))
-        .collect::<Vec<_>>();
-    let branch_b = (0..branch_len)
-        .map(|_| builder.cell(1))
-        .collect::<Vec<_>>();
+    let branch_a = (0..branch_len).map(|_| builder.cell(1)).collect::<Vec<_>>();
+    let branch_b = (0..branch_len).map(|_| builder.cell(1)).collect::<Vec<_>>();
     let final_contact = builder.cell(1);
     let effect = builder.cell(2);
     let source_a = builder.source(branch_a[0]);
@@ -404,11 +399,7 @@ fn branch_geometry(mut builder: Builder, depth: usize, fanout: bool) -> Geometry
     expected_support.push(true);
     contact_arrows.extend(arrows_b);
     expected_support.extend(vec![fanout; branch_len]);
-    let expected_qlp = if fanout {
-        2 * depth - 2
-    } else {
-        depth
-    };
+    let expected_qlp = if fanout { 2 * depth - 2 } else { depth };
 
     builder.finish(
         contact_arrows,
@@ -420,12 +411,7 @@ fn branch_geometry(mut builder: Builder, depth: usize, fanout: bool) -> Geometry
     )
 }
 
-fn geometry(
-    root: u64,
-    phase: i64,
-    case: CaseSpec,
-    mechanics: MechanicalConfig,
-) -> Geometry {
+fn geometry(root: u64, phase: i64, case: CaseSpec, mechanics: MechanicalConfig) -> Geometry {
     let builder = Builder::new(root, phase, mechanics);
     match case.family {
         Family::Complete => linear_geometry(builder, case.depth, None, None, false),
@@ -484,19 +470,28 @@ fn execute(mut geometry: Geometry) -> (Observation, Vec<bool>, Option<u64>, bool
         .collect::<Vec<_>>();
     let qlp_events = trace
         .iter()
-        .filter(|transition| matches!(transition.event, PhysicalEvent::QualifiedLocalTraversal { .. }))
+        .filter(|transition| {
+            matches!(
+                transition.event,
+                PhysicalEvent::QualifiedLocalTraversal { .. }
+            )
+        })
         .count() as u64;
     let source_fires = trace
         .iter()
         .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { .. }))
         .count() as u64;
     let body = geometry.body.arena_body(1);
-    let live = geometry.contacts.iter().chain(&geometry.qlp_arrows).all(|id| {
-        body.arrows
-            .iter()
-            .find(|arrow| arrow.id == *id)
-            .is_some_and(|arrow| arrow.live)
-    });
+    let live = geometry
+        .contacts
+        .iter()
+        .chain(&geometry.qlp_arrows)
+        .all(|id| {
+            body.arrows
+                .iter()
+                .find(|arrow| arrow.id == *id)
+                .is_some_and(|arrow| arrow.live)
+        });
     let observation = Observation {
         trace,
         participation,
@@ -737,9 +732,10 @@ fn main() {
                     observe_range(&mut cycle_work[depth_index], reference.work.physical);
                 }
 
-                for (kind, observation) in
-                    [(mechanics[0], &reference), (mechanics[1], &production_run.0)]
-                {
+                for (kind, observation) in [
+                    (mechanics[0], &reference),
+                    (mechanics[1], &production_run.0),
+                ] {
                     write_row(
                         &mut csv,
                         physical_cases,
@@ -760,8 +756,8 @@ fn main() {
     assert_eq!(physical_cases, EXPECTED_PHYSICAL_CASES);
     let mechanics_rows = physical_cases * 2;
     assert_eq!(mechanics_rows, EXPECTED_MECHANICS_ROWS);
-    let development_positive = passed_physical_cases == physical_cases
-        && variant_complete.iter().all(|value| *value);
+    let development_positive =
+        passed_physical_cases == physical_cases && variant_complete.iter().all(|value| *value);
     let mut report = format!(
         "# PQLC1 depth composition result v1\n\n\
          - case variants: `{}/{EXPECTED_VARIANTS}`\n\
@@ -791,7 +787,5 @@ fn main() {
     fs::write(output.join("matrix.csv"), csv).unwrap();
     fs::write(output.join("report.md"), report).unwrap();
     write_checksums(&output);
-    println!(
-        "PQLC1_COMPLETE physical_cases={physical_cases} positive={development_positive}"
-    );
+    println!("PQLC1_COMPLETE physical_cases={physical_cases} positive={development_positive}");
 }
