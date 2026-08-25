@@ -1155,14 +1155,9 @@ fn mechanics_name(config: MechanicalConfig) -> &'static str {
 }
 
 fn main() {
-    let output_dir = env::args()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from(
-                "experiments/results/rs2_learned_inhibitory_topology_consolidated_v1",
-            )
-        });
+    let output_dir = env::args().nth(1).map(PathBuf::from).unwrap_or_else(|| {
+        PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_consolidated_v1")
+    });
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
         "case,family,root,phase,mechanics,replay_equal,cross_equal,renaming_equal,checks_pass,failed,quiescent,ceiling,physical_work,updates,proposals,cell_proposals,arrow_deallocations,cell_deallocations,normalized_trace_len,final_tick,normalized_trace_hash,raw_trace_hash,normalized_body_hash,raw_body_hash,live_hash,pending_continuation_hash,admitted_continuation_hash,markers\n",
