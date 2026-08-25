@@ -2232,6 +2232,20 @@ impl PlasticSubstrate {
                 }
             }
         }
+        #[cfg(feature = "j0")]
+        let candidates = {
+            execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+            execution_cost.scans = execution_cost
+                .scans
+                .saturating_add(u64::try_from(self.arrows.len()).unwrap_or(u64::MAX));
+            execution_cost.touch::<Arrow>(self.arrows.len());
+            self.arrows
+                .values()
+                .iter()
+                .map(|arrow| arrow.id)
+                .collect::<Vec<_>>()
+        };
+        #[cfg(not(feature = "j0"))]
         let candidates = match self.mechanics.traversal {
             TraversalKind::GlobalScan => {
                 execution_cost.allocations = execution_cost.allocations.saturating_add(1);
@@ -2267,7 +2281,13 @@ impl PlasticSubstrate {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
             let updated = self.arrows.with_mut(slot.0, |arrow| {
-                if !(arrow.live && arrow.from == cell) {
+                #[cfg(feature = "j0")]
+                let local_participating_structure = arrow.live
+                    && arrow.mode == TransmissionMode::Drive
+                    && (arrow.from == cell || arrow.to == cell);
+                #[cfg(not(feature = "j0"))]
+                let local_participating_structure = arrow.live && arrow.from == cell;
+                if !local_participating_structure {
                     return None;
                 }
                 let participation = arrow.participation_level;
@@ -2568,7 +2588,7 @@ impl PlasticSubstrate {
         {
             let _ = (tick, work, execution_cost, physical_trace, phase);
         }
-        #[cfg(feature = "cl0")]
+        #[cfg(all(feature = "cl0", not(feature = "j0")))]
         {
             let mut physical_trace = physical_trace;
             let elapsed = tick.saturating_sub(self.tick);
@@ -2629,6 +2649,62 @@ impl PlasticSubstrate {
                             },
                         });
                     }
+                }
+            }
+        }
+        #[cfg(feature = "j0")]
+        {
+            let mut physical_trace = physical_trace;
+            let arrows = self.arrows.values();
+            let required = self
+                .cells
+                .values()
+                .iter()
+                .filter(|cell| {
+                    cell.live
+                        && arrows.iter().any(|arrow| {
+                            arrow.live && (arrow.from == cell.id || arrow.to == cell.id)
+                        })
+                })
+                .map(|cell| cell.id)
+                .collect::<BTreeSet<_>>();
+            execution_cost.scans = execution_cost.scans.saturating_add(
+                u64::try_from(self.cells.len().saturating_mul(arrows.len()))
+                    .unwrap_or(u64::MAX),
+            );
+            execution_cost.touch::<Cell>(self.cells.len());
+            execution_cost.touch::<Arrow>(arrows.len());
+            for index in 0..self.cells.len() {
+                let cell = self.cells.get(index);
+                if !cell.live || required.contains(&cell.id) {
+                    continue;
+                }
+                let id = cell.id;
+                let before_generation = cell.generation;
+                let after_generation = Generation(before_generation.0.wrapping_add(1));
+                self.cells.with_mut(index, |cell| {
+                    cell.live = false;
+                    cell.generation = after_generation;
+                    cell.state = 0;
+                    cell.refractory_until = 0;
+                    cell.decay_load = 0;
+                });
+                if let Some(mapping) = self.cell_slots.get_mut(id.0 as usize) {
+                    *mapping = None;
+                }
+                self.active_cells.remove(&id);
+                work.total = work.total.saturating_add(1);
+                work.cell_deallocations = work.cell_deallocations.saturating_add(1);
+                if let Some(trace) = physical_trace.as_deref_mut() {
+                    trace.push(PhysicalTransition {
+                        tick,
+                        phase,
+                        event: PhysicalEvent::CellDeallocate {
+                            cell: id,
+                            before_generation,
+                            after_generation,
+                        },
+                    });
                 }
             }
         }
@@ -3111,7 +3187,7 @@ fn decay_arrow(arrow: &mut Arrow, amount: u32) {
     }
 }
 
-#[cfg(feature = "cl0")]
+#[cfg(all(feature = "cl0", not(feature = "j0")))]
 fn decay_cell_structure(cell: &mut Cell, amount: u32) {
     cell.resistance = cell.resistance.saturating_sub(amount);
     if cell.resistance == 0 && cell.live {

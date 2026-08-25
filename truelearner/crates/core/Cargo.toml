@@ -18,6 +18,7 @@ sv0 = ["pd1"]
 cl0 = ["pd1"]
 cc0 = ["cl0"]
 cv0 = ["cc0"]
+j0 = ["cl0"]
 
 [[bin]]
 name = "truelearner"
