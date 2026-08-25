@@ -84,6 +84,27 @@ pub struct Arc3SensorimotorSnapshot {
     pub resident_bytes: usize,
 }
 
+#[cfg(feature = "core0")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Arc3CandidateLinkDiagnostic {
+    pub role: &'static str,
+    pub contact: Option<CellId>,
+    pub arrow: ArrowId,
+    pub coupling: i64,
+    pub resistance: u64,
+    pub participation: u64,
+}
+
+#[cfg(feature = "core0")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Arc3ContextDiagnostic {
+    pub context: u16,
+    pub motor: u8,
+    pub source: CellId,
+    pub target: CellId,
+    pub links: Vec<Arc3CandidateLinkDiagnostic>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Arc3A1EpisodeClass {
@@ -428,6 +449,82 @@ impl Arc3Sensorimotor {
             previous_context: self.previous_context,
             previous_motor: self.previous_motor,
             resident_bytes: self.boundary.substrate().canonical_body_bytes(0)?.len(),
+        })
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn diagnostic_context(
+        &self,
+        context: u16,
+        motor: u8,
+    ) -> Result<Arc3ContextDiagnostic, Arc3SensorimotorError> {
+        let context_index = usize::from(context);
+        let motor_index = usize::from(motor);
+        if context_index >= self.sites.candidate_sources.len() || motor_index >= MOTORS {
+            return Err(Arc3SensorimotorError(
+                "diagnostic context or motor is outside the body".to_string(),
+            ));
+        }
+        let source = self.sites.candidate_sources[context_index][motor_index];
+        let target = self.sites.motors[context_index][motor_index];
+        let substrate = self.boundary.substrate();
+        let durable = substrate.arena_body(0);
+        let mut links = Vec::new();
+        for direct in durable
+            .arrows
+            .iter()
+            .filter(|arrow| arrow.live && arrow.from.id == source && arrow.to.id == target)
+        {
+            links.push(Arc3CandidateLinkDiagnostic {
+                role: "direct",
+                contact: None,
+                arrow: direct.id,
+                coupling: substrate.core0_coupling_material(direct.id),
+                resistance: substrate.core0_resistance_material(direct.id),
+                participation: substrate.local_participation(direct.id),
+            });
+        }
+        for contact in durable.cells.iter().filter(|cell| cell.live) {
+            let stems = durable
+                .arrows
+                .iter()
+                .filter(|arrow| arrow.live && arrow.from.id == source && arrow.to.id == contact.id);
+            let outgoing = durable
+                .arrows
+                .iter()
+                .filter(|arrow| arrow.live && arrow.from.id == contact.id && arrow.to.id == target)
+                .collect::<Vec<_>>();
+            if outgoing.is_empty() {
+                continue;
+            }
+            for stem in stems {
+                links.push(Arc3CandidateLinkDiagnostic {
+                    role: "stem",
+                    contact: Some(contact.id),
+                    arrow: stem.id,
+                    coupling: substrate.core0_coupling_material(stem.id),
+                    resistance: substrate.core0_resistance_material(stem.id),
+                    participation: substrate.local_participation(stem.id),
+                });
+            }
+            for candidate in &outgoing {
+                links.push(Arc3CandidateLinkDiagnostic {
+                    role: "outgoing",
+                    contact: Some(contact.id),
+                    arrow: candidate.id,
+                    coupling: substrate.core0_coupling_material(candidate.id),
+                    resistance: substrate.core0_resistance_material(candidate.id),
+                    participation: substrate.local_participation(candidate.id),
+                });
+            }
+        }
+        links.sort_by_key(|link| (link.role, link.contact, link.arrow));
+        Ok(Arc3ContextDiagnostic {
+            context,
+            motor,
+            source,
+            target,
+            links,
         })
     }
 
