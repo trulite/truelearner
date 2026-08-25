@@ -4,7 +4,7 @@ set -euo pipefail
 test "$(sha256sum truelearner/crates/core/Cargo.toml | cut -d' ' -f1)" = \
   c919b87fb2628f23e019a59ec59eab3fefb7faffa3a48fa03e6e9ea4d1ebbb4c
 test "$(sha256sum truelearner/crates/core/src/lib.rs | cut -d' ' -f1)" = \
-  0cab3c5d2a630694a161445a26fb432a794be9fca3126cfe5242a269ebc5d22c
+  f5d61de5b0ad57ccba2a44d0cb1020aec5e2008e3051857030f69c6593f76be5
 test "$(sha256sum truelearner/crates/core/src/mechanics.rs | cut -d' ' -f1)" = \
   7521549b1e348be07e3b2ee943f6d2cf763201cd54de6d8a576ac6592d6e6bb8
 test "$(sha256sum experiments/arms/pd1-local-pressure-participation/src/main.rs | cut -d' ' -f1)" = \

@@ -36,7 +36,7 @@ its removal is not part of this gate.
 
 ```text
 core Cargo.toml   c919b87fb2628f23e019a59ec59eab3fefb7faffa3a48fa03e6e9ea4d1ebbb4c
-core lib.rs       0cab3c5d2a630694a161445a26fb432a794be9fca3126cfe5242a269ebc5d22c
+core lib.rs       f5d61de5b0ad57ccba2a44d0cb1020aec5e2008e3051857030f69c6593f76be5
 core mechanics.rs 7521549b1e348be07e3b2ee943f6d2cf763201cd54de6d8a576ac6592d6e6bb8
 evaluator main.rs b3b3439e088bc96b6831e9c49a5e38b0a25955562e0ec128f12f3dbf39fee7eb
 evaluator Cargo    dec9d4c1fdecbfff9b8c4f258e186a26df33002fe9a9ca2626f4d06632de7b7a
@@ -55,8 +55,10 @@ In reusable E2B worker `it48kiw54nkrebe6zl821`:
 No Rust or project program ran locally. No ARC, PD2, authority, oracle, or
 `arch.md` work occurred.
 
-The first fresh evidence worker stopped in static preflight before compiling
-or executing the evaluator because the audit's `sed` range matched the earlier
-call site as well as the function definition. The selector was anchored to the
-function definition; all frozen hashes above remain unchanged. No evidence was
-spent by that technical stop.
+Two fresh workers stopped in static preflight before compiling or executing
+the evaluator. The first audit range matched an earlier call site. After that
+selector was anchored, the strict audit found that the pressure helper rebuilt
+the old eligibility frontier after its arithmetic. That inert bookkeeping was
+moved to the outer runtime so the pressure helper is literally eligibility-
+blind. No candidate equation, evaluator, or matrix changed, and no evidence was
+spent by either technical stop.

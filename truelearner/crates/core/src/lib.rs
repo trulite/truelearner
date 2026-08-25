@@ -2222,7 +2222,16 @@ impl PlasticSubstrate {
             }
         }
         #[cfg(feature = "pd1")]
-        self.elapse_pd1_pressure(tick, work, execution_cost);
+        {
+            self.elapse_pd1_pressure(tick, work, execution_cost);
+            self.eligible_arrows = self
+                .arrows
+                .values()
+                .iter()
+                .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
+                .map(|arrow| arrow.id)
+                .collect();
+        }
         execution_cost.observe_frontiers(self.active_cells.len(), self.eligible_arrows.len());
         #[cfg(not(feature = "pd1"))]
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
@@ -2409,13 +2418,6 @@ impl PlasticSubstrate {
                 }
             });
         }
-        self.eligible_arrows = self
-            .arrows
-            .values()
-            .iter()
-            .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
-            .map(|arrow| arrow.id)
-            .collect();
     }
 
     fn propose_local_arrows(
