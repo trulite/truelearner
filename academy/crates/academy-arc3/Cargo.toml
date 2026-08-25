@@ -15,6 +15,9 @@ truelearner-arena-format.workspace = true
 [lib]
 path = "src/lib.rs"
 
+[features]
+core0 = ["truelearner-core/core0"]
+
 [[bin]]
 name = "academy-arc3-ingest"
 path = "src/main.rs"

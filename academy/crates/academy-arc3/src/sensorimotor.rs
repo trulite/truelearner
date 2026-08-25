@@ -2,6 +2,8 @@ use crate::ARC3_FRAME_PIXELS;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use truelearner_arena_format::{ArenaId, ArrowId, CellId, ContentHash};
+#[cfg(feature = "core0")]
+use truelearner_core::Core0Profile;
 use truelearner_core::{
     ArrowSpec, BoundaryError, BoundaryRuntime, CellSpec, MechanicalConfig, PlasticSubstrate,
     SpikeInput, TransmissionMode,
@@ -174,6 +176,18 @@ impl Arc3Sensorimotor {
         mechanics: MechanicalConfig,
     ) -> Result<Self, Arc3SensorimotorError> {
         Self::with_sensor_and_mechanics(seed, SensorMode::SpatialFingerprint, mechanics)
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn new_spatial_with_profile(
+        seed: u64,
+        mechanics: MechanicalConfig,
+        profile: Core0Profile,
+    ) -> Result<Self, Arc3SensorimotorError> {
+        let mut organism =
+            Self::with_sensor_and_mechanics(seed, SensorMode::SpatialFingerprint, mechanics)?;
+        organism.boundary.set_core0_profile(profile);
+        Ok(organism)
     }
 
     fn with_sensor(seed: u64, sensor_mode: SensorMode) -> Result<Self, Arc3SensorimotorError> {

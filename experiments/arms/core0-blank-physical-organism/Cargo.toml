@@ -1,0 +1,11 @@
+[package]
+name = "core0-blank-physical-organism"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+academy-arc3 = { path = "../../../academy/crates/academy-arc3", features = ["core0"] }
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["core0"] }
+
+[workspace]

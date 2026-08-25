@@ -962,6 +962,10 @@ const LOCAL_VARIATION_RADIUS: i32 = 2;
 const PARTICIPATION_IMPULSE: u64 = 1_u64 << 32;
 const PARTICIPATION_RELAX_NUMERATOR: u64 = 15;
 const PARTICIPATION_RELAX_DENOMINATOR: u64 = 16;
+#[cfg(feature = "core0")]
+const MATERIAL_ONE: i64 = 1_i64 << 32;
+#[cfg(feature = "core0")]
+const MATERIAL_ONE_U64: u64 = 1_u64 << 32;
 const DEFAULT_CELL_CAPACITY: u32 = 65_536;
 const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
 #[cfg(feature = "si0")]
@@ -1016,6 +1020,31 @@ pub enum TransmissionTrigger {
     #[default]
     SourceFires,
     QualifiedLocalParticipation,
+}
+
+#[cfg(feature = "core0")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Core0Profile {
+    #[default]
+    A,
+    B,
+    C,
+    D,
+}
+
+#[cfg(feature = "core0")]
+impl Core0Profile {
+    fn continuous(self) -> bool {
+        !matches!(self, Self::A)
+    }
+
+    fn contact_variation(self) -> bool {
+        matches!(self, Self::A | Self::B)
+    }
+
+    fn proposal_on_every_firing(self) -> bool {
+        matches!(self, Self::D)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1197,6 +1226,8 @@ struct Spike {
     target: CellId,
     target_generation: Generation,
     impulse: i32,
+    #[cfg(feature = "core0")]
+    material_impulse: i64,
     serial: u64,
     arrow: Option<(ArrowId, Generation)>,
 }
@@ -1485,6 +1516,16 @@ pub struct PlasticSubstrate {
     active_cells: HashSet<CellId>,
     trace_physics: bool,
     zero_delay_live_arrows: usize,
+    #[cfg(feature = "core0")]
+    core0_profile: Core0Profile,
+    #[cfg(feature = "core0")]
+    core0_activation: Vec<i64>,
+    #[cfg(feature = "core0")]
+    core0_coupling: Vec<i64>,
+    #[cfg(feature = "core0")]
+    core0_resistance: Vec<u64>,
+    #[cfg(feature = "core0")]
+    core0_decay_remainder: Vec<u64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1925,6 +1966,11 @@ impl BoundaryRuntime {
         &self.substrate
     }
 
+    #[cfg(feature = "core0")]
+    pub fn set_core0_profile(&mut self, profile: Core0Profile) {
+        self.substrate.set_core0_profile(profile);
+    }
+
     /// Changes only the mechanical execution strategy beneath the boundary.
     /// Physical law and buffered activity are preserved exactly.
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
@@ -2128,7 +2174,47 @@ impl PlasticSubstrate {
             active_cells: HashSet::new(),
             trace_physics: false,
             zero_delay_live_arrows: 0,
+            #[cfg(feature = "core0")]
+            core0_profile: Core0Profile::A,
+            #[cfg(feature = "core0")]
+            core0_activation: Vec::new(),
+            #[cfg(feature = "core0")]
+            core0_coupling: Vec::new(),
+            #[cfg(feature = "core0")]
+            core0_resistance: Vec::new(),
+            #[cfg(feature = "core0")]
+            core0_decay_remainder: Vec::new(),
         }
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn set_core0_profile(&mut self, profile: Core0Profile) {
+        assert!(
+            self.pending.is_empty(),
+            "CORE0 profile changes require quiescence"
+        );
+        self.core0_profile = profile;
+        self.core0_activation.resize(self.cell_slots.len(), 0);
+        self.core0_coupling
+            .resize(self.arrow_slots.len(), MATERIAL_ONE);
+        self.core0_resistance
+            .resize(self.arrow_slots.len(), MATERIAL_ONE_U64);
+        self.core0_decay_remainder.resize(self.arrow_slots.len(), 0);
+        for cell in self.cells.values() {
+            let index = cell.id.0 as usize;
+            self.core0_activation[index] = i64::from(cell.state).saturating_mul(MATERIAL_ONE);
+        }
+        for arrow in self.arrows.values() {
+            let index = arrow.id.0 as usize;
+            self.core0_coupling[index] = i64::from(arrow.coupling).saturating_mul(MATERIAL_ONE);
+            self.core0_resistance[index] =
+                u64::from(arrow.resistance).saturating_mul(MATERIAL_ONE_U64);
+        }
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn core0_profile(&self) -> Core0Profile {
+        self.core0_profile
     }
 
     pub fn mechanical_config(&self) -> MechanicalConfig {
@@ -2262,6 +2348,10 @@ impl PlasticSubstrate {
         self.cell_slots.push((spec.resistance > 0).then_some(slot));
         self.outgoing_index.push(Vec::new());
         self.resident_arenas.push(resident_arena);
+        #[cfg(feature = "core0")]
+        {
+            self.core0_activation.push(0);
+        }
         id
     }
 
@@ -2332,6 +2422,19 @@ impl PlasticSubstrate {
         }
         let outgoing = &mut self.outgoing_index[spec.from.0 as usize];
         outgoing.push(id);
+        #[cfg(feature = "core0")]
+        {
+            let index = id.0 as usize;
+            if self.core0_coupling.len() <= index {
+                self.core0_coupling.resize(index + 1, 0);
+                self.core0_resistance.resize(index + 1, 0);
+                self.core0_decay_remainder.resize(index + 1, 0);
+            }
+            self.core0_coupling[index] = i64::from(spec.coupling).saturating_mul(MATERIAL_ONE);
+            self.core0_resistance[index] =
+                u64::from(spec.resistance).saturating_mul(MATERIAL_ONE_U64);
+            self.core0_decay_remainder[index] = 0;
+        }
         if spec.resistance > 0 && spec.delay == 0 {
             self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_add(1);
         }
@@ -2386,6 +2489,8 @@ impl PlasticSubstrate {
                     .get(self.cell_slot(input.target).unwrap().0)
                     .generation,
                 impulse: input.impulse,
+                #[cfg(feature = "core0")]
+                material_impulse: i64::from(input.impulse).saturating_mul(MATERIAL_ONE),
                 serial: self.next_serial,
                 arrow: None,
             },
@@ -2599,9 +2704,7 @@ impl PlasticSubstrate {
                 if substrate.cells.get(to_slot.0).generation != durable.to.generation {
                     return Err(CheckpointError::StaleCellReference(durable.to));
                 }
-                if !substrate.cells.get(from_slot.0).live
-                    || !substrate.cells.get(to_slot.0).live
-                {
+                if !substrate.cells.get(from_slot.0).live || !substrate.cells.get(to_slot.0).live {
                     return Err(CheckpointError::InvalidPhysicalBody);
                 }
             }
@@ -3154,6 +3257,8 @@ impl PlasticSubstrate {
                                 target: arrow.to,
                                 target_generation: to.generation,
                                 impulse: arrow.coupling,
+                                #[cfg(feature = "core0")]
+                                material_impulse: self.core0_coupling[arrow_id.0 as usize],
                                 serial: self.next_serial,
                                 arrow: Some((arrow_id, arrow.generation)),
                             },
@@ -3306,6 +3411,10 @@ impl PlasticSubstrate {
                 let impulse = spikes
                     .iter()
                     .fold(0_i32, |sum, spike| sum.saturating_add(spike.impulse));
+                #[cfg(feature = "core0")]
+                let material_impulse = spikes.iter().fold(0_i64, |sum, spike| {
+                    sum.saturating_add(spike.material_impulse)
+                });
                 let external_arrival = spikes.iter().any(|spike| spike.arrow.is_none());
                 work.total = work.total.saturating_add(
                     u64::try_from(spikes.len())
@@ -3328,18 +3437,58 @@ impl PlasticSubstrate {
                     });
                 }
 
-                self.decay_cell(target_id, self.tick);
+                #[cfg(feature = "core0")]
+                let continuous = self.core0_profile.continuous();
+                #[cfg(not(feature = "core0"))]
+                let continuous = false;
+                if continuous {
+                    #[cfg(feature = "core0")]
+                    self.decay_core0_activation(target_id, self.tick);
+                } else {
+                    self.decay_cell(target_id, self.tick);
+                }
                 let target_slot = self.cell_slot(target_id).unwrap();
+                #[cfg(feature = "core0")]
+                if continuous {
+                    let index = target_id.0 as usize;
+                    self.core0_activation[index] =
+                        self.core0_activation[index].saturating_add(material_impulse);
+                    let observer = self.core0_activation[index] / MATERIAL_ONE;
+                    self.cells.with_mut(target_slot.0, |target| {
+                        target.state = i32::try_from(observer).unwrap_or_else(|_| {
+                            if observer.is_negative() {
+                                i32::MIN
+                            } else {
+                                i32::MAX
+                            }
+                        });
+                    });
+                }
                 let target = self.cells.with_mut(target_slot.0, |target| {
-                    target.state = target.state.saturating_add(impulse);
+                    if !continuous {
+                        target.state = target.state.saturating_add(impulse);
+                    }
                     target.clone()
                 });
                 execution_cost.touch::<Cell>(1);
-                if target.state != 0 {
+                #[cfg(feature = "core0")]
+                let materially_active =
+                    continuous && self.core0_activation[target_id.0 as usize] != 0;
+                #[cfg(not(feature = "core0"))]
+                let materially_active = false;
+                if target.state != 0 || materially_active {
                     self.active_cells.insert(target_id);
                 }
-                let fires =
-                    self.tick >= target.refractory_until && target.state >= target.threshold;
+                #[cfg(feature = "core0")]
+                let reaches_threshold = if continuous {
+                    self.core0_activation[target_id.0 as usize]
+                        >= i64::from(target.threshold).saturating_mul(MATERIAL_ONE)
+                } else {
+                    target.state >= target.threshold
+                };
+                #[cfg(not(feature = "core0"))]
+                let reaches_threshold = target.state >= target.threshold;
+                let fires = self.tick >= target.refractory_until && reaches_threshold;
                 if !fires {
                     continue;
                 }
@@ -3354,6 +3503,10 @@ impl PlasticSubstrate {
                             .saturating_add(PARTICIPATION_IMPULSE);
                     }
                 });
+                #[cfg(feature = "core0")]
+                if continuous {
+                    self.core0_activation[target_id.0 as usize] = 0;
+                }
                 self.active_cells.remove(&target_id);
                 firings.push((target_id, target, external_arrival));
             }
@@ -3370,7 +3523,12 @@ impl PlasticSubstrate {
                 let source = target_id;
                 let origin_physical = target.physical_id;
                 let source_generation = target.generation;
-                if external_arrival {
+                #[cfg(feature = "core0")]
+                let proposal_trigger =
+                    external_arrival || self.core0_profile.proposal_on_every_firing();
+                #[cfg(not(feature = "core0"))]
+                let proposal_trigger = external_arrival;
+                if proposal_trigger {
                     self.propose_local_arrows(
                         source,
                         &mut work,
@@ -3495,6 +3653,8 @@ impl PlasticSubstrate {
                             target: arrow.to,
                             target_generation: to.generation,
                             impulse: arrow.coupling,
+                            #[cfg(feature = "core0")]
+                            material_impulse: self.core0_coupling[arrow_id.0 as usize],
                             serial: self.next_serial,
                             arrow: Some((arrow_id, arrow.generation)),
                         },
@@ -3630,6 +3790,47 @@ impl PlasticSubstrate {
         for id in candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
+            #[cfg(feature = "core0")]
+            if self.core0_profile.continuous() {
+                let arrow = self.arrows.get(slot.0);
+                let local_participating_structure = arrow.live
+                    && arrow.mode == TransmissionMode::Drive
+                    && (arrow.from == cell || arrow.to == cell);
+                if local_participating_structure && arrow.participation_level > 0 {
+                    let index = id.0 as usize;
+                    let participation = arrow.participation_level;
+                    let coupling_before = self.core0_coupling[index];
+                    let resistance_before = self.core0_resistance[index];
+                    let sign = coupling_before.signum();
+                    self.core0_coupling[index] = coupling_before.saturating_add(
+                        sign.saturating_mul(i64::try_from(participation).unwrap_or(i64::MAX)),
+                    );
+                    self.core0_resistance[index] = resistance_before.saturating_add(
+                        participation.saturating_mul(u64::from(LOCAL_RETURN_STRENGTH)),
+                    );
+                    let coupling_observer = self.core0_coupling[index] / MATERIAL_ONE;
+                    let resistance_observer = self.core0_resistance[index]
+                        .saturating_add(MATERIAL_ONE_U64.saturating_sub(1))
+                        / MATERIAL_ONE_U64;
+                    self.arrows.with_mut(slot.0, |live_arrow| {
+                        live_arrow.coupling =
+                            i32::try_from(coupling_observer).unwrap_or_else(|_| {
+                                if coupling_observer.is_negative() {
+                                    i32::MIN
+                                } else {
+                                    i32::MAX
+                                }
+                            });
+                        live_arrow.resistance =
+                            u32::try_from(resistance_observer).unwrap_or(u32::MAX);
+                        live_arrow.decay_load = 0;
+                    });
+                    work.total = work.total.saturating_add(4);
+                    work.local_return_updates = work.local_return_updates.saturating_add(1);
+                }
+                execution_cost.touch::<Arrow>(1);
+                continue;
+            }
             let updated = self.arrows.with_mut(slot.0, |arrow| {
                 #[cfg(feature = "j0")]
                 let local_participating_structure = arrow.live
@@ -3822,6 +4023,8 @@ impl PlasticSubstrate {
                     target: target_id,
                     target_generation,
                     impulse: coupling,
+                    #[cfg(feature = "core0")]
+                    material_impulse: self.core0_coupling[id.0 as usize],
                     serial: self.next_serial,
                     arrow: Some((id, generation)),
                 },
@@ -3886,6 +4089,11 @@ impl PlasticSubstrate {
             }
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             execution_cost.touch::<Cell>(1);
+            #[cfg(feature = "core0")]
+            if self.core0_profile.continuous() {
+                self.decay_core0_activation(id, tick);
+                continue;
+            }
             self.decay_cell(id, tick);
         }
     }
@@ -3906,6 +4114,58 @@ impl PlasticSubstrate {
         let elapsed_u64 = u64::try_from(elapsed).unwrap_or(u64::MAX);
         for index in 0..self.arrows.len() {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
+            #[cfg(feature = "core0")]
+            if self.core0_profile.continuous() {
+                let snapshot = self.arrows.get(index);
+                if !snapshot.live {
+                    continue;
+                }
+                let material_index = snapshot.id.0 as usize;
+                let before = self.core0_resistance[material_index];
+                let decay_numerator = elapsed_u64
+                    .saturating_mul(MATERIAL_ONE_U64)
+                    .saturating_add(self.core0_decay_remainder[material_index]);
+                let loss = decay_numerator / 10;
+                self.core0_decay_remainder[material_index] = decay_numerator % 10;
+                let active_ticks = elapsed_u64.min(
+                    before
+                        .saturating_mul(10)
+                        .saturating_add(MATERIAL_ONE_U64 - 1)
+                        / MATERIAL_ONE_U64,
+                );
+                let after = before.saturating_sub(loss);
+                self.core0_resistance[material_index] = after;
+                let deallocated = before > 0 && after == 0;
+                self.arrows.with_mut(index, |arrow| {
+                    arrow.participation_level =
+                        relax_participation(arrow.participation_level, elapsed);
+                    if deallocated {
+                        decay_arrow(arrow, u32::MAX);
+                    } else {
+                        let observer =
+                            after.saturating_add(MATERIAL_ONE_U64 - 1) / MATERIAL_ONE_U64;
+                        arrow.resistance = u32::try_from(observer).unwrap_or(u32::MAX);
+                    }
+                });
+                work.total = work.total.saturating_add(active_ticks);
+                execution_cost.touch::<Arrow>(1);
+                if deallocated && snapshot.delay == 0 {
+                    self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
+                }
+                if deallocated {
+                    work.total = work.total.saturating_add(1);
+                    work.physical_deallocations = work.physical_deallocations.saturating_add(1);
+                    #[cfg(feature = "cl0")]
+                    if let Some(trace) = physical_trace.as_deref_mut() {
+                        trace.push(PhysicalTransition {
+                            tick,
+                            phase,
+                            event: PhysicalEvent::Deallocate { arrow: snapshot.id },
+                        });
+                    }
+                }
+                continue;
+            }
             let (deallocated, zero_delay, active_ticks) = self.arrows.with_mut(index, |arrow| {
                 if !arrow.live {
                     return (false, false, 0);
@@ -4088,13 +4348,31 @@ impl PlasticSubstrate {
         phase: i32,
         physical_trace: &mut Vec<PhysicalTransition>,
     ) {
-        #[cfg(any(feature = "cv0", feature = "cv0j0"))]
-        self.propose_local_contacts(source, work, execution_cost, phase, physical_trace);
-        #[cfg(not(any(feature = "cv0", feature = "cv0j0")))]
-        self.propose_direct_local_arrows(source, work, execution_cost, phase, physical_trace);
+        #[cfg(feature = "core0")]
+        {
+            if self.core0_profile.contact_variation() {
+                self.propose_local_contacts(source, work, execution_cost, phase, physical_trace);
+            } else {
+                self.propose_direct_local_arrows(
+                    source,
+                    work,
+                    execution_cost,
+                    phase,
+                    physical_trace,
+                );
+            }
+            return;
+        }
+        #[cfg(not(feature = "core0"))]
+        {
+            #[cfg(any(feature = "cv0", feature = "cv0j0"))]
+            self.propose_local_contacts(source, work, execution_cost, phase, physical_trace);
+            #[cfg(not(any(feature = "cv0", feature = "cv0j0")))]
+            self.propose_direct_local_arrows(source, work, execution_cost, phase, physical_trace);
+        }
     }
 
-    #[cfg(not(any(feature = "cv0", feature = "cv0j0")))]
+    #[cfg(any(feature = "core0", not(any(feature = "cv0", feature = "cv0j0"))))]
     fn propose_direct_local_arrows(
         &mut self,
         source: CellId,
@@ -4114,9 +4392,15 @@ impl PlasticSubstrate {
             .filter_map(|cell| {
                 execution_cost.touch::<Cell>(1);
                 let distance = cell.position.saturating_sub(source_position).abs();
+                #[cfg(feature = "core0")]
+                let within_opportunity = self.core0_profile == Core0Profile::D
+                    || (1..=LOCAL_VARIATION_RADIUS).contains(&distance);
+                #[cfg(not(feature = "core0"))]
+                let within_opportunity = (1..=LOCAL_VARIATION_RADIUS).contains(&distance);
                 (cell.id != source
                     && cell.live
-                    && (1..=LOCAL_VARIATION_RADIUS).contains(&distance)
+                    && distance > 0
+                    && within_opportunity
                     && !self.arrows.values().iter().any(|arrow| {
                         execution_cost.touch::<Arrow>(1);
                         arrow.live && arrow.from == source && arrow.to == cell.id
@@ -4133,9 +4417,9 @@ impl PlasticSubstrate {
             })
             .collect::<Vec<_>>();
         targets.sort_by_key(|target| (target.0, target.1, target.2, target.3, target.4, target.5));
-        #[cfg(feature = "sv0")]
+        #[cfg(any(feature = "sv0", feature = "core0"))]
         let proposal_couplings: &[i32] = &[1, -1];
-        #[cfg(not(feature = "sv0"))]
+        #[cfg(not(any(feature = "sv0", feature = "core0")))]
         let proposal_couplings: &[i32] = &[1];
         for (distance, _, _, _, _, _, target) in targets {
             for coupling in proposal_couplings {
@@ -4149,6 +4433,15 @@ impl PlasticSubstrate {
                     mode: TransmissionMode::Drive,
                 });
                 let slot = self.arrow_slot(id).unwrap();
+                #[cfg(feature = "core0")]
+                if self.core0_profile == Core0Profile::D {
+                    let magnitude = MATERIAL_ONE / i64::from(distance.saturating_add(1));
+                    self.core0_coupling[id.0 as usize] =
+                        magnitude.saturating_mul(i64::from(coupling.signum()));
+                    self.arrows.with_mut(slot.0, |arrow| {
+                        arrow.coupling = coupling.signum();
+                    });
+                }
                 self.arrows.with_mut(slot.0, |arrow| {
                     if arrow.generation == Generation(1) {
                         arrow.generation =
@@ -4348,6 +4641,42 @@ impl PlasticSubstrate {
         }
     }
 
+    #[cfg(feature = "core0")]
+    fn decay_core0_activation(&mut self, cell: CellId, tick: i64) {
+        let slot = self.cell_slot(cell).expect("material CELL must resolve");
+        let last_update_tick = self.cells.get(slot.0).last_update_tick;
+        let elapsed = tick.saturating_sub(last_update_tick);
+        if elapsed <= 0 {
+            return;
+        }
+        let decay = i64::try_from(elapsed)
+            .unwrap_or(i64::MAX)
+            .saturating_mul(MATERIAL_ONE);
+        let index = cell.0 as usize;
+        let level = self.core0_activation[index];
+        self.core0_activation[index] = if level > 0 {
+            level.saturating_sub(decay).max(0)
+        } else {
+            level.saturating_add(decay).min(0)
+        };
+        let observer = self.core0_activation[index] / MATERIAL_ONE;
+        self.cells.with_mut(slot.0, |target| {
+            target.state = i32::try_from(observer).unwrap_or_else(|_| {
+                if observer.is_negative() {
+                    i32::MIN
+                } else {
+                    i32::MAX
+                }
+            });
+            target.last_update_tick = tick;
+        });
+        if self.core0_activation[index] == 0 {
+            self.active_cells.remove(&cell);
+        } else {
+            self.active_cells.insert(cell);
+        }
+    }
+
     #[cfg(not(feature = "si0"))]
     fn physical_arrow_order(&self, arrow: &Arrow) -> PhysicalArrowOrder {
         let from = self
@@ -4461,6 +4790,26 @@ impl PlasticSubstrate {
         self.arrows
             .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
             .decay_load
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn core0_coupling_material(&self, id: ArrowId) -> i64 {
+        self.core0_coupling[id.0 as usize]
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn core0_resistance_material(&self, id: ArrowId) -> u64 {
+        self.core0_resistance[id.0 as usize]
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn core0_activation_material(&self, id: CellId) -> i64 {
+        self.core0_activation[id.0 as usize]
+    }
+
+    #[cfg(feature = "core0")]
+    pub const fn core0_material_one() -> u64 {
+        MATERIAL_ONE_U64
     }
 
     #[cfg(feature = "cl0")]
@@ -4771,6 +5120,8 @@ fn encode_spike(bytes: &mut Vec<u8>, spike: &Spike) {
     checkpoint_put_u64(bytes, spike.target.0);
     checkpoint_put_u32(bytes, spike.target_generation.0);
     checkpoint_put_i32(bytes, spike.impulse);
+    #[cfg(feature = "core0")]
+    checkpoint_put_i64(bytes, spike.material_impulse);
     checkpoint_put_u64(bytes, spike.serial);
     bytes.push(u8::from(spike.arrow.is_some()));
     let (arrow, generation) = spike.arrow.unwrap_or((ArrowId(0), Generation(0)));
@@ -4789,6 +5140,8 @@ fn decode_spike(cursor: &mut CheckpointCursor<'_>) -> Result<Spike, CheckpointEr
     let target = CellId(cursor.u64()?);
     let target_generation = Generation(cursor.u32()?);
     let impulse = cursor.i32()?;
+    #[cfg(feature = "core0")]
+    let material_impulse = cursor.i64()?;
     let serial = cursor.u64()?;
     let arrow_present = cursor.u8()?;
     if arrow_present > 1 {
@@ -4807,6 +5160,8 @@ fn decode_spike(cursor: &mut CheckpointCursor<'_>) -> Result<Spike, CheckpointEr
         target,
         target_generation,
         impulse,
+        #[cfg(feature = "core0")]
+        material_impulse,
         serial,
         arrow: (arrow_present == 1).then_some((arrow_id, arrow_generation)),
     })
