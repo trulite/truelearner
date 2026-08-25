@@ -14,6 +14,7 @@ pqlc0 = ["cpc1"]
 pd1 = ["pqlc0"]
 ce0 = ["pd1"]
 rs0 = ["pd1"]
+sv0 = ["pd1"]
 
 [[bin]]
 name = "truelearner"

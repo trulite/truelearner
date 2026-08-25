@@ -2267,35 +2267,43 @@ impl PlasticSubstrate {
             })
             .collect::<Vec<_>>();
         targets.sort_by_key(|(physical_id, _, _)| *physical_id);
+        #[cfg(feature = "sv0")]
+        let proposal_couplings: &[i32] = &[1, -1];
+        #[cfg(not(feature = "sv0"))]
+        let proposal_couplings: &[i32] = &[1];
         for (_, target, distance) in targets {
-            let id = self.add_arrow(ArrowSpec {
-                from: source,
-                to: target,
-                delay: i64::from(distance.max(1)),
-                phase: 0,
-                coupling: 1,
-                resistance: 1,
-                mode: TransmissionMode::Drive,
-            });
-            let slot = self.arrow_slot(id).unwrap();
-            self.arrows.with_mut(slot.0, |arrow| {
-                if arrow.generation == Generation(1) {
-                    arrow.generation =
-                        Generation(u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2));
-                }
-            });
-            work.total = work.total.saturating_add(1);
-            work.local_structural_proposals = work.local_structural_proposals.saturating_add(1);
-            if self.trace_physics {
-                physical_trace.push(PhysicalTransition {
-                    tick: self.tick,
-                    phase,
-                    event: PhysicalEvent::Proposal {
-                        arrow: id,
-                        from: source,
-                        to: target,
-                    },
+            for coupling in proposal_couplings {
+                let id = self.add_arrow(ArrowSpec {
+                    from: source,
+                    to: target,
+                    delay: i64::from(distance.max(1)),
+                    phase: 0,
+                    coupling: *coupling,
+                    resistance: 1,
+                    mode: TransmissionMode::Drive,
                 });
+                let slot = self.arrow_slot(id).unwrap();
+                self.arrows.with_mut(slot.0, |arrow| {
+                    if arrow.generation == Generation(1) {
+                        arrow.generation = Generation(
+                            u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2),
+                        );
+                    }
+                });
+                work.total = work.total.saturating_add(1);
+                work.local_structural_proposals =
+                    work.local_structural_proposals.saturating_add(1);
+                if self.trace_physics {
+                    physical_trace.push(PhysicalTransition {
+                        tick: self.tick,
+                        phase,
+                        event: PhysicalEvent::Proposal {
+                            arrow: id,
+                            from: source,
+                            to: target,
+                        },
+                    });
+                }
             }
         }
     }
@@ -3375,5 +3383,45 @@ mod tests {
             .arrows
             .iter()
             .all(|arrow| arrow.live && arrow.resistance > 99_990));
+    }
+
+    #[cfg(feature = "sv0")]
+    #[test]
+    fn sv0_local_variation_proposes_equal_weak_signed_alternatives() {
+        let mut substrate = PlasticSubstrate::with_capacity(ArenaId(100), 4, 8);
+        let source = substrate.add_cell(CellSpec {
+            physical_id: 1,
+            position: 0,
+            region: 0,
+            threshold: 1,
+            resistance: 100,
+        });
+        let target = substrate.add_cell(CellSpec {
+            physical_id: 2,
+            position: 1,
+            region: 1,
+            threshold: 100,
+            resistance: 100,
+        });
+        substrate.enter(input(source, 0));
+        let result = substrate.propagate();
+        let mut alternatives = substrate
+            .arena_body(1)
+            .arrows
+            .into_iter()
+            .filter(|arrow| arrow.from.id == source && arrow.to.id == target)
+            .collect::<Vec<_>>();
+        alternatives.sort_by_key(|arrow| arrow.coupling);
+        assert_eq!(result.work.local_structural_proposals, 2);
+        assert_eq!(alternatives.len(), 2);
+        assert_eq!(alternatives[0].coupling, -1);
+        assert_eq!(alternatives[1].coupling, 1);
+        for alternative in &alternatives {
+            assert_eq!(alternative.delay, 1);
+            assert_eq!(alternative.phase, 0);
+            assert_eq!(alternative.resistance, 1);
+            assert_eq!(alternative.transmission_mode, 0);
+            assert!(alternative.live);
+        }
     }
 }

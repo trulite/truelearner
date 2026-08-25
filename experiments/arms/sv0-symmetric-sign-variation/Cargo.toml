@@ -1,0 +1,10 @@
+[package]
+name = "sv0-symmetric-sign-variation"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["sv0"] }
+
+[workspace]
