@@ -105,6 +105,27 @@ pub struct Arc3ContextDiagnostic {
     pub links: Vec<Arc3CandidateLinkDiagnostic>,
 }
 
+#[cfg(feature = "core0")]
+pub struct Arc3TransientHistoryRequest<'a> {
+    pub frame: Vec<u8>,
+    pub available_actions: &'a [u8],
+    pub babble_action: u8,
+    pub support_previous: bool,
+    pub settle_pressure: bool,
+    pub action_map: &'a [u8],
+    pub early_material_sign: i8,
+}
+
+struct Arc3ObserveRequest<'a> {
+    frame: Vec<u8>,
+    available_actions: &'a [u8],
+    babble_action: Option<u8>,
+    support_previous: bool,
+    settle_pressure: bool,
+    action_map: &'a [u8],
+    early_material_sign: Option<i8>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Arc3A1EpisodeClass {
@@ -256,6 +277,51 @@ impl Arc3Sensorimotor {
         settle_pressure: bool,
         action_map: &[u8],
     ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
+        self.observe_inner(Arc3ObserveRequest {
+            frame,
+            available_actions,
+            babble_action,
+            support_previous,
+            settle_pressure,
+            action_map,
+            early_material_sign: None,
+        })
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn observe_with_transient_history(
+        &mut self,
+        request: Arc3TransientHistoryRequest<'_>,
+    ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
+        if !matches!(request.early_material_sign, -1 | 1) {
+            return Err(Arc3SensorimotorError(
+                "transient-history material sign must be -1 or +1".to_string(),
+            ));
+        }
+        self.observe_inner(Arc3ObserveRequest {
+            frame: request.frame,
+            available_actions: request.available_actions,
+            babble_action: Some(request.babble_action),
+            support_previous: request.support_previous,
+            settle_pressure: request.settle_pressure,
+            action_map: request.action_map,
+            early_material_sign: Some(request.early_material_sign),
+        })
+    }
+
+    fn observe_inner(
+        &mut self,
+        request: Arc3ObserveRequest<'_>,
+    ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
+        let Arc3ObserveRequest {
+            frame,
+            available_actions,
+            babble_action,
+            support_previous,
+            settle_pressure,
+            action_map,
+            early_material_sign,
+        } = request;
         validate_sensor_frame(&frame)?;
         let available_motors = available_motor_indices(available_actions)?;
         validate_action_map(action_map)?;
@@ -316,7 +382,34 @@ impl Arc3Sensorimotor {
             SensorMode::DominantPalette => current_tick.saturating_add(1),
             SensorMode::SpatialFingerprint => current_tick,
         };
-        let mut inputs = Vec::with_capacity(available_motors.len().saturating_mul(2) + 1);
+        let history_contacts = if let Some(early_sign) = early_material_sign {
+            #[cfg(feature = "core0")]
+            {
+                let action = babble_action.ok_or_else(|| {
+                    Arc3SensorimotorError(
+                        "transient history requires an ordinary babble action".to_string(),
+                    )
+                })?;
+                let motor = action_index(action)?;
+                Some(self.transient_history_contacts(context_index, motor, early_sign)?)
+            }
+            #[cfg(not(feature = "core0"))]
+            {
+                let _ = early_sign;
+                return Err(Arc3SensorimotorError(
+                    "transient history requires the core0 integration surface".to_string(),
+                ));
+            }
+        } else {
+            None
+        };
+        let mut inputs = Vec::with_capacity(
+            available_motors
+                .len()
+                .saturating_mul(2)
+                .saturating_add(history_contacts.as_ref().map_or(0, Vec::len))
+                .saturating_add(1),
+        );
         for motor in &available_motors {
             inputs.push(SpikeInput {
                 arrival_tick: start,
@@ -349,6 +442,20 @@ impl Arc3Sensorimotor {
                 target: self.sites.babblers[context_index][motor],
                 impulse: 1,
             });
+        }
+        if let Some(history_contacts) = history_contacts {
+            for (contact, physical_id, early) in history_contacts {
+                inputs.push(SpikeInput {
+                    arrival_tick: start.saturating_add(i64::from(!early)),
+                    phase: 30,
+                    origin_physical: EXTERNAL_PHYSICAL_BASE
+                        .saturating_add(self.sequence.saturating_mul(100))
+                        .saturating_add(20_000)
+                        .saturating_add(physical_id),
+                    target: contact,
+                    impulse: 1,
+                });
+            }
         }
 
         let result = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
@@ -413,6 +520,65 @@ impl Arc3Sensorimotor {
         };
         self.sequence = self.sequence.saturating_add(1);
         Ok(observation)
+    }
+
+    #[cfg(feature = "core0")]
+    fn transient_history_contacts(
+        &self,
+        context: usize,
+        motor: usize,
+        early_material_sign: i8,
+    ) -> Result<Vec<(CellId, u64, bool)>, Arc3SensorimotorError> {
+        let source = self.sites.candidate_sources[context][motor];
+        let target = self.sites.motors[context][motor];
+        let substrate = self.boundary.substrate();
+        let durable = substrate.arena_body(0);
+        let mut contacts = Vec::new();
+        let mut positive = false;
+        let mut negative = false;
+        for contact in durable.cells.iter().filter(|cell| cell.live) {
+            let stem_exists = durable
+                .arrows
+                .iter()
+                .any(|arrow| arrow.live && arrow.from.id == source && arrow.to.id == contact.id);
+            if !stem_exists {
+                continue;
+            }
+            let mut contact_sign = 0_i8;
+            for outgoing in durable
+                .arrows
+                .iter()
+                .filter(|arrow| arrow.live && arrow.from.id == contact.id && arrow.to.id == target)
+            {
+                let sign = substrate.core0_coupling_material(outgoing.id).signum() as i8;
+                if sign == 0 {
+                    continue;
+                }
+                if contact_sign != 0 && contact_sign != sign {
+                    return Err(Arc3SensorimotorError(
+                        "one contact contains both transient-history material signs".to_string(),
+                    ));
+                }
+                contact_sign = sign;
+            }
+            if contact_sign == 0 {
+                continue;
+            }
+            positive |= contact_sign > 0;
+            negative |= contact_sign < 0;
+            contacts.push((
+                contact.id,
+                contact.physical_id,
+                contact_sign == early_material_sign,
+            ));
+        }
+        if !positive || !negative {
+            return Err(Arc3SensorimotorError(format!(
+                "transient history requires live positive and negative contact alternatives; positive={positive} negative={negative} contacts={}",
+                contacts.len()
+            )));
+        }
+        Ok(contacts)
     }
 
     pub fn clear_episode(&mut self) {

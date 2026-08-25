@@ -18,7 +18,9 @@ pub use sensorimotor::{
     Arc3SensorimotorError, Arc3SensorimotorObservation, Arc3SensorimotorSnapshot,
 };
 #[cfg(feature = "core0")]
-pub use sensorimotor::{Arc3CandidateLinkDiagnostic, Arc3ContextDiagnostic};
+pub use sensorimotor::{
+    Arc3CandidateLinkDiagnostic, Arc3ContextDiagnostic, Arc3TransientHistoryRequest,
+};
 
 pub const ARC3_FRAME_SIDE: usize = 64;
 pub const ARC3_FRAME_PIXELS: usize = ARC3_FRAME_SIDE * ARC3_FRAME_SIDE;
