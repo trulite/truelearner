@@ -268,15 +268,10 @@ pub(super) struct ArrowColumns {
     generations: Vec<super::Generation>,
     resistances: Vec<u32>,
     live: Vec<bool>,
-    eligible_until: Vec<Option<i64>>,
-    #[cfg(feature = "cpc1")]
     participation_levels: Vec<u64>,
-    #[cfg(feature = "cpc1")]
     plastic_supports: Vec<u64>,
-    #[cfg(feature = "pd1")]
     pressure_loads: Vec<u64>,
     modes: Vec<super::TransmissionMode>,
-    #[cfg(feature = "pqlc0")]
     triggers: Vec<super::TransmissionTrigger>,
 }
 
@@ -301,15 +296,10 @@ impl ArrowColumns {
             generation: self.generations[index],
             resistance: self.resistances[index],
             live: self.live[index],
-            eligible_until: self.eligible_until[index],
-            #[cfg(feature = "cpc1")]
             participation_level: self.participation_levels[index],
-            #[cfg(feature = "cpc1")]
             plastic_support: self.plastic_supports[index],
-            #[cfg(feature = "pd1")]
             pressure_load: self.pressure_loads[index],
             mode: self.modes[index],
-            #[cfg(feature = "pqlc0")]
             trigger: self.triggers[index],
         }
     }
@@ -325,21 +315,11 @@ impl ArrowColumns {
         self.generations[index] = value.generation;
         self.resistances[index] = value.resistance;
         self.live[index] = value.live;
-        self.eligible_until[index] = value.eligible_until;
-        #[cfg(feature = "cpc1")]
-        {
-            self.participation_levels[index] = value.participation_level;
-            self.plastic_supports[index] = value.plastic_support;
-        }
-        #[cfg(feature = "pd1")]
-        {
-            self.pressure_loads[index] = value.pressure_load;
-        }
+        self.participation_levels[index] = value.participation_level;
+        self.plastic_supports[index] = value.plastic_support;
+        self.pressure_loads[index] = value.pressure_load;
         self.modes[index] = value.mode;
-        #[cfg(feature = "pqlc0")]
-        {
-            self.triggers[index] = value.trigger;
-        }
+        self.triggers[index] = value.trigger;
     }
 
     fn push(&mut self, value: Arrow) {
@@ -353,21 +333,11 @@ impl ArrowColumns {
         self.generations.push(value.generation);
         self.resistances.push(value.resistance);
         self.live.push(value.live);
-        self.eligible_until.push(value.eligible_until);
-        #[cfg(feature = "cpc1")]
-        {
-            self.participation_levels.push(value.participation_level);
-            self.plastic_supports.push(value.plastic_support);
-        }
-        #[cfg(feature = "pd1")]
-        {
-            self.pressure_loads.push(value.pressure_load);
-        }
+        self.participation_levels.push(value.participation_level);
+        self.plastic_supports.push(value.plastic_support);
+        self.pressure_loads.push(value.pressure_load);
         self.modes.push(value.mode);
-        #[cfg(feature = "pqlc0")]
-        {
-            self.triggers.push(value.trigger);
-        }
+        self.triggers.push(value.trigger);
     }
 
     fn resident_bytes(&self) -> usize {
@@ -381,28 +351,12 @@ impl ArrowColumns {
             + self.generations.capacity() * std::mem::size_of::<super::Generation>()
             + self.resistances.capacity() * std::mem::size_of::<u32>()
             + self.live.capacity() * std::mem::size_of::<bool>()
-            + self.eligible_until.capacity() * std::mem::size_of::<Option<i64>>()
-            + self.modes.capacity() * std::mem::size_of::<super::TransmissionMode>();
-        #[cfg(feature = "cpc1")]
-        {
-            let bytes = bytes
-                + self.participation_levels.capacity() * std::mem::size_of::<u64>()
-                + self.plastic_supports.capacity() * std::mem::size_of::<u64>();
-            #[cfg(feature = "pd1")]
-            let bytes = bytes + self.pressure_loads.capacity() * std::mem::size_of::<u64>();
-            #[cfg(feature = "pqlc0")]
-            {
-                bytes + self.triggers.capacity() * std::mem::size_of::<super::TransmissionTrigger>()
-            }
-            #[cfg(not(feature = "pqlc0"))]
-            {
-                bytes
-            }
-        }
-        #[cfg(not(feature = "cpc1"))]
-        {
-            bytes
-        }
+            + self.modes.capacity() * std::mem::size_of::<super::TransmissionMode>()
+            + self.participation_levels.capacity() * std::mem::size_of::<u64>()
+            + self.plastic_supports.capacity() * std::mem::size_of::<u64>()
+            + self.pressure_loads.capacity() * std::mem::size_of::<u64>()
+            + self.triggers.capacity() * std::mem::size_of::<super::TransmissionTrigger>();
+        bytes
     }
 }
 

@@ -13,24 +13,15 @@ pub use truelearner_arena_format::{
     ArenaId, ArrowId, ArrowRef, CellId, CellRef, ContentHash, Generation,
 };
 
-const LOCAL_WINDOW: i64 = 4;
-#[cfg(any(not(feature = "cpc1"), feature = "pd1"))]
 const LOCAL_RETURN_STRENGTH: u32 = 3;
-#[cfg(not(feature = "pd1"))]
-const UNSUPPORTED_USE_PRESSURE: u32 = 1;
 const ORDINARY_PRESSURE_PERIOD: i64 = 10;
 const LOCAL_VARIATION_RADIUS: i32 = 2;
-#[cfg(not(feature = "cpc1"))]
-const COUPLING_PLASTICITY_CEILING: u32 = 16;
-#[cfg(feature = "cpc1")]
 const PARTICIPATION_IMPULSE: u64 = 1_u64 << 32;
-#[cfg(feature = "cpc1")]
 const PARTICIPATION_RELAX_NUMERATOR: u64 = 15;
-#[cfg(feature = "cpc1")]
 const PARTICIPATION_RELAX_DENOMINATOR: u64 = 16;
 const DEFAULT_CELL_CAPACITY: u32 = 65_536;
 const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
-const CHECKPOINT_VERSION: u16 = 1;
+const CHECKPOINT_VERSION: u16 = 2;
 const QUIESCENT_MAGIC: &[u8; 8] = b"TLQUIE01";
 const LIVE_MAGIC: &[u8; 8] = b"TLLIVE01";
 const BOUNDARY_LIVE_MAGIC: &[u8; 8] = b"TLBNDY01";
@@ -70,7 +61,6 @@ pub enum TransmissionMode {
     Modulatory,
 }
 
-#[cfg(feature = "pqlc0")]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TransmissionTrigger {
     #[default]
@@ -207,15 +197,10 @@ struct Arrow {
     generation: Generation,
     resistance: u32,
     live: bool,
-    eligible_until: Option<i64>,
-    #[cfg(feature = "cpc1")]
     participation_level: u64,
-    #[cfg(feature = "cpc1")]
     plastic_support: u64,
-    #[cfg(feature = "pd1")]
     pressure_load: u64,
     mode: TransmissionMode,
-    #[cfg(feature = "pqlc0")]
     trigger: TransmissionTrigger,
 }
 
@@ -251,10 +236,6 @@ pub enum PhysicalEvent {
     Fire {
         cell: CellId,
     },
-    Eligible {
-        arrow: ArrowId,
-        until: i64,
-    },
     Resistance {
         arrow: ArrowId,
         before: u32,
@@ -269,7 +250,6 @@ pub enum PhysicalEvent {
         to: CellId,
     },
     Crossing(Crossing),
-    #[cfg(feature = "pqlc0")]
     QualifiedLocalTraversal {
         arrow: ArrowId,
     },
@@ -290,7 +270,6 @@ pub struct Work {
     pub local_return_updates: u64,
     pub local_structural_proposals: u64,
     pub physical_deallocations: u64,
-    #[cfg(feature = "pqlc0")]
     pub qualified_local_traversals: u64,
 }
 
@@ -306,8 +285,6 @@ pub struct ExecutionCost {
     pub frontier_samples: u64,
     pub active_frontier_total: u64,
     pub active_frontier_max: u64,
-    pub eligible_frontier_total: u64,
-    pub eligible_frontier_max: u64,
     pub batches: u64,
     pub batched_items: u64,
     pub batch_max: u64,
@@ -333,14 +310,11 @@ impl ExecutionCost {
             .max(u64::try_from(bytes).unwrap_or(u64::MAX));
     }
 
-    fn observe_frontiers(&mut self, active: usize, eligible: usize) {
+    fn observe_frontier(&mut self, active: usize) {
         let active = u64::try_from(active).unwrap_or(u64::MAX);
-        let eligible = u64::try_from(eligible).unwrap_or(u64::MAX);
         self.frontier_samples = self.frontier_samples.saturating_add(1);
         self.active_frontier_total = self.active_frontier_total.saturating_add(active);
         self.active_frontier_max = self.active_frontier_max.max(active);
-        self.eligible_frontier_total = self.eligible_frontier_total.saturating_add(eligible);
-        self.eligible_frontier_max = self.eligible_frontier_max.max(eligible);
     }
 
     fn observe_batch(&mut self, size: usize) {
@@ -380,14 +354,7 @@ impl Work {
             .saturating_add(self.local_return_updates)
             .saturating_add(self.local_structural_proposals)
             .saturating_add(self.physical_deallocations);
-        #[cfg(feature = "pqlc0")]
-        {
-            total.saturating_add(self.qualified_local_traversals)
-        }
-        #[cfg(not(feature = "pqlc0"))]
-        {
-            total
-        }
+        total.saturating_add(self.qualified_local_traversals)
     }
 }
 
@@ -473,7 +440,6 @@ pub struct PlasticSubstrate {
     outgoing_index: Vec<Vec<ArrowId>>,
     resident_arenas: Vec<ResidentArenaId>,
     active_cells: BTreeSet<CellId>,
-    eligible_arrows: BTreeSet<ArrowId>,
     trace_physics: bool,
     zero_delay_live_arrows: usize,
 }
@@ -517,7 +483,10 @@ struct CellRuntime {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct ArrowRuntime {
     id: ArrowId,
-    eligible_until: Option<i64>,
+    participation_level: u64,
+    plastic_support: u64,
+    pressure_load: u64,
+    trigger: TransmissionTrigger,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -637,7 +606,10 @@ impl LiveCheckpoint {
         }
         for arrow in &arrows {
             checkpoint_put_u64(&mut payload, arrow.id.0);
-            checkpoint_put_optional_tick(&mut payload, arrow.eligible_until);
+            checkpoint_put_u64(&mut payload, arrow.participation_level);
+            checkpoint_put_u64(&mut payload, arrow.plastic_support);
+            checkpoint_put_u64(&mut payload, arrow.pressure_load);
+            payload.push(transmission_trigger_byte(arrow.trigger));
         }
         for spike in &pending {
             encode_spike(&mut payload, spike);
@@ -723,7 +695,10 @@ impl LiveCheckpoint {
         for _ in 0..arrow_count {
             arrows.push(ArrowRuntime {
                 id: ArrowId(transient.u64()?),
-                eligible_until: transient.optional_tick()?,
+                participation_level: transient.u64()?,
+                plastic_support: transient.u64()?,
+                pressure_load: transient.u64()?,
+                trigger: transmission_trigger_from_byte(transient.u8()?)?,
             });
         }
         let mut pending = Vec::with_capacity(pending_count);
@@ -1089,7 +1064,6 @@ impl PlasticSubstrate {
             outgoing_index: Vec::new(),
             resident_arenas: Vec::new(),
             active_cells: BTreeSet::new(),
-            eligible_arrows: BTreeSet::new(),
             trace_physics: false,
             zero_delay_live_arrows: 0,
         }
@@ -1245,15 +1219,10 @@ impl PlasticSubstrate {
             generation,
             resistance: spec.resistance,
             live: spec.resistance > 0,
-            eligible_until: None,
-            #[cfg(feature = "cpc1")]
             participation_level: 0,
-            #[cfg(feature = "cpc1")]
             plastic_support: 0,
-            #[cfg(feature = "pd1")]
             pressure_load: 0,
             mode: spec.mode,
-            #[cfg(feature = "pqlc0")]
             trigger: TransmissionTrigger::SourceFires,
         };
         if slot.0 < self.arrows.len() {
@@ -1275,7 +1244,6 @@ impl PlasticSubstrate {
         id
     }
 
-    #[cfg(feature = "pqlc0")]
     pub fn add_arrow_with_trigger(
         &mut self,
         spec: ArrowSpec,
@@ -1293,7 +1261,6 @@ impl PlasticSubstrate {
         id
     }
 
-    #[cfg(feature = "pqlc0")]
     pub fn transmission_trigger(&self, id: ArrowId) -> TransmissionTrigger {
         self.arrows
             .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
@@ -1494,15 +1461,10 @@ impl PlasticSubstrate {
                 generation: durable.generation,
                 resistance: durable.resistance,
                 live: durable.live,
-                eligible_until: None,
-                #[cfg(feature = "cpc1")]
                 participation_level: 0,
-                #[cfg(feature = "cpc1")]
                 plastic_support: 0,
-                #[cfg(feature = "pd1")]
                 pressure_load: 0,
                 mode,
-                #[cfg(feature = "pqlc0")]
                 trigger: TransmissionTrigger::SourceFires,
             });
             substrate.outgoing_index[durable.from.id.0 as usize].push(durable.id);
@@ -1529,7 +1491,7 @@ impl PlasticSubstrate {
                 .arrows
                 .values()
                 .iter()
-                .all(|arrow| arrow.eligible_until.is_none());
+                .all(|arrow| arrow.participation_level == 0 && arrow.pressure_load == 0);
         if !transiently_quiet {
             return Err(CheckpointError::NotQuiescent);
         }
@@ -1591,7 +1553,10 @@ impl PlasticSubstrate {
                 .iter()
                 .map(|arrow| ArrowRuntime {
                     id: arrow.id,
-                    eligible_until: arrow.eligible_until,
+                    participation_level: arrow.participation_level,
+                    plastic_support: arrow.plastic_support,
+                    pressure_load: arrow.pressure_load,
+                    trigger: arrow.trigger,
                 })
                 .collect(),
             pending,
@@ -1627,7 +1592,10 @@ impl PlasticSubstrate {
                 .arrow_slot(runtime.id)
                 .ok_or(CheckpointError::MissingArrow(runtime.id))?;
             substrate.arrows.with_mut(slot.0, |arrow| {
-                arrow.eligible_until = runtime.eligible_until
+                arrow.participation_level = runtime.participation_level;
+                arrow.plastic_support = runtime.plastic_support;
+                arrow.pressure_load = runtime.pressure_load;
+                arrow.trigger = runtime.trigger;
             });
         }
         substrate.pending = PendingSchedule::from_canonical(
@@ -1643,13 +1611,6 @@ impl PlasticSubstrate {
             .iter()
             .filter(|cell| cell.state != 0)
             .map(|cell| cell.id)
-            .collect();
-        substrate.eligible_arrows = substrate
-            .arrows
-            .values()
-            .iter()
-            .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
-            .map(|arrow| arrow.id)
             .collect();
         substrate.reconfigure_mechanics(mechanics);
         Ok(substrate)
@@ -1876,7 +1837,6 @@ impl PlasticSubstrate {
                     {
                         continue;
                     }
-                    #[cfg(feature = "pqlc0")]
                     if arrow.trigger != TransmissionTrigger::SourceFires {
                         continue;
                     }
@@ -1905,27 +1865,12 @@ impl PlasticSubstrate {
                     }
                     let arrow_slot = self.arrow_slot(arrow_id).unwrap();
                     self.arrows.with_mut(arrow_slot.0, |live_arrow| {
-                        live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
-                        #[cfg(feature = "cpc1")]
-                        {
-                            live_arrow.participation_level = live_arrow
-                                .participation_level
-                                .saturating_add(PARTICIPATION_IMPULSE);
-                        }
+                        live_arrow.participation_level = live_arrow
+                            .participation_level
+                            .saturating_add(PARTICIPATION_IMPULSE);
                     });
                     execution_cost.touch::<Arrow>(1);
-                    self.eligible_arrows.insert(arrow_id);
-                    if self.trace_physics {
-                        physical_trace.push(PhysicalTransition {
-                            tick: self.tick,
-                            phase: spike.phase,
-                            event: PhysicalEvent::Eligible {
-                                arrow: arrow_id,
-                                until: self.tick.saturating_add(LOCAL_WINDOW),
-                            },
-                        });
-                    }
-                    work.total = work.total.saturating_add(2);
+                    work.total = work.total.saturating_add(1);
                     execution_cost.arena_lookups = execution_cost.arena_lookups.saturating_add(2);
                     if self.resident_arenas[arrow.from.0 as usize]
                         != self.resident_arenas[arrow.to.0 as usize]
@@ -2021,7 +1966,6 @@ impl PlasticSubstrate {
                 self.outgoing_index[cell.0 as usize].clone()
             }
         };
-        #[cfg(feature = "pqlc0")]
         let qualified_local = candidates.iter().any(|id| {
             let slot = self.arrow_slot(*id).expect("indexed ARROW must resolve");
             let arrow = self.arrows.get(slot.0);
@@ -2033,89 +1977,30 @@ impl PlasticSubstrate {
         for id in candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
-            #[cfg(all(feature = "cpc1", not(feature = "pd1")))]
-            {
-                let contacted = self.arrows.with_mut(slot.0, |arrow| {
-                    if arrow.live && arrow.from == cell {
-                        arrow.plastic_support = arrow
-                            .plastic_support
-                            .saturating_add(arrow.participation_level);
-                        arrow.eligible_until = None;
-                        true
-                    } else {
-                        false
-                    }
-                });
-                execution_cost.touch::<Arrow>(1);
-                if contacted {
-                    work.total = work.total.saturating_add(3);
-                    work.local_return_updates = work.local_return_updates.saturating_add(1);
-                    self.eligible_arrows.remove(&id);
-                }
-                let _ = (tick, phase, &mut *physical_trace);
-            }
-            #[cfg(feature = "pd1")]
-            {
-                let updated = self.arrows.with_mut(slot.0, |arrow| {
-                    if !(arrow.live && arrow.from == cell && arrow.participation_level > 0) {
-                        return None;
-                    }
-                    let participation = arrow.participation_level;
-                    arrow.plastic_support = arrow.plastic_support.saturating_add(participation);
-                    arrow.eligible_until = None;
-                    let bounded = participation.min(PARTICIPATION_IMPULSE);
-                    let numerator =
-                        u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
-                    let gain = numerator
-                        .saturating_add(u128::from(PARTICIPATION_IMPULSE).saturating_sub(1))
-                        / u128::from(PARTICIPATION_IMPULSE);
-                    let gain = u32::try_from(gain).unwrap_or(LOCAL_RETURN_STRENGTH);
-                    let before = arrow.resistance;
-                    arrow.resistance = arrow.resistance.saturating_add(gain);
-                    Some((before, arrow.resistance))
-                });
-                execution_cost.touch::<Arrow>(1);
-                if let Some((before, after)) = updated {
-                    work.total = work.total.saturating_add(3);
-                    work.local_return_updates = work.local_return_updates.saturating_add(1);
-                    self.eligible_arrows.remove(&id);
-                    if self.trace_physics && before != after {
-                        physical_trace.push(PhysicalTransition {
-                            tick,
-                            phase,
-                            event: PhysicalEvent::Resistance {
-                                arrow: id,
-                                before,
-                                after,
-                            },
-                        });
-                    }
-                }
-            }
-            #[cfg(not(feature = "cpc1"))]
             let updated = self.arrows.with_mut(slot.0, |arrow| {
-                if arrow.live
-                    && arrow.from == cell
-                    && arrow.eligible_until.is_some_and(|end| tick <= end)
-                {
+                if !(arrow.live && arrow.from == cell) {
+                    return None;
+                }
+                let participation = arrow.participation_level;
+                arrow.plastic_support = arrow.plastic_support.saturating_add(participation);
+                let bounded = participation.min(PARTICIPATION_IMPULSE);
+                let numerator =
+                    u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
+                let gain = numerator
+                    .saturating_add(u128::from(PARTICIPATION_IMPULSE).saturating_sub(1))
+                    / u128::from(PARTICIPATION_IMPULSE);
+                let gain = u32::try_from(gain).unwrap_or(LOCAL_RETURN_STRENGTH);
+                let before = arrow.resistance;
+                arrow.resistance = arrow.resistance.saturating_add(gain);
+                Some((before, arrow.resistance))
+            });
+            execution_cost.touch::<Arrow>(1);
+            if let Some((before, after)) = updated {
+                if before != after {
                     work.total = work.total.saturating_add(3);
                     work.local_return_updates = work.local_return_updates.saturating_add(1);
-                    let prior_resistance = arrow.resistance;
-                    arrow.resistance = arrow.resistance.saturating_add(LOCAL_RETURN_STRENGTH);
-                    if prior_resistance <= COUPLING_PLASTICITY_CEILING && arrow.coupling > 0 {
-                        arrow.coupling = arrow.coupling.saturating_add(1).min(2);
-                    }
-                    arrow.eligible_until = None;
-                    Some((prior_resistance, arrow.resistance))
-                } else {
-                    None
                 }
-            });
-            #[cfg(not(feature = "cpc1"))]
-            execution_cost.touch::<Arrow>(1);
-            #[cfg(not(feature = "cpc1"))]
-            if let Some((before, after)) = updated {
-                if self.trace_physics {
+                if self.trace_physics && before != after {
                     physical_trace.push(PhysicalTransition {
                         tick,
                         phase,
@@ -2126,16 +2011,13 @@ impl PlasticSubstrate {
                         },
                     });
                 }
-                self.eligible_arrows.remove(&id);
             }
         }
-        #[cfg(feature = "pqlc0")]
         if qualified_local {
             self.propagate_qualified_local(cell, tick, phase, work, execution_cost, physical_trace);
         }
     }
 
-    #[cfg(feature = "pqlc0")]
     fn propagate_qualified_local(
         &mut self,
         cell: CellId,
@@ -2168,27 +2050,17 @@ impl PlasticSubstrate {
             let target_id = arrow.to;
             let origin_physical = source.physical_id;
             self.arrows.with_mut(slot.0, |live_arrow| {
-                live_arrow.eligible_until = Some(tick.saturating_add(LOCAL_WINDOW));
                 live_arrow.participation_level = live_arrow
                     .participation_level
                     .saturating_add(PARTICIPATION_IMPULSE);
             });
-            self.eligible_arrows.insert(id);
-            work.total = work.total.saturating_add(2);
+            work.total = work.total.saturating_add(1);
             work.qualified_local_traversals = work.qualified_local_traversals.saturating_add(1);
             if self.trace_physics {
                 physical_trace.push(PhysicalTransition {
                     tick,
                     phase,
                     event: PhysicalEvent::QualifiedLocalTraversal { arrow: id },
-                });
-                physical_trace.push(PhysicalTransition {
-                    tick,
-                    phase,
-                    event: PhysicalEvent::Eligible {
-                        arrow: id,
-                        until: tick.saturating_add(LOCAL_WINDOW),
-                    },
                 });
             }
             self.pending.push(
@@ -2209,132 +2081,8 @@ impl PlasticSubstrate {
     }
 
     fn elapse_to(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
-        #[cfg(all(feature = "cpc1", not(feature = "pd1")))]
-        {
-            let elapsed = tick.saturating_sub(self.tick);
-            for index in 0..self.arrows.len() {
-                self.arrows.with_mut(index, |arrow| {
-                    if arrow.live {
-                        arrow.participation_level =
-                            relax_participation(arrow.participation_level, elapsed);
-                    }
-                });
-            }
-        }
-        #[cfg(feature = "pd1")]
-        {
-            self.elapse_pd1_pressure(tick, work, execution_cost);
-            self.eligible_arrows = self
-                .arrows
-                .values()
-                .iter()
-                .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
-                .map(|arrow| arrow.id)
-                .collect();
-        }
-        execution_cost.observe_frontiers(self.active_cells.len(), self.eligible_arrows.len());
-        #[cfg(not(feature = "pd1"))]
-        let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
-        #[cfg(not(feature = "pd1"))]
-        if pressure_steps > 0 {
-            let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
-            let first_pressure_tick = self.pressure_tick.saturating_add(ORDINARY_PRESSURE_PERIOD);
-            for index in 0..self.arrows.len() {
-                execution_cost.scans = execution_cost.scans.saturating_add(1);
-                let (deallocated, zero_delay) = self.arrows.with_mut(index, |arrow| {
-                    if !arrow.live {
-                        return (false, false);
-                    }
-                    let protected_steps = arrow.eligible_until.map_or(0, |eligible_until| {
-                        if eligible_until < first_pressure_tick {
-                            0
-                        } else {
-                            let protected_through = eligible_until.min(tick);
-                            protected_through
-                                .saturating_sub(first_pressure_tick)
-                                .div_euclid(ORDINARY_PRESSURE_PERIOD)
-                                .saturating_add(1)
-                                .min(pressure_steps)
-                        }
-                    });
-                    let applicable =
-                        amount.saturating_sub(u32::try_from(protected_steps).unwrap_or(u32::MAX));
-                    if applicable == 0 {
-                        return (false, arrow.delay == 0);
-                    }
-                    let was_live = arrow.live;
-                    pressure_arrow(arrow, applicable);
-                    work.total = work.total.saturating_add(1);
-                    (was_live && !arrow.live, arrow.delay == 0)
-                });
-                execution_cost.touch::<Arrow>(1);
-                if deallocated && zero_delay {
-                    self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
-                }
-                if deallocated {
-                    work.total = work.total.saturating_add(1);
-                    work.physical_deallocations = work.physical_deallocations.saturating_add(1);
-                }
-            }
-            self.pressure_tick = self
-                .pressure_tick
-                .saturating_add(pressure_steps.saturating_mul(ORDINARY_PRESSURE_PERIOD));
-            self.eligible_arrows = self
-                .arrows
-                .values()
-                .iter()
-                .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
-                .map(|arrow| arrow.id)
-                .collect();
-        }
-        let expiry_candidates = match self.mechanics.activity {
-            ActivityKind::FullScan => {
-                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
-                execution_cost.touch::<Arrow>(self.arrows.len());
-                self.arrows
-                    .values()
-                    .iter()
-                    .map(|arrow| arrow.id)
-                    .collect::<Vec<_>>()
-            }
-            ActivityKind::Frontier => {
-                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
-                self.eligible_arrows.iter().copied().collect()
-            }
-        };
-        for id in expiry_candidates {
-            execution_cost.scans = execution_cost.scans.saturating_add(1);
-            let slot = self.arrow_slot(id).expect("eligible ARROW must resolve");
-            let (expired, deallocated, zero_delay) = self.arrows.with_mut(slot.0, |arrow| {
-                if !(arrow.live && arrow.eligible_until.is_some_and(|end| end < tick)) {
-                    return (false, false, false);
-                }
-                #[cfg(feature = "pd1")]
-                {
-                    arrow.eligible_until = None;
-                    return (true, false, arrow.delay == 0);
-                }
-                #[cfg(not(feature = "pd1"))]
-                {
-                    let was_live = arrow.live;
-                    pressure_arrow(arrow, UNSUPPORTED_USE_PRESSURE);
-                    arrow.eligible_until = None;
-                    (true, was_live && !arrow.live, arrow.delay == 0)
-                }
-            });
-            execution_cost.touch::<Arrow>(1);
-            if expired {
-                self.eligible_arrows.remove(&id);
-                work.total = work.total.saturating_add(1);
-                if deallocated {
-                    if zero_delay {
-                        self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
-                    }
-                    work.total = work.total.saturating_add(1);
-                    work.physical_deallocations = work.physical_deallocations.saturating_add(1);
-                }
-            }
-        }
+        self.elapse_pd1_pressure(tick, work, execution_cost);
+        execution_cost.observe_frontier(self.active_cells.len());
         let cell_ids = match self.mechanics.activity {
             ActivityKind::FullScan => {
                 execution_cost.allocations = execution_cost.allocations.saturating_add(1);
@@ -2357,7 +2105,6 @@ impl PlasticSubstrate {
         }
     }
 
-    #[cfg(feature = "pd1")]
     fn elapse_pd1_pressure(
         &mut self,
         tick: i64,
@@ -2557,32 +2304,22 @@ impl PlasticSubstrate {
         }
     }
 
-    #[cfg(feature = "cpc1")]
     pub fn local_participation(&self, id: ArrowId) -> u64 {
         self.arrows
             .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
             .participation_level
     }
 
-    #[cfg(feature = "cpc1")]
     pub fn local_plastic_support(&self, id: ArrowId) -> u64 {
         self.arrows
             .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
             .plastic_support
     }
 
-    #[cfg(feature = "pd1")]
     pub fn local_pressure_load(&self, id: ArrowId) -> u64 {
         self.arrows
             .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
             .pressure_load
-    }
-
-    #[cfg(feature = "pd1")]
-    pub fn local_eligible_until(&self, id: ArrowId) -> Option<i64> {
-        self.arrows
-            .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
-            .eligible_until
     }
 
     fn rebuild_slot_maps(&mut self) {
@@ -2610,13 +2347,6 @@ impl PlasticSubstrate {
             .into_iter()
             .filter(|cell| cell.state != 0)
             .map(|cell| cell.id)
-            .collect();
-        self.eligible_arrows = self
-            .arrows
-            .values()
-            .into_iter()
-            .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
-            .map(|arrow| arrow.id)
             .collect();
         self.zero_delay_live_arrows = self
             .arrows
@@ -2670,11 +2400,6 @@ impl PlasticSubstrate {
                     std::mem::size_of::<CellId>() + 3 * std::mem::size_of::<usize>(),
                 ),
             )
-            .saturating_add(
-                self.eligible_arrows.len().saturating_mul(
-                    std::mem::size_of::<ArrowId>() + 3 * std::mem::size_of::<usize>(),
-                ),
-            )
     }
 }
 
@@ -2683,20 +2408,12 @@ fn pressure_arrow(arrow: &mut Arrow, amount: u32) {
     if arrow.resistance == 0 && arrow.live {
         arrow.live = false;
         arrow.generation = Generation(arrow.generation.0.wrapping_add(1));
-        arrow.eligible_until = None;
-        #[cfg(feature = "cpc1")]
-        {
-            arrow.participation_level = 0;
-            arrow.plastic_support = 0;
-        }
-        #[cfg(feature = "pd1")]
-        {
-            arrow.pressure_load = 0;
-        }
+        arrow.participation_level = 0;
+        arrow.plastic_support = 0;
+        arrow.pressure_load = 0;
     }
 }
 
-#[cfg(feature = "cpc1")]
 fn relax_participation(mut level: u64, elapsed: i64) -> u64 {
     for _ in 0..u64::try_from(elapsed).unwrap_or(u64::MAX) {
         level =
@@ -2721,6 +2438,21 @@ fn transmission_mode_from_byte(mode: u8) -> Result<TransmissionMode, CheckpointE
     match mode {
         0 => Ok(TransmissionMode::Drive),
         1 => Ok(TransmissionMode::Modulatory),
+        other => Err(CheckpointError::UnsupportedTransmissionMode(other)),
+    }
+}
+
+fn transmission_trigger_byte(trigger: TransmissionTrigger) -> u8 {
+    match trigger {
+        TransmissionTrigger::SourceFires => 0,
+        TransmissionTrigger::QualifiedLocalParticipation => 1,
+    }
+}
+
+fn transmission_trigger_from_byte(trigger: u8) -> Result<TransmissionTrigger, CheckpointError> {
+    match trigger {
+        0 => Ok(TransmissionTrigger::SourceFires),
+        1 => Ok(TransmissionTrigger::QualifiedLocalParticipation),
         other => Err(CheckpointError::UnsupportedTransmissionMode(other)),
     }
 }
@@ -3070,143 +2802,6 @@ mod tests {
         );
     }
 
-    #[derive(Clone, Copy)]
-    enum EligibilityPressureCase {
-        ModulationWithinWindow,
-        UnsupportedExpiry,
-        DormantOrdinaryPressure,
-        LateModulation,
-    }
-
-    #[derive(Debug, PartialEq, Eq)]
-    struct EligibilityPressureObservation {
-        candidate_live: bool,
-        candidate_resistance: u32,
-        candidate_coupling: i32,
-        candidate_eligible_until: Option<i64>,
-        return_updates: u64,
-        deallocations: u64,
-        clock: PhysicalClock,
-        body: Vec<u8>,
-        replay_exact: bool,
-        quiescent: bool,
-    }
-
-    fn run_eligibility_pressure_case(
-        mechanics: MechanicalConfig,
-        case: EligibilityPressureCase,
-    ) -> EligibilityPressureObservation {
-        let mut body = PlasticSubstrate::with_mechanics(ArenaId(704), 4, 4, mechanics);
-        body.set_physical_tracing(true);
-        let source = body.add_cell(CellSpec {
-            physical_id: 70_401,
-            position: 0,
-            region: 0,
-            threshold: 1,
-            resistance: 20,
-        });
-        let target = body.add_cell(CellSpec {
-            physical_id: 70_402,
-            position: 10,
-            region: 0,
-            threshold: 1,
-            resistance: 20,
-        });
-        let returning = body.add_cell(CellSpec {
-            physical_id: 70_403,
-            position: 20,
-            region: 0,
-            threshold: 1,
-            resistance: 20,
-        });
-        let candidate = body.add_arrow(ArrowSpec {
-            from: source,
-            to: target,
-            delay: 1,
-            phase: 0,
-            coupling: 1,
-            resistance: 1,
-            mode: TransmissionMode::Drive,
-        });
-        body.add_arrow(ArrowSpec {
-            from: returning,
-            to: source,
-            delay: 0,
-            phase: 0,
-            coupling: 1,
-            resistance: 50,
-            mode: TransmissionMode::Modulatory,
-        });
-        body.advance_time(9);
-
-        let mut total_updates = 0;
-        let mut total_deallocations = 0;
-        if !matches!(case, EligibilityPressureCase::DormantOrdinaryPressure) {
-            let traversed = body.arrive(&[input(source, 9)], 1);
-            total_updates += traversed.work.local_return_updates;
-            total_deallocations += traversed.work.physical_deallocations;
-            let slot = body.arrow_slot(candidate).unwrap();
-            assert!(
-                body.arrows.get(slot.0).live,
-                "eligible R1 route died at tick 10"
-            );
-            assert_eq!(body.arrows.get(slot.0).eligible_until, Some(13));
-        }
-
-        match case {
-            EligibilityPressureCase::ModulationWithinWindow => {
-                let returned = body.arrive(&[input(returning, 11)], 1);
-                total_updates += returned.work.local_return_updates;
-                total_deallocations += returned.work.physical_deallocations;
-            }
-            EligibilityPressureCase::UnsupportedExpiry => {
-                let work = body.advance_time(14);
-                total_updates += work.local_return_updates;
-                total_deallocations += work.physical_deallocations;
-            }
-            EligibilityPressureCase::DormantOrdinaryPressure => {
-                let work = body.advance_time(10);
-                total_updates += work.local_return_updates;
-                total_deallocations += work.physical_deallocations;
-            }
-            EligibilityPressureCase::LateModulation => {
-                let expired = body.advance_time(14);
-                total_updates += expired.local_return_updates;
-                total_deallocations += expired.physical_deallocations;
-                let returned = body.arrive(&[input(returning, 15)], 1);
-                total_updates += returned.work.local_return_updates;
-                total_deallocations += returned.work.physical_deallocations;
-            }
-        }
-
-        let replay_checkpoint = body.live_checkpoint(704).unwrap();
-        let replay_bytes = replay_checkpoint.canonical_bytes().unwrap();
-        let restored = PlasticSubstrate::from_live_checkpoint_with_mechanics(
-            LiveCheckpoint::decode(&replay_bytes).unwrap(),
-            mechanics,
-        )
-        .unwrap();
-        let candidate_slot = body.arrow_slot(candidate).unwrap();
-        let arrow = body.arrows.get(candidate_slot.0);
-        EligibilityPressureObservation {
-            candidate_live: arrow.live,
-            candidate_resistance: arrow.resistance,
-            candidate_coupling: arrow.coupling,
-            candidate_eligible_until: arrow.eligible_until,
-            return_updates: total_updates,
-            deallocations: total_deallocations,
-            clock: body.clock(),
-            body: body.canonical_body_bytes(704).unwrap(),
-            replay_exact: restored
-                .live_checkpoint(704)
-                .unwrap()
-                .canonical_bytes()
-                .unwrap()
-                == replay_bytes,
-            quiescent: body.pending.is_empty(),
-        }
-    }
-
     #[test]
     fn r1_r5_mechanical_prefixes_preserve_physics() {
         let configs = [
@@ -3287,51 +2882,6 @@ mod tests {
                     physical_work(reference_pressure),
                     "pressure work differs for {config:?}"
                 );
-            }
-        }
-    }
-
-    #[test]
-    fn eligibility_pressure_regressions_match_reference_and_physical_organism() {
-        let cases = [
-            EligibilityPressureCase::ModulationWithinWindow,
-            EligibilityPressureCase::UnsupportedExpiry,
-            EligibilityPressureCase::DormantOrdinaryPressure,
-            EligibilityPressureCase::LateModulation,
-        ];
-        for case in cases {
-            let reference = run_eligibility_pressure_case(MechanicalConfig::REFERENCE, case);
-            let production = run_eligibility_pressure_case(MechanicalConfig::PRODUCTION, case);
-            assert_eq!(production, reference);
-            assert!(reference.replay_exact);
-            assert!(reference.quiescent);
-            match case {
-                EligibilityPressureCase::ModulationWithinWindow => {
-                    assert!(reference.candidate_live);
-                    assert_eq!(reference.candidate_resistance, 4);
-                    assert_eq!(reference.candidate_coupling, 2);
-                    assert_eq!(reference.candidate_eligible_until, None);
-                    assert_eq!(reference.return_updates, 1);
-                    assert_eq!(reference.deallocations, 0);
-                }
-                EligibilityPressureCase::UnsupportedExpiry => {
-                    assert!(!reference.candidate_live);
-                    assert_eq!(reference.candidate_resistance, 0);
-                    assert_eq!(reference.return_updates, 0);
-                    assert_eq!(reference.deallocations, 1);
-                }
-                EligibilityPressureCase::DormantOrdinaryPressure => {
-                    assert!(!reference.candidate_live);
-                    assert_eq!(reference.candidate_resistance, 0);
-                    assert_eq!(reference.return_updates, 0);
-                    assert_eq!(reference.deallocations, 1);
-                }
-                EligibilityPressureCase::LateModulation => {
-                    assert!(!reference.candidate_live);
-                    assert_eq!(reference.candidate_resistance, 0);
-                    assert_eq!(reference.return_updates, 0);
-                    assert_eq!(reference.deallocations, 1);
-                }
             }
         }
     }
