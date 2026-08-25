@@ -121,6 +121,15 @@ struct LogicalWorld {
     arrow_names: BTreeMap<ArrowId, &'static str>,
 }
 
+type WaveKey = (i64, i32, u64);
+
+#[derive(Default)]
+struct WaveObservation {
+    incidences: Vec<String>,
+    fires: Vec<String>,
+    effects: Vec<String>,
+}
+
 #[derive(Clone, Copy)]
 struct CellDef {
     name: &'static str,
@@ -427,8 +436,7 @@ fn logical_event(world: &LogicalWorld, event: &PhysicalEvent) -> String {
 }
 
 fn normalize_trace(world: &LogicalWorld, trace: &[PhysicalTransition]) -> Vec<String> {
-    let mut waves: BTreeMap<(i64, i32, u64), (Vec<String>, Vec<String>, Vec<String>)> =
-        BTreeMap::new();
+    let mut waves: BTreeMap<WaveKey, WaveObservation> = BTreeMap::new();
     let mut current_wave = None;
     for transition in trace {
         match &transition.event {
@@ -437,34 +445,34 @@ fn normalize_trace(world: &LogicalWorld, trace: &[PhysicalTransition]) -> Vec<St
                 waves
                     .entry(key)
                     .or_default()
-                    .0
+                    .incidences
                     .push(logical_event(world, &transition.event));
                 current_wave = Some(key);
             }
             PhysicalEvent::Fire { .. } => waves
                 .get_mut(&current_wave.expect("every SI0 fire follows a Drive wave"))
                 .expect("current SI0 wave must exist")
-                .1
+                .fires
                 .push(logical_event(world, &transition.event)),
             _ => waves
                 .get_mut(&current_wave.expect("every SI0 effect follows a Drive wave"))
                 .expect("current SI0 wave must exist")
-                .2
+                .effects
                 .push(logical_event(world, &transition.event)),
         }
     }
     waves
         .into_iter()
         .map(
-            |((tick, phase, wave), (mut incidences, mut fires, mut effects))| {
-                incidences.sort();
-                fires.sort();
-                effects.sort();
+            |((tick, phase, wave), mut observation)| {
+                observation.incidences.sort();
+                observation.fires.sort();
+                observation.effects.sort();
                 format!(
                     "{tick}:{phase}:wave={wave}:INCIDENCES=[{}]:FIRES=[{}]:EFFECTS=[{}]",
-                    incidences.join("|"),
-                    fires.join("|"),
-                    effects.join("|")
+                    observation.incidences.join("|"),
+                    observation.fires.join("|"),
+                    observation.effects.join("|")
                 )
             },
         )
