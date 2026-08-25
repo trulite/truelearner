@@ -62,3 +62,9 @@ the old eligibility frontier after its arithmetic. That inert bookkeeping was
 moved to the outer runtime so the pressure helper is literally eligibility-
 blind. No candidate equation, evaluator, or matrix changed, and no evidence was
 spent by either technical stop.
+
+A subsequent reusable validation worker also stopped before Rust execution
+because the audit attempted a parent-diff check inside the intentionally
+`.git`-free source archive. Exact source hashes plus direct candidate-function
+checks already freeze that surface, so the repository-history dependency was
+removed. This stop likewise spent no evidence.

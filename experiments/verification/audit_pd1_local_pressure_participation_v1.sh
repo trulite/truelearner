@@ -31,14 +31,6 @@ if grep -Eq 'participation_level[[:space:]]*[!<>=]=?[[:space:]]*0' <<<"$pressure
   exit 1
 fi
 
-candidate_diff="$(git diff 03f2eed -- truelearner/crates/core/Cargo.toml \
-  truelearner/crates/core/src/lib.rs truelearner/crates/core/src/mechanics.rs)"
-if grep '^+' <<<"$candidate_diff" | grep -Eiq \
-  'ARC|reward|credit|cause|path_id|route_id|parent|depth|hop_count|expected_answer'; then
-  printf 'PD1 substrate diff contains forbidden semantic surface\n' >&2
-  exit 1
-fi
-
 if test -f results/pd1_local_pressure_participation_v1/matrix.csv; then
   test "$(grep -c '^' results/pd1_local_pressure_participation_v1/matrix.csv)" = 401
   grep -q -- '- physical cases: `200/200`' \
