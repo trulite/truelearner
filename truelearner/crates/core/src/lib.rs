@@ -4794,16 +4794,34 @@ impl PlasticSubstrate {
 
     #[cfg(feature = "core0")]
     pub fn core0_coupling_material(&self, id: ArrowId) -> i64 {
+        if self.core0_profile == Core0Profile::A {
+            let arrow = self
+                .arrows
+                .get(self.arrow_slot(id).expect("ARROW identity must resolve").0);
+            return i64::from(arrow.coupling).saturating_mul(MATERIAL_ONE);
+        }
         self.core0_coupling[id.0 as usize]
     }
 
     #[cfg(feature = "core0")]
     pub fn core0_resistance_material(&self, id: ArrowId) -> u64 {
+        if self.core0_profile == Core0Profile::A {
+            let arrow = self
+                .arrows
+                .get(self.arrow_slot(id).expect("ARROW identity must resolve").0);
+            return u64::from(arrow.resistance).saturating_mul(MATERIAL_ONE_U64);
+        }
         self.core0_resistance[id.0 as usize]
     }
 
     #[cfg(feature = "core0")]
     pub fn core0_activation_material(&self, id: CellId) -> i64 {
+        if self.core0_profile == Core0Profile::A {
+            let cell = self
+                .cells
+                .get(self.cell_slot(id).expect("CELL identity must resolve").0);
+            return i64::from(cell.state).saturating_mul(MATERIAL_ONE);
+        }
         self.core0_activation[id.0 as usize]
     }
 
