@@ -134,7 +134,10 @@ struct World {
     target_a: CellId,
     anchor: CellId,
     anchor_links: [ArrowRef; 2],
-    next_physical: u64,
+    next_aux_physical: u64,
+    next_modulator_physical: u64,
+    next_probe_physical: u64,
+    next_origin_physical: u64,
 }
 
 impl World {
@@ -205,13 +208,19 @@ impl World {
             target_a,
             anchor,
             anchor_links,
-            next_physical: root + 2_000,
+            next_aux_physical: root + 10_000,
+            next_modulator_physical: root + 30_000,
+            next_probe_physical: root + 50_000,
+            next_origin_physical: root + 70_000,
         }
     }
 
-    fn add_cell(&mut self, position: i32, threshold: i32) -> CellId {
-        let physical_id = self.next_physical;
-        self.next_physical = self.next_physical.saturating_add(1);
+    fn add_cell_with_physical(
+        &mut self,
+        physical_id: u64,
+        position: i32,
+        threshold: i32,
+    ) -> CellId {
         self.body.add_cell(CellSpec {
             physical_id,
             position,
@@ -219,6 +228,24 @@ impl World {
             threshold,
             resistance: 500,
         })
+    }
+
+    fn add_aux_cell(&mut self, position: i32, threshold: i32) -> CellId {
+        let physical_id = self.next_aux_physical;
+        self.next_aux_physical = self.next_aux_physical.saturating_add(1);
+        self.add_cell_with_physical(physical_id, position, threshold)
+    }
+
+    fn add_modulator_cell(&mut self, position: i32, threshold: i32) -> CellId {
+        let physical_id = self.next_modulator_physical;
+        self.next_modulator_physical = self.next_modulator_physical.saturating_add(1);
+        self.add_cell_with_physical(physical_id, position, threshold)
+    }
+
+    fn add_probe_cell(&mut self, position: i32, threshold: i32) -> CellId {
+        let physical_id = self.next_probe_physical;
+        self.next_probe_physical = self.next_probe_physical.saturating_add(1);
+        self.add_cell_with_physical(physical_id, position, threshold)
     }
 
     fn add_drive(
@@ -248,11 +275,13 @@ impl World {
     }
 
     fn pulse_full(&mut self, target: CellId, age: i64, impulse: i32) {
+        let origin_physical = self.next_origin_physical;
+        self.next_origin_physical = self.next_origin_physical.saturating_add(1);
         let result = self.body.arrive(
             &[SpikeInput {
                 arrival_tick: self.origin.saturating_add(age),
                 phase: 0,
-                origin_physical: self.next_physical.saturating_add(10_000),
+                origin_physical,
                 target,
                 impulse,
             }],
@@ -309,7 +338,7 @@ impl World {
     }
 
     fn modulate(&mut self, contact: CellId, age: i64) {
-        let modulator = self.add_cell(10_000, 1);
+        let modulator = self.add_modulator_cell(10_000, 1);
         let id = self.body.add_arrow(ArrowSpec {
             from: modulator,
             to: contact,
@@ -324,8 +353,8 @@ impl World {
     }
 
     fn add_recurrence(&mut self, a: CellId, b: CellId, position_base: i32) {
-        let u = self.add_cell(position_base.saturating_add(100), 1);
-        let w = self.add_cell(position_base.saturating_add(200), 1);
+        let u = self.add_probe_cell(position_base.saturating_add(100), 1);
+        let w = self.add_probe_cell(position_base.saturating_add(200), 1);
         self.add_drive(a, u, 1, 1, 0, 500);
         self.add_drive(u, b, 2, 1, 0, 500);
         self.add_drive(b, w, 1, 1, 0, 500);
@@ -337,10 +366,12 @@ impl World {
         target: CellId,
         age: i64,
     ) -> (Vec<PhysicalTransition>, bool, bool) {
+        let origin_physical = self.next_origin_physical;
+        self.next_origin_physical = self.next_origin_physical.saturating_add(1);
         self.body.enter(SpikeInput {
             arrival_tick: self.origin.saturating_add(age),
             phase: 0,
-            origin_physical: self.next_physical.saturating_add(20_000),
+            origin_physical,
             target,
             impulse: 2,
         });
@@ -511,8 +542,8 @@ fn observe_learned_negative(
     ];
     let unsupported_live = world.relation_live(unsupported);
     if fresh_packing {
-        let d1 = world.add_cell(position_offset.saturating_add(700), 100);
-        let d2 = world.add_cell(position_offset.saturating_add(701), 100);
+        let d1 = world.add_probe_cell(position_offset.saturating_add(700), 100);
+        let d2 = world.add_probe_cell(position_offset.saturating_add(701), 100);
         let anchor = world.anchor;
         world.add_drive(anchor, d1, 1, 1, 0, 500);
         world.add_drive(d2, anchor, 1, 1, 0, 500);
@@ -593,7 +624,7 @@ fn observe_no_modulation(root: u64, phase: i64, mechanics: MechanicalConfig) -> 
 
 fn observe_irrelevant(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = base_world(root, phase, mechanics, false, 0);
-    let irrelevant_target = world.add_cell(-1, 100);
+    let irrelevant_target = world.add_aux_cell(-1, 100);
     world.add_anchor_for(irrelevant_target);
     world.generate();
     let training_target_silent = fire_count(&world.trace, world.target_a) == 0
@@ -668,7 +699,7 @@ fn observe_useful_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -
 
 fn observe_disconnected(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = base_world(root, phase, mechanics, false, 0);
-    let disconnected = world.add_cell(-1, 2);
+    let disconnected = world.add_aux_cell(-1, 2);
     world.add_anchor_for(disconnected);
     world.generate();
     let training_target_silent = fire_count(&world.trace, world.target_a) == 0
@@ -712,7 +743,7 @@ fn observe_untraversed(root: u64, phase: i64, mechanics: MechanicalConfig) -> Ob
     let mut world = base_world(root, phase, mechanics, false, 0);
     let target = world.target_a;
     let (selected, _, _, training_target_silent) = train_selected(&mut world, target, -1, true);
-    let q = world.add_cell(2, 2);
+    let q = world.add_probe_cell(2, 2);
     let a = world.target_a;
     world.add_recurrence(a, q, 300);
     let (probe, quiescent, ceiling) = world.probe_observed(a, 10);
@@ -757,7 +788,7 @@ fn main() {
     let output_dir = env::args()
         .nth(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_v2"));
+        .unwrap_or_else(|| PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_v4"));
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
         "case,family,root,phase,mechanics,replay_equal,cross_equal,checks_pass,failed,quiescent,ceiling,physical_work,updates,proposals,cell_proposals,arrow_deallocations,cell_deallocations,trace_len,final_tick,body_hash,live_hash,markers\n",
@@ -829,12 +860,12 @@ fn main() {
     assert_eq!(cases, expected_cases);
     assert_eq!(rows, expected_rows);
     let report = format!(
-        "# RS2 learned inhibitory topology v2\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production exact: {}\n- replay exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
+        "# RS2 learned inhibitory topology v4\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production exact: {}\n- replay exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
         csv.lines().skip(1).all(|line| line.split(',').nth(6) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(5) == Some("true")),
     );
     fs::write(output_dir.join("matrix.csv"), csv).unwrap();
     fs::write(output_dir.join("report.md"), report).unwrap();
-    assert!(all_pass, "RS2 v2 matrix failed");
-    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_POSITIVE_V2");
+    assert!(all_pass, "RS2 v4 matrix failed");
+    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_POSITIVE_V4");
 }
