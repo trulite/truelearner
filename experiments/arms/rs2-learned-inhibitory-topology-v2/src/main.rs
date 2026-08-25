@@ -1158,7 +1158,11 @@ fn main() {
     let output_dir = env::args()
         .nth(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_v5"));
+        .unwrap_or_else(|| {
+            PathBuf::from(
+                "experiments/results/rs2_learned_inhibitory_topology_consolidated_v1",
+            )
+        });
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
         "case,family,root,phase,mechanics,replay_equal,cross_equal,renaming_equal,checks_pass,failed,quiescent,ceiling,physical_work,updates,proposals,cell_proposals,arrow_deallocations,cell_deallocations,normalized_trace_len,final_tick,normalized_trace_hash,raw_trace_hash,normalized_body_hash,raw_body_hash,live_hash,pending_continuation_hash,admitted_continuation_hash,markers\n",
@@ -1260,7 +1264,7 @@ fn main() {
     assert_eq!(cases, expected_cases);
     assert_eq!(rows, expected_rows);
     let report = format!(
-        "# RS2 learned inhibitory topology v5\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production wave-normalized exact: {}\n- identity renaming exact: {}\n- replay exact: {}\n- meaningful checkpoint continuation exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
+        "# RS2 learned inhibitory topology consolidated v1\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production wave-normalized exact: {}\n- identity renaming exact: {}\n- replay exact: {}\n- meaningful checkpoint continuation exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
         csv.lines().skip(1).all(|line| line.split(',').nth(6) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(7) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(5) == Some("true")),
@@ -1271,6 +1275,6 @@ fn main() {
     );
     fs::write(output_dir.join("matrix.csv"), csv).unwrap();
     fs::write(output_dir.join("report.md"), report).unwrap();
-    assert!(all_pass, "RS2 v5 matrix failed");
-    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_POSITIVE_V5");
+    assert!(all_pass, "consolidated RS2 matrix failed");
+    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_CONSOLIDATED_POSITIVE_V1");
 }
