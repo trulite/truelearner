@@ -1,15 +1,15 @@
 #![forbid(unsafe_code)]
 
-use std::env;
 use std::collections::{BTreeMap, HashMap};
+use std::env;
 use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowRef, ArrowSpec, CellId, CellRef, CellSpec, ContentHash,
-    LiveCheckpoint, MechanicalConfig, PhysicalEvent, PhysicalTransition, PlasticSubstrate,
-    SpikeInput, TransmissionMode, Work,
+    ArenaId, ArrowId, ArrowRef, ArrowSpec, CellId, CellRef, CellSpec, ContentHash, LiveCheckpoint,
+    MechanicalConfig, PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput,
+    TransmissionMode, Work,
 };
 
 const ROOTS: [u64; 2] = [8_100_000, 8_200_001];
@@ -435,10 +435,8 @@ impl World {
                 candidate.contact,
                 format!("contact_{target_name}_{sign_name}"),
             );
-            self.arrow_names.insert(
-                candidate.stem.id,
-                format!("stem_{target_name}_{sign_name}"),
-            );
+            self.arrow_names
+                .insert(candidate.stem.id, format!("stem_{target_name}_{sign_name}"));
             self.arrow_names.insert(
                 candidate.outgoing.id,
                 format!("outgoing_{target_name}_{sign_name}"),
@@ -468,7 +466,10 @@ impl World {
         });
         self.arrow_names.insert(
             id,
-            format!("modulatory_link_{}", self.next_modulator_name.saturating_sub(1)),
+            format!(
+                "modulatory_link_{}",
+                self.next_modulator_name.saturating_sub(1)
+            ),
         );
         let _ = self.body.arrow_reference(id);
         self.pulse_full(modulator, age, 1);
@@ -532,8 +533,7 @@ impl World {
             ContentHash::of(&self.body.canonical_body_bytes(1).unwrap()).to_string();
         let body_hash = normalized_body_hash(&self.body, &self.cell_names, &self.arrow_names);
         let checkpoint = self.body.live_checkpoint(1).unwrap();
-        let live_hash =
-            ContentHash::of(&checkpoint.canonical_bytes().unwrap()).to_string();
+        let live_hash = ContentHash::of(&checkpoint.canonical_bytes().unwrap()).to_string();
         let pending_continuation = continuation_observation(
             checkpoint.clone(),
             self.mechanics,
@@ -578,7 +578,10 @@ impl World {
 }
 
 fn cell_name(names: &HashMap<CellId, String>, id: CellId) -> &str {
-    names.get(&id).map(String::as_str).unwrap_or("unmapped_cell")
+    names
+        .get(&id)
+        .map(String::as_str)
+        .unwrap_or("unmapped_cell")
 }
 
 fn arrow_name(names: &HashMap<ArrowId, String>, id: ArrowId) -> &str {
