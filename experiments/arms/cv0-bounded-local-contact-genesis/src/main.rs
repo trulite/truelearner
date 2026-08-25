@@ -403,9 +403,7 @@ fn observe_anchor_only(root: u64, phase: i64, mechanics: MechanicalConfig) -> Ob
         ),
         (
             "anchors_do_not_execute".into(),
-            world.work.drive == 0
-                && world.work.modulation == 0
-                && world.work.arrow_updates == 0,
+            world.work.drive == 0 && world.work.modulation == 0 && world.work.arrow_updates == 0,
         ),
         (
             "anchors_do_not_generate_candidates".into(),
@@ -667,11 +665,7 @@ fn observe_permutation(root: u64, phase: i64, mechanics: MechanicalConfig) -> Ob
     observe_selected(root, phase, mechanics, selected_sign, true, false)
 }
 
-fn observe_anchor_permutation(
-    root: u64,
-    phase: i64,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn observe_anchor_permutation(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     observe_selected(root, phase, mechanics, 1, false, true)
 }
 
