@@ -341,6 +341,14 @@ impl Work {
     pub fn total(&self) -> u64 {
         self.total
     }
+
+    pub fn physical_total(&self) -> u64 {
+        self.drive_deliveries
+            .saturating_add(self.modulatory_deliveries)
+            .saturating_add(self.local_return_updates)
+            .saturating_add(self.local_structural_proposals)
+            .saturating_add(self.physical_deallocations)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -2657,6 +2665,10 @@ mod tests {
         assert_eq!(
             physical_work(candidate_result.work),
             physical_work(reference_result.work)
+        );
+        assert_eq!(
+            candidate_result.work.physical_total(),
+            reference_result.work.physical_total()
         );
         assert_eq!(candidate.clock(), reference.clock());
         assert_eq!(
