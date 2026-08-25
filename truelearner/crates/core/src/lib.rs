@@ -1209,7 +1209,13 @@ impl PlasticSubstrate {
         );
         let id = CellId(self.cell_slots.len() as u64);
         let (slot, generation, resident_arena) = reusable.map_or_else(
-            || (CellSlot(self.cells.len()), Generation(1), ResidentArenaId(0)),
+            || {
+                (
+                    CellSlot(self.cells.len()),
+                    Generation(1),
+                    ResidentArenaId(0),
+                )
+            },
             |index| {
                 let prior = self.cells.get(index);
                 (
@@ -1256,7 +1262,11 @@ impl PlasticSubstrate {
         #[cfg(feature = "cl0")]
         let target_generation = self
             .cells
-            .get(self.cell_slot(spec.to).expect("required CELL must resolve").0)
+            .get(
+                self.cell_slot(spec.to)
+                    .expect("required CELL must resolve")
+                    .0,
+            )
             .generation;
         let reusable = self.arrows.values().iter().position(|arrow| !arrow.live);
         if reusable.is_none() {
@@ -1403,13 +1413,7 @@ impl PlasticSubstrate {
         let mut work = Work::default();
         let mut execution_cost = ExecutionCost::default();
         let mut physical_trace = Vec::new();
-        self.elapse_to_observed(
-            tick,
-            &mut work,
-            &mut execution_cost,
-            0,
-            &mut physical_trace,
-        );
+        self.elapse_to_observed(tick, &mut work, &mut execution_cost, 0, &mut physical_trace);
         self.tick = tick;
         execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
         RunResult {
@@ -1602,24 +1606,18 @@ impl PlasticSubstrate {
     ) -> Result<QuiescentCheckpoint, CheckpointError> {
         let transiently_quiet = self.pending.is_empty()
             && self.pending_loads.is_empty()
-            && self
-                .cells
-                .values()
-                .iter()
-                .all(|cell| {
-                    cell.state == 0
-                        && cell.refractory_until <= self.tick
-                        && {
-                            #[cfg(feature = "cl0")]
-                            {
-                                cell.decay_load == 0
-                            }
-                            #[cfg(not(feature = "cl0"))]
-                            {
-                                true
-                            }
-                        }
-                })
+            && self.cells.values().iter().all(|cell| {
+                cell.state == 0 && cell.refractory_until <= self.tick && {
+                    #[cfg(feature = "cl0")]
+                    {
+                        cell.decay_load == 0
+                    }
+                    #[cfg(not(feature = "cl0"))]
+                    {
+                        true
+                    }
+                }
+            })
             && self
                 .arrows
                 .values()
@@ -1818,8 +1816,7 @@ impl PlasticSubstrate {
     #[cfg(feature = "rs0")]
     pub fn propagate_with_observation_ceiling(&mut self, ceiling: u64) -> ObservedRun {
         assert!(ceiling > 0, "observation ceiling must be positive");
-        let (run, scheduled_deliveries) =
-            self.propagate_with_optional_ceiling(Some(ceiling));
+        let (run, scheduled_deliveries) = self.propagate_with_optional_ceiling(Some(ceiling));
         ObservedRun {
             observation_ceiling_reached: scheduled_deliveries == ceiling
                 && !run.naturally_quiescent,
@@ -1828,10 +1825,7 @@ impl PlasticSubstrate {
         }
     }
 
-    fn propagate_with_optional_ceiling(
-        &mut self,
-        ceiling: Option<u64>,
-    ) -> (RunResult, u64) {
+    fn propagate_with_optional_ceiling(&mut self, ceiling: Option<u64>) -> (RunResult, u64) {
         let mut crossings = Vec::new();
         let mut work = Work::default();
         let mut execution_cost = ExecutionCost::default();
@@ -2493,25 +2487,17 @@ impl PlasticSubstrate {
                 let (id, deallocated, active_ticks, before_generation, after_generation) =
                     self.cells.with_mut(index, |cell| {
                         if !cell.live {
-                            return (
-                                cell.id,
-                                false,
-                                0,
-                                cell.generation,
-                                cell.generation,
-                            );
+                            return (cell.id, false, 0, cell.generation, cell.generation);
                         }
                         let lifetime_remaining = u64::from(cell.resistance)
-                            .saturating_mul(
-                                u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX),
-                            )
+                            .saturating_mul(u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX))
                             .saturating_sub(cell.decay_load);
                         let active_ticks = elapsed_u64.min(lifetime_remaining);
                         let total_decay = cell.decay_load.saturating_add(elapsed_u64);
                         let durable_loss =
                             total_decay / u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(1);
-                        cell.decay_load = total_decay
-                            % u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX);
+                        cell.decay_load =
+                            total_decay % u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX);
                         let before_generation = cell.generation;
                         if durable_loss > 0 {
                             decay_cell_structure(
@@ -2600,14 +2586,12 @@ impl PlasticSubstrate {
                 let slot = self.arrow_slot(id).unwrap();
                 self.arrows.with_mut(slot.0, |arrow| {
                     if arrow.generation == Generation(1) {
-                        arrow.generation = Generation(
-                            u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2),
-                        );
+                        arrow.generation =
+                            Generation(u32::try_from(id.0).unwrap_or(u32::MAX).saturating_add(2));
                     }
                 });
                 work.total = work.total.saturating_add(1);
-                work.local_structural_proposals =
-                    work.local_structural_proposals.saturating_add(1);
+                work.local_structural_proposals = work.local_structural_proposals.saturating_add(1);
                 if self.trace_physics {
                     physical_trace.push(PhysicalTransition {
                         tick: self.tick,
@@ -2683,7 +2667,11 @@ impl PlasticSubstrate {
         let slot = self
             .cell_slot(id)
             .expect("stored CELL identity must resolve");
-        assert_eq!(self.cells.get(slot.0).id, id, "CELL identity must be current");
+        assert_eq!(
+            self.cells.get(slot.0).id,
+            id,
+            "CELL identity must be current"
+        );
         CellRef {
             arena: self.arena,
             id,

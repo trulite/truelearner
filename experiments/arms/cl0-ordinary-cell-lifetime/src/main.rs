@@ -114,12 +114,8 @@ struct World {
 
 impl World {
     fn new(root: u64, phase: i64, mechanics: MechanicalConfig, cell_capacity: u32) -> Self {
-        let mut body = PlasticSubstrate::with_mechanics(
-            ArenaId(root),
-            cell_capacity,
-            64,
-            mechanics,
-        );
+        let mut body =
+            PlasticSubstrate::with_mechanics(ArenaId(root), cell_capacity, 64, mechanics);
         body.set_physical_tracing(true);
         body.advance_time(phase);
         Self {
@@ -132,13 +128,7 @@ impl World {
         }
     }
 
-    fn cell(
-        &mut self,
-        physical_id: u64,
-        position: i32,
-        threshold: i32,
-        resistance: u32,
-    ) -> CellId {
+    fn cell(&mut self, physical_id: u64, position: i32, threshold: i32, resistance: u32) -> CellId {
         self.body.add_cell(CellSpec {
             physical_id,
             position,
@@ -202,9 +192,9 @@ impl World {
     fn fire_count(&self, id: CellId) -> usize {
         self.trace
             .iter()
-            .filter(|transition| {
-                matches!(transition.event, PhysicalEvent::Fire { cell } if cell == id)
-            })
+            .filter(
+                |transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == id),
+            )
             .count()
     }
 
@@ -247,16 +237,19 @@ fn observe_lifetime(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obser
     });
     world.advance_age(40);
     let deaths = [r1, r2, r4].map(|id| world.death_age(id));
-    let markers = vec![
-        format!("before={before:?}"),
-        format!("deaths={deaths:?}"),
-    ];
+    let markers = vec![format!("before={before:?}"), format!("deaths={deaths:?}")];
     let checks = vec![
-        ("all_live_at_age_9".into(), before.iter().all(|state| state.0 == Some(true))),
+        (
+            "all_live_at_age_9".into(),
+            before.iter().all(|state| state.0 == Some(true)),
+        ),
         ("r1_death_age_10".into(), deaths[0] == Some(10)),
         ("r2_death_age_20".into(), deaths[1] == Some(20)),
         ("r4_death_age_40".into(), deaths[2] == Some(40)),
-        ("three_cell_deallocations".into(), world.work.cell_deallocations == 3),
+        (
+            "three_cell_deallocations".into(),
+            world.work.cell_deallocations == 3,
+        ),
         ("natural_quiescence".into(), world.naturally_quiescent),
     ];
     world.finish(markers, checks)
@@ -280,16 +273,28 @@ fn observe_reuse(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observat
     )];
     let checks = vec![
         ("old_died".into(), dead_live == Some(false)),
-        ("old_reference_stale_at_death".into(), old_resolves_after_death.is_none()),
+        (
+            "old_reference_stale_at_death".into(),
+            old_resolves_after_death.is_none(),
+        ),
         ("fresh_cell_id".into(), new != old),
         ("resident_slot_reused".into(), new_slot == old_slot),
         (
             "generation_advanced".into(),
             new_ref.generation.0 == old_ref.generation.0.saturating_add(1),
         ),
-        ("old_reference_stale_after_reuse".into(), old_resolves_after_reuse.is_none()),
-        ("new_reference_resolves".into(), world.body.resolve_cell(new_ref) == new_slot),
-        ("one_cell_deallocation".into(), world.work.cell_deallocations == 1),
+        (
+            "old_reference_stale_after_reuse".into(),
+            old_resolves_after_reuse.is_none(),
+        ),
+        (
+            "new_reference_resolves".into(),
+            world.body.resolve_cell(new_ref) == new_slot,
+        ),
+        (
+            "one_cell_deallocation".into(),
+            world.work.cell_deallocations == 1,
+        ),
     ];
     world.finish(markers, checks)
 }
@@ -324,12 +329,24 @@ fn observe_incoming_stale(root: u64, phase: i64, mechanics: MechanicalConfig) ->
     )];
     let checks = vec![
         ("target_slot_reused".into(), replacement_slot == old_slot),
-        ("old_reference_stale".into(), world.body.resolve_cell(old_ref).is_none()),
-        ("incoming_arrow_survived_cell_death".into(), arrow_live_before),
-        ("stale_incoming_no_delivery".into(), deliveries_to_replacement == 0),
+        (
+            "old_reference_stale".into(),
+            world.body.resolve_cell(old_ref).is_none(),
+        ),
+        (
+            "incoming_arrow_survived_cell_death".into(),
+            arrow_live_before,
+        ),
+        (
+            "stale_incoming_no_delivery".into(),
+            deliveries_to_replacement == 0,
+        ),
         ("replacement_not_fired".into(), replacement_fires == 0),
         ("stale_incoming_no_crossing".into(), world.crossings == 0),
-        ("incoming_arrow_died_independently".into(), world.body.resolve_arrow(incoming).is_none()),
+        (
+            "incoming_arrow_died_independently".into(),
+            world.body.resolve_arrow(incoming).is_none(),
+        ),
     ];
     world.finish(markers, checks)
 }
@@ -364,13 +381,25 @@ fn observe_outgoing_stale(root: u64, phase: i64, mechanics: MechanicalConfig) ->
     )];
     let checks = vec![
         ("source_slot_reused".into(), replacement_slot == old_slot),
-        ("old_reference_stale".into(), world.body.resolve_cell(old_ref).is_none()),
-        ("outgoing_arrow_survived_cell_death".into(), arrow_live_before),
-        ("replacement_fired_once".into(), world.fire_count(replacement) == 1),
+        (
+            "old_reference_stale".into(),
+            world.body.resolve_cell(old_ref).is_none(),
+        ),
+        (
+            "outgoing_arrow_survived_cell_death".into(),
+            arrow_live_before,
+        ),
+        (
+            "replacement_fired_once".into(),
+            world.fire_count(replacement) == 1,
+        ),
         ("stale_outgoing_no_sink_fire".into(), sink_fires == 0),
         ("stale_outgoing_no_crossing".into(), world.crossings == 0),
         ("stale_outgoing_no_qlp".into(), stale_qlp == 0),
-        ("outgoing_arrow_died_independently".into(), world.body.resolve_arrow(outgoing).is_none()),
+        (
+            "outgoing_arrow_died_independently".into(),
+            world.body.resolve_arrow(outgoing).is_none(),
+        ),
     ];
     world.finish(markers, checks)
 }
@@ -386,16 +415,16 @@ fn observe_orphan(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observa
     let incoming_slot = world.body.resolve_arrow(incoming);
     let outgoing_slot = world.body.resolve_arrow(outgoing);
     world.advance_age(10);
-    let arrows_live_at_cell_death =
-        world.body.resolve_arrow(incoming).is_some() && world.body.resolve_arrow(outgoing).is_some();
+    let arrows_live_at_cell_death = world.body.resolve_arrow(incoming).is_some()
+        && world.body.resolve_arrow(outgoing).is_some();
     let replacement = world.cell(root + 44, 0, 10, 100);
     let replacement_slot = world.body.cell_resident_slot(replacement);
     world.advance_age(19);
-    let arrows_live_at_19 =
-        world.body.resolve_arrow(incoming).is_some() && world.body.resolve_arrow(outgoing).is_some();
+    let arrows_live_at_19 = world.body.resolve_arrow(incoming).is_some()
+        && world.body.resolve_arrow(outgoing).is_some();
     world.advance_age(20);
-    let arrows_dead_at_20 =
-        world.body.resolve_arrow(incoming).is_none() && world.body.resolve_arrow(outgoing).is_none();
+    let arrows_dead_at_20 = world.body.resolve_arrow(incoming).is_none()
+        && world.body.resolve_arrow(outgoing).is_none();
     let new_incoming = world.arrow(source, replacement, 4, 1);
     let new_outgoing = world.arrow(replacement, sink, 4, 1);
     let reused_arrow_slots = [
@@ -410,14 +439,26 @@ fn observe_orphan(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observa
         "contact_slot={contact_slot:?};replacement_slot={replacement_slot:?};old_arrow_slots={old_slots:?};new_arrow_slots={new_slots:?}"
     )];
     let checks = vec![
-        ("contact_died_at_10".into(), world.death_age(contact) == Some(10)),
-        ("cell_slot_reclaimed".into(), replacement_slot == contact_slot),
+        (
+            "contact_died_at_10".into(),
+            world.death_age(contact) == Some(10),
+        ),
+        (
+            "cell_slot_reclaimed".into(),
+            replacement_slot == contact_slot,
+        ),
         ("no_cascade_delete".into(), arrows_live_at_cell_death),
         ("incident_arrows_live_at_19".into(), arrows_live_at_19),
         ("incident_arrows_die_at_20".into(), arrows_dead_at_20),
         ("arrow_slots_reused".into(), old_slots == new_slots),
-        ("one_cell_deallocation".into(), world.work.cell_deallocations == 1),
-        ("two_arrow_deallocations".into(), world.work.arrow_deallocations == 2),
+        (
+            "one_cell_deallocation".into(),
+            world.work.cell_deallocations == 1,
+        ),
+        (
+            "two_arrow_deallocations".into(),
+            world.work.arrow_deallocations == 2,
+        ),
         ("natural_quiescence".into(), world.naturally_quiescent),
     ];
     world.finish(markers, checks)
@@ -461,7 +502,11 @@ fn main() {
                 let cross_equal = reference == production;
                 for (config, observation, replay) in [
                     (MechanicalConfig::REFERENCE, &reference, &reference_replay),
-                    (MechanicalConfig::PRODUCTION, &production, &production_replay),
+                    (
+                        MechanicalConfig::PRODUCTION,
+                        &production,
+                        &production_replay,
+                    ),
                 ] {
                     rows += 1;
                     let replay_equal = observation == replay;

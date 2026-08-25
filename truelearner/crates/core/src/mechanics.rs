@@ -383,8 +383,7 @@ impl ArrowColumns {
             + if cfg!(feature = "cl0") {
                 #[cfg(feature = "cl0")]
                 {
-                    self.target_generations.capacity()
-                        * std::mem::size_of::<super::Generation>()
+                    self.target_generations.capacity() * std::mem::size_of::<super::Generation>()
                 }
                 #[cfg(not(feature = "cl0"))]
                 {
