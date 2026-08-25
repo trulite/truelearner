@@ -13,6 +13,7 @@ pub use truelearner_arena_format::{
     ArenaId, ArrowId, ArrowRef, CellId, CellRef, ContentHash, Generation,
 };
 
+#[cfg(not(feature = "si0"))]
 const LOCAL_RETURN_STRENGTH: u32 = 3;
 const LOCAL_DECAY_PERIOD: i64 = 10;
 const LOCAL_VARIATION_RADIUS: i32 = 2;
@@ -2487,6 +2488,7 @@ impl PlasticSubstrate {
         )
     }
 
+    #[cfg(not(feature = "si0"))]
     fn pop_scheduled(&mut self, execution_cost: &mut ExecutionCost) -> Option<(Spike, u64)> {
         let cells = &self.cells;
         let slots = &self.cell_slots;
@@ -2499,6 +2501,7 @@ impl PlasticSubstrate {
         )
     }
 
+    #[cfg(not(feature = "si0"))]
     fn pop_scheduled_batch(
         &mut self,
         maximum: usize,
@@ -2516,6 +2519,7 @@ impl PlasticSubstrate {
         )
     }
 
+    #[cfg(not(feature = "si0"))]
     fn apply_modulatory_return(
         &mut self,
         cell: CellId,
@@ -2701,6 +2705,7 @@ impl PlasticSubstrate {
         }
     }
 
+    #[cfg(not(feature = "si0"))]
     fn propagate_qualified_local(
         &mut self,
         cell: CellId,
@@ -3555,6 +3560,7 @@ fn relax_participation(mut level: u64, elapsed: i64) -> u64 {
     level
 }
 
+#[cfg(not(feature = "si0"))]
 fn local_consequence_gain(participation: u64) -> u32 {
     let bounded = participation.min(PARTICIPATION_IMPULSE);
     let numerator = u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));

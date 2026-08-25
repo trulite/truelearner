@@ -500,6 +500,7 @@ impl PendingSchedule {
         }
     }
 
+    #[cfg(not(feature = "si0"))]
     pub(super) fn pop_same_tick_batch<F>(
         &mut self,
         maximum: usize,
@@ -669,6 +670,7 @@ impl PartitionedTimingWheels {
         result
     }
 
+    #[cfg(not(feature = "si0"))]
     fn pop_same_tick_batch<F>(
         &mut self,
         maximum: usize,
@@ -814,6 +816,7 @@ impl TimingWheel {
         Some((spike, comparisons))
     }
 
+    #[cfg(not(feature = "si0"))]
     fn pop_same_tick_batch<F>(
         &mut self,
         maximum: usize,
