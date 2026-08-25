@@ -275,26 +275,30 @@ fn run_case(
 
     match family {
         Family::PositiveUseful | Family::NegativeUseful => {
-            let tick = world.body.clock().tick.saturating_add(1);
-            enter_drive(
-                &mut world.body,
-                world.consequence_cells[0],
-                tick,
-                root + 910_000,
-            );
-            naturally_quiescent &= extend_run(&mut world.body, &mut trace, &mut work);
-        }
-        Family::BothUseful => {
-            let tick = world.body.clock().tick.saturating_add(1);
-            for (index, consequence) in world.consequence_cells.into_iter().enumerate() {
+            if selected_crossing_present {
+                let tick = world.body.clock().tick.saturating_add(1);
                 enter_drive(
                     &mut world.body,
-                    consequence,
+                    world.consequence_cells[0],
                     tick,
-                    root + 910_000 + u64::try_from(index).unwrap(),
+                    root + 910_000,
                 );
+                naturally_quiescent &= extend_run(&mut world.body, &mut trace, &mut work);
             }
-            naturally_quiescent &= extend_run(&mut world.body, &mut trace, &mut work);
+        }
+        Family::BothUseful => {
+            if selected_crossing_present {
+                let tick = world.body.clock().tick.saturating_add(1);
+                for (index, consequence) in world.consequence_cells.into_iter().enumerate() {
+                    enter_drive(
+                        &mut world.body,
+                        consequence,
+                        tick,
+                        root + 910_000 + u64::try_from(index).unwrap(),
+                    );
+                }
+                naturally_quiescent &= extend_run(&mut world.body, &mut trace, &mut work);
+            }
         }
         _ => {}
     }
