@@ -796,7 +796,7 @@ fn observe(
     let observed = world.run(inputs, permutation);
     let trace = observed.run.physical_trace.clone();
     let physical_counts = counts(&world, &trace);
-    let body_hash = body_hash(&world);
+    let normalized_body_hash = body_hash(&world);
     let checkpoint = world.body.live_checkpoint(1).unwrap();
     let mut restored =
         PlasticSubstrate::from_live_checkpoint_with_mechanics(checkpoint, world.mechanics).unwrap();
@@ -834,7 +834,7 @@ fn observe(
         counts: physical_counts.clone(),
         work: observed.run.work,
         final_tick: world.body.clock().tick,
-        body_hash,
+        body_hash: normalized_body_hash,
         continuation_hash,
         naturally_quiescent: observed.run.naturally_quiescent,
         ceiling_reached: observed.observation_ceiling_reached,
