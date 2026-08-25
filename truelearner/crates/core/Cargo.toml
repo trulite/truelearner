@@ -12,6 +12,7 @@ path = "src/lib.rs"
 cpc1 = []
 pqlc0 = ["cpc1"]
 pd1 = ["pqlc0"]
+ce0 = ["pd1"]
 
 [[bin]]
 name = "truelearner"

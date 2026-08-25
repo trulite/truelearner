@@ -241,6 +241,12 @@ pub enum PhysicalEvent {
         before: u32,
         after: u32,
     },
+    #[cfg(feature = "ce0")]
+    Coupling {
+        arrow: ArrowId,
+        before: i32,
+        after: i32,
+    },
     Deallocate {
         arrow: ArrowId,
     },
@@ -1982,7 +1988,19 @@ impl PlasticSubstrate {
                     return None;
                 }
                 let participation = arrow.participation_level;
+                #[cfg(feature = "ce0")]
+                let support_before = arrow.plastic_support;
                 arrow.plastic_support = arrow.plastic_support.saturating_add(participation);
+                #[cfg(feature = "ce0")]
+                let coupling_before = arrow.coupling;
+                #[cfg(feature = "ce0")]
+                {
+                    let completed_before = support_before / PARTICIPATION_IMPULSE;
+                    let completed_after = arrow.plastic_support / PARTICIPATION_IMPULSE;
+                    let efficacy_gain = completed_after.saturating_sub(completed_before);
+                    let efficacy_gain = i32::try_from(efficacy_gain).unwrap_or(i32::MAX);
+                    arrow.coupling = arrow.coupling.saturating_add(efficacy_gain);
+                }
                 let bounded = participation.min(PARTICIPATION_IMPULSE);
                 let numerator =
                     u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
@@ -1995,9 +2013,45 @@ impl PlasticSubstrate {
                 if arrow.resistance != before {
                     arrow.decay_load = 0;
                 }
+                #[cfg(feature = "ce0")]
+                return Some((before, arrow.resistance, coupling_before, arrow.coupling));
+                #[cfg(not(feature = "ce0"))]
                 Some((before, arrow.resistance))
             });
             execution_cost.touch::<Arrow>(1);
+            #[cfg(feature = "ce0")]
+            if let Some((before, after, coupling_before, coupling_after)) = updated {
+                if before != after {
+                    work.total = work.total.saturating_add(3);
+                    work.local_return_updates = work.local_return_updates.saturating_add(1);
+                }
+                if coupling_before != coupling_after {
+                    work.total = work.total.saturating_add(1);
+                }
+                if self.trace_physics && before != after {
+                    physical_trace.push(PhysicalTransition {
+                        tick,
+                        phase,
+                        event: PhysicalEvent::Resistance {
+                            arrow: id,
+                            before,
+                            after,
+                        },
+                    });
+                }
+                if self.trace_physics && coupling_before != coupling_after {
+                    physical_trace.push(PhysicalTransition {
+                        tick,
+                        phase,
+                        event: PhysicalEvent::Coupling {
+                            arrow: id,
+                            before: coupling_before,
+                            after: coupling_after,
+                        },
+                    });
+                }
+            }
+            #[cfg(not(feature = "ce0"))]
             if let Some((before, after)) = updated {
                 if before != after {
                     work.total = work.total.saturating_add(3);
