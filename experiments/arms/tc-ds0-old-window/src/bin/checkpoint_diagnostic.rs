@@ -266,7 +266,8 @@ fn main() {
     let reference = execute(MechanicalConfig::REFERENCE);
     let production = execute(MechanicalConfig::PRODUCTION);
     let first_any = first_difference(&reference.checkpoint, &production.checkpoint, 0).unwrap();
-    let first_payload = first_difference(&reference.checkpoint, &production.checkpoint, 98).unwrap();
+    let first_payload =
+        first_difference(&reference.checkpoint, &production.checkpoint, 98).unwrap();
 
     let mut csv = String::from(
         "cell_id,reference_state,production_state,reference_last_update,production_last_update,reference_refractory,production_refractory,equal\n",
