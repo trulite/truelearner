@@ -1,13 +1,15 @@
 #![forbid(unsafe_code)]
 
 use std::env;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 
 use truelearner_core::{
-    ArenaId, ArrowRef, ArrowSpec, CellId, CellRef, CellSpec, ContentHash, MechanicalConfig,
-    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
+    ArenaId, ArrowId, ArrowRef, ArrowSpec, CellId, CellRef, CellSpec, ContentHash,
+    LiveCheckpoint, MechanicalConfig, PhysicalEvent, PhysicalTransition, PlasticSubstrate,
+    SpikeInput, TransmissionMode, Work,
 };
 
 const ROOTS: [u64; 2] = [8_100_000, 8_200_001];
@@ -98,17 +100,48 @@ struct Candidate {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct Observation {
-    markers: Vec<String>,
-    trace: Vec<PhysicalTransition>,
+struct ContinuationObservation {
+    trace: Vec<String>,
     work: WorkTotals,
     final_tick: i64,
     body_hash: String,
+    naturally_quiescent: bool,
+    ceiling_reached: bool,
+}
+
+#[derive(Clone, Debug)]
+struct Observation {
+    markers: Vec<String>,
+    trace: Vec<String>,
+    raw_trace_hash: String,
+    work: WorkTotals,
+    final_tick: i64,
+    body_hash: String,
+    raw_body_hash: String,
     live_hash: String,
+    pending_continuation: ContinuationObservation,
+    admitted_continuation: ContinuationObservation,
     naturally_quiescent: bool,
     ceiling_reached: bool,
     checks: Vec<(String, bool)>,
 }
+
+impl PartialEq for Observation {
+    fn eq(&self, other: &Self) -> bool {
+        self.markers == other.markers
+            && self.trace == other.trace
+            && self.work == other.work
+            && self.final_tick == other.final_tick
+            && self.body_hash == other.body_hash
+            && self.pending_continuation == other.pending_continuation
+            && self.admitted_continuation == other.admitted_continuation
+            && self.naturally_quiescent == other.naturally_quiescent
+            && self.ceiling_reached == other.ceiling_reached
+            && self.checks == other.checks
+    }
+}
+
+impl Eq for Observation {}
 
 impl Observation {
     fn passed(&self) -> bool {
@@ -127,6 +160,7 @@ impl Observation {
 
 struct World {
     body: PlasticSubstrate,
+    mechanics: MechanicalConfig,
     origin: i64,
     trace: Vec<PhysicalTransition>,
     work: WorkTotals,
@@ -138,6 +172,14 @@ struct World {
     next_modulator_physical: u64,
     next_probe_physical: u64,
     next_origin_physical: u64,
+    next_aux_name: usize,
+    next_modulator_name: usize,
+    next_probe_name: usize,
+    next_arrow_name: usize,
+    next_origin_name: usize,
+    cell_names: HashMap<CellId, String>,
+    arrow_names: HashMap<ArrowId, String>,
+    physical_names: HashMap<u64, String>,
 }
 
 impl World {
@@ -199,8 +241,23 @@ impl World {
             body.arrow_reference(anchor_to_b),
             body.arrow_reference(a_to_anchor),
         ];
+        let mut cell_names = HashMap::new();
+        cell_names.insert(source_b, "source_b".into());
+        cell_names.insert(target_a, "target_a".into());
+        cell_names.insert(anchor, "anchor".into());
+        let mut arrow_names = HashMap::new();
+        arrow_names.insert(anchor_to_b, "anchor_to_source_b".into());
+        arrow_names.insert(a_to_anchor, "target_a_to_anchor".into());
+        let mut physical_names = HashMap::new();
+        physical_names.insert(root + 1, "source_b".into());
+        physical_names.insert(root + target_physical_offset, "target_a".into());
+        physical_names.insert(
+            if anchor_first { root + 901 } else { root + 900 },
+            "anchor".into(),
+        );
         Self {
             body,
+            mechanics,
             origin: phase,
             trace: Vec::new(),
             work: WorkTotals::default(),
@@ -212,7 +269,21 @@ impl World {
             next_modulator_physical: root + 30_000,
             next_probe_physical: root + 50_000,
             next_origin_physical: root + 70_000,
+            next_aux_name: 0,
+            next_modulator_name: 0,
+            next_probe_name: 0,
+            next_arrow_name: 0,
+            next_origin_name: 0,
+            cell_names,
+            arrow_names,
+            physical_names,
         }
+    }
+
+    fn register_cell(&mut self, cell: CellId, physical_id: u64, name: String) -> CellId {
+        self.cell_names.insert(cell, name.clone());
+        self.physical_names.insert(physical_id, name);
+        cell
     }
 
     fn add_cell_with_physical(
@@ -233,19 +304,28 @@ impl World {
     fn add_aux_cell(&mut self, position: i32, threshold: i32) -> CellId {
         let physical_id = self.next_aux_physical;
         self.next_aux_physical = self.next_aux_physical.saturating_add(1);
-        self.add_cell_with_physical(physical_id, position, threshold)
+        let name = format!("aux_{}", self.next_aux_name);
+        self.next_aux_name = self.next_aux_name.saturating_add(1);
+        let cell = self.add_cell_with_physical(physical_id, position, threshold);
+        self.register_cell(cell, physical_id, name)
     }
 
     fn add_modulator_cell(&mut self, position: i32, threshold: i32) -> CellId {
         let physical_id = self.next_modulator_physical;
         self.next_modulator_physical = self.next_modulator_physical.saturating_add(1);
-        self.add_cell_with_physical(physical_id, position, threshold)
+        let name = format!("modulator_{}", self.next_modulator_name);
+        self.next_modulator_name = self.next_modulator_name.saturating_add(1);
+        let cell = self.add_cell_with_physical(physical_id, position, threshold);
+        self.register_cell(cell, physical_id, name)
     }
 
     fn add_probe_cell(&mut self, position: i32, threshold: i32) -> CellId {
         let physical_id = self.next_probe_physical;
         self.next_probe_physical = self.next_probe_physical.saturating_add(1);
-        self.add_cell_with_physical(physical_id, position, threshold)
+        let name = format!("probe_{}", self.next_probe_name);
+        self.next_probe_name = self.next_probe_name.saturating_add(1);
+        let cell = self.add_cell_with_physical(physical_id, position, threshold);
+        self.register_cell(cell, physical_id, name)
     }
 
     fn add_drive(
@@ -266,6 +346,9 @@ impl World {
             resistance,
             mode: TransmissionMode::Drive,
         });
+        self.arrow_names
+            .insert(id, format!("fixture_link_{}", self.next_arrow_name));
+        self.next_arrow_name = self.next_arrow_name.saturating_add(1);
         self.body.arrow_reference(id)
     }
 
@@ -277,6 +360,11 @@ impl World {
     fn pulse_full(&mut self, target: CellId, age: i64, impulse: i32) {
         let origin_physical = self.next_origin_physical;
         self.next_origin_physical = self.next_origin_physical.saturating_add(1);
+        self.physical_names.insert(
+            origin_physical,
+            format!("external_{}", self.next_origin_name),
+        );
+        self.next_origin_name = self.next_origin_name.saturating_add(1);
         let result = self.body.arrive(
             &[SpikeInput {
                 arrival_tick: self.origin.saturating_add(age),
@@ -308,7 +396,7 @@ impl World {
         self.pulse_full(self.source_b, 0, 2);
     }
 
-    fn candidates_to(&self, target: CellId) -> [Candidate; 2] {
+    fn candidates_to(&mut self, target: CellId) -> [Candidate; 2] {
         let body = self.body.arena_body(1);
         let mut candidates = body
             .cells
@@ -332,6 +420,36 @@ impl World {
             })
             .collect::<Vec<_>>();
         candidates.sort_by_key(|candidate| candidate.sign);
+        let target_name = self
+            .cell_names
+            .get(&target)
+            .cloned()
+            .expect("candidate target must have a logical name");
+        for candidate in &candidates {
+            let sign_name = if candidate.sign < 0 {
+                "negative"
+            } else {
+                "positive"
+            };
+            self.cell_names.insert(
+                candidate.contact,
+                format!("contact_{target_name}_{sign_name}"),
+            );
+            self.arrow_names.insert(
+                candidate.stem.id,
+                format!("stem_{target_name}_{sign_name}"),
+            );
+            self.arrow_names.insert(
+                candidate.outgoing.id,
+                format!("outgoing_{target_name}_{sign_name}"),
+            );
+            if let Some(cell) = body.cells.iter().find(|cell| cell.id == candidate.contact) {
+                self.physical_names.insert(
+                    cell.physical_id,
+                    format!("contact_{target_name}_{sign_name}"),
+                );
+            }
+        }
         candidates
             .try_into()
             .expect("exactly two signed candidates")
@@ -348,6 +466,10 @@ impl World {
             resistance: 500,
             mode: TransmissionMode::Modulatory,
         });
+        self.arrow_names.insert(
+            id,
+            format!("modulatory_link_{}", self.next_modulator_name.saturating_sub(1)),
+        );
         let _ = self.body.arrow_reference(id);
         self.pulse_full(modulator, age, 1);
     }
@@ -406,27 +528,263 @@ impl World {
         ceiling_reached: bool,
         checks: Vec<(String, bool)>,
     ) -> Observation {
-        let body_hash = ContentHash::of(&self.body.canonical_body_bytes(1).unwrap()).to_string();
-        let live_hash = ContentHash::of(
-            &self
-                .body
-                .live_checkpoint(1)
-                .unwrap()
-                .canonical_bytes()
-                .unwrap(),
-        )
-        .to_string();
+        let raw_body_hash =
+            ContentHash::of(&self.body.canonical_body_bytes(1).unwrap()).to_string();
+        let body_hash = normalized_body_hash(&self.body, &self.cell_names, &self.arrow_names);
+        let checkpoint = self.body.live_checkpoint(1).unwrap();
+        let live_hash =
+            ContentHash::of(&checkpoint.canonical_bytes().unwrap()).to_string();
+        let pending_continuation = continuation_observation(
+            checkpoint.clone(),
+            self.mechanics,
+            false,
+            self.anchor,
+            self.next_origin_physical.saturating_add(1_000),
+            &self.cell_names,
+            &self.arrow_names,
+            &self.physical_names,
+        );
+        let admitted_continuation = continuation_observation(
+            checkpoint,
+            self.mechanics,
+            true,
+            self.anchor,
+            self.next_origin_physical.saturating_add(2_000),
+            &self.cell_names,
+            &self.arrow_names,
+            &self.physical_names,
+        );
         Observation {
             markers,
-            trace: self.trace,
+            trace: normalize_trace(
+                &self.trace,
+                &self.cell_names,
+                &self.arrow_names,
+                &self.physical_names,
+            ),
+            raw_trace_hash: ContentHash::of(format!("{:?}", self.trace).as_bytes()).to_string(),
             work: self.work,
             final_tick: self.body.clock().tick,
             body_hash,
+            raw_body_hash,
             live_hash,
+            pending_continuation,
+            admitted_continuation,
             naturally_quiescent,
             ceiling_reached,
             checks,
         }
+    }
+}
+
+fn cell_name(names: &HashMap<CellId, String>, id: CellId) -> &str {
+    names.get(&id).map(String::as_str).unwrap_or("unmapped_cell")
+}
+
+fn arrow_name(names: &HashMap<ArrowId, String>, id: ArrowId) -> &str {
+    names
+        .get(&id)
+        .map(String::as_str)
+        .unwrap_or("unmapped_arrow")
+}
+
+fn physical_name(names: &HashMap<u64, String>, id: u64) -> &str {
+    names
+        .get(&id)
+        .map(String::as_str)
+        .unwrap_or("unmapped_physical")
+}
+
+fn logical_event(
+    event: &PhysicalEvent,
+    cell_names: &HashMap<CellId, String>,
+    arrow_names: &HashMap<ArrowId, String>,
+    physical_names: &HashMap<u64, String>,
+) -> String {
+    match event {
+        PhysicalEvent::DriveIncidence {
+            target,
+            arrivals,
+            impulse,
+            causal_wave,
+        } => format!(
+            "INCIDENCE:{}:arrivals={arrivals}:impulse={impulse}:wave={causal_wave}",
+            cell_name(cell_names, *target)
+        ),
+        PhysicalEvent::Deliver {
+            mode,
+            target,
+            impulse,
+        } => format!(
+            "DELIVER:{mode:?}:{}:{impulse}",
+            cell_name(cell_names, *target)
+        ),
+        PhysicalEvent::Fire { cell } => format!("FIRE:{}", cell_name(cell_names, *cell)),
+        PhysicalEvent::Resistance {
+            arrow,
+            before,
+            after,
+        } => format!(
+            "RESISTANCE:{}:{before}:{after}",
+            arrow_name(arrow_names, *arrow)
+        ),
+        PhysicalEvent::Deallocate { arrow } => {
+            format!("DEALLOCATE:{}", arrow_name(arrow_names, *arrow))
+        }
+        PhysicalEvent::CellDeallocate {
+            cell,
+            before_generation,
+            after_generation,
+        } => format!(
+            "CELL_DEALLOCATE:{}:{}:{}",
+            cell_name(cell_names, *cell),
+            before_generation.0,
+            after_generation.0
+        ),
+        PhysicalEvent::CellProposal {
+            cell,
+            source,
+            target,
+        } => format!(
+            "CELL_PROPOSAL:{}:{}:{}",
+            cell_name(cell_names, *cell),
+            cell_name(cell_names, *source),
+            cell_name(cell_names, *target)
+        ),
+        PhysicalEvent::Proposal { arrow, from, to } => format!(
+            "PROPOSAL:{}:{}:{}",
+            arrow_name(arrow_names, *arrow),
+            cell_name(cell_names, *from),
+            cell_name(cell_names, *to)
+        ),
+        PhysicalEvent::Crossing(crossing) => format!(
+            "CROSSING:{}:{}:{}:{}:{}",
+            physical_name(physical_names, crossing.from_physical),
+            physical_name(physical_names, crossing.to_physical),
+            crossing.from_region,
+            crossing.to_region,
+            crossing.impulse
+        ),
+        PhysicalEvent::QualifiedLocalTraversal { arrow } => {
+            format!("QLP:{}", arrow_name(arrow_names, *arrow))
+        }
+    }
+}
+
+fn normalize_trace(
+    trace: &[PhysicalTransition],
+    cell_names: &HashMap<CellId, String>,
+    arrow_names: &HashMap<ArrowId, String>,
+    physical_names: &HashMap<u64, String>,
+) -> Vec<String> {
+    let mut moments: BTreeMap<(i64, i32), Vec<String>> = BTreeMap::new();
+    for transition in trace {
+        moments
+            .entry((transition.tick, transition.phase))
+            .or_default()
+            .push(logical_event(
+                &transition.event,
+                cell_names,
+                arrow_names,
+                physical_names,
+            ));
+    }
+    moments
+        .into_iter()
+        .map(|((tick, phase), mut events)| {
+            events.sort();
+            format!("{tick}:{phase}:[{}]", events.join("|"))
+        })
+        .collect()
+}
+
+fn normalized_body_hash(
+    body: &PlasticSubstrate,
+    cell_names: &HashMap<CellId, String>,
+    arrow_names: &HashMap<ArrowId, String>,
+) -> String {
+    let arena = body.arena_body(1);
+    let mut cells = arena
+        .cells
+        .iter()
+        .map(|cell| {
+            format!(
+                "CELL:{}:position={}:region={}:threshold={}:resistance={}:generation={}:live={}",
+                cell_name(cell_names, cell.id),
+                cell.position,
+                cell.region,
+                cell.threshold,
+                cell.resistance,
+                cell.generation.0,
+                cell.live
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut arrows = arena
+        .arrows
+        .iter()
+        .map(|arrow| {
+            format!(
+                "ARROW:{}:{}:{}:delay={}:phase={}:coupling={}:resistance={}:mode={}:generation={}:live={}",
+                arrow_name(arrow_names, arrow.id),
+                cell_name(cell_names, arrow.from.id),
+                cell_name(cell_names, arrow.to.id),
+                arrow.delay,
+                arrow.phase,
+                arrow.coupling,
+                arrow.resistance,
+                arrow.transmission_mode,
+                arrow.generation.0,
+                arrow.live
+            )
+        })
+        .collect::<Vec<_>>();
+    cells.sort();
+    arrows.sort();
+    cells.extend(arrows);
+    ContentHash::of(cells.join("\n").as_bytes()).to_string()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn continuation_observation(
+    checkpoint: LiveCheckpoint,
+    mechanics: MechanicalConfig,
+    admit_future_input: bool,
+    anchor: CellId,
+    origin_physical: u64,
+    cell_names: &HashMap<CellId, String>,
+    arrow_names: &HashMap<ArrowId, String>,
+    physical_names: &HashMap<u64, String>,
+) -> ContinuationObservation {
+    let mut body =
+        PlasticSubstrate::from_live_checkpoint_with_mechanics(checkpoint, mechanics).unwrap();
+    body.set_physical_tracing(true);
+    let mut continuation_physical_names = physical_names.clone();
+    if admit_future_input {
+        continuation_physical_names.insert(origin_physical, "checkpoint_probe".into());
+        body.enter(SpikeInput {
+            arrival_tick: body.clock().tick.saturating_add(1),
+            phase: 0,
+            origin_physical,
+            target: anchor,
+            impulse: 1,
+        });
+    }
+    let observed = body.propagate_with_observation_ceiling(CEILING);
+    let mut work = WorkTotals::default();
+    work.add(observed.run.work);
+    ContinuationObservation {
+        trace: normalize_trace(
+            &observed.run.physical_trace,
+            cell_names,
+            arrow_names,
+            &continuation_physical_names,
+        ),
+        work,
+        final_tick: body.clock().tick,
+        body_hash: normalized_body_hash(&body, cell_names, arrow_names),
+        naturally_quiescent: observed.run.naturally_quiescent,
+        ceiling_reached: observed.observation_ceiling_reached,
     }
 }
 
@@ -556,8 +914,8 @@ fn observe_learned_negative(
     let b_fires = fire_count(&probe, world.source_b);
     let selected_contact_fires = fire_count(&probe, selected.contact);
     let markers = vec![format!(
-        "selected={:?}/sign{};r={selected_r:?};unsupported_live={unsupported_live};anchors={anchors_after:?};fires=a{a_fires}/b{b_fires}/contact{selected_contact_fires};fresh={fresh_packing}",
-        selected.contact, selected.sign
+        "selected_sign={};r={selected_r:?};unsupported_live={unsupported_live};anchors={anchors_after:?};fires=a{a_fires}/b{b_fires}/contact{selected_contact_fires};fresh={fresh_packing}",
+        selected.sign
     )];
     let checks = vec![
         ("negative_selected".into(), selected.sign == -1),
@@ -788,10 +1146,10 @@ fn main() {
     let output_dir = env::args()
         .nth(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_v4"));
+        .unwrap_or_else(|| PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_v5"));
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
-        "case,family,root,phase,mechanics,replay_equal,cross_equal,checks_pass,failed,quiescent,ceiling,physical_work,updates,proposals,cell_proposals,arrow_deallocations,cell_deallocations,trace_len,final_tick,body_hash,live_hash,markers\n",
+        "case,family,root,phase,mechanics,replay_equal,cross_equal,renaming_equal,checks_pass,failed,quiescent,ceiling,physical_work,updates,proposals,cell_proposals,arrow_deallocations,cell_deallocations,normalized_trace_len,final_tick,normalized_trace_hash,raw_trace_hash,normalized_body_hash,raw_body_hash,live_hash,pending_continuation_hash,admitted_continuation_hash,markers\n",
     );
     let mut cases = 0usize;
     let mut rows = 0usize;
@@ -801,6 +1159,8 @@ fn main() {
     let mut maximum_work = 0u64;
     for root in ROOTS {
         for phase in PHASES {
+            let mut reference_identity_baseline = None;
+            let mut production_identity_baseline = None;
             for family in Family::ALL {
                 cases += 1;
                 let reference = observe(family, root, phase, MechanicalConfig::REFERENCE);
@@ -808,6 +1168,20 @@ fn main() {
                 let production = observe(family, root, phase, MechanicalConfig::PRODUCTION);
                 let production_replay = observe(family, root, phase, MechanicalConfig::PRODUCTION);
                 let cross_equal = reference == production;
+                let renaming_equal = if family == Family::IdentityPermutation {
+                    reference_identity_baseline
+                        .as_ref()
+                        .is_some_and(|baseline| baseline == &reference)
+                        && production_identity_baseline
+                            .as_ref()
+                            .is_some_and(|baseline| baseline == &production)
+                } else {
+                    true
+                };
+                if family == Family::LearnedNegative {
+                    reference_identity_baseline = Some(reference.clone());
+                    production_identity_baseline = Some(production.clone());
+                }
                 for (mechanics, observation, replay) in [
                     (MechanicalConfig::REFERENCE, &reference, &reference_replay),
                     (
@@ -818,19 +1192,31 @@ fn main() {
                 ] {
                     rows += 1;
                     let replay_equal = observation == replay;
-                    let row_pass = observation.passed() && replay_equal && cross_equal;
-                    let row_clauses = observation.checks.len().saturating_add(2);
+                    let row_pass =
+                        observation.passed() && replay_equal && cross_equal && renaming_equal;
+                    let row_clauses = observation.checks.len().saturating_add(3);
                     clauses = clauses.saturating_add(row_clauses);
                     passed = passed.saturating_add(
                         observation.checks.iter().filter(|(_, pass)| *pass).count()
                             + usize::from(replay_equal)
-                            + usize::from(cross_equal),
+                            + usize::from(cross_equal)
+                            + usize::from(renaming_equal),
                     );
                     all_pass &= row_pass;
                     maximum_work = maximum_work.max(observation.work.physical);
+                    let normalized_trace_hash =
+                        ContentHash::of(observation.trace.join("\n").as_bytes()).to_string();
+                    let pending_continuation_hash = ContentHash::of(
+                        format!("{:?}", observation.pending_continuation).as_bytes(),
+                    )
+                    .to_string();
+                    let admitted_continuation_hash = ContentHash::of(
+                        format!("{:?}", observation.admitted_continuation).as_bytes(),
+                    )
+                    .to_string();
                     writeln!(
                         csv,
-                        "{cases},{},{root},{phase},{},{replay_equal},{cross_equal},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                        "{cases},{},{root},{phase},{},{replay_equal},{cross_equal},{renaming_equal},{},{},{},{},{},{},{},{},{},{},{},{},{normalized_trace_hash},{},{},{},{},{pending_continuation_hash},{admitted_continuation_hash},{}",
                         family.name(),
                         mechanics_name(mechanics),
                         observation.passed(),
@@ -845,7 +1231,9 @@ fn main() {
                         observation.work.cell_deallocations,
                         observation.trace.len(),
                         observation.final_tick,
+                        observation.raw_trace_hash,
                         observation.body_hash,
+                        observation.raw_body_hash,
                         observation.live_hash,
                         observation.markers.join("|").replace(',', ";"),
                     )
@@ -860,12 +1248,17 @@ fn main() {
     assert_eq!(cases, expected_cases);
     assert_eq!(rows, expected_rows);
     let report = format!(
-        "# RS2 learned inhibitory topology v4\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production exact: {}\n- replay exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
+        "# RS2 learned inhibitory topology v5\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production wave-normalized exact: {}\n- identity renaming exact: {}\n- replay exact: {}\n- meaningful checkpoint continuation exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
         csv.lines().skip(1).all(|line| line.split(',').nth(6) == Some("true")),
+        csv.lines().skip(1).all(|line| line.split(',').nth(7) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(5) == Some("true")),
+        csv.lines().skip(1).all(|line| {
+            let fields = line.split(',').collect::<Vec<_>>();
+            fields.get(25).is_some() && fields.get(26).is_some()
+        }),
     );
     fs::write(output_dir.join("matrix.csv"), csv).unwrap();
     fs::write(output_dir.join("report.md"), report).unwrap();
-    assert!(all_pass, "RS2 v4 matrix failed");
-    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_POSITIVE_V4");
+    assert!(all_pass, "RS2 v5 matrix failed");
+    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_POSITIVE_V5");
 }
