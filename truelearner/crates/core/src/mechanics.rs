@@ -884,11 +884,7 @@ impl TimingWheel {
             .chain(self.overflow.iter())
     }
 
-    fn minimum_key<F>(
-        &self,
-        target_physical: &F,
-        cost: &mut ExecutionCost,
-    ) -> Option<OrderKey>
+    fn minimum_key<F>(&self, target_physical: &F, cost: &mut ExecutionCost) -> Option<OrderKey>
     where
         F: Fn(CellId) -> u64,
     {

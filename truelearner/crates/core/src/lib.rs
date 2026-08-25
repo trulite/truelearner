@@ -1659,17 +1659,16 @@ impl PlasticSubstrate {
                 cell.state == 0 && cell.refractory_until <= self.tick && {
                     #[cfg(feature = "cl0")]
                     {
-                        cell.decay_load == 0
-                            && {
-                                #[cfg(feature = "cc0")]
-                                {
-                                    cell.participation_level == 0
-                                }
-                                #[cfg(not(feature = "cc0"))]
-                                {
-                                    true
-                                }
+                        cell.decay_load == 0 && {
+                            #[cfg(feature = "cc0")]
+                            {
+                                cell.participation_level == 0
                             }
+                            #[cfg(not(feature = "cc0"))]
+                            {
+                                true
+                            }
+                        }
                     }
                     #[cfg(not(feature = "cl0"))]
                     {
@@ -1898,280 +1897,283 @@ impl PlasticSubstrate {
         #[cfg(not(feature = "si0"))]
         {
             let mut crossings = Vec::new();
-        let mut work = Work::default();
-        let mut execution_cost = ExecutionCost::default();
-        let mut physical_trace = Vec::new();
-        let mut scheduled_deliveries = 0_u64;
-        execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
-        while !self.pending.is_empty() {
-            if ceiling.is_some_and(|limit| scheduled_deliveries >= limit) {
-                break;
-            }
-            let maximum_batch = ceiling.map_or(64, |limit| {
-                usize::try_from(limit.saturating_sub(scheduled_deliveries).min(64)).unwrap_or(1)
-            });
-            let batch = if self.mechanics.executor == ExecutorKind::Batched {
-                if self.zero_delay_live_arrows == 0 {
-                    let batch = self.pop_scheduled_batch(maximum_batch, &mut execution_cost);
-                    execution_cost.observe_batch(batch.len());
-                    batch
+            let mut work = Work::default();
+            let mut execution_cost = ExecutionCost::default();
+            let mut physical_trace = Vec::new();
+            let mut scheduled_deliveries = 0_u64;
+            execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
+            while !self.pending.is_empty() {
+                if ceiling.is_some_and(|limit| scheduled_deliveries >= limit) {
+                    break;
+                }
+                let maximum_batch = ceiling.map_or(64, |limit| {
+                    usize::try_from(limit.saturating_sub(scheduled_deliveries).min(64)).unwrap_or(1)
+                });
+                let batch = if self.mechanics.executor == ExecutorKind::Batched {
+                    if self.zero_delay_live_arrows == 0 {
+                        let batch = self.pop_scheduled_batch(maximum_batch, &mut execution_cost);
+                        execution_cost.observe_batch(batch.len());
+                        batch
+                    } else {
+                        execution_cost.batch_fallback_zero_delay =
+                            execution_cost.batch_fallback_zero_delay.saturating_add(1);
+                        execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                        vec![self
+                            .pop_scheduled(&mut execution_cost)
+                            .expect("nonempty schedule must pop")]
+                    }
                 } else {
-                    execution_cost.batch_fallback_zero_delay =
-                        execution_cost.batch_fallback_zero_delay.saturating_add(1);
                     execution_cost.allocations = execution_cost.allocations.saturating_add(1);
                     vec![self
                         .pop_scheduled(&mut execution_cost)
                         .expect("nonempty schedule must pop")]
-                }
-            } else {
-                execution_cost.allocations = execution_cost.allocations.saturating_add(1);
-                vec![self
-                    .pop_scheduled(&mut execution_cost)
-                    .expect("nonempty schedule must pop")]
-            };
-            for (spike, legacy_comparisons) in batch {
-                scheduled_deliveries = scheduled_deliveries.saturating_add(1);
-                execution_cost.touch::<Spike>(1);
-                work.total = work.total.saturating_add(legacy_comparisons);
-                let external_arrival = spike.arrow.is_none();
-                self.elapse_to_observed(
-                    spike.arrival_tick,
-                    &mut work,
-                    &mut execution_cost,
-                    spike.phase,
-                    &mut physical_trace,
-                );
-                self.tick = spike.arrival_tick;
-                work.total = work.total.saturating_add(2);
-
-                if let Some((arrow_id, generation)) = spike.arrow {
-                    let Some(arrow_slot) = self.arrow_slot(arrow_id) else {
-                        continue;
-                    };
-                    let arrow = self.arrows.get(arrow_slot.0);
-                    execution_cost.touch::<Arrow>(1);
-                    if !arrow.live || arrow.generation != generation {
-                        continue;
-                    }
-                }
-                let Some(target_slot) = self.cell_slot(spike.target) else {
-                    continue;
                 };
-                let target = self.cells.get(target_slot.0);
-                execution_cost.touch::<Cell>(1);
-                if target.id != spike.target
-                    || !target.live
-                    || target.generation != spike.target_generation
-                {
-                    continue;
-                }
-
-                let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
-                    execution_cost.touch::<Arrow>(1);
-                    self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
-                });
-                if self.trace_physics {
-                    physical_trace.push(PhysicalTransition {
-                        tick: self.tick,
-                        phase: spike.phase,
-                        event: PhysicalEvent::Deliver {
-                            mode,
-                            target: spike.target,
-                            impulse: spike.impulse,
-                        },
-                    });
-                }
-                if mode == TransmissionMode::Modulatory {
-                    work.total = work.total.saturating_add(1);
-                    work.modulatory_deliveries = work.modulatory_deliveries.saturating_add(1);
-                    self.apply_modulatory_return(
-                        spike.target,
-                        self.tick,
+                for (spike, legacy_comparisons) in batch {
+                    scheduled_deliveries = scheduled_deliveries.saturating_add(1);
+                    execution_cost.touch::<Spike>(1);
+                    work.total = work.total.saturating_add(legacy_comparisons);
+                    let external_arrival = spike.arrow.is_none();
+                    self.elapse_to_observed(
+                        spike.arrival_tick,
                         &mut work,
                         &mut execution_cost,
                         spike.phase,
                         &mut physical_trace,
                     );
-                    continue;
-                }
-                work.total = work.total.saturating_add(3);
-                work.drive_deliveries = work.drive_deliveries.saturating_add(1);
-                self.decay_cell(spike.target, self.tick);
-                let target_slot = self.cell_slot(spike.target).unwrap();
-                let target = self.cells.with_mut(target_slot.0, |target| {
-                    target.state = target.state.saturating_add(spike.impulse);
-                    target.clone()
-                });
-                execution_cost.touch::<Cell>(1);
-                if target.state != 0 {
-                    self.active_cells.insert(spike.target);
-                }
-                let fires =
-                    self.tick >= target.refractory_until && target.state >= target.threshold;
-                if !fires {
-                    continue;
-                }
+                    self.tick = spike.arrival_tick;
+                    work.total = work.total.saturating_add(2);
 
-                self.cells.with_mut(target_slot.0, |target| {
-                    target.state = 0;
-                    target.refractory_until = self.tick.saturating_add(1);
-                    #[cfg(feature = "cc0")]
-                    {
-                        target.participation_level = target
-                            .participation_level
-                            .saturating_add(PARTICIPATION_IMPULSE);
-                    }
-                });
-                self.active_cells.remove(&spike.target);
-                if self.trace_physics {
-                    physical_trace.push(PhysicalTransition {
-                        tick: self.tick,
-                        phase: spike.phase,
-                        event: PhysicalEvent::Fire { cell: spike.target },
-                    });
-                }
-                work.total = work.total.saturating_add(1);
-                let source = spike.target;
-                let origin_physical = target.physical_id;
-                let source_generation = target.generation;
-                if external_arrival {
-                    self.propose_local_arrows(
-                        source,
-                        &mut work,
-                        &mut execution_cost,
-                        spike.phase,
-                        &mut physical_trace,
-                    );
-                }
-                let mut outgoing = match self.mechanics.traversal {
-                    TraversalKind::GlobalScan => {
-                        execution_cost.allocations = execution_cost.allocations.saturating_add(1);
-                        execution_cost.scans = execution_cost
-                            .scans
-                            .saturating_add(self.arrows.len() as u64);
-                        execution_cost.touch::<Arrow>(self.arrows.len());
-                        self.arrows
-                            .values()
-                            .iter()
-                            .map(|arrow| (arrow.id, arrow.clone()))
-                            .collect::<Vec<_>>()
-                    }
-                    TraversalKind::Adjacency => {
-                        execution_cost.allocations = execution_cost.allocations.saturating_add(1);
-                        execution_cost.adjacency_accesses =
-                            execution_cost.adjacency_accesses.saturating_add(
-                                u64::try_from(self.outgoing_index[source.0 as usize].len())
-                                    .unwrap_or(u64::MAX),
-                            );
-                        self.outgoing_index[source.0 as usize]
-                            .iter()
-                            .filter_map(|id| {
-                                let slot = self.arrow_slot(*id)?;
-                                execution_cost.scans = execution_cost.scans.saturating_add(1);
-                                execution_cost.touch::<Arrow>(1);
-                                Some((*id, self.arrows.get(slot.0)))
-                            })
-                            .collect()
-                    }
-                };
-                outgoing.sort_by_key(|(id, _)| *id);
-                for (arrow_id, arrow) in outgoing {
-                    execution_cost.touch::<Arrow>(1);
-                    work.total = work.total.saturating_add(1);
-                    if !arrow.live
-                        || arrow.from != source
-                        || arrow.source_generation != source_generation
-                    {
-                        continue;
-                    }
-                    if arrow.trigger != TransmissionTrigger::SourceFires {
-                        continue;
-                    }
-                    let Some(from_slot) = self.cell_slot(arrow.from) else {
-                        continue;
-                    };
-                    let Some(to_slot) = self.cell_slot(arrow.to) else {
-                        continue;
-                    };
-                    let from = self.cells.get(from_slot.0);
-                    let to = self.cells.get(to_slot.0);
-                    execution_cost.touch::<Cell>(2);
-                    if from.id != arrow.from
-                        || !from.live
-                        || from.generation != arrow.source_generation
-                        || to.id != arrow.to
-                        || !to.live
-                        || {
-                            #[cfg(feature = "cl0")]
-                            {
-                                to.generation != arrow.target_generation
-                            }
-                            #[cfg(not(feature = "cl0"))]
-                            {
-                                false
-                            }
-                        }
-                    {
-                        continue;
-                    }
-                    if from.region != to.region {
-                        let crossing = Crossing {
-                            tick: self.tick,
-                            from_physical: from.physical_id,
-                            to_physical: to.physical_id,
-                            from_region: from.region,
-                            to_region: to.region,
-                            impulse: arrow.coupling,
+                    if let Some((arrow_id, generation)) = spike.arrow {
+                        let Some(arrow_slot) = self.arrow_slot(arrow_id) else {
+                            continue;
                         };
-                        if self.trace_physics {
-                            physical_trace.push(PhysicalTransition {
-                                tick: self.tick,
-                                phase: spike.phase,
-                                event: PhysicalEvent::Crossing(crossing),
-                            });
+                        let arrow = self.arrows.get(arrow_slot.0);
+                        execution_cost.touch::<Arrow>(1);
+                        if !arrow.live || arrow.generation != generation {
+                            continue;
                         }
-                        crossings.push(crossing);
                     }
-                    let arrow_slot = self.arrow_slot(arrow_id).unwrap();
-                    self.arrows.with_mut(arrow_slot.0, |live_arrow| {
-                        live_arrow.participation_level = live_arrow
-                            .participation_level
-                            .saturating_add(PARTICIPATION_IMPULSE);
-                    });
-                    execution_cost.touch::<Arrow>(1);
-                    work.total = work.total.saturating_add(1);
-                    execution_cost.arena_lookups = execution_cost.arena_lookups.saturating_add(2);
-                    if self.resident_arenas[arrow.from.0 as usize]
-                        != self.resident_arenas[arrow.to.0 as usize]
+                    let Some(target_slot) = self.cell_slot(spike.target) else {
+                        continue;
+                    };
+                    let target = self.cells.get(target_slot.0);
+                    execution_cost.touch::<Cell>(1);
+                    if target.id != spike.target
+                        || !target.live
+                        || target.generation != spike.target_generation
                     {
-                        execution_cost.arena_hops = execution_cost.arena_hops.saturating_add(1);
+                        continue;
                     }
-                    self.pending.push(
-                        Spike {
-                            arrival_tick: self.tick.saturating_add(arrow.delay),
-                            phase: arrow.phase,
-                            #[cfg(feature = "si0")]
-                            causal_wave: if arrow.delay == 0 && arrow.phase == spike.phase {
-                                spike.causal_wave.saturating_add(1)
-                            } else {
-                                0
+
+                    let mode = spike.arrow.map_or(TransmissionMode::Drive, |(arrow, _)| {
+                        execution_cost.touch::<Arrow>(1);
+                        self.arrows.get(self.arrow_slot(arrow).unwrap().0).mode
+                    });
+                    if self.trace_physics {
+                        physical_trace.push(PhysicalTransition {
+                            tick: self.tick,
+                            phase: spike.phase,
+                            event: PhysicalEvent::Deliver {
+                                mode,
+                                target: spike.target,
+                                impulse: spike.impulse,
                             },
-                            origin_physical,
-                            #[cfg(feature = "cl0")]
-                            target_physical: to.physical_id,
-                            target: arrow.to,
-                            target_generation: to.generation,
-                            impulse: arrow.coupling,
-                            serial: self.next_serial,
-                            arrow: Some((arrow_id, arrow.generation)),
-                        },
-                        &mut execution_cost,
-                    );
-                    self.next_serial = self.next_serial.wrapping_add(1);
+                        });
+                    }
+                    if mode == TransmissionMode::Modulatory {
+                        work.total = work.total.saturating_add(1);
+                        work.modulatory_deliveries = work.modulatory_deliveries.saturating_add(1);
+                        self.apply_modulatory_return(
+                            spike.target,
+                            self.tick,
+                            &mut work,
+                            &mut execution_cost,
+                            spike.phase,
+                            &mut physical_trace,
+                        );
+                        continue;
+                    }
+                    work.total = work.total.saturating_add(3);
+                    work.drive_deliveries = work.drive_deliveries.saturating_add(1);
+                    self.decay_cell(spike.target, self.tick);
+                    let target_slot = self.cell_slot(spike.target).unwrap();
+                    let target = self.cells.with_mut(target_slot.0, |target| {
+                        target.state = target.state.saturating_add(spike.impulse);
+                        target.clone()
+                    });
+                    execution_cost.touch::<Cell>(1);
+                    if target.state != 0 {
+                        self.active_cells.insert(spike.target);
+                    }
+                    let fires =
+                        self.tick >= target.refractory_until && target.state >= target.threshold;
+                    if !fires {
+                        continue;
+                    }
+
+                    self.cells.with_mut(target_slot.0, |target| {
+                        target.state = 0;
+                        target.refractory_until = self.tick.saturating_add(1);
+                        #[cfg(feature = "cc0")]
+                        {
+                            target.participation_level = target
+                                .participation_level
+                                .saturating_add(PARTICIPATION_IMPULSE);
+                        }
+                    });
+                    self.active_cells.remove(&spike.target);
+                    if self.trace_physics {
+                        physical_trace.push(PhysicalTransition {
+                            tick: self.tick,
+                            phase: spike.phase,
+                            event: PhysicalEvent::Fire { cell: spike.target },
+                        });
+                    }
+                    work.total = work.total.saturating_add(1);
+                    let source = spike.target;
+                    let origin_physical = target.physical_id;
+                    let source_generation = target.generation;
+                    if external_arrival {
+                        self.propose_local_arrows(
+                            source,
+                            &mut work,
+                            &mut execution_cost,
+                            spike.phase,
+                            &mut physical_trace,
+                        );
+                    }
+                    let mut outgoing = match self.mechanics.traversal {
+                        TraversalKind::GlobalScan => {
+                            execution_cost.allocations =
+                                execution_cost.allocations.saturating_add(1);
+                            execution_cost.scans = execution_cost
+                                .scans
+                                .saturating_add(self.arrows.len() as u64);
+                            execution_cost.touch::<Arrow>(self.arrows.len());
+                            self.arrows
+                                .values()
+                                .iter()
+                                .map(|arrow| (arrow.id, arrow.clone()))
+                                .collect::<Vec<_>>()
+                        }
+                        TraversalKind::Adjacency => {
+                            execution_cost.allocations =
+                                execution_cost.allocations.saturating_add(1);
+                            execution_cost.adjacency_accesses =
+                                execution_cost.adjacency_accesses.saturating_add(
+                                    u64::try_from(self.outgoing_index[source.0 as usize].len())
+                                        .unwrap_or(u64::MAX),
+                                );
+                            self.outgoing_index[source.0 as usize]
+                                .iter()
+                                .filter_map(|id| {
+                                    let slot = self.arrow_slot(*id)?;
+                                    execution_cost.scans = execution_cost.scans.saturating_add(1);
+                                    execution_cost.touch::<Arrow>(1);
+                                    Some((*id, self.arrows.get(slot.0)))
+                                })
+                                .collect()
+                        }
+                    };
+                    outgoing.sort_by_key(|(id, _)| *id);
+                    for (arrow_id, arrow) in outgoing {
+                        execution_cost.touch::<Arrow>(1);
+                        work.total = work.total.saturating_add(1);
+                        if !arrow.live
+                            || arrow.from != source
+                            || arrow.source_generation != source_generation
+                        {
+                            continue;
+                        }
+                        if arrow.trigger != TransmissionTrigger::SourceFires {
+                            continue;
+                        }
+                        let Some(from_slot) = self.cell_slot(arrow.from) else {
+                            continue;
+                        };
+                        let Some(to_slot) = self.cell_slot(arrow.to) else {
+                            continue;
+                        };
+                        let from = self.cells.get(from_slot.0);
+                        let to = self.cells.get(to_slot.0);
+                        execution_cost.touch::<Cell>(2);
+                        if from.id != arrow.from
+                            || !from.live
+                            || from.generation != arrow.source_generation
+                            || to.id != arrow.to
+                            || !to.live
+                            || {
+                                #[cfg(feature = "cl0")]
+                                {
+                                    to.generation != arrow.target_generation
+                                }
+                                #[cfg(not(feature = "cl0"))]
+                                {
+                                    false
+                                }
+                            }
+                        {
+                            continue;
+                        }
+                        if from.region != to.region {
+                            let crossing = Crossing {
+                                tick: self.tick,
+                                from_physical: from.physical_id,
+                                to_physical: to.physical_id,
+                                from_region: from.region,
+                                to_region: to.region,
+                                impulse: arrow.coupling,
+                            };
+                            if self.trace_physics {
+                                physical_trace.push(PhysicalTransition {
+                                    tick: self.tick,
+                                    phase: spike.phase,
+                                    event: PhysicalEvent::Crossing(crossing),
+                                });
+                            }
+                            crossings.push(crossing);
+                        }
+                        let arrow_slot = self.arrow_slot(arrow_id).unwrap();
+                        self.arrows.with_mut(arrow_slot.0, |live_arrow| {
+                            live_arrow.participation_level = live_arrow
+                                .participation_level
+                                .saturating_add(PARTICIPATION_IMPULSE);
+                        });
+                        execution_cost.touch::<Arrow>(1);
+                        work.total = work.total.saturating_add(1);
+                        execution_cost.arena_lookups =
+                            execution_cost.arena_lookups.saturating_add(2);
+                        if self.resident_arenas[arrow.from.0 as usize]
+                            != self.resident_arenas[arrow.to.0 as usize]
+                        {
+                            execution_cost.arena_hops = execution_cost.arena_hops.saturating_add(1);
+                        }
+                        self.pending.push(
+                            Spike {
+                                arrival_tick: self.tick.saturating_add(arrow.delay),
+                                phase: arrow.phase,
+                                #[cfg(feature = "si0")]
+                                causal_wave: if arrow.delay == 0 && arrow.phase == spike.phase {
+                                    spike.causal_wave.saturating_add(1)
+                                } else {
+                                    0
+                                },
+                                origin_physical,
+                                #[cfg(feature = "cl0")]
+                                target_physical: to.physical_id,
+                                target: arrow.to,
+                                target_generation: to.generation,
+                                impulse: arrow.coupling,
+                                serial: self.next_serial,
+                                arrow: Some((arrow_id, arrow.generation)),
+                            },
+                            &mut execution_cost,
+                        );
+                        self.next_serial = self.next_serial.wrapping_add(1);
+                    }
                 }
+                execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
             }
-            execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
-        }
             (
                 RunResult {
                     crossings,
@@ -2220,8 +2222,8 @@ impl PlasticSubstrate {
                 &mut physical_trace,
             );
             self.tick = arrival_tick;
-            scheduled_deliveries = scheduled_deliveries
-                .saturating_add(u64::try_from(batch.len()).unwrap_or(u64::MAX));
+            scheduled_deliveries =
+                scheduled_deliveries.saturating_add(u64::try_from(batch.len()).unwrap_or(u64::MAX));
 
             let mut incidences: Vec<(CellId, Vec<Spike>)> = Vec::new();
             for (spike, _mechanical_comparisons) in batch {
@@ -2269,9 +2271,11 @@ impl PlasticSubstrate {
                     .iter()
                     .fold(0_i32, |sum, spike| sum.saturating_add(spike.impulse));
                 let external_arrival = spikes.iter().any(|spike| spike.arrow.is_none());
-                work.total = work
-                    .total
-                    .saturating_add(u64::try_from(spikes.len()).unwrap_or(u64::MAX).saturating_mul(5));
+                work.total = work.total.saturating_add(
+                    u64::try_from(spikes.len())
+                        .unwrap_or(u64::MAX)
+                        .saturating_mul(5),
+                );
                 work.drive_deliveries = work
                     .drive_deliveries
                     .saturating_add(u64::try_from(spikes.len()).unwrap_or(u64::MAX));
@@ -2996,8 +3000,7 @@ impl PlasticSubstrate {
                 .map(|cell| cell.id)
                 .collect::<BTreeSet<_>>();
             execution_cost.scans = execution_cost.scans.saturating_add(
-                u64::try_from(self.cells.len().saturating_mul(arrows.len()))
-                    .unwrap_or(u64::MAX),
+                u64::try_from(self.cells.len().saturating_mul(arrows.len())).unwrap_or(u64::MAX),
             );
             execution_cost.touch::<Cell>(self.cells.len());
             execution_cost.touch::<Arrow>(arrows.len());
@@ -3131,7 +3134,9 @@ impl PlasticSubstrate {
         physical_trace: &mut Vec<PhysicalTransition>,
     ) {
         execution_cost.allocations = execution_cost.allocations.saturating_add(1);
-        let source_slot = self.cell_slot(source).expect("proposal source must resolve");
+        let source_slot = self
+            .cell_slot(source)
+            .expect("proposal source must resolve");
         let source_cell = self.cells.get(source_slot.0);
         let source_position = source_cell.position;
         let source_region = source_cell.region;
@@ -3180,12 +3185,20 @@ impl PlasticSubstrate {
         targets.sort_by_key(|(physical_id, _, _)| *physical_id);
 
         for (target_physical, target, distance) in targets {
-            let free_cells = self
-                .cell_capacity
-                .saturating_sub(u32::try_from(self.cells.values().iter().filter(|cell| cell.live).count()).unwrap_or(u32::MAX));
-            let free_arrows = self
-                .arrow_capacity
-                .saturating_sub(u32::try_from(self.arrows.values().iter().filter(|arrow| arrow.live).count()).unwrap_or(u32::MAX));
+            let free_cells = self.cell_capacity.saturating_sub(
+                u32::try_from(self.cells.values().iter().filter(|cell| cell.live).count())
+                    .unwrap_or(u32::MAX),
+            );
+            let free_arrows = self.arrow_capacity.saturating_sub(
+                u32::try_from(
+                    self.arrows
+                        .values()
+                        .iter()
+                        .filter(|arrow| arrow.live)
+                        .count(),
+                )
+                .unwrap_or(u32::MAX),
+            );
             if free_cells < 2 || free_arrows < 4 {
                 continue;
             }
@@ -3254,7 +3267,11 @@ impl PlasticSubstrate {
                         physical_trace.push(PhysicalTransition {
                             tick: self.tick,
                             phase,
-                            event: PhysicalEvent::Proposal { arrow: id, from, to },
+                            event: PhysicalEvent::Proposal {
+                                arrow: id,
+                                from,
+                                to,
+                            },
                         });
                     }
                 }

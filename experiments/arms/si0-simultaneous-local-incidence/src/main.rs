@@ -361,7 +361,11 @@ fn inputs(family: Family) -> Vec<(&'static str, i64, i32, i32)> {
     }
 }
 
-fn admit(world: &mut LogicalWorld, family: Family, permutation: Permutation) -> Vec<PhysicalTransition> {
+fn admit(
+    world: &mut LogicalWorld,
+    family: Family,
+    permutation: Permutation,
+) -> Vec<PhysicalTransition> {
     let mut admitted = inputs(family);
     if permutation == Permutation::ReverseInput {
         admitted.reverse();
@@ -570,7 +574,9 @@ fn observe(family: Family, permutation: Permutation, mechanics: MechanicalConfig
         let id = world.cells[name];
         let count = prefix_trace
             .iter()
-            .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == id))
+            .filter(
+                |transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == id),
+            )
             .count();
         fires.insert(*name, count);
     }
@@ -607,12 +613,9 @@ fn mechanics_name(mechanics: MechanicalConfig) -> &'static str {
 }
 
 fn main() {
-    let output = env::args_os()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from("experiments/results/si0_simultaneous_local_incidence_v1")
-        });
+    let output = env::args_os().nth(1).map(PathBuf::from).unwrap_or_else(|| {
+        PathBuf::from("experiments/results/si0_simultaneous_local_incidence_v1")
+    });
     fs::create_dir_all(&output).unwrap();
     let mut csv = String::from(
         "family,permutation,mechanics,replay_equal,cross_equal,baseline_equal,expected_firing,physical_work,tick,quiescent,pending,loads,trace_hash,case_pass\n",
@@ -622,7 +625,8 @@ fn main() {
     let mut first_divergence = String::new();
     let mut maximum_work = 0_u64;
     for family in Family::ALL {
-        let baseline_reference = observe(family, Permutation::Identity, MechanicalConfig::REFERENCE);
+        let baseline_reference =
+            observe(family, Permutation::Identity, MechanicalConfig::REFERENCE);
         let baseline_production =
             observe(family, Permutation::Identity, MechanicalConfig::PRODUCTION);
         for permutation in Permutation::ALL {
