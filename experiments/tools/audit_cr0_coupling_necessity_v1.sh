@@ -32,13 +32,13 @@ test "$(awk -F, 'NR > 1 && $9 == 4 && $10 == 2 && $21 == "true" { count += 1 } E
 test "$(awk -F, '$4 == "one_qualified_consequence" && $6 ~ /after_consequence@5\/[0-9]+:1\/4\// { count += 1 } END { print count + 0 }' \
   results/fd1_consequence_consolidation_v3/matrix.csv)" -eq 40
 
-if rg -n 'arrow\.coupling\s*=|coupling\s*\+=|coupling\s*=\s*coupling\.' \
+if grep -En 'arrow\.coupling\s*=|coupling\s*\+=|coupling\s*=\s*coupling\.' \
   truelearner/crates/core/src/lib.rs; then
   printf 'unexpected coupling mutation in frozen FD1 core\n' >&2
   exit 1
 fi
 
-if rg -n 'reward|correctness|path_id|route_id|predecessor|hop_count|continue_credit' \
+if grep -En 'reward|correctness|path_id|route_id|predecessor|hop_count|continue_credit' \
   experiments/arms/cr0-coupling-necessity/src/main.rs; then
   printf 'semantic routing surface found in CR0 evaluator\n' >&2
   exit 1
