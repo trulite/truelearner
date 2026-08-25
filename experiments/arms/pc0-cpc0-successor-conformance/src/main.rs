@@ -515,6 +515,7 @@ fn execute(root: u64, phase: i64, scenario: Scenario, mechanics: MechanicalConfi
             PhysicalEvent::Proposal { .. } => proposals = proposals.saturating_add(1),
             PhysicalEvent::Deallocate { .. } => deallocations = deallocations.saturating_add(1),
             PhysicalEvent::Crossing(_) => crossings = crossings.saturating_add(1),
+            PhysicalEvent::QualifiedLocalTraversal { .. } => {}
         }
     }
 
@@ -595,7 +596,7 @@ fn write_row(
 ) {
     writeln!(
         csv,
-        "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         scenario.name(),
         mechanics_name(mechanics),
         observation.a_updates,

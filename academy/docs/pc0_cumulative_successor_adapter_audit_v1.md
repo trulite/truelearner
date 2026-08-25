@@ -34,8 +34,10 @@ unmaintained and wrong-path cases do not; time partitioning remains exact.
 ## CPC0 successor delta
 
 The CPC0 adapter removes only the deleted `Eligible` event count and CSV column.
-All eleven spatial-attribution scenarios and all expected update outcomes remain
-byte-for-byte identical in source.
+It also exhaustively accepts the later `QualifiedLocalTraversal` trace variant
+without using it in CPC0's older measurements. All eleven spatial-attribution
+scenarios and all expected update outcomes remain byte-for-byte identical in
+source.
 
 ## Prohibitions
 
