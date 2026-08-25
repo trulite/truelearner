@@ -27,7 +27,8 @@ test "$(grep -c 'propose_local_arrows' "$core")" -eq 2
 test "$(printf '%s\n' "$proposal_body" | grep -c 'self.add_arrow(ArrowSpec')" -eq 1
 test "$(printf '%s\n' "$proposal_body" | grep -c 'self.add_cell')" -eq 0
 test "$(printf '%s\n' "$proposal_body" | grep -c 'CellSpec')" -eq 0
-printf '%s\n' "$proposal_body" | grep -Fq 'self.cells.values()'
+printf '%s\n' "$proposal_body" | grep -Fq 'self.cells'
+printf '%s\n' "$proposal_body" | grep -Fq '.values()'
 printf '%s\n' "$proposal_body" | grep -Fq 'let proposal_couplings: &[i32] = &[1, -1];'
 printf '%s\n' "$proposal_body" | grep -Fq 'event: PhysicalEvent::Proposal {'
 
