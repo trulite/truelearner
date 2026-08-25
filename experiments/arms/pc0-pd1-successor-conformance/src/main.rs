@@ -780,6 +780,8 @@ fn main() {
     fs::write(output.join("matrix.csv"), csv).unwrap();
     fs::write(output.join("report.md"), report).unwrap();
     write_checksums(&output);
-    println!("PC0_PD1_SUCCESSOR_COMPLETE physical_cases={} pass=true", case_specs.len());
+    println!(
+        "PC0_PD1_SUCCESSOR_COMPLETE physical_cases={} pass=true",
+        case_specs.len()
+    );
 }
-
