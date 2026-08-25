@@ -63,3 +63,8 @@ The first strict-Clippy preflight stopped before evidence on a collapsible
 match/if style warning. The nested condition was expressed as the equivalent
 match guard; no consequence admission, world, predicate, or candidate law
 changed.
+
+The first targeted-test selector selected zero tests because `--exact`
+requires the module-qualified name. The corrected selector
+`tests::sv0_local_variation_proposes_equal_weak_signed_alternatives` passed
+`1/1` in the same worker without repeating compilation, lint, or static audit.
