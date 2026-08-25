@@ -12,7 +12,8 @@ Definitive development execution: fresh E2B worker
 
 - physical cases: `200/200`;
 - Reference/Production rows: `400/400`;
-- exact same-mechanics replay runs: `800/800`;
+- exact same-mechanics reconstruction: `800` total executions forming `400`
+  original/replay pairs, all equal;
 - exact Reference/Production observations: `200/200`;
 - every one of ten frozen families: `20/20`;
 - maximum PhysicalWork: `24`;
@@ -26,6 +27,10 @@ The evidence hashes are:
 matrix.csv ee04f3553bbd329e1c96e72a6e85a44a5fba0ab9b56960d28e2039e88dd6dfca
 report.md  acacdd6d8802406e22efe71369245ba6514f37e5b890d496b638e67e2069f60b
 ```
+
+The immutable report's phrase `exact same-mechanics replay runs: 800` counts
+both executions in each original/replay pair. It does not claim 800 additional
+replays beyond the 400 matrix executions.
 
 ## Decisive observations
 

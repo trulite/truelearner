@@ -27,7 +27,7 @@ PQLC chain, and host time-partition changes.
 
 - `200/200` physical cases;
 - `400/400` mechanics rows;
-- `800/800` replay runs;
+- `800` total executions in `400/400` equal original/replay pairs;
 - all ten families `20/20`;
 - maximum PhysicalWork `24`;
 - exact mechanics equivalence and natural quiescence.
