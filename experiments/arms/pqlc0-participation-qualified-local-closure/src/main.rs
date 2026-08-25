@@ -6,9 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig,
-    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode,
-    TransmissionTrigger,
+    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig, PhysicalEvent,
+    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, TransmissionTrigger,
 };
 
 const ROOTS: [u64; 2] = [2_500_000, 2_600_000];
@@ -177,7 +176,12 @@ impl Builder {
         }
     }
 
-    fn finish(self, contacts: Vec<ArrowId>, qlp_arrows: Vec<ArrowId>, steps: Vec<Step>) -> Geometry {
+    fn finish(
+        self,
+        contacts: Vec<ArrowId>,
+        qlp_arrows: Vec<ArrowId>,
+        steps: Vec<Step>,
+    ) -> Geometry {
         Geometry {
             body: self.body,
             contacts,
@@ -265,7 +269,11 @@ fn geometry(root: u64, phase: i64, world: World, mechanics: MechanicalConfig) ->
         }
         World::WrongPath | World::UnrelatedActivity => {
             let c1 = builder.cell(1);
-            let c2 = builder.cell(if world == World::UnrelatedActivity { 2 } else { 1 });
+            let c2 = builder.cell(if world == World::UnrelatedActivity {
+                2
+            } else {
+                1
+            });
             let effect = builder.cell(1);
             let d1 = builder.cell(2);
             let d2 = builder.cell(2);
@@ -405,19 +413,28 @@ fn execute(mut geometry: Geometry) -> Observation {
         .collect::<Vec<_>>();
     let qlp_events = trace
         .iter()
-        .filter(|transition| matches!(transition.event, PhysicalEvent::QualifiedLocalTraversal { .. }))
+        .filter(|transition| {
+            matches!(
+                transition.event,
+                PhysicalEvent::QualifiedLocalTraversal { .. }
+            )
+        })
         .count() as u64;
     let source_fires = trace
         .iter()
         .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { .. }))
         .count() as u64;
     let body = geometry.body.arena_body(1);
-    let live = geometry.contacts.iter().chain(&geometry.qlp_arrows).all(|id| {
-        body.arrows
-            .iter()
-            .find(|arrow| arrow.id == *id)
-            .is_some_and(|arrow| arrow.live)
-    });
+    let live = geometry
+        .contacts
+        .iter()
+        .chain(&geometry.qlp_arrows)
+        .all(|id| {
+            body.arrows
+                .iter()
+                .find(|arrow| arrow.id == *id)
+                .is_some_and(|arrow| arrow.live)
+        });
     Observation {
         trace,
         participation,
@@ -439,16 +456,24 @@ fn run(root: u64, phase: i64, world: World, mechanics: MechanicalConfig) -> Obse
 }
 
 fn predicate(world: World, observation: &Observation) -> bool {
-    let positive = |index: usize| observation.support.get(index).is_some_and(|value| *value > 0);
-    let zero = |index: usize| observation.support.get(index).is_some_and(|value| *value == 0);
+    let positive = |index: usize| {
+        observation
+            .support
+            .get(index)
+            .is_some_and(|value| *value > 0)
+    };
+    let zero = |index: usize| {
+        observation
+            .support
+            .get(index)
+            .is_some_and(|value| *value == 0)
+    };
     match world {
         World::PositiveOneHop => positive(0) && positive(1) && observation.qlp_events == 1,
         World::NeverParticipated | World::ExpiredParticipation => {
             observation.support.iter().all(|value| *value == 0) && observation.qlp_events == 0
         }
-        World::WrongPath | World::UnrelatedActivity => {
-            zero(1) && observation.qlp_events == 0
-        }
+        World::WrongPath | World::UnrelatedActivity => zero(1) && observation.qlp_events == 0,
         World::TwoUpstreamOneParticipated => {
             positive(0) && positive(1) && zero(2) && observation.qlp_events == 3
         }
@@ -544,9 +569,7 @@ fn main() {
     let output = env::args_os()
         .nth(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from("results/pqlc0_participation_qualified_local_closure_v1")
-        });
+        .unwrap_or_else(|| PathBuf::from("results/pqlc0_participation_qualified_local_closure_v1"));
     fs::create_dir_all(&output).unwrap();
     let mechanics = [MechanicalConfig::REFERENCE, MechanicalConfig::PRODUCTION];
     let mut csv = String::from(
@@ -568,21 +591,17 @@ fn main() {
                 assert_eq!(production_replay, production);
                 assert_eq!(production, reference);
                 assert!(reference.live);
-                assert!(
-                    reference
-                        .triggers
-                        .iter()
-                        .all(|trigger| *trigger
-                            == TransmissionTrigger::QualifiedLocalParticipation)
-                );
+                assert!(reference
+                    .triggers
+                    .iter()
+                    .all(|trigger| *trigger == TransmissionTrigger::QualifiedLocalParticipation));
                 let pass = predicate(world, &reference);
                 world_complete[world_index] &= pass;
                 if world == World::ClosureCycle {
                     maximum_cycle_work = maximum_cycle_work.max(reference.work.physical);
                     maximum_cycle_events = maximum_cycle_events.max(reference.qlp_events);
                 }
-                for (kind, observation) in
-                    [(mechanics[0], &reference), (mechanics[1], &production)]
+                for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)]
                 {
                     write_row(
                         &mut csv,
