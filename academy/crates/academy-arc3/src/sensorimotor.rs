@@ -322,6 +322,111 @@ impl Arc3Sensorimotor {
         })
     }
 
+    #[cfg(feature = "core0")]
+    pub fn trigger_transient_continuation(
+        &mut self,
+        frame: Vec<u8>,
+        action: u8,
+        action_map: &[u8],
+        early_material_sign: i8,
+    ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
+        validate_sensor_frame(&frame)?;
+        validate_action_map(action_map)?;
+        if !matches!(early_material_sign, -1 | 1) {
+            return Err(Arc3SensorimotorError(
+                "transient-continuation material sign must be -1 or +1".to_string(),
+            ));
+        }
+        let motor = action_index(action)?;
+        let context = self.sensor_context(&frame)?;
+        let context_index = usize::from(context);
+        let contacts =
+            self.transient_history_contacts(context_index, motor, early_material_sign)?;
+        self.ensure_transient_history_closure(context_index, motor, &contacts);
+        let tick = self.boundary.substrate().clock().tick;
+        let origin = EXTERNAL_PHYSICAL_BASE
+            .saturating_add(self.sequence.saturating_mul(100))
+            .saturating_add(u64::from(context));
+        let mut inputs = Vec::with_capacity(contacts.len().saturating_add(2));
+        inputs.push(SpikeInput {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: origin,
+            target: self.sites.candidate_sources[context_index][motor],
+            impulse: 1,
+        });
+        inputs.push(SpikeInput {
+            arrival_tick: tick.saturating_add(2),
+            phase: 30,
+            origin_physical: origin.saturating_add(99),
+            target: self.sites.babblers[context_index][motor],
+            impulse: 1,
+        });
+        for (contact, physical_id, selected) in contacts {
+            if selected {
+                continue;
+            }
+            inputs.push(SpikeInput {
+                arrival_tick: tick.saturating_add(1),
+                phase: 0,
+                origin_physical: origin.saturating_add(20_000).saturating_add(physical_id),
+                target: contact,
+                impulse: -1,
+            });
+        }
+
+        let result = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
+        let motor_crossings = result
+            .crossings
+            .iter()
+            .filter_map(|crossing| {
+                crossing
+                    .from_physical
+                    .checked_sub(MOTOR_PHYSICAL_BASE)
+                    .and_then(|index| u8::try_from(index % MOTORS as u64).ok())
+            })
+            .collect::<Vec<_>>();
+        if motor_crossings.len() > 1 {
+            return Err(Arc3SensorimotorError(format!(
+                "ambiguous organism continuation: {} motor crossings",
+                motor_crossings.len()
+            )));
+        }
+        let motor_crossing = motor_crossings.first().copied();
+        let expressed = motor_crossing.map(|index| action_map[usize::from(index)]);
+        let (candidate_resistance, candidate_coupling, candidate_live) =
+            self.candidate_state(context, motor);
+        let frame_changed = self
+            .previous_frame
+            .as_ref()
+            .map(|previous| previous != &frame);
+        self.previous_frame = Some(frame);
+        self.previous_context = Some(context);
+        self.previous_motor = motor_crossing;
+        let observation = Arc3SensorimotorObservation {
+            sequence: self.sequence,
+            context,
+            frame_changed,
+            support_admitted: false,
+            babble_action: Some(action),
+            motor_crossing,
+            action: expressed,
+            outward_crossings: result.crossings.len(),
+            plasticity_updates: result.work.local_return_updates,
+            modulatory_deliveries: result.work.modulatory_deliveries,
+            physical_work: result.work.physical_total(),
+            naturally_quiescent: result.naturally_quiescent,
+            candidate_resistance,
+            candidate_coupling,
+            candidate_live,
+            body_fingerprint: self.body_fingerprint()?,
+            physical_tick: self.boundary.substrate().clock().tick,
+            pressure_phase: self.boundary.substrate().clock().pressure_phase(),
+        };
+        self.sequence = self.sequence.saturating_add(1);
+        Ok(observation)
+    }
+
     fn observe_inner(
         &mut self,
         request: Arc3ObserveRequest<'_>,
