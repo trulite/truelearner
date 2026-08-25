@@ -4,8 +4,9 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::PathBuf;
 use truelearner_core::{
-    ArenaId, ArrowSpec, CellId, CellSpec, Crossing, ExecutionCost, MechanicalConfig, PhysicalClock,
-    PhysicalTransition, PlasticSubstrate, ResidentArenaId, SpikeInput, TransmissionMode, Work,
+    ArenaId, ArrowSpec, CellId, CellSpec, CheckpointError, Crossing, ExecutionCost,
+    MechanicalConfig, PhysicalClock, PhysicalTransition, PlasticSubstrate, ResidentArenaId,
+    SpikeInput, TransmissionMode, Work,
 };
 
 const OUTWARD_REGION: i16 = 1;
@@ -92,14 +93,15 @@ fn main() {
         }
     }
 
-    assert!(quiescent_repartition_control());
+    let (quiescent_repartition, quiescent_tick) = quiescent_repartition_control();
+    assert!(quiescent_repartition);
     assert!(live_repartition_control());
 
     fs::create_dir_all(&output).expect("create R6 output directory");
     fs::write(output.join("r6_partition_matrix.csv"), rows).expect("write R6 matrix");
     let clauses = comparisons + 2;
     let report = format!(
-        "# R6 Partition Invariance AH0 Successor Result\n\n- worlds: `{}`\n- nontrivial partitions per world: `6`\n- partition comparisons: `{comparisons}/{comparisons}`\n- checkpoint controls: `2/2`\n- total clauses: `{clauses}/{clauses}`\n- exact replay: `true`\n- natural quiescence: `true`\n- added inter-arena latency: `0`\n",
+        "# R6 Partition Invariance AH0 Successor Result\n\n- worlds: `{}`\n- nontrivial partitions per world: `6`\n- partition comparisons: `{comparisons}/{comparisons}`\n- checkpoint controls: `2/2`\n- first legal quiescent checkpoint tick: `{quiescent_tick}`\n- total clauses: `{clauses}/{clauses}`\n- exact replay: `true`\n- natural quiescence: `true`\n- added inter-arena latency: `0`\n",
         worlds.len(),
     );
     fs::write(output.join("r6_partition_report.md"), report).expect("write R6 report");
@@ -460,29 +462,38 @@ fn lifecycle_world() -> World {
     )
 }
 
-fn quiescent_repartition_control() -> bool {
+fn quiescent_repartition_control() -> (bool, i64) {
     let world = global_order_world();
     let mut original = PlasticSubstrate::from_body_bytes(&world.body).unwrap();
     original.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
     let first = input(0, 1, 0);
     original.arrive(&[first], OUTWARD_REGION);
-    // CPC1 continuous participation is still live at the predecessor's tick 10.
-    // Settle to its already characterized baseline before taking a quiescent checkpoint.
-    original.advance_time(1024);
-    let checkpoint = original.quiescent_checkpoint(700).unwrap();
+    let (checkpoint, quiescent_tick) = (10..=20_000)
+        .find_map(|tick| {
+            original.advance_time(tick);
+            match original.quiescent_checkpoint(700) {
+                Ok(checkpoint) => Some((checkpoint, tick)),
+                Err(CheckpointError::NotQuiescent) => None,
+                Err(error) => panic!("unexpected checkpoint error: {error:?}"),
+            }
+        })
+        .expect("body must naturally reach a quiescent checkpoint");
     let mut baseline = PlasticSubstrate::from_quiescent_checkpoint(checkpoint.clone()).unwrap();
     baseline.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
     let mut partitioned = PlasticSubstrate::from_quiescent_checkpoint(checkpoint).unwrap();
     partitioned.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
     partitioned.repartition_resident(&placements(Partition::Striped, world.cell_count));
-    let future = input(1, 11, 1);
+    let future = input(1, quiescent_tick.saturating_add(1), 1);
     let baseline_result = baseline.arrive(&[future], OUTWARD_REGION);
     let partitioned_result = partitioned.arrive(&[future], OUTWARD_REGION);
-    same_physics(
-        &baseline,
-        &baseline_result,
-        &partitioned,
-        &partitioned_result,
+    (
+        same_physics(
+            &baseline,
+            &baseline_result,
+            &partitioned,
+            &partitioned_result,
+        ),
+        quiescent_tick,
     )
 }
 
