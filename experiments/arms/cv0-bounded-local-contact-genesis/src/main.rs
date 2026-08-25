@@ -12,8 +12,29 @@ use truelearner_core::{
 
 const ROOTS: [u64; 2] = [7_500_000, 7_600_001];
 const PHASES: std::ops::Range<i64> = 0..10;
-const EXPECTED_CASES: usize = 100;
-const EXPECTED_ROWS: usize = 200;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Stage {
+    GateE,
+    Full,
+}
+
+impl Stage {
+    fn parse(value: &str) -> Self {
+        match value {
+            "gate-e" => Self::GateE,
+            "full" => Self::Full,
+            other => panic!("unknown CV0-J0 stage: {other}"),
+        }
+    }
+
+    fn families(self) -> &'static [Family] {
+        match self {
+            Self::GateE => &[Family::PositiveConsequence],
+            Self::Full => &Family::ALL,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Family {
@@ -22,15 +43,25 @@ enum Family {
     BoundedCreation,
     OrphanReuse,
     PositiveConsequence,
+    NegativeConsequence,
+    Permutation,
+    NeitherUseful,
+    BothUseful,
+    SharedContact,
 }
 
 impl Family {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 10] = [
         Self::Symmetry,
         Self::NoConsequence,
         Self::BoundedCreation,
         Self::OrphanReuse,
         Self::PositiveConsequence,
+        Self::NegativeConsequence,
+        Self::Permutation,
+        Self::NeitherUseful,
+        Self::BothUseful,
+        Self::SharedContact,
     ];
 
     fn name(self) -> &'static str {
@@ -40,6 +71,11 @@ impl Family {
             Self::BoundedCreation => "gate_c_bounded_creation",
             Self::OrphanReuse => "gate_d_orphan_cleanup_reuse",
             Self::PositiveConsequence => "gate_e_positive_consequence",
+            Self::NegativeConsequence => "gate_f_negative_consequence",
+            Self::Permutation => "gate_g_permutation",
+            Self::NeitherUseful => "gate_h_neither_useful",
+            Self::BothUseful => "gate_h_both_useful",
+            Self::SharedContact => "gate_i_shared_contact_alias",
         }
     }
 }
@@ -50,7 +86,6 @@ struct WorkTotals {
     drive: u64,
     modulation: u64,
     arrow_updates: u64,
-    cell_updates: u64,
     arrow_proposals: u64,
     cell_proposals: u64,
     arrow_deallocations: u64,
@@ -63,7 +98,6 @@ impl WorkTotals {
         self.drive = self.drive.saturating_add(work.drive_deliveries);
         self.modulation = self.modulation.saturating_add(work.modulatory_deliveries);
         self.arrow_updates = self.arrow_updates.saturating_add(work.local_return_updates);
-        self.cell_updates = self.cell_updates.saturating_add(work.cell_return_updates);
         self.arrow_proposals = self
             .arrow_proposals
             .saturating_add(work.local_structural_proposals);
@@ -127,19 +161,29 @@ struct World {
 
 impl World {
     fn new(root: u64, phase: i64, mechanics: MechanicalConfig) -> Self {
+        Self::new_with_geometry(root, phase, mechanics, 2, 0)
+    }
+
+    fn new_with_geometry(
+        root: u64,
+        phase: i64,
+        mechanics: MechanicalConfig,
+        target_physical_offset: u64,
+        position_offset: i32,
+    ) -> Self {
         let mut body = PlasticSubstrate::with_mechanics(ArenaId(root), 16, 32, mechanics);
         body.set_physical_tracing(true);
         body.advance_time(phase);
         let source = body.add_cell(truelearner_core::CellSpec {
             physical_id: root + 1,
-            position: 0,
+            position: position_offset,
             region: 0,
             threshold: 1,
             resistance: 500,
         });
         let target = body.add_cell(truelearner_core::CellSpec {
-            physical_id: root + 2,
-            position: 1,
+            physical_id: root + target_physical_offset,
+            position: position_offset.saturating_add(1),
             region: 0,
             threshold: 100,
             resistance: 500,
@@ -156,14 +200,22 @@ impl World {
     }
 
     fn pulse(&mut self, target: CellId, age: i64, origin_physical: u64) {
-        let result = self.body.arrive(
-            &[SpikeInput {
+        self.pulse_many(age, &[(target, origin_physical)]);
+    }
+
+    fn pulse_many(&mut self, age: i64, targets: &[(CellId, u64)]) {
+        let arrivals = targets
+            .iter()
+            .map(|(target, origin_physical)| SpikeInput {
                 arrival_tick: self.origin.saturating_add(age),
                 phase: 0,
-                origin_physical,
-                target,
+                origin_physical: *origin_physical,
+                target: *target,
                 impulse: 1,
-            }],
+            })
+            .collect::<Vec<_>>();
+        let result = self.body.arrive(
+            &arrivals,
             i16::MAX,
         );
         self.trace.extend(result.physical_trace);
@@ -217,9 +269,9 @@ impl World {
         candidates.try_into().expect("exactly two signed contacts")
     }
 
-    fn add_modulation_to(&mut self, root: u64, target: CellId) -> CellId {
+    fn add_modulation_to(&mut self, root: u64, physical_offset: u64, target: CellId) -> CellId {
         let modulator = self.body.add_cell(truelearner_core::CellSpec {
-            physical_id: root + 100,
+            physical_id: root + physical_offset,
             position: 100,
             region: 0,
             threshold: 1,
@@ -265,6 +317,11 @@ fn observe(family: Family, root: u64, phase: i64, mechanics: MechanicalConfig) -
         Family::BoundedCreation => observe_bounded(root, phase, mechanics),
         Family::OrphanReuse => observe_orphan_reuse(root, phase, mechanics),
         Family::PositiveConsequence => observe_positive(root, phase, mechanics),
+        Family::NegativeConsequence => observe_negative(root, phase, mechanics),
+        Family::Permutation => observe_permutation(root, phase, mechanics),
+        Family::NeitherUseful => observe_neither(root, phase, mechanics),
+        Family::BothUseful => observe_both(root, phase, mechanics),
+        Family::SharedContact => observe_shared_contact(root, phase, mechanics),
     }
 }
 
@@ -346,10 +403,6 @@ fn symmetry_checks(world: &World, negative: Candidate, positive: Candidate) -> V
                     .cell_participation(positive.contact)
                     .is_some_and(|v| v > 0)
         }),
-        (
-            "no_cell_update_from_use".into(),
-            world.work.cell_updates == 0,
-        ),
     ]
 }
 
@@ -390,7 +443,6 @@ fn observe_no_consequence(root: u64, phase: i64, mechanics: MechanicalConfig) ->
             "four_arrow_deallocations".into(),
             world.work.arrow_deallocations == 4,
         ),
-        ("no_cell_updates".into(), world.work.cell_updates == 0),
         ("no_arrow_updates".into(), world.work.arrow_updates == 0),
     ];
     world.finish(markers, checks)
@@ -512,65 +564,261 @@ fn observe_orphan_reuse(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
 }
 
 fn observe_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
+    observe_selected(root, phase, mechanics, 1, false)
+}
+
+fn observe_negative(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
+    observe_selected(root, phase, mechanics, -1, false)
+}
+
+fn observe_permutation(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
+    let selected_sign = if root & 1 == 0 { -1 } else { 1 };
+    observe_selected(root, phase, mechanics, selected_sign, true)
+}
+
+fn arrow_resistance(world: &World, arrow: ArrowRef) -> Option<u32> {
+    world
+        .body
+        .arena_body(1)
+        .arrows
+        .iter()
+        .find(|candidate| candidate.id == arrow.id)
+        .map(|candidate| candidate.resistance)
+}
+
+fn fire_count(trace: &[PhysicalTransition], cell: CellId) -> usize {
+    trace
+        .iter()
+        .filter(|transition| {
+            matches!(transition.event, truelearner_core::PhysicalEvent::Fire { cell: fired } if fired == cell)
+        })
+        .count()
+}
+
+fn observe_selected(
+    root: u64,
+    phase: i64,
+    mechanics: MechanicalConfig,
+    selected_sign: i32,
+    permuted_geometry: bool,
+) -> Observation {
+    let mut world = if permuted_geometry {
+        World::new_with_geometry(root, phase, mechanics, 3, 100)
+    } else {
+        World::new(root, phase, mechanics)
+    };
+    let [negative, positive] = world.create_candidates(root);
+    let (selected, unsupported) = if selected_sign < 0 {
+        (negative, positive)
+    } else {
+        (positive, negative)
+    };
+    let selected_contact_before = world.body.cell_resistance(selected.contact);
+    let unsupported_contact_before = world.body.cell_resistance(unsupported.contact);
+    let modulator = world.add_modulation_to(root, 100, selected.contact);
+    world.pulse(modulator, 2, root + 101);
+    let selected_stem_r = arrow_resistance(&world, selected.stem);
+    let selected_out_r = arrow_resistance(&world, selected.outgoing);
+    let unsupported_stem_r = arrow_resistance(&world, unsupported.stem);
+    let unsupported_out_r = arrow_resistance(&world, unsupported.outgoing);
+    let selected_contact_after = world.body.cell_resistance(selected.contact);
+    let unsupported_contact_after = world.body.cell_resistance(unsupported.contact);
+    world.advance_age(10);
+    let selected_live = world.relation_live(selected);
+    let unsupported_live = world.relation_live(unsupported);
+    let selected_fires_before_probe = fire_count(&world.trace, selected.contact);
+    let unsupported_fires_before_probe = fire_count(&world.trace, unsupported.contact);
+    world.pulse(world.source, 10, root + 102);
+    let selected_fires_after_probe = fire_count(&world.trace, selected.contact);
+    let unsupported_fires_after_probe = fire_count(&world.trace, unsupported.contact);
+    let markers = vec![format!(
+        "selected_sign={selected_sign};selected_id={:?}/slot{:?};unsupported_id={:?}/slot{:?};selected_r=stem{selected_stem_r:?}/out{selected_out_r:?};unsupported_r=stem{unsupported_stem_r:?}/out{unsupported_out_r:?};live10=selected{selected_live:?}/unsupported{unsupported_live:?};fires={selected_fires_before_probe}->{selected_fires_after_probe}/{unsupported_fires_before_probe}->{unsupported_fires_after_probe}",
+        selected.contact, selected.contact_slot, unsupported.contact, unsupported.contact_slot
+    )];
+    let checks = vec![
+        ("selected_sign_matches_world".into(), selected.sign == selected_sign),
+        (
+            "junction_resistance_unchanged".into(),
+            selected_contact_before == Some(1)
+                && selected_contact_after == Some(1)
+                && unsupported_contact_before == Some(1)
+                && unsupported_contact_after == Some(1),
+        ),
+        ("selected_stem_consolidated".into(), selected_stem_r == Some(4)),
+        ("selected_outgoing_consolidated".into(), selected_out_r == Some(4)),
+        (
+            "unsupported_stem_not_consolidated".into(),
+            unsupported_stem_r == Some(1),
+        ),
+        (
+            "unsupported_outgoing_not_consolidated".into(),
+            unsupported_out_r == Some(1),
+        ),
+        (
+            "unsupported_relation_reclaimed".into(),
+            unsupported_live == (false, false, false),
+        ),
+        (
+            "selected_relation_retained".into(),
+            selected_live == (true, true, true),
+        ),
+        (
+            "selected_relation_reexecutes".into(),
+            selected_fires_after_probe == selected_fires_before_probe.saturating_add(1),
+        ),
+        (
+            "unsupported_relation_stays_inert".into(),
+            unsupported_fires_after_probe == unsupported_fires_before_probe,
+        ),
+        ("two_link_updates_only".into(), world.work.arrow_updates == 2),
+        (
+            "one_orphan_reclaimed".into(),
+            world.work.cell_deallocations == 1,
+        ),
+    ];
+    world.finish(markers, checks)
+}
+
+fn observe_neither(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
+    let mut observation = observe_no_consequence(root, phase, mechanics);
+    observation.markers.push("neither_useful=true".into());
+    observation
+}
+
+fn observe_both(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = World::new(root, phase, mechanics);
     let [negative, positive] = world.create_candidates(root);
-    let modulator = world.add_modulation_to(root, positive.contact);
-    world.pulse(modulator, 2, root + 101);
-    let body_after = world.body.arena_body(1);
-    let positive_contact_r = world.body.cell_resistance(positive.contact);
-    let negative_contact_r = world.body.cell_resistance(negative.contact);
-    let positive_stem_r = body_after
-        .arrows
-        .iter()
-        .find(|arrow| arrow.id == positive.stem.id)
-        .map(|arrow| arrow.resistance);
-    let positive_out_r = body_after
-        .arrows
-        .iter()
-        .find(|arrow| arrow.id == positive.outgoing.id)
-        .map(|arrow| arrow.resistance);
-    let negative_out_r = body_after
-        .arrows
-        .iter()
-        .find(|arrow| arrow.id == negative.outgoing.id)
-        .map(|arrow| arrow.resistance);
+    let negative_modulator = world.add_modulation_to(root, 100, negative.contact);
+    let positive_modulator = world.add_modulation_to(root, 101, positive.contact);
+    world.pulse_many(
+        2,
+        &[(negative_modulator, root + 102), (positive_modulator, root + 103)],
+    );
+    let resistances = [
+        arrow_resistance(&world, negative.stem),
+        arrow_resistance(&world, negative.outgoing),
+        arrow_resistance(&world, positive.stem),
+        arrow_resistance(&world, positive.outgoing),
+    ];
+    let cell_resistances = [
+        world.body.cell_resistance(negative.contact),
+        world.body.cell_resistance(positive.contact),
+    ];
     world.advance_age(10);
-    let positive_live = world.relation_live(positive);
     let negative_live = world.relation_live(negative);
+    let positive_live = world.relation_live(positive);
+    let negative_before = fire_count(&world.trace, negative.contact);
+    let positive_before = fire_count(&world.trace, positive.contact);
+    world.pulse(world.source, 10, root + 104);
+    let negative_after = fire_count(&world.trace, negative.contact);
+    let positive_after = fire_count(&world.trace, positive.contact);
     let markers = vec![format!(
-        "positive_r=cell{positive_contact_r:?}/stem{positive_stem_r:?}/out{positive_out_r:?};negative_r=cell{negative_contact_r:?}/out{negative_out_r:?};live10=positive{positive_live:?}/negative{negative_live:?}"
+        "resistances={resistances:?};cells={cell_resistances:?};live10={negative_live:?}/{positive_live:?};fires={negative_before}->{negative_after}/{positive_before}->{positive_after}"
     )];
     let checks = vec![
         (
-            "positive_contact_consolidated".into(),
-            positive_contact_r == Some(4),
+            "both_relations_consolidated".into(),
+            resistances == [Some(4), Some(4), Some(4), Some(4)],
         ),
         (
-            "positive_outgoing_consolidated".into(),
-            positive_out_r == Some(4),
+            "both_junctions_unchanged".into(),
+            cell_resistances == [Some(1), Some(1)],
         ),
         (
-            "negative_contact_not_consolidated".into(),
-            negative_contact_r == Some(1),
+            "both_relations_retained".into(),
+            negative_live == (true, true, true) && positive_live == (true, true, true),
         ),
         (
-            "negative_outgoing_not_consolidated".into(),
-            negative_out_r == Some(1),
+            "both_relations_reexecute".into(),
+            negative_after == negative_before.saturating_add(1)
+                && positive_after == positive_before.saturating_add(1),
+        ),
+        ("four_link_updates".into(), world.work.arrow_updates == 4),
+        ("no_orphan_reclamation".into(), world.work.cell_deallocations == 0),
+    ];
+    world.finish(markers, checks)
+}
+
+fn observe_shared_contact(
+    root: u64,
+    phase: i64,
+    mechanics: MechanicalConfig,
+) -> Observation {
+    let mut world = World::new(root, phase, mechanics);
+    let contact = world.body.add_cell(truelearner_core::CellSpec {
+        physical_id: root + 3,
+        position: 0,
+        region: 0,
+        threshold: 1,
+        resistance: 1,
+    });
+    let stem_id = world.body.add_arrow(ArrowSpec {
+        from: world.source,
+        to: contact,
+        delay: 1,
+        phase: 0,
+        coupling: 1,
+        resistance: 1,
+        mode: TransmissionMode::Drive,
+    });
+    let positive_id = world.body.add_arrow(ArrowSpec {
+        from: contact,
+        to: world.target,
+        delay: 1,
+        phase: 0,
+        coupling: 1,
+        resistance: 1,
+        mode: TransmissionMode::Drive,
+    });
+    let negative_id = world.body.add_arrow(ArrowSpec {
+        from: contact,
+        to: world.target,
+        delay: 1,
+        phase: 0,
+        coupling: -1,
+        resistance: 1,
+        mode: TransmissionMode::Drive,
+    });
+    let stem = world.body.arrow_reference(stem_id);
+    let positive = world.body.arrow_reference(positive_id);
+    let negative = world.body.arrow_reference(negative_id);
+    world.pulse(world.source, 0, root + 10);
+    let modulator = world.add_modulation_to(root, 100, contact);
+    world.pulse(modulator, 2, root + 101);
+    let resistances = [
+        arrow_resistance(&world, stem),
+        arrow_resistance(&world, positive),
+        arrow_resistance(&world, negative),
+    ];
+    let contact_resistance = world.body.cell_resistance(contact);
+    world.advance_age(10);
+    let live = (
+        world.body.resolve_cell(world.body.cell_reference(contact)).is_some(),
+        world.body.resolve_arrow(stem).is_some(),
+        world.body.resolve_arrow(positive).is_some(),
+        world.body.resolve_arrow(negative).is_some(),
+    );
+    let markers = vec![format!(
+        "shared_resistances={resistances:?};contact={contact_resistance:?};live10={live:?}"
+    )];
+    let checks = vec![
+        (
+            "shared_compartment_alias_reproduced".into(),
+            resistances == [Some(4), Some(4), Some(4)],
         ),
         (
-            "positive_stem_consolidated".into(),
-            positive_stem_r.is_some_and(|r| r > 1),
+            "shared_junction_unchanged".into(),
+            contact_resistance == Some(1),
         ),
         (
-            "negative_relation_reclaimed".into(),
-            negative_live == (false, false, false),
+            "shared_topology_retained".into(),
+            live == (true, true, true, true),
         ),
+        ("three_link_updates".into(), world.work.arrow_updates == 3),
         (
-            "positive_relation_remains_executable".into(),
-            positive_live == (true, true, true),
+            "no_generated_alternatives".into(),
+            world.work.cell_proposals == 0 && world.work.arrow_proposals == 0,
         ),
-        ("one_cell_update".into(), world.work.cell_updates == 1),
-        ("one_arrow_update".into(), world.work.arrow_updates == 1),
     ];
     world.finish(markers, checks)
 }
@@ -586,13 +834,18 @@ fn mechanics_name(config: MechanicalConfig) -> &'static str {
 }
 
 fn main() {
+    let stage = Stage::parse(
+        &env::args()
+            .nth(1)
+            .unwrap_or_else(|| "gate-e".to_string()),
+    );
     let output_dir = env::args()
-        .nth(1)
+        .nth(2)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("experiments/results/cv0_bounded_contact_resume_v1"));
+        .unwrap_or_else(|| PathBuf::from("experiments/results/cv0e_j0_v1"));
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
-        "case,family,root,phase,mechanics,replay_equal,cross_mechanics_equal,checks_pass,failed,cell_proposals,arrow_proposals,cell_updates,arrow_updates,cell_deallocations,arrow_deallocations,physical_work,trace_len,final_tick,naturally_quiescent,body_hash,markers\n",
+        "case,family,root,phase,mechanics,replay_equal,cross_mechanics_equal,checks_pass,failed,cell_proposals,arrow_proposals,arrow_updates,cell_deallocations,arrow_deallocations,physical_work,trace_len,final_tick,naturally_quiescent,body_hash,markers\n",
     );
     let mut cases = 0usize;
     let mut rows = 0usize;
@@ -601,11 +854,12 @@ fn main() {
     let mut all_pass = true;
     let mut gates_a_d_pass = true;
     let mut gate_e_pass = true;
+    let mut gates_f_i_pass = true;
     let mut maximum_work = 0u64;
 
     for root in ROOTS {
         for phase in PHASES {
-            for family in Family::ALL {
+            for &family in stage.families() {
                 cases += 1;
                 let reference = observe(family, root, phase, MechanicalConfig::REFERENCE);
                 let reference_replay = observe(family, root, phase, MechanicalConfig::REFERENCE);
@@ -613,10 +867,17 @@ fn main() {
                 let production_replay = observe(family, root, phase, MechanicalConfig::PRODUCTION);
                 let cross_equal = reference == production;
                 let family_pass = reference.passed() && production.passed() && cross_equal;
-                if family == Family::PositiveConsequence {
-                    gate_e_pass &= family_pass;
-                } else {
-                    gates_a_d_pass &= family_pass;
+                match family {
+                    Family::Symmetry
+                    | Family::NoConsequence
+                    | Family::BoundedCreation
+                    | Family::OrphanReuse => gates_a_d_pass &= family_pass,
+                    Family::PositiveConsequence => gate_e_pass &= family_pass,
+                    Family::NegativeConsequence
+                    | Family::Permutation
+                    | Family::NeitherUseful
+                    | Family::BothUseful
+                    | Family::SharedContact => gates_f_i_pass &= family_pass,
                 }
                 for (config, observation, replay) in [
                     (MechanicalConfig::REFERENCE, &reference, &reference_replay),
@@ -644,14 +905,13 @@ fn main() {
                     maximum_work = maximum_work.max(observation.work.physical);
                     writeln!(
                         csv,
-                        "{cases},{},{root},{phase},{},{replay_equal},{cross_equal},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                        "{cases},{},{root},{phase},{},{replay_equal},{cross_equal},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                         family.name(),
                         mechanics_name(config),
                         observation.passed(),
                         observation.failed_names(),
                         observation.work.cell_proposals,
                         observation.work.arrow_proposals,
-                        observation.work.cell_updates,
                         observation.work.arrow_updates,
                         observation.work.cell_deallocations,
                         observation.work.arrow_deallocations,
@@ -668,22 +928,32 @@ fn main() {
         }
     }
 
-    assert_eq!(cases, EXPECTED_CASES);
-    assert_eq!(rows, EXPECTED_ROWS);
+    let expected_cases = ROOTS.len() * usize::try_from(PHASES.end - PHASES.start).unwrap()
+        * stage.families().len();
+    let expected_rows = expected_cases.saturating_mul(2);
+    assert_eq!(cases, expected_cases);
+    assert_eq!(rows, expected_rows);
     let report = format!(
-        "# CV0 bounded local contact genesis resumed matrix\n\n- cases: {cases}/{EXPECTED_CASES}\n- rows: {rows}/{EXPECTED_ROWS}\n- clauses: {passed_clauses}/{clauses}\n- Gates A-D: {}\n- Gate E: {}\n- Reference/Production exact: {}\n- replay exact: {}\n- natural quiescence: {}\n- maximum PhysicalWork: {maximum_work}\n",
-        if gates_a_d_pass { "PASS" } else { "FAIL" },
+        "# CV0-E/J0 junction-lifetime matrix\n\n- stage: {stage:?}\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed_clauses}/{clauses}\n- Gates A-D: {}\n- Gate E: {}\n- Gates F-I: {}\n- Gate J Reference/Production exact: {}\n- replay exact: {}\n- natural quiescence: {}\n- maximum PhysicalWork: {maximum_work}\n",
+        if stage == Stage::GateE { "NOT RUN" } else if gates_a_d_pass { "PASS" } else { "FAIL" },
         if gate_e_pass { "PASS" } else { "FAIL" },
+        if stage == Stage::GateE { "NOT RUN" } else if gates_f_i_pass { "PASS" } else { "FAIL" },
         reference_production_exact(&csv),
         replay_exact(&csv),
         quiescence_exact(&csv),
     );
     fs::write(output_dir.join("matrix.csv"), csv).unwrap();
     fs::write(output_dir.join("report.md"), report).unwrap();
-    assert!(gates_a_d_pass, "CV0 Gates A-D failed");
     assert!(gate_e_pass, "CV0 Gate E failed");
+    if stage == Stage::Full {
+        assert!(gates_a_d_pass, "CV0 Gates A-D failed");
+        assert!(gates_f_i_pass, "CV0 Gates F-I failed");
+    }
     assert!(all_pass, "CV0 cumulative resumed matrix failed");
-    println!("CV0_BOUNDED_LOCAL_CONTACT_GENESIS_POSITIVE_V1");
+    match stage {
+        Stage::GateE => println!("CV0E_J0_GATE_E_POSITIVE_V1"),
+        Stage::Full => println!("CV0_J0_BOUNDED_LOCAL_CONTACT_GENESIS_POSITIVE_V1"),
+    }
 }
 
 fn reference_production_exact(csv: &str) -> bool {
@@ -701,5 +971,5 @@ fn replay_exact(csv: &str) -> bool {
 fn quiescence_exact(csv: &str) -> bool {
     !csv.lines()
         .skip(1)
-        .any(|line| line.split(',').nth(18) != Some("true"))
+        .any(|line| line.split(',').nth(17) != Some("true"))
 }

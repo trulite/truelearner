@@ -275,7 +275,7 @@ pub enum PhysicalEvent {
         before: u32,
         after: u32,
     },
-    #[cfg(feature = "cv0")]
+    #[cfg(any(feature = "cv0", feature = "cv0j0"))]
     CellProposal {
         cell: CellId,
         source: CellId,
@@ -311,7 +311,7 @@ pub struct Work {
     pub cell_deallocations: u64,
     #[cfg(feature = "cc0")]
     pub cell_return_updates: u64,
-    #[cfg(feature = "cv0")]
+    #[cfg(any(feature = "cv0", feature = "cv0j0"))]
     pub local_cell_proposals: u64,
     pub qualified_local_traversals: u64,
 }
@@ -401,7 +401,7 @@ impl Work {
         let total = total.saturating_add(self.cell_deallocations);
         #[cfg(feature = "cc0")]
         let total = total.saturating_add(self.cell_return_updates);
-        #[cfg(feature = "cv0")]
+        #[cfg(any(feature = "cv0", feature = "cv0j0"))]
         let total = total.saturating_add(self.local_cell_proposals);
         total.saturating_add(self.qualified_local_traversals)
     }
@@ -2718,13 +2718,13 @@ impl PlasticSubstrate {
         phase: i32,
         physical_trace: &mut Vec<PhysicalTransition>,
     ) {
-        #[cfg(feature = "cv0")]
+        #[cfg(any(feature = "cv0", feature = "cv0j0"))]
         self.propose_local_contacts(source, work, execution_cost, phase, physical_trace);
-        #[cfg(not(feature = "cv0"))]
+        #[cfg(not(any(feature = "cv0", feature = "cv0j0")))]
         self.propose_direct_local_arrows(source, work, execution_cost, phase, physical_trace);
     }
 
-    #[cfg(not(feature = "cv0"))]
+    #[cfg(not(any(feature = "cv0", feature = "cv0j0")))]
     fn propose_direct_local_arrows(
         &mut self,
         source: CellId,
@@ -2794,7 +2794,7 @@ impl PlasticSubstrate {
         }
     }
 
-    #[cfg(feature = "cv0")]
+    #[cfg(any(feature = "cv0", feature = "cv0j0"))]
     fn propose_local_contacts(
         &mut self,
         source: CellId,
