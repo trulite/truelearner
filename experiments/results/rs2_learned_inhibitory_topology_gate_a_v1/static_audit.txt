@@ -1,0 +1,5 @@
+gate_a=negative
+proposal_coupling=1
+proposal_mode=Drive
+negative_drive_candidate=false
+RS2_LEARNED_INHIBITORY_TOPOLOGY_GATE_A_STATIC_NEGATIVE_V1
