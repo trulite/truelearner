@@ -67,9 +67,7 @@ impl WorkTotals {
     fn add(&mut self, work: Work) {
         self.physical = self.physical.saturating_add(work.physical_total());
         self.drive = self.drive.saturating_add(work.drive_deliveries);
-        self.modulation = self
-            .modulation
-            .saturating_add(work.modulatory_deliveries);
+        self.modulation = self.modulation.saturating_add(work.modulatory_deliveries);
         self.updates = self.updates.saturating_add(work.local_return_updates);
         self.proposals = self
             .proposals
@@ -192,7 +190,11 @@ fn enter_drive(body: &mut PlasticSubstrate, target: CellId, tick: i64, origin: u
     });
 }
 
-fn candidate_states(body: &PlasticSubstrate, source: CellId, target: CellId) -> Vec<CandidateState> {
+fn candidate_states(
+    body: &PlasticSubstrate,
+    source: CellId,
+    target: CellId,
+) -> Vec<CandidateState> {
     let mut candidates = body
         .arena_body(1)
         .arrows
@@ -248,12 +250,7 @@ fn run_case(
     let mut work = WorkTotals::default();
     let mut naturally_quiescent = true;
 
-    enter_drive(
-        &mut world.body,
-        world.source,
-        start_tick,
-        root + 900_000,
-    );
+    enter_drive(&mut world.body, world.source, start_tick, root + 900_000);
     let first = world.body.propagate();
     naturally_quiescent &= first.naturally_quiescent;
     let initial_crossings = first
@@ -302,11 +299,8 @@ fn run_case(
         _ => {}
     }
     let after_consequence = candidate_states(&world.body, world.source, world.target);
-    peak_live_candidates = peak_live_candidates.max(live_candidates(
-        &world.body,
-        world.source,
-        world.target,
-    ));
+    peak_live_candidates =
+        peak_live_candidates.max(live_candidates(&world.body, world.source, world.target));
 
     let mut death_ages = Vec::new();
     match family {
@@ -352,11 +346,8 @@ fn run_case(
                 root + 930_000,
             );
             naturally_quiescent &= extend_run(&mut world.body, &mut trace, &mut work);
-            peak_live_candidates = peak_live_candidates.max(live_candidates(
-                &world.body,
-                world.source,
-                world.target,
-            ));
+            peak_live_candidates =
+                peak_live_candidates.max(live_candidates(&world.body, world.source, world.target));
             work.add(
                 world
                     .body
@@ -369,11 +360,8 @@ fn run_case(
                 root + 930_001,
             );
             naturally_quiescent &= extend_run(&mut world.body, &mut trace, &mut work);
-            peak_live_candidates = peak_live_candidates.max(live_candidates(
-                &world.body,
-                world.source,
-                world.target,
-            ));
+            peak_live_candidates =
+                peak_live_candidates.max(live_candidates(&world.body, world.source, world.target));
             work.add(world.body.advance_time(start_tick.saturating_add(21)));
         }
         Family::PositiveUseful | Family::NegativeUseful | Family::BothUseful => {
@@ -519,7 +507,10 @@ fn states_text(states: &[CandidateState]) -> String {
 }
 
 fn selection_text(observation: &Observation) -> &'static str {
-    match (observation.candidate(-1).live, observation.candidate(1).live) {
+    match (
+        observation.candidate(-1).live,
+        observation.candidate(1).live,
+    ) {
         (false, false) => "neither",
         (false, true) => "positive_only",
         (true, false) => "negative_only",
