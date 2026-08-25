@@ -12,8 +12,7 @@ use truelearner_core::{
 
 const ROOTS: [u64; 2] = [1_500_000, 1_600_000];
 const CURVE_DELAYS: [i64; 22] = [
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-    1024,
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 1024,
 ];
 const EXPECTED_CURVE_CASES: usize = 440;
 const EXPECTED_CONTROL_CASES: usize = 180;
@@ -182,12 +181,7 @@ fn geometry(
     }
 }
 
-fn input(
-    target: truelearner_core::CellId,
-    tick: i64,
-    origin: u64,
-    impulse: i32,
-) -> SpikeInput {
+fn input(target: truelearner_core::CellId, tick: i64, origin: u64, impulse: i32) -> SpikeInput {
     SpikeInput {
         arrival_tick: tick,
         phase: 0,
@@ -242,12 +236,7 @@ fn observe(geometry: Geometry, trace: Vec<PhysicalTransition>, physical_work: u6
     }
 }
 
-fn run_curve(
-    root: u64,
-    phase: i64,
-    delay: i64,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn run_curve(root: u64, phase: i64, delay: i64, mechanics: MechanicalConfig) -> Observation {
     let mut geometry = geometry(root, phase, mechanics, None, false);
     let mut trace = Vec::new();
     let mut physical_work = 0_u64;
@@ -493,7 +482,14 @@ fn main() {
                 }
             }
             assert!(relative_curve.windows(2).all(|pair| pair[0] > pair[1]));
-            assert!(relative_curve.iter().copied().collect::<std::collections::BTreeSet<_>>().len() >= 3);
+            assert!(
+                relative_curve
+                    .iter()
+                    .copied()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    >= 3
+            );
             if let Some(baseline) = &baseline_curve {
                 assert_eq!(&relative_curve, baseline);
             } else {
