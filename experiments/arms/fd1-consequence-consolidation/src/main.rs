@@ -541,9 +541,179 @@ fn write_checksums(output: &Path) {
     fs::write(output.join("SHA256SUMS"), sums).unwrap();
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct C3Diagnostic {
+    early_after: ArrowState,
+    late_after: ArrowState,
+    early_last: ArrowState,
+    late_last: ArrowState,
+    early_dead: ArrowState,
+    late_dead: ArrowState,
+    early_future_work: u64,
+    late_future_work: u64,
+    early_trace: Vec<PhysicalTransition>,
+    late_trace: Vec<PhysicalTransition>,
+    naturally_quiescent: bool,
+}
+
+impl C3Diagnostic {
+    fn after_equal(&self) -> bool {
+        self.early_after == self.late_after
+    }
+
+    fn last_equal(&self) -> bool {
+        self.early_last == self.late_last
+    }
+
+    fn dead_equal(&self) -> bool {
+        self.early_dead == self.late_dead
+    }
+
+    fn work_equal(&self) -> bool {
+        self.early_future_work == self.late_future_work
+    }
+}
+
+fn diagnose_c3(root: u64, phase: i64, mechanics: MechanicalConfig) -> C3Diagnostic {
+    let mut early = World::new(root, phase, mechanics, true);
+    early.traverse(1, root + 901);
+    early.consequence(1, root + 902);
+    let early_after = early.state();
+    let early_work = early.work.physical;
+    early.advance(40);
+    let early_last = early.state();
+    let early_future_work = early.work.physical.saturating_sub(early_work);
+    early.advance(41);
+    let early_dead = early.state();
+
+    let mut late = World::new(root, phase, mechanics, true);
+    late.traverse(9, root + 903);
+    late.consequence(9, root + 904);
+    let late_after = late.state();
+    let late_work = late.work.physical;
+    late.advance(48);
+    let late_last = late.state();
+    let late_future_work = late.work.physical.saturating_sub(late_work);
+    late.advance(49);
+    let late_dead = late.state();
+
+    C3Diagnostic {
+        early_after,
+        late_after,
+        early_last,
+        late_last,
+        early_dead,
+        late_dead,
+        early_future_work,
+        late_future_work,
+        early_trace: early.trace,
+        late_trace: late.trace,
+        naturally_quiescent: early.naturally_quiescent && late.naturally_quiescent,
+    }
+}
+
+fn arrow_state_string(state: ArrowState) -> String {
+    format!(
+        "{}/{}/{}/{}/{}/{}",
+        u8::from(state.live),
+        state.resistance,
+        state.decay_load,
+        state.participation,
+        state.support,
+        u8::from(state.generation_resolves),
+    )
+}
+
+fn diagnostic_main(output: PathBuf) {
+    fs::create_dir_all(&output).unwrap();
+    let roots = [4_500_000_u64, 4_600_000_u64];
+    let mechanics = [MechanicalConfig::REFERENCE, MechanicalConfig::PRODUCTION];
+    let mut csv = String::from(
+        "root,creation_phase,mechanics,early_after,late_after,after_equal,early_last,late_last,last_equal,early_dead,late_dead,dead_equal,early_future_work,late_future_work,work_equal,early_trace_hash,late_trace_hash,quiescent,replay_equal,mechanics_equal\n",
+    );
+    let mut all_states_equal = true;
+    let mut all_work_equal = true;
+    let mut rows = 0_usize;
+    for root in roots {
+        for phase in PHASES {
+            let reference = diagnose_c3(root, phase, mechanics[0]);
+            let reference_replay = diagnose_c3(root, phase, mechanics[0]);
+            assert_eq!(reference_replay, reference);
+            let production = diagnose_c3(root, phase, mechanics[1]);
+            let production_replay = diagnose_c3(root, phase, mechanics[1]);
+            assert_eq!(production_replay, production);
+            assert_eq!(production, reference);
+            assert!(reference.naturally_quiescent);
+            all_states_equal &=
+                reference.after_equal() && reference.last_equal() && reference.dead_equal();
+            all_work_equal &= reference.work_equal();
+            for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)] {
+                rows += 1;
+                writeln!(
+                    csv,
+                    "{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},1,1",
+                    mechanics_name(kind),
+                    arrow_state_string(observation.early_after),
+                    arrow_state_string(observation.late_after),
+                    u8::from(observation.after_equal()),
+                    arrow_state_string(observation.early_last),
+                    arrow_state_string(observation.late_last),
+                    u8::from(observation.last_equal()),
+                    arrow_state_string(observation.early_dead),
+                    arrow_state_string(observation.late_dead),
+                    u8::from(observation.dead_equal()),
+                    observation.early_future_work,
+                    observation.late_future_work,
+                    u8::from(observation.work_equal()),
+                    ContentHash::of(format!("{:?}", observation.early_trace).as_bytes()),
+                    ContentHash::of(format!("{:?}", observation.late_trace).as_bytes()),
+                    u8::from(observation.naturally_quiescent),
+                )
+                .unwrap();
+            }
+        }
+    }
+    let classification = if all_states_equal && !all_work_equal {
+        "evaluator_fixture_measurement_defect"
+    } else if !all_states_equal {
+        "candidate_physical_law_negative"
+    } else {
+        "unreproduced_composite_failure"
+    };
+    let report = format!(
+        "# FD1 negative-v1 C3 diagnostic result v1\n\n\
+         - rows: `{rows}/40`\n\
+         - candidate-state pairs all equal: `{all_states_equal}`\n\
+         - future PhysicalWork pairs all equal: `{all_work_equal}`\n\
+         - exact same-mechanics replay: `true`\n\
+         - exact Reference/Production observations: `true`\n\
+         - natural quiescence: `true`\n\
+         - classification: `{classification}`\n\
+         - FD1 v1 relabeled or rescued: `false`\n",
+    );
+    fs::write(output.join("diagnostic.csv"), csv).unwrap();
+    fs::write(output.join("diagnostic.md"), report).unwrap();
+    let mut sums = String::new();
+    for name in ["diagnostic.csv", "diagnostic.md"] {
+        let bytes = fs::read(output.join(name)).unwrap();
+        writeln!(sums, "{}  {name}", ContentHash::of(&bytes)).unwrap();
+    }
+    fs::write(output.join("SHA256SUMS"), sums).unwrap();
+    println!("FD1_DIAGNOSTIC_COMPLETE classification={classification}");
+}
+
 fn main() {
-    let output = env::args_os()
-        .nth(1)
+    let mut arguments = env::args_os().skip(1);
+    let first = arguments.next();
+    if first.as_deref() == Some(std::ffi::OsStr::new("--diagnostic")) {
+        let output = arguments
+            .next()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("results/fd1_negative_v1_diagnostic"));
+        diagnostic_main(output);
+        return;
+    }
+    let output = first
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("results/fd1_consequence_consolidation_v1"));
     fs::create_dir_all(&output).unwrap();
