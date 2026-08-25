@@ -1,0 +1,10 @@
+gate_d=negative
+cell_construction_sets_live_from_resistance=true
+cell_decay_relaxes_activation_only=true
+cell_lifetime_evolution=false
+cell_deallocation=false
+cell_slot_reuse=false
+arrow_deallocation=true
+contact_genesis_implemented=false
+runtime_selection_gates_constructed=false
+CV0_BOUNDED_LOCAL_CONTACT_GENESIS_GATE_D_STATIC_NEGATIVE_V1
