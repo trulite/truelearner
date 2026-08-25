@@ -390,16 +390,13 @@ fn symmetry_checks(world: &World, negative: Candidate, positive: Candidate) -> V
                 && neg_out.transmission_mode == pos_out.transmission_mode
                 && neg_out.coupling == -pos_out.coupling,
         ),
-        ("both_contacts_participated".into(), {
-            world
-                .body
-                .cell_participation(negative.contact)
-                .is_some_and(|v| v > 0)
-                && world
-                    .body
-                    .cell_participation(positive.contact)
-                    .is_some_and(|v| v > 0)
-        }),
+        (
+            "both_relations_participated".into(),
+            world.body.local_participation(negative.stem.id) > 0
+                && world.body.local_participation(negative.outgoing.id) > 0
+                && world.body.local_participation(positive.stem.id) > 0
+                && world.body.local_participation(positive.outgoing.id) > 0,
+        ),
     ]
 }
 
