@@ -65,12 +65,8 @@ impl WorkTotals {
         self.physical = self.physical.saturating_add(work.physical_total());
         self.drive = self.drive.saturating_add(work.drive_deliveries);
         self.modulation = self.modulation.saturating_add(work.modulatory_deliveries);
-        self.arrow_updates = self
-            .arrow_updates
-            .saturating_add(work.local_return_updates);
-        self.cell_updates = self
-            .cell_updates
-            .saturating_add(work.cell_return_updates);
+        self.arrow_updates = self.arrow_updates.saturating_add(work.local_return_updates);
+        self.cell_updates = self.cell_updates.saturating_add(work.cell_return_updates);
         self.proposals = self
             .proposals
             .saturating_add(work.local_structural_proposals);
@@ -291,7 +287,10 @@ fn observe_supported(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obse
         ("one_cell_update".into(), updates == 1),
         ("lifetime_rebased_and_extended".into(), death == Some(42)),
         ("one_modulatory_delivery".into(), world.work.modulation == 1),
-        ("no_arrow_plastic_update".into(), world.work.arrow_updates == 0),
+        (
+            "no_arrow_plastic_update".into(),
+            world.work.arrow_updates == 0,
+        ),
         ("natural_quiescence".into(), world.naturally_quiescent),
     ];
     world.finish(markers, checks)
@@ -321,7 +320,10 @@ fn observe_use_only(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obser
             "use_left_transient_participation".into(),
             participation.is_some_and(|value| value > 0),
         ),
-        ("use_did_not_raise_resistance".into(), before_death == Some(1)),
+        (
+            "use_did_not_raise_resistance".into(),
+            before_death == Some(1),
+        ),
         ("ordinary_lifetime_unchanged".into(), death == Some(10)),
         ("zero_cell_updates".into(), world.work.cell_updates == 0),
     ];
@@ -345,7 +347,10 @@ fn observe_unqualified(root: u64, phase: i64, mechanics: MechanicalConfig) -> Ob
         world.work.cell_updates
     )];
     let checks = vec![
-        ("participating_cell_fired".into(), world.fire_count(participating) == 1),
+        (
+            "participating_cell_fired".into(),
+            world.fire_count(participating) == 1,
+        ),
         (
             "wrong_cell_modulation_did_not_credit_participant".into(),
             participating_after == Some(2),
@@ -376,8 +381,14 @@ fn observe_relaxed(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observ
         "trace_before={trace_before:?};resistance={resistance_before:?}->{resistance_after:?}"
     )];
     let checks = vec![
-        ("participation_relaxed_to_zero".into(), trace_before == Some(0)),
-        ("subject_still_live".into(), world.body.cell_is_live(subject) == Some(true)),
+        (
+            "participation_relaxed_to_zero".into(),
+            trace_before == Some(0),
+        ),
+        (
+            "subject_still_live".into(),
+            world.body.cell_is_live(subject) == Some(true),
+        ),
         (
             "late_modulation_no_resistance_change".into(),
             resistance_after == resistance_before,
@@ -405,9 +416,15 @@ fn observe_two_local(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obse
         world.work.cell_updates
     )];
     let checks = vec![
-        ("both_cells_participated".into(), world.fire_count(first) == 1 && world.fire_count(second) == 1),
+        (
+            "both_cells_participated".into(),
+            world.fire_count(first) == 1 && world.fire_count(second) == 1,
+        ),
         ("local_cell_consolidated".into(), first_after == Some(4)),
-        ("neighbor_did_not_consolidate".into(), second_after == Some(1)),
+        (
+            "neighbor_did_not_consolidate".into(),
+            second_after == Some(1),
+        ),
         ("one_cell_update".into(), world.work.cell_updates == 1),
     ];
     world.finish(markers, checks)
@@ -456,9 +473,7 @@ fn main() {
     let output_dir = env::args()
         .nth(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from("experiments/results/cc0_consequence_supported_cell_v1")
-        });
+        .unwrap_or_else(|| PathBuf::from("experiments/results/cc0_consequence_supported_cell_v1"));
     fs::create_dir_all(&output_dir).unwrap();
 
     let mut csv = String::from(
@@ -482,7 +497,11 @@ fn main() {
                 let cross_equal = reference == production;
                 for (config, observation, replay) in [
                     (MechanicalConfig::REFERENCE, &reference, &reference_replay),
-                    (MechanicalConfig::PRODUCTION, &production, &production_replay),
+                    (
+                        MechanicalConfig::PRODUCTION,
+                        &production,
+                        &production_replay,
+                    ),
                 ] {
                     rows += 1;
                     let replay_equal = observation == replay;
