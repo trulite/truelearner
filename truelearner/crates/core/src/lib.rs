@@ -2105,12 +2105,7 @@ impl PlasticSubstrate {
         }
     }
 
-    fn elapse_fd0_decay(
-        &mut self,
-        tick: i64,
-        work: &mut Work,
-        execution_cost: &mut ExecutionCost,
-    ) {
+    fn elapse_fd0_decay(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
         let elapsed = tick.saturating_sub(self.tick);
         let elapsed_u64 = u64::try_from(elapsed).unwrap_or(u64::MAX);
         for index in 0..self.arrows.len() {
@@ -2119,16 +2114,15 @@ impl PlasticSubstrate {
                 if !arrow.live {
                     return (false, false, 0);
                 }
-                arrow.participation_level =
-                    relax_participation(arrow.participation_level, elapsed);
+                arrow.participation_level = relax_participation(arrow.participation_level, elapsed);
                 let lifetime_remaining = u64::from(arrow.resistance)
                     .saturating_mul(u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX))
                     .saturating_sub(arrow.decay_load);
                 let active_ticks = elapsed_u64.min(lifetime_remaining);
                 let total_decay = arrow.decay_load.saturating_add(elapsed_u64);
                 let durable_loss = total_decay / u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(1);
-                arrow.decay_load = total_decay
-                    % u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX);
+                arrow.decay_load =
+                    total_decay % u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX);
                 let was_live = arrow.live;
                 if durable_loss > 0 {
                     decay_arrow(arrow, u32::try_from(durable_loss).unwrap_or(u32::MAX));
