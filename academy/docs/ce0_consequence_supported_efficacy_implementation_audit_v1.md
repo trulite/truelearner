@@ -52,9 +52,18 @@ The standalone CE0 package was formatted and compiled in reusable E2B worker
 `iq2ph1xuh7t0p1ckb4r9p`. Its first strict-Clippy preflight rejected only the
 mechanical enum name `ThresholdFamily`; it was renamed `Thresholds` without a
 world, law, schedule, or predicate change and the candidate hashes above were
-re-frozen. The matrix has not been executed. Strict Clippy, no-world tests, the
-static audit, and source-boundary checks remain to be rerun against this
-corrected frozen candidate before the one-shot matrix.
+re-frozen. The corrected candidate passed formatting, strict Clippy, and the
+CE0 static/source-boundary audit.
+
+The targeted core library suite passed 13/14. The sole failure was the inherited
+`quiescent_checkpoint_preserves_clock_phase_and_future_behavior` test: after
+advancing an R=50 body to tick 23, FD0 local forgetting correctly leaves
+`decay_load=3`, while the older test still requires a quiescent checkpoint.
+The exact test fails identically with CE0 disabled in the same worker. CE0 did
+not edit checkpointing, local forgetting, the test, or its state. This inherited
+contract conflict is recorded rather than repaired inside CE0.
+
+The CE0 matrix has not been executed.
 
 ## Decision boundary
 
