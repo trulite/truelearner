@@ -7,8 +7,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, ContentHash, MechanicalConfig, PhysicalEvent,
-    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode,
+    ArenaId, ArrowId, ArrowSpec, ContentHash, MechanicalConfig, PhysicalEvent, PhysicalTransition,
+    PlasticSubstrate, SpikeInput, TransmissionMode,
 };
 
 const ROOT: u64 = 1_100_000;
@@ -31,7 +31,12 @@ struct DiagnosticRun {
     quiescent: bool,
 }
 
-fn add_cell(body: &mut PlasticSubstrate, physical_id: u64, position: i32, threshold: i32) -> truelearner_core::CellId {
+fn add_cell(
+    body: &mut PlasticSubstrate,
+    physical_id: u64,
+    position: i32,
+    threshold: i32,
+) -> truelearner_core::CellId {
     body.add_cell(truelearner_core::CellSpec {
         physical_id,
         position,
@@ -193,9 +198,10 @@ fn write_checksums(output: &Path) {
 }
 
 fn main() {
-    let output = env::args_os().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from("results/tc_ds1_trace_order_negative_diagnostic_v1")
-    });
+    let output = env::args_os()
+        .nth(1)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("results/tc_ds1_trace_order_negative_diagnostic_v1"));
     fs::create_dir_all(&output).unwrap();
 
     let reference = execute(MechanicalConfig::REFERENCE);
@@ -213,7 +219,10 @@ fn main() {
         .iter()
         .zip(&production_lines)
         .position(|(left, right)| left != right)
-        .or_else(|| (reference_lines.len() != production_lines.len()).then_some(reference_lines.len().min(production_lines.len())));
+        .or_else(|| {
+            (reference_lines.len() != production_lines.len())
+                .then_some(reference_lines.len().min(production_lines.len()))
+        });
 
     assert_eq!(reference.a, production.a);
     assert_eq!(reference.b, production.b);
