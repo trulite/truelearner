@@ -43,7 +43,7 @@ require 'required\.contains\(&cell\.id\)' "$core"
 require 'work\.cell_deallocations = work\.cell_deallocations\.saturating_add\(1\)' "$core"
 
 forbid 'ContactCell|JunctionCell|TemporaryCell'
-forbid 'predecessor|path_id|route_id|hop_count|backward'
+forbid 'predecessor|path_id|route_id|hop_count|BackwardTraversal|TransmissionMode::Backward'
 forbid 'selected_candidate|useful_branch|reward'
 
 echo 'J0_STATIC_AUDIT_OK'
