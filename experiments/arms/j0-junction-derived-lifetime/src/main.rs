@@ -208,14 +208,26 @@ impl World {
     }
 
     fn pulse(&mut self, target: CellId, age: i64) {
-        let result = self.body.arrive(
-            &[SpikeInput {
+        self.pulse_many(&[target], age);
+    }
+
+    fn pulse_many(&mut self, targets: &[CellId], age: i64) {
+        let inputs = targets
+            .iter()
+            .enumerate()
+            .map(|(index, target)| SpikeInput {
                 arrival_tick: self.origin.saturating_add(age),
                 phase: 0,
-                origin_physical: self.next_physical.saturating_add(10_000),
-                target,
+                origin_physical: self
+                    .next_physical
+                    .saturating_add(10_000)
+                    .saturating_add(u64::try_from(index).unwrap_or(u64::MAX)),
+                target: *target,
                 impulse: 1,
-            }],
+            })
+            .collect::<Vec<_>>();
+        let result = self.body.arrive(
+            &inputs,
             i16::MAX,
         );
         self.trace.extend(result.physical_trace);
@@ -572,8 +584,7 @@ fn observe_two_incoming(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
         incoming2,
         outgoing,
     } = incoming_fixture(root, phase, mechanics);
-    world.pulse(p1, 0);
-    world.pulse(p2, 0);
+    world.pulse_many(&[p1, p2], 0);
     world.pulse(modulator, 2);
     let state = (
         world.arrow_resistance(incoming1),
@@ -648,8 +659,7 @@ fn observe_nearby(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observa
     let e = world.cell(20, 100, 500);
     world.anchor(&[d, e]);
     let unrelated = world.arrow(d, e, 1, TransmissionMode::Drive);
-    world.pulse(p, 0);
-    world.pulse(d, 0);
+    world.pulse_many(&[p, d], 0);
     world.pulse(modulator, 2);
     let state = (
         world.arrow_resistance(incoming),
