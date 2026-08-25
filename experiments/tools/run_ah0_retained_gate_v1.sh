@@ -18,7 +18,10 @@ cargo run --release --manifest-path experiments/arms/si0-simultaneous-local-inci
     -- "$output/si0"
 cargo run --release --manifest-path experiments/arms/ah0-cpc0-parent-differential/Cargo.toml \
     -- "$output/cpc0"
-cmp experiments/baselines/ah0_cpc0_parent_v1/matrix.csv "$output/cpc0/matrix.csv"
+python3 experiments/tools/compare_ah0_cpc0_parent_v1.py \
+    experiments/baselines/ah0_cpc0_parent_v1/matrix.csv \
+    "$output/cpc0/matrix.csv" \
+    > "$output/cpc0_parent_comparison.txt"
 cmp experiments/baselines/ah0_cpc0_parent_v1/report.md "$output/cpc0/report.md"
 cargo run --release --manifest-path experiments/arms/cpc1-local-temporal-participation/Cargo.toml \
     -- "$output/cpc1"
