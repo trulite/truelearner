@@ -2418,9 +2418,13 @@ impl PlasticSubstrate {
         tick: i64,
         work: &mut Work,
         execution_cost: &mut ExecutionCost,
-        mut physical_trace: Option<&mut Vec<PhysicalTransition>>,
+        physical_trace: Option<&mut Vec<PhysicalTransition>>,
         phase: i32,
     ) {
+        #[cfg(feature = "cl0")]
+        let mut physical_trace = physical_trace;
+        #[cfg(not(feature = "cl0"))]
+        let _ = (physical_trace, phase);
         let elapsed = tick.saturating_sub(self.tick);
         let elapsed_u64 = u64::try_from(elapsed).unwrap_or(u64::MAX);
         for index in 0..self.arrows.len() {
@@ -2471,7 +2475,7 @@ impl PlasticSubstrate {
         tick: i64,
         work: &mut Work,
         execution_cost: &mut ExecutionCost,
-        mut physical_trace: Option<&mut Vec<PhysicalTransition>>,
+        physical_trace: Option<&mut Vec<PhysicalTransition>>,
         phase: i32,
     ) {
         #[cfg(not(feature = "cl0"))]
@@ -2480,6 +2484,7 @@ impl PlasticSubstrate {
         }
         #[cfg(feature = "cl0")]
         {
+            let mut physical_trace = physical_trace;
             let elapsed = tick.saturating_sub(self.tick);
             let elapsed_u64 = u64::try_from(elapsed).unwrap_or(u64::MAX);
             for index in 0..self.cells.len() {

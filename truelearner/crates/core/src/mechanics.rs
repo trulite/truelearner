@@ -894,14 +894,14 @@ where
     Some(first)
 }
 
-fn order_key<F>(spike: &Spike, target_physical: &F) -> (i64, i32, u64, u64, u64)
+fn order_key<F>(spike: &Spike, _target_physical: &F) -> (i64, i32, u64, u64, u64)
 where
     F: Fn(CellId) -> u64,
 {
     #[cfg(feature = "cl0")]
     let target_physical = spike.target_physical;
     #[cfg(not(feature = "cl0"))]
-    let target_physical = target_physical(spike.target);
+    let target_physical = _target_physical(spike.target);
     (
         spike.arrival_tick,
         spike.phase,
