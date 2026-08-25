@@ -29,7 +29,7 @@ require identical trace, PhysicalWork, clock, durable body, and quiescence.
 ## Frozen candidate hashes
 
 ```text
-core lib.rs       80447cf6c792ea486725aae50e6fc58ce4d0cb5c3087628dd6f7ceb1d35095ab
+core lib.rs       45dd6af368776d68574ff2b00dd4db109d469bfeedc99b57eb76ad6b26ca111c
 core Cargo.toml   5d794eae058f5cdd896064b0a37a6dfb124d9d7b6d03f8cfa9c53651e58460ef
 evaluator         37a59bbb7a109d7a916f8c3591ebe32c3161f44f00f4bc317dbd7136dcd640ac
 arm Cargo.toml    d0f7bc6e48b0aad1167ca5535e0653db06e9c8cfe10b65ad5a9968b7e89ded14
@@ -55,3 +55,11 @@ unbounded propagation, while a recurrent run pauses at 16 deliveries and
 resumes for another 8 without discarding activity or allowing forgetting to
 terminate it. The matrix has not run. Strict Clippy, the static audit, and this
 targeted observer control remain before the one-shot characterization.
+
+The control's first preflight compared the complete `RunResult` and therefore
+failed solely on `ExecutionCost.peak_resident_bytes` (`920` versus `1432`) after
+a Rust clone selected different allocation capacity. All frozen physical fields
+matched. Because ExecutionCost is explicitly outside RS0 physical equivalence,
+the control was corrected before evidence to use the existing
+`assert_physical_equivalence` helper; no observer, world, or physical predicate
+changed.

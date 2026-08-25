@@ -3332,7 +3332,7 @@ mod tests {
         let unbounded = ordinary.propagate();
         assert!(!observed.observation_ceiling_reached);
         assert_eq!(observed.scheduled_deliveries, 2);
-        assert_eq!(observed.run, unbounded);
+        assert_physical_equivalence(&bounded, &observed.run, &ordinary, &unbounded);
         assert_eq!(bounded, ordinary);
 
         let mut recurrent = PlasticSubstrate::with_capacity(ArenaId(99), 4, 4);

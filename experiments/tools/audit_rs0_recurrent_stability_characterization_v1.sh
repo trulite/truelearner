@@ -15,7 +15,7 @@ check_hash() {
   }
 }
 
-check_hash 80447cf6c792ea486725aae50e6fc58ce4d0cb5c3087628dd6f7ceb1d35095ab \
+check_hash 45dd6af368776d68574ff2b00dd4db109d469bfeedc99b57eb76ad6b26ca111c \
   truelearner/crates/core/src/lib.rs
 check_hash 5d794eae058f5cdd896064b0a37a6dfb124d9d7b6d03f8cfa9c53651e58460ef \
   truelearner/crates/core/Cargo.toml
