@@ -95,6 +95,15 @@ struct Observation {
     quiescent: bool,
 }
 
+#[derive(Clone, Copy)]
+struct CaseKey {
+    id: usize,
+    root: u64,
+    phase: i64,
+    arm: Arm,
+    world: World,
+}
+
 struct Geometry {
     body: PlasticSubstrate,
     effect: CellId,
@@ -532,25 +541,24 @@ fn vector(values: &[u64]) -> String {
 
 fn write_row(
     csv: &mut String,
-    case_id: usize,
-    root: u64,
-    phase: i64,
-    arm: Arm,
-    world: World,
+    key: CaseKey,
     mechanics: MechanicalConfig,
     observation: &Observation,
 ) {
     writeln!(
         csv,
-        "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
-        arm.name(),
-        world.name(),
+        "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        key.id,
+        key.root,
+        key.phase,
+        key.arm.name(),
+        key.world.name(),
         mechanics_name(mechanics),
         vector(&observation.participation),
         vector(&observation.support),
         vector(&observation.distractor_support),
         vector(&observation.modulation_at_contacts),
-        u8::from(predicate(world, observation)),
+        u8::from(predicate(key.world, observation)),
         observation.work.physical,
         observation.work.drive,
         observation.work.modulation,
@@ -618,11 +626,13 @@ fn main() {
                     {
                         write_row(
                             &mut csv,
-                            physical_cases,
-                            root,
-                            phase,
-                            arm,
-                            world,
+                            CaseKey {
+                                id: physical_cases,
+                                root,
+                                phase,
+                                arm,
+                                world,
+                            },
                             kind,
                             observation,
                         );
