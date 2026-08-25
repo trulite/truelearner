@@ -24,7 +24,7 @@ enum Family {
     WrongAndLate,
     GradedMagnitude,
     RepeatedSupported,
-    ThresholdFamily,
+    Thresholds,
     EqualPersistenceEfficacy,
     FanoutLocality,
     RecurrentStability,
@@ -38,7 +38,7 @@ impl Family {
         Self::WrongAndLate,
         Self::GradedMagnitude,
         Self::RepeatedSupported,
-        Self::ThresholdFamily,
+        Self::Thresholds,
         Self::EqualPersistenceEfficacy,
         Self::FanoutLocality,
         Self::RecurrentStability,
@@ -52,7 +52,7 @@ impl Family {
             Self::WrongAndLate => "wrong_and_late",
             Self::GradedMagnitude => "graded_magnitude",
             Self::RepeatedSupported => "repeated_supported",
-            Self::ThresholdFamily => "threshold_family",
+            Self::Thresholds => "threshold_family",
             Self::EqualPersistenceEfficacy => "equal_persistence_efficacy",
             Self::FanoutLocality => "fanout_locality",
             Self::RecurrentStability => "recurrent_stability",
@@ -610,7 +610,7 @@ fn run_case(root: u64, phase: i64, family: Family, mechanics: MechanicalConfig) 
         Family::WrongAndLate => wrong_and_late(family_root, phase, mechanics),
         Family::GradedMagnitude => graded(family_root, phase, mechanics),
         Family::RepeatedSupported => repeated_supported(family_root, phase, mechanics),
-        Family::ThresholdFamily => threshold_family(family_root, phase, mechanics),
+        Family::Thresholds => threshold_family(family_root, phase, mechanics),
         Family::EqualPersistenceEfficacy => equal_persistence(family_root, phase, mechanics),
         Family::FanoutLocality => fanout(family_root, phase, mechanics),
         Family::RecurrentStability => recurrent(family_root, phase, mechanics),
@@ -662,7 +662,7 @@ fn predicate(family: Family, observation: &Observation) -> bool {
                 && observation.states[0].coupling == 4
                 && observation.events.coupling == 3
         }
-        Family::ThresholdFamily => {
+        Family::Thresholds => {
             observation.measures == [1, 1, 1, 1]
                 && observation.states[0].coupling == 1
                 && observation.states[1].coupling == 2

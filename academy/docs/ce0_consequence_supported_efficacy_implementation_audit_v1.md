@@ -35,7 +35,7 @@ timer, ceiling, attenuation, normalization, or cycle behavior was added.
 ```text
 core lib.rs       dce7ee46a040695bcb318bcbf1ff284cfe7ec71738760c63f0df19f85b873c89
 core Cargo.toml   c07bea851a56526c375363fae980154ac70125f903476b64e353beb00992d15d
-evaluator         10089a6ee5b482f3ccae86c0505f89f23236addcec2cd3fc8791a014b83a8456
+evaluator         8e22d8f99f7435f21a82c0875dbc99e1be7dae954698b43a803bfa0262c65951
 arm Cargo.toml    821a7053eec2644edf5e23f957eb2a6d36ef50c355b26ceb90cdd18fa39d3c8a
 protocol          d3f51b90253a8d28a44ad9ed67505a001bdf03ea04e20eae2bc98481c0eb7c74
 CR0 handoff       a8b3874eee7108f9b471024a39dea809f04dd5a52864c0d9f8e1bfe7b9a1da83
@@ -49,9 +49,12 @@ the preregistered support-quantum efficacy update.
 ## Pre-evidence validation
 
 The standalone CE0 package was formatted and compiled in reusable E2B worker
-`iq2ph1xuh7t0p1ckb4r9p`. The matrix has not been executed. Strict Clippy,
-no-world tests, the static audit, and source-boundary checks remain to be run
-against the frozen candidate before the one-shot matrix.
+`iq2ph1xuh7t0p1ckb4r9p`. Its first strict-Clippy preflight rejected only the
+mechanical enum name `ThresholdFamily`; it was renamed `Thresholds` without a
+world, law, schedule, or predicate change and the candidate hashes above were
+re-frozen. The matrix has not been executed. Strict Clippy, no-world tests, the
+static audit, and source-boundary checks remain to be rerun against this
+corrected frozen candidate before the one-shot matrix.
 
 ## Decision boundary
 
@@ -60,4 +63,3 @@ forgetting may eventually end reciprocal excitation, but any post-learning
 re-fire of the initiating CELL fails CE0. The evidence run may not add a
 coupling ceiling, damping, homeostasis, cycle detection, altered schedule, or
 predicate repair.
-
