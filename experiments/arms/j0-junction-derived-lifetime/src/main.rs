@@ -108,9 +108,7 @@ impl WorkTotals {
         self.arrow_updates = self.arrow_updates.saturating_add(work.local_return_updates);
         #[cfg(feature = "cc0-model")]
         {
-            self.cell_updates = self
-                .cell_updates
-                .saturating_add(work.cell_return_updates);
+            self.cell_updates = self.cell_updates.saturating_add(work.cell_return_updates);
         }
         self.arrow_deallocations = self
             .arrow_deallocations
@@ -301,7 +299,13 @@ struct Chain {
     outgoing: ArrowRef,
 }
 
-fn chain(root: u64, phase: i64, mechanics: MechanicalConfig, incoming_r: u32, outgoing_r: u32) -> Chain {
+fn chain(
+    root: u64,
+    phase: i64,
+    mechanics: MechanicalConfig,
+    incoming_r: u32,
+    outgoing_r: u32,
+) -> Chain {
     let mut world = World::new(root, phase, mechanics);
     let p = world.cell(-100, 1, 500);
     let c = world.cell(0, 1, 1);
@@ -364,21 +368,48 @@ fn observe_useful(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observa
         Model::Cc0 => (
             vec![
                 ("cc0_cell_consolidated".into(), cell_after == Some(4)),
-                ("cc0_incoming_not_consolidated".into(), incoming_after == Some(1)),
-                ("cc0_outgoing_consolidated".into(), outgoing_after == Some(4)),
-                ("cc0_relation_broken_at_10".into(), live_at_10 == (Some(true), false, true)),
-                ("cc0_probe_cannot_reexecute".into(), fires_after_probe == fires_before_probe),
+                (
+                    "cc0_incoming_not_consolidated".into(),
+                    incoming_after == Some(1),
+                ),
+                (
+                    "cc0_outgoing_consolidated".into(),
+                    outgoing_after == Some(4),
+                ),
+                (
+                    "cc0_relation_broken_at_10".into(),
+                    live_at_10 == (Some(true), false, true),
+                ),
+                (
+                    "cc0_probe_cannot_reexecute".into(),
+                    fires_after_probe == fires_before_probe,
+                ),
             ],
             "independent_cell_persistence",
         ),
         #[cfg(feature = "junction-model")]
         Model::Junction => (
             vec![
-                ("junction_cell_not_consolidated".into(), cell_after == Some(1)),
-                ("junction_incoming_consolidated".into(), incoming_after == Some(4)),
-                ("junction_outgoing_consolidated".into(), outgoing_after == Some(4)),
-                ("junction_relation_live_at_10".into(), live_at_10 == (Some(true), true, true)),
-                ("junction_probe_reexecutes".into(), fires_after_probe == fires_before_probe + 1),
+                (
+                    "junction_cell_not_consolidated".into(),
+                    cell_after == Some(1),
+                ),
+                (
+                    "junction_incoming_consolidated".into(),
+                    incoming_after == Some(4),
+                ),
+                (
+                    "junction_outgoing_consolidated".into(),
+                    outgoing_after == Some(4),
+                ),
+                (
+                    "junction_relation_live_at_10".into(),
+                    live_at_10 == (Some(true), true, true),
+                ),
+                (
+                    "junction_probe_reexecutes".into(),
+                    fires_after_probe == fires_before_probe + 1,
+                ),
             ],
             "topology_derived_persistence",
         ),
@@ -389,7 +420,13 @@ fn observe_useful(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observa
     world.finish(markers, model_checks)
 }
 
-fn unsupported_world(root: u64, phase: i64, mechanics: MechanicalConfig, incoming_r: u32, outgoing_r: u32) -> (World, CellId, ArrowRef, ArrowRef) {
+fn unsupported_world(
+    root: u64,
+    phase: i64,
+    mechanics: MechanicalConfig,
+    incoming_r: u32,
+    outgoing_r: u32,
+) -> (World, CellId, ArrowRef, ArrowRef) {
     let mut world = World::new(root, phase, mechanics);
     let p = world.cell(-100, 100, 500);
     let c = world.cell(0, 100, 1);
@@ -413,7 +450,10 @@ fn observe_unsupported(root: u64, phase: i64, mechanics: MechanicalConfig) -> Ob
     let checks = vec![
         ("unsupported_incoming_died".into(), !state.1),
         ("unsupported_outgoing_died".into(), !state.2),
-        ("orphan_junction_died_at_10".into(), state.0 == Some(false) && state.3 == Some(10)),
+        (
+            "orphan_junction_died_at_10".into(),
+            state.0 == Some(false) && state.3 == Some(10),
+        ),
     ];
     world.finish(markers, checks)
 }
@@ -440,9 +480,19 @@ fn observe_all_gone(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obser
     let (mut world, c, incoming, outgoing) = unsupported_world(root, phase, mechanics, 1, 1);
     world.advance_age(10);
     let checks = vec![
-        ("last_incident_gone".into(), world.body.resolve_arrow(incoming).is_none() && world.body.resolve_arrow(outgoing).is_none()),
-        ("junction_deallocated".into(), world.body.cell_is_live(c) == Some(false)),
-        ("death_at_last_incident".into(), world.death_age(c) == Some(10)),
+        (
+            "last_incident_gone".into(),
+            world.body.resolve_arrow(incoming).is_none()
+                && world.body.resolve_arrow(outgoing).is_none(),
+        ),
+        (
+            "junction_deallocated".into(),
+            world.body.cell_is_live(c) == Some(false),
+        ),
+        (
+            "death_at_last_incident".into(),
+            world.death_age(c) == Some(10),
+        ),
     ];
     world.finish(vec![format!("death={:?}", world.death_age(c))], checks)
 }
@@ -456,14 +506,25 @@ fn observe_reuse(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observat
     let replacement_ref = world.body.cell_reference(replacement);
     let replacement_slot = world.body.cell_resident_slot(replacement);
     let checks = vec![
-        ("old_reference_stale".into(), world.body.resolve_cell(old_ref).is_none()),
+        (
+            "old_reference_stale".into(),
+            world.body.resolve_cell(old_ref).is_none(),
+        ),
         ("slot_reused".into(), old_slot == replacement_slot),
         ("fresh_cell_id".into(), replacement != c),
-        ("generation_advanced".into(), replacement_ref.generation.0 == old_ref.generation.0 + 1),
-        ("replacement_resolves".into(), world.body.resolve_cell(replacement_ref) == replacement_slot),
+        (
+            "generation_advanced".into(),
+            replacement_ref.generation.0 == old_ref.generation.0 + 1,
+        ),
+        (
+            "replacement_resolves".into(),
+            world.body.resolve_cell(replacement_ref) == replacement_slot,
+        ),
     ];
     world.finish(
-        vec![format!("old={old_ref:?}/{old_slot:?};new={replacement_ref:?}/{replacement_slot:?}")],
+        vec![format!(
+            "old={old_ref:?}/{old_slot:?};new={replacement_ref:?}/{replacement_slot:?}"
+        )],
         checks,
     )
 }
@@ -538,8 +599,7 @@ fn observe_two_incoming(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
         ("model_specific_two_incoming".into(), state == expected),
         (
             "both_incoming_participated".into(),
-            world.arrow_update_count(incoming1.id)
-                + world.arrow_update_count(incoming2.id)
+            world.arrow_update_count(incoming1.id) + world.arrow_update_count(incoming2.id)
                 == expected_incoming_updates,
         ),
     ];
@@ -652,7 +712,11 @@ fn main() {
                 let cross_equal = reference == production;
                 for (config, observation, replay) in [
                     (MechanicalConfig::REFERENCE, &reference, &reference_replay),
-                    (MechanicalConfig::PRODUCTION, &production, &production_replay),
+                    (
+                        MechanicalConfig::PRODUCTION,
+                        &production,
+                        &production_replay,
+                    ),
                 ] {
                     rows += 1;
                     let replay_equal = observation == replay;
