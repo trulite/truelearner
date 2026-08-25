@@ -57,26 +57,71 @@ impl Family {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PhysicalWork {
+    drive: u64,
+    modulation: u64,
+    updates: u64,
+    proposals: u64,
+    cell_proposals: u64,
+    arrow_deallocations: u64,
+    cell_deallocations: u64,
+    qlp: u64,
+    total: u64,
+}
+
+impl From<Work> for PhysicalWork {
+    fn from(work: Work) -> Self {
+        Self {
+            drive: work.drive_deliveries,
+            modulation: work.modulatory_deliveries,
+            updates: work.local_return_updates,
+            proposals: work.local_structural_proposals,
+            cell_proposals: work.local_cell_proposals,
+            arrow_deallocations: work.physical_deallocations,
+            cell_deallocations: work.cell_deallocations,
+            qlp: work.qualified_local_traversals,
+            total: work.physical_total(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Continuation {
     trace: Vec<PhysicalTransition>,
-    work: Work,
+    work: PhysicalWork,
+    legacy_total: u64,
     tick: i64,
     body_hash: String,
     quiescent: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 struct Observation {
     signature: Vec<String>,
     trace: Vec<PhysicalTransition>,
-    work: Work,
+    work: PhysicalWork,
+    legacy_total: u64,
     tick: i64,
     body_hash: String,
     checkpoint_hash: String,
     quiescent: bool,
     checks: Vec<(String, bool)>,
 }
+
+impl PartialEq for Observation {
+    fn eq(&self, other: &Self) -> bool {
+        self.signature == other.signature
+            && self.trace == other.trace
+            && self.work == other.work
+            && self.tick == other.tick
+            && self.body_hash == other.body_hash
+            && self.quiescent == other.quiescent
+            && self.checks == other.checks
+    }
+}
+
+impl Eq for Observation {}
 
 impl Observation {
     fn passed(&self) -> bool {
@@ -104,7 +149,10 @@ fn live_checkpoint_hash(body: &PlasticSubstrate) -> String {
 fn roundtrip_live(body: &PlasticSubstrate, mechanics: MechanicalConfig) -> PlasticSubstrate {
     let bytes = body.live_checkpoint(1).unwrap().canonical_bytes().unwrap();
     let decoded = LiveCheckpoint::decode(&bytes).unwrap();
-    PlasticSubstrate::from_live_checkpoint_with_mechanics(decoded, mechanics).unwrap()
+    let mut restored =
+        PlasticSubstrate::from_live_checkpoint_with_mechanics(decoded, mechanics).unwrap();
+    restored.set_physical_tracing(true);
+    restored
 }
 
 fn roundtrip_quiescent(body: &PlasticSubstrate, mechanics: MechanicalConfig) -> PlasticSubstrate {
@@ -114,14 +162,18 @@ fn roundtrip_quiescent(body: &PlasticSubstrate, mechanics: MechanicalConfig) -> 
         .canonical_bytes()
         .unwrap();
     let decoded = QuiescentCheckpoint::decode(&bytes).unwrap();
-    PlasticSubstrate::from_quiescent_checkpoint_with_mechanics(decoded, mechanics).unwrap()
+    let mut restored =
+        PlasticSubstrate::from_quiescent_checkpoint_with_mechanics(decoded, mechanics).unwrap();
+    restored.set_physical_tracing(true);
+    restored
 }
 
 fn continuation(body: &mut PlasticSubstrate) -> Continuation {
     let run = body.propagate();
     Continuation {
         trace: run.physical_trace,
-        work: run.work,
+        work: run.work.into(),
+        legacy_total: run.work.total(),
         tick: body.clock().tick,
         body_hash: body_hash(body),
         quiescent: run.naturally_quiescent,
@@ -272,7 +324,8 @@ fn finish(
     Observation {
         signature,
         trace,
-        work,
+        work: work.into(),
+        legacy_total: work.total(),
         tick: body.clock().tick,
         body_hash: body_hash(body),
         checkpoint_hash: live_checkpoint_hash(body),
@@ -537,6 +590,7 @@ fn observe_live_pending(root: u64, mechanics: MechanicalConfig) -> Observation {
         signature: vec![format!("continuation={actual:?}")],
         trace: actual.trace.clone(),
         work: actual.work,
+        legacy_total: actual.legacy_total,
         tick: actual.tick,
         body_hash: actual.body_hash.clone(),
         checkpoint_hash,
@@ -563,6 +617,7 @@ fn observe_quiescent_future(root: u64, mechanics: MechanicalConfig) -> Observati
         signature: vec![format!("future={actual:?}")],
         trace: actual.trace.clone(),
         work: actual.work,
+        legacy_total: actual.legacy_total,
         tick: actual.tick,
         body_hash: actual.body_hash.clone(),
         checkpoint_hash,
@@ -604,6 +659,7 @@ fn observe_cross_mechanics(root: u64, mechanics: MechanicalConfig) -> Observatio
         signature: vec![format!("cross={actual:?}")],
         trace: actual.trace.clone(),
         work: actual.work,
+        legacy_total: actual.legacy_total,
         tick: actual.tick,
         body_hash: actual.body_hash.clone(),
         checkpoint_hash,
@@ -640,11 +696,11 @@ fn mechanics_name(mechanics: MechanicalConfig) -> &'static str {
 
 fn main() {
     let output_dir = env::args().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from("experiments/results/ck0_junction_checkpoint_integration_v1")
+        PathBuf::from("experiments/results/ck0_junction_checkpoint_integration_v2")
     });
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
-        "case,family,root,mechanics,replay_equal,cross_equal,checks_pass,failed,quiescent,physical_work,final_tick,trace_hash,body_hash,checkpoint_hash,signature\n",
+        "case,family,root,mechanics,replay_equal,cross_equal,checks_pass,failed,quiescent,physical_work,legacy_total,final_tick,trace_hash,body_hash,checkpoint_hash,signature\n",
     );
     let mut cases = 0usize;
     let mut rows = 0usize;
@@ -679,18 +735,19 @@ fn main() {
                         + usize::from(cross_equal),
                 );
                 all_pass &= row_pass;
-                maximum_work = maximum_work.max(observation.work.physical_total());
+                maximum_work = maximum_work.max(observation.work.total);
                 let trace_hash =
                     ContentHash::of(format!("{:?}", observation.trace).as_bytes()).to_string();
                 writeln!(
                     csv,
-                    "{cases},{},{root},{},{replay_equal},{cross_equal},{},{},{},{},{},{trace_hash},{},{},{},",
+                    "{cases},{},{root},{},{replay_equal},{cross_equal},{},{},{},{},{},{},{trace_hash},{},{},{},",
                     family.name(),
                     mechanics_name(mechanics),
                     observation.passed(),
                     observation.failures(),
                     observation.quiescent,
-                    observation.work.physical_total(),
+                    observation.work.total,
+                    observation.legacy_total,
                     observation.tick,
                     observation.body_hash,
                     observation.checkpoint_hash,
@@ -705,13 +762,13 @@ fn main() {
     assert_eq!(cases, expected_cases);
     assert_eq!(rows, expected_rows);
     let report = format!(
-        "# CK0 junction checkpoint integration v1\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production exact: {}\n- replay exact: {}\n- natural quiescence: {}\n- maximum PhysicalWork: {maximum_work}\n",
+        "# CK0 junction checkpoint integration v2\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production exact: {}\n- replay exact: {}\n- natural quiescence: {}\n- maximum PhysicalWork: {maximum_work}\n",
         csv.lines().skip(1).all(|line| line.split(',').nth(5) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(4) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(8) == Some("true")),
     );
     fs::write(output_dir.join("matrix.csv"), csv).unwrap();
     fs::write(output_dir.join("report.md"), report).unwrap();
-    assert!(all_pass, "CK0 matrix failed");
-    println!("CK0_JUNCTION_CHECKPOINT_INTEGRATION_POSITIVE_V1");
+    assert!(all_pass, "CK0 v2 matrix failed");
+    println!("CK0_JUNCTION_CHECKPOINT_INTEGRATION_POSITIVE_V2");
 }
