@@ -157,13 +157,9 @@ impl Geometry {
             ),
             Family::Chain8Delay1H16 => Self::chain(8, 1),
             Family::Chain8Delay0H16 => Self::chain(8, 0),
-            Family::WrongPathH16 => Self::cycle(
-                2,
-                2,
-                2,
-                vec![1, 1],
-                Feedback::WrongPath { strength: 16 },
-            ),
+            Family::WrongPathH16 => {
+                Self::cycle(2, 2, 2, vec![1, 1], Feedback::WrongPath { strength: 16 })
+            }
             Family::UntraversedH16 => Self::cycle(
                 2,
                 2,
@@ -697,22 +693,19 @@ fn run_case(
     let continuation_trace = continuation
         .as_ref()
         .map_or_else(Vec::new, |next| next.run.physical_trace.clone());
-    let continuation_firings = u64::try_from(
-        firing_sequence(&continuation_trace, &world.excit_cells).len(),
-    )
-    .unwrap();
+    let continuation_firings =
+        u64::try_from(firing_sequence(&continuation_trace, &world.excit_cells).len()).unwrap();
     let mut combined_trace = first_trace.clone();
     combined_trace.extend(continuation_trace.clone());
     let excit_fire_counts = fire_counts(&combined_trace, &world.excit_cells);
     let inhibitor_firings = fire_counts(&combined_trace, &world.inhibitor_cells)
         .into_iter()
         .sum();
-    let (excitatory_traversals, relay_traversals, negative_traversals) =
-        count_signed_deliveries(
-            &combined_trace,
-            &world.inhibitor_cells,
-            world.initial_inputs,
-        );
+    let (excitatory_traversals, relay_traversals, negative_traversals) = count_signed_deliveries(
+        &combined_trace,
+        &world.inhibitor_cells,
+        world.initial_inputs,
+    );
     let (activity_class, period_firings, period_ticks) = classify(
         &first,
         continuation.as_ref(),
