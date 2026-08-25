@@ -469,8 +469,10 @@ fn gate_e2(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Obs
         .iter()
         .map(|id| body.core0_resistance_material(*id))
         .collect::<Vec<_>>();
-    let second = pulse(&mut body, source, 1, 1, root + 1_001);
-    let third = modulate(&mut body, root, local, 3);
+    let second_tick = body.clock().tick;
+    let second = pulse(&mut body, source, second_tick, 1, root + 1_001);
+    let consequence_tick = body.clock().tick;
+    let third = modulate(&mut body, root, local, consequence_tick);
     let supported = links
         .iter()
         .zip(before)
@@ -1198,6 +1200,7 @@ fn write_results(destination: &Path, rows: &[Row]) {
 }
 
 fn main() {
+    eprintln!("CORE0_V2_EVIDENCE_SPENT");
     let destination = env::args()
         .nth(1)
         .map(PathBuf::from)
