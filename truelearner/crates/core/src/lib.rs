@@ -1284,6 +1284,13 @@ pub enum PhysicalEvent {
         impulse: i32,
         causal_wave: u64,
     },
+    #[cfg(feature = "core0")]
+    MaterialDriveIncidence {
+        target: CellId,
+        impulse: i64,
+        activation_after: i64,
+        causal_wave: u64,
+    },
     Deliver {
         mode: TransmissionMode,
         target: CellId,
@@ -3496,6 +3503,24 @@ impl PlasticSubstrate {
                     }
                     target.clone()
                 });
+                #[cfg(feature = "core0")]
+                if self.trace_physics {
+                    let activation_after = if continuous {
+                        self.core0_activation[target_id.0 as usize]
+                    } else {
+                        i64::from(target.state).saturating_mul(MATERIAL_ONE)
+                    };
+                    physical_trace.push(PhysicalTransition {
+                        tick: self.tick,
+                        phase,
+                        event: PhysicalEvent::MaterialDriveIncidence {
+                            target: target_id,
+                            impulse: material_impulse,
+                            activation_after,
+                            causal_wave,
+                        },
+                    });
+                }
                 execution_cost.touch::<Cell>(1);
                 #[cfg(feature = "core0")]
                 let materially_active =
@@ -4854,6 +4879,38 @@ impl PlasticSubstrate {
     #[cfg(feature = "core0")]
     pub const fn core0_material_one() -> u64 {
         MATERIAL_ONE_U64
+    }
+
+    /// Fixture-only material initialization for frozen CORE0-family
+    /// characterization worlds. This changes no transition law.
+    #[cfg(feature = "core0")]
+    pub fn set_core0_coupling_material(&mut self, id: ArrowId, value: i64) -> bool {
+        if !self.core0_profile.continuous() {
+            return false;
+        }
+        let Some(slot) = self.arrow_slot(id) else {
+            return false;
+        };
+        if !self.arrows.get(slot.0).live {
+            return false;
+        }
+        self.core0_coupling[id.0 as usize] = value;
+        let observer = value / MATERIAL_ONE;
+        self.arrows.with_mut(slot.0, |arrow| {
+            arrow.coupling = i32::try_from(observer).unwrap_or_else(|_| {
+                if observer.is_negative() {
+                    i32::MIN
+                } else {
+                    i32::MAX
+                }
+            });
+        });
+        true
+    }
+
+    #[cfg(feature = "core0")]
+    pub fn pending_physical_activity(&self) -> usize {
+        self.pending.len()
     }
 
     #[cfg(feature = "cl0")]
