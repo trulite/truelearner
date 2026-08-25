@@ -30,7 +30,11 @@ impl Stage {
 
     fn families(self) -> &'static [Family] {
         match self {
-            Self::GateE => &[Family::PositiveConsequence],
+            Self::GateE => &[
+                Family::AnchorOnly,
+                Family::PositiveConsequence,
+                Family::AnchorPermutation,
+            ],
             Self::Full => &Family::ALL,
         }
     }
@@ -38,6 +42,7 @@ impl Stage {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Family {
+    AnchorOnly,
     Symmetry,
     NoConsequence,
     BoundedCreation,
@@ -48,10 +53,12 @@ enum Family {
     NeitherUseful,
     BothUseful,
     SharedContact,
+    AnchorPermutation,
 }
 
 impl Family {
-    const ALL: [Self; 10] = [
+    const ALL: [Self; 12] = [
+        Self::AnchorOnly,
         Self::Symmetry,
         Self::NoConsequence,
         Self::BoundedCreation,
@@ -62,10 +69,12 @@ impl Family {
         Self::NeitherUseful,
         Self::BothUseful,
         Self::SharedContact,
+        Self::AnchorPermutation,
     ];
 
     fn name(self) -> &'static str {
         match self {
+            Self::AnchorOnly => "v2_anchor_only_control",
             Self::Symmetry => "gate_a_sign_symmetry",
             Self::NoConsequence => "gate_b_no_consequence",
             Self::BoundedCreation => "gate_c_bounded_creation",
@@ -76,6 +85,7 @@ impl Family {
             Self::NeitherUseful => "gate_h_neither_useful",
             Self::BothUseful => "gate_h_both_useful",
             Self::SharedContact => "gate_i_shared_contact_alias",
+            Self::AnchorPermutation => "v2_anchor_identity_slot_permutation",
         }
     }
 }
@@ -157,11 +167,14 @@ struct World {
     naturally_quiescent: bool,
     source: CellId,
     target: CellId,
+    anchor: CellId,
+    anchor_to_source: ArrowRef,
+    target_to_anchor: ArrowRef,
 }
 
 impl World {
     fn new(root: u64, phase: i64, mechanics: MechanicalConfig) -> Self {
-        Self::new_with_geometry(root, phase, mechanics, 2, 0)
+        Self::new_with_geometry(root, phase, mechanics, 2, 0, false)
     }
 
     fn new_with_geometry(
@@ -170,10 +183,21 @@ impl World {
         mechanics: MechanicalConfig,
         target_physical_offset: u64,
         position_offset: i32,
+        anchor_first: bool,
     ) -> Self {
         let mut body = PlasticSubstrate::with_mechanics(ArenaId(root), 16, 32, mechanics);
         body.set_physical_tracing(true);
         body.advance_time(phase);
+        let add_anchor = |body: &mut PlasticSubstrate, physical_offset: u64| {
+            body.add_cell(truelearner_core::CellSpec {
+                physical_id: root + physical_offset,
+                position: position_offset.saturating_add(1_000),
+                region: 0,
+                threshold: 100,
+                resistance: 500,
+            })
+        };
+        let early_anchor = anchor_first.then(|| add_anchor(&mut body, 901));
         let source = body.add_cell(truelearner_core::CellSpec {
             physical_id: root + 1,
             position: position_offset,
@@ -188,6 +212,27 @@ impl World {
             threshold: 100,
             resistance: 500,
         });
+        let anchor = early_anchor.unwrap_or_else(|| add_anchor(&mut body, 900));
+        let anchor_to_source_id = body.add_arrow(ArrowSpec {
+            from: anchor,
+            to: source,
+            delay: 1,
+            phase: 0,
+            coupling: 1,
+            resistance: 500,
+            mode: TransmissionMode::Drive,
+        });
+        let target_to_anchor_id = body.add_arrow(ArrowSpec {
+            from: target,
+            to: anchor,
+            delay: 1,
+            phase: 0,
+            coupling: 1,
+            resistance: 500,
+            mode: TransmissionMode::Drive,
+        });
+        let anchor_to_source = body.arrow_reference(anchor_to_source_id);
+        let target_to_anchor = body.arrow_reference(target_to_anchor_id);
         Self {
             body,
             origin: phase,
@@ -196,6 +241,9 @@ impl World {
             naturally_quiescent: true,
             source,
             target,
+            anchor,
+            anchor_to_source,
+            target_to_anchor,
         }
     }
 
@@ -309,6 +357,7 @@ impl World {
 
 fn observe(family: Family, root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     match family {
+        Family::AnchorOnly => observe_anchor_only(root, phase, mechanics),
         Family::Symmetry => observe_symmetry(root, phase, mechanics),
         Family::NoConsequence => observe_no_consequence(root, phase, mechanics),
         Family::BoundedCreation => observe_bounded(root, phase, mechanics),
@@ -319,7 +368,55 @@ fn observe(family: Family, root: u64, phase: i64, mechanics: MechanicalConfig) -
         Family::NeitherUseful => observe_neither(root, phase, mechanics),
         Family::BothUseful => observe_both(root, phase, mechanics),
         Family::SharedContact => observe_shared_contact(root, phase, mechanics),
+        Family::AnchorPermutation => observe_anchor_permutation(root, phase, mechanics),
     }
+}
+
+fn observe_anchor_only(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
+    let mut world = World::new(root, phase, mechanics);
+    let source_ref = world.body.cell_reference(world.source);
+    let target_ref = world.body.cell_reference(world.target);
+    let anchor_ref = world.body.cell_reference(world.anchor);
+    world.advance_age(10);
+    let anchor_link_resistances = [
+        arrow_resistance(&world, world.anchor_to_source),
+        arrow_resistance(&world, world.target_to_anchor),
+    ];
+    let markers = vec![format!(
+        "anchor={:?};boundary={:?}/{:?};links={anchor_link_resistances:?}",
+        world.anchor, world.source, world.target
+    )];
+    let checks = vec![
+        (
+            "boundary_cells_remain_live".into(),
+            world.body.resolve_cell(source_ref).is_some()
+                && world.body.resolve_cell(target_ref).is_some(),
+        ),
+        (
+            "anchor_remains_live".into(),
+            world.body.resolve_cell(anchor_ref).is_some(),
+        ),
+        (
+            "anchor_links_remain_live".into(),
+            world.body.resolve_arrow(world.anchor_to_source).is_some()
+                && world.body.resolve_arrow(world.target_to_anchor).is_some(),
+        ),
+        (
+            "anchors_do_not_execute".into(),
+            world.work.drive == 0
+                && world.work.modulation == 0
+                && world.work.arrow_updates == 0,
+        ),
+        (
+            "anchors_do_not_generate_candidates".into(),
+            world.work.cell_proposals == 0 && world.work.arrow_proposals == 0,
+        ),
+        (
+            "anchors_do_not_deallocate".into(),
+            world.work.cell_deallocations == 0 && world.work.arrow_deallocations == 0,
+        ),
+    ];
+    world.finish(markers, checks)
 }
 
 fn symmetry_checks(world: &World, negative: Candidate, positive: Candidate) -> Vec<(String, bool)> {
@@ -558,16 +655,24 @@ fn observe_orphan_reuse(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
 }
 
 fn observe_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
-    observe_selected(root, phase, mechanics, 1, false)
+    observe_selected(root, phase, mechanics, 1, false, false)
 }
 
 fn observe_negative(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
-    observe_selected(root, phase, mechanics, -1, false)
+    observe_selected(root, phase, mechanics, -1, false, false)
 }
 
 fn observe_permutation(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let selected_sign = if root & 1 == 0 { -1 } else { 1 };
-    observe_selected(root, phase, mechanics, selected_sign, true)
+    observe_selected(root, phase, mechanics, selected_sign, true, false)
+}
+
+fn observe_anchor_permutation(
+    root: u64,
+    phase: i64,
+    mechanics: MechanicalConfig,
+) -> Observation {
+    observe_selected(root, phase, mechanics, 1, false, true)
 }
 
 fn arrow_resistance(world: &World, arrow: ArrowRef) -> Option<u32> {
@@ -595,11 +700,12 @@ fn observe_selected(
     mechanics: MechanicalConfig,
     selected_sign: i32,
     permuted_geometry: bool,
+    anchor_first: bool,
 ) -> Observation {
     let mut world = if permuted_geometry {
-        World::new_with_geometry(root, phase, mechanics, 3, 100)
+        World::new_with_geometry(root, phase, mechanics, 3, 100, anchor_first)
     } else {
-        World::new(root, phase, mechanics)
+        World::new_with_geometry(root, phase, mechanics, 2, 0, anchor_first)
     };
     let [negative, positive] = world.create_candidates(root);
     let (selected, unsupported) = if selected_sign < 0 {
@@ -609,8 +715,16 @@ fn observe_selected(
     };
     let selected_contact_before = world.body.cell_resistance(selected.contact);
     let unsupported_contact_before = world.body.cell_resistance(unsupported.contact);
+    let source_ref = world.body.cell_reference(world.source);
+    let target_ref = world.body.cell_reference(world.target);
+    let anchor_ref = world.body.cell_reference(world.anchor);
+    let anchor_slot = world.body.cell_resident_slot(world.anchor);
     let modulator = world.add_modulation_to(root, 100, selected.contact);
     world.pulse(modulator, 2, root + 101);
+    let anchor_resistance_after_consequence = [
+        arrow_resistance(&world, world.anchor_to_source),
+        arrow_resistance(&world, world.target_to_anchor),
+    ];
     let selected_stem_r = arrow_resistance(&world, selected.stem);
     let selected_out_r = arrow_resistance(&world, selected.outgoing);
     let unsupported_stem_r = arrow_resistance(&world, unsupported.stem);
@@ -626,8 +740,8 @@ fn observe_selected(
     let selected_fires_after_probe = fire_count(&world.trace, selected.contact);
     let unsupported_fires_after_probe = fire_count(&world.trace, unsupported.contact);
     let markers = vec![format!(
-        "selected_sign={selected_sign};selected_id={:?}/slot{:?};unsupported_id={:?}/slot{:?};selected_r=stem{selected_stem_r:?}/out{selected_out_r:?};unsupported_r=stem{unsupported_stem_r:?}/out{unsupported_out_r:?};live10=selected{selected_live:?}/unsupported{unsupported_live:?};fires={selected_fires_before_probe}->{selected_fires_after_probe}/{unsupported_fires_before_probe}->{unsupported_fires_after_probe}",
-        selected.contact, selected.contact_slot, unsupported.contact, unsupported.contact_slot
+        "selected_sign={selected_sign};selected_id={:?}/slot{:?};unsupported_id={:?}/slot{:?};anchor={:?}/slot{anchor_slot:?};selected_r=stem{selected_stem_r:?}/out{selected_out_r:?};unsupported_r=stem{unsupported_stem_r:?}/out{unsupported_out_r:?};anchor_r={anchor_resistance_after_consequence:?};live10=selected{selected_live:?}/unsupported{unsupported_live:?};fires={selected_fires_before_probe}->{selected_fires_after_probe}/{unsupported_fires_before_probe}->{unsupported_fires_after_probe}",
+        selected.contact, selected.contact_slot, unsupported.contact, unsupported.contact_slot, world.anchor
     )];
     let checks = vec![
         (
@@ -672,6 +786,16 @@ fn observe_selected(
         (
             "unsupported_relation_stays_inert".into(),
             unsupported_fires_after_probe == unsupported_fires_before_probe,
+        ),
+        (
+            "boundary_fixture_remains_live".into(),
+            world.body.resolve_cell(source_ref).is_some()
+                && world.body.resolve_cell(target_ref).is_some()
+                && world.body.resolve_cell(anchor_ref).is_some(),
+        ),
+        (
+            "no_credit_leakage_to_anchor_links".into(),
+            anchor_resistance_after_consequence == [Some(500), Some(500)],
         ),
         (
             "two_link_updates_only".into(),
@@ -879,7 +1003,9 @@ fn main() {
                     | Family::NoConsequence
                     | Family::BoundedCreation
                     | Family::OrphanReuse => gates_a_d_pass &= family_pass,
-                    Family::PositiveConsequence => gate_e_pass &= family_pass,
+                    Family::AnchorOnly
+                    | Family::PositiveConsequence
+                    | Family::AnchorPermutation => gate_e_pass &= family_pass,
                     Family::NegativeConsequence
                     | Family::Permutation
                     | Family::NeitherUseful
