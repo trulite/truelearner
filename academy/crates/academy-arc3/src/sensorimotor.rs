@@ -549,12 +549,8 @@ fn build_body(
             .max(1_024),
     )
     .map_err(|_| Arc3SensorimotorError("arrow capacity exceeds u32".to_string()))?;
-    let mut body = PlasticSubstrate::with_mechanics(
-        ArenaId(seed),
-        cell_capacity,
-        arrow_capacity,
-        mechanics,
-    );
+    let mut body =
+        PlasticSubstrate::with_mechanics(ArenaId(seed), cell_capacity, arrow_capacity, mechanics);
     body.set_physical_tracing(true);
     let mut candidate_sources = vec![[CellId(0); MOTORS]; context_count];
     let mut context_traces = vec![[CellId(0); MOTORS]; context_count];
@@ -885,12 +881,7 @@ mod tests {
         assert_eq!(frames.len(), 5);
 
         let mut observations = Vec::new();
-        for (index, (value, action)) in frames
-            .iter()
-            .take(4)
-            .cloned()
-            .zip([1, 4, 2, 3])
-            .enumerate()
+        for (index, (value, action)) in frames.iter().take(4).cloned().zip([1, 4, 2, 3]).enumerate()
         {
             observations.push(
                 organism
