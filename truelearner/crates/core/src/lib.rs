@@ -1288,7 +1288,8 @@ impl PlasticSubstrate {
         );
         let id = self.add_arrow(spec);
         let slot = self.arrow_slot(id).expect("new ARROW must resolve");
-        self.arrows.with_mut(slot.0, |arrow| arrow.trigger = trigger);
+        self.arrows
+            .with_mut(slot.0, |arrow| arrow.trigger = trigger);
         id
     }
 
@@ -2063,8 +2064,8 @@ impl PlasticSubstrate {
                     arrow.plastic_support = arrow.plastic_support.saturating_add(participation);
                     arrow.eligible_until = None;
                     let bounded = participation.min(PARTICIPATION_IMPULSE);
-                    let numerator = u128::from(bounded)
-                        .saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
+                    let numerator =
+                        u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
                     let gain = numerator
                         .saturating_add(u128::from(PARTICIPATION_IMPULSE).saturating_sub(1))
                         / u128::from(PARTICIPATION_IMPULSE);
@@ -2130,14 +2131,7 @@ impl PlasticSubstrate {
         }
         #[cfg(feature = "pqlc0")]
         if qualified_local {
-            self.propagate_qualified_local(
-                cell,
-                tick,
-                phase,
-                work,
-                execution_cost,
-                physical_trace,
-            );
+            self.propagate_qualified_local(cell, tick, phase, work, execution_cost, physical_trace);
         }
     }
 
@@ -2181,8 +2175,7 @@ impl PlasticSubstrate {
             });
             self.eligible_arrows.insert(id);
             work.total = work.total.saturating_add(2);
-            work.qualified_local_traversals =
-                work.qualified_local_traversals.saturating_add(1);
+            work.qualified_local_traversals = work.qualified_local_traversals.saturating_add(1);
             if self.trace_physics {
                 physical_trace.push(PhysicalTransition {
                     tick,
@@ -2314,10 +2307,10 @@ impl PlasticSubstrate {
                 }
                 #[cfg(not(feature = "pd1"))]
                 {
-                let was_live = arrow.live;
-                pressure_arrow(arrow, UNSUPPORTED_USE_PRESSURE);
-                arrow.eligible_until = None;
-                (true, was_live && !arrow.live, arrow.delay == 0)
+                    let was_live = arrow.live;
+                    pressure_arrow(arrow, UNSUPPORTED_USE_PRESSURE);
+                    arrow.eligible_until = None;
+                    (true, was_live && !arrow.live, arrow.delay == 0)
                 }
             });
             execution_cost.touch::<Arrow>(1);
@@ -2363,9 +2356,7 @@ impl PlasticSubstrate {
         execution_cost: &mut ExecutionCost,
     ) {
         let mut cursor = self.tick;
-        let mut pressure_tick = self
-            .pressure_tick
-            .saturating_add(ORDINARY_PRESSURE_PERIOD);
+        let mut pressure_tick = self.pressure_tick.saturating_add(ORDINARY_PRESSURE_PERIOD);
         while pressure_tick <= tick {
             let elapsed = pressure_tick.saturating_sub(cursor);
             for index in 0..self.arrows.len() {
@@ -2384,8 +2375,7 @@ impl PlasticSubstrate {
                         return (false, false);
                     }
                     let absorbed = arrow.participation_level.min(PARTICIPATION_IMPULSE);
-                    arrow.participation_level =
-                        arrow.participation_level.saturating_sub(absorbed);
+                    arrow.participation_level = arrow.participation_level.saturating_sub(absorbed);
                     arrow.pressure_load = arrow
                         .pressure_load
                         .saturating_add(PARTICIPATION_IMPULSE.saturating_sub(absorbed));
@@ -2393,10 +2383,7 @@ impl PlasticSubstrate {
                     arrow.pressure_load %= PARTICIPATION_IMPULSE;
                     let was_live = arrow.live;
                     if durable_loss > 0 {
-                        pressure_arrow(
-                            arrow,
-                            u32::try_from(durable_loss).unwrap_or(u32::MAX),
-                        );
+                        pressure_arrow(arrow, u32::try_from(durable_loss).unwrap_or(u32::MAX));
                     }
                     work.total = work.total.saturating_add(1);
                     (was_live && !arrow.live, arrow.delay == 0)

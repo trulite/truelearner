@@ -6,8 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig, PhysicalTransition,
-    PlasticSubstrate, SpikeInput, TransmissionMode, TransmissionTrigger, Work,
+    ArenaId, ArrowId, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig,
+    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, TransmissionTrigger, Work,
 };
 
 const Q: u64 = 1_u64 << 32;
@@ -117,11 +117,13 @@ impl WorkTotals {
         self.drive = self.drive.saturating_add(work.drive_deliveries);
         self.modulation = self.modulation.saturating_add(work.modulatory_deliveries);
         self.updates = self.updates.saturating_add(work.local_return_updates);
-        self.proposals = self.proposals.saturating_add(work.local_structural_proposals);
-        self.deallocations = self.deallocations.saturating_add(work.physical_deallocations);
-        self.qlp = self
-            .qlp
-            .saturating_add(work.qualified_local_traversals);
+        self.proposals = self
+            .proposals
+            .saturating_add(work.local_structural_proposals);
+        self.deallocations = self
+            .deallocations
+            .saturating_add(work.physical_deallocations);
+        self.qlp = self.qlp.saturating_add(work.qualified_local_traversals);
     }
 
     fn merge(&mut self, other: Self) {
@@ -163,9 +165,8 @@ impl Fixture {
         mechanics: MechanicalConfig,
         resistances: [u32; 3],
     ) -> Self {
-        let root = 5_000_000
-            + case.root_ordinal * 1_000_000
-            + u64::try_from(case_id).unwrap() * 100;
+        let root =
+            5_000_000 + case.root_ordinal * 1_000_000 + u64::try_from(case_id).unwrap() * 100;
         let mut body = PlasticSubstrate::with_mechanics(ArenaId(root + 50), 32, 64, mechanics);
         body.set_physical_tracing(true);
         if case.phase > 0 {
@@ -207,9 +208,8 @@ impl Fixture {
     }
 
     fn chain(case_id: usize, case: CaseSpec, mechanics: MechanicalConfig) -> Self {
-        let root = 7_000_000
-            + case.root_ordinal * 1_000_000
-            + u64::try_from(case_id).unwrap() * 100;
+        let root =
+            7_000_000 + case.root_ordinal * 1_000_000 + u64::try_from(case_id).unwrap() * 100;
         let mut body = PlasticSubstrate::with_mechanics(ArenaId(root + 50), 24, 48, mechanics);
         body.set_physical_tracing(true);
         if case.phase > 0 {
@@ -221,13 +221,7 @@ impl Fixture {
         let effect = add_cell(&mut body, root + 4, 30, 1);
         let a1 = add_arrow(&mut body, c1, c2, 2, TransmissionMode::Drive);
         let a2 = add_arrow(&mut body, c2, target, 2, TransmissionMode::Drive);
-        add_arrow(
-            &mut body,
-            effect,
-            c2,
-            100_000,
-            TransmissionMode::Modulatory,
-        );
+        add_arrow(&mut body, effect, c2, 100_000, TransmissionMode::Modulatory);
         body.add_arrow_with_trigger(
             ArrowSpec {
                 from: c2,
@@ -415,13 +409,7 @@ fn execute(case_id: usize, case: CaseSpec, mechanics: MechanicalConfig) -> Obser
                 .into_iter()
                 .map(|tick| (tick, contact))
                 .collect::<Vec<_>>();
-            run_inputs(
-                &mut fixture,
-                &events,
-                &mut trace,
-                &mut work,
-                &mut quiescent,
-            );
+            run_inputs(&mut fixture, &events, &mut trace, &mut work, &mut quiescent);
             advance(&mut fixture, 40, &mut work);
             points.push(point(&fixture.body, &fixture.arrows, "after_active"));
             advance(&mut fixture, 90, &mut work);
@@ -455,13 +443,7 @@ fn execute(case_id: usize, case: CaseSpec, mechanics: MechanicalConfig) -> Obser
                 .into_iter()
                 .map(|tick| (tick, contact))
                 .collect::<Vec<_>>();
-            run_inputs(
-                &mut fixture,
-                &events,
-                &mut trace,
-                &mut work,
-                &mut quiescent,
-            );
+            run_inputs(&mut fixture, &events, &mut trace, &mut work, &mut quiescent);
             advance(&mut fixture, 34, &mut work);
             points.push(point(&fixture.body, &fixture.arrows, "before_consequence"));
             run_inputs(
@@ -506,7 +488,11 @@ fn execute(case_id: usize, case: CaseSpec, mechanics: MechanicalConfig) -> Obser
                 &mut quiescent,
             );
             advance(&mut fixture, 20, &mut work);
-            points.push(point(&fixture.body, &fixture.arrows, "after_other_activity"));
+            points.push(point(
+                &fixture.body,
+                &fixture.arrows,
+                "after_other_activity",
+            ));
             advance(&mut fixture, 60, &mut work);
         }
         Family::StressThenStop => {
@@ -515,13 +501,7 @@ fn execute(case_id: usize, case: CaseSpec, mechanics: MechanicalConfig) -> Obser
                 .into_iter()
                 .map(|tick| (tick, contact))
                 .collect::<Vec<_>>();
-            run_inputs(
-                &mut fixture,
-                &events,
-                &mut trace,
-                &mut work,
-                &mut quiescent,
-            );
+            run_inputs(&mut fixture, &events, &mut trace, &mut work, &mut quiescent);
             advance(&mut fixture, 50, &mut work);
             points.push(point(&fixture.body, &fixture.arrows, "after_active"));
             advance(&mut fixture, 100, &mut work);
@@ -543,8 +523,16 @@ fn execute(case_id: usize, case: CaseSpec, mechanics: MechanicalConfig) -> Obser
             }
             let mut jumped_work = WorkTotals::default();
             jumped_work.add(jumped.advance_time(60));
-            let tickwise_state = fixture.arrows.iter().map(|id| arrow_state(&tickwise, *id)).collect::<Vec<_>>();
-            let jumped_state = fixture.arrows.iter().map(|id| arrow_state(&jumped, *id)).collect::<Vec<_>>();
+            let tickwise_state = fixture
+                .arrows
+                .iter()
+                .map(|id| arrow_state(&tickwise, *id))
+                .collect::<Vec<_>>();
+            let jumped_state = fixture
+                .arrows
+                .iter()
+                .map(|id| arrow_state(&jumped, *id))
+                .collect::<Vec<_>>();
             let tickwise_hash = ContentHash::of(&tickwise.canonical_body_bytes(1).unwrap());
             let jumped_hash = ContentHash::of(&jumped.canonical_body_bytes(1).unwrap());
             time_partition_equal = tickwise_state == jumped_state

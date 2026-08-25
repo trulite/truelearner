@@ -392,9 +392,7 @@ impl ArrowColumns {
             let bytes = bytes + self.pressure_loads.capacity() * std::mem::size_of::<u64>();
             #[cfg(feature = "pqlc0")]
             {
-                bytes
-                    + self.triggers.capacity()
-                        * std::mem::size_of::<super::TransmissionTrigger>()
+                bytes + self.triggers.capacity() * std::mem::size_of::<super::TransmissionTrigger>()
             }
             #[cfg(not(feature = "pqlc0"))]
             {
