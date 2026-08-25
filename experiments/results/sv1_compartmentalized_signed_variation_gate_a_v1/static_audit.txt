@@ -1,0 +1,6 @@
+gate_a=negative
+variation_adds_arrows=true
+variation_adds_cells=false
+contact_compartment_creation=false
+runtime_gates_constructed=false
+SV1_COMPARTMENTALIZED_SIGNED_VARIATION_GATE_A_STATIC_NEGATIVE_V1
