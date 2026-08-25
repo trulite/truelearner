@@ -86,16 +86,12 @@ impl Family {
             Self::ReciprocalC1D1T2 => "reciprocal_c1_d1_t2",
             Self::ReciprocalC1D1T1 => "reciprocal_c1_d1_t1",
             Self::ReciprocalC2D0T2 => "reciprocal_c2_d0_t2",
-            Self::ReciprocalC2D0T2AlternatingPhase => {
-                "reciprocal_c2_d0_t2_alternating_phase"
-            }
+            Self::ReciprocalC2D0T2AlternatingPhase => "reciprocal_c2_d0_t2_alternating_phase",
             Self::ReciprocalC2D1T2 => "reciprocal_c2_d1_t2",
             Self::ReciprocalC2D2T2 => "reciprocal_c2_d2_t2",
             Self::ReciprocalC2D3T2 => "reciprocal_c2_d3_t2",
             Self::ReciprocalC2MixedD0D1T2 => "reciprocal_c2_mixed_d0_d1_t2",
-            Self::ReciprocalC2D1T2AlternatingPhase => {
-                "reciprocal_c2_d1_t2_alternating_phase"
-            }
+            Self::ReciprocalC2D1T2AlternatingPhase => "reciprocal_c2_d1_t2_alternating_phase",
             Self::ReciprocalC2D1T1 => "reciprocal_c2_d1_t1",
             Self::ReciprocalC2D1T3 => "reciprocal_c2_d1_t3",
             Self::Cycle3C2D1T2 => "cycle_3_c2_d1_t2",
@@ -160,9 +156,7 @@ impl Geometry {
             Family::ReciprocalC2D1T2 => Self::cycle(2, 2, 2, vec![1, 1], vec![0, 0]),
             Family::ReciprocalC2D2T2 => Self::cycle(2, 2, 2, vec![2, 2], vec![0, 0]),
             Family::ReciprocalC2D3T2 => Self::cycle(2, 2, 2, vec![3, 3], vec![0, 0]),
-            Family::ReciprocalC2MixedD0D1T2 => {
-                Self::cycle(2, 2, 2, vec![0, 1], vec![0, 0])
-            }
+            Family::ReciprocalC2MixedD0D1T2 => Self::cycle(2, 2, 2, vec![0, 1], vec![0, 0]),
             Family::ReciprocalC2D1T2AlternatingPhase => {
                 Self::cycle(2, 2, 2, vec![1, 1], vec![0, 1])
             }
@@ -806,8 +800,7 @@ fn main() {
                 .is_some_and(|classes| classes == &BTreeSet::from([ActivityClass::Periodic]))
         })
         .count();
-    let classification = if persistent_discriminators == Family::PERSISTENCE_DISCRIMINATORS.len()
-    {
+    let classification = if persistent_discriminators == Family::PERSISTENCE_DISCRIMINATORS.len() {
         "B — strong recurrence generally persistent"
     } else if persistent_discriminators <= 2 {
         "A — broad existing stable regime"
