@@ -270,7 +270,7 @@ pub(super) struct ArrowColumns {
     live: Vec<bool>,
     participation_levels: Vec<u64>,
     plastic_supports: Vec<u64>,
-    pressure_loads: Vec<u64>,
+    decay_loads: Vec<u64>,
     modes: Vec<super::TransmissionMode>,
     triggers: Vec<super::TransmissionTrigger>,
 }
@@ -298,7 +298,7 @@ impl ArrowColumns {
             live: self.live[index],
             participation_level: self.participation_levels[index],
             plastic_support: self.plastic_supports[index],
-            pressure_load: self.pressure_loads[index],
+            decay_load: self.decay_loads[index],
             mode: self.modes[index],
             trigger: self.triggers[index],
         }
@@ -317,7 +317,7 @@ impl ArrowColumns {
         self.live[index] = value.live;
         self.participation_levels[index] = value.participation_level;
         self.plastic_supports[index] = value.plastic_support;
-        self.pressure_loads[index] = value.pressure_load;
+        self.decay_loads[index] = value.decay_load;
         self.modes[index] = value.mode;
         self.triggers[index] = value.trigger;
     }
@@ -335,7 +335,7 @@ impl ArrowColumns {
         self.live.push(value.live);
         self.participation_levels.push(value.participation_level);
         self.plastic_supports.push(value.plastic_support);
-        self.pressure_loads.push(value.pressure_load);
+        self.decay_loads.push(value.decay_load);
         self.modes.push(value.mode);
         self.triggers.push(value.trigger);
     }
@@ -354,7 +354,7 @@ impl ArrowColumns {
             + self.modes.capacity() * std::mem::size_of::<super::TransmissionMode>()
             + self.participation_levels.capacity() * std::mem::size_of::<u64>()
             + self.plastic_supports.capacity() * std::mem::size_of::<u64>()
-            + self.pressure_loads.capacity() * std::mem::size_of::<u64>()
+            + self.decay_loads.capacity() * std::mem::size_of::<u64>()
             + self.triggers.capacity() * std::mem::size_of::<super::TransmissionTrigger>();
         bytes
     }
