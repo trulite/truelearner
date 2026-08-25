@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 //! Single-file physical runtime: state, local transitions, and crossings.
 
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use truelearner_arena_format::{
     ArenaBody, ArenaVersion, BodyVersion, DurableArrow, DurableCell, FormatError,
 };
@@ -216,6 +216,30 @@ struct Arrow {
     decay_load: u64,
     mode: TransmissionMode,
     trigger: TransmissionTrigger,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+struct PhysicalArrowOrder {
+    phase: i32,
+    delay: i64,
+    from_live: bool,
+    from_position: i32,
+    from_region: i16,
+    from_threshold: i32,
+    to_live: bool,
+    to_position: i32,
+    to_region: i16,
+    to_threshold: i32,
+    mode: u8,
+    trigger: u8,
+    coupling: i32,
+    resistance: u32,
+    participation: u64,
+    plastic_support: u64,
+    decay_load: u64,
+    source_generation: u32,
+    target_generation: u32,
+    arrow_generation: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -508,7 +532,7 @@ pub struct PlasticSubstrate {
     pending_loads: Vec<PendingLoad>,
     outgoing_index: Vec<Vec<ArrowId>>,
     resident_arenas: Vec<ResidentArenaId>,
-    active_cells: BTreeSet<CellId>,
+    active_cells: HashSet<CellId>,
     trace_physics: bool,
     zero_delay_live_arrows: usize,
 }
@@ -1149,7 +1173,7 @@ impl PlasticSubstrate {
             pending_loads: Vec::new(),
             outgoing_index: Vec::new(),
             resident_arenas: Vec::new(),
-            active_cells: BTreeSet::new(),
+            active_cells: HashSet::new(),
             trace_physics: false,
             zero_delay_live_arrows: 0,
         }
@@ -1165,11 +1189,7 @@ impl PlasticSubstrate {
 
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
         let was_partitioned = self.pending.is_partitioned();
-        let pending = self.pending.canonical(|id| {
-            self.cells
-                .get(self.cell_slot(id).expect("scheduled CELL must resolve").0)
-                .physical_id
-        });
+        let pending = self.pending.canonical();
         self.cells.convert(mechanics.layout);
         self.arrows.convert(mechanics.layout);
         self.pending = if was_partitioned {
@@ -1188,11 +1208,7 @@ impl PlasticSubstrate {
             self.cell_slots.len(),
             "resident partition must assign every CELL identity"
         );
-        let pending = self.pending.canonical(|id| {
-            self.cells
-                .get(self.cell_slot(id).expect("scheduled CELL must resolve").0)
-                .physical_id
-        });
+        let pending = self.pending.canonical();
         self.resident_arenas = placements.to_vec();
         self.pending =
             PendingSchedule::partitioned(self.tick, self.resident_arenas.clone(), pending);
@@ -1364,7 +1380,6 @@ impl PlasticSubstrate {
         }
         let outgoing = &mut self.outgoing_index[spec.from.0 as usize];
         outgoing.push(id);
-        outgoing.sort_unstable();
         if spec.resistance > 0 && spec.delay == 0 {
             self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_add(1);
         }
@@ -1643,9 +1658,6 @@ impl PlasticSubstrate {
             });
             substrate.outgoing_index[durable.from.id.0 as usize].push(durable.id);
         }
-        for outgoing in &mut substrate.outgoing_index {
-            outgoing.sort_unstable();
-        }
         substrate.rebuild_mechanical_indexes();
         Ok(substrate)
     }
@@ -1717,11 +1729,7 @@ impl PlasticSubstrate {
     }
 
     pub fn live_checkpoint(&self, body_version: u64) -> Result<LiveCheckpoint, CheckpointError> {
-        let pending = self.pending.canonical(|id| {
-            self.cells
-                .get(self.cell_slot(id).expect("scheduled CELL must resolve").0)
-                .physical_id
-        });
+        let pending = self.pending.canonical();
         Ok(LiveCheckpoint {
             body_version: self.body_version(body_version)?,
             body: self.arena_body(body_version),
@@ -2076,7 +2084,7 @@ impl PlasticSubstrate {
                                 .collect()
                         }
                     };
-                    outgoing.sort_by_key(|(id, _)| *id);
+                outgoing.sort_by_key(|(_, arrow)| self.physical_arrow_order(arrow));
                     for (arrow_id, arrow) in outgoing {
                         execution_cost.touch::<Arrow>(1);
                         work.total = work.total.saturating_add(1);
@@ -2201,15 +2209,7 @@ impl PlasticSubstrate {
             if ceiling.is_some_and(|limit| scheduled_deliveries >= limit) {
                 break;
             }
-            let cells = &self.cells;
-            let slots = &self.cell_slots;
-            let batch = self.pending.drain_minimum_wave(
-                |id| {
-                    let slot = slots[id.0 as usize].expect("scheduled CELL must resolve");
-                    cells.get(slot.0).physical_id
-                },
-                &mut execution_cost,
-            );
+            let batch = self.pending.drain_minimum_wave(&mut execution_cost);
             assert!(!batch.is_empty());
             execution_cost.observe_batch(batch.len());
             let arrival_tick = batch[0].0.arrival_tick;
@@ -2490,15 +2490,7 @@ impl PlasticSubstrate {
 
     #[cfg(not(feature = "si0"))]
     fn pop_scheduled(&mut self, execution_cost: &mut ExecutionCost) -> Option<(Spike, u64)> {
-        let cells = &self.cells;
-        let slots = &self.cell_slots;
-        self.pending.pop_next(
-            |id| {
-                let slot = slots[id.0 as usize].expect("scheduled CELL must resolve");
-                cells.get(slot.0).physical_id
-            },
-            execution_cost,
-        )
+        self.pending.pop_next(execution_cost)
     }
 
     #[cfg(not(feature = "si0"))]
@@ -2507,16 +2499,8 @@ impl PlasticSubstrate {
         maximum: usize,
         execution_cost: &mut ExecutionCost,
     ) -> Vec<(Spike, u64)> {
-        let cells = &self.cells;
-        let slots = &self.cell_slots;
-        self.pending.pop_same_tick_batch(
-            maximum,
-            |id| {
-                let slot = slots[id.0 as usize].expect("scheduled CELL must resolve");
-                cells.get(slot.0).physical_id
-            },
-            execution_cost,
-        )
+        self.pending
+            .pop_same_tick_batch(maximum, execution_cost)
     }
 
     #[cfg(not(feature = "si0"))]
@@ -2566,7 +2550,7 @@ impl PlasticSubstrate {
             }
         }
         #[cfg(feature = "j0")]
-        let candidates = {
+        let mut candidates = {
             execution_cost.allocations = execution_cost.allocations.saturating_add(1);
             execution_cost.scans = execution_cost
                 .scans
@@ -2579,7 +2563,7 @@ impl PlasticSubstrate {
                 .collect::<Vec<_>>()
         };
         #[cfg(not(feature = "j0"))]
-        let candidates = match self.mechanics.traversal {
+        let mut candidates = match self.mechanics.traversal {
             TraversalKind::GlobalScan => {
                 execution_cost.allocations = execution_cost.allocations.saturating_add(1);
                 execution_cost.scans = execution_cost
@@ -2602,6 +2586,7 @@ impl PlasticSubstrate {
                 self.outgoing_index[cell.0 as usize].clone()
             }
         };
+        self.sort_arrow_ids_by_physics(&mut candidates);
         let qualified_local = candidates.iter().any(|id| {
             let slot = self.arrow_slot(*id).expect("indexed ARROW must resolve");
             let arrow = self.arrows.get(slot.0);
@@ -2715,7 +2700,8 @@ impl PlasticSubstrate {
         execution_cost: &mut ExecutionCost,
         physical_trace: &mut Vec<PhysicalTransition>,
     ) {
-        let outgoing = self.outgoing_index[cell.0 as usize].clone();
+        let mut outgoing = self.outgoing_index[cell.0 as usize].clone();
+        self.sort_arrow_ids_by_physics(&mut outgoing);
         for id in outgoing {
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
             let arrow = self.arrows.get(slot.0);
@@ -3003,7 +2989,7 @@ impl PlasticSubstrate {
                         })
                 })
                 .map(|cell| cell.id)
-                .collect::<BTreeSet<_>>();
+                .collect::<HashSet<_>>();
             execution_cost.scans = execution_cost.scans.saturating_add(
                 u64::try_from(self.cells.len().saturating_mul(arrows.len())).unwrap_or(u64::MAX),
             );
@@ -3086,15 +3072,23 @@ impl PlasticSubstrate {
                         execution_cost.touch::<Arrow>(1);
                         arrow.live && arrow.from == source && arrow.to == cell.id
                     }))
-                .then_some((cell.physical_id, cell.id, distance))
+                .then_some((
+                    distance,
+                    cell.position,
+                    cell.region,
+                    cell.threshold,
+                    cell.resistance,
+                    cell.generation.0,
+                    cell.id,
+                ))
             })
             .collect::<Vec<_>>();
-        targets.sort_by_key(|(physical_id, _, _)| *physical_id);
+        targets.sort_by_key(|target| (target.0, target.1, target.2, target.3, target.4, target.5));
         #[cfg(feature = "sv0")]
         let proposal_couplings: &[i32] = &[1, -1];
         #[cfg(not(feature = "sv0"))]
         let proposal_couplings: &[i32] = &[1];
-        for (_, target, distance) in targets {
+        for (distance, _, _, _, _, _, target) in targets {
             for coupling in proposal_couplings {
                 let id = self.add_arrow(ArrowSpec {
                     from: source,
@@ -3145,7 +3139,6 @@ impl PlasticSubstrate {
         let source_cell = self.cells.get(source_slot.0);
         let source_position = source_cell.position;
         let source_region = source_cell.region;
-        let source_physical = source_cell.physical_id;
         execution_cost.touch::<Cell>(1);
 
         let cells = self.cells.values();
@@ -3181,15 +3174,19 @@ impl PlasticSubstrate {
                         })
                 });
                 (!existing_direct && !existing_contact_relation).then_some((
-                    target.physical_id,
-                    target.id,
                     distance,
+                    target.position,
+                    target.region,
+                    target.threshold,
+                    target.resistance,
+                    target.generation.0,
+                    target.id,
                 ))
             })
             .collect::<Vec<_>>();
-        targets.sort_by_key(|(physical_id, _, _)| *physical_id);
+        targets.sort_by_key(|target| (target.0, target.1, target.2, target.3, target.4, target.5));
 
-        for (target_physical, target, distance) in targets {
+        for (distance, _, _, _, _, _, target) in targets {
             let free_cells = self.cell_capacity.saturating_sub(
                 u32::try_from(self.cells.values().iter().filter(|cell| cell.live).count())
                     .unwrap_or(u32::MAX),
@@ -3216,11 +3213,7 @@ impl PlasticSubstrate {
                 .unwrap_or(0)
                 .checked_add(1)
                 .expect("generated CELL physical identity exhausted");
-            let signs = if (source_physical ^ target_physical) & 1 == 0 {
-                [1, -1]
-            } else {
-                [-1, 1]
-            };
+            let signs = [1, -1];
             for (offset, coupling) in signs.into_iter().enumerate() {
                 let contact = self.add_cell(CellSpec {
                     physical_id: next_physical
@@ -3304,6 +3297,47 @@ impl PlasticSubstrate {
         } else {
             self.active_cells.insert(cell);
         }
+    }
+
+    fn physical_arrow_order(&self, arrow: &Arrow) -> PhysicalArrowOrder {
+        let from = self
+            .cell_slot(arrow.from)
+            .map(|slot| self.cells.get(slot.0));
+        let to = self
+            .cell_slot(arrow.to)
+            .map(|slot| self.cells.get(slot.0));
+        PhysicalArrowOrder {
+            phase: arrow.phase,
+            delay: arrow.delay,
+            from_live: from.as_ref().is_some_and(|cell| cell.live),
+            from_position: from.as_ref().map_or(0, |cell| cell.position),
+            from_region: from.as_ref().map_or(0, |cell| cell.region),
+            from_threshold: from.as_ref().map_or(0, |cell| cell.threshold),
+            to_live: to.as_ref().is_some_and(|cell| cell.live),
+            to_position: to.as_ref().map_or(0, |cell| cell.position),
+            to_region: to.as_ref().map_or(0, |cell| cell.region),
+            to_threshold: to.as_ref().map_or(0, |cell| cell.threshold),
+            mode: transmission_mode_byte(arrow.mode),
+            trigger: transmission_trigger_byte(arrow.trigger),
+            coupling: arrow.coupling,
+            resistance: arrow.resistance,
+            participation: arrow.participation_level,
+            plastic_support: arrow.plastic_support,
+            decay_load: arrow.decay_load,
+            source_generation: arrow.source_generation.0,
+            #[cfg(feature = "cl0")]
+            target_generation: arrow.target_generation.0,
+            #[cfg(not(feature = "cl0"))]
+            target_generation: to.as_ref().map_or(0, |cell| cell.generation.0),
+            arrow_generation: arrow.generation.0,
+        }
+    }
+
+    fn sort_arrow_ids_by_physics(&self, arrows: &mut [ArrowId]) {
+        arrows.sort_by_key(|id| {
+            let slot = self.arrow_slot(*id).expect("indexed ARROW must resolve");
+            self.physical_arrow_order(&self.arrows.get(slot.0))
+        });
     }
 
     fn require_cell(&self, id: CellId) {
@@ -3459,9 +3493,6 @@ impl PlasticSubstrate {
         self.outgoing_index = vec![Vec::new(); self.cell_slots.len()];
         for arrow in self.arrows.values() {
             self.outgoing_index[arrow.from.0 as usize].push(arrow.id);
-        }
-        for outgoing in &mut self.outgoing_index {
-            outgoing.sort_unstable();
         }
         self.active_cells = self
             .cells

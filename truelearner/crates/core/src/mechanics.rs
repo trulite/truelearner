@@ -432,9 +432,9 @@ pub enum SchedulerKind {
 }
 
 #[cfg(feature = "si0")]
-type OrderKey = (i64, i32, u64, u64, u64, u64);
+type CausalOrderKey = (i64, i32, u64, u64);
 #[cfg(not(feature = "si0"))]
-type OrderKey = (i64, i32, u64, u64, u64);
+type CausalOrderKey = (i64, i32, u64);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum PendingSchedule {
@@ -480,43 +480,32 @@ impl PendingSchedule {
         }
     }
 
-    pub(super) fn pop_next<F>(
-        &mut self,
-        target_physical: F,
-        cost: &mut ExecutionCost,
-    ) -> Option<(Spike, u64)>
-    where
-        F: Fn(CellId) -> u64,
-    {
+    pub(super) fn pop_next(&mut self, cost: &mut ExecutionCost) -> Option<(Spike, u64)> {
         cost.queue_ops = cost.queue_ops.saturating_add(1);
         match self {
             Self::Vec(spikes) => {
-                let index = minimum_index(spikes, &target_physical, cost)?;
+                let index = minimum_index(spikes, cost)?;
                 let comparisons = u64::try_from(spikes.len().saturating_sub(1)).unwrap_or(u64::MAX);
                 Some((spikes.remove(index), comparisons))
             }
-            Self::TimingWheel(wheel) => wheel.pop_next(target_physical, cost),
-            Self::PartitionedTimingWheels(wheels) => wheels.pop_next(target_physical, cost),
+            Self::TimingWheel(wheel) => wheel.pop_next(cost),
+            Self::PartitionedTimingWheels(wheels) => wheels.pop_next(cost),
         }
     }
 
     #[cfg(not(feature = "si0"))]
-    pub(super) fn pop_same_tick_batch<F>(
+    pub(super) fn pop_same_tick_batch(
         &mut self,
         maximum: usize,
-        target_physical: F,
         cost: &mut ExecutionCost,
-    ) -> Vec<(Spike, u64)>
-    where
-        F: Fn(CellId) -> u64,
-    {
+    ) -> Vec<(Spike, u64)> {
         if maximum == 0 {
             return Vec::new();
         }
         match self {
             Self::Vec(spikes) => {
                 cost.queue_ops = cost.queue_ops.saturating_add(1);
-                let Some(index) = minimum_index(spikes, &target_physical, cost) else {
+                let Some(index) = minimum_index(spikes, cost) else {
                     return Vec::new();
                 };
                 let comparisons = u64::try_from(spikes.len().saturating_sub(1)).unwrap_or(u64::MAX);
@@ -524,31 +513,27 @@ impl PendingSchedule {
             }
             Self::TimingWheel(wheel) => {
                 cost.queue_ops = cost.queue_ops.saturating_add(1);
-                wheel.pop_same_tick_batch(maximum, target_physical, cost)
+                wheel.pop_same_tick_batch(maximum, cost)
             }
             Self::PartitionedTimingWheels(wheels) => {
                 cost.queue_ops = cost.queue_ops.saturating_add(1);
-                wheels.pop_same_tick_batch(maximum, target_physical, cost)
+                wheels.pop_same_tick_batch(maximum, cost)
             }
         }
     }
 
     #[cfg(feature = "si0")]
-    pub(super) fn drain_minimum_wave<F>(
+    pub(super) fn drain_minimum_wave(
         &mut self,
-        target_physical: F,
         cost: &mut ExecutionCost,
-    ) -> Vec<(Spike, u64)>
-    where
-        F: Fn(CellId) -> u64 + Copy,
-    {
-        let Some(first) = self.pop_next(target_physical, cost) else {
+    ) -> Vec<(Spike, u64)> {
+        let Some(first) = self.pop_next(cost) else {
             return Vec::new();
         };
         let prefix = (first.0.arrival_tick, first.0.phase, first.0.causal_wave);
         let mut batch = vec![first];
         loop {
-            let Some(next) = self.pop_next(target_physical, cost) else {
+            let Some(next) = self.pop_next(cost) else {
                 break;
             };
             if (next.0.arrival_tick, next.0.phase, next.0.causal_wave) == prefix {
@@ -561,10 +546,7 @@ impl PendingSchedule {
         batch
     }
 
-    pub(super) fn canonical<F>(&self, target_physical: F) -> Vec<Spike>
-    where
-        F: Fn(CellId) -> u64,
-    {
+    pub(super) fn canonical(&self) -> Vec<Spike> {
         let mut spikes = match self {
             Self::Vec(spikes) => spikes.clone(),
             Self::TimingWheel(wheel) => wheel
@@ -580,7 +562,7 @@ impl PendingSchedule {
                 .cloned()
                 .collect(),
         };
-        spikes.sort_by_key(|spike| order_key(spike, &target_physical));
+        spikes.sort_by_key(canonical_storage_key);
         spikes
     }
 
@@ -658,12 +640,9 @@ impl PartitionedTimingWheels {
         self.len = self.len.saturating_add(1);
     }
 
-    fn pop_next<F>(&mut self, target_physical: F, cost: &mut ExecutionCost) -> Option<(Spike, u64)>
-    where
-        F: Fn(CellId) -> u64,
-    {
-        let wheel = self.minimum_wheel(&target_physical, cost)?;
-        let result = self.wheels[wheel].pop_next(target_physical, cost);
+    fn pop_next(&mut self, cost: &mut ExecutionCost) -> Option<(Spike, u64)> {
+        let wheel = self.minimum_wheel(cost)?;
+        let result = self.wheels[wheel].pop_next(cost);
         if result.is_some() {
             self.len = self.len.saturating_sub(1);
         }
@@ -671,40 +650,36 @@ impl PartitionedTimingWheels {
     }
 
     #[cfg(not(feature = "si0"))]
-    fn pop_same_tick_batch<F>(
+    fn pop_same_tick_batch(
         &mut self,
         maximum: usize,
-        target_physical: F,
         cost: &mut ExecutionCost,
-    ) -> Vec<(Spike, u64)>
-    where
-        F: Fn(CellId) -> u64,
-    {
+    ) -> Vec<(Spike, u64)> {
         let mut batch = Vec::with_capacity(maximum.min(self.len));
         if batch.capacity() > 0 {
             cost.allocations = cost.allocations.saturating_add(1);
         }
-        let Some(wheel) = self.minimum_wheel(&target_physical, cost) else {
+        let Some(wheel) = self.minimum_wheel(cost) else {
             return batch;
         };
-        let Some(first) = self.wheels[wheel].pop_next(&target_physical, cost) else {
+        let Some(first) = self.wheels[wheel].pop_next(cost) else {
             return batch;
         };
         self.len = self.len.saturating_sub(1);
         let tick = first.0.arrival_tick;
         batch.push(first);
         while batch.len() < maximum {
-            let Some(wheel) = self.minimum_wheel(&target_physical, cost) else {
+            let Some(wheel) = self.minimum_wheel(cost) else {
                 break;
             };
             if self.wheels[wheel]
-                .minimum_key(&target_physical, cost)
+                .minimum_key(cost)
                 .is_none_or(|key| key.0 != tick)
             {
                 break;
             }
             let next = self.wheels[wheel]
-                .pop_next(&target_physical, cost)
+                .pop_next(cost)
                 .expect("selected resident timing wheel must pop");
             self.len = self.len.saturating_sub(1);
             batch.push(next);
@@ -712,21 +687,18 @@ impl PartitionedTimingWheels {
         batch
     }
 
-    fn minimum_wheel<F>(&self, target_physical: &F, cost: &mut ExecutionCost) -> Option<usize>
-    where
-        F: Fn(CellId) -> u64,
-    {
+    fn minimum_wheel(&self, cost: &mut ExecutionCost) -> Option<usize> {
         let active = self.wheels.iter().filter(|wheel| wheel.len > 0).count();
         cost.observe_active_arenas(active);
         let mut selected = None;
         for (index, wheel) in self.wheels.iter().enumerate() {
-            let Some(key) = wheel.minimum_key(target_physical, cost) else {
+            let Some(key) = wheel.minimum_key(cost) else {
                 continue;
             };
             cost.arena_lookups = cost.arena_lookups.saturating_add(1);
             if selected
                 .as_ref()
-                .is_none_or(|(_, current): &(usize, OrderKey)| key < *current)
+                .is_none_or(|(_, current): &(usize, CausalOrderKey)| key < *current)
             {
                 selected = Some((index, key));
             }
@@ -785,10 +757,7 @@ impl TimingWheel {
         self.len += 1;
     }
 
-    fn pop_next<F>(&mut self, target_physical: F, cost: &mut ExecutionCost) -> Option<(Spike, u64)>
-    where
-        F: Fn(CellId) -> u64,
-    {
+    fn pop_next(&mut self, cost: &mut ExecutionCost) -> Option<(Spike, u64)> {
         if self.len == 0 {
             return None;
         }
@@ -808,7 +777,7 @@ impl TimingWheel {
         let index = self.bucket_index(next_tick);
         let bucket = &mut self.near[index];
         let before = bucket.len();
-        let selected = minimum_index(bucket, &target_physical, cost)
+        let selected = minimum_index(bucket, cost)
             .expect("next timing-wheel bucket must contain an arrival");
         let spike = bucket.remove(selected);
         self.len -= 1;
@@ -817,15 +786,11 @@ impl TimingWheel {
     }
 
     #[cfg(not(feature = "si0"))]
-    fn pop_same_tick_batch<F>(
+    fn pop_same_tick_batch(
         &mut self,
         maximum: usize,
-        target_physical: F,
         cost: &mut ExecutionCost,
-    ) -> Vec<(Spike, u64)>
-    where
-        F: Fn(CellId) -> u64,
-    {
+    ) -> Vec<(Spike, u64)> {
         if self.len == 0 {
             return Vec::new();
         }
@@ -847,7 +812,7 @@ impl TimingWheel {
         }
         let index = self.bucket_index(next_tick);
         let bucket = &mut self.near[index];
-        bucket.sort_by_key(|spike| order_key(spike, &target_physical));
+        bucket.sort_by_key(causal_order_key);
         let count = bucket
             .iter()
             .take_while(|spike| spike.arrival_tick == next_tick)
@@ -887,14 +852,11 @@ impl TimingWheel {
             .chain(self.overflow.iter())
     }
 
-    fn minimum_key<F>(&self, target_physical: &F, cost: &mut ExecutionCost) -> Option<OrderKey>
-    where
-        F: Fn(CellId) -> u64,
-    {
+    fn minimum_key(&self, cost: &mut ExecutionCost) -> Option<CausalOrderKey> {
         let mut selected = None;
         for spike in self.spikes() {
             cost.touch::<Spike>(1);
-            let key = order_key(spike, target_physical);
+            let key = causal_order_key(spike);
             if selected.is_some() {
                 cost.comparisons = cost.comparisons.saturating_add(1);
             }
@@ -924,14 +886,7 @@ impl TimingWheel {
     }
 }
 
-fn minimum_index<F>(
-    spikes: &[Spike],
-    target_physical: &F,
-    cost: &mut ExecutionCost,
-) -> Option<usize>
-where
-    F: Fn(CellId) -> u64,
-{
+fn minimum_index(spikes: &[Spike], cost: &mut ExecutionCost) -> Option<usize> {
     let mut first = 0;
     if spikes.is_empty() {
         return None;
@@ -939,42 +894,39 @@ where
     for candidate in 1..spikes.len() {
         cost.comparisons = cost.comparisons.saturating_add(1);
         cost.touch::<Spike>(2);
-        if order_key(&spikes[candidate], target_physical)
-            < order_key(&spikes[first], target_physical)
-        {
+        if causal_order_key(&spikes[candidate]) < causal_order_key(&spikes[first]) {
             first = candidate;
         }
     }
     Some(first)
 }
 
-fn order_key<F>(spike: &Spike, _target_physical: &F) -> OrderKey
-where
-    F: Fn(CellId) -> u64,
-{
-    #[cfg(feature = "cl0")]
-    let target_physical = spike.target_physical;
-    #[cfg(not(feature = "cl0"))]
-    let target_physical = _target_physical(spike.target);
+fn causal_order_key(spike: &Spike) -> CausalOrderKey {
     #[cfg(feature = "si0")]
     {
         (
             spike.arrival_tick,
             spike.phase,
             spike.causal_wave,
-            spike.origin_physical,
-            target_physical,
             spike.serial,
         )
     }
     #[cfg(not(feature = "si0"))]
     {
-        (
-            spike.arrival_tick,
-            spike.phase,
-            spike.origin_physical,
-            target_physical,
-            spike.serial,
-        )
+        (spike.arrival_tick, spike.phase, spike.serial)
     }
+}
+
+fn canonical_storage_key(spike: &Spike) -> (i64, i32, u64, u64, u64, u64) {
+    (
+        spike.arrival_tick,
+        spike.phase,
+        #[cfg(feature = "si0")]
+        spike.causal_wave,
+        #[cfg(not(feature = "si0"))]
+        0,
+        spike.origin_physical,
+        spike.target.0,
+        spike.serial,
+    )
 }
