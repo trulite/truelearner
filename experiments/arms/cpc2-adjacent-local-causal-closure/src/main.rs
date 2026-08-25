@@ -542,7 +542,7 @@ fn write_row(
 ) {
     writeln!(
         csv,
-        "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         arm.name(),
         world.name(),
         mechanics_name(mechanics),
