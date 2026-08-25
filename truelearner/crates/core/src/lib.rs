@@ -549,15 +549,41 @@ mod mechanics {
             };
             let prefix = (first.0.arrival_tick, first.0.phase, first.0.causal_wave);
             let mut batch = vec![first];
-            while let Some(next) = self.pop_next(cost) {
-                if (next.0.arrival_tick, next.0.phase, next.0.causal_wave) == prefix {
-                    batch.push(next);
-                } else {
-                    self.push(next.0, cost);
-                    break;
-                }
+            while self
+                .minimum_key(cost)
+                .is_some_and(|key| (key.0, key.1, key.2) == prefix)
+            {
+                batch.push(
+                    self.pop_next(cost)
+                        .expect("peeked causal wave must remain available"),
+                );
             }
             batch
+        }
+
+        #[cfg(feature = "si0")]
+        fn minimum_key(&self, cost: &mut ExecutionCost) -> Option<CausalOrderKey> {
+            match self {
+                Self::Vec(spikes) => {
+                    let mut selected = None;
+                    for spike in spikes {
+                        cost.touch::<Spike>(1);
+                        let key = causal_order_key(spike);
+                        if selected.is_some() {
+                            cost.comparisons = cost.comparisons.saturating_add(1);
+                        }
+                        if selected.is_none_or(|current| key < current) {
+                            selected = Some(key);
+                        }
+                    }
+                    selected
+                }
+                Self::TimingWheel(wheel) => wheel.minimum_key(cost),
+                Self::PartitionedTimingWheels(wheels) => {
+                    let wheel = wheels.minimum_wheel(cost)?;
+                    wheels.wheels[wheel].minimum_key(cost)
+                }
+            }
         }
 
         pub(super) fn canonical(&self) -> Vec<Spike> {
