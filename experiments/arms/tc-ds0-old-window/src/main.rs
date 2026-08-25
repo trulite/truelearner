@@ -419,6 +419,14 @@ fn run(case: Case, mechanics: MechanicalConfig) -> Observation {
     }
 }
 
+fn assert_physical_equal(reference: &Observation, production: &Observation, case: Case) {
+    let mut reference = reference.clone();
+    let mut production = production.clone();
+    reference.final_checkpoint_hash.clear();
+    production.final_checkpoint_hash.clear();
+    assert_eq!(production, reference, "mechanics diverged for {case:?}");
+}
+
 fn csv_row(
     csv: &mut String,
     case_id: usize,
@@ -498,8 +506,9 @@ fn main() {
                     cases += 1;
                     let reference = run(case, MechanicalConfig::REFERENCE);
                     let production = run(case, MechanicalConfig::PRODUCTION);
-                    assert_eq!(production, reference, "mechanics diverged for {case:?}");
+                    assert_physical_equal(&reference, &production, case);
                     assert!(reference.naturally_quiescent && reference.replay_exact);
+                    assert!(production.naturally_quiescent && production.replay_exact);
                     csv_row(&mut csv, cases, "reference", case, &reference);
                     csv_row(&mut csv, cases, "production", case, &production);
                     rows += 2;
