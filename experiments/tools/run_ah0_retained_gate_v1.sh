@@ -11,7 +11,7 @@ bash experiments/tools/audit_ah0_handle_ordering_removal_v1.sh .
 cargo test --release --manifest-path truelearner/Cargo.toml \
     -p truelearner-core r1_r5_mechanical_prefixes_preserve_physics
 
-cargo run --release --manifest-path experiments/verification/r6-partition-invariance/Cargo.toml \
+cargo run --release --manifest-path experiments/verification/r6-partition-invariance-ah0/Cargo.toml \
     -- --output "$output/r6"
 
 cargo run --release --manifest-path experiments/arms/si0-simultaneous-local-incidence/Cargo.toml \
