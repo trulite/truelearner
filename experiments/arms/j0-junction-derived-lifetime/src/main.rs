@@ -11,9 +11,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowRef, ArrowSpec, CellId, CellSpec, ContentHash,
-    MechanicalConfig, PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput,
-    TransmissionMode, Work,
+    ArenaId, ArrowId, ArrowRef, ArrowSpec, CellId, CellSpec, ContentHash, MechanicalConfig,
+    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
 };
 
 const ROOTS: [u64; 2] = [7_700_000, 7_800_001];
