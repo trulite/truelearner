@@ -3218,11 +3218,12 @@ impl PlasticSubstrate {
                         TransmissionMode::Modulatory => modulatory_arrivals.push(spike),
                     }
                 } else {
+                    let target_id = spike.target;
                     let (drive_arrivals, modulatory_arrivals) = match mode {
                         TransmissionMode::Drive => (vec![spike], Vec::new()),
                         TransmissionMode::Modulatory => (Vec::new(), vec![spike]),
                     };
-                    incidences.push((spike.target, drive_arrivals, modulatory_arrivals));
+                    incidences.push((target_id, drive_arrivals, modulatory_arrivals));
                 }
             }
 
@@ -3553,7 +3554,7 @@ impl PlasticSubstrate {
             }
         }
         #[cfg(feature = "j0")]
-        let mut candidates = {
+        let candidates = {
             execution_cost.allocations = execution_cost.allocations.saturating_add(1);
             execution_cost.scans = execution_cost
                 .scans
@@ -3566,7 +3567,7 @@ impl PlasticSubstrate {
                 .collect::<Vec<_>>()
         };
         #[cfg(not(feature = "j0"))]
-        let mut candidates = match self.mechanics.traversal {
+        let candidates = match self.mechanics.traversal {
             TraversalKind::GlobalScan => {
                 execution_cost.allocations = execution_cost.allocations.saturating_add(1);
                 execution_cost.scans = execution_cost
@@ -3589,6 +3590,8 @@ impl PlasticSubstrate {
                 self.outgoing_index[cell.0 as usize].clone()
             }
         };
+        #[cfg(not(feature = "si0"))]
+        let mut candidates = candidates;
         #[cfg(not(feature = "si0"))]
         self.sort_arrow_ids_by_physics(&mut candidates);
         let qualified_local = candidates.iter().any(|id| {
@@ -3712,7 +3715,9 @@ impl PlasticSubstrate {
         physical_trace: &mut Vec<PhysicalTransition>,
         causal_wave: u64,
     ) {
-        let mut outgoing = self.outgoing_index[cell.0 as usize].clone();
+        let outgoing = self.outgoing_index[cell.0 as usize].clone();
+        #[cfg(not(feature = "si0"))]
+        let mut outgoing = outgoing;
         #[cfg(not(feature = "si0"))]
         self.sort_arrow_ids_by_physics(&mut outgoing);
         for id in outgoing {
