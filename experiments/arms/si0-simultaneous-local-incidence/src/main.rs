@@ -427,30 +427,44 @@ fn logical_event(world: &LogicalWorld, event: &PhysicalEvent) -> String {
 }
 
 fn normalize_trace(world: &LogicalWorld, trace: &[PhysicalTransition]) -> Vec<String> {
-    let mut chunks: Vec<(i64, i32, u64, Vec<String>)> = Vec::new();
+    let mut waves: BTreeMap<(i64, i32, u64), (Vec<String>, Vec<String>, Vec<String>)> =
+        BTreeMap::new();
+    let mut current_wave = None;
     for transition in trace {
-        if let PhysicalEvent::DriveIncidence { causal_wave, .. } = transition.event {
-            chunks.push((
-                transition.tick,
-                transition.phase,
-                causal_wave,
-                vec![logical_event(world, &transition.event)],
-            ));
-        } else {
-            chunks
-                .last_mut()
-                .expect("every SI0 transition follows a Drive incidence")
-                .3
-                .push(logical_event(world, &transition.event));
+        match &transition.event {
+            PhysicalEvent::DriveIncidence { causal_wave, .. } => {
+                let key = (transition.tick, transition.phase, *causal_wave);
+                waves
+                    .entry(key)
+                    .or_default()
+                    .0
+                    .push(logical_event(world, &transition.event));
+                current_wave = Some(key);
+            }
+            PhysicalEvent::Fire { .. } => waves
+                .get_mut(&current_wave.expect("every SI0 fire follows a Drive wave"))
+                .expect("current SI0 wave must exist")
+                .1
+                .push(logical_event(world, &transition.event)),
+            _ => waves
+                .get_mut(&current_wave.expect("every SI0 effect follows a Drive wave"))
+                .expect("current SI0 wave must exist")
+                .2
+                .push(logical_event(world, &transition.event)),
         }
     }
-    chunks.sort_by(|left, right| {
-        (left.0, left.1, left.2, &left.3).cmp(&(right.0, right.1, right.2, &right.3))
-    });
-    chunks
+    waves
         .into_iter()
-        .map(|(tick, phase, wave, events)| {
-            format!("{tick}:{phase}:wave={wave}:{}", events.join("|"))
+        .map(|((tick, phase, wave), (mut incidences, mut fires, mut effects))| {
+            incidences.sort();
+            fires.sort();
+            effects.sort();
+            format!(
+                "{tick}:{phase}:wave={wave}:INCIDENCES=[{}]:FIRES=[{}]:EFFECTS=[{}]",
+                incidences.join("|"),
+                fires.join("|"),
+                effects.join("|")
+            )
         })
         .collect()
 }
@@ -614,7 +628,7 @@ fn mechanics_name(mechanics: MechanicalConfig) -> &'static str {
 
 fn main() {
     let output = env::args_os().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from("experiments/results/si0_simultaneous_local_incidence_v1")
+            PathBuf::from("experiments/results/si0_simultaneous_local_incidence_v2")
     });
     fs::create_dir_all(&output).unwrap();
     let mut csv = String::from(
@@ -690,7 +704,7 @@ fn main() {
     fs::write(output.join("matrix.csv"), &csv).unwrap();
     let verdict = if passed == rows { "PASS" } else { "NEGATIVE" };
     let report = format!(
-        "# SI0 simultaneous local incidence v1\n\n\
+        "# SI0 simultaneous local incidence v2\n\n\
          - families: `{}`\n\
          - rows passing: `{passed}/{rows}`\n\
          - verdict: `{verdict}`\n\
@@ -705,5 +719,5 @@ fn main() {
     );
     fs::write(output.join("report.md"), report).unwrap();
     assert_eq!(passed, rows, "SI0 simultaneous incidence matrix failed");
-    println!("SI0_SIMULTANEOUS_LOCAL_INCIDENCE_POSITIVE_V1");
+    println!("SI0_SIMULTANEOUS_LOCAL_INCIDENCE_POSITIVE_V2");
 }
