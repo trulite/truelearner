@@ -347,12 +347,19 @@ impl Arc3Sensorimotor {
         let origin = EXTERNAL_PHYSICAL_BASE
             .saturating_add(self.sequence.saturating_mul(100))
             .saturating_add(u64::from(context));
-        let mut inputs = Vec::with_capacity(contacts.len().saturating_add(2));
+        let mut inputs = Vec::with_capacity(contacts.len().saturating_add(3));
         inputs.push(SpikeInput {
             arrival_tick: tick,
             phase: 0,
             origin_physical: origin,
             target: self.sites.candidate_sources[context_index][motor],
+            impulse: 1,
+        });
+        inputs.push(SpikeInput {
+            arrival_tick: tick.saturating_add(1),
+            phase: i32::try_from(motor).unwrap_or(0).saturating_add(8),
+            origin_physical: origin.saturating_add(50),
+            target: self.sites.context_traces[context_index][motor],
             impulse: 1,
         });
         inputs.push(SpikeInput {

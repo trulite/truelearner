@@ -278,8 +278,12 @@ fn select_action(
         Arm::Variation => None,
         Arm::Refractory => live
             .into_iter()
-            .map(|(action, _)| action)
-            .find(|action| !state.refractory.contains(action)),
+            .filter(|(action, _)| !state.refractory.contains(action))
+            .fold(None, |best, candidate| match best {
+                Some((_, coupling)) if coupling >= candidate.1 => best,
+                _ => Some(candidate),
+            })
+            .map(|(action, _)| action),
         Arm::Depression => live
             .into_iter()
             .filter_map(|(action, coupling)| {
@@ -293,14 +297,17 @@ fn select_action(
             })
             .map(|(action, _)| action),
         Arm::Trace => {
+            let greatest_coupling = live.iter().map(|(_, coupling)| *coupling).max()?;
             let minimum = live
                 .iter()
+                .filter(|(_, coupling)| *coupling == greatest_coupling)
                 .map(|(action, _)| state.trace[usize::from(action.saturating_sub(1))])
                 .min()?;
             if minimum != 0 {
                 return None;
             }
             live.into_iter()
+                .filter(|(_, coupling)| *coupling == greatest_coupling)
                 .map(|(action, _)| action)
                 .find(|action| state.trace[usize::from(action.saturating_sub(1))] == minimum)
         }
@@ -543,9 +550,14 @@ fn execute(seed: usize, mechanics: MechanicalConfig, root: u64) -> Row {
     let arms = Arm::ALL
         .into_iter()
         .map(|arm| {
+            let arm_schedules = if arm == Arm::Variation {
+                schedules
+            } else {
+                [order, order]
+            };
             (
                 arm,
-                run_arm(arm, &initial, &pixels, context, useful, schedules),
+                run_arm(arm, &initial, &pixels, context, useful, arm_schedules),
             )
         })
         .collect();
@@ -705,10 +717,17 @@ fn main() {
         println!("{:#?}", execute(7, MechanicalConfig::REFERENCE, 96_700_000));
         return;
     }
+    if arguments
+        .get(1)
+        .is_some_and(|value| value == "--preflight-first")
+    {
+        println!("{:#?}", execute(0, MechanicalConfig::REFERENCE, 96_000_000));
+        return;
+    }
 
-    eprintln!("CORE1_E17_SYMMETRY_BREAKING_TOURNAMENT_V1_EVIDENCE_SPENT");
+    eprintln!("CORE1_E17_SYMMETRY_BREAKING_TOURNAMENT_V2_EVIDENCE_SPENT");
     let destination = arguments.get(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from("experiments/results/core1_e17_symmetry_breaking_tournament_v1")
+        PathBuf::from("experiments/results/core1_e17_symmetry_breaking_tournament_v2")
     });
     fs::create_dir_all(&destination).expect("create E17 result directory");
     let mut tiny_csv =
@@ -784,13 +803,13 @@ fn main() {
     }
 
     let report = format!(
-        "# CORE1 E17 local symmetry-breaking tournament\n\n| Arm | First action | Learned useful |\n|---|---:|---:|\n| V bounded variation | {}/{SEEDS} | {}/{SEEDS} |\n| R route refractory | {}/{SEEDS} | {}/{SEEDS} |\n| D efficacy depression | {}/{SEEDS} | {}/{SEEDS} |\n| T usage trace | {}/{SEEDS} | {}/{SEEDS} |\n\n- tiny gate: `20/20`\n- zero control exact: `{zero_all}`\n- exact replay: `{replay_all}`\n- Reference/Production exact: `{mechanics_all}`\n",
+        "# CORE1 E17 local symmetry-breaking tournament v2\n\n| Arm | First action | Learned useful |\n|---|---:|---:|\n| V bounded variation | {}/{SEEDS} | {}/{SEEDS} |\n| R route refractory | {}/{SEEDS} | {}/{SEEDS} |\n| D efficacy depression | {}/{SEEDS} | {}/{SEEDS} |\n| T usage trace | {}/{SEEDS} | {}/{SEEDS} |\n\n- tiny gate: `20/20`\n- zero control exact: `{zero_all}`\n- exact replay: `{replay_all}`\n- Reference/Production exact: `{mechanics_all}`\n",
         first[0], learned[0], first[1], learned[1], first[2], learned[2], first[3],
         learned[3],
     );
     fs::write(destination.join("report.md"), report).expect("write E17 report");
     println!(
-        "CORE1_E17_SYMMETRY_BREAKING_TOURNAMENT_V1_COMPLETE V={}|{} R={}|{} D={}|{} T={}|{} replay={} mechanics={}",
+        "CORE1_E17_SYMMETRY_BREAKING_TOURNAMENT_V2_COMPLETE V={}|{} R={}|{} D={}|{} T={}|{} replay={} mechanics={}",
         first[0], learned[0], first[1], learned[1], first[2], learned[2], first[3],
         learned[3], replay_all, mechanics_all,
     );
