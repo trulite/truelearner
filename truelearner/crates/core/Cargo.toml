@@ -16,6 +16,7 @@ ce0 = ["pd1"]
 rs0 = ["pd1"]
 sv0 = ["pd1"]
 cl0 = ["pd1"]
+cc0 = ["cl0"]
 
 [[bin]]
 name = "truelearner"

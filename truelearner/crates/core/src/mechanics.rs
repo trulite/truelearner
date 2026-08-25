@@ -99,6 +99,8 @@ pub(super) struct CellColumns {
     live: Vec<bool>,
     #[cfg(feature = "cl0")]
     decay_loads: Vec<u64>,
+    #[cfg(feature = "cc0")]
+    participation_levels: Vec<u64>,
 }
 
 impl CellColumns {
@@ -125,6 +127,8 @@ impl CellColumns {
             live: self.live[index],
             #[cfg(feature = "cl0")]
             decay_load: self.decay_loads[index],
+            #[cfg(feature = "cc0")]
+            participation_level: self.participation_levels[index],
         }
     }
 
@@ -144,6 +148,10 @@ impl CellColumns {
         {
             self.decay_loads[index] = value.decay_load;
         }
+        #[cfg(feature = "cc0")]
+        {
+            self.participation_levels[index] = value.participation_level;
+        }
     }
 
     fn push(&mut self, value: Cell) {
@@ -160,6 +168,8 @@ impl CellColumns {
         self.live.push(value.live);
         #[cfg(feature = "cl0")]
         self.decay_loads.push(value.decay_load);
+        #[cfg(feature = "cc0")]
+        self.participation_levels.push(value.participation_level);
     }
 
     fn resident_bytes(&self) -> usize {
@@ -180,6 +190,18 @@ impl CellColumns {
                     self.decay_loads.capacity() * std::mem::size_of::<u64>()
                 }
                 #[cfg(not(feature = "cl0"))]
+                {
+                    0
+                }
+            } else {
+                0
+            }
+            + if cfg!(feature = "cc0") {
+                #[cfg(feature = "cc0")]
+                {
+                    self.participation_levels.capacity() * std::mem::size_of::<u64>()
+                }
+                #[cfg(not(feature = "cc0"))]
                 {
                     0
                 }

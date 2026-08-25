@@ -23,8 +23,10 @@ const DEFAULT_CELL_CAPACITY: u32 = 65_536;
 const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
 #[cfg(not(feature = "cl0"))]
 const CHECKPOINT_VERSION: u16 = 2;
-#[cfg(feature = "cl0")]
+#[cfg(all(feature = "cl0", not(feature = "cc0")))]
 const CHECKPOINT_VERSION: u16 = 3;
+#[cfg(feature = "cc0")]
+const CHECKPOINT_VERSION: u16 = 4;
 const QUIESCENT_MAGIC: &[u8; 8] = b"TLQUIE01";
 const LIVE_MAGIC: &[u8; 8] = b"TLLIVE01";
 const BOUNDARY_LIVE_MAGIC: &[u8; 8] = b"TLBNDY01";
@@ -188,6 +190,8 @@ struct Cell {
     live: bool,
     #[cfg(feature = "cl0")]
     decay_load: u64,
+    #[cfg(feature = "cc0")]
+    participation_level: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -265,6 +269,12 @@ pub enum PhysicalEvent {
         before_generation: Generation,
         after_generation: Generation,
     },
+    #[cfg(feature = "cc0")]
+    CellResistance {
+        cell: CellId,
+        before: u32,
+        after: u32,
+    },
     Proposal {
         arrow: ArrowId,
         from: CellId,
@@ -293,6 +303,8 @@ pub struct Work {
     pub physical_deallocations: u64,
     #[cfg(feature = "cl0")]
     pub cell_deallocations: u64,
+    #[cfg(feature = "cc0")]
+    pub cell_return_updates: u64,
     pub qualified_local_traversals: u64,
 }
 
@@ -379,6 +391,8 @@ impl Work {
             .saturating_add(self.physical_deallocations);
         #[cfg(feature = "cl0")]
         let total = total.saturating_add(self.cell_deallocations);
+        #[cfg(feature = "cc0")]
+        let total = total.saturating_add(self.cell_return_updates);
         total.saturating_add(self.qualified_local_traversals)
     }
 }
@@ -513,6 +527,8 @@ struct CellRuntime {
     refractory_until: i64,
     #[cfg(feature = "cl0")]
     decay_load: u64,
+    #[cfg(feature = "cc0")]
+    participation_level: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -643,6 +659,8 @@ impl LiveCheckpoint {
             checkpoint_put_i64(&mut payload, cell.refractory_until);
             #[cfg(feature = "cl0")]
             checkpoint_put_u64(&mut payload, cell.decay_load);
+            #[cfg(feature = "cc0")]
+            checkpoint_put_u64(&mut payload, cell.participation_level);
         }
         for arrow in &arrows {
             checkpoint_put_u64(&mut payload, arrow.id.0);
@@ -731,6 +749,8 @@ impl LiveCheckpoint {
                 refractory_until: transient.i64()?,
                 #[cfg(feature = "cl0")]
                 decay_load: transient.u64()?,
+                #[cfg(feature = "cc0")]
+                participation_level: transient.u64()?,
             });
         }
         let mut arrows = Vec::with_capacity(arrow_count);
@@ -1239,6 +1259,8 @@ impl PlasticSubstrate {
             live: spec.resistance > 0,
             #[cfg(feature = "cl0")]
             decay_load: 0,
+            #[cfg(feature = "cc0")]
+            participation_level: 0,
         };
         if slot.0 < self.cells.len() {
             self.cells.with_mut(slot.0, |resident| *resident = cell);
@@ -1544,6 +1566,8 @@ impl PlasticSubstrate {
                 live: durable.live,
                 #[cfg(feature = "cl0")]
                 decay_load: 0,
+                #[cfg(feature = "cc0")]
+                participation_level: 0,
             });
         }
         substrate.outgoing_index = vec![Vec::new(); substrate.cell_slots.len()];
@@ -1611,6 +1635,16 @@ impl PlasticSubstrate {
                     #[cfg(feature = "cl0")]
                     {
                         cell.decay_load == 0
+                            && {
+                                #[cfg(feature = "cc0")]
+                                {
+                                    cell.participation_level == 0
+                                }
+                                #[cfg(not(feature = "cc0"))]
+                                {
+                                    true
+                                }
+                            }
                     }
                     #[cfg(not(feature = "cl0"))]
                     {
@@ -1678,6 +1712,8 @@ impl PlasticSubstrate {
                     refractory_until: cell.refractory_until,
                     #[cfg(feature = "cl0")]
                     decay_load: cell.decay_load,
+                    #[cfg(feature = "cc0")]
+                    participation_level: cell.participation_level,
                 })
                 .collect(),
             arrows: self
@@ -1721,6 +1757,10 @@ impl PlasticSubstrate {
                 #[cfg(feature = "cl0")]
                 {
                     cell.decay_load = runtime.decay_load;
+                }
+                #[cfg(feature = "cc0")]
+                {
+                    cell.participation_level = runtime.participation_level;
                 }
             });
         }
@@ -1944,6 +1984,12 @@ impl PlasticSubstrate {
                 self.cells.with_mut(target_slot.0, |target| {
                     target.state = 0;
                     target.refractory_until = self.tick.saturating_add(1);
+                    #[cfg(feature = "cc0")]
+                    {
+                        target.participation_level = target
+                            .participation_level
+                            .saturating_add(PARTICIPATION_IMPULSE);
+                    }
                 });
                 self.active_cells.remove(&spike.target);
                 if self.trace_physics {
@@ -2140,6 +2186,48 @@ impl PlasticSubstrate {
         phase: i32,
         physical_trace: &mut Vec<PhysicalTransition>,
     ) {
+        #[cfg(feature = "cc0")]
+        {
+            let slot = self
+                .cell_slot(cell)
+                .expect("delivered Modulation target must resolve");
+            let updated = self.cells.with_mut(slot.0, |cell_state| {
+                if !cell_state.live || cell_state.participation_level == 0 {
+                    return None;
+                }
+                let bounded = cell_state.participation_level.min(PARTICIPATION_IMPULSE);
+                let numerator =
+                    u128::from(bounded).saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
+                let gain = numerator
+                    .saturating_add(u128::from(PARTICIPATION_IMPULSE).saturating_sub(1))
+                    / u128::from(PARTICIPATION_IMPULSE);
+                let gain = u32::try_from(gain).unwrap_or(LOCAL_RETURN_STRENGTH);
+                let before = cell_state.resistance;
+                cell_state.resistance = cell_state.resistance.saturating_add(gain);
+                if cell_state.resistance != before {
+                    cell_state.decay_load = 0;
+                }
+                Some((before, cell_state.resistance))
+            });
+            execution_cost.touch::<Cell>(1);
+            if let Some((before, after)) = updated {
+                if before != after {
+                    work.total = work.total.saturating_add(3);
+                    work.cell_return_updates = work.cell_return_updates.saturating_add(1);
+                    if self.trace_physics {
+                        physical_trace.push(PhysicalTransition {
+                            tick,
+                            phase,
+                            event: PhysicalEvent::CellResistance {
+                                cell,
+                                before,
+                                after,
+                            },
+                        });
+                    }
+                }
+            }
+        }
         let candidates = match self.mechanics.traversal {
             TraversalKind::GlobalScan => {
                 execution_cost.allocations = execution_cost.allocations.saturating_add(1);
@@ -2494,6 +2582,11 @@ impl PlasticSubstrate {
                         if !cell.live {
                             return (cell.id, false, 0, cell.generation, cell.generation);
                         }
+                        #[cfg(feature = "cc0")]
+                        {
+                            cell.participation_level =
+                                relax_participation(cell.participation_level, elapsed);
+                        }
                         let lifetime_remaining = u64::from(cell.resistance)
                             .saturating_mul(u64::try_from(LOCAL_DECAY_PERIOD).unwrap_or(u64::MAX))
                             .saturating_sub(cell.decay_load);
@@ -2754,6 +2847,15 @@ impl PlasticSubstrate {
             .map(|cell| cell.decay_load)
     }
 
+    #[cfg(feature = "cc0")]
+    pub fn cell_participation(&self, id: CellId) -> Option<u64> {
+        self.cells
+            .values()
+            .iter()
+            .find(|cell| cell.id == id)
+            .map(|cell| cell.participation_level)
+    }
+
     #[cfg(feature = "cl0")]
     pub fn cell_resident_slot(&self, id: CellId) -> Option<CellSlot> {
         self.cells
@@ -2864,6 +2966,10 @@ fn decay_cell_structure(cell: &mut Cell, amount: u32) {
         cell.state = 0;
         cell.refractory_until = 0;
         cell.decay_load = 0;
+        #[cfg(feature = "cc0")]
+        {
+            cell.participation_level = 0;
+        }
     }
 }
 
