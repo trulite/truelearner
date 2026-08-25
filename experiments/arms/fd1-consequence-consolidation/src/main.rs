@@ -320,9 +320,24 @@ fn equivalent_future(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obse
         && early_dead == late_dead
         && early_future_work == late_future_work;
     let points = vec![
-        late.point("after_consequence", 9),
-        late.point("last_live", 48),
-        late.point("death", 49),
+        Point {
+            stage: "after_consequence",
+            age: 9,
+            tick: late.origin.saturating_add(9),
+            state: late_after,
+        },
+        Point {
+            stage: "last_live",
+            age: 48,
+            tick: late.origin.saturating_add(48),
+            state: late_last,
+        },
+        Point {
+            stage: "death",
+            age: 49,
+            tick: late.origin.saturating_add(49),
+            state: late_dead,
+        },
     ];
     late.finish(points, equal)
 }
@@ -702,9 +717,8 @@ fn diagnostic_main(output: PathBuf) {
     println!("FD1_DIAGNOSTIC_COMPLETE classification={classification}");
 }
 
-fn v2_main(output: PathBuf) {
+fn hardened_main(output: PathBuf, roots: [u64; 2], version: &str) {
     fs::create_dir_all(&output).unwrap();
-    let roots = [4_700_000_u64, 4_800_000_u64];
     let mechanics = [MechanicalConfig::REFERENCE, MechanicalConfig::PRODUCTION];
     let mut csv = String::from(
         "case_id,root,creation_phase,family,mechanics,points,trace_hash,physical_work,drive,modulation,updates,proposals,deallocations,qlp,final_tick,body_hash,quiescent,equivalent_future,replay_equal,mechanics_equal,predicate_pass\n",
@@ -778,7 +792,7 @@ fn v2_main(output: PathBuf) {
         .collect::<Vec<_>>()
         .join(" ");
     let report = format!(
-        "# FD1 consequence consolidation result v2\n\n\
+        "# FD1 consequence consolidation result {version}\n\n\
          - physical cases: `{cases}/{EXPECTED_CASES}`\n\
          - mechanics rows: `{rows}/{EXPECTED_ROWS}`\n\
          - frozen families: `{family_line}`\n\
@@ -787,15 +801,15 @@ fn v2_main(output: PathBuf) {
          - one consequence resistance/lifetime: `1->4 / death age 45`\n\
          - two consequences resistance/lifetime: `1->4->7 / death age 76`\n\
          - observations serialized before acceptance assertion: `true`\n\
-         - FD1 v1 relabeled or rerun: `false`\n",
+         - prior FD1 negatives relabeled or rerun: `false`\n",
     );
     fs::write(output.join("matrix.csv"), csv).unwrap();
     fs::write(output.join("report.md"), report).unwrap();
     write_checksums(&output);
     assert_eq!(cases, EXPECTED_CASES);
     assert_eq!(rows, EXPECTED_ROWS);
-    assert!(all_pass, "FD1 v2 focused gate failed; artifacts serialized");
-    println!("FD1_V2_COMPLETE physical_cases={cases} pass=true");
+    assert!(all_pass, "FD1 {version} focused gate failed; artifacts serialized");
+    println!("FD1_COMPLETE version={version} physical_cases={cases} pass=true");
 }
 
 fn main() {
@@ -806,7 +820,15 @@ fn main() {
             .next()
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("results/fd1_consequence_consolidation_v2"));
-        v2_main(output);
+        hardened_main(output, [4_700_000, 4_800_000], "v2");
+        return;
+    }
+    if first.as_deref() == Some(std::ffi::OsStr::new("--v3")) {
+        let output = arguments
+            .next()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("results/fd1_consequence_consolidation_v3"));
+        hardened_main(output, [4_900_000, 5_000_000], "v3");
         return;
     }
     if first.as_deref() == Some(std::ffi::OsStr::new("--diagnostic")) {
