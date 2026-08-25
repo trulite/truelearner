@@ -6,9 +6,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use truelearner_core::{
-    ArenaId, ArrowRef, ArrowSpec, CellId, CellRef, CellSlot, ContentHash,
-    MechanicalConfig, PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput,
-    TransmissionMode, Work,
+    ArenaId, ArrowRef, ArrowSpec, CellId, CellRef, CellSlot, ContentHash, MechanicalConfig,
+    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
 };
 
 const ROOTS: [u64; 2] = [7_500_000, 7_600_001];
@@ -271,10 +270,26 @@ fn observe(family: Family, root: u64, phase: i64, mechanics: MechanicalConfig) -
 
 fn symmetry_checks(world: &World, negative: Candidate, positive: Candidate) -> Vec<(String, bool)> {
     let body = world.body.arena_body(1);
-    let neg_cell = body.cells.iter().find(|cell| cell.id == negative.contact).unwrap();
-    let pos_cell = body.cells.iter().find(|cell| cell.id == positive.contact).unwrap();
-    let neg_stem = body.arrows.iter().find(|arrow| arrow.id == negative.stem.id).unwrap();
-    let pos_stem = body.arrows.iter().find(|arrow| arrow.id == positive.stem.id).unwrap();
+    let neg_cell = body
+        .cells
+        .iter()
+        .find(|cell| cell.id == negative.contact)
+        .unwrap();
+    let pos_cell = body
+        .cells
+        .iter()
+        .find(|cell| cell.id == positive.contact)
+        .unwrap();
+    let neg_stem = body
+        .arrows
+        .iter()
+        .find(|arrow| arrow.id == negative.stem.id)
+        .unwrap();
+    let pos_stem = body
+        .arrows
+        .iter()
+        .find(|arrow| arrow.id == positive.stem.id)
+        .unwrap();
     let neg_out = body
         .arrows
         .iter()
@@ -286,9 +301,18 @@ fn symmetry_checks(world: &World, negative: Candidate, positive: Candidate) -> V
         .find(|arrow| arrow.id == positive.outgoing.id)
         .unwrap();
     vec![
-        ("exactly_two_cell_proposals".into(), world.work.cell_proposals == 2),
-        ("exactly_four_arrow_proposals".into(), world.work.arrow_proposals == 4),
-        ("signed_pair".into(), negative.sign == -1 && positive.sign == 1),
+        (
+            "exactly_two_cell_proposals".into(),
+            world.work.cell_proposals == 2,
+        ),
+        (
+            "exactly_four_arrow_proposals".into(),
+            world.work.arrow_proposals == 4,
+        ),
+        (
+            "signed_pair".into(),
+            negative.sign == -1 && positive.sign == 1,
+        ),
         (
             "contact_cell_symmetry".into(),
             neg_cell.position == pos_cell.position
@@ -313,10 +337,19 @@ fn symmetry_checks(world: &World, negative: Candidate, positive: Candidate) -> V
                 && neg_out.coupling == -pos_out.coupling,
         ),
         ("both_contacts_participated".into(), {
-            world.body.cell_participation(negative.contact).is_some_and(|v| v > 0)
-                && world.body.cell_participation(positive.contact).is_some_and(|v| v > 0)
+            world
+                .body
+                .cell_participation(negative.contact)
+                .is_some_and(|v| v > 0)
+                && world
+                    .body
+                    .cell_participation(positive.contact)
+                    .is_some_and(|v| v > 0)
         }),
-        ("no_cell_update_from_use".into(), world.work.cell_updates == 0),
+        (
+            "no_cell_update_from_use".into(),
+            world.work.cell_updates == 0,
+        ),
     ]
 }
 
@@ -341,10 +374,22 @@ fn observe_no_consequence(root: u64, phase: i64, mechanics: MechanicalConfig) ->
         "negative_live={negative_live:?};positive_live={positive_live:?}"
     )];
     let checks = vec![
-        ("negative_relation_reclaimed".into(), negative_live == (false, false, false)),
-        ("positive_relation_reclaimed".into(), positive_live == (false, false, false)),
-        ("two_contact_deallocations".into(), world.work.cell_deallocations == 2),
-        ("four_arrow_deallocations".into(), world.work.arrow_deallocations == 4),
+        (
+            "negative_relation_reclaimed".into(),
+            negative_live == (false, false, false),
+        ),
+        (
+            "positive_relation_reclaimed".into(),
+            positive_live == (false, false, false),
+        ),
+        (
+            "two_contact_deallocations".into(),
+            world.work.cell_deallocations == 2,
+        ),
+        (
+            "four_arrow_deallocations".into(),
+            world.work.arrow_deallocations == 4,
+        ),
         ("no_cell_updates".into(), world.work.cell_updates == 0),
         ("no_arrow_updates".into(), world.work.arrow_updates == 0),
     ];
@@ -362,10 +407,22 @@ fn observe_bounded(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observ
     let markers = vec![format!("proposals={before:?}")];
     let checks = vec![
         ("one_pair_only".into(), before == (2, 4)),
-        ("negative_eventually_reclaimed".into(), world.relation_live(negative) == (false, false, false)),
-        ("positive_eventually_reclaimed".into(), world.relation_live(positive) == (false, false, false)),
-        ("bounded_cell_deallocation".into(), world.work.cell_deallocations == 2),
-        ("bounded_arrow_deallocation".into(), world.work.arrow_deallocations == 4),
+        (
+            "negative_eventually_reclaimed".into(),
+            world.relation_live(negative) == (false, false, false),
+        ),
+        (
+            "positive_eventually_reclaimed".into(),
+            world.relation_live(positive) == (false, false, false),
+        ),
+        (
+            "bounded_cell_deallocation".into(),
+            world.work.cell_deallocations == 2,
+        ),
+        (
+            "bounded_arrow_deallocation".into(),
+            world.work.arrow_deallocations == 4,
+        ),
     ];
     world.finish(markers, checks)
 }
@@ -426,12 +483,30 @@ fn observe_orphan_reuse(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
         "cell_slots={old_cell_slots:?}->{new_cell_slots:?};arrow_slots={old_arrow_slots:?}->{new_arrow_slots:?}"
     )];
     let checks = vec![
-        ("contact_slots_reused".into(), old_cell_slots == new_cell_slots),
-        ("arrow_slots_reused".into(), old_arrow_slots == new_arrow_slots),
-        ("old_negative_ref_stale".into(), world.body.resolve_cell(negative.contact_ref).is_none()),
-        ("old_positive_ref_stale".into(), world.body.resolve_cell(positive.contact_ref).is_none()),
-        ("replacement_a_resolves".into(), world.body.cell_is_live(replacement_a) == Some(true)),
-        ("replacement_b_resolves".into(), world.body.cell_is_live(replacement_b) == Some(true)),
+        (
+            "contact_slots_reused".into(),
+            old_cell_slots == new_cell_slots,
+        ),
+        (
+            "arrow_slots_reused".into(),
+            old_arrow_slots == new_arrow_slots,
+        ),
+        (
+            "old_negative_ref_stale".into(),
+            world.body.resolve_cell(negative.contact_ref).is_none(),
+        ),
+        (
+            "old_positive_ref_stale".into(),
+            world.body.resolve_cell(positive.contact_ref).is_none(),
+        ),
+        (
+            "replacement_a_resolves".into(),
+            world.body.cell_is_live(replacement_a) == Some(true),
+        ),
+        (
+            "replacement_b_resolves".into(),
+            world.body.cell_is_live(replacement_b) == Some(true),
+        ),
     ];
     world.finish(markers, checks)
 }
@@ -466,13 +541,34 @@ fn observe_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obser
         "positive_r=cell{positive_contact_r:?}/stem{positive_stem_r:?}/out{positive_out_r:?};negative_r=cell{negative_contact_r:?}/out{negative_out_r:?};live10=positive{positive_live:?}/negative{negative_live:?}"
     )];
     let checks = vec![
-        ("positive_contact_consolidated".into(), positive_contact_r == Some(4)),
-        ("positive_outgoing_consolidated".into(), positive_out_r == Some(4)),
-        ("negative_contact_not_consolidated".into(), negative_contact_r == Some(1)),
-        ("negative_outgoing_not_consolidated".into(), negative_out_r == Some(1)),
-        ("positive_stem_consolidated".into(), positive_stem_r.is_some_and(|r| r > 1)),
-        ("negative_relation_reclaimed".into(), negative_live == (false, false, false)),
-        ("positive_relation_remains_executable".into(), positive_live == (true, true, true)),
+        (
+            "positive_contact_consolidated".into(),
+            positive_contact_r == Some(4),
+        ),
+        (
+            "positive_outgoing_consolidated".into(),
+            positive_out_r == Some(4),
+        ),
+        (
+            "negative_contact_not_consolidated".into(),
+            negative_contact_r == Some(1),
+        ),
+        (
+            "negative_outgoing_not_consolidated".into(),
+            negative_out_r == Some(1),
+        ),
+        (
+            "positive_stem_consolidated".into(),
+            positive_stem_r.is_some_and(|r| r > 1),
+        ),
+        (
+            "negative_relation_reclaimed".into(),
+            negative_live == (false, false, false),
+        ),
+        (
+            "positive_relation_remains_executable".into(),
+            positive_live == (true, true, true),
+        ),
         ("one_cell_update".into(), world.work.cell_updates == 1),
         ("one_arrow_update".into(), world.work.arrow_updates == 1),
     ];
@@ -524,7 +620,11 @@ fn main() {
                 }
                 for (config, observation, replay) in [
                     (MechanicalConfig::REFERENCE, &reference, &reference_replay),
-                    (MechanicalConfig::PRODUCTION, &production, &production_replay),
+                    (
+                        MechanicalConfig::PRODUCTION,
+                        &production,
+                        &production_replay,
+                    ),
                 ] {
                     rows += 1;
                     let replay_equal = observation == replay;
@@ -587,13 +687,19 @@ fn main() {
 }
 
 fn reference_production_exact(csv: &str) -> bool {
-    !csv.lines().skip(1).any(|line| line.split(',').nth(6) != Some("true"))
+    !csv.lines()
+        .skip(1)
+        .any(|line| line.split(',').nth(6) != Some("true"))
 }
 
 fn replay_exact(csv: &str) -> bool {
-    !csv.lines().skip(1).any(|line| line.split(',').nth(5) != Some("true"))
+    !csv.lines()
+        .skip(1)
+        .any(|line| line.split(',').nth(5) != Some("true"))
 }
 
 fn quiescence_exact(csv: &str) -> bool {
-    !csv.lines().skip(1).any(|line| line.split(',').nth(18) != Some("true"))
+    !csv.lines()
+        .skip(1)
+        .any(|line| line.split(',').nth(18) != Some("true"))
 }
