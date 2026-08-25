@@ -269,6 +269,8 @@ pub(super) struct ArrowColumns {
     resistances: Vec<u32>,
     live: Vec<bool>,
     eligible_until: Vec<Option<i64>>,
+    #[cfg(feature = "tc-ds1")]
+    participation_levels: Vec<u64>,
     modes: Vec<super::TransmissionMode>,
 }
 
@@ -294,6 +296,8 @@ impl ArrowColumns {
             resistance: self.resistances[index],
             live: self.live[index],
             eligible_until: self.eligible_until[index],
+            #[cfg(feature = "tc-ds1")]
+            participation_level: self.participation_levels[index],
             mode: self.modes[index],
         }
     }
@@ -310,6 +314,10 @@ impl ArrowColumns {
         self.resistances[index] = value.resistance;
         self.live[index] = value.live;
         self.eligible_until[index] = value.eligible_until;
+        #[cfg(feature = "tc-ds1")]
+        {
+            self.participation_levels[index] = value.participation_level;
+        }
         self.modes[index] = value.mode;
     }
 
@@ -325,11 +333,13 @@ impl ArrowColumns {
         self.resistances.push(value.resistance);
         self.live.push(value.live);
         self.eligible_until.push(value.eligible_until);
+        #[cfg(feature = "tc-ds1")]
+        self.participation_levels.push(value.participation_level);
         self.modes.push(value.mode);
     }
 
     fn resident_bytes(&self) -> usize {
-        self.ids.capacity() * std::mem::size_of::<ArrowId>()
+        let bytes = self.ids.capacity() * std::mem::size_of::<ArrowId>()
             + self.from.capacity() * std::mem::size_of::<CellId>()
             + self.to.capacity() * std::mem::size_of::<CellId>()
             + self.delays.capacity() * std::mem::size_of::<i64>()
@@ -340,7 +350,15 @@ impl ArrowColumns {
             + self.resistances.capacity() * std::mem::size_of::<u32>()
             + self.live.capacity() * std::mem::size_of::<bool>()
             + self.eligible_until.capacity() * std::mem::size_of::<Option<i64>>()
-            + self.modes.capacity() * std::mem::size_of::<super::TransmissionMode>()
+            + self.modes.capacity() * std::mem::size_of::<super::TransmissionMode>();
+        #[cfg(feature = "tc-ds1")]
+        {
+            bytes + self.participation_levels.capacity() * std::mem::size_of::<u64>()
+        }
+        #[cfg(not(feature = "tc-ds1"))]
+        {
+            bytes
+        }
     }
 }
 
