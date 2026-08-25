@@ -431,6 +431,11 @@ pub enum SchedulerKind {
     TimingWheel,
 }
 
+#[cfg(feature = "si0")]
+type OrderKey = (i64, i32, u64, u64, u64, u64);
+#[cfg(not(feature = "si0"))]
+type OrderKey = (i64, i32, u64, u64, u64);
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum PendingSchedule {
     Vec(Vec<Spike>),
@@ -525,6 +530,34 @@ impl PendingSchedule {
                 wheels.pop_same_tick_batch(maximum, target_physical, cost)
             }
         }
+    }
+
+    #[cfg(feature = "si0")]
+    pub(super) fn drain_minimum_wave<F>(
+        &mut self,
+        target_physical: F,
+        cost: &mut ExecutionCost,
+    ) -> Vec<(Spike, u64)>
+    where
+        F: Fn(CellId) -> u64 + Copy,
+    {
+        let Some(first) = self.pop_next(target_physical, cost) else {
+            return Vec::new();
+        };
+        let prefix = (first.0.arrival_tick, first.0.phase, first.0.causal_wave);
+        let mut batch = vec![first];
+        loop {
+            let Some(next) = self.pop_next(target_physical, cost) else {
+                break;
+            };
+            if (next.0.arrival_tick, next.0.phase, next.0.causal_wave) == prefix {
+                batch.push(next);
+            } else {
+                self.push(next.0, cost);
+                break;
+            }
+        }
+        batch
     }
 
     pub(super) fn canonical<F>(&self, target_physical: F) -> Vec<Spike>
@@ -691,7 +724,7 @@ impl PartitionedTimingWheels {
             cost.arena_lookups = cost.arena_lookups.saturating_add(1);
             if selected
                 .as_ref()
-                .is_none_or(|(_, current): &(usize, (i64, i32, u64, u64, u64))| key < *current)
+                .is_none_or(|(_, current): &(usize, OrderKey)| key < *current)
             {
                 selected = Some((index, key));
             }
@@ -855,7 +888,7 @@ impl TimingWheel {
         &self,
         target_physical: &F,
         cost: &mut ExecutionCost,
-    ) -> Option<(i64, i32, u64, u64, u64)>
+    ) -> Option<OrderKey>
     where
         F: Fn(CellId) -> u64,
     {
@@ -916,7 +949,7 @@ where
     Some(first)
 }
 
-fn order_key<F>(spike: &Spike, _target_physical: &F) -> (i64, i32, u64, u64, u64)
+fn order_key<F>(spike: &Spike, _target_physical: &F) -> OrderKey
 where
     F: Fn(CellId) -> u64,
 {
@@ -924,11 +957,25 @@ where
     let target_physical = spike.target_physical;
     #[cfg(not(feature = "cl0"))]
     let target_physical = _target_physical(spike.target);
-    (
-        spike.arrival_tick,
-        spike.phase,
-        spike.origin_physical,
-        target_physical,
-        spike.serial,
-    )
+    #[cfg(feature = "si0")]
+    {
+        (
+            spike.arrival_tick,
+            spike.phase,
+            spike.causal_wave,
+            spike.origin_physical,
+            target_physical,
+            spike.serial,
+        )
+    }
+    #[cfg(not(feature = "si0"))]
+    {
+        (
+            spike.arrival_tick,
+            spike.phase,
+            spike.origin_physical,
+            target_physical,
+            spike.serial,
+        )
+    }
 }

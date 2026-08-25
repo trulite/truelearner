@@ -21,11 +21,13 @@ const PARTICIPATION_RELAX_NUMERATOR: u64 = 15;
 const PARTICIPATION_RELAX_DENOMINATOR: u64 = 16;
 const DEFAULT_CELL_CAPACITY: u32 = 65_536;
 const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
-#[cfg(not(feature = "cl0"))]
+#[cfg(feature = "si0")]
+const CHECKPOINT_VERSION: u16 = 5;
+#[cfg(all(not(feature = "si0"), not(feature = "cl0")))]
 const CHECKPOINT_VERSION: u16 = 2;
-#[cfg(all(feature = "cl0", not(feature = "cc0")))]
+#[cfg(all(feature = "cl0", not(feature = "cc0"), not(feature = "si0")))]
 const CHECKPOINT_VERSION: u16 = 3;
-#[cfg(feature = "cc0")]
+#[cfg(all(feature = "cc0", not(feature = "si0")))]
 const CHECKPOINT_VERSION: u16 = 4;
 const QUIESCENT_MAGIC: &[u8; 8] = b"TLQUIE01";
 const LIVE_MAGIC: &[u8; 8] = b"TLLIVE01";
@@ -219,6 +221,8 @@ struct Arrow {
 struct Spike {
     arrival_tick: i64,
     phase: i32,
+    #[cfg(feature = "si0")]
+    causal_wave: u64,
     origin_physical: u64,
     #[cfg(feature = "cl0")]
     target_physical: u64,
@@ -241,6 +245,13 @@ pub struct Crossing {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PhysicalEvent {
+    #[cfg(feature = "si0")]
+    DriveIncidence {
+        target: CellId,
+        arrivals: u32,
+        impulse: i32,
+        causal_wave: u64,
+    },
     Deliver {
         mode: TransmissionMode,
         target: CellId,
@@ -642,6 +653,8 @@ impl LiveCheckpoint {
             (
                 spike.arrival_tick,
                 spike.phase,
+                #[cfg(feature = "si0")]
+                spike.causal_wave,
                 spike.origin_physical,
                 #[cfg(not(feature = "cl0"))]
                 spike.target.0,
@@ -1391,6 +1404,8 @@ impl PlasticSubstrate {
             Spike {
                 arrival_tick: input.arrival_tick,
                 phase: input.phase,
+                #[cfg(feature = "si0")]
+                causal_wave: 0,
                 origin_physical: input.origin_physical,
                 #[cfg(feature = "cl0")]
                 target_physical: self
@@ -1876,7 +1891,13 @@ impl PlasticSubstrate {
     }
 
     fn propagate_with_optional_ceiling(&mut self, ceiling: Option<u64>) -> (RunResult, u64) {
-        let mut crossings = Vec::new();
+        #[cfg(feature = "si0")]
+        {
+            return self.propagate_si0(ceiling);
+        }
+        #[cfg(not(feature = "si0"))]
+        {
+            let mut crossings = Vec::new();
         let mut work = Work::default();
         let mut execution_cost = ExecutionCost::default();
         let mut physical_trace = Vec::new();
@@ -2129,6 +2150,310 @@ impl PlasticSubstrate {
                         Spike {
                             arrival_tick: self.tick.saturating_add(arrow.delay),
                             phase: arrow.phase,
+                            #[cfg(feature = "si0")]
+                            causal_wave: if arrow.delay == 0 && arrow.phase == spike.phase {
+                                spike.causal_wave.saturating_add(1)
+                            } else {
+                                0
+                            },
+                            origin_physical,
+                            #[cfg(feature = "cl0")]
+                            target_physical: to.physical_id,
+                            target: arrow.to,
+                            target_generation: to.generation,
+                            impulse: arrow.coupling,
+                            serial: self.next_serial,
+                            arrow: Some((arrow_id, arrow.generation)),
+                        },
+                        &mut execution_cost,
+                    );
+                    self.next_serial = self.next_serial.wrapping_add(1);
+                }
+            }
+            execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
+        }
+            (
+                RunResult {
+                    crossings,
+                    work,
+                    naturally_quiescent: self.pending.is_empty(),
+                    resident_bytes: self.resident_bytes(),
+                    execution_cost,
+                    physical_trace,
+                },
+                scheduled_deliveries,
+            )
+        }
+    }
+
+    #[cfg(feature = "si0")]
+    fn propagate_si0(&mut self, ceiling: Option<u64>) -> (RunResult, u64) {
+        let mut crossings = Vec::new();
+        let mut work = Work::default();
+        let mut execution_cost = ExecutionCost::default();
+        let mut physical_trace = Vec::new();
+        let mut scheduled_deliveries = 0_u64;
+        execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
+        while !self.pending.is_empty() {
+            if ceiling.is_some_and(|limit| scheduled_deliveries >= limit) {
+                break;
+            }
+            let cells = &self.cells;
+            let slots = &self.cell_slots;
+            let batch = self.pending.drain_minimum_wave(
+                |id| {
+                    let slot = slots[id.0 as usize].expect("scheduled CELL must resolve");
+                    cells.get(slot.0).physical_id
+                },
+                &mut execution_cost,
+            );
+            assert!(!batch.is_empty());
+            execution_cost.observe_batch(batch.len());
+            let arrival_tick = batch[0].0.arrival_tick;
+            let phase = batch[0].0.phase;
+            let causal_wave = batch[0].0.causal_wave;
+            self.elapse_to_observed(
+                arrival_tick,
+                &mut work,
+                &mut execution_cost,
+                phase,
+                &mut physical_trace,
+            );
+            self.tick = arrival_tick;
+            scheduled_deliveries = scheduled_deliveries
+                .saturating_add(u64::try_from(batch.len()).unwrap_or(u64::MAX));
+
+            let mut incidences: Vec<(CellId, Vec<Spike>)> = Vec::new();
+            for (spike, _mechanical_comparisons) in batch {
+                execution_cost.touch::<Spike>(1);
+                if let Some((arrow_id, generation)) = spike.arrow {
+                    let Some(arrow_slot) = self.arrow_slot(arrow_id) else {
+                        continue;
+                    };
+                    let arrow = self.arrows.get(arrow_slot.0);
+                    execution_cost.touch::<Arrow>(1);
+                    if !arrow.live || arrow.generation != generation {
+                        continue;
+                    }
+                    assert_eq!(
+                        arrow.mode,
+                        TransmissionMode::Drive,
+                        "SI0 defines Drive incidence only"
+                    );
+                }
+                let Some(target_slot) = self.cell_slot(spike.target) else {
+                    continue;
+                };
+                let target = self.cells.get(target_slot.0);
+                execution_cost.touch::<Cell>(1);
+                if target.id != spike.target
+                    || !target.live
+                    || target.generation != spike.target_generation
+                {
+                    continue;
+                }
+                if let Some((_, arrivals)) = incidences
+                    .iter_mut()
+                    .find(|(target, _)| *target == spike.target)
+                {
+                    arrivals.push(spike);
+                } else {
+                    incidences.push((spike.target, vec![spike]));
+                }
+            }
+
+            let mut firings = Vec::new();
+            for (target_id, spikes) in incidences {
+                let arrivals = u32::try_from(spikes.len()).unwrap_or(u32::MAX);
+                let impulse = spikes
+                    .iter()
+                    .fold(0_i32, |sum, spike| sum.saturating_add(spike.impulse));
+                let external_arrival = spikes.iter().any(|spike| spike.arrow.is_none());
+                work.total = work
+                    .total
+                    .saturating_add(u64::try_from(spikes.len()).unwrap_or(u64::MAX).saturating_mul(5));
+                work.drive_deliveries = work
+                    .drive_deliveries
+                    .saturating_add(u64::try_from(spikes.len()).unwrap_or(u64::MAX));
+                if self.trace_physics {
+                    physical_trace.push(PhysicalTransition {
+                        tick: self.tick,
+                        phase,
+                        event: PhysicalEvent::DriveIncidence {
+                            target: target_id,
+                            arrivals,
+                            impulse,
+                            causal_wave,
+                        },
+                    });
+                }
+
+                self.decay_cell(target_id, self.tick);
+                let target_slot = self.cell_slot(target_id).unwrap();
+                let target = self.cells.with_mut(target_slot.0, |target| {
+                    target.state = target.state.saturating_add(impulse);
+                    target.clone()
+                });
+                execution_cost.touch::<Cell>(1);
+                if target.state != 0 {
+                    self.active_cells.insert(target_id);
+                }
+                let fires =
+                    self.tick >= target.refractory_until && target.state >= target.threshold;
+                if !fires {
+                    continue;
+                }
+
+                self.cells.with_mut(target_slot.0, |target| {
+                    target.state = 0;
+                    target.refractory_until = self.tick.saturating_add(1);
+                    #[cfg(feature = "cc0")]
+                    {
+                        target.participation_level = target
+                            .participation_level
+                            .saturating_add(PARTICIPATION_IMPULSE);
+                    }
+                });
+                self.active_cells.remove(&target_id);
+                firings.push((target_id, target, external_arrival));
+            }
+
+            for (target_id, target, external_arrival) in firings {
+                if self.trace_physics {
+                    physical_trace.push(PhysicalTransition {
+                        tick: self.tick,
+                        phase,
+                        event: PhysicalEvent::Fire { cell: target_id },
+                    });
+                }
+                work.total = work.total.saturating_add(1);
+                let source = target_id;
+                let origin_physical = target.physical_id;
+                let source_generation = target.generation;
+                if external_arrival {
+                    self.propose_local_arrows(
+                        source,
+                        &mut work,
+                        &mut execution_cost,
+                        phase,
+                        &mut physical_trace,
+                    );
+                }
+                let outgoing = match self.mechanics.traversal {
+                    TraversalKind::GlobalScan => {
+                        execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                        execution_cost.scans = execution_cost
+                            .scans
+                            .saturating_add(u64::try_from(self.arrows.len()).unwrap_or(u64::MAX));
+                        execution_cost.touch::<Arrow>(self.arrows.len());
+                        self.arrows
+                            .values()
+                            .iter()
+                            .map(|arrow| (arrow.id, arrow.clone()))
+                            .collect::<Vec<_>>()
+                    }
+                    TraversalKind::Adjacency => {
+                        execution_cost.allocations = execution_cost.allocations.saturating_add(1);
+                        execution_cost.adjacency_accesses =
+                            execution_cost.adjacency_accesses.saturating_add(
+                                u64::try_from(self.outgoing_index[source.0 as usize].len())
+                                    .unwrap_or(u64::MAX),
+                            );
+                        self.outgoing_index[source.0 as usize]
+                            .iter()
+                            .filter_map(|id| {
+                                let slot = self.arrow_slot(*id)?;
+                                execution_cost.scans = execution_cost.scans.saturating_add(1);
+                                execution_cost.touch::<Arrow>(1);
+                                Some((*id, self.arrows.get(slot.0)))
+                            })
+                            .collect()
+                    }
+                };
+                for (arrow_id, arrow) in outgoing {
+                    execution_cost.touch::<Arrow>(1);
+                    if !arrow.live
+                        || arrow.from != source
+                        || arrow.source_generation != source_generation
+                        || arrow.trigger != TransmissionTrigger::SourceFires
+                    {
+                        continue;
+                    }
+                    let Some(from_slot) = self.cell_slot(arrow.from) else {
+                        continue;
+                    };
+                    let Some(to_slot) = self.cell_slot(arrow.to) else {
+                        continue;
+                    };
+                    let from = self.cells.get(from_slot.0);
+                    let to = self.cells.get(to_slot.0);
+                    execution_cost.touch::<Cell>(2);
+                    if from.id != arrow.from
+                        || !from.live
+                        || from.generation != arrow.source_generation
+                        || to.id != arrow.to
+                        || !to.live
+                        || {
+                            #[cfg(feature = "cl0")]
+                            {
+                                to.generation != arrow.target_generation
+                            }
+                            #[cfg(not(feature = "cl0"))]
+                            {
+                                false
+                            }
+                        }
+                    {
+                        continue;
+                    }
+                    assert_eq!(
+                        arrow.mode,
+                        TransmissionMode::Drive,
+                        "SI0 defines Drive incidence only"
+                    );
+                    work.total = work.total.saturating_add(2);
+                    if from.region != to.region {
+                        let crossing = Crossing {
+                            tick: self.tick,
+                            from_physical: from.physical_id,
+                            to_physical: to.physical_id,
+                            from_region: from.region,
+                            to_region: to.region,
+                            impulse: arrow.coupling,
+                        };
+                        if self.trace_physics {
+                            physical_trace.push(PhysicalTransition {
+                                tick: self.tick,
+                                phase,
+                                event: PhysicalEvent::Crossing(crossing),
+                            });
+                        }
+                        crossings.push(crossing);
+                    }
+                    let arrow_slot = self.arrow_slot(arrow_id).unwrap();
+                    self.arrows.with_mut(arrow_slot.0, |live_arrow| {
+                        live_arrow.participation_level = live_arrow
+                            .participation_level
+                            .saturating_add(PARTICIPATION_IMPULSE);
+                    });
+                    execution_cost.touch::<Arrow>(1);
+                    execution_cost.arena_lookups = execution_cost.arena_lookups.saturating_add(2);
+                    if self.resident_arenas[arrow.from.0 as usize]
+                        != self.resident_arenas[arrow.to.0 as usize]
+                    {
+                        execution_cost.arena_hops = execution_cost.arena_hops.saturating_add(1);
+                    }
+                    let next_tick = self.tick.saturating_add(arrow.delay);
+                    let next_wave = if arrow.delay == 0 && arrow.phase == phase {
+                        causal_wave.saturating_add(1)
+                    } else {
+                        0
+                    };
+                    self.pending.push(
+                        Spike {
+                            arrival_tick: next_tick,
+                            phase: arrow.phase,
+                            causal_wave: next_wave,
                             origin_physical,
                             #[cfg(feature = "cl0")]
                             target_physical: to.physical_id,
@@ -2445,6 +2770,8 @@ impl PlasticSubstrate {
                 Spike {
                     arrival_tick,
                     phase: arrival_phase,
+                    #[cfg(feature = "si0")]
+                    causal_wave: 0,
                     origin_physical,
                     #[cfg(feature = "cl0")]
                     target_physical: target.physical_id,
@@ -3344,6 +3671,8 @@ fn decode_crossing(cursor: &mut CheckpointCursor<'_>) -> Result<Crossing, Checkp
 fn encode_spike(bytes: &mut Vec<u8>, spike: &Spike) {
     checkpoint_put_i64(bytes, spike.arrival_tick);
     checkpoint_put_i32(bytes, spike.phase);
+    #[cfg(feature = "si0")]
+    checkpoint_put_u64(bytes, spike.causal_wave);
     checkpoint_put_u64(bytes, spike.origin_physical);
     #[cfg(feature = "cl0")]
     checkpoint_put_u64(bytes, spike.target_physical);
@@ -3360,6 +3689,8 @@ fn encode_spike(bytes: &mut Vec<u8>, spike: &Spike) {
 fn decode_spike(cursor: &mut CheckpointCursor<'_>) -> Result<Spike, CheckpointError> {
     let arrival_tick = cursor.i64()?;
     let phase = cursor.i32()?;
+    #[cfg(feature = "si0")]
+    let causal_wave = cursor.u64()?;
     let origin_physical = cursor.u64()?;
     #[cfg(feature = "cl0")]
     let target_physical = cursor.u64()?;
@@ -3376,6 +3707,8 @@ fn decode_spike(cursor: &mut CheckpointCursor<'_>) -> Result<Spike, CheckpointEr
     Ok(Spike {
         arrival_tick,
         phase,
+        #[cfg(feature = "si0")]
+        causal_wave,
         origin_physical,
         #[cfg(feature = "cl0")]
         target_physical,

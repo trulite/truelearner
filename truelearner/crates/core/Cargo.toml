@@ -20,6 +20,7 @@ cc0 = ["cl0"]
 cv0 = ["cc0"]
 j0 = ["cl0"]
 cv0j0 = ["j0"]
+si0 = []
 
 [[bin]]
 name = "truelearner"
