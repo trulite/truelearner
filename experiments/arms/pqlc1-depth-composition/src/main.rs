@@ -589,18 +589,28 @@ fn trigger_vector(values: &[TransmissionTrigger]) -> String {
         .join("|")
 }
 
-fn write_row(
-    csv: &mut String,
-    case_id: usize,
+struct EvidenceRow<'a> {
     root: u64,
     phase: i64,
     case: CaseSpec,
     mechanics: MechanicalConfig,
-    observation: &Observation,
-    expected_support: &[bool],
+    observation: &'a Observation,
+    expected_support: &'a [bool],
     expected_qlp: Option<u64>,
     recurrent: bool,
-) {
+}
+
+fn write_row(csv: &mut String, case_id: usize, row: EvidenceRow<'_>) {
+    let EvidenceRow {
+        root,
+        phase,
+        case,
+        mechanics,
+        observation,
+        expected_support,
+        expected_qlp,
+        recurrent,
+    } = row;
     writeln!(
         csv,
         "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
@@ -736,18 +746,16 @@ fn main() {
                     (mechanics[0], &reference),
                     (mechanics[1], &production_run.0),
                 ] {
-                    write_row(
-                        &mut csv,
-                        physical_cases,
+                    write_row(&mut csv, physical_cases, EvidenceRow {
                         root,
                         phase,
                         case,
-                        kind,
+                        mechanics: kind,
                         observation,
-                        &expected_support,
+                        expected_support: &expected_support,
                         expected_qlp,
                         recurrent,
-                    );
+                    });
                 }
             }
         }
