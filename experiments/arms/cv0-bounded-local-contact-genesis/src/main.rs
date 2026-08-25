@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 use truelearner_core::{
     ArenaId, ArrowRef, ArrowSpec, CellId, CellRef, CellSlot, ContentHash, MechanicalConfig,
-    PhysicalEvent, PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
+    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
 };
 
 const ROOTS: [u64; 2] = [7_500_000, 7_600_001];
