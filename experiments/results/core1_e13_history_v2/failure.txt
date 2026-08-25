@@ -1,0 +1,8 @@
+CORE1_E13_HISTORY_COMPOSITION_V2_EVIDENCE_SPENT
+
+Definitive command exited 101 while beginning CORE1-C Reference:
+
+thread 'main' panicked at src/bin/core1-e13-history.rs:88:10:
+transient-history observation: Arc3SensorimotorError("transient history requires live positive and negative contact alternatives; positive=false negative=false contacts=0")
+
+No retry or rescue run was performed.
