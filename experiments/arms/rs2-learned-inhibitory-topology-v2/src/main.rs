@@ -163,14 +163,14 @@ impl World {
             physical_id: root + 1,
             position: position_offset,
             region: 0,
-            threshold: 1,
+            threshold: 2,
             resistance: 500,
         });
         let target_a = body.add_cell(CellSpec {
             physical_id: root + target_physical_offset,
             position: position_offset.saturating_add(1),
             region: 0,
-            threshold: 1,
+            threshold: 2,
             resistance: 500,
         });
         let anchor = early_anchor.unwrap_or_else(|| add_anchor(&mut body, 900));
@@ -247,14 +247,14 @@ impl World {
         self.add_drive(cell, anchor, 1, 1, 0, 500)
     }
 
-    fn pulse_full(&mut self, target: CellId, age: i64) {
+    fn pulse_full(&mut self, target: CellId, age: i64, impulse: i32) {
         let result = self.body.arrive(
             &[SpikeInput {
                 arrival_tick: self.origin.saturating_add(age),
                 phase: 0,
                 origin_physical: self.next_physical.saturating_add(10_000),
                 target,
-                impulse: 1,
+                impulse,
             }],
             i16::MAX,
         );
@@ -276,7 +276,7 @@ impl World {
     }
 
     fn generate(&mut self) {
-        self.pulse_full(self.source_b, 0);
+        self.pulse_full(self.source_b, 0, 2);
     }
 
     fn candidates_to(&self, target: CellId) -> [Candidate; 2] {
@@ -320,16 +320,16 @@ impl World {
             mode: TransmissionMode::Modulatory,
         });
         let _ = self.body.arrow_reference(id);
-        self.pulse_full(modulator, age);
+        self.pulse_full(modulator, age, 1);
     }
 
     fn add_recurrence(&mut self, a: CellId, b: CellId, position_base: i32) {
         let u = self.add_cell(position_base.saturating_add(100), 1);
         let w = self.add_cell(position_base.saturating_add(200), 1);
         self.add_drive(a, u, 1, 1, 0, 500);
-        self.add_drive(u, b, 1, 1, 0, 500);
+        self.add_drive(u, b, 2, 1, 0, 500);
         self.add_drive(b, w, 1, 1, 0, 500);
-        self.add_drive(w, a, 1, 1, 1, 500);
+        self.add_drive(w, a, 2, 1, 1, 500);
     }
 
     fn probe_observed(
@@ -342,7 +342,7 @@ impl World {
             phase: 0,
             origin_physical: self.next_physical.saturating_add(20_000),
             target,
-            impulse: 1,
+            impulse: 2,
         });
         let observed = self.body.propagate_with_observation_ceiling(CEILING);
         let trace = observed.run.physical_trace.clone();
@@ -408,6 +408,22 @@ fn fire_count(trace: &[PhysicalTransition], cell: CellId) -> usize {
         .count()
 }
 
+fn drive_delivery_count(trace: &[PhysicalTransition], cell: CellId, impulse: i32) -> usize {
+    trace
+        .iter()
+        .filter(|transition| {
+            matches!(
+                transition.event,
+                PhysicalEvent::Deliver {
+                    mode: TransmissionMode::Drive,
+                    target,
+                    impulse: delivered,
+                } if target == cell && delivered == impulse
+            )
+        })
+        .count()
+}
+
 fn base_world(
     root: u64,
     phase: i64,
@@ -430,8 +446,9 @@ fn train_selected(
     target: CellId,
     sign: i32,
     consequence: bool,
-) -> (Candidate, Candidate, [Option<u32>; 2]) {
+) -> (Candidate, Candidate, [Option<u32>; 2], bool) {
     world.generate();
+    let training_target_silent = fire_count(&world.trace, target) == 0;
     let [negative, positive] = world.candidates_to(target);
     let (selected, unsupported) = if sign < 0 {
         (negative, positive)
@@ -446,7 +463,7 @@ fn train_selected(
         world.arrow_resistance(world.anchor_links[1]),
     ];
     world.advance_age(10);
-    (selected, unsupported, anchor_resistance)
+    (selected, unsupported, anchor_resistance, training_target_silent)
 }
 
 fn observe(family: Family, root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
@@ -481,7 +498,8 @@ fn observe_learned_negative(
 ) -> Observation {
     let mut world = base_world(root, phase, mechanics, identity_permuted, position_offset);
     let target = world.target_a;
-    let (selected, unsupported, anchors_after) = train_selected(&mut world, target, -1, true);
+    let (selected, unsupported, anchors_after, training_target_silent) =
+        train_selected(&mut world, target, -1, true);
     let selected_r = [
         world.arrow_resistance(selected.stem),
         world.arrow_resistance(selected.outgoing),
@@ -508,6 +526,10 @@ fn observe_learned_negative(
     let checks = vec![
         ("negative_selected".into(), selected.sign == -1),
         (
+            "training_target_remained_subthreshold".into(),
+            training_target_silent,
+        ),
+        (
             "selected_relation_consolidated".into(),
             selected_r == [Some(4), Some(4)],
         ),
@@ -533,7 +555,8 @@ fn observe_learned_negative(
 fn observe_no_modulation(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = base_world(root, phase, mechanics, false, 0);
     let target = world.target_a;
-    let (selected, unsupported, anchors_after) = train_selected(&mut world, target, -1, false);
+    let (selected, unsupported, anchors_after, training_target_silent) =
+        train_selected(&mut world, target, -1, false);
     let candidates_gone = !world.relation_live(selected) && !world.relation_live(unsupported);
     let a = world.target_a;
     let b = world.source_b;
@@ -546,6 +569,10 @@ fn observe_no_modulation(root: u64, phase: i64, mechanics: MechanicalConfig) -> 
     )];
     let checks = vec![
         ("no_modulation_no_updates".into(), world.work.updates == 0),
+        (
+            "training_target_remained_subthreshold".into(),
+            training_target_silent,
+        ),
         ("unsupported_candidates_removed".into(), candidates_gone),
         (
             "anchor_credit_absent".into(),
@@ -564,6 +591,8 @@ fn observe_irrelevant(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obs
     let irrelevant_target = world.add_cell(-1, 100);
     world.add_anchor_for(irrelevant_target);
     world.generate();
+    let training_target_silent = fire_count(&world.trace, world.target_a) == 0
+        && fire_count(&world.trace, irrelevant_target) == 0;
     let [useful_negative, useful_positive] = world.candidates_to(world.target_a);
     let [irrelevant_negative, irrelevant_positive] = world.candidates_to(irrelevant_target);
     world.modulate(useful_negative.contact, 2);
@@ -582,6 +611,10 @@ fn observe_irrelevant(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obs
         fire_count(&probe, world.source_b)
     )];
     let checks = vec![
+        (
+            "training_targets_remained_subthreshold".into(),
+            training_target_silent,
+        ),
         ("useful_negative_retained".into(), useful_live),
         ("irrelevant_candidates_removed".into(), others_gone),
         ("only_useful_links_updated".into(), world.work.updates == 2),
@@ -593,27 +626,32 @@ fn observe_irrelevant(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obs
 fn observe_useful_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = base_world(root, phase, mechanics, false, 0);
     let target = world.target_a;
-    let (selected, unsupported, anchors_after) = train_selected(&mut world, target, 1, true);
+    let (selected, unsupported, anchors_after, training_target_silent) =
+        train_selected(&mut world, target, 1, true);
     let selected_live = world.relation_live(selected);
     let unsupported_live = world.relation_live(unsupported);
     let contact_before = fire_count(&world.trace, selected.contact);
-    let target_before = fire_count(&world.trace, world.target_a);
+    let positive_deliveries_before = drive_delivery_count(&world.trace, world.target_a, 1);
     let source = world.source_b;
-    world.pulse_full(source, 10);
+    world.pulse_full(source, 10, 2);
     let contact_after = fire_count(&world.trace, selected.contact);
-    let target_after = fire_count(&world.trace, world.target_a);
+    let positive_deliveries_after = drive_delivery_count(&world.trace, world.target_a, 1);
     let markers = vec![format!(
-        "selected_sign={};live={selected_live}/{unsupported_live};fires={contact_before}->{contact_after}/{target_before}->{target_after};anchors={anchors_after:?}",
+        "selected_sign={};live={selected_live}/{unsupported_live};contact_fires={contact_before}->{contact_after};positive_deliveries={positive_deliveries_before}->{positive_deliveries_after};anchors={anchors_after:?}",
         selected.sign
     )];
     let checks = vec![
         ("positive_selected".into(), selected.sign == 1),
+        (
+            "training_target_remained_subthreshold".into(),
+            training_target_silent,
+        ),
         ("positive_retained".into(), selected_live),
         ("negative_removed".into(), !unsupported_live),
         (
             "positive_relation_reexecutes".into(),
             contact_after == contact_before.saturating_add(1)
-                && target_after == target_before.saturating_add(1),
+                && positive_deliveries_after == positive_deliveries_before.saturating_add(1),
         ),
         (
             "anchor_credit_absent".into(),
@@ -625,9 +663,11 @@ fn observe_useful_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -
 
 fn observe_disconnected(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = base_world(root, phase, mechanics, false, 0);
-    let disconnected = world.add_cell(-1, 1);
+    let disconnected = world.add_cell(-1, 2);
     world.add_anchor_for(disconnected);
     world.generate();
+    let training_target_silent = fire_count(&world.trace, world.target_a) == 0
+        && fire_count(&world.trace, disconnected) == 0;
     let [negative_to_a, positive_to_a] = world.candidates_to(world.target_a);
     let [negative_elsewhere, positive_elsewhere] = world.candidates_to(disconnected);
     world.modulate(negative_elsewhere.contact, 2);
@@ -641,6 +681,10 @@ fn observe_disconnected(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
     world.add_recurrence(a, b, 0);
     let (_, quiescent, ceiling) = world.probe_observed(a, 10);
     let checks = vec![
+        (
+            "training_targets_remained_subthreshold".into(),
+            training_target_silent,
+        ),
         ("disconnected_negative_learned".into(), disconnected_live),
         ("target_candidates_absent".into(), a_candidates_gone),
         ("other_sign_absent".into(), positive_elsewhere_gone),
@@ -662,8 +706,9 @@ fn observe_disconnected(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
 fn observe_untraversed(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = base_world(root, phase, mechanics, false, 0);
     let target = world.target_a;
-    let (selected, _, _) = train_selected(&mut world, target, -1, true);
-    let q = world.add_cell(2, 1);
+    let (selected, _, _, training_target_silent) =
+        train_selected(&mut world, target, -1, true);
+    let q = world.add_cell(2, 2);
     let a = world.target_a;
     world.add_recurrence(a, q, 300);
     let (probe, quiescent, ceiling) = world.probe_observed(a, 10);
@@ -671,6 +716,10 @@ fn observe_untraversed(root: u64, phase: i64, mechanics: MechanicalConfig) -> Ob
         (
             "learned_negative_present".into(),
             world.relation_live(selected),
+        ),
+        (
+            "training_target_remained_subthreshold".into(),
+            training_target_silent,
         ),
         (
             "learned_contact_not_traversed".into(),
