@@ -6,8 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, ContentHash, MechanicalConfig, PhysicalEvent,
-    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode,
+    ArenaId, ArrowId, ArrowSpec, ContentHash, MechanicalConfig, PhysicalEvent, PhysicalTransition,
+    PlasticSubstrate, SpikeInput, TransmissionMode,
 };
 
 const ROOTS: [u64; 2] = [1_300_000, 1_400_000];
@@ -281,12 +281,7 @@ fn contact_geometry(
     }
 }
 
-fn input(
-    target: truelearner_core::CellId,
-    tick: i64,
-    origin: u64,
-    impulse: i32,
-) -> SpikeInput {
+fn input(target: truelearner_core::CellId, tick: i64, origin: u64, impulse: i32) -> SpikeInput {
     SpikeInput {
         arrival_tick: tick,
         phase: 0,
@@ -322,12 +317,7 @@ fn admit(
     trace.extend(result.physical_trace);
 }
 
-fn execute(
-    root: u64,
-    phase: i64,
-    scenario: Scenario,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn execute(root: u64, phase: i64, scenario: Scenario, mechanics: MechanicalConfig) -> Observation {
     let mut geometry = if scenario == Scenario::OldSourceLocal {
         old_geometry(root, phase, mechanics)
     } else {
@@ -424,12 +414,7 @@ fn execute(
                     )
                 })
                 .collect::<Vec<_>>();
-            admit(
-                &mut geometry,
-                &inputs,
-                &mut trace,
-                &mut physical_work,
-            );
+            admit(&mut geometry, &inputs, &mut trace, &mut physical_work);
             let x = geometry.x;
             admit(
                 &mut geometry,
@@ -531,9 +516,7 @@ fn execute(
                 }
             }
             PhysicalEvent::Proposal { .. } => proposals = proposals.saturating_add(1),
-            PhysicalEvent::Deallocate { .. } => {
-                deallocations = deallocations.saturating_add(1)
-            }
+            PhysicalEvent::Deallocate { .. } => deallocations = deallocations.saturating_add(1),
             PhysicalEvent::Crossing(_) => crossings = crossings.saturating_add(1),
         }
     }
@@ -698,8 +681,7 @@ fn main() {
                             | Scenario::SwappedIdentity
                             | Scenario::ReverseOrder
                             | Scenario::TimingOffset
-                    ) && (reference.a_updates, reference.b_updates)
-                        == scenario.expected_updates(),
+                    ) && (reference.a_updates, reference.b_updates) == scenario.expected_updates(),
                 );
                 fanout_alias_cases += usize::from(
                     scenario == Scenario::ContactFanout
@@ -707,15 +689,7 @@ fn main() {
                 );
                 for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)]
                 {
-                    write_row(
-                        &mut csv,
-                        cases,
-                        root,
-                        phase,
-                        scenario,
-                        kind,
-                        observation,
-                    );
+                    write_row(&mut csv, cases, root, phase, scenario, kind, observation);
                 }
             }
         }
