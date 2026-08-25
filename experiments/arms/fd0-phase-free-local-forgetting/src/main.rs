@@ -59,9 +59,7 @@ impl WorkTotals {
     fn add(&mut self, work: Work) {
         self.physical = self.physical.saturating_add(work.physical_total());
         self.drive = self.drive.saturating_add(work.drive_deliveries);
-        self.modulation = self
-            .modulation
-            .saturating_add(work.modulatory_deliveries);
+        self.modulation = self.modulation.saturating_add(work.modulatory_deliveries);
         self.updates = self.updates.saturating_add(work.local_return_updates);
         self.proposals = self
             .proposals
@@ -69,9 +67,7 @@ impl WorkTotals {
         self.deallocations = self
             .deallocations
             .saturating_add(work.physical_deallocations);
-        self.qlp = self
-            .qlp
-            .saturating_add(work.qualified_local_traversals);
+        self.qlp = self.qlp.saturating_add(work.qualified_local_traversals);
     }
 }
 
@@ -198,7 +194,12 @@ impl World {
         }
     }
 
-    fn finish(self, points: Vec<Point>, partition_equal: bool, target: Option<CellId>) -> Observation {
+    fn finish(
+        self,
+        points: Vec<Point>,
+        partition_equal: bool,
+        target: Option<CellId>,
+    ) -> Observation {
         let target_fires = target.map_or(0, |target| {
             self.trace
                 .iter()
@@ -220,12 +221,7 @@ impl World {
     }
 }
 
-fn simple_arrows(
-    root: u64,
-    phase: i64,
-    mechanics: MechanicalConfig,
-    resistances: &[u32],
-) -> World {
+fn simple_arrows(root: u64, phase: i64, mechanics: MechanicalConfig, resistances: &[u32]) -> World {
     let mut world = World::new(root, phase, mechanics);
     for (index, resistance) in resistances.iter().copied().enumerate() {
         let offset = i32::try_from(index).unwrap_or(i32::MAX).saturating_mul(200);
@@ -314,12 +310,7 @@ fn stale_delivery(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observa
     world.finish(points, true, Some(target))
 }
 
-fn execute(
-    root: u64,
-    phase: i64,
-    family: Family,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn execute(root: u64, phase: i64, family: Family, mechanics: MechanicalConfig) -> Observation {
     match family {
         Family::WeakLifetime => weak_lifetime(root, phase, mechanics),
         Family::ResistanceLifetime => resistance_lifetime(root, phase, mechanics),
@@ -476,8 +467,7 @@ fn main() {
                 assert_eq!(production, reference);
                 let passed = predicate(family, &reference);
                 assert!(passed, "FD0 family failed: {}", family.name());
-                family_passes[family as usize] =
-                    family_passes[family as usize].saturating_add(1);
+                family_passes[family as usize] = family_passes[family as usize].saturating_add(1);
                 maximum_work = maximum_work.max(reference.work.physical);
                 for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)]
                 {
