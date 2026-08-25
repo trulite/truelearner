@@ -549,10 +549,7 @@ mod mechanics {
             };
             let prefix = (first.0.arrival_tick, first.0.phase, first.0.causal_wave);
             let mut batch = vec![first];
-            loop {
-                let Some(next) = self.pop_next(cost) else {
-                    break;
-                };
+            while let Some(next) = self.pop_next(cost) {
                 if (next.0.arrival_tick, next.0.phase, next.0.causal_wave) == prefix {
                     batch.push(next);
                 } else {
@@ -2853,7 +2850,7 @@ impl PlasticSubstrate {
     fn propagate_with_optional_ceiling(&mut self, ceiling: Option<u64>) -> (RunResult, u64) {
         #[cfg(feature = "si0")]
         {
-            return self.propagate_si0(ceiling);
+            self.propagate_si0(ceiling)
         }
         #[cfg(not(feature = "si0"))]
         {
