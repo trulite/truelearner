@@ -5,6 +5,6 @@ edition = "2021"
 publish = false
 
 [dependencies]
-truelearner-core = { path = "../../../truelearner/crates/core", features = ["ce0", "cv0j0", "rs0", "si0"] }
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["ce0", "rs0", "si0"] }
 
 [workspace]

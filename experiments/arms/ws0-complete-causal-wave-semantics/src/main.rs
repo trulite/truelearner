@@ -520,26 +520,6 @@ fn logical_event(world: &World, event: &PhysicalEvent) -> String {
             after,
         } => format!("C:{}:{before}:{after}", arrow(*id)),
         PhysicalEvent::Deallocate { arrow: id } => format!("DEALLOCATE:{}", arrow(*id)),
-        PhysicalEvent::CellDeallocate {
-            cell: id,
-            before_generation,
-            after_generation,
-        } => format!(
-            "CELL_DEALLOCATE:{}:{}:{}",
-            cell(*id),
-            before_generation.0,
-            after_generation.0
-        ),
-        PhysicalEvent::CellProposal {
-            cell: id,
-            source,
-            target,
-        } => format!(
-            "CELL_PROPOSAL:{}:{}:{}",
-            cell(*id),
-            cell(*source),
-            cell(*target)
-        ),
         PhysicalEvent::Proposal {
             arrow: id,
             from,
@@ -649,12 +629,8 @@ fn counts(world: &World, trace: &[PhysicalTransition]) -> PhysicalCounts {
             PhysicalEvent::Resistance { .. } => counts.resistance_updates += 1,
             PhysicalEvent::Coupling { .. } => counts.coupling_updates += 1,
             PhysicalEvent::QualifiedLocalTraversal { .. } => counts.qlp_traversals += 1,
-            PhysicalEvent::Proposal { .. } | PhysicalEvent::CellProposal { .. } => {
-                counts.proposals += 1
-            }
-            PhysicalEvent::Deallocate { .. } | PhysicalEvent::CellDeallocate { .. } => {
-                counts.deallocations += 1
-            }
+            PhysicalEvent::Proposal { .. } => counts.proposals += 1,
+            PhysicalEvent::Deallocate { .. } => counts.deallocations += 1,
             PhysicalEvent::Deliver { .. } | PhysicalEvent::Crossing(_) => {}
         }
     }
