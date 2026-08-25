@@ -4395,16 +4395,6 @@ impl PlasticSubstrate {
         assert!(valid, "cell must be live in this substrate");
     }
 
-    fn require_cell_result(&self, id: CellId) -> Result<(), CheckpointError> {
-        self.cell_slot(id)
-            .filter(|slot| {
-                let cell = self.cells.get(slot.0);
-                cell.id == id && cell.live
-            })
-            .map(|_| ())
-            .ok_or(CheckpointError::MissingCell(id))
-    }
-
     fn cell_slot(&self, id: CellId) -> Option<CellSlot> {
         usize::try_from(id.0)
             .ok()
