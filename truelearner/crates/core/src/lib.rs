@@ -14,8 +14,9 @@ pub use truelearner_arena_format::{
 };
 
 const LOCAL_WINDOW: i64 = 4;
-#[cfg(not(feature = "cpc1"))]
+#[cfg(any(not(feature = "cpc1"), feature = "pd1"))]
 const LOCAL_RETURN_STRENGTH: u32 = 3;
+#[cfg(not(feature = "pd1"))]
 const UNSUPPORTED_USE_PRESSURE: u32 = 1;
 const ORDINARY_PRESSURE_PERIOD: i64 = 10;
 const LOCAL_VARIATION_RADIUS: i32 = 2;
@@ -211,6 +212,8 @@ struct Arrow {
     participation_level: u64,
     #[cfg(feature = "cpc1")]
     plastic_support: u64,
+    #[cfg(feature = "pd1")]
+    pressure_load: u64,
     mode: TransmissionMode,
     #[cfg(feature = "pqlc0")]
     trigger: TransmissionTrigger,
@@ -1247,6 +1250,8 @@ impl PlasticSubstrate {
             participation_level: 0,
             #[cfg(feature = "cpc1")]
             plastic_support: 0,
+            #[cfg(feature = "pd1")]
+            pressure_load: 0,
             mode: spec.mode,
             #[cfg(feature = "pqlc0")]
             trigger: TransmissionTrigger::SourceFires,
@@ -1493,6 +1498,8 @@ impl PlasticSubstrate {
                 participation_level: 0,
                 #[cfg(feature = "cpc1")]
                 plastic_support: 0,
+                #[cfg(feature = "pd1")]
+                pressure_load: 0,
                 mode,
                 #[cfg(feature = "pqlc0")]
                 trigger: TransmissionTrigger::SourceFires,
@@ -2025,7 +2032,7 @@ impl PlasticSubstrate {
         for id in candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
-            #[cfg(feature = "cpc1")]
+            #[cfg(all(feature = "cpc1", not(feature = "pd1")))]
             {
                 let contacted = self.arrows.with_mut(slot.0, |arrow| {
                     if arrow.live && arrow.from == cell {
@@ -2045,6 +2052,44 @@ impl PlasticSubstrate {
                     self.eligible_arrows.remove(&id);
                 }
                 let _ = (tick, phase, &mut *physical_trace);
+            }
+            #[cfg(feature = "pd1")]
+            {
+                let updated = self.arrows.with_mut(slot.0, |arrow| {
+                    if !(arrow.live && arrow.from == cell && arrow.participation_level > 0) {
+                        return None;
+                    }
+                    let participation = arrow.participation_level;
+                    arrow.plastic_support = arrow.plastic_support.saturating_add(participation);
+                    arrow.eligible_until = None;
+                    let bounded = participation.min(PARTICIPATION_IMPULSE);
+                    let numerator = u128::from(bounded)
+                        .saturating_mul(u128::from(LOCAL_RETURN_STRENGTH));
+                    let gain = numerator
+                        .saturating_add(u128::from(PARTICIPATION_IMPULSE).saturating_sub(1))
+                        / u128::from(PARTICIPATION_IMPULSE);
+                    let gain = u32::try_from(gain).unwrap_or(LOCAL_RETURN_STRENGTH);
+                    let before = arrow.resistance;
+                    arrow.resistance = arrow.resistance.saturating_add(gain);
+                    Some((before, arrow.resistance))
+                });
+                execution_cost.touch::<Arrow>(1);
+                if let Some((before, after)) = updated {
+                    work.total = work.total.saturating_add(3);
+                    work.local_return_updates = work.local_return_updates.saturating_add(1);
+                    self.eligible_arrows.remove(&id);
+                    if self.trace_physics && before != after {
+                        physical_trace.push(PhysicalTransition {
+                            tick,
+                            phase,
+                            event: PhysicalEvent::Resistance {
+                                arrow: id,
+                                before,
+                                after,
+                            },
+                        });
+                    }
+                }
             }
             #[cfg(not(feature = "cpc1"))]
             let updated = self.arrows.with_mut(slot.0, |arrow| {
@@ -2171,7 +2216,7 @@ impl PlasticSubstrate {
     }
 
     fn elapse_to(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
-        #[cfg(feature = "cpc1")]
+        #[cfg(all(feature = "cpc1", not(feature = "pd1")))]
         {
             let elapsed = tick.saturating_sub(self.tick);
             for index in 0..self.arrows.len() {
@@ -2183,8 +2228,12 @@ impl PlasticSubstrate {
                 });
             }
         }
+        #[cfg(feature = "pd1")]
+        self.elapse_pd1_pressure(tick, work, execution_cost);
         execution_cost.observe_frontiers(self.active_cells.len(), self.eligible_arrows.len());
+        #[cfg(not(feature = "pd1"))]
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
+        #[cfg(not(feature = "pd1"))]
         if pressure_steps > 0 {
             let amount = u32::try_from(pressure_steps).unwrap_or(u32::MAX);
             let first_pressure_tick = self.pressure_tick.saturating_add(ORDINARY_PRESSURE_PERIOD);
@@ -2258,10 +2307,18 @@ impl PlasticSubstrate {
                 if !(arrow.live && arrow.eligible_until.is_some_and(|end| end < tick)) {
                     return (false, false, false);
                 }
+                #[cfg(feature = "pd1")]
+                {
+                    arrow.eligible_until = None;
+                    return (true, false, arrow.delay == 0);
+                }
+                #[cfg(not(feature = "pd1"))]
+                {
                 let was_live = arrow.live;
                 pressure_arrow(arrow, UNSUPPORTED_USE_PRESSURE);
                 arrow.eligible_until = None;
                 (true, was_live && !arrow.live, arrow.delay == 0)
+                }
             });
             execution_cost.touch::<Arrow>(1);
             if expired {
@@ -2296,6 +2353,82 @@ impl PlasticSubstrate {
             execution_cost.touch::<Cell>(1);
             self.decay_cell(id, tick);
         }
+    }
+
+    #[cfg(feature = "pd1")]
+    fn elapse_pd1_pressure(
+        &mut self,
+        tick: i64,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+    ) {
+        let mut cursor = self.tick;
+        let mut pressure_tick = self
+            .pressure_tick
+            .saturating_add(ORDINARY_PRESSURE_PERIOD);
+        while pressure_tick <= tick {
+            let elapsed = pressure_tick.saturating_sub(cursor);
+            for index in 0..self.arrows.len() {
+                self.arrows.with_mut(index, |arrow| {
+                    if arrow.live {
+                        arrow.participation_level =
+                            relax_participation(arrow.participation_level, elapsed);
+                    }
+                });
+            }
+            cursor = pressure_tick;
+            for index in 0..self.arrows.len() {
+                execution_cost.scans = execution_cost.scans.saturating_add(1);
+                let (deallocated, zero_delay) = self.arrows.with_mut(index, |arrow| {
+                    if !arrow.live {
+                        return (false, false);
+                    }
+                    let absorbed = arrow.participation_level.min(PARTICIPATION_IMPULSE);
+                    arrow.participation_level =
+                        arrow.participation_level.saturating_sub(absorbed);
+                    arrow.pressure_load = arrow
+                        .pressure_load
+                        .saturating_add(PARTICIPATION_IMPULSE.saturating_sub(absorbed));
+                    let durable_loss = arrow.pressure_load / PARTICIPATION_IMPULSE;
+                    arrow.pressure_load %= PARTICIPATION_IMPULSE;
+                    let was_live = arrow.live;
+                    if durable_loss > 0 {
+                        pressure_arrow(
+                            arrow,
+                            u32::try_from(durable_loss).unwrap_or(u32::MAX),
+                        );
+                    }
+                    work.total = work.total.saturating_add(1);
+                    (was_live && !arrow.live, arrow.delay == 0)
+                });
+                execution_cost.touch::<Arrow>(1);
+                if deallocated && zero_delay {
+                    self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
+                }
+                if deallocated {
+                    work.total = work.total.saturating_add(1);
+                    work.physical_deallocations = work.physical_deallocations.saturating_add(1);
+                }
+            }
+            self.pressure_tick = pressure_tick;
+            pressure_tick = pressure_tick.saturating_add(ORDINARY_PRESSURE_PERIOD);
+        }
+        let remaining = tick.saturating_sub(cursor);
+        for index in 0..self.arrows.len() {
+            self.arrows.with_mut(index, |arrow| {
+                if arrow.live {
+                    arrow.participation_level =
+                        relax_participation(arrow.participation_level, remaining);
+                }
+            });
+        }
+        self.eligible_arrows = self
+            .arrows
+            .values()
+            .iter()
+            .filter(|arrow| arrow.live && arrow.eligible_until.is_some())
+            .map(|arrow| arrow.id)
+            .collect();
     }
 
     fn propose_local_arrows(
@@ -2449,6 +2582,20 @@ impl PlasticSubstrate {
             .plastic_support
     }
 
+    #[cfg(feature = "pd1")]
+    pub fn local_pressure_load(&self, id: ArrowId) -> u64 {
+        self.arrows
+            .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
+            .pressure_load
+    }
+
+    #[cfg(feature = "pd1")]
+    pub fn local_eligible_until(&self, id: ArrowId) -> Option<i64> {
+        self.arrows
+            .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
+            .eligible_until
+    }
+
     fn rebuild_slot_maps(&mut self) {
         self.cell_slots.fill(None);
         for (index, cell) in self.cells.values().iter().enumerate() {
@@ -2552,6 +2699,10 @@ fn pressure_arrow(arrow: &mut Arrow, amount: u32) {
         {
             arrow.participation_level = 0;
             arrow.plastic_support = 0;
+        }
+        #[cfg(feature = "pd1")]
+        {
+            arrow.pressure_load = 0;
         }
     }
 }

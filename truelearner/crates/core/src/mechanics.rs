@@ -273,6 +273,8 @@ pub(super) struct ArrowColumns {
     participation_levels: Vec<u64>,
     #[cfg(feature = "cpc1")]
     plastic_supports: Vec<u64>,
+    #[cfg(feature = "pd1")]
+    pressure_loads: Vec<u64>,
     modes: Vec<super::TransmissionMode>,
     #[cfg(feature = "pqlc0")]
     triggers: Vec<super::TransmissionTrigger>,
@@ -304,6 +306,8 @@ impl ArrowColumns {
             participation_level: self.participation_levels[index],
             #[cfg(feature = "cpc1")]
             plastic_support: self.plastic_supports[index],
+            #[cfg(feature = "pd1")]
+            pressure_load: self.pressure_loads[index],
             mode: self.modes[index],
             #[cfg(feature = "pqlc0")]
             trigger: self.triggers[index],
@@ -326,6 +330,10 @@ impl ArrowColumns {
         {
             self.participation_levels[index] = value.participation_level;
             self.plastic_supports[index] = value.plastic_support;
+        }
+        #[cfg(feature = "pd1")]
+        {
+            self.pressure_loads[index] = value.pressure_load;
         }
         self.modes[index] = value.mode;
         #[cfg(feature = "pqlc0")]
@@ -350,6 +358,10 @@ impl ArrowColumns {
         {
             self.participation_levels.push(value.participation_level);
             self.plastic_supports.push(value.plastic_support);
+        }
+        #[cfg(feature = "pd1")]
+        {
+            self.pressure_loads.push(value.pressure_load);
         }
         self.modes.push(value.mode);
         #[cfg(feature = "pqlc0")]
@@ -376,6 +388,8 @@ impl ArrowColumns {
             let bytes = bytes
                 + self.participation_levels.capacity() * std::mem::size_of::<u64>()
                 + self.plastic_supports.capacity() * std::mem::size_of::<u64>();
+            #[cfg(feature = "pd1")]
+            let bytes = bytes + self.pressure_loads.capacity() * std::mem::size_of::<u64>();
             #[cfg(feature = "pqlc0")]
             {
                 bytes
