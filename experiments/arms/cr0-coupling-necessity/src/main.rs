@@ -884,7 +884,7 @@ fn main() {
                         maximum_work = maximum_work.max(observation.work.physical);
                         writeln!(
                             csv,
-                            "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+                            "{case_id},{root},{phase},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
                             family.name(),
                             arm.name(),
                             mechanics_name(mechanics),
