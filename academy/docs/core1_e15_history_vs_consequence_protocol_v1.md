@@ -20,7 +20,7 @@ consequence make the same perturbation reappear without such a preference?
 ## Shared unresolved world
 
 Use one frozen spatial context with four opaque available actions. For each of
-32 seeds:
+eight balanced seeds:
 
 - permute action order deterministically;
 - permute which action produces distinguishing evidence;
@@ -32,6 +32,11 @@ Use one frozen spatial context with four opaque available actions. For each of
 - execute the same useful action once more and admit a second ordinary
   consequence;
 - never train until success.
+
+The eight-seed design places the useful action in each opaque permutation
+position exactly twice. The random-control schedule selects it exactly `2/8`
+times at every probe stage. This count was fixed from seed arithmetic before
+any E15 organism execution.
 
 The actual exploratory actions, evidence, consequences, timings, experience
 count, body, and budgets are identical for H and C.
