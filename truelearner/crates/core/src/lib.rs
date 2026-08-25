@@ -1992,6 +1992,9 @@ impl PlasticSubstrate {
                 let gain = u32::try_from(gain).unwrap_or(LOCAL_RETURN_STRENGTH);
                 let before = arrow.resistance;
                 arrow.resistance = arrow.resistance.saturating_add(gain);
+                if arrow.resistance != before {
+                    arrow.decay_load = 0;
+                }
                 Some((before, arrow.resistance))
             });
             execution_cost.touch::<Arrow>(1);
