@@ -15,7 +15,7 @@ check_hash() {
   }
 }
 
-check_hash 007764acac5c45d920512af759c5ac22344074f53b9d091c56ffe5abbd0a341d \
+check_hash 80447cf6c792ea486725aae50e6fc58ce4d0cb5c3087628dd6f7ceb1d35095ab \
   truelearner/crates/core/src/lib.rs
 check_hash 5d794eae058f5cdd896064b0a37a6dfb124d9d7b6d03f8cfa9c53651e58460ef \
   truelearner/crates/core/Cargo.toml
@@ -42,6 +42,7 @@ fi
 grep -Fq 'propagate_with_observation_ceiling' "$core"
 grep -Fq 'self.propagate_with_optional_ceiling(None).0' "$core"
 grep -Fq 'scheduled_deliveries == ceiling' "$core"
+grep -Fq 'rs0_observation_ceiling_pauses_and_resumes_without_changing_quiescent_runs' "$core"
 grep -Fq 'const OBSERVATION_CEILING: u64 = 256;' "$evaluator"
 grep -Fq 'const CONTINUATION_CEILING: u64 = 32;' "$evaluator"
 grep -Fq 'const RESISTANCE: u32 = 1_000_000;' "$evaluator"
@@ -65,4 +66,3 @@ grep -Fq 'observation.traversals == 7' "$evaluator"
 grep -Fq 'assert!(all_pass, "RS0 characterization gate failed")' "$evaluator"
 
 printf 'RS0_RECURRENT_STABILITY_CHARACTERIZATION_V1_STATIC_AUDIT_PASS\n'
-

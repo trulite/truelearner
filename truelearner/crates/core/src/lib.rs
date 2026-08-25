@@ -3319,4 +3319,61 @@ mod tests {
         assert!(second_run.naturally_quiescent);
         assert_eq!(restored.substrate(), &direct);
     }
+
+    #[cfg(feature = "rs0")]
+    #[test]
+    fn rs0_observation_ceiling_pauses_and_resumes_without_changing_quiescent_runs() {
+        let (bounded_body, source, _, _) = substrate(100_000);
+        let mut bounded = bounded_body.clone();
+        let mut ordinary = bounded_body;
+        bounded.enter(input(source, 0));
+        ordinary.enter(input(source, 0));
+        let observed = bounded.propagate_with_observation_ceiling(16);
+        let unbounded = ordinary.propagate();
+        assert!(!observed.observation_ceiling_reached);
+        assert_eq!(observed.scheduled_deliveries, 2);
+        assert_eq!(observed.run, unbounded);
+        assert_eq!(bounded, ordinary);
+
+        let mut recurrent = PlasticSubstrate::with_capacity(ArenaId(99), 4, 4);
+        let a = recurrent.add_cell(CellSpec {
+            physical_id: 1,
+            position: 0,
+            region: 0,
+            threshold: 1,
+            resistance: 100_000,
+        });
+        let b = recurrent.add_cell(CellSpec {
+            physical_id: 2,
+            position: 100,
+            region: 0,
+            threshold: 1,
+            resistance: 100_000,
+        });
+        for (from, to) in [(a, b), (b, a)] {
+            recurrent.add_arrow(ArrowSpec {
+                from,
+                to,
+                delay: 1,
+                phase: 0,
+                coupling: 1,
+                resistance: 100_000,
+                mode: TransmissionMode::Drive,
+            });
+        }
+        recurrent.enter(input(a, 0));
+        let first = recurrent.propagate_with_observation_ceiling(16);
+        assert_eq!(first.scheduled_deliveries, 16);
+        assert!(first.observation_ceiling_reached);
+        assert!(!first.run.naturally_quiescent);
+        let second = recurrent.propagate_with_observation_ceiling(8);
+        assert_eq!(second.scheduled_deliveries, 8);
+        assert!(second.observation_ceiling_reached);
+        assert!(!second.run.naturally_quiescent);
+        assert!(recurrent
+            .arena_body(1)
+            .arrows
+            .iter()
+            .all(|arrow| arrow.live && arrow.resistance > 99_990));
+    }
 }

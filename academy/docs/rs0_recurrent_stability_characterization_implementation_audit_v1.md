@@ -29,7 +29,7 @@ require identical trace, PhysicalWork, clock, durable body, and quiescence.
 ## Frozen candidate hashes
 
 ```text
-core lib.rs       007764acac5c45d920512af759c5ac22344074f53b9d091c56ffe5abbd0a341d
+core lib.rs       80447cf6c792ea486725aae50e6fc58ce4d0cb5c3087628dd6f7ceb1d35095ab
 core Cargo.toml   5d794eae058f5cdd896064b0a37a6dfb124d9d7b6d03f8cfa9c53651e58460ef
 evaluator         37a59bbb7a109d7a916f8c3591ebe32c3161f44f00f4bc317dbd7136dcd640ac
 arm Cargo.toml    d0f7bc6e48b0aad1167ca5535e0653db06e9c8cfe10b65ad5a9968b7e89ded14
@@ -49,7 +49,9 @@ continued for another 32. Activity classification is computed from observed
 CELL firing identity and physical tick periodicity. It cannot affect execution.
 
 The standalone evaluator was formatted and compiled in reusable E2B worker
-`i8mm34sawk38wa16yua5o`. The matrix has not run. Strict Clippy, the static
-audit, and the relevant observer/no-world tests remain before the one-shot
-characterization.
-
+`i8mm34sawk38wa16yua5o`. A feature-gated no-world unit control freezes both
+observer obligations: a quiescent run is byte/state-identical to ordinary
+unbounded propagation, while a recurrent run pauses at 16 deliveries and
+resumes for another 8 without discarding activity or allowing forgetting to
+terminate it. The matrix has not run. Strict Clippy, the static audit, and this
+targeted observer control remain before the one-shot characterization.
