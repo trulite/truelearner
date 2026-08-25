@@ -257,14 +257,12 @@ impl Session {
             .cells
             .iter()
             .filter_map(|cell| {
-                let stem = body
-                    .arrows
-                    .iter()
-                    .find(|arrow| arrow.live && arrow.from.id == source && arrow.to.id == cell.id)?;
-                let outgoing = body
-                    .arrows
-                    .iter()
-                    .find(|arrow| arrow.live && arrow.from.id == cell.id && arrow.to.id == target)?;
+                let stem = body.arrows.iter().find(|arrow| {
+                    arrow.live && arrow.from.id == source && arrow.to.id == cell.id
+                })?;
+                let outgoing = body.arrows.iter().find(|arrow| {
+                    arrow.live && arrow.from.id == cell.id && arrow.to.id == target
+                })?;
                 (outgoing.coupling.abs() == 1).then_some(SignedCandidate {
                     contact: cell.id,
                     stem: stem.id,
@@ -643,15 +641,8 @@ fn recurrent(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation 
     let ab_stem = world.arrow(a, ab_contact, 1, 100_000, 1, TransmissionMode::Drive);
     let ab_outgoing = world.arrow(ab_contact, b, 1, 100_000, 1, TransmissionMode::Drive);
     let ba_stem = world.arrow(b, ba_contact, 1, 100_000, 1, TransmissionMode::Drive);
-    let ba_outgoing = world.arrow_with_phase(
-        ba_contact,
-        a,
-        1,
-        100_000,
-        1,
-        1,
-        TransmissionMode::Drive,
-    );
+    let ba_outgoing =
+        world.arrow_with_phase(ba_contact, a, 1, 100_000, 1, 1, TransmissionMode::Drive);
     let effect_ab = world.cell(root + 30_000, 300, 0, 1);
     let effect_ba = world.cell(root + 30_001, 400, 0, 1);
     world.modulation(effect_ab, ab_contact);
@@ -864,12 +855,9 @@ fn measures_text(measures: &[u64]) -> String {
 }
 
 fn main() {
-    let output = env::args_os()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from("experiments/results/ce1_consequence_supported_efficacy_v1")
-        });
+    let output = env::args_os().nth(1).map(PathBuf::from).unwrap_or_else(|| {
+        PathBuf::from("experiments/results/ce1_consequence_supported_efficacy_v1")
+    });
     fs::create_dir_all(&output).expect("create CE1 output directory");
 
     let mut csv = String::from(
