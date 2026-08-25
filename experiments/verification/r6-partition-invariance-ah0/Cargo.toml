@@ -1,0 +1,10 @@
+[package]
+name = "r6-partition-invariance-ah0"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core" }
+
+[workspace]
