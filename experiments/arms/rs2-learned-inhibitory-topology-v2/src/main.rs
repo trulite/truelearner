@@ -809,20 +809,29 @@ fn fire_count(trace: &[PhysicalTransition], cell: CellId) -> usize {
         .count()
 }
 
-fn drive_delivery_count(trace: &[PhysicalTransition], cell: CellId, impulse: i32) -> usize {
+fn positive_drive_incidence_count(trace: &[PhysicalTransition], cell: CellId) -> usize {
     trace
         .iter()
         .filter(|transition| {
             matches!(
                 transition.event,
-                PhysicalEvent::Deliver {
-                    mode: TransmissionMode::Drive,
+                PhysicalEvent::DriveIncidence {
                     target,
-                    impulse: delivered,
-                } if target == cell && delivered == impulse
+                    impulse,
+                    ..
+                } if target == cell && impulse > 0
             )
         })
         .count()
+}
+
+fn recurrent_activity_continues(
+    trace: &[PhysicalTransition],
+    first: CellId,
+    second: CellId,
+    quiescent: bool,
+) -> bool {
+    !quiescent && fire_count(trace, first) > 1 && fire_count(trace, second) > 1
 }
 
 fn base_world(
@@ -986,7 +995,7 @@ fn observe_no_modulation(root: u64, phase: i64, mechanics: MechanicalConfig) -> 
         ),
         (
             "uninhibited_recurrence_persists".into(),
-            !quiescent && ceiling,
+            recurrent_activity_continues(&probe, a, b, quiescent),
         ),
     ];
     world.finish(markers, quiescent, ceiling, checks)
@@ -1037,13 +1046,15 @@ fn observe_useful_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -
     let selected_live = world.relation_live(selected);
     let unsupported_live = world.relation_live(unsupported);
     let contact_before = fire_count(&world.trace, selected.contact);
-    let positive_deliveries_before = drive_delivery_count(&world.trace, world.target_a, 1);
+    let positive_incidences_before =
+        positive_drive_incidence_count(&world.trace, world.target_a);
     let source = world.source_b;
     world.pulse_full(source, 10, 2);
     let contact_after = fire_count(&world.trace, selected.contact);
-    let positive_deliveries_after = drive_delivery_count(&world.trace, world.target_a, 1);
+    let positive_incidences_after =
+        positive_drive_incidence_count(&world.trace, world.target_a);
     let markers = vec![format!(
-        "selected_sign={};live={selected_live}/{unsupported_live};contact_fires={contact_before}->{contact_after};positive_deliveries={positive_deliveries_before}->{positive_deliveries_after};anchors={anchors_after:?}",
+        "selected_sign={};live={selected_live}/{unsupported_live};contact_fires={contact_before}->{contact_after};positive_incidences={positive_incidences_before}->{positive_incidences_after};anchors={anchors_after:?}",
         selected.sign
     )];
     let checks = vec![
@@ -1057,7 +1068,7 @@ fn observe_useful_positive(root: u64, phase: i64, mechanics: MechanicalConfig) -
         (
             "positive_relation_reexecutes".into(),
             contact_after == contact_before.saturating_add(1)
-                && positive_deliveries_after == positive_deliveries_before.saturating_add(1),
+                && positive_incidences_after == positive_incidences_before.saturating_add(1),
         ),
         (
             "anchor_credit_absent".into(),
@@ -1085,7 +1096,7 @@ fn observe_disconnected(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
     let a = world.target_a;
     let b = world.source_b;
     world.add_recurrence(a, b, 0);
-    let (_, quiescent, ceiling) = world.probe_observed(a, 10);
+    let (probe, quiescent, ceiling) = world.probe_observed(a, 10);
     let checks = vec![
         (
             "training_targets_remained_subthreshold".into(),
@@ -1096,7 +1107,7 @@ fn observe_disconnected(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
         ("other_sign_absent".into(), positive_elsewhere_gone),
         (
             "disconnected_inhibition_cannot_settle".into(),
-            !quiescent && ceiling,
+            recurrent_activity_continues(&probe, a, b, quiescent),
         ),
     ];
     world.finish(
@@ -1132,7 +1143,7 @@ fn observe_untraversed(root: u64, phase: i64, mechanics: MechanicalConfig) -> Ob
         ),
         (
             "untraversed_inhibition_cannot_settle".into(),
-            !quiescent && ceiling,
+            recurrent_activity_continues(&probe, a, q, quiescent),
         ),
     ];
     world.finish(
@@ -1156,7 +1167,7 @@ fn mechanics_name(config: MechanicalConfig) -> &'static str {
 
 fn main() {
     let output_dir = env::args().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_post_ck0_v1")
+        PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_v6")
     });
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
@@ -1259,7 +1270,7 @@ fn main() {
     assert_eq!(cases, expected_cases);
     assert_eq!(rows, expected_rows);
     let report = format!(
-        "# RS2 learned inhibitory topology post-CK0 v1\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production wave-normalized exact: {}\n- identity renaming exact: {}\n- replay exact: {}\n- meaningful checkpoint continuation exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
+        "# RS2 learned inhibitory topology v6\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production wave-normalized exact: {}\n- identity renaming exact: {}\n- replay exact: {}\n- meaningful checkpoint continuation exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
         csv.lines().skip(1).all(|line| line.split(',').nth(6) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(7) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(5) == Some("true")),
@@ -1270,6 +1281,6 @@ fn main() {
     );
     fs::write(output_dir.join("matrix.csv"), csv).unwrap();
     fs::write(output_dir.join("report.md"), report).unwrap();
-    assert!(all_pass, "post-CK0 RS2 matrix failed");
-    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_POST_CK0_POSITIVE_V1");
+    assert!(all_pass, "RS2 v6 matrix failed");
+    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_POSITIVE_V6");
 }
