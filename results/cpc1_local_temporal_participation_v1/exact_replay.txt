@@ -1,0 +1,15 @@
+CPC1 exact artifact replay v1
+
+evidence commit: 1edb4f79ffae4eab83518c70ca0f22d86ac2327f
+fresh E2B sandbox: ihtju5m34w2q77e2ebryb
+physical matrix: CPC1_COMPLETE curve=440 controls=180 total=620
+
+curve.csv: byte-identical
+controls.csv: byte-identical
+report.md: byte-identical
+SHA256SUMS: byte-identical
+
+The frozen v1 static audit then failed its known broad-regex false positive.
+No physical predicate or artifact comparison failed. The separately
+preregistered static audit v2 passed in sandbox i332g83jvpdkkgceihcn0 without
+compiling Rust or executing a physical world.

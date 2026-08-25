@@ -94,13 +94,28 @@ SHA256SUMS
 628f428dca216ae24eea25f47b32b787f3b44f5802bb65df06fcee179def900b
 ```
 
+## Audit correction
+
+The frozen v1 static audit produced a false positive after both the primary
+matrix and the fresh replay. Its broad `participation.*pressure` expression
+matched the evaluator's CSV header, where the independent observation columns
+`a_participation` and `pressure_phase` lawfully occur on the same line.
+
+A separately preregistered v2 audit changed only that scan: it inspects the
+candidate physics sources and anchors conditional matching to Rust `if`
+statements. It passed in a fresh E2B worker without compiling Rust or executing
+a physical world. Audit v1, the evaluator, and all matrix artifacts remain
+immutable.
+
 ## E2B provenance
 
 - targeted default/feature validation: `i45f1g5a6ob5ww5x6ngke`;
 - sole primary matrix: executed once from frozen commit `8153198`; its console
   identifier was lost to active-turn compaction, while all four downloaded
   artifacts remain checksum-valid;
-- fresh artifact replay: recorded after the positive evidence commit.
+- fresh matrix/artifact replay: `ihtju5m34w2q77e2ebryb` (the v1 audit then
+  emitted its documented false positive);
+- fresh corrected static audit only: `i332g83jvpdkkgceihcn0`.
 
 ## Boundary
 
@@ -112,4 +127,3 @@ or authority. The retained `eligible_until` pressure bookkeeping still exists.
 CPC2 becomes scientifically eligible as a separate chained-local-closure
 workflow. Pressure de-supply and ARC A3-A5 remain paused. The oracle,
 authority, and `arch.md` remain unchanged.
-

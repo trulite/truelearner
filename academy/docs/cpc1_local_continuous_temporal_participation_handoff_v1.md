@@ -11,7 +11,11 @@ Status: development-ready for human review; non-authoritative.
 
 This claim passed `620/620` physical cases, `1240/1240` mechanics rows, exact
 ordered Reference/Production history comparison, and all path-local renewal
-controls.
+controls. A fresh worker reproduced all four result artifacts byte-for-byte.
+
+The original static audit's evaluator-header false positive is preserved. Its
+separately preregistered, source-scoped v2 replacement passed without compiling
+or rerunning the matrix.
 
 ## What was not claimed
 
