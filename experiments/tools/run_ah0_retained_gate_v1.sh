@@ -16,7 +16,7 @@ cargo run --release --manifest-path experiments/verification/r6-partition-invari
 
 cargo run --release --manifest-path experiments/arms/si0-simultaneous-local-incidence/Cargo.toml \
     -- "$output/si0"
-cargo run --release --manifest-path experiments/arms/cpc0-contact-compartment-attribution/Cargo.toml \
+cargo run --release --manifest-path experiments/arms/pc0-cpc0-successor-conformance/Cargo.toml \
     -- "$output/cpc0"
 cargo run --release --manifest-path experiments/arms/cpc1-local-temporal-participation/Cargo.toml \
     -- "$output/cpc1"
