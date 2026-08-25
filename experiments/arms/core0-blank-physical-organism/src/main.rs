@@ -1215,7 +1215,7 @@ fn write_results(destination: &Path, rows: &[Row]) {
 }
 
 fn main() {
-    eprintln!("CORE0_V2_EVIDENCE_SPENT");
+    eprintln!("CORE0_V3_EVIDENCE_SPENT");
     let destination = env::args()
         .nth(1)
         .map(PathBuf::from)

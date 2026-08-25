@@ -20,6 +20,14 @@ The repair cannot change a causal key, arrival, wave, CELL/ARROW/SPIKE state,
 learning law, proposal, work definition or physical trace. It only prevents a
 timing-wheel head from advancing speculatively.
 
-Before the sole v3 matrix, the unchanged SI0/WS0 scheduling tests and targeted
+The retained R5 unit test has one stale mechanics-only assertion under SI0:
+SI0 drains a complete causal wave for both scalar and batched executor labels,
+so their queue-operation counts are equal. The v3 preflight may scope the old
+"batched is cheaper" assertion to pre-SI0 execution and require equal queue
+operations under SI0. Physical equivalence remains unchanged; execution cost is
+not an organism observation.
+
+Before the sole v3 matrix, the retained SI0/WS0 scheduling physics and targeted
 CORE0 compilation must pass. V3 then executes once and publishes the 60-row
-prefix matrix without rescue.
+prefix matrix without rescue. The evaluator must emit
+`CORE0_V3_EVIDENCE_SPENT` immediately before that sole execution.

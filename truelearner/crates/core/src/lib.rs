@@ -5616,9 +5616,15 @@ mod tests {
         let batched_result = batched.arrive(&arrivals, 1);
 
         assert_physical_equivalence(&scalar, &scalar_result, &batched, &batched_result);
+        #[cfg(not(feature = "si0"))]
         assert!(
             batched_result.execution_cost.queue_ops < scalar_result.execution_cost.queue_ops,
             "batched scheduler must consume fewer queue operations"
+        );
+        #[cfg(feature = "si0")]
+        assert_eq!(
+            batched_result.execution_cost.queue_ops, scalar_result.execution_cost.queue_ops,
+            "causal-wave draining subsumes the former executor-specific batch boundary"
         );
     }
 
