@@ -463,7 +463,12 @@ fn train_selected(
         world.arrow_resistance(world.anchor_links[1]),
     ];
     world.advance_age(10);
-    (selected, unsupported, anchor_resistance, training_target_silent)
+    (
+        selected,
+        unsupported,
+        anchor_resistance,
+        training_target_silent,
+    )
 }
 
 fn observe(family: Family, root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
@@ -706,8 +711,7 @@ fn observe_disconnected(root: u64, phase: i64, mechanics: MechanicalConfig) -> O
 fn observe_untraversed(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = base_world(root, phase, mechanics, false, 0);
     let target = world.target_a;
-    let (selected, _, _, training_target_silent) =
-        train_selected(&mut world, target, -1, true);
+    let (selected, _, _, training_target_silent) = train_selected(&mut world, target, -1, true);
     let q = world.add_cell(2, 2);
     let a = world.target_a;
     world.add_recurrence(a, q, 300);
