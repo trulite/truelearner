@@ -98,30 +98,16 @@ fn body_hash(body: &PlasticSubstrate) -> String {
 }
 
 fn live_checkpoint_hash(body: &PlasticSubstrate) -> String {
-    ContentHash::of(
-        &body
-            .live_checkpoint(1)
-            .unwrap()
-            .canonical_bytes()
-            .unwrap(),
-    )
-    .to_string()
+    ContentHash::of(&body.live_checkpoint(1).unwrap().canonical_bytes().unwrap()).to_string()
 }
 
 fn roundtrip_live(body: &PlasticSubstrate, mechanics: MechanicalConfig) -> PlasticSubstrate {
-    let bytes = body
-        .live_checkpoint(1)
-        .unwrap()
-        .canonical_bytes()
-        .unwrap();
+    let bytes = body.live_checkpoint(1).unwrap().canonical_bytes().unwrap();
     let decoded = LiveCheckpoint::decode(&bytes).unwrap();
     PlasticSubstrate::from_live_checkpoint_with_mechanics(decoded, mechanics).unwrap()
 }
 
-fn roundtrip_quiescent(
-    body: &PlasticSubstrate,
-    mechanics: MechanicalConfig,
-) -> PlasticSubstrate {
+fn roundtrip_quiescent(body: &PlasticSubstrate, mechanics: MechanicalConfig) -> PlasticSubstrate {
     let bytes = body
         .quiescent_checkpoint(1)
         .unwrap()
@@ -142,10 +128,7 @@ fn continuation(body: &mut PlasticSubstrate) -> Continuation {
     }
 }
 
-fn continuation_after(
-    body: &mut PlasticSubstrate,
-    input: SpikeInput,
-) -> Continuation {
+fn continuation_after(body: &mut PlasticSubstrate, input: SpikeInput) -> Continuation {
     body.enter(input);
     continuation(body)
 }
@@ -258,13 +241,7 @@ impl World {
 
     fn retain(&mut self, cell: CellId) -> ArrowRef {
         let anchor = self.anchor_b;
-        self.arrow(
-            anchor,
-            cell,
-            500,
-            1,
-            TransmissionMode::Drive,
-        )
+        self.arrow(anchor, cell, 500, 1, TransmissionMode::Drive)
     }
 
     fn advance(&mut self, tick: i64) -> (Vec<PhysicalTransition>, Work) {
@@ -322,7 +299,10 @@ fn observe_live_junction(root: u64, mechanics: MechanicalConfig) -> Observation 
             ("live_before".into(), before.0),
             ("live_after".into(), after.0),
             ("fields_exact".into(), before == after),
-            ("reference_resolves".into(), restored.resolve_cell(reference).is_some()),
+            (
+                "reference_resolves".into(),
+                restored.resolve_cell(reference).is_some(),
+            ),
         ],
     )
 }
@@ -346,7 +326,10 @@ fn observe_dead_dormant(root: u64, mechanics: MechanicalConfig) -> Observation {
             ("dormant_resistance_nonzero".into(), before.1 == 1),
             ("dead_after".into(), !after.0),
             ("fields_exact".into(), before == after),
-            ("old_reference_stale".into(), restored.resolve_cell(old).is_none()),
+            (
+                "old_reference_stale".into(),
+                restored.resolve_cell(old).is_none(),
+            ),
         ],
     )
 }
@@ -368,8 +351,7 @@ fn dead_reused_world(
 }
 
 fn observe_dead_slot_reuse(root: u64, mechanics: MechanicalConfig) -> Observation {
-    let (world, old, old_slot, replacement, replacement_ref) =
-        dead_reused_world(root, mechanics);
+    let (world, old, old_slot, replacement, replacement_ref) = dead_reused_world(root, mechanics);
     let replacement_slot = world.body.cell_resident_slot(replacement).unwrap().0;
     finish(
         &world.body,
@@ -386,7 +368,10 @@ fn observe_dead_slot_reuse(root: u64, mechanics: MechanicalConfig) -> Observatio
                 "generation_advanced".into(),
                 replacement_ref.generation.0 > old.generation.0,
             ),
-            ("old_reference_stale".into(), world.body.resolve_cell(old).is_none()),
+            (
+                "old_reference_stale".into(),
+                world.body.resolve_cell(old).is_none(),
+            ),
             (
                 "replacement_resolves".into(),
                 world.body.resolve_cell(replacement_ref).is_some(),
@@ -422,8 +407,14 @@ fn observe_incoming_stale(root: u64, mechanics: MechanicalConfig) -> Observation
         run.naturally_quiescent,
         vec![
             ("slot_reused".into(), old_slot == replacement_slot),
-            ("old_cell_stale".into(), world.body.resolve_cell(old_cell).is_none()),
-            ("old_arrow_stale".into(), world.body.resolve_arrow(old_arrow).is_none()),
+            (
+                "old_cell_stale".into(),
+                world.body.resolve_cell(old_cell).is_none(),
+            ),
+            (
+                "old_arrow_stale".into(),
+                world.body.resolve_arrow(old_arrow).is_none(),
+            ),
             (
                 "replacement_not_reached".into(),
                 delivery_count(&run.physical_trace, replacement) == 0
@@ -460,8 +451,14 @@ fn observe_outgoing_stale(root: u64, mechanics: MechanicalConfig) -> Observation
         run.naturally_quiescent,
         vec![
             ("slot_reused".into(), old_slot == replacement_slot),
-            ("old_cell_stale".into(), world.body.resolve_cell(old_cell).is_none()),
-            ("old_arrow_stale".into(), world.body.resolve_arrow(old_arrow).is_none()),
+            (
+                "old_cell_stale".into(),
+                world.body.resolve_cell(old_cell).is_none(),
+            ),
+            (
+                "old_arrow_stale".into(),
+                world.body.resolve_arrow(old_arrow).is_none(),
+            ),
             (
                 "old_outgoing_did_not_execute".into(),
                 delivery_count(&run.physical_trace, target) == 0
@@ -490,7 +487,10 @@ fn observe_live_topology(root: u64, mechanics: MechanicalConfig) -> Observation 
             ("topology_retained_before".into(), before.0),
             ("topology_retained_after".into(), after.0),
             ("fields_exact".into(), before == after),
-            ("reference_resolves".into(), restored.resolve_cell(reference).is_some()),
+            (
+                "reference_resolves".into(),
+                restored.resolve_cell(reference).is_some(),
+            ),
         ],
     )
 }
@@ -499,13 +499,7 @@ fn observe_last_link(root: u64, mechanics: MechanicalConfig) -> Observation {
     let mut world = World::new(root, mechanics);
     let junction = world.cell(0, 2, 1);
     let old = world.body.cell_reference(junction);
-    world.arrow(
-        world.anchor_a,
-        junction,
-        1,
-        1,
-        TransmissionMode::Drive,
-    );
+    world.arrow(world.anchor_a, junction, 1, 1, TransmissionMode::Drive);
     world.advance(9);
     let live_at_nine = cell_record(&world.body, junction).0;
     let (trace, work) = world.advance(10);
@@ -559,8 +553,7 @@ fn observe_quiescent_future(root: u64, mechanics: MechanicalConfig) -> Observati
     let target = world.cell(0, 1, 1);
     world.retain(target);
     let checkpoint = world.body.quiescent_checkpoint(1).unwrap();
-    let checkpoint_hash =
-        ContentHash::of(&checkpoint.canonical_bytes().unwrap()).to_string();
+    let checkpoint_hash = ContentHash::of(&checkpoint.canonical_bytes().unwrap()).to_string();
     let mut uninterrupted = world.body.clone();
     let mut restored = roundtrip_quiescent(&world.body, mechanics);
     let input = world.input(target, 1, 1);
@@ -592,8 +585,7 @@ fn observe_cross_mechanics(root: u64, mechanics: MechanicalConfig) -> Observatio
     let input = world.input(source, 1, 1);
     world.body.enter(input);
     let checkpoint = world.body.live_checkpoint(1).unwrap();
-    let checkpoint_hash =
-        ContentHash::of(&checkpoint.canonical_bytes().unwrap()).to_string();
+    let checkpoint_hash = ContentHash::of(&checkpoint.canonical_bytes().unwrap()).to_string();
     let mut reference = PlasticSubstrate::from_live_checkpoint_with_mechanics(
         checkpoint.clone(),
         MechanicalConfig::REFERENCE,
@@ -647,12 +639,9 @@ fn mechanics_name(mechanics: MechanicalConfig) -> &'static str {
 }
 
 fn main() {
-    let output_dir = env::args()
-        .nth(1)
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            PathBuf::from("experiments/results/ck0_junction_checkpoint_integration_v1")
-        });
+    let output_dir = env::args().nth(1).map(PathBuf::from).unwrap_or_else(|| {
+        PathBuf::from("experiments/results/ck0_junction_checkpoint_integration_v1")
+    });
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
         "case,family,root,mechanics,replay_equal,cross_equal,checks_pass,failed,quiescent,physical_work,final_tick,trace_hash,body_hash,checkpoint_hash,signature\n",
@@ -673,7 +662,11 @@ fn main() {
             let cross_equal = reference == production;
             for (mechanics, observation, replay) in [
                 (MechanicalConfig::REFERENCE, &reference, &reference_replay),
-                (MechanicalConfig::PRODUCTION, &production, &production_replay),
+                (
+                    MechanicalConfig::PRODUCTION,
+                    &production,
+                    &production_replay,
+                ),
             ] {
                 rows += 1;
                 let replay_equal = observation == replay;
