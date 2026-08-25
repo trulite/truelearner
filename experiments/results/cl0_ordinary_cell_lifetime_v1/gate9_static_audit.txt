@@ -1,0 +1,6 @@
+gate_9=negative
+accepted_arrow_consolidation=true
+accepted_cell_consolidation=false
+cell_resistance_increase_paths=0
+new_cell_consolidation_added=false
+CL0_ORDINARY_CELL_LIFETIME_GATE_9_STATIC_NEGATIVE_V1
