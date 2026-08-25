@@ -192,6 +192,7 @@ struct Sites {
     candidates: Vec<[Option<ArrowId>; MOTORS]>,
 }
 
+#[derive(Clone)]
 pub struct Arc3Sensorimotor {
     seed: u64,
     sensor_mode: SensorMode,
@@ -421,7 +422,7 @@ impl Arc3Sensorimotor {
                 impulse: 1,
             });
             inputs.push(SpikeInput {
-                arrival_tick: start,
+                arrival_tick: start.saturating_add(i64::from(history_contacts.is_some())),
                 phase: i32::try_from(*motor).unwrap_or(0).saturating_add(8),
                 origin_physical: EXTERNAL_PHYSICAL_BASE
                     .saturating_add(self.sequence.saturating_mul(100))
@@ -434,7 +435,7 @@ impl Arc3Sensorimotor {
         if let Some(action) = babble_action {
             let motor = action_index(action)?;
             inputs.push(SpikeInput {
-                arrival_tick: start.saturating_add(1),
+                arrival_tick: start.saturating_add(if history_contacts.is_some() { 2 } else { 1 }),
                 phase: 30,
                 origin_physical: EXTERNAL_PHYSICAL_BASE
                     .saturating_add(self.sequence.saturating_mul(100))
@@ -444,16 +445,19 @@ impl Arc3Sensorimotor {
             });
         }
         if let Some(history_contacts) = history_contacts {
-            for (contact, physical_id, early) in history_contacts {
+            for (contact, physical_id, selected) in history_contacts {
+                if selected {
+                    continue;
+                }
                 inputs.push(SpikeInput {
-                    arrival_tick: start.saturating_add(i64::from(!early)),
-                    phase: 30,
+                    arrival_tick: start.saturating_add(1),
+                    phase: 0,
                     origin_physical: EXTERNAL_PHYSICAL_BASE
                         .saturating_add(self.sequence.saturating_mul(100))
                         .saturating_add(20_000)
                         .saturating_add(physical_id),
                     target: contact,
-                    impulse: 1,
+                    impulse: -1,
                 });
             }
         }
@@ -555,13 +559,12 @@ impl Arc3Sensorimotor {
                     continue;
                 }
                 if contact_sign != 0 && contact_sign != sign {
-                    return Err(Arc3SensorimotorError(
-                        "one contact contains both transient-history material signs".to_string(),
-                    ));
+                    contact_sign = 2;
+                    break;
                 }
                 contact_sign = sign;
             }
-            if contact_sign == 0 {
+            if !matches!(contact_sign, -1 | 1) {
                 continue;
             }
             positive |= contact_sign > 0;

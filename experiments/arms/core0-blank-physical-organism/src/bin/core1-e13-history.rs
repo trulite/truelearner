@@ -134,9 +134,24 @@ fn run(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Run {
                 false,
                 &AVAILABLE,
             )
-            .expect("context prime");
+            .expect("first context prime");
         organism.clear_episode();
-        let negative = history(&mut organism, &frames[index], intended, -1);
+        let second_prime = organism
+            .observe(
+                frames[index].clone(),
+                &AVAILABLE,
+                None,
+                false,
+                false,
+                &AVAILABLE,
+            )
+            .expect("second context prime");
+        organism.clear_episode();
+        organism
+            .advance_gap(1)
+            .expect("ordinary refractory recovery before history controls");
+        let mut negative_branch = organism.clone();
+        let negative = history(&mut negative_branch, &frames[index], intended, -1);
         let positive = history(&mut organism, &frames[index], intended, 1);
         let material = organism
             .diagnostic_context(contexts[index], motor(intended))
@@ -144,7 +159,7 @@ fn run(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Run {
         rows.push(ContextResult {
             context: contexts[index],
             intended,
-            prime_action: prime.action,
+            prime_action: prime.action.or(second_prime.action),
             negative_early_action: negative.action,
             positive_early_action: positive.action,
             consequence_admitted: false,
@@ -155,10 +170,12 @@ fn run(profile: Core0Profile, mechanics: MechanicalConfig, root: u64) -> Run {
             after_consequence: material.clone(),
             after_probe: material,
             quiescent: prime.naturally_quiescent
+                && second_prime.naturally_quiescent
                 && negative.naturally_quiescent
                 && positive.naturally_quiescent,
             work: prime
                 .physical_work
+                .saturating_add(second_prime.physical_work)
                 .saturating_add(negative.physical_work)
                 .saturating_add(positive.physical_work),
         });
@@ -284,16 +301,20 @@ fn write_rows(csv: &mut BufWriter<File>, profile: &str, mechanics: &str, run: &R
 fn main() {
     let args = env::args().collect::<Vec<_>>();
     if args.iter().any(|arg| arg == "--preflight") {
-        let result = run(Core0Profile::B, MechanicalConfig::REFERENCE, 70_000_000);
+        let result = run(
+            Core0Profile::GenericExternal,
+            MechanicalConfig::REFERENCE,
+            75_000_000,
+        );
         println!("{result:#?}");
         return;
     }
 
-    eprintln!("CORE1_E13_HISTORY_COMPOSITION_V1_EVIDENCE_SPENT");
+    eprintln!("CORE1_E13_HISTORY_COMPOSITION_V2_EVIDENCE_SPENT");
     let destination = args
         .get(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("experiments/results/core1_e13_history_v1"));
+        .unwrap_or_else(|| PathBuf::from("experiments/results/core1_e13_history_v2"));
     fs::create_dir_all(&destination).expect("create result directory");
     let mut csv =
         BufWriter::new(File::create(destination.join("matrix.csv")).expect("create matrix"));
@@ -320,5 +341,5 @@ fn main() {
         .expect("write summary row");
         fs::write(destination.join("summary.md"), &summary).expect("stream summary");
     }
-    println!("CORE1_E13_HISTORY_COMPOSITION_COMPLETE profiles=3 contexts=4");
+    println!("CORE1_E13_HISTORY_COMPOSITION_V2_COMPLETE profiles=3 contexts=4");
 }
