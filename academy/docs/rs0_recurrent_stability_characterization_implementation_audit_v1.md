@@ -53,8 +53,9 @@ The standalone evaluator was formatted and compiled in reusable E2B worker
 observer obligations: a quiescent run is byte/state-identical to ordinary
 unbounded propagation, while a recurrent run pauses at 16 deliveries and
 resumes for another 8 without discarding activity or allowing forgetting to
-terminate it. The matrix has not run. Strict Clippy, the static audit, and this
-targeted observer control remain before the one-shot characterization.
+terminate it. The corrected candidate passed formatting, strict Clippy, the
+static/source-boundary audit, and the targeted observer control in that worker.
+The matrix has not run.
 
 The control's first preflight compared the complete `RunResult` and therefore
 failed solely on `ExecutionCost.peak_resident_bytes` (`920` versus `1432`) after
