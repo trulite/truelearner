@@ -270,8 +270,8 @@ impl Arc3Sensorimotor {
         if settle_pressure && self.previous_frame.is_some() {
             let tick = self.boundary.substrate().clock().tick;
             let settled = tick.div_euclid(10).saturating_add(1).saturating_mul(10);
-            total_work = total_work
-                .saturating_add(self.boundary.advance_time(settled).physical_total());
+            total_work =
+                total_work.saturating_add(self.boundary.advance_time(settled).physical_total());
         }
 
         let context = self.sensor_context(&frame)?;
