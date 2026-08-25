@@ -1156,7 +1156,7 @@ fn mechanics_name(config: MechanicalConfig) -> &'static str {
 
 fn main() {
     let output_dir = env::args().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_consolidated_v1")
+        PathBuf::from("experiments/results/rs2_learned_inhibitory_topology_post_ck0_v1")
     });
     fs::create_dir_all(&output_dir).unwrap();
     let mut csv = String::from(
@@ -1259,7 +1259,7 @@ fn main() {
     assert_eq!(cases, expected_cases);
     assert_eq!(rows, expected_rows);
     let report = format!(
-        "# RS2 learned inhibitory topology consolidated v1\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production wave-normalized exact: {}\n- identity renaming exact: {}\n- replay exact: {}\n- meaningful checkpoint continuation exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
+        "# RS2 learned inhibitory topology post-CK0 v1\n\n- cases: {cases}/{expected_cases}\n- rows: {rows}/{expected_rows}\n- clauses: {passed}/{clauses}\n- Reference/Production wave-normalized exact: {}\n- identity renaming exact: {}\n- replay exact: {}\n- meaningful checkpoint continuation exact: {}\n- maximum PhysicalWork: {maximum_work}\n",
         csv.lines().skip(1).all(|line| line.split(',').nth(6) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(7) == Some("true")),
         csv.lines().skip(1).all(|line| line.split(',').nth(5) == Some("true")),
@@ -1270,6 +1270,6 @@ fn main() {
     );
     fs::write(output_dir.join("matrix.csv"), csv).unwrap();
     fs::write(output_dir.join("report.md"), report).unwrap();
-    assert!(all_pass, "consolidated RS2 matrix failed");
-    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_CONSOLIDATED_POSITIVE_V1");
+    assert!(all_pass, "post-CK0 RS2 matrix failed");
+    println!("RS2_LEARNED_INHIBITORY_TOPOLOGY_POST_CK0_POSITIVE_V1");
 }
