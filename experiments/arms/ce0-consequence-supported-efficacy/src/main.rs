@@ -284,9 +284,7 @@ fn count_events(trace: &[PhysicalTransition]) -> EventCounts {
             PhysicalEvent::Resistance { .. } => {
                 counts.resistance = counts.resistance.saturating_add(1)
             }
-            PhysicalEvent::Coupling { .. } => {
-                counts.coupling = counts.coupling.saturating_add(1)
-            }
+            PhysicalEvent::Coupling { .. } => counts.coupling = counts.coupling.saturating_add(1),
             PhysicalEvent::Proposal { .. } => counts.proposals = counts.proposals.saturating_add(1),
             PhysicalEvent::Deallocate { .. } => {
                 counts.deallocations = counts.deallocations.saturating_add(1)
@@ -369,8 +367,7 @@ fn wrong_and_late(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observa
 fn graded(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = Session::new(root, phase, mechanics);
     let (weak_contact, _, weak_effect, weak) = local_route(&mut world, root, 100_000, 100);
-    let (full_contact, _, full_effect, full) =
-        local_route(&mut world, root + 100, 100_000, 100);
+    let (full_contact, _, full_effect, full) = local_route(&mut world, root + 100, 100_000, 100);
     let (strong_contact, _, strong_effect, strong) =
         local_route(&mut world, root + 200, 100_000, 100);
 
@@ -433,12 +430,7 @@ fn threshold_route(
         1,
         100,
     );
-    let effect = world.cell(
-        root + 4,
-        i32::try_from(root % 100_000).unwrap() + 300,
-        0,
-        1,
-    );
+    let effect = world.cell(root + 4, i32::try_from(root % 100_000).unwrap() + 300, 0, 1);
     let candidate = world.drive(source, target, 1, 100_000);
     world.drive(target, outlet, 1, 100_000);
     world.modulation(effect, source);
@@ -455,7 +447,9 @@ fn threshold_route(
     world.admit(&[probe]);
     let target_fires = world.trace[before..]
         .iter()
-        .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target))
+        .filter(
+            |transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target),
+        )
         .count();
     (candidate, u64::try_from(target_fires).unwrap())
 }
@@ -477,13 +471,26 @@ fn threshold_family(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obser
     world.admit(&[first, second]);
     let two_input_fires = world.trace[before..]
         .iter()
-        .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target))
+        .filter(
+            |transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == target),
+        )
         .count();
 
-    let states = vec![world.state(t1), world.state(t2), world.state(t3), world.state(a), world.state(b)];
+    let states = vec![
+        world.state(t1),
+        world.state(t2),
+        world.state(t3),
+        world.state(a),
+        world.state(b),
+    ];
     world.finish(
         states,
-        vec![t1_fires, t2_fires, t3_fires, u64::try_from(two_input_fires).unwrap()],
+        vec![
+            t1_fires,
+            t2_fires,
+            t3_fires,
+            u64::try_from(two_input_fires).unwrap(),
+        ],
     )
 }
 
@@ -508,7 +515,10 @@ fn equal_persistence(root: u64, phase: i64, mechanics: MechanicalConfig) -> Obse
     let b_after = world.state(b);
     world.finish(
         vec![a_before, b_before, a_after, b_after],
-        vec![u64::try_from(a_fires).unwrap(), u64::try_from(b_fires).unwrap()],
+        vec![
+            u64::try_from(a_fires).unwrap(),
+            u64::try_from(b_fires).unwrap(),
+        ],
     )
 }
 
@@ -552,7 +562,11 @@ fn recurrent(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation 
 
     let pre_start = world.spike(a, phase, 2);
     world.admit(&[pre_start]);
-    let pre_refires = world.trace.iter().filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == a)).count();
+    let pre_refires = world
+        .trace
+        .iter()
+        .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == a))
+        .count();
 
     let train_a = world.spike(a, phase + 3, 2);
     let return_a = world.spike(effect_a, phase + 3, 1);
@@ -609,13 +623,14 @@ fn predicate(family: Family, observation: &Observation) -> bool {
     }
     match family {
         Family::NoConsequence | Family::RepeatedUseOnly => {
-            observation.states == [ArrowState {
-                live: true,
-                resistance: observation.states[0].resistance,
-                coupling: 1,
-                participation: observation.states[0].participation,
-                support: 0,
-            }]
+            observation.states
+                == [ArrowState {
+                    live: true,
+                    resistance: observation.states[0].resistance,
+                    coupling: 1,
+                    participation: observation.states[0].participation,
+                    support: 0,
+                }]
                 && observation.events.coupling == 0
                 && observation.work.updates == 0
         }
@@ -837,4 +852,3 @@ fn main() {
     println!("CE0_CONSEQUENCE_SUPPORTED_EFFICACY_V1_PASS");
     println!("matrix_sha256={matrix_hash}");
 }
-
