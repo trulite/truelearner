@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 //! Single-file physical runtime: state, local transitions, and crossings.
 
-use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
 use truelearner_arena_format::{
     ArenaBody, ArenaVersion, BodyVersion, DurableArrow, DurableCell, FormatError,
 };
@@ -939,6 +939,7 @@ mod mechanics {
     }
 
     fn canonical_storage_key(spike: &Spike) -> (i64, i32, u64, u64, u64, u64) {
+        // AH0_STORAGE_ONLY: canonical checkpoint/debug order, never transition order.
         (
             spike.arrival_tick,
             spike.phase,
@@ -1616,8 +1617,10 @@ impl LiveCheckpoint {
         let manifest = self.body_version.canonical_bytes()?;
         let body = self.body.canonical_bytes()?;
         let mut cells = self.cells.clone();
+        // AH0_STORAGE_ONLY: canonical checkpoint bytes.
         cells.sort_by_key(|cell| cell.id);
         let mut arrows = self.arrows.clone();
+        // AH0_STORAGE_ONLY: canonical checkpoint bytes.
         arrows.sort_by_key(|arrow| arrow.id);
         let mut pending = self.pending.clone();
         pending.sort_by_key(|spike| {
@@ -2169,7 +2172,7 @@ impl PlasticSubstrate {
         self.resident_arenas
             .iter()
             .copied()
-            .collect::<BTreeSet<_>>()
+            .collect::<HashSet<_>>()
             .len()
     }
 
@@ -2520,6 +2523,7 @@ impl PlasticSubstrate {
         reverse_slots: bool,
     ) -> Result<Self, CheckpointError> {
         body.validate()?;
+        // AH0_STORAGE_ONLY: deliberately selectable resident packing for compaction tests.
         if reverse_slots {
             body.cells.sort_by_key(|cell| std::cmp::Reverse(cell.id));
             body.arrows.sort_by_key(|arrow| std::cmp::Reverse(arrow.id));
@@ -2820,9 +2824,11 @@ impl PlasticSubstrate {
 
     pub fn compact_resident(&mut self) {
         let mut cells = self.cells.values();
+        // AH0_STORAGE_ONLY: disposable resident slots; handles and physics stay unchanged.
         cells.sort_by_key(|cell| std::cmp::Reverse(cell.id));
         self.cells.replace_values(cells);
         let mut arrows = self.arrows.values();
+        // AH0_STORAGE_ONLY: disposable resident slots; handles and physics stay unchanged.
         arrows.sort_by_key(|arrow| (!arrow.live, std::cmp::Reverse(arrow.id)));
         self.arrows.replace_values(arrows);
         self.rebuild_slot_maps();
