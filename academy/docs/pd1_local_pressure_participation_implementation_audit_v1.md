@@ -54,3 +54,9 @@ In reusable E2B worker `it48kiw54nkrebe6zl821`:
 
 No Rust or project program ran locally. No ARC, PD2, authority, oracle, or
 `arch.md` work occurred.
+
+The first fresh evidence worker stopped in static preflight before compiling
+or executing the evaluator because the audit's `sed` range matched the earlier
+call site as well as the function definition. The selector was anchored to the
+function definition; all frozen hashes above remain unchanged. No evidence was
+spent by that technical stop.

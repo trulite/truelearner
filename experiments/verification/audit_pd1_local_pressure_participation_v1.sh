@@ -19,7 +19,7 @@ grep -q 'arrow.pressure_load %= PARTICIPATION_IMPULSE' \
   truelearner/crates/core/src/lib.rs
 
 pressure_body="$({
-  sed -n '/fn elapse_pd1_pressure/,/fn propose_local_arrows/p' \
+  sed -n '/^    fn elapse_pd1_pressure/,/^    fn propose_local_arrows/p' \
     truelearner/crates/core/src/lib.rs
 })"
 if grep -Eq 'eligible_until|LOCAL_WINDOW|UNSUPPORTED_USE_PRESSURE' <<<"$pressure_body"; then
