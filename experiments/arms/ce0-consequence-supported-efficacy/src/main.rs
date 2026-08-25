@@ -96,6 +96,14 @@ struct ArrowState {
     support: u64,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct SignedCandidate {
+    contact: CellId,
+    stem: ArrowId,
+    outgoing: ArrowId,
+    sign: i32,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct EventCounts {
     drive: u64,
@@ -180,11 +188,25 @@ impl Session {
         delay: i64,
         mode: TransmissionMode,
     ) -> ArrowId {
+        self.arrow_with_phase(from, to, coupling, resistance, delay, 0, mode)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn arrow_with_phase(
+        &mut self,
+        from: CellId,
+        to: CellId,
+        coupling: i32,
+        resistance: u32,
+        delay: i64,
+        phase: i32,
+        mode: TransmissionMode,
+    ) -> ArrowId {
         self.body.add_arrow(ArrowSpec {
             from,
             to,
             delay,
-            phase: 0,
+            phase,
             coupling,
             resistance,
             mode,
@@ -225,6 +247,38 @@ impl Session {
         self.work.add(self.body.advance_time(tick));
     }
 
+    fn tick(&self) -> i64 {
+        self.body.clock().tick
+    }
+
+    fn signed_candidates(&self, source: CellId, target: CellId) -> [SignedCandidate; 2] {
+        let body = self.body.arena_body(1);
+        let mut candidates = body
+            .cells
+            .iter()
+            .filter_map(|cell| {
+                let stem = body
+                    .arrows
+                    .iter()
+                    .find(|arrow| arrow.live && arrow.from.id == source && arrow.to.id == cell.id)?;
+                let outgoing = body
+                    .arrows
+                    .iter()
+                    .find(|arrow| arrow.live && arrow.from.id == cell.id && arrow.to.id == target)?;
+                (outgoing.coupling.abs() == 1).then_some(SignedCandidate {
+                    contact: cell.id,
+                    stem: stem.id,
+                    outgoing: outgoing.id,
+                    sign: outgoing.coupling,
+                })
+            })
+            .collect::<Vec<_>>();
+        candidates.sort_by_key(|candidate| candidate.sign);
+        candidates
+            .try_into()
+            .expect("CE1 variation must create two signed candidates")
+    }
+
     fn state(&self, id: ArrowId) -> ArrowState {
         let durable = self
             .body
@@ -232,7 +286,7 @@ impl Session {
             .arrows
             .into_iter()
             .find(|arrow| arrow.id == id)
-            .expect("CE0 ARROW identity must remain addressable");
+            .expect("CE1 ARROW identity must remain addressable");
         ArrowState {
             live: durable.live,
             resistance: durable.resistance,
@@ -249,9 +303,9 @@ impl Session {
             &self
                 .body
                 .live_checkpoint(1)
-                .expect("CE0 live checkpoint")
+                .expect("CE1 live checkpoint")
                 .canonical_bytes()
-                .expect("CE0 canonical live checkpoint"),
+                .expect("CE1 canonical live checkpoint"),
         )
         .to_string();
         Observation {
@@ -272,6 +326,12 @@ fn count_events(trace: &[PhysicalTransition]) -> EventCounts {
     let mut counts = EventCounts::default();
     for transition in trace {
         match transition.event {
+            PhysicalEvent::DriveIncidence { arrivals, .. } => {
+                counts.drive = counts.drive.saturating_add(u64::from(arrivals))
+            }
+            PhysicalEvent::ModulatoryIncidence { arrivals, .. } => {
+                counts.modulation = counts.modulation.saturating_add(u64::from(arrivals))
+            }
             PhysicalEvent::Deliver {
                 mode: TransmissionMode::Drive,
                 ..
@@ -286,7 +346,13 @@ fn count_events(trace: &[PhysicalTransition]) -> EventCounts {
             }
             PhysicalEvent::Coupling { .. } => counts.coupling = counts.coupling.saturating_add(1),
             PhysicalEvent::Proposal { .. } => counts.proposals = counts.proposals.saturating_add(1),
+            PhysicalEvent::CellProposal { .. } => {
+                counts.proposals = counts.proposals.saturating_add(1)
+            }
             PhysicalEvent::Deallocate { .. } => {
+                counts.deallocations = counts.deallocations.saturating_add(1)
+            }
+            PhysicalEvent::CellDeallocate { .. } => {
                 counts.deallocations = counts.deallocations.saturating_add(1)
             }
             PhysicalEvent::Crossing(_) => counts.crossings = counts.crossings.saturating_add(1),
@@ -551,49 +617,97 @@ fn fanout(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
 
 fn recurrent(root: u64, phase: i64, mechanics: MechanicalConfig) -> Observation {
     let mut world = Session::new(root, phase, mechanics);
-    let a = world.cell(root + 1, 0, 0, 2);
-    let b = world.cell(root + 2, 100, 0, 2);
-    let effect_a = world.cell(root + 3, 300, 0, 1);
-    let effect_b = world.cell(root + 4, 400, 0, 1);
-    let ab = world.arrow(a, b, 1, 4, 1, TransmissionMode::Drive);
-    let ba = world.arrow(b, a, 1, 4, 1, TransmissionMode::Drive);
-    world.modulation(effect_a, a);
-    world.modulation(effect_b, b);
+    let b = world.cell(root + 1, 0, 0, 2);
+    let a = world.cell(root + 2, 1, 0, 2);
 
-    let pre_start = world.spike(a, phase, 2);
-    world.admit(&[pre_start]);
-    let pre_refires = world
-        .trace
-        .iter()
-        .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == a))
-        .count();
+    // Ordinary variation supplies both signs in separate contact junctions.
+    // A qualified consequence selects the negative relation without any sign
+    // hint from the evaluator.
+    let generate = world.spike(b, phase, 2);
+    world.admit(&[generate]);
+    let [negative, positive] = world.signed_candidates(b, a);
+    let negative_effect = world.cell(root + 10_000, 100, 0, 1);
+    world.modulation(negative_effect, negative.contact);
+    let consequence = world.spike(negative_effect, world.tick(), 1);
+    world.admit(&[consequence]);
+    let selected_stem_after_support = world.state(negative.stem);
+    let selected_outgoing_after_support = world.state(negative.outgoing);
+    let unsupported_before_decay = world.state(positive.outgoing);
+    world.advance(world.tick().saturating_add(10));
+    let unsupported_after_decay = world.state(positive.outgoing);
 
-    let train_a = world.spike(a, phase + 3, 2);
-    let return_a = world.spike(effect_a, phase + 3, 1);
-    world.admit(&[train_a, return_a]);
-    let train_b = world.spike(b, phase + 6, 2);
-    let return_b = world.spike(effect_b, phase + 6, 1);
-    world.admit(&[train_b, return_b]);
+    // Each reciprocal positive relation gets its own ordinary contact
+    // compartment so efficacy support remains spatially local.
+    let ab_contact = world.cell(root + 20_000, 1, 0, 1);
+    let ba_contact = world.cell(root + 20_001, 0, 0, 1);
+    let ab_stem = world.arrow(a, ab_contact, 1, 100_000, 1, TransmissionMode::Drive);
+    let ab_outgoing = world.arrow(ab_contact, b, 1, 100_000, 1, TransmissionMode::Drive);
+    let ba_stem = world.arrow(b, ba_contact, 1, 100_000, 1, TransmissionMode::Drive);
+    let ba_outgoing = world.arrow_with_phase(
+        ba_contact,
+        a,
+        1,
+        100_000,
+        1,
+        1,
+        TransmissionMode::Drive,
+    );
+    let effect_ab = world.cell(root + 30_000, 300, 0, 1);
+    let effect_ba = world.cell(root + 30_001, 400, 0, 1);
+    world.modulation(effect_ab, ab_contact);
+    world.modulation(effect_ba, ba_contact);
+
+    let train_ab_tick = world.tick().saturating_add(1);
+    let train_ab = world.spike(a, train_ab_tick, 2);
+    world.admit(&[train_ab]);
+    let support_ab = world.spike(effect_ab, world.tick(), 1);
+    world.admit(&[support_ab]);
+
+    let train_ba_tick = world.tick().saturating_add(1);
+    let train_ba = world.spike(b, train_ba_tick, 2);
+    world.admit(&[train_ba]);
+    let support_ba = world.spike(effect_ba, world.tick(), 1);
+    world.admit(&[support_ba]);
+
+    let ab_stem_state = world.state(ab_stem);
+    let ab_outgoing_state = world.state(ab_outgoing);
+    let ba_stem_state = world.state(ba_stem);
+    let ba_outgoing_state = world.state(ba_outgoing);
 
     let before_probe = world.trace.len();
-    let probe = world.spike(a, phase + 9, 2);
+    let probe_tick = world.tick().saturating_add(1);
+    let probe = world.spike(a, probe_tick, 2);
     world.admit(&[probe]);
-    let probe_a_fires = world.trace[before_probe..]
+    let probe_trace = &world.trace[before_probe..];
+    let probe_a_fires = probe_trace
         .iter()
         .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == a))
         .count();
-    let probe_b_fires = world.trace[before_probe..]
+    let probe_b_fires = probe_trace
         .iter()
         .filter(|transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == b))
         .count();
-    let ab_state = world.state(ab);
-    let ba_state = world.state(ba);
+    let negative_contact_fires = probe_trace
+        .iter()
+        .filter(
+            |transition| matches!(transition.event, PhysicalEvent::Fire { cell } if cell == negative.contact),
+        )
+        .count();
     world.finish(
-        vec![ab_state, ba_state],
         vec![
-            u64::try_from(pre_refires).unwrap(),
+            selected_stem_after_support,
+            selected_outgoing_after_support,
+            unsupported_before_decay,
+            unsupported_after_decay,
+            ab_stem_state,
+            ab_outgoing_state,
+            ba_stem_state,
+            ba_outgoing_state,
+        ],
+        vec![
             u64::try_from(probe_a_fires).unwrap(),
             u64::try_from(probe_b_fires).unwrap(),
+            u64::try_from(negative_contact_fires).unwrap(),
         ],
     )
 }
@@ -618,7 +732,9 @@ fn run_case(root: u64, phase: i64, family: Family, mechanics: MechanicalConfig) 
 }
 
 fn predicate(family: Family, observation: &Observation) -> bool {
-    if !observation.quiescent || observation.events.proposals != 0 {
+    if !observation.quiescent
+        || (family != Family::RecurrentStability && observation.events.proposals != 0)
+    {
         return false;
     }
     match family {
@@ -690,11 +806,22 @@ fn predicate(family: Family, observation: &Observation) -> bool {
                 && observation.events.coupling == 2
         }
         Family::RecurrentStability => {
-            observation.states[0].coupling == 2
-                && observation.states[1].coupling == 2
-                && observation.measures[0] == 1
-                && observation.measures[1] == 1
-                && observation.measures[2] == 1
+            observation.states.len() == 8
+                && observation.states[0].live
+                && observation.states[0].coupling == 2
+                && observation.states[0].resistance == 4
+                && observation.states[1].live
+                && observation.states[1].coupling == -2
+                && observation.states[1].resistance == 4
+                && observation.states[2].live
+                && observation.states[2].coupling == 1
+                && !observation.states[3].live
+                && observation.states[4..]
+                    .iter()
+                    .all(|state| state.live && state.coupling == 2)
+                && observation.measures == [1, 1, 1]
+                && observation.events.proposals == 6
+                && observation.events.coupling == 6
         }
     }
 }
@@ -740,8 +867,10 @@ fn main() {
     let output = env::args_os()
         .nth(1)
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("results/ce0_consequence_supported_efficacy_v1"));
-    fs::create_dir_all(&output).expect("create CE0 output directory");
+        .unwrap_or_else(|| {
+            PathBuf::from("experiments/results/ce1_consequence_supported_efficacy_v1")
+        });
+    fs::create_dir_all(&output).expect("create CE1 output directory");
 
     let mut csv = String::from(
         "case_id,root,phase,family,mechanics,states,measures,drive,modulation,fires,resistance_events,coupling_events,qlp,crossings,proposals,deallocations,physical_work,final_tick,trace_hash,body_hash,live_hash,quiescent,replay_equal,mechanics_equal,predicate_pass,case_pass\n",
@@ -829,15 +958,15 @@ fn main() {
     assert_eq!(case_id, EXPECTED_CASES);
     assert_eq!(rows, EXPECTED_ROWS);
     let matrix_path = output.join("matrix.csv");
-    fs::write(&matrix_path, csv).expect("write CE0 matrix");
+    fs::write(&matrix_path, csv).expect("write CE1 matrix");
     let matrix_hash = ContentHash::of(&fs::read(&matrix_path).unwrap()).to_string();
     let claim = if all_pass {
-        "CE0 establishes a general local consequence-supported efficacy law."
+        "CE1 establishes sign-preserving consequence-supported efficacy with learned recurrent stabilization."
     } else {
-        "CE0 is an immutable negative: at least one frozen condition failed."
+        "CE1 is an immutable negative: at least one frozen condition failed."
     };
     let report = format!(
-        "# CE0 consequence-supported efficacy v1\n\n\
+        "# CE1 consequence-supported efficacy v1\n\n\
          - cases: `{case_id}/{EXPECTED_CASES}`\n\
          - mechanics rows: `{rows}/{EXPECTED_ROWS}`\n\
          - exact same-mechanics replay: `{all_replay}`\n\
@@ -847,8 +976,8 @@ fn main() {
          - matrix SHA-256: `{matrix_hash}`\n\n\
          {claim}\n"
     );
-    fs::write(output.join("report.md"), report).expect("write CE0 report");
-    assert!(all_pass, "CE0 matrix failed");
-    println!("CE0_CONSEQUENCE_SUPPORTED_EFFICACY_V1_PASS");
+    fs::write(output.join("report.md"), report).expect("write CE1 report");
+    assert!(all_pass, "CE1 matrix failed");
+    println!("CE1_CONSEQUENCE_SUPPORTED_EFFICACY_V1_PASS");
     println!("matrix_sha256={matrix_hash}");
 }

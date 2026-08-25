@@ -3652,6 +3652,8 @@ impl PlasticSubstrate {
                     let completed_after = arrow.plastic_support / PARTICIPATION_IMPULSE;
                     let efficacy_gain = completed_after.saturating_sub(completed_before);
                     let efficacy_gain = i32::try_from(efficacy_gain).unwrap_or(i32::MAX);
+                    #[cfg(feature = "ce1")]
+                    let efficacy_gain = efficacy_gain.saturating_mul(arrow.coupling.signum());
                     arrow.coupling = arrow.coupling.saturating_add(efficacy_gain);
                 }
                 let gain = local_consequence_gain(participation);
