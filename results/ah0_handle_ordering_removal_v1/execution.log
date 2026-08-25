@@ -1,0 +1,105 @@
+AH0_HANDLE_ORDERING_REMOVAL_STATIC_AUDIT_OK
+AH0_ONE_FILE_RUNTIME_CLOSURE_OK
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling generic-array v0.14.7
+   Compiling cfg-if v1.0.4
+   Compiling cpufeatures v0.2.17
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling truelearner-arena-format v0.1.0 (/home/user/truelearner/truelearner/crates/arena-format)
+   Compiling truelearner-core v0.1.0 (/home/user/truelearner/truelearner/crates/core)
+    Finished `release` profile [optimized] target(s) in 8.58s
+     Running unittests src/lib.rs (/home/user/truelearner-target/release/deps/truelearner_core-8b56b0eff6757875)
+
+running 1 test
+test tests::r1_r5_mechanical_prefixes_preserve_physics ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/user/truelearner-target/release/deps/truelearner-201835d23bc200bc)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling truelearner-arena-format v0.1.0 (/home/user/truelearner/truelearner/crates/arena-format)
+   Compiling truelearner-core v0.1.0 (/home/user/truelearner/truelearner/crates/core)
+   Compiling r6-partition-invariance-ah0 v0.1.0 (/home/user/truelearner/experiments/verification/r6-partition-invariance-ah0)
+    Finished `release` profile [optimized] target(s) in 4.29s
+     Running `/home/user/truelearner-target/release/r6-partition-invariance-ah0 --output results/ah0_handle_ordering_removal_v1/r6`
+R6_PARTITION_INVARIANCE_AH0_SUCCESSOR_PASS worlds=6 comparisons=36 checkpoint_controls=2/2 clauses=38/38 output=results/ah0_handle_ordering_removal_v1/r6
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling truelearner-core v0.1.0 (/home/user/truelearner/truelearner/crates/core)
+   Compiling si0-simultaneous-local-incidence v0.1.0 (/home/user/truelearner/experiments/arms/si0-simultaneous-local-incidence)
+    Finished `release` profile [optimized] target(s) in 3.78s
+     Running `/home/user/truelearner-target/release/si0-simultaneous-local-incidence results/ah0_handle_ordering_removal_v1/si0`
+SI0_SIMULTANEOUS_LOCAL_INCIDENCE_POSITIVE_V2
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling ah0-cpc0-parent-differential v0.1.0 (/home/user/truelearner/experiments/arms/ah0-cpc0-parent-differential)
+    Finished `release` profile [optimized] target(s) in 0.62s
+     Running `/home/user/truelearner-target/release/ah0-cpc0-parent-differential results/ah0_handle_ordering_removal_v1/cpc0`
+AH0_CPC0_PARENT_DIFFERENTIAL_COMPLETE cases=220 rows=440
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling truelearner-core v0.1.0 (/home/user/truelearner/truelearner/crates/core)
+   Compiling cpc1-local-temporal-participation v0.1.0 (/home/user/truelearner/experiments/arms/cpc1-local-temporal-participation)
+    Finished `release` profile [optimized] target(s) in 3.57s
+     Running `/home/user/truelearner-target/release/cpc1-local-temporal-participation results/ah0_handle_ordering_removal_v1/cpc1`
+CPC1_COMPLETE curve=440 controls=180 total=620
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling truelearner-core v0.1.0 (/home/user/truelearner/truelearner/crates/core)
+   Compiling pqlc0-participation-qualified-local-closure v0.1.0 (/home/user/truelearner/experiments/arms/pqlc0-participation-qualified-local-closure)
+    Finished `release` profile [optimized] target(s) in 3.59s
+     Running `/home/user/truelearner-target/release/pqlc0-participation-qualified-local-closure results/ah0_handle_ordering_removal_v1/pqlc0`
+PQLC0_COMPLETE physical_cases=200 positive=true cycle_work=1247
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling pqlc1-depth-composition v0.1.0 (/home/user/truelearner/experiments/arms/pqlc1-depth-composition)
+    Finished `release` profile [optimized] target(s) in 0.83s
+     Running `/home/user/truelearner-target/release/pqlc1-depth-composition results/ah0_handle_ordering_removal_v1/pqlc1`
+PQLC1_COMPLETE physical_cases=780 positive=true
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling fd0-phase-free-local-forgetting v0.1.0 (/home/user/truelearner/experiments/arms/fd0-phase-free-local-forgetting)
+    Finished `release` profile [optimized] target(s) in 0.72s
+     Running `/home/user/truelearner-target/release/fd0-phase-free-local-forgetting results/ah0_handle_ordering_removal_v1/fd0`
+FD0_COMPLETE physical_cases=100 pass=true
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling fd1-consequence-consolidation v0.1.0 (/home/user/truelearner/experiments/arms/fd1-consequence-consolidation)
+    Finished `release` profile [optimized] target(s) in 0.87s
+     Running `/home/user/truelearner-target/release/fd1-consequence-consolidation --v3 results/ah0_handle_ordering_removal_v1/fd1`
+FD1_COMPLETE version=v3 physical_cases=140 pass=true
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling truelearner-core v0.1.0 (/home/user/truelearner/truelearner/crates/core)
+   Compiling j0-junction-derived-lifetime v0.1.0 (/home/user/truelearner/experiments/arms/j0-junction-derived-lifetime)
+    Finished `release` profile [optimized] target(s) in 3.78s
+     Running `/home/user/truelearner-target/release/j0-junction-derived-lifetime results/ah0_handle_ordering_removal_v1/j0`
+J0_JUNCTION_MODEL_POSITIVE_V1
+    Updating crates.io index
+     Locking 12 packages to latest compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+   Compiling truelearner-core v0.1.0 (/home/user/truelearner/truelearner/crates/core)
+   Compiling cv0-bounded-local-contact-genesis v0.1.0 (/home/user/truelearner/experiments/arms/cv0-bounded-local-contact-genesis)
+    Finished `release` profile [optimized] target(s) in 4.25s
+     Running `/home/user/truelearner-target/release/cv0-bounded-local-contact-genesis full results/ah0_handle_ordering_removal_v1/cv0`
+CV0_J0_BOUNDED_LOCAL_CONTACT_GENESIS_POSITIVE_V1
+AH0_RETAINED_DIFFERENTIAL_GATE_POSITIVE_V1
