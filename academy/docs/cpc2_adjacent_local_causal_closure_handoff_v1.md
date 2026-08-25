@@ -12,7 +12,8 @@ Neither unchanged-law topology earned arbitrary-depth local causal closure:
 
 This is a scientific negative, not an evaluator or representation failure.
 Reference and Production histories matched exactly in all `360` physical
-cases, and the static audit passed with unchanged core hashes.
+cases, the static audit passed with unchanged core hashes, and a fresh E2B
+worker reproduced the complete artifact set byte-for-byte.
 
 ## Status ladder
 

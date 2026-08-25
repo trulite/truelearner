@@ -106,6 +106,7 @@ SHA256SUMS
 ```
 
 Sole matrix and static audit E2B sandbox: `ic6wbb4i3jv376ljz4eiq`.
+Fresh exact artifact replay: `i7jh90vvetzjeushpz3jo`.
 
 ## Boundary
 
@@ -113,4 +114,3 @@ No CPC3, pressure integration, eligibility deletion, ARC A3-A5, authority,
 oracle, or `arch.md` work starts from this result. A separately preregistered
 diagnostic or new physical hypothesis is required before continuing causal
 closure.
-

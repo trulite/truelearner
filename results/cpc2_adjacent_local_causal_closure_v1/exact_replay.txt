@@ -1,0 +1,10 @@
+CPC2 exact artifact replay v1
+
+evidence commit: 0debf23f9941bc0e989b8a22e1901858b97cbd04
+fresh E2B sandbox: i7jh90vvetzjeushpz3jo
+result: CPC2_COMPLETE physical_cases=360 local_complete=false relay_complete=false
+
+matrix.csv: byte-identical
+report.md: byte-identical
+SHA256SUMS: byte-identical
+static audit: CPC2_STATIC_AUDIT_OK physical_cases=360 mechanics_rows=720
