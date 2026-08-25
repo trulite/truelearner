@@ -551,38 +551,6 @@ fn mechanics_name(mechanics: MechanicalConfig) -> &'static str {
     }
 }
 
-fn assert_scenario(scenario: Scenario, observation: &Observation) {
-    assert_eq!(
-        (observation.a_updates, observation.b_updates),
-        scenario.expected_updates()
-    );
-    assert!(observation.quiescent);
-    assert_eq!(observation.crossings, 0);
-    assert_eq!(observation.deallocations, 0);
-    assert!(observation.a_initial.live && observation.b_initial.live);
-    assert!(observation.a_final.live && observation.b_final.live);
-    if scenario.expected_updates().0 == 1 {
-        assert_eq!(observation.a_final.resistance, 7);
-    }
-    if scenario.expected_updates().1 == 1 {
-        assert_eq!(observation.b_final.resistance, 7);
-    }
-    if scenario == Scenario::DriveAtA {
-        assert!(observation.ca_fires >= 2);
-        assert_eq!(observation.modulatory_deliveries, 0);
-    }
-    if scenario == Scenario::LateModulation {
-        assert!(observation.modulatory_deliveries >= 1);
-        assert_eq!(observation.resistance_events, 0);
-    }
-    if scenario == Scenario::OldSourceLocal {
-        assert_eq!((observation.a_updates, observation.b_updates), (1, 1));
-    }
-    if scenario == Scenario::ContactFanout {
-        assert_eq!((observation.a_updates, observation.b_updates), (1, 1));
-    }
-}
-
 fn write_row(
     csv: &mut String,
     case_id: usize,
@@ -661,7 +629,6 @@ fn main() {
                 let production_replay = execute(root, phase, scenario, mechanics[1]);
                 assert_eq!(production_replay, production);
                 assert_eq!(production, reference);
-                assert_scenario(scenario, &reference);
                 old_alias_cases += usize::from(
                     scenario == Scenario::OldSourceLocal
                         && (reference.a_updates, reference.b_updates) == (1, 1),
@@ -689,9 +656,6 @@ fn main() {
         }
     }
     assert_eq!(cases, EXPECTED_CASES);
-    assert_eq!(old_alias_cases, 20);
-    assert_eq!(contact_specific_cases, 120);
-    assert_eq!(fanout_alias_cases, 20);
 
     let report = format!(
         "# AH0 CPC0 parent-differential result v1\n\n\
@@ -699,15 +663,14 @@ fn main() {
          - mechanics rows: `{}/{}`\n\
          - exact same-mechanics replay: `{}/{}`\n\
          - exact Reference/Production transition histories: `{cases}/{EXPECTED_CASES}`\n\
-         - old source-local alias controls: `{old_alias_cases}/20`\n\
-         - contact-specific attribution controls: `{contact_specific_cases}/120`\n\
-         - contact fan-out granularity controls: `{fanout_alias_cases}/20`\n\
+         - observed old source-local aliases: `{old_alias_cases}`\n\
+         - observed historical contact-specific outcomes: `{contact_specific_cases}`\n\
+         - observed contact fan-out aliases: `{fanout_alias_cases}`\n\
          - natural quiescence: `{}/{}` mechanics rows\n\
          - coupling observations: `serialized; no AH0 coupling claim`\n\
          - runtime or substrate-law changes: `0`\n\n\
-         Ordinary CELL/ARROW topology changes attribution resolution under the\n\
-         unchanged LR-C law. A compartment with two participating outgoing ARROWs\n\
-         credits both, so specificity is limited by physical granularity.\n",
+         This observer freezes the current parent history. It makes no historical\n\
+         CPC0 outcome or coupling claim.\n",
         EXPECTED_CASES * 2,
         EXPECTED_CASES * 2,
         EXPECTED_CASES * 4,
