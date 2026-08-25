@@ -6,8 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, ContentHash, MechanicalConfig, PhysicalEvent,
-    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode,
+    ArenaId, ArrowId, ArrowSpec, ContentHash, MechanicalConfig, PhysicalEvent, PhysicalTransition,
+    PlasticSubstrate, SpikeInput, TransmissionMode,
 };
 
 const ROOTS: [u64; 2] = [1_100_000, 1_200_000];
@@ -145,12 +145,7 @@ fn independent_geometry(
 ) -> Geometry {
     let mut body = PlasticSubstrate::with_mechanics(ArenaId(root + 10), 12, 12, mechanics);
     body.set_physical_tracing(true);
-    let source_a = add_cell(
-        &mut body,
-        root + 1,
-        0,
-        if subthreshold_a { 2 } else { 1 },
-    );
+    let source_a = add_cell(&mut body, root + 1, 0, if subthreshold_a { 2 } else { 1 });
     let target_a = add_cell(&mut body, root + 2, 10, 2);
     let source_b = add_cell(&mut body, root + 3, 20, 1);
     let target_b = add_cell(&mut body, root + 4, 30, 2);
@@ -257,12 +252,7 @@ fn admit(
     trace.extend(result.physical_trace);
 }
 
-fn run_gate_a(
-    root: u64,
-    phase: i64,
-    control: Control,
-    mechanics: MechanicalConfig,
-) -> Observation {
+fn run_gate_a(root: u64, phase: i64, control: Control, mechanics: MechanicalConfig) -> Observation {
     let mut geometry = if control == Control::SharedFanout {
         shared_geometry(root, phase, mechanics)
     } else {
@@ -538,10 +528,8 @@ fn main() {
                         assert_eq!(reference.a_level, reference.b_level);
                     }
                 }
-                for (kind, observation) in [
-                    (mechanics[0], &reference),
-                    (mechanics[1], &production),
-                ] {
+                for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)]
+                {
                     write_observation(
                         &mut gate_a,
                         &[
@@ -574,10 +562,8 @@ fn main() {
                 assert_eq!(production, reference);
                 assert!(reference.a_level > 0 && reference.b_level == 0);
                 curve.push(reference.a_level);
-                for (kind, observation) in [
-                    (mechanics[0], &reference),
-                    (mechanics[1], &production),
-                ] {
+                for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)]
+                {
                     write_observation(
                         &mut decay,
                         &[
@@ -592,7 +578,14 @@ fn main() {
                 }
             }
             assert!(curve.windows(2).all(|pair| pair[0] > pair[1]));
-            assert!(curve.iter().copied().collect::<std::collections::BTreeSet<_>>().len() >= 3);
+            assert!(
+                curve
+                    .iter()
+                    .copied()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .len()
+                    >= 3
+            );
             if let Some(baseline) = &baseline_curve {
                 assert_eq!(&curve, baseline);
             } else {
@@ -622,10 +615,8 @@ fn main() {
                 both_contact += usize::from(
                     !reference.a_contacts.is_empty() && !reference.b_contacts.is_empty(),
                 );
-                for (kind, observation) in [
-                    (mechanics[0], &reference),
-                    (mechanics[1], &production),
-                ] {
+                for (kind, observation) in [(mechanics[0], &reference), (mechanics[1], &production)]
+                {
                     write_observation(
                         &mut gate_b,
                         &[
