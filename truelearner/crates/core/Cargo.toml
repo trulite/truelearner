@@ -8,6 +8,9 @@ description = "Production physical organism runtime"
 [lib]
 path = "src/lib.rs"
 
+[features]
+cpc1 = []
+
 [[bin]]
 name = "truelearner"
 path = "src/main.rs"

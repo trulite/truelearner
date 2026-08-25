@@ -1,0 +1,11 @@
+[package]
+name = "cpc1-local-temporal-participation"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+truelearner-core = { path = "../../../truelearner/crates/core", features = ["cpc1"] }
+
+[workspace]
+

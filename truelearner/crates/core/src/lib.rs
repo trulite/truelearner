@@ -14,11 +14,19 @@ pub use truelearner_arena_format::{
 };
 
 const LOCAL_WINDOW: i64 = 4;
+#[cfg(not(feature = "cpc1"))]
 const LOCAL_RETURN_STRENGTH: u32 = 3;
 const UNSUPPORTED_USE_PRESSURE: u32 = 1;
 const ORDINARY_PRESSURE_PERIOD: i64 = 10;
 const LOCAL_VARIATION_RADIUS: i32 = 2;
+#[cfg(not(feature = "cpc1"))]
 const COUPLING_PLASTICITY_CEILING: u32 = 16;
+#[cfg(feature = "cpc1")]
+const PARTICIPATION_IMPULSE: u64 = 1_u64 << 32;
+#[cfg(feature = "cpc1")]
+const PARTICIPATION_RELAX_NUMERATOR: u64 = 15;
+#[cfg(feature = "cpc1")]
+const PARTICIPATION_RELAX_DENOMINATOR: u64 = 16;
 const DEFAULT_CELL_CAPACITY: u32 = 65_536;
 const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
 const CHECKPOINT_VERSION: u16 = 1;
@@ -191,6 +199,10 @@ struct Arrow {
     resistance: u32,
     live: bool,
     eligible_until: Option<i64>,
+    #[cfg(feature = "cpc1")]
+    participation_level: u64,
+    #[cfg(feature = "cpc1")]
+    plastic_support: u64,
     mode: TransmissionMode,
 }
 
@@ -1206,6 +1218,10 @@ impl PlasticSubstrate {
             resistance: spec.resistance,
             live: spec.resistance > 0,
             eligible_until: None,
+            #[cfg(feature = "cpc1")]
+            participation_level: 0,
+            #[cfg(feature = "cpc1")]
+            plastic_support: 0,
             mode: spec.mode,
         };
         if slot.0 < self.arrows.len() {
@@ -1422,6 +1438,10 @@ impl PlasticSubstrate {
                 resistance: durable.resistance,
                 live: durable.live,
                 eligible_until: None,
+                #[cfg(feature = "cpc1")]
+                participation_level: 0,
+                #[cfg(feature = "cpc1")]
+                plastic_support: 0,
                 mode,
             });
             substrate.outgoing_index[durable.from.id.0 as usize].push(durable.id);
@@ -1821,6 +1841,12 @@ impl PlasticSubstrate {
                     let arrow_slot = self.arrow_slot(arrow_id).unwrap();
                     self.arrows.with_mut(arrow_slot.0, |live_arrow| {
                         live_arrow.eligible_until = Some(self.tick.saturating_add(LOCAL_WINDOW));
+                        #[cfg(feature = "cpc1")]
+                        {
+                            live_arrow.participation_level = live_arrow
+                                .participation_level
+                                .saturating_add(PARTICIPATION_IMPULSE);
+                        }
                     });
                     execution_cost.touch::<Arrow>(1);
                     self.eligible_arrows.insert(arrow_id);
@@ -1933,6 +1959,28 @@ impl PlasticSubstrate {
         for id in candidates {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let slot = self.arrow_slot(id).expect("indexed ARROW must resolve");
+            #[cfg(feature = "cpc1")]
+            {
+                let contacted = self.arrows.with_mut(slot.0, |arrow| {
+                    if arrow.live && arrow.from == cell {
+                        arrow.plastic_support = arrow
+                            .plastic_support
+                            .saturating_add(arrow.participation_level);
+                        arrow.eligible_until = None;
+                        true
+                    } else {
+                        false
+                    }
+                });
+                execution_cost.touch::<Arrow>(1);
+                if contacted {
+                    work.total = work.total.saturating_add(3);
+                    work.local_return_updates = work.local_return_updates.saturating_add(1);
+                    self.eligible_arrows.remove(&id);
+                }
+                let _ = (tick, phase, &mut *physical_trace);
+            }
+            #[cfg(not(feature = "cpc1"))]
             let updated = self.arrows.with_mut(slot.0, |arrow| {
                 if arrow.live
                     && arrow.from == cell
@@ -1951,7 +1999,9 @@ impl PlasticSubstrate {
                     None
                 }
             });
+            #[cfg(not(feature = "cpc1"))]
             execution_cost.touch::<Arrow>(1);
+            #[cfg(not(feature = "cpc1"))]
             if let Some((before, after)) = updated {
                 if self.trace_physics {
                     physical_trace.push(PhysicalTransition {
@@ -1970,6 +2020,18 @@ impl PlasticSubstrate {
     }
 
     fn elapse_to(&mut self, tick: i64, work: &mut Work, execution_cost: &mut ExecutionCost) {
+        #[cfg(feature = "cpc1")]
+        {
+            let elapsed = tick.saturating_sub(self.tick);
+            for index in 0..self.arrows.len() {
+                self.arrows.with_mut(index, |arrow| {
+                    if arrow.live {
+                        arrow.participation_level =
+                            relax_participation(arrow.participation_level, elapsed);
+                    }
+                });
+            }
+        }
         execution_cost.observe_frontiers(self.active_cells.len(), self.eligible_arrows.len());
         let pressure_steps = tick.saturating_sub(self.pressure_tick) / ORDINARY_PRESSURE_PERIOD;
         if pressure_steps > 0 {
@@ -2222,6 +2284,20 @@ impl PlasticSubstrate {
         }
     }
 
+    #[cfg(feature = "cpc1")]
+    pub fn local_participation(&self, id: ArrowId) -> u64 {
+        self.arrows
+            .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
+            .participation_level
+    }
+
+    #[cfg(feature = "cpc1")]
+    pub fn local_plastic_support(&self, id: ArrowId) -> u64 {
+        self.arrows
+            .get(self.arrow_slot(id).expect("ARROW identity must resolve").0)
+            .plastic_support
+    }
+
     fn rebuild_slot_maps(&mut self) {
         self.cell_slots.fill(None);
         for (index, cell) in self.cells.values().iter().enumerate() {
@@ -2321,7 +2397,21 @@ fn pressure_arrow(arrow: &mut Arrow, amount: u32) {
         arrow.live = false;
         arrow.generation = Generation(arrow.generation.0.wrapping_add(1));
         arrow.eligible_until = None;
+        #[cfg(feature = "cpc1")]
+        {
+            arrow.participation_level = 0;
+            arrow.plastic_support = 0;
+        }
     }
+}
+
+#[cfg(feature = "cpc1")]
+fn relax_participation(mut level: u64, elapsed: i64) -> u64 {
+    for _ in 0..u64::try_from(elapsed).unwrap_or(u64::MAX) {
+        level = level.saturating_mul(PARTICIPATION_RELAX_NUMERATOR)
+            / PARTICIPATION_RELAX_DENOMINATOR;
+    }
+    level
 }
 
 fn pressure_epoch(tick: i64) -> i64 {
