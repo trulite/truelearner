@@ -6,8 +6,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, ContentHash, MechanicalConfig, PhysicalEvent,
-    PhysicalTransition, PlasticSubstrate, SpikeInput, TransmissionMode, Work,
+    ArenaId, ArrowId, ArrowSpec, ContentHash, MechanicalConfig, PhysicalEvent, PhysicalTransition,
+    PlasticSubstrate, SpikeInput, TransmissionMode, Work,
 };
 
 const DELAYS: [i64; 8] = [0, 1, 2, 3, 4, 5, 8, 12];
@@ -116,7 +116,8 @@ impl Recorder {
                 PhysicalEvent::Eligible { arrow, until } if *arrow == geometry.candidate => {
                     self.candidate_until = Some(*until);
                     self.candidate_consumed = false;
-                    self.candidate_eligible_events.push((transition.tick, *until));
+                    self.candidate_eligible_events
+                        .push((transition.tick, *until));
                 }
                 PhysicalEvent::Eligible { arrow, until }
                     if geometry.competitor.is_some_and(|id| id == *arrow) =>
@@ -190,7 +191,12 @@ fn input(target: truelearner_core::CellId, tick: i64, origin: u64, impulse: i32)
     }
 }
 
-fn add_cell(body: &mut PlasticSubstrate, physical_id: u64, position: i32, threshold: i32) -> truelearner_core::CellId {
+fn add_cell(
+    body: &mut PlasticSubstrate,
+    physical_id: u64,
+    position: i32,
+    threshold: i32,
+) -> truelearner_core::CellId {
     body.add_cell(truelearner_core::CellSpec {
         physical_id,
         position,
@@ -319,15 +325,7 @@ fn run(case: Case, mechanics: MechanicalConfig) -> Observation {
     }
     recorder.record(&body, geometry, "constructed");
 
-    let initial = body.arrive(
-        &[input(
-            geometry.initial_source,
-            case.phase,
-            80_001,
-            1,
-        )],
-        99,
-    );
+    let initial = body.arrive(&[input(geometry.initial_source, case.phase, 80_001, 1)], 99);
     assert!(initial.naturally_quiescent);
     recorder.apply_trace(&initial.physical_trace, geometry);
     recorder.apply_work(initial.work);
@@ -509,15 +507,18 @@ fn main() {
                     match scenario {
                         Scenario::PromptModulation => {
                             prompt_credit += usize::from(reference.candidate_updates > 0);
-                            prompt_by_key.push((phase, delay, resistance, reference.candidate_updates));
+                            prompt_by_key.push((
+                                phase,
+                                delay,
+                                resistance,
+                                reference.candidate_updates,
+                            ));
                         }
                         Scenario::UnrelatedModulation => {
                             unrelated_credit += usize::from(reference.candidate_updates > 0);
                             let prompt = prompt_by_key
                                 .iter()
-                                .find(|(p, d, r, _)| {
-                                    *p == phase && *d == delay && *r == resistance
-                                })
+                                .find(|(p, d, r, _)| *p == phase && *d == delay && *r == resistance)
                                 .map(|(_, _, _, updates)| *updates)
                                 .expect("prompt row precedes unrelated row");
                             prompt_unrelated_equal +=
@@ -525,8 +526,7 @@ fn main() {
                         }
                         Scenario::TwoPathsOneModulation => {
                             two_path_cross_credit += usize::from(
-                                reference.candidate_updates > 0
-                                    && reference.competitor_updates > 0,
+                                reference.candidate_updates > 0 && reference.competitor_updates > 0,
                             );
                         }
                         Scenario::WrongPathOnly => {
