@@ -1,0 +1,7 @@
+gate,mechanics,useful,attempts_1,attempts_2,modulatory_1,modulatory_2,updates_1,updates_2,final_action,quiescent,controls,replay_exact,mechanics_exact,passed
+P2,reference,1,1,1,8,10,16,29,Some(1),true,true,true,true,true
+P2,replay,1,1,1,8,10,16,29,Some(1),true,true,true,true,true
+P2,production,1,1,1,8,10,16,29,Some(1),true,true,true,true,true
+P1,reference,4,3|2|1|4,4,8,10,16,29,Some(4),true,true,true,true,true
+P1,replay,4,3|2|1|4,4,8,10,16,29,Some(4),true,true,true,true,true
+P1,production,4,3|2|1|4,4,8,10,16,29,Some(4),true,true,true,true,true
