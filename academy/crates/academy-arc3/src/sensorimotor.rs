@@ -433,6 +433,11 @@ impl Arc3Sensorimotor {
     }
 
     #[cfg(feature = "core1")]
+    pub fn enable_atomic_route_closure(&mut self) {
+        self.boundary.set_atomic_route_closure(true);
+    }
+
+    #[cfg(feature = "core1")]
     pub fn last_action_physical_trace(&self) -> &[PhysicalTransition] {
         &self.last_action_physical_trace
     }

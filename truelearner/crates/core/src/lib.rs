@@ -1609,6 +1609,8 @@ pub struct PlasticSubstrate {
     atomic_credit_return_source: Option<CellId>,
     #[cfg(feature = "core1")]
     atomic_credit_return_capture: bool,
+    #[cfg(feature = "core1")]
+    atomic_route_closure_enabled: bool,
     #[cfg(feature = "core0")]
     core0_profile: Core0Profile,
     #[cfg(feature = "core0")]
@@ -2164,6 +2166,11 @@ impl BoundaryRuntime {
         self.substrate.set_atomic_credit_return_capture(enabled);
     }
 
+    #[cfg(feature = "core1")]
+    pub fn set_atomic_route_closure(&mut self, enabled: bool) {
+        self.substrate.set_atomic_route_closure(enabled);
+    }
+
     /// Changes only the mechanical execution strategy beneath the boundary.
     /// Physical law and buffered activity are preserved exactly.
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
@@ -2385,6 +2392,8 @@ impl PlasticSubstrate {
             atomic_credit_return_source: None,
             #[cfg(feature = "core1")]
             atomic_credit_return_capture: false,
+            #[cfg(feature = "core1")]
+            atomic_route_closure_enabled: false,
             #[cfg(feature = "core0")]
             core0_profile: Core0Profile::A,
             #[cfg(feature = "core0")]
@@ -2530,6 +2539,11 @@ impl PlasticSubstrate {
     #[cfg(feature = "core1")]
     pub fn set_atomic_credit_return_capture(&mut self, enabled: bool) {
         self.atomic_credit_return_capture = enabled;
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_atomic_route_closure(&mut self, enabled: bool) {
+        self.atomic_route_closure_enabled = enabled;
     }
 
     #[cfg(feature = "core1")]
@@ -4989,6 +5003,7 @@ impl PlasticSubstrate {
             .collect::<Vec<_>>();
         targets.sort_by_key(|target| (target.0, target.1));
 
+        let mut same_event_direct = Vec::new();
         for (distance, _, target) in &targets {
             for sign in [1_i64, -1_i64] {
                 let exists = arrows.iter().any(|arrow| {
@@ -5006,7 +5021,7 @@ impl PlasticSubstrate {
                 } else {
                     MATERIAL_ONE
                 };
-                self.add_generic_arrow(
+                let id = self.add_generic_arrow(
                     source,
                     *target,
                     magnitude.saturating_mul(sign),
@@ -5015,6 +5030,10 @@ impl PlasticSubstrate {
                     phase,
                     physical_trace,
                 );
+                if self.atomic_route_closure_enabled {
+                    let slot = self.arrow_slot(id).expect("new generic ARROW must resolve");
+                    same_event_direct.push(self.arrows.get(slot.0));
+                }
             }
         }
 
@@ -5029,7 +5048,7 @@ impl PlasticSubstrate {
             return;
         }
 
-        let direct = arrows
+        let mut direct = arrows
             .iter()
             .filter(|arrow| {
                 if !arrow.live
@@ -5047,6 +5066,9 @@ impl PlasticSubstrate {
             })
             .cloned()
             .collect::<Vec<_>>();
+        if self.atomic_route_closure_enabled {
+            direct.extend(same_event_direct);
+        }
 
         for candidate in direct {
             let sign = self.core0_coupling[candidate.id.0 as usize].signum();
