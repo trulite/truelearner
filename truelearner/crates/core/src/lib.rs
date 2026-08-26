@@ -1602,6 +1602,8 @@ pub struct PlasticSubstrate {
     #[cfg(feature = "core1")]
     used_pending_arrows: Vec<bool>,
     #[cfg(feature = "core1")]
+    used_pending_protection_enabled: bool,
+    #[cfg(feature = "core1")]
     temporary_credit_return_arrows: Vec<bool>,
     #[cfg(feature = "core0")]
     core0_profile: Core0Profile,
@@ -2119,6 +2121,11 @@ impl BoundaryRuntime {
     }
 
     #[cfg(feature = "core1")]
+    pub fn set_used_pending_protection(&mut self, enabled: bool) {
+        self.substrate.set_used_pending_protection(enabled);
+    }
+
+    #[cfg(feature = "core1")]
     pub fn clear_used_pending(&mut self) {
         self.substrate.clear_used_pending();
     }
@@ -2357,6 +2364,8 @@ impl PlasticSubstrate {
             #[cfg(feature = "core1")]
             used_pending_arrows: Vec::new(),
             #[cfg(feature = "core1")]
+            used_pending_protection_enabled: true,
+            #[cfg(feature = "core1")]
             temporary_credit_return_arrows: Vec::new(),
             #[cfg(feature = "core0")]
             core0_profile: Core0Profile::A,
@@ -2422,6 +2431,11 @@ impl PlasticSubstrate {
     #[cfg(feature = "core1")]
     pub fn set_used_pending_capture(&mut self, enabled: bool) {
         self.capture_used_pending = enabled;
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_used_pending_protection(&mut self, enabled: bool) {
+        self.used_pending_protection_enabled = enabled;
     }
 
     #[cfg(feature = "core1")]
@@ -4546,7 +4560,8 @@ impl PlasticSubstrate {
                 if self.protect_all_live_arrows
                     || (self.in_flight_protection
                         && self.in_flight_arrows[snapshot.id.0 as usize] > 0)
-                    || self.used_pending_arrows[snapshot.id.0 as usize]
+                    || (self.used_pending_protection_enabled
+                        && self.used_pending_arrows[snapshot.id.0 as usize])
                     || self.temporary_credit_return_arrows[snapshot.id.0 as usize]
                     || self.protected_by_temporary_credit_return(&snapshot)
                 {
@@ -4607,14 +4622,15 @@ impl PlasticSubstrate {
             #[cfg(feature = "core1")]
             if self.in_flight_protection
                 || self.protect_all_live_arrows
-                || self.used_pending_count() > 0
+                || (self.used_pending_protection_enabled && self.used_pending_count() > 0)
                 || self.temporary_credit_return_count() > 0
             {
                 let snapshot = self.arrows.get(index);
                 if snapshot.live
                     && (self.protect_all_live_arrows
                         || self.in_flight_arrows[snapshot.id.0 as usize] > 0
-                        || self.used_pending_arrows[snapshot.id.0 as usize]
+                        || (self.used_pending_protection_enabled
+                            && self.used_pending_arrows[snapshot.id.0 as usize])
                         || self.temporary_credit_return_arrows[snapshot.id.0 as usize]
                         || self.protected_by_temporary_credit_return(&snapshot))
                 {

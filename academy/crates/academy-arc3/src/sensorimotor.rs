@@ -395,6 +395,7 @@ impl Arc3Sensorimotor {
     pub fn enable_physical_credit_return(&mut self) {
         self.physical_credit_return_enabled = true;
         self.boundary.clear_used_pending();
+        self.boundary.set_used_pending_protection(false);
     }
 
     #[cfg(feature = "core1")]
