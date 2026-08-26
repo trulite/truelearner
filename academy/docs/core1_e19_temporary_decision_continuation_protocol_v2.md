@@ -30,15 +30,17 @@ junction is not a completion return.
 
 ## Sole correction
 
-The completion receptor is the local decision-junction return site. When the
-interaction is installed for one physical context, ordinary fixed Drive ARROWs
-connect that receptor to the four already-existing candidate-source CELLs at
-that junction.
+The completion receptor is the local decision-junction return site. The
+interaction is installed once at one physical context. When and only when the
+receptor fires while the payload-free marker is OPEN, it admits one ordinary
+junction wave to that context's already-existing candidate-source and
+context-trace CELLs. This is the same physical input surface used by ordinary
+junction activity; it is not an evaluator call to an action.
 
 ```text
 route completes
         -> completion receptor fires
-        -> existing candidate-source CELLs receive ordinary drive
+        -> if OPEN, existing junction CELLs receive one ordinary SPIKE wave
         -> existing local variation/decay/refractory physics decides what is live
 ```
 
@@ -48,13 +50,13 @@ The receptor still has:
 - no Modulatory or consequence connection;
 - no PQLC update rule;
 - no action identity, preferred action, route, attempt, or timer state;
-- no ability to initiate while CLOSED, because delivered completion is eligible
-  for evaluator continuation only when the payload-free marker is OPEN.
+- no ability to initiate while CLOSED, because a delivered completion emits no
+  junction wave unless the payload-free marker is OPEN.
 
-The fixed fan-out is junction morphology, not an alternative container in the
-OPEN marker. It names no selected route and adds no route lifetime protection.
-Routes may exist after return only because ordinary physical candidate-source
-activity and variation recreate them.
+The fixed context location is junction morphology, not an alternative
+container in the OPEN marker. It names no selected route and adds no route
+lifetime protection. Routes may exist after return only because ordinary
+physical junction activity and variation recreate them.
 
 ## Unchanged contract
 
