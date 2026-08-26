@@ -1,0 +1,4 @@
+seed,mechanics,order,useful,first_action,attempted_1,attempted_2,completion_work_1,completion_work_2,reactivations_1,reactivations_2,regenerated_1,regenerated_2,updates_1,updates_2,open_end_1,open_end_2,final_action,quiescent,mechanics_exact,classification
+7,reference,3|2|1|4,4,3,3,,35,,1,0,,,0,0,OPEN,CLOSED,none,true,true,stopped_negative_no_second_route
+7,production,3|2|1|4,4,3,3,,35,,1,0,,,0,0,OPEN,CLOSED,none,true,true,stopped_negative_no_second_route
+0,reference,1|2|3|4,1,1,1,2|1,35,61|65,1,2,,1,0,0,CLOSED,CLOSED,none,true,not_run,stopped_negative_no_consolidation
