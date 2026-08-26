@@ -498,6 +498,12 @@ impl Arc3Sensorimotor {
     }
 
     #[cfg(feature = "core1")]
+    pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
+        self.boundary.reconfigure_mechanics(mechanics);
+        self.mechanics = mechanics;
+    }
+
+    #[cfg(feature = "core1")]
     pub fn last_action_physical_trace(&self) -> &[PhysicalTransition] {
         &self.last_action_physical_trace
     }
