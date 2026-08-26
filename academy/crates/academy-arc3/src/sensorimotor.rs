@@ -285,7 +285,7 @@ impl Arc3Sensorimotor {
         #[cfg(feature = "core1")]
         let boundary = {
             let mut boundary = boundary;
-            boundary.configure_consequence_return(sites.returning);
+            boundary.set_outcome_source(sites.returning);
             boundary
         };
         Ok(Self {
@@ -304,8 +304,8 @@ impl Arc3Sensorimotor {
     }
 
     #[cfg(feature = "core1")]
-    pub fn temporary_credit_return_count(&self) -> usize {
-        self.boundary.temporary_credit_return_count()
+    pub fn return_path_count(&self) -> usize {
+        self.boundary.return_path_count()
     }
 
     #[cfg(feature = "core1")]
@@ -783,17 +783,17 @@ fn build_body(
     let cells_per_pair: usize = if spatial { 6 } else { 3 };
     let arrows_per_pair: usize = if spatial { 6 } else { 5 };
     #[cfg(feature = "core1")]
-    let route_cells_per_pair = usize::from(spatial).saturating_mul(4);
+    let path_cells_per_pair = usize::from(spatial).saturating_mul(4);
     #[cfg(not(feature = "core1"))]
-    let route_cells_per_pair = 0;
+    let path_cells_per_pair = 0;
     #[cfg(feature = "core1")]
-    let route_arrows_per_pair = usize::from(spatial).saturating_mul(12);
+    let path_arrows_per_pair = usize::from(spatial).saturating_mul(12);
     #[cfg(not(feature = "core1"))]
-    let route_arrows_per_pair = 0;
+    let path_arrows_per_pair = 0;
     let cell_capacity = u32::try_from(
         (context_count
             .saturating_mul(MOTORS)
-            .saturating_mul(cells_per_pair.saturating_add(route_cells_per_pair))
+            .saturating_mul(cells_per_pair.saturating_add(path_cells_per_pair))
             + 16)
             .max(512),
     )
@@ -801,7 +801,7 @@ fn build_body(
     let arrow_capacity = u32::try_from(
         context_count
             .saturating_mul(MOTORS)
-            .saturating_mul(arrows_per_pair.saturating_add(route_arrows_per_pair))
+            .saturating_mul(arrows_per_pair.saturating_add(path_arrows_per_pair))
             .saturating_add(context_count.saturating_mul(8))
             .saturating_add(256)
             .max(1_024),
@@ -1109,7 +1109,7 @@ mod tests {
 
     #[cfg(feature = "core1")]
     #[test]
-    fn core1_defaults_form_and_participate_in_a_complete_route() {
+    fn core1_defaults_form_and_use_a_complete_path() {
         let mut organism = Arc3Sensorimotor::new_spatial_fixture_with_profile(
             93_000_000,
             MechanicalConfig::REFERENCE,
@@ -1137,12 +1137,12 @@ mod tests {
             organism.last_action_physical_trace()
         );
         assert!(observation.naturally_quiescent);
-        assert_eq!(organism.temporary_credit_return_count(), 1);
+        assert_eq!(organism.return_path_count(), 1);
     }
 
     #[cfg(feature = "core1")]
     #[test]
-    fn core1_consequence_makes_used_routes_autonomously_executable() {
+    fn core1_outcome_strengthens_paths_for_later_reuse() {
         let mut organism = Arc3Sensorimotor::new_spatial_fixture_with_profile(
             93_000_000,
             MechanicalConfig::REFERENCE,
@@ -1195,7 +1195,7 @@ mod tests {
         updates.push(closing.plasticity_updates);
         assert_eq!(actions, [Some(1), Some(4), Some(2), Some(3)]);
         assert_eq!(updates, [0, 2, 2, 2, 2]);
-        assert_eq!(organism.temporary_credit_return_count(), 0);
+        assert_eq!(organism.return_path_count(), 0);
 
         let probes = frames
             .iter()

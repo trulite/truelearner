@@ -10,17 +10,16 @@ This is an adoption gate, not a mechanism experiment and not an ARC run.
 The ordinary CORE1 execution path must express four physical laws without
 evaluator-controlled enablement:
 
-1. Co-occurring source activity and local opportunity form a complete
-   temporary route atomically.
-2. Opposite-signed generated routes compete locally, and motor incidence is
-   integrated over its causal wave before threshold evaluation.
-3. Route participation atomically creates its temporary physical consequence
-   return; admitted consequence removes that return.
-4. Successful local credit consolidates the complete used route so ordinary
-   later source activity can execute it.
+1. A firing input and a local opening form a complete temporary path in the
+   same event.
+2. Opposite paths are choices, and an output cell holds their signals until
+   the current wave finishes.
+3. Using a path opens a physical return path; its later outcome closes it.
+4. A successful outcome strengthens both used links so a later input can reuse
+   the path.
 
-The existing PQLC update rule is frozen. Consolidation may run after a
-successful update, but the update rule itself must not be changed.
+The existing PQLC update rule is frozen. Links may strengthen after a successful
+update, but the update rule itself must not be changed.
 
 ## Code gate
 
@@ -46,8 +45,8 @@ Run, in order:
 1. compile;
 2. clippy;
 3. focused CORE1 law tests;
-4. delayed consequence return and cleanup;
-5. autonomous re-expression from ordinary source activity;
+4. delayed outcome return and cleanup;
+5. learned action from ordinary later input;
 6. exact Reference/Production replay;
 7. natural quiescence;
 8. old Academy contracts;

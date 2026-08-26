@@ -73,7 +73,7 @@ fn execute(mut organism: Arc3Sensorimotor) -> Observation {
                 )
                 .expect("frozen ARC A2 teaching observation"),
         );
-        returns.push(organism.temporary_credit_return_count());
+        returns.push(organism.return_path_count());
     }
     turns.push(
         organism
@@ -87,7 +87,7 @@ fn execute(mut organism: Arc3Sensorimotor) -> Observation {
             )
             .expect("frozen ARC A2 closing observation"),
     );
-    returns.push(organism.temporary_credit_return_count());
+    returns.push(organism.return_path_count());
 
     let actions = turns
         .iter()

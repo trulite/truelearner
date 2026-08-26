@@ -4,8 +4,8 @@
 
 The adoption gate passes.
 
-The earned route laws are ordinary CORE1 defaults, the original E14 behavioral
-frontier is closed, and learned routes execute autonomously on a later encounter.
+The earned path laws are ordinary CORE1 defaults, the original E14 behavioral
+frontier is closed, and learned paths fire on a later encounter.
 No ARC task was run.
 
 Baseline: `3cc6aca98fbfc147bf0ea9d08efd723c55b55e01`.
@@ -14,24 +14,23 @@ Baseline: `3cc6aca98fbfc147bf0ea9d08efd723c55b55e01`.
 
 The normal execution path in `truelearner/crates/core/src/lib.rs` now expresses:
 
-1. Co-occurring source activity and local opportunity form a complete temporary
-   route in the same event.
-2. Opposite-signed generated routes compete locally, while motor incidence is
-   held and integrated over its causal wave.
-3. Route participation immediately creates its temporary physical consequence
-   return, and delivered consequence consumes that return.
-4. Successful local credit both preserves the complete used route and makes it
-   executable by ordinary later source activity.
+1. A firing input and a local opening form a complete temporary path in the
+   same event.
+2. Opposite paths are choices, and an output cell holds their signals until the
+   current wave finishes.
+3. Using a path opens a physical return path, and its later outcome closes it.
+4. A successful outcome strengthens both used links so a later input can reuse
+   the path.
 
-PQLC's update rule was not changed. Route consolidation occurs only after a
-successful existing update.
+PQLC's update rule was not changed. Links strengthen only after a successful
+existing update.
 
-There are no evaluator enable calls, candidate flags, pending-route metadata,
+There are no evaluator enable calls, candidate flags, pending-path metadata,
 post-hoc return construction, action identities, episode identities, timeouts,
 benchmark names, ARC assumptions, or Academy-specific policy behavior in the
 CORE1 implementation.
 
-Academy now supplies only the physical body and the consequence-return endpoint.
+Academy now supplies only the physical body and the outcome source.
 The historical E15-E27 binaries are excluded from Cargo target discovery. The
 retained adoption gate invokes no experimental arm.
 
@@ -41,23 +40,23 @@ retained adoption gate invokes no experimental arm.
 | --- | --- |
 | Default and CORE1 strict clippy, all targets | pass |
 | Experiment package strict clippy, all retained targets | pass |
-| Atomic route formation plus motor participation | pass |
-| Signed local competition | pass |
-| Causal-wave motor integration and cleanup | pass |
-| Delayed consequence return, PQLC, return cleanup, and consolidation | pass |
-| Five-context ordinary autonomous re-expression | pass, `1|4|2|3` |
+| Form and use a complete path | pass |
+| Choose between opposite paths | pass |
+| Hold and clear output input | pass |
+| Return outcome, apply PQLC, close return, and strengthen used path | pass |
+| Five-context learned action | pass, `1|4|2|3` |
 | Reference replay | exact |
 | Reference versus Production | exact |
 | Natural quiescence | pass |
 
 Focused test names:
 
-- `generated_routes_compete_and_integrate_at_the_motor`
-- `local_competition_admits_the_physically_stronger_alternative`
-- `motor_integration_holds_staggered_incidence_and_clears`
-- `consequence_consumes_return_and_consolidates_the_used_route`
-- `core1_defaults_form_and_participate_in_a_complete_route`
-- `core1_consequence_makes_used_routes_autonomously_executable`
+- `paths_compete_and_fire_output`
+- `stronger_path_is_chosen`
+- `output_holds_then_clears_input`
+- `outcome_closes_return_and_strengthens_used_path`
+- `core1_defaults_form_and_use_a_complete_path`
+- `core1_outcome_strengthens_paths_for_later_reuse`
 
 ## Unchanged E14 plus autonomous revisit
 
@@ -77,7 +76,7 @@ teaching shortcut, or policy lookup.
 | Replay / Production / quiescence | exact / exact / true |
 
 The legacy predicate is stale: it expects one update per learned action, while
-the complete physical route has two participating arrows and correctly produces
+the complete physical path has two used links and correctly produces
 two updates.
 
 Evidence is in
@@ -112,7 +111,7 @@ Counts:
 Removing the experiment arms does not change the adopted behavior. The active
 implementation reads as four local physical laws rather than a staged experiment:
 
-`source -> participation -> consequence return -> PQLC -> executable route`.
+`input -> use path -> return outcome -> PQLC -> reuse path`.
 
 The code-consolidation gate is therefore complete. ARC remains the next separate
 evidence phase.
