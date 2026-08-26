@@ -1219,12 +1219,20 @@ fn build_body(
     mechanics: MechanicalConfig,
 ) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
     let spatial = sensor_mode == SensorMode::SpatialFingerprint;
-    let cells_per_pair = if spatial { 6 } else { 3 };
-    let arrows_per_pair = if spatial { 6 } else { 5 };
+    let cells_per_pair: usize = if spatial { 6 } else { 3 };
+    let arrows_per_pair: usize = if spatial { 6 } else { 5 };
+    #[cfg(feature = "core1")]
+    let experimental_cells_per_pair = usize::from(spatial).saturating_mul(4);
+    #[cfg(not(feature = "core1"))]
+    let experimental_cells_per_pair = 0;
+    #[cfg(feature = "core1")]
+    let experimental_arrows_per_pair = usize::from(spatial).saturating_mul(12);
+    #[cfg(not(feature = "core1"))]
+    let experimental_arrows_per_pair = 0;
     let cell_capacity = u32::try_from(
         (context_count
             .saturating_mul(MOTORS)
-            .saturating_mul(cells_per_pair)
+            .saturating_mul(cells_per_pair.saturating_add(experimental_cells_per_pair))
             + 16)
             .max(512),
     )
@@ -1232,7 +1240,7 @@ fn build_body(
     let arrow_capacity = u32::try_from(
         context_count
             .saturating_mul(MOTORS)
-            .saturating_mul(arrows_per_pair)
+            .saturating_mul(arrows_per_pair.saturating_add(experimental_arrows_per_pair))
             .saturating_add(context_count.saturating_mul(8))
             .saturating_add(256)
             .max(1_024),
