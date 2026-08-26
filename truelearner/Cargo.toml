@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/arena-format", "crates/core"]
+members = ["crates/core"]
 default-members = ["crates/core"]
 resolver = "2"
 

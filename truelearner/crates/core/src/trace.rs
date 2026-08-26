@@ -61,8 +61,8 @@ pub enum PhysicalEvent {
     },
     JunctionDeallocate {
         junction: JunctionId,
-        before_generation: Generation,
-        after_generation: Generation,
+        before_generation: u32,
+        after_generation: u32,
     },
     JunctionProposal {
         junction: JunctionId,

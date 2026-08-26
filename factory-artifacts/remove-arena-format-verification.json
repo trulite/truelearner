@@ -1,0 +1,88 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/remove-arena-format-candidate.json",
+    "sha256": "0366e15004c971167b698e22417fb47fc4587665560008f9d0524247f3bc6c2f"
+  },
+  "verdict": "supported",
+  "independent_test_count": 7,
+  "checks": [
+    {
+      "name": "truelearner-workspace",
+      "command": "cargo test --workspace --locked --manifest-path truelearner/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.66
+    },
+    {
+      "name": "academy-workspace",
+      "command": "cargo test --workspace --locked --manifest-path academy/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.16
+    },
+    {
+      "name": "core-held-out",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary -- --ignored",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.32
+    },
+    {
+      "name": "arc3-held-out",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-arc3 --lib -- --ignored",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.61
+    },
+    {
+      "name": "public-privacy",
+      "command": "sh factory-artifacts/no-arena-format-check/verify.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.69
+    },
+    {
+      "name": "removal-scan",
+      "command": "sh factory-artifacts/verify-arena-format-removal.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-core -p academy-arc3 --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.22
+    }
+  ],
+  "findings": [
+    "No correctness or boundary findings: the arena-format crate and public arena/body persistence types are absent, while Core and Academy behavior, held-out controls, and exact checkpoint continuation remain green.",
+    "Harness reads now return owned junction/link observations with current physical values; external code cannot import Arena, ArenaBody, or Body.",
+    "The candidate tree preserves pre-existing pg-handoff.md and playground.md edits; they were included in the exact tree digest but were not modified as part of this implementation."
+  ],
+  "residual_uncertainty": [
+    "Checkpoint bytes and observation fingerprints intentionally reset with this pre-release schema and have no backward-compatibility guarantee.",
+    "Arena partitioning, foveation, and a harness foveation boundary remain intentionally undesigned and untested here.",
+    "Only Protocol::Physical exists, so equivalence across multiple protocol implementations remains unexercised."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/remove-arena-format.md",
+      "sha256": "d3890b087151737a2c370ec25c433db4a792b4d99dae0252ff7fef68f8db8203"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/remove-arena-format-candidate.json",
+      "sha256": "0366e15004c971167b698e22417fb47fc4587665560008f9d0524247f3bc6c2f"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/no-arena-format-check/verify.sh",
+      "sha256": "24e4b53e829881112602109238bd3d215272936c0286ce50625399e0b86acb3c"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/verify-arena-format-removal.sh",
+      "sha256": "d5f5236cc42ef55e914e6131646b024d2d1754ce070b162162d3580fbf367a13"
+    }
+  ]
+}

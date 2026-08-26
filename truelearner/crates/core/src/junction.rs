@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct JunctionSlot(pub usize);
+pub(crate) struct JunctionSlot(pub(crate) usize);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Junction {
@@ -12,7 +12,7 @@ pub struct Junction {
     pub resistance: u32,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct JunctionState {
     pub(crate) id: JunctionId,
     pub(crate) physical_id: u64,
@@ -224,8 +224,8 @@ impl Body {
                     phase,
                     event: PhysicalEvent::JunctionDeallocate {
                         junction: junction.id,
-                        before_generation,
-                        after_generation,
+                        before_generation: before_generation.0,
+                        after_generation: after_generation.0,
                     },
                 });
             }

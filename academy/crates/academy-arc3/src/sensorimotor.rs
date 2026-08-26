@@ -1,12 +1,13 @@
 use crate::ARC3_FRAME_PIXELS;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
 use std::fmt;
-use truelearner_arena_format::{ArenaId, ArrowId, CellId, ContentHash};
 use truelearner_core::PhysicalTransition;
 use truelearner_core::{
-    Body as PlasticSubstrate, Core as BoundaryRuntime, CoreError as BoundaryError,
-    Input as SpikeInput, Junction as CellSpec, Link as ArrowSpec, TransmissionMode,
+    Harness as BoundaryRuntime, HarnessBuilder as PlasticSubstrate, Input as SpikeInput,
+    Junction as CellSpec, JunctionId as CellId, Link as ArrowSpec, LinkId as ArrowId,
+    TransmissionMode,
 };
 
 const PALETTE_CONTEXTS: usize = 16;
@@ -235,11 +236,6 @@ impl Arc3Sensorimotor {
         context_count: usize,
     ) -> Result<Self, Arc3SensorimotorError> {
         let (boundary, sites) = build_body(seed, sensor_mode, context_count)?;
-        let boundary = {
-            let mut boundary = boundary;
-            boundary.set_outcome_source(sites.returning);
-            boundary
-        };
         Ok(Self {
             seed,
             sensor_mode,
@@ -254,7 +250,7 @@ impl Arc3Sensorimotor {
     }
 
     pub fn return_path_count(&self) -> usize {
-        self.boundary.return_path_count()
+        self.boundary.read().return_path_count
     }
 
     pub fn last_action_physical_trace(&self) -> &[PhysicalTransition] {
@@ -317,19 +313,16 @@ impl Arc3Sensorimotor {
             && self.previous_motor.is_some();
 
         if support_admitted {
-            let tick = self.boundary.body().clock().tick;
-            let result = self.boundary.arrive(
-                &[SpikeInput {
-                    arrival_tick: tick,
-                    phase: 20,
-                    origin_physical: EXTERNAL_PHYSICAL_BASE
-                        .saturating_add(self.sequence)
-                        .saturating_add(1_000),
-                    target: self.sites.returning,
-                    impulse: 1,
-                }],
-                OUTWARD_REGION,
-            )?;
+            let tick = self.boundary.read().clock.tick;
+            let result = self.boundary.send(&[SpikeInput {
+                arrival_tick: tick,
+                phase: 20,
+                origin_physical: EXTERNAL_PHYSICAL_BASE
+                    .saturating_add(self.sequence)
+                    .saturating_add(1_000),
+                target: self.sites.returning,
+                impulse: 1,
+            }]);
             total_work = total_work.saturating_add(result.work.physical_total());
             plasticity_updates =
                 plasticity_updates.saturating_add(result.work.local_return_updates);
@@ -339,15 +332,15 @@ impl Arc3Sensorimotor {
         }
 
         if settle_pressure && self.previous_frame.is_some() {
-            let tick = self.boundary.body().clock().tick;
+            let tick = self.boundary.read().clock.tick;
             let settled = tick.div_euclid(10).saturating_add(1).saturating_mul(10);
             total_work =
-                total_work.saturating_add(self.boundary.advance_time(settled).physical_total());
+                total_work.saturating_add(self.boundary.advance_to(settled).physical_total());
         }
 
         let context = self.sensor_context(&frame)?;
         let context_index = usize::from(context);
-        let current_tick = self.boundary.body().clock().tick;
+        let current_tick = self.boundary.read().clock.tick;
         let start = match self.sensor_mode {
             SensorMode::DominantPalette => current_tick.saturating_add(1),
             SensorMode::SpatialFingerprint => current_tick,
@@ -387,8 +380,7 @@ impl Arc3Sensorimotor {
                 impulse: 1,
             });
         }
-        let result = self.boundary.arrive(&inputs, OUTWARD_REGION);
-        let result = result?;
+        let result = self.boundary.send(&inputs);
         {
             self.last_action_physical_trace = result.physical_trace.clone();
         }
@@ -448,8 +440,8 @@ impl Arc3Sensorimotor {
             candidate_coupling,
             candidate_live,
             body_fingerprint: self.body_fingerprint()?,
-            physical_tick: self.boundary.body().clock().tick,
-            pressure_phase: self.boundary.body().clock().pressure_phase(),
+            physical_tick: self.boundary.read().clock.tick,
+            pressure_phase: self.boundary.read().clock.pressure_phase(),
         };
         self.sequence = self.sequence.saturating_add(1);
         Ok(observation)
@@ -474,19 +466,16 @@ impl Arc3Sensorimotor {
                 naturally_quiescent: true,
             });
         }
-        let tick = self.boundary.body().clock().tick;
-        let result = self.boundary.arrive(
-            &[SpikeInput {
-                arrival_tick: tick,
-                phase: 20,
-                origin_physical: EXTERNAL_PHYSICAL_BASE
-                    .saturating_add(self.sequence)
-                    .saturating_add(1_000),
-                target: self.sites.returning,
-                impulse: 1,
-            }],
-            OUTWARD_REGION,
-        )?;
+        let tick = self.boundary.read().clock.tick;
+        let result = self.boundary.send(&[SpikeInput {
+            arrival_tick: tick,
+            phase: 20,
+            origin_physical: EXTERNAL_PHYSICAL_BASE
+                .saturating_add(self.sequence)
+                .saturating_add(1_000),
+            target: self.sites.returning,
+            impulse: 1,
+        }]);
         self.clear_episode();
         Ok(Arc3ConsequenceObservation {
             admitted: true,
@@ -503,8 +492,8 @@ impl Arc3Sensorimotor {
                 "retention gap cannot be negative".to_string(),
             ));
         }
-        let target = self.boundary.body().clock().tick.saturating_add(ticks);
-        self.boundary.advance_time(target);
+        let target = self.boundary.read().clock.tick.saturating_add(ticks);
+        self.boundary.advance_to(target);
         self.clear_episode();
         Ok(())
     }
@@ -519,11 +508,11 @@ impl Arc3Sensorimotor {
         Ok(Arc3SensorimotorSnapshot {
             sequence: self.sequence,
             body_fingerprint: self.body_fingerprint()?,
-            physical_tick: self.boundary.body().clock().tick,
-            pressure_phase: self.boundary.body().clock().pressure_phase(),
+            physical_tick: self.boundary.read().clock.tick,
+            pressure_phase: self.boundary.read().clock.pressure_phase(),
             previous_context: self.previous_context,
             previous_motor: self.previous_motor,
-            resident_bytes: self.boundary.body().canonical_body_bytes(0)?.len(),
+            resident_bytes: self.boundary.read().resident_bytes,
         })
     }
 
@@ -541,32 +530,37 @@ impl Arc3Sensorimotor {
         }
         let source = self.sites.candidate_sources[context_index][motor_index];
         let target = self.sites.motors[context_index][motor_index];
-        let substrate = self.boundary.body();
-        let durable = substrate.arena_body(0);
+        let observation = self.boundary.read();
         let mut links = Vec::new();
-        for direct in durable
-            .arrows
+        for direct in observation
+            .links
             .iter()
-            .filter(|arrow| arrow.live && arrow.from.id == source && arrow.to.id == target)
+            .filter(|link| link.live && link.from == source && link.to == target)
         {
             links.push(Arc3CandidateLinkDiagnostic {
                 role: "direct",
                 contact: None,
                 arrow: direct.id,
-                coupling: substrate.link_strength(direct.id),
-                resistance: substrate.link_life(direct.id),
-                participation: substrate.link_use(direct.id),
+                coupling: direct.strength,
+                resistance: direct.life,
+                participation: direct.participation,
             });
         }
-        for contact in durable.cells.iter().filter(|cell| cell.live) {
-            let stems = durable
-                .arrows
+        let contacts = observation
+            .links
+            .iter()
+            .filter(|link| link.live && link.from == source)
+            .map(|link| link.to)
+            .collect::<BTreeSet<_>>();
+        for contact in contacts {
+            let stems = observation
+                .links
                 .iter()
-                .filter(|arrow| arrow.live && arrow.from.id == source && arrow.to.id == contact.id);
-            let outgoing = durable
-                .arrows
+                .filter(|link| link.live && link.from == source && link.to == contact);
+            let outgoing = observation
+                .links
                 .iter()
-                .filter(|arrow| arrow.live && arrow.from.id == contact.id && arrow.to.id == target)
+                .filter(|link| link.live && link.from == contact && link.to == target)
                 .collect::<Vec<_>>();
             if outgoing.is_empty() {
                 continue;
@@ -574,21 +568,21 @@ impl Arc3Sensorimotor {
             for stem in stems {
                 links.push(Arc3CandidateLinkDiagnostic {
                     role: "stem",
-                    contact: Some(contact.id),
+                    contact: Some(contact),
                     arrow: stem.id,
-                    coupling: substrate.link_strength(stem.id),
-                    resistance: substrate.link_life(stem.id),
-                    participation: substrate.link_use(stem.id),
+                    coupling: stem.strength,
+                    resistance: stem.life,
+                    participation: stem.participation,
                 });
             }
             for candidate in &outgoing {
                 links.push(Arc3CandidateLinkDiagnostic {
                     role: "outgoing",
-                    contact: Some(contact.id),
+                    contact: Some(contact),
                     arrow: candidate.id,
-                    coupling: substrate.link_strength(candidate.id),
-                    resistance: substrate.link_life(candidate.id),
-                    participation: substrate.link_use(candidate.id),
+                    coupling: candidate.strength,
+                    resistance: candidate.life,
+                    participation: candidate.participation,
                 });
             }
         }
@@ -648,37 +642,35 @@ impl Arc3Sensorimotor {
 
     fn candidate_state(&self, context: u16, motor: usize) -> (u32, i32, bool) {
         let context = usize::from(context);
-        let body = self.boundary.body().arena_body(0);
+        let observation = self.boundary.read();
         if let Some(id) = self.sites.candidates[context][motor] {
-            return body
-                .arrows
-                .into_iter()
-                .find(|arrow| arrow.id == id)
-                .map_or((0, 0, false), |arrow| {
-                    (arrow.resistance, arrow.coupling, arrow.live)
-                });
+            return observation.link(id).map_or((0, 0, false), |link| {
+                (link.resistance, link.coupling, link.live)
+            });
         }
         let source = self.sites.candidate_sources[context][motor];
         let target = self.sites.motors[context][motor];
-        let contacts = body
-            .arrows
+        let contacts = observation
+            .links
             .iter()
-            .filter(|arrow| arrow.live && arrow.from.id == source)
-            .map(|arrow| arrow.to.id)
+            .filter(|link| link.live && link.from == source)
+            .map(|link| link.to)
             .collect::<BTreeSet<_>>();
-        body.arrows
-            .into_iter()
-            .filter(|arrow| contacts.contains(&arrow.from.id) && arrow.to.id == target)
-            .max_by_key(|arrow| (arrow.live, arrow.id))
-            .map_or((0, 0, false), |arrow| {
-                (arrow.resistance, arrow.coupling, arrow.live)
+        observation
+            .links
+            .iter()
+            .filter(|link| contacts.contains(&link.from) && link.to == target)
+            .max_by_key(|link| (link.live, link.id))
+            .map_or((0, 0, false), |link| {
+                (link.resistance, link.coupling, link.live)
             })
     }
 
     fn body_fingerprint(&self) -> Result<String, Arc3SensorimotorError> {
-        let bytes = self.boundary.body().canonical_body_bytes(0)?;
-        Ok(ContentHash::of(&bytes)
-            .as_bytes()
+        Ok(self
+            .boundary
+            .read()
+            .fingerprint()
             .iter()
             .take(8)
             .map(|byte| format!("{byte:02x}"))
@@ -709,16 +701,16 @@ pub fn dominant_palette(frame: &[u8]) -> Result<u8, Arc3SensorimotorError> {
 
 pub fn spatial_context(frame: &[u8]) -> Result<u16, Arc3SensorimotorError> {
     validate_sensor_frame(frame)?;
-    let digest = ContentHash::of(frame);
+    let digest = Sha256::digest(frame);
     let mut prefix = [0_u8; 8];
-    prefix.copy_from_slice(&digest.as_bytes()[..8]);
+    prefix.copy_from_slice(&digest[..8]);
     let context = u64::from_be_bytes(prefix) % SPATIAL_CONTEXTS as u64;
     u16::try_from(context)
         .map_err(|_| Arc3SensorimotorError("spatial context exceeds u16".to_string()))
 }
 
 fn build_body(
-    seed: u64,
+    _seed: u64,
     sensor_mode: SensorMode,
     context_count: usize,
 ) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
@@ -744,7 +736,7 @@ fn build_body(
             .max(1_024),
     )
     .map_err(|_| Arc3SensorimotorError("arrow capacity exceeds u32".to_string()))?;
-    let mut body = PlasticSubstrate::with_capacity(ArenaId(seed), cell_capacity, arrow_capacity);
+    let mut body = PlasticSubstrate::with_capacity(cell_capacity, arrow_capacity, OUTWARD_REGION);
     body.set_physical_tracing(true);
     let mut candidate_sources = vec![[CellId(0); MOTORS]; context_count];
     let mut context_traces = vec![[CellId(0); MOTORS]; context_count];
@@ -921,7 +913,8 @@ fn build_body(
         returning,
         candidates,
     };
-    Ok((BoundaryRuntime::new(body, OUTWARD_REGION), sites))
+    body.set_outcome_source(returning);
+    Ok((body.build(), sites))
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
@@ -1018,18 +1011,6 @@ impl fmt::Display for Arc3SensorimotorError {
 }
 
 impl std::error::Error for Arc3SensorimotorError {}
-
-impl From<BoundaryError> for Arc3SensorimotorError {
-    fn from(error: BoundaryError) -> Self {
-        Self(format!("boundary error: {error:?}"))
-    }
-}
-
-impl From<truelearner_arena_format::FormatError> for Arc3SensorimotorError {
-    fn from(error: truelearner_arena_format::FormatError) -> Self {
-        Self(format!("format error: {error:?}"))
-    }
-}
 
 #[cfg(test)]
 mod tests {

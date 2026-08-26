@@ -4,7 +4,7 @@ const DEFAULT_JUNCTION_CAPACITY: u32 = 65_536;
 const DEFAULT_LINK_CAPACITY: u32 = 262_144;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Body {
+pub(crate) struct Body {
     pub(crate) arena: Arena,
     pub(crate) pending: Schedule,
     pub(crate) protocol: Protocol,
@@ -57,17 +57,13 @@ impl Body {
 
 impl Default for Body {
     fn default() -> Self {
-        Self::with_capacity(ArenaId(0), DEFAULT_JUNCTION_CAPACITY, DEFAULT_LINK_CAPACITY)
+        Self::with_capacity(DEFAULT_JUNCTION_CAPACITY, DEFAULT_LINK_CAPACITY)
     }
 }
 
 impl Body {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_capacity(arena: ArenaId, junction_capacity: u32, link_capacity: u32) -> Self {
-        Self::from_arena(Arena::new(arena, junction_capacity, link_capacity))
+    pub(crate) fn with_capacity(junction_capacity: u32, link_capacity: u32) -> Self {
+        Self::from_arena(Arena::new(junction_capacity, link_capacity))
     }
 
     pub(crate) fn from_arena(arena: Arena) -> Self {
@@ -86,40 +82,45 @@ impl Body {
 }
 
 impl Body {
-    pub fn set_physical_tracing(&mut self, enabled: bool) {
+    pub(crate) fn set_physical_tracing(&mut self, enabled: bool) {
         self.trace_physics = enabled;
     }
 
-    pub fn protocol(&self) -> Protocol {
+    pub(crate) fn protocol(&self) -> Protocol {
         self.protocol
     }
 
-    pub fn set_protocol(&mut self, protocol: Protocol) {
+    pub(crate) fn set_protocol(&mut self, protocol: Protocol) {
         self.protocol = protocol;
     }
 
-    pub fn clock(&self) -> PhysicalClock {
+    pub(crate) fn clock(&self) -> PhysicalClock {
         PhysicalClock { tick: self.tick }
     }
 
-    pub fn set_outcome_source(&mut self, source: JunctionId) {
+    pub(crate) fn set_outcome_source(&mut self, source: JunctionId) {
         self.arena.require_junction(source);
         self.outcome_source = Some(source);
     }
 
-    pub fn return_path_count(&self) -> usize {
+    pub(crate) fn return_path_count(&self) -> usize {
         self.arena.return_links(self.outcome_source).len()
     }
 
-    pub fn add_junction(&mut self, spec: Junction) -> JunctionId {
+    pub(crate) fn add_junction(&mut self, spec: Junction) -> JunctionId {
         self.arena.add_junction(spec, self.tick)
     }
 
-    pub fn add_link(&mut self, spec: Link) -> LinkId {
+    pub(crate) fn add_link(&mut self, spec: Link) -> LinkId {
         self.arena.add_link(spec)
     }
 
-    pub fn arrive(&mut self, inputs: &[Input], outward_region: i16) -> RunResult {
+    pub(crate) fn set_link_trigger(&mut self, id: LinkId, trigger: TransmissionTrigger) {
+        let slot = self.arena.link_slot(id).expect("link must resolve");
+        self.arena.edit_link(slot.0, |link| link.trigger = trigger);
+    }
+
+    pub(crate) fn arrive(&mut self, inputs: &[Input], outward_region: i16) -> RunResult {
         for input in inputs {
             self.enter(*input);
         }
@@ -130,7 +131,7 @@ impl Body {
         result
     }
 
-    pub fn advance_time(&mut self, tick: i64) -> Work {
+    pub(crate) fn advance_time(&mut self, tick: i64) -> Work {
         assert!(tick >= self.tick, "physical time cannot run backward");
         assert!(
             self.pending.is_empty(),
@@ -141,18 +142,6 @@ impl Body {
         self.elapse_to(tick, &mut work, &mut ignored);
         self.tick = tick;
         work
-    }
-
-    pub fn link_use(&self, id: LinkId) -> u64 {
-        self.arena.link_use(id)
-    }
-
-    pub fn link_strength(&self, id: LinkId) -> i64 {
-        self.arena.link_strength(id)
-    }
-
-    pub fn link_life(&self, id: LinkId) -> u64 {
-        self.arena.link_life(id)
     }
 
     pub(crate) fn working_bytes(&self) -> usize {

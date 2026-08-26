@@ -5,10 +5,10 @@ use academy_arc3::{
 };
 use academy_core::VisualSurface;
 use academy_episodes::{EpisodeCatalog, EpisodeClass, EpisodeFrame, EpisodeOutcome, ReviewEpisode};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use truelearner_arena_format::ContentHash;
 
 const WIDTH: u32 = 1280;
 const HEIGHT: u32 = 720;
@@ -343,8 +343,7 @@ fn episode_outcome(outcome: Arc3A1EpisodeOutcome) -> EpisodeOutcome {
 }
 
 fn fingerprint(bytes: &[u8]) -> String {
-    ContentHash::of(bytes)
-        .as_bytes()
+    Sha256::digest(bytes)
         .iter()
         .take(8)
         .map(|byte| format!("{byte:02x}"))

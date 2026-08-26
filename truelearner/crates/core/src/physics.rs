@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 impl Body {
-    pub fn propagate(&mut self) -> RunResult {
+    pub(crate) fn propagate(&mut self) -> RunResult {
         let protocol = self.protocol.bindings();
         crate::core::run(self, protocol)
     }

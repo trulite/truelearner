@@ -10,9 +10,10 @@ and separates it from its research history.
   generated evidence, and audit tooling.
 - `arch.md` is the accepted PXR0/PX-C + Physical Body V1 architectural oracle.
 
-Physical Body V1 preserves the authoritative PX-C physics and adds stable
-arena identity, canonical durable bodies, compaction invariance, and clocked
-quiescent/live restart. Boundary Buffers V1 adds bounded FIFO staging for
+The current pre-release core preserves the accepted physical transitions behind
+a harness: inputs enter, owned observations leave, and the body and resident
+arena remain private. Checkpoints are opaque and carry no public body format.
+Boundary Buffers V1 adds bounded FIFO staging for
 `SpikeInput` and outward `Crossing` values, transactional backpressure, and
 exact buffered live continuation. Cold storage, visual framebuffers, and
 distributed execution remain future successors.

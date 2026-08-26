@@ -1,138 +1,175 @@
-use crate::checkpoint::{validate_manifest, CheckpointError};
+use crate::checkpoint::CheckpointError;
 use crate::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct BodySnapshot {
-    pub(crate) body_version: BodyVersion,
-    pub(crate) body: ArenaBody,
+    arena: ArenaSnapshot,
     clock: PhysicalClock,
-    junctions: Vec<JunctionRuntime>,
-    links: Vec<LinkRuntime>,
     pending: Vec<Firing>,
     protocol: Protocol,
     next_serial: u64,
     outcome_source: Option<JunctionId>,
     output_wave_open: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct ArenaSnapshot {
+    junction_capacity: u32,
+    link_capacity: u32,
+    junction_identity_count: u64,
+    link_identity_count: u64,
+    junctions: Vec<JunctionState>,
+    links: Vec<LinkState>,
     activation: Vec<i64>,
     strength: Vec<i64>,
     life: Vec<u64>,
     decay_remainder: Vec<u64>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct JunctionRuntime {
-    id: JunctionId,
-    state: i32,
-    last_update_tick: i64,
-    refractory_until: i64,
-    decay_load: u64,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct LinkRuntime {
-    id: LinkId,
-    participation_level: u64,
-    plastic_support: u64,
-    decay_load: u64,
-    trigger: TransmissionTrigger,
-}
-
 impl Body {
-    pub(crate) fn snapshot(&self, version: u64) -> Result<BodySnapshot, CheckpointError> {
+    pub(crate) fn snapshot(&self) -> Result<BodySnapshot, CheckpointError> {
         Ok(BodySnapshot {
-            body_version: self.arena.version(version)?,
-            body: self.arena.body(version),
+            arena: ArenaSnapshot {
+                junction_capacity: self.arena.junction_capacity,
+                link_capacity: self.arena.link_capacity,
+                junction_identity_count: u64::try_from(self.arena.junction_slots.len())
+                    .map_err(|_| CheckpointError::InvalidCheckpoint)?,
+                link_identity_count: u64::try_from(self.arena.link_slots.len())
+                    .map_err(|_| CheckpointError::InvalidCheckpoint)?,
+                junctions: self.arena.junctions.clone(),
+                links: self.arena.links.clone(),
+                activation: self.arena.activation.clone(),
+                strength: self.arena.strength.clone(),
+                life: self.arena.life.clone(),
+                decay_remainder: self.arena.decay_remainder.clone(),
+            },
             clock: self.clock(),
-            junctions: self
-                .arena
-                .junctions
-                .iter()
-                .map(|junction| JunctionRuntime {
-                    id: junction.id,
-                    state: junction.state,
-                    last_update_tick: junction.last_update_tick,
-                    refractory_until: junction.refractory_until,
-                    decay_load: junction.decay_load,
-                })
-                .collect(),
-            links: self
-                .arena
-                .links
-                .iter()
-                .map(|link| LinkRuntime {
-                    id: link.id,
-                    participation_level: link.participation_level,
-                    plastic_support: link.plastic_support,
-                    decay_load: link.decay_load,
-                    trigger: link.trigger,
-                })
-                .collect(),
             pending: self.pending.canonical(),
             protocol: self.protocol,
             next_serial: self.next_serial,
             outcome_source: self.outcome_source,
             output_wave_open: self.output_wave_open,
-            activation: self.arena.activation.clone(),
-            strength: self.arena.strength.clone(),
-            life: self.arena.life.clone(),
-            decay_remainder: self.arena.decay_remainder.clone(),
         })
     }
 
     pub(crate) fn from_snapshot(snapshot: BodySnapshot) -> Result<Self, CheckpointError> {
-        validate_manifest(&snapshot.body_version, &snapshot.body)?;
-        let mut body = Self::from_arena_body(snapshot.body)?;
+        let mut body = Self::from_arena(snapshot.arena.open()?);
         body.tick = snapshot.clock.tick;
         body.protocol = snapshot.protocol;
         body.pressure_tick = pressure_epoch(snapshot.clock.tick);
-        for stored in snapshot.junctions {
+        body.outcome_source = snapshot.outcome_source;
+        if let Some(source) = body.outcome_source {
+            if body.arena.junction_slot(source).is_none() {
+                return Err(CheckpointError::MissingJunction(source));
+            }
+        }
+        body.output_wave_open = snapshot.output_wave_open;
+        for firing in &snapshot.pending {
+            if firing.arrival_tick < snapshot.clock.tick {
+                return Err(CheckpointError::InvalidCheckpoint);
+            }
             let slot = body
                 .arena
-                .junctions
-                .iter()
-                .position(|junction| junction.id == stored.id)
-                .ok_or(CheckpointError::MissingJunction(stored.id))?;
-            body.arena.edit_junction(slot, |junction| {
-                junction.state = stored.state;
-                junction.last_update_tick = stored.last_update_tick;
-                junction.refractory_until = stored.refractory_until;
-                junction.decay_load = stored.decay_load;
-            });
+                .junction_slot(firing.target)
+                .ok_or(CheckpointError::MissingJunction(firing.target))?;
+            if body.arena.junctions[slot.0].generation != firing.target_generation {
+                return Err(CheckpointError::InvalidCheckpoint);
+            }
+            if let Some((link, generation)) = firing.link {
+                let slot = body
+                    .arena
+                    .link_slot(link)
+                    .ok_or(CheckpointError::MissingLink(link))?;
+                if body.arena.links[slot.0].generation != generation {
+                    return Err(CheckpointError::StaleLinkReference(link));
+                }
+            }
         }
-        for stored in snapshot.links {
-            let slot = body
-                .arena
-                .link_slot(stored.id)
-                .ok_or(CheckpointError::MissingLink(stored.id))?;
-            body.arena.edit_link(slot.0, |link| {
-                link.participation_level = stored.participation_level;
-                link.plastic_support = stored.plastic_support;
-                link.decay_load = stored.decay_load;
-                link.trigger = stored.trigger;
-            });
-        }
-        if snapshot.activation.len() != body.arena.junction_slots.len()
-            || snapshot.strength.len() != body.arena.link_slots.len()
-            || snapshot.life.len() != body.arena.link_slots.len()
-            || snapshot.decay_remainder.len() != body.arena.link_slots.len()
+        body.pending = Schedule::from_canonical(snapshot.clock.tick, snapshot.pending);
+        body.next_serial = snapshot.next_serial;
+        Ok(body)
+    }
+}
+
+impl ArenaSnapshot {
+    fn open(self) -> Result<Arena, CheckpointError> {
+        let junction_identity_count = usize::try_from(self.junction_identity_count)
+            .map_err(|_| CheckpointError::InvalidCheckpoint)?;
+        let link_identity_count = usize::try_from(self.link_identity_count)
+            .map_err(|_| CheckpointError::InvalidCheckpoint)?;
+        if self.junctions.len() > self.junction_capacity as usize
+            || self.links.len() > self.link_capacity as usize
+            || self.activation.len() != junction_identity_count
+            || self.strength.len() != link_identity_count
+            || self.life.len() != link_identity_count
+            || self.decay_remainder.len() != link_identity_count
         {
             return Err(CheckpointError::InvalidCheckpoint);
         }
-        body.outcome_source = snapshot.outcome_source;
-        body.output_wave_open = snapshot.output_wave_open;
-        body.arena.activation = snapshot.activation;
-        body.arena.strength = snapshot.strength;
-        body.arena.life = snapshot.life;
-        body.arena.decay_remainder = snapshot.decay_remainder;
-        body.pending = Schedule::from_canonical(snapshot.clock.tick, snapshot.pending);
-        body.next_serial = snapshot.next_serial;
-        body.arena.active_junctions = body
-            .arena
-            .junctions
-            .iter()
-            .filter(|junction| junction.state != 0)
-            .map(|junction| junction.id)
-            .collect();
-        Ok(body)
+
+        let mut arena = Arena::new(self.junction_capacity, self.link_capacity);
+        arena.junction_slots = vec![None; junction_identity_count];
+        let mut physical_ids = HashSet::new();
+        let mut junction_ids = HashSet::new();
+        for (index, junction) in self.junctions.iter().enumerate() {
+            let identity =
+                usize::try_from(junction.id.0).map_err(|_| CheckpointError::InvalidCheckpoint)?;
+            if identity >= junction_identity_count
+                || !junction_ids.insert(junction.id)
+                || !physical_ids.insert(junction.physical_id)
+            {
+                return Err(CheckpointError::InvalidCheckpoint);
+            }
+            if junction.live {
+                if junction.resistance == 0 || arena.junction_slots[identity].is_some() {
+                    return Err(CheckpointError::InvalidCheckpoint);
+                }
+                arena.junction_slots[identity] = Some(JunctionSlot(index));
+            }
+        }
+
+        arena.link_slots = vec![None; link_identity_count];
+        for (index, link) in self.links.iter().enumerate() {
+            let identity =
+                usize::try_from(link.id.0).map_err(|_| CheckpointError::InvalidCheckpoint)?;
+            if identity >= link_identity_count
+                || arena.link_slots[identity].is_some()
+                || link.delay < 0
+                || link.live != (link.resistance > 0)
+            {
+                return Err(CheckpointError::InvalidCheckpoint);
+            }
+            arena.link_slots[identity] = Some(LinkSlot(index));
+            if link.live {
+                let source_identity =
+                    usize::try_from(link.from.0).map_err(|_| CheckpointError::InvalidCheckpoint)?;
+                let target_identity =
+                    usize::try_from(link.to.0).map_err(|_| CheckpointError::InvalidCheckpoint)?;
+                let source = arena
+                    .junction_slots
+                    .get(source_identity)
+                    .and_then(|slot| *slot)
+                    .ok_or(CheckpointError::MissingJunction(link.from))?;
+                let target = arena
+                    .junction_slots
+                    .get(target_identity)
+                    .and_then(|slot| *slot)
+                    .ok_or(CheckpointError::MissingJunction(link.to))?;
+                if self.junctions[source.0].generation != link.source_generation
+                    || self.junctions[target.0].generation != link.target_generation
+                {
+                    return Err(CheckpointError::StaleLinkReference(link.id));
+                }
+            }
+        }
+
+        arena.junctions = self.junctions;
+        arena.links = self.links;
+        arena.activation = self.activation;
+        arena.strength = self.strength;
+        arena.life = self.life;
+        arena.decay_remainder = self.decay_remainder;
+        arena.rebuild_indexes();
+        Ok(arena)
     }
 }

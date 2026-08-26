@@ -11,4 +11,4 @@ path = "src/lib.rs"
 [dependencies]
 bincode = "1"
 serde = { version = "1", features = ["derive"] }
-truelearner-arena-format = { path = "../arena-format" }
+sha2 = "0.10"

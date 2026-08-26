@@ -10,7 +10,7 @@ dependencies = [
  "academy-episodes",
  "serde",
  "serde_json",
- "truelearner-arena-format",
+ "sha2 0.10.9",
  "truelearner-core",
 ]
 
@@ -22,7 +22,7 @@ dependencies = [
  "image",
  "serde",
  "serde_json",
- "truelearner-arena-format",
+ "sha2 0.10.9",
  "truelearner-core",
 ]
 
@@ -5475,20 +5475,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "truelearner-arena-format"
-version = "0.1.0"
-dependencies = [
- "serde",
- "sha2 0.10.9",
-]
-
-[[package]]
 name = "truelearner-core"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "serde",
- "truelearner-arena-format",
+ "sha2 0.10.9",
 ]
 
 [[package]]

@@ -1,9 +1,9 @@
 use crate::{AcademyError, CrossingRecord, PhysicalInput, SpikeRecord, VisualSurface};
 use serde::{Deserialize, Serialize};
 use truelearner_core::{
-    ArenaId, Checkpoint as BoundaryLiveCheckpoint, ContentHash, Core as BoundaryRuntime,
-    Input as SpikeInput, Junction as CellSpec, JunctionId as CellId, Link as ArrowSpec,
-    LinkId as ArrowId, TransmissionMode, Work,
+    Checkpoint as BoundaryLiveCheckpoint, Harness as BoundaryRuntime,
+    HarnessBuilder as BoundaryBuilder, Input as SpikeInput, Junction as CellSpec,
+    JunctionId as CellId, Link as ArrowSpec, LinkId as ArrowId, TransmissionMode, Work,
 };
 
 const OUTWARD_REGION: i16 = 1;
@@ -196,19 +196,19 @@ impl GenuineTeachingLab {
     }
 
     pub fn snapshot(&self) -> Result<A1LabSnapshot, AcademyError> {
-        let body = self.boundary.body().canonical_body_bytes(0)?;
+        let observation = self.boundary.read();
         Ok(A1LabSnapshot {
             body_fingerprint: body_fingerprint(&self.boundary)?,
-            physical_tick: self.boundary.body().clock().tick,
-            pressure_phase: self.boundary.body().clock().pressure_phase(),
+            physical_tick: observation.clock.tick,
+            pressure_phase: observation.clock.pressure_phase(),
             resident_arenas: 1,
-            durable_bytes: body.len(),
+            durable_bytes: observation.resident_bytes,
             experience_count: self.sequence,
         })
     }
 
     pub fn teach_supported(&mut self) -> Result<A1Experience, AcademyError> {
-        let start = self.boundary.body().clock().tick;
+        let start = self.boundary.read().clock.tick;
         let a = self.sites.sources[physical_port(&self.case.left)];
         let b = self.sites.sources[physical_port(&self.case.right)];
         let inputs = vec![
@@ -230,7 +230,7 @@ impl GenuineTeachingLab {
     }
 
     pub fn teach_unsupported(&mut self) -> Result<A1Experience, AcademyError> {
-        let start = self.boundary.body().clock().tick;
+        let start = self.boundary.read().clock.tick;
         let a = self.sites.sources[physical_port(&self.case.left)];
         let b = self.sites.sources[physical_port(&self.case.right)];
         let inputs = vec![
@@ -247,7 +247,7 @@ impl GenuineTeachingLab {
     }
 
     pub fn probe(&mut self, family: A1ProbeFamily) -> Result<A1Experience, AcademyError> {
-        let tick = self.boundary.body().clock().tick.saturating_add(1);
+        let tick = self.boundary.read().clock.tick.saturating_add(1);
         let a = self.sites.sources[physical_port(&self.case.left)];
         let b = self.sites.sources[physical_port(&self.case.right)];
         let c = self.sites.sources[physical_port(&self.case.distractor)];
@@ -291,9 +291,9 @@ impl GenuineTeachingLab {
             .copied()
             .map(SpikeInput::from)
             .collect::<Vec<_>>();
-        let result = boundary.arrive(&inputs, OUTWARD_REGION)?;
-        let pressure_work = if experience.observation.clock_end > boundary.body().clock().tick {
-            boundary.advance_time(experience.observation.clock_end)
+        let result = boundary.send(&inputs);
+        let pressure_work = if experience.observation.clock_end > boundary.read().clock.tick {
+            boundary.advance_to(experience.observation.clock_end)
         } else {
             Work::default()
         };
@@ -306,7 +306,7 @@ impl GenuineTeachingLab {
         let body = body_fingerprint(&boundary)?;
         let crossings_exact = crossings == experience.crossings;
         let body_exact = body == experience.observation.body_after;
-        let clock_exact = boundary.body().clock().tick == experience.observation.clock_end;
+        let clock_exact = boundary.read().clock.tick == experience.observation.clock_end;
         let observed_work = result.work.total().saturating_add(pressure_work.total());
         let work_exact = observed_work == experience.observation.physical_work;
         let quiescence_exact =
@@ -328,20 +328,17 @@ impl GenuineTeachingLab {
         inputs: Vec<SpikeInput>,
         horizon: i64,
     ) -> Result<A1Experience, AcademyError> {
-        let clock_start = self.boundary.body().clock().tick;
+        let clock_start = self.boundary.read().clock.tick;
         let body_before = body_fingerprint(&self.boundary)?;
-        let checkpoint_before = self.boundary.save(self.sequence)?.canonical_bytes()?;
-        let result = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
-        let pressure_work = if horizon > self.boundary.body().clock().tick {
-            self.boundary.advance_time(horizon)
+        let checkpoint_before = self.boundary.save()?.canonical_bytes()?;
+        let result = self.boundary.send(&inputs);
+        let pressure_work = if horizon > self.boundary.read().clock.tick {
+            self.boundary.advance_to(horizon)
         } else {
             Work::default()
         };
         let body_after = body_fingerprint(&self.boundary)?;
-        let checkpoint_after = self
-            .boundary
-            .save(self.sequence.saturating_add(1))?
-            .canonical_bytes()?;
+        let checkpoint_after = self.boundary.save()?.canonical_bytes()?;
         let crossings = result
             .outputs
             .iter()
@@ -359,7 +356,7 @@ impl GenuineTeachingLab {
             .filter(|crossing| crossing.from_physical == self.sites.outward_from[1])
             .count();
         let (candidate_resistance, candidate_live) =
-            candidate_state(self.boundary.body(), self.sites.candidates[0]);
+            candidate_state(&self.boundary, self.sites.candidates[0]);
         let physical_work = result.work.total().saturating_add(pressure_work.total());
         let observation = A1WorldObservation {
             kind,
@@ -372,7 +369,7 @@ impl GenuineTeachingLab {
             body_before,
             body_after,
             clock_start,
-            clock_end: self.boundary.body().clock().tick,
+            clock_end: self.boundary.read().clock.tick,
             candidate_resistance,
             candidate_live,
         };
@@ -403,7 +400,7 @@ impl GenuineTeachingLab {
 }
 
 fn build_world(case: &TeachingCase) -> Result<(BoundaryRuntime, Sites), AcademyError> {
-    let mut space = truelearner_core::Body::with_capacity(ArenaId(case.seed), 64, 128);
+    let mut space = BoundaryBuilder::with_capacity(64, 128, OUTWARD_REGION);
     space.set_physical_tracing(true);
     let namespace = case.seed.wrapping_mul(10_000).wrapping_add(1_000_000);
     let order = if case.reverse_allocation {
@@ -553,7 +550,7 @@ fn build_world(case: &TeachingCase) -> Result<(BoundaryRuntime, Sites), AcademyE
         candidates,
         outward_from: [namespace + 500, namespace + 501],
     };
-    Ok((BoundaryRuntime::new(space, OUTWARD_REGION), sites))
+    Ok((space.build(), sites))
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
@@ -600,21 +597,16 @@ fn external(target: CellId, tick: i64, phase: i32, origin: u64) -> SpikeInput {
     }
 }
 
-fn candidate_state(space: &truelearner_core::Body, arrow: ArrowId) -> (u32, bool) {
-    space
-        .arena_body(0)
-        .arrows
-        .into_iter()
-        .find(|candidate| candidate.id == arrow)
-        .map_or((0, false), |candidate| {
-            (candidate.resistance, candidate.live)
-        })
+fn candidate_state(space: &BoundaryRuntime, arrow: ArrowId) -> (u32, bool) {
+    space.read().link(arrow).map_or((0, false), |candidate| {
+        (candidate.resistance, candidate.live)
+    })
 }
 
 fn body_fingerprint(boundary: &BoundaryRuntime) -> Result<String, AcademyError> {
-    let bytes = boundary.body().canonical_body_bytes(0)?;
-    Ok(ContentHash::of(&bytes)
-        .as_bytes()
+    Ok(boundary
+        .read()
+        .fingerprint()
         .iter()
         .take(8)
         .map(|byte| format!("{byte:02x}"))

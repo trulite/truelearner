@@ -1,0 +1,204 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-26T16:21:51.122213+00:00",
+  "started_at": "2026-08-26T16:21:44.701654+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/remove-arena-format.md",
+    "sha256": "d3890b087151737a2c370ec25c433db4a792b4d99dae0252ff7fef68f8db8203"
+  },
+  "candidate": {
+    "revision": "4b0309ac200f50e3b43ebddd60a1195877c08f07",
+    "tree_sha256": "f81664936de839e37c7bf2b516be315fdfabb82dfe73b5893861f159596b493c"
+  },
+  "scope": [
+    "README.md",
+    "academy.md",
+    "arch.md",
+    "pg-handoff.md",
+    "playground.md",
+    "plans",
+    "truelearner",
+    "academy",
+    "factory-artifacts"
+  ],
+  "changed_paths": [
+    "README.md",
+    "academy.md",
+    "academy/Cargo.lock",
+    "academy/Cargo.toml",
+    "academy/crates/academy-arc3/Cargo.toml",
+    "academy/crates/academy-arc3/src/sensorimotor.rs",
+    "academy/crates/academy-arc3/src/sensorimotor_review.rs",
+    "academy/crates/academy-core/Cargo.toml",
+    "academy/crates/academy-core/src/a1.rs",
+    "academy/crates/academy-core/src/lib.rs",
+    "arch.md",
+    "factory-artifacts/harness-boundary-candidate.json",
+    "factory-artifacts/harness-boundary-verification.json",
+    "factory-artifacts/harness-privacy-check/Cargo.lock",
+    "factory-artifacts/harness-privacy-check/Cargo.toml",
+    "factory-artifacts/harness-privacy-check/src/main.rs",
+    "factory-artifacts/harness-privacy-check/verify.sh",
+    "factory-artifacts/no-arena-format-check/Cargo.lock",
+    "factory-artifacts/no-arena-format-check/Cargo.toml",
+    "factory-artifacts/no-arena-format-check/src/main.rs",
+    "factory-artifacts/no-arena-format-check/verify.sh",
+    "factory-artifacts/remove-arena-format-candidate.json",
+    "factory-artifacts/verify-arena-format-removal.sh",
+    "pg-handoff.md",
+    "plans/harness-boundary.md",
+    "plans/remove-arena-format.md",
+    "playground.md",
+    "truelearner/Cargo.lock",
+    "truelearner/Cargo.toml",
+    "truelearner/README.md",
+    "truelearner/crates/arena-format/Cargo.toml",
+    "truelearner/crates/arena-format/src/lib.rs",
+    "truelearner/crates/core/Cargo.toml",
+    "truelearner/crates/core/src/arena.rs",
+    "truelearner/crates/core/src/body.rs",
+    "truelearner/crates/core/src/checkpoint.rs",
+    "truelearner/crates/core/src/core.rs",
+    "truelearner/crates/core/src/format.rs",
+    "truelearner/crates/core/src/identity.rs",
+    "truelearner/crates/core/src/input.rs",
+    "truelearner/crates/core/src/junction.rs",
+    "truelearner/crates/core/src/lib.rs",
+    "truelearner/crates/core/src/link.rs",
+    "truelearner/crates/core/src/physics.rs",
+    "truelearner/crates/core/src/snapshot.rs",
+    "truelearner/crates/core/src/tests.rs",
+    "truelearner/crates/core/src/trace.rs",
+    "truelearner/crates/core/tests/harness_boundary.rs"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path truelearner/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.277392,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path academy/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.121644,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --workspace --locked --manifest-path truelearner/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.103772,
+      "output_sha256": "0b919a598bd07c2d192d61ab2caeef195a525b1a304fada350bd332291735e38"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --workspace --locked --manifest-path academy/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.815797,
+      "output_sha256": "d3ed8cadb6a08ee7deb1f01327e29c3dc42ba7d5f67518156b43ae10c262dd6d"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --workspace --all-targets --locked --manifest-path truelearner/Cargo.toml -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.193497,
+      "output_sha256": "7c4af2150ef1e92f139483b7d60deac1dee0ba1268d835c683d2eda137bfe230"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --workspace --all-targets --locked --manifest-path academy/Cargo.toml -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.318281,
+      "output_sha256": "38194e87e79b857f32963d047e8340ca7b9bb80fbcb440960dfd1a9875d0e1ee"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.098879,
+      "output_sha256": "00c36e71e10ef5ddbcc5718b7b4e609d5f4240a9927f9f16f9d87a6c27af7d9f"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary -- --ignored",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.037098,
+      "output_sha256": "0032da43ec187fc1ccd6a514bd50c69cf30d4c517df25f2ae1b63a73d96064fe"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-core --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.626715,
+      "output_sha256": "55de71ff1a738a2b91c3b4f714c7ba5386e1d7746e2deedc4397ce248ef76f09"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-arc3 --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.468046,
+      "output_sha256": "0054d6ac5b4c5ed595997d7c7b30ccc16ca684b21b68b75bf06a368b89ed2a8a"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-arc3 --lib -- --ignored",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.312711,
+      "output_sha256": "aeb2631b72a14952c0c8374a69b8e3bbd094ce49e75d4b7d57bd67a911014d80"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --workspace --locked --manifest-path truelearner/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.183648,
+      "output_sha256": "dc9d54ab6c90376106946e9804edc55b2665bc8a32a964baa24c275c02b4d6f4"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --workspace --locked --manifest-path academy/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.775775,
+      "output_sha256": "7ffdcd1b89eda2a150befb5bbf5019068f1e02418f682a66087dd8eb6b2df4e9"
+    },
+    {
+      "name": "focused-tests",
+      "command": "sh factory-artifacts/verify-arena-format-removal.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.019845,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "focused-tests",
+      "command": "sh factory-artifacts/no-arena-format-check/verify.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.131744,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-core -p academy-arc3 --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.935008,
+      "output_sha256": "72dec83c0e4219cfb7a45d8ed5aeee9d4004762888e04394284d971f09754aea"
+    }
+  ]
+}

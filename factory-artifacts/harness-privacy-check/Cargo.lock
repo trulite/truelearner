@@ -66,6 +66,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "harness-privacy-check"
+version = "0.0.0"
+dependencies = [
+ "truelearner-core",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -142,12 +149,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "truelearner-arena-format"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "sha2",
+]
+
+[[package]]
 name = "truelearner-core"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "serde",
- "sha2",
+ "truelearner-arena-format",
 ]
 
 [[package]]

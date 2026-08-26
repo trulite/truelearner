@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 impl Body {
-    pub fn enter(&mut self, input: Input) {
+    pub(crate) fn enter(&mut self, input: Input) {
         self.arena.require_junction(input.target);
         assert!(
             input.arrival_tick >= self.tick,

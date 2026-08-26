@@ -1,0 +1,78 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/harness-boundary-candidate.json",
+    "sha256": "b7743f7da49416450db5edccf19b9fc370e1b36e5cab86411741760ddd844d64"
+  },
+  "verdict": "supported",
+  "independent_test_count": 5,
+  "checks": [
+    {
+      "name": "public-body-privacy",
+      "command": "sh factory-artifacts/harness-privacy-check/verify.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 4.88
+    },
+    {
+      "name": "truelearner-workspace",
+      "command": "cargo test --workspace --locked --manifest-path truelearner/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.12
+    },
+    {
+      "name": "academy-workspace",
+      "command": "cargo test --workspace --locked --manifest-path academy/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 12.81
+    },
+    {
+      "name": "core-held-out",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary -- --ignored",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.08
+    },
+    {
+      "name": "arc3-held-out",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-arc3 --lib -- --ignored",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.37
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-core -p academy-arc3 --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.01
+    }
+  ],
+  "findings": [
+    "No correctness or boundary findings: Body and resident slots are private, Academy and external tests use the harness, and complete workspace behavior remains green.",
+    "Read identity, read-before-send preservation, checkpoint restoration, protocol persistence, negative controls, and adversarial time and causal boundaries passed."
+  ],
+  "residual_uncertainty": [
+    "Only Protocol::Physical exists, so cross-implementation observational equivalence remains unexercised until a second protocol is added."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/harness-boundary.md",
+      "sha256": "77422ad0e79ea17d4238f43046cdcefa35b5b69472b0c85f95bc4d546e6247b7"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/harness-boundary-candidate.json",
+      "sha256": "b7743f7da49416450db5edccf19b9fc370e1b36e5cab86411741760ddd844d64"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/harness-privacy-check/verify.sh",
+      "sha256": "89311d539db6d074a0a8401ac2860be56f38d2faeb59575a5a5048849c5fcf1a"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/harness-privacy-check/src/main.rs",
+      "sha256": "26faba974896c5ac217f7cc2f047b09caeb2dc7324b9797166d44cb5ceb3f248"
+    }
+  ]
+}

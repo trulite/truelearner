@@ -2,22 +2,17 @@
 
 `truelearner/` is the only production code surface.
 
-The workspace contains two mechanically focused production packages:
+The workspace contains one production package:
 
 - `truelearner-core`
-  - `src/lib.rs`: physical state, resident execution, stable ID/slot
-    resolution, compaction, and clocked checkpoint state;
-  - `src/main.rs`: the production composition root.
-- `truelearner-arena-format`
-  - canonical little-endian SoA arena blocks;
-  - immutable body manifests and content hashes;
-  - validation and corrupt-input rejection;
-  - no organism transition behavior.
+  - junction/link state and the transitions in `algo.md`;
+  - private resident execution and stable ID/slot resolution;
+  - the harness boundary for inputs, outputs, observations, and checkpoints.
 
-The V1 runtime executes only from explicit mutable RAM. Durable arena blocks
-are immutable, machine-independent bytes. A `BodyVersion` is structural and
-timeless; quiescent and live checkpoints add the physical clock and the
-transient state required by their restart contracts.
+The pre-release runtime executes only from explicit mutable RAM. Academy and
+tests cannot access the body or resident arena. They send inputs through the
+harness, read owned junction/link observations, and may save or restore an
+opaque checkpoint. There is no public arena or body persistence format.
 
 Physical Body V1 authority passed `16/16` fresh roots and `540/540` clauses at
 tag `physical-body-v1-authority-positive-v1`.

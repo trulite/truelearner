@@ -28,7 +28,6 @@ academy-arc3 = { path = "crates/academy-arc3" }
 academy-episodes = { path = "crates/academy-episodes" }
 academy-storage = { path = "crates/academy-storage" }
 truelearner-core = { path = "../truelearner/crates/core" }
-truelearner-arena-format = { path = "../truelearner/crates/arena-format" }
 aws-config = { version = "1.8.10", default-features = false, features = ["behavior-version-latest", "rt-tokio", "rustls"] }
 aws-sdk-s3 = { version = "1.115.0", default-features = false, features = ["rt-tokio", "rustls"] }
 base64 = "0.22.1"

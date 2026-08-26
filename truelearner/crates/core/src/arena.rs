@@ -3,7 +3,6 @@ use crate::prelude::*;
 /// The physical topology present in one arena.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Arena {
-    pub(crate) id: ArenaId,
     pub(crate) junctions: Vec<JunctionState>,
     pub(crate) junction_slots: Vec<Option<JunctionSlot>>,
     pub(crate) links: Vec<LinkState>,
@@ -22,9 +21,8 @@ pub struct Arena {
 }
 
 impl Arena {
-    pub(crate) fn new(id: ArenaId, junction_capacity: u32, link_capacity: u32) -> Self {
+    pub(crate) fn new(junction_capacity: u32, link_capacity: u32) -> Self {
         Self {
-            id,
             junctions: Vec::new(),
             junction_slots: Vec::new(),
             links: Vec::new(),
@@ -89,18 +87,6 @@ impl Arena {
             .and_then(|index| self.link_slots.get(index))
             .copied()
             .flatten()
-    }
-
-    pub(crate) fn link_use(&self, id: LinkId) -> u64 {
-        self.links[self.link_slot(id).expect("link must resolve").0].participation_level
-    }
-
-    pub(crate) fn link_strength(&self, id: LinkId) -> i64 {
-        self.strength[id.0 as usize]
-    }
-
-    pub(crate) fn link_life(&self, id: LinkId) -> u64 {
-        self.life[id.0 as usize]
     }
 
     pub(crate) fn rebuild_indexes(&mut self) {

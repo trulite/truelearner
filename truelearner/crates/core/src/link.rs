@@ -7,9 +7,9 @@ pub(crate) const UNIT: i64 = 1_i64 << 32;
 pub(crate) const UNIT_U64: u64 = 1_u64 << 32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct LinkSlot(pub usize);
+pub(crate) struct LinkSlot(pub(crate) usize);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TransmissionMode {
     Drive,
     Modulatory,
@@ -33,7 +33,7 @@ pub struct Link {
     pub mode: TransmissionMode,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct LinkState {
     pub(crate) id: LinkId,
     pub(crate) from: JunctionId,
