@@ -1333,6 +1333,19 @@ pub enum PhysicalEvent {
         activation_after: i64,
         causal_wave: u64,
     },
+    #[cfg(feature = "core1")]
+    SignedGateCompetition {
+        target: CellId,
+        positive_strength: u64,
+        negative_strength: u64,
+        opportunity_active: bool,
+        admitted_sign: i8,
+    },
+    #[cfg(feature = "core1")]
+    IntegrationWindowClosed {
+        target: CellId,
+        activation: i64,
+    },
     Deliver {
         mode: TransmissionMode,
         target: CellId,
@@ -1611,6 +1624,12 @@ pub struct PlasticSubstrate {
     atomic_credit_return_capture: bool,
     #[cfg(feature = "core1")]
     atomic_route_closure_enabled: bool,
+    #[cfg(feature = "core1")]
+    signed_gating_cells: Vec<bool>,
+    #[cfg(feature = "core1")]
+    integration_window_cells: Vec<bool>,
+    #[cfg(feature = "core1")]
+    integration_wave_open: bool,
     #[cfg(feature = "core0")]
     core0_profile: Core0Profile,
     #[cfg(feature = "core0")]
@@ -2171,6 +2190,16 @@ impl BoundaryRuntime {
         self.substrate.set_atomic_route_closure(enabled);
     }
 
+    #[cfg(feature = "core1")]
+    pub fn set_signed_gating(&mut self, cell: CellId, enabled: bool) {
+        self.substrate.set_signed_gating(cell, enabled);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_integration_window(&mut self, cell: CellId, enabled: bool) {
+        self.substrate.set_integration_window(cell, enabled);
+    }
+
     /// Changes only the mechanical execution strategy beneath the boundary.
     /// Physical law and buffered activity are preserved exactly.
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
@@ -2394,6 +2423,12 @@ impl PlasticSubstrate {
             atomic_credit_return_capture: false,
             #[cfg(feature = "core1")]
             atomic_route_closure_enabled: false,
+            #[cfg(feature = "core1")]
+            signed_gating_cells: Vec::new(),
+            #[cfg(feature = "core1")]
+            integration_window_cells: Vec::new(),
+            #[cfg(feature = "core1")]
+            integration_wave_open: false,
             #[cfg(feature = "core0")]
             core0_profile: Core0Profile::A,
             #[cfg(feature = "core0")]
@@ -2547,6 +2582,18 @@ impl PlasticSubstrate {
     }
 
     #[cfg(feature = "core1")]
+    pub fn set_signed_gating(&mut self, cell: CellId, enabled: bool) {
+        self.require_cell(cell);
+        self.signed_gating_cells[cell.0 as usize] = enabled;
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_integration_window(&mut self, cell: CellId, enabled: bool) {
+        self.require_cell(cell);
+        self.integration_window_cells[cell.0 as usize] = enabled;
+    }
+
+    #[cfg(feature = "core1")]
     fn maybe_create_atomic_credit_return(&mut self, participating: ArrowId) {
         if !self.atomic_credit_return_capture {
             return;
@@ -2607,6 +2654,144 @@ impl PlasticSubstrate {
             resistance: u32::MAX,
             mode: TransmissionMode::Modulatory,
         });
+    }
+
+    #[cfg(feature = "core1")]
+    fn signed_gate_route(&self, arrow: &Arrow) -> bool {
+        if !arrow.live
+            || arrow.mode != TransmissionMode::Drive
+            || arrow.trigger != TransmissionTrigger::SourceFires
+            || !self
+                .signed_gating_cells
+                .get(arrow.to.0 as usize)
+                .copied()
+                .unwrap_or(false)
+        {
+            return false;
+        }
+        let Some(contact_slot) = self.cell_slot(arrow.from) else {
+            return false;
+        };
+        let contact = self.cells.get(contact_slot.0);
+        self.arrows.values().iter().any(|stem| {
+            stem.live
+                && stem.mode == TransmissionMode::Drive
+                && stem.trigger == TransmissionTrigger::SourceFires
+                && stem.to == contact.id
+                && stem.from != contact.id
+                && self.cell_slot(stem.from).is_some_and(|source_slot| {
+                    self.cells.get(source_slot.0).position == contact.position
+                })
+        })
+    }
+
+    #[cfg(feature = "core1")]
+    fn register_route_participation(&mut self, arrow: ArrowId) {
+        let Some(slot) = self.arrow_slot(arrow) else {
+            return;
+        };
+        self.arrows.with_mut(slot.0, |live_arrow| {
+            live_arrow.participation_level = live_arrow
+                .participation_level
+                .saturating_add(PARTICIPATION_IMPULSE);
+        });
+        if self.capture_used_pending {
+            self.used_pending_arrows[arrow.0 as usize] = true;
+        }
+        self.maybe_create_atomic_credit_return(arrow);
+    }
+
+    #[cfg(feature = "core1")]
+    fn apply_signed_gate(
+        &mut self,
+        target: CellId,
+        spikes: &mut Vec<Spike>,
+        work: &mut Work,
+        physical_trace: &mut Vec<PhysicalTransition>,
+        phase: i32,
+    ) {
+        let mut gated = Vec::new();
+        let mut positive_strength = 0_u64;
+        let mut negative_strength = 0_u64;
+        for spike in spikes.iter() {
+            let Some((arrow_id, _)) = spike.arrow else {
+                continue;
+            };
+            let Some(slot) = self.arrow_slot(arrow_id) else {
+                continue;
+            };
+            let arrow = self.arrows.get(slot.0);
+            if !self.signed_gate_route(&arrow) {
+                continue;
+            }
+            let sign = spike.material_impulse.signum() as i8;
+            if sign == 0 {
+                continue;
+            }
+            let strength = spike.material_impulse.unsigned_abs();
+            if sign > 0 {
+                positive_strength = positive_strength.saturating_add(strength);
+            } else {
+                negative_strength = negative_strength.saturating_add(strength);
+            }
+            gated.push((arrow_id, sign));
+        }
+        if gated.is_empty() {
+            return;
+        }
+
+        let opposing = positive_strength > 0 && negative_strength > 0;
+        let opportunity_active = self
+            .core0_activation
+            .get(target.0 as usize)
+            .copied()
+            .unwrap_or(0)
+            > 0;
+        let admitted_sign = if !opposing {
+            2
+        } else if positive_strength > negative_strength {
+            1
+        } else if negative_strength > positive_strength {
+            -1
+        } else if opportunity_active {
+            1
+        } else {
+            0
+        };
+
+        let mut admitted = Vec::new();
+        let mut suppressed = HashSet::new();
+        for (arrow, sign) in gated {
+            if admitted_sign == 2 || sign == admitted_sign {
+                admitted.push(arrow);
+            } else {
+                suppressed.insert(arrow);
+            }
+        }
+        spikes.retain(|spike| {
+            spike
+                .arrow
+                .is_none_or(|(arrow, _)| !suppressed.contains(&arrow))
+        });
+        for arrow in admitted {
+            self.register_route_participation(arrow);
+        }
+        work.total = work
+            .total
+            .saturating_add(u64::try_from(suppressed.len()).unwrap_or(u64::MAX));
+        if opposing && self.trace_physics {
+            physical_trace.push(PhysicalTransition {
+                tick: self.tick,
+                phase,
+                event: PhysicalEvent::SignedGateCompetition {
+                    target,
+                    positive_strength,
+                    negative_strength,
+                    opportunity_active,
+                    admitted_sign: if admitted_sign == 2 { 0 } else { admitted_sign },
+                },
+            });
+        }
     }
 
     #[cfg(feature = "core1")]
@@ -2759,6 +2944,11 @@ impl PlasticSubstrate {
         self.cell_slots.push((spec.resistance > 0).then_some(slot));
         self.outgoing_index.push(Vec::new());
         self.resident_arenas.push(resident_arena);
+        #[cfg(feature = "core1")]
+        {
+            self.signed_gating_cells.push(false);
+            self.integration_window_cells.push(false);
+        }
         #[cfg(feature = "core0")]
         {
             self.core0_activation.push(0);
@@ -3209,6 +3399,14 @@ impl PlasticSubstrate {
         substrate
             .temporary_credit_return_arrows
             .resize(substrate.arrow_slots.len(), false);
+        #[cfg(feature = "core1")]
+        substrate
+            .signed_gating_cells
+            .resize(substrate.cell_slots.len(), false);
+        #[cfg(feature = "core1")]
+        substrate
+            .integration_window_cells
+            .resize(substrate.cell_slots.len(), false);
         Ok(substrate)
     }
 
@@ -3736,18 +3934,19 @@ impl PlasticSubstrate {
                             }
                             crossings.push(crossing);
                         }
-                        let arrow_slot = self.arrow_slot(arrow_id).unwrap();
-                        self.arrows.with_mut(arrow_slot.0, |live_arrow| {
-                            live_arrow.participation_level = live_arrow
-                                .participation_level
-                                .saturating_add(PARTICIPATION_IMPULSE);
-                        });
                         #[cfg(feature = "core1")]
-                        if self.capture_used_pending {
-                            self.used_pending_arrows[arrow_id.0 as usize] = true;
+                        if !self.signed_gate_route(&arrow) {
+                            self.register_route_participation(arrow_id);
                         }
-                        #[cfg(feature = "core1")]
-                        self.maybe_create_atomic_credit_return(arrow_id);
+                        #[cfg(not(feature = "core1"))]
+                        {
+                            let arrow_slot = self.arrow_slot(arrow_id).unwrap();
+                            self.arrows.with_mut(arrow_slot.0, |live_arrow| {
+                                live_arrow.participation_level = live_arrow
+                                    .participation_level
+                                    .saturating_add(PARTICIPATION_IMPULSE);
+                            });
+                        }
                         execution_cost.touch::<Arrow>(1);
                         work.total = work.total.saturating_add(1);
                         execution_cost.arena_lookups =
@@ -3806,6 +4005,10 @@ impl PlasticSubstrate {
         let mut execution_cost = ExecutionCost::default();
         let mut physical_trace = Vec::new();
         let mut scheduled_deliveries = 0_u64;
+        #[cfg(feature = "core1")]
+        {
+            self.integration_wave_open = self.integration_window_cells.iter().any(|cell| *cell);
+        }
         execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
         while !self.pending.is_empty() {
             if ceiling.is_some_and(|limit| scheduled_deliveries >= limit) {
@@ -3873,6 +4076,17 @@ impl PlasticSubstrate {
                     };
                     incidences.push((target_id, drive_arrivals, modulatory_arrivals));
                 }
+            }
+
+            #[cfg(feature = "core1")]
+            for (target, drive_arrivals, _) in &mut incidences {
+                self.apply_signed_gate(
+                    *target,
+                    drive_arrivals,
+                    &mut work,
+                    &mut physical_trace,
+                    phase,
+                );
             }
 
             // WS0_SYNCHRONOUS_INCIDENCE: Modulatory and Drive incidence update
@@ -4159,18 +4373,19 @@ impl PlasticSubstrate {
                         }
                         crossings.push(crossing);
                     }
-                    let arrow_slot = self.arrow_slot(arrow_id).unwrap();
-                    self.arrows.with_mut(arrow_slot.0, |live_arrow| {
-                        live_arrow.participation_level = live_arrow
-                            .participation_level
-                            .saturating_add(PARTICIPATION_IMPULSE);
-                    });
                     #[cfg(feature = "core1")]
-                    if self.capture_used_pending {
-                        self.used_pending_arrows[arrow_id.0 as usize] = true;
+                    if !self.signed_gate_route(&arrow) {
+                        self.register_route_participation(arrow_id);
                     }
-                    #[cfg(feature = "core1")]
-                    self.maybe_create_atomic_credit_return(arrow_id);
+                    #[cfg(not(feature = "core1"))]
+                    {
+                        let arrow_slot = self.arrow_slot(arrow_id).unwrap();
+                        self.arrows.with_mut(arrow_slot.0, |live_arrow| {
+                            live_arrow.participation_level = live_arrow
+                                .participation_level
+                                .saturating_add(PARTICIPATION_IMPULSE);
+                        });
+                    }
                     execution_cost.touch::<Arrow>(1);
                     execution_cost.arena_lookups = execution_cost.arena_lookups.saturating_add(2);
                     if self.resident_arenas[arrow.from.0 as usize]
@@ -4206,6 +4421,10 @@ impl PlasticSubstrate {
                 }
             }
             execution_cost.observe_resident_bytes(self.mechanical_resident_bytes());
+        }
+        #[cfg(feature = "core1")]
+        if self.pending.is_empty() {
+            self.close_integration_wave(&mut work, &mut physical_trace);
         }
         (
             RunResult {
@@ -5467,6 +5686,25 @@ impl PlasticSubstrate {
         if elapsed <= 0 {
             return;
         }
+        #[cfg(feature = "core1")]
+        if self.integration_wave_open
+            && self
+                .integration_window_cells
+                .get(cell.0 as usize)
+                .copied()
+                .unwrap_or(false)
+            && self
+                .core0_activation
+                .get(cell.0 as usize)
+                .copied()
+                .unwrap_or(0)
+                != 0
+        {
+            self.cells.with_mut(slot.0, |target| {
+                target.last_update_tick = tick;
+            });
+            return;
+        }
         let decay = i64::try_from(elapsed)
             .unwrap_or(i64::MAX)
             .saturating_mul(MATERIAL_ONE);
@@ -5492,6 +5730,45 @@ impl PlasticSubstrate {
             self.active_cells.remove(&cell);
         } else {
             self.active_cells.insert(cell);
+        }
+    }
+
+    #[cfg(feature = "core1")]
+    fn close_integration_wave(
+        &mut self,
+        work: &mut Work,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
+        if !self.integration_wave_open {
+            return;
+        }
+        self.integration_wave_open = false;
+        for index in 0..self.integration_window_cells.len() {
+            if !self.integration_window_cells[index] {
+                continue;
+            }
+            let activation = self.core0_activation.get(index).copied().unwrap_or(0);
+            if activation == 0 {
+                continue;
+            }
+            let target = CellId(u64::try_from(index).unwrap_or(u64::MAX));
+            let Some(slot) = self.cell_slot(target) else {
+                continue;
+            };
+            self.core0_activation[index] = 0;
+            self.cells.with_mut(slot.0, |cell| {
+                cell.state = 0;
+                cell.last_update_tick = self.tick;
+            });
+            self.active_cells.remove(&target);
+            work.total = work.total.saturating_add(1);
+            if self.trace_physics {
+                physical_trace.push(PhysicalTransition {
+                    tick: self.tick,
+                    phase: 0,
+                    event: PhysicalEvent::IntegrationWindowClosed { target, activation },
+                });
+            }
         }
     }
 
@@ -6223,6 +6500,110 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "core1")]
+    fn e25_gate_body(
+        negative_coupling: i32,
+    ) -> (PlasticSubstrate, CellId, CellId, ArrowId, ArrowId) {
+        let mut body = PlasticSubstrate::with_capacity(ArenaId(25), 16, 32);
+        body.set_core0_profile(Core0Profile::GenericExternal);
+        body.set_physical_tracing(true);
+        let feeder = body.add_cell(CellSpec {
+            physical_id: 25_000,
+            position: 100,
+            region: 0,
+            threshold: 1,
+            resistance: u32::MAX,
+        });
+        let source = body.add_cell(CellSpec {
+            physical_id: 25_001,
+            position: 0,
+            region: 0,
+            threshold: 1,
+            resistance: u32::MAX,
+        });
+        let positive = body.add_cell(CellSpec {
+            physical_id: 25_002,
+            position: 0,
+            region: 0,
+            threshold: 1,
+            resistance: u32::MAX,
+        });
+        let negative = body.add_cell(CellSpec {
+            physical_id: 25_003,
+            position: 0,
+            region: 0,
+            threshold: 1,
+            resistance: u32::MAX,
+        });
+        let target = body.add_cell(CellSpec {
+            physical_id: 25_004,
+            position: 1,
+            region: 0,
+            threshold: 2,
+            resistance: u32::MAX,
+        });
+        let output = body.add_cell(CellSpec {
+            physical_id: 25_005,
+            position: 2,
+            region: 1,
+            threshold: 1,
+            resistance: u32::MAX,
+        });
+        let returning = body.add_cell(CellSpec {
+            physical_id: 25_006,
+            position: 50,
+            region: 0,
+            threshold: 1,
+            resistance: u32::MAX,
+        });
+        body.add_arrow(ArrowSpec {
+            from: returning,
+            to: source,
+            delay: 0,
+            phase: 0,
+            coupling: 1,
+            resistance: u32::MAX,
+            mode: TransmissionMode::Modulatory,
+        });
+        for (from, to, delay, coupling) in [
+            (feeder, source, 0, 1),
+            (source, positive, 1, 1),
+            (source, negative, 1, 1),
+            (target, output, 0, 1),
+        ] {
+            body.add_arrow(ArrowSpec {
+                from,
+                to,
+                delay,
+                phase: 0,
+                coupling,
+                resistance: u32::MAX,
+                mode: TransmissionMode::Drive,
+            });
+        }
+        let positive_arrow = body.add_arrow(ArrowSpec {
+            from: positive,
+            to: target,
+            delay: 1,
+            phase: 0,
+            coupling: 1,
+            resistance: u32::MAX,
+            mode: TransmissionMode::Drive,
+        });
+        let negative_arrow = body.add_arrow(ArrowSpec {
+            from: negative,
+            to: target,
+            delay: 1,
+            phase: 0,
+            coupling: negative_coupling,
+            resistance: u32::MAX,
+            mode: TransmissionMode::Drive,
+        });
+        body.configure_atomic_credit_return(returning);
+        body.set_atomic_credit_return_capture(true);
+        (body, feeder, target, positive_arrow, negative_arrow)
+    }
+
     fn physical_work(work: Work) -> (u64, u64, u64, u64, u64) {
         (
             work.drive_deliveries,
@@ -6606,6 +6987,128 @@ mod tests {
         let restored_result = restored.propagate();
         let substrate_result = substrate.propagate();
         assert_physical_equivalence(&substrate, &substrate_result, &restored, &restored_result);
+    }
+
+    #[cfg(feature = "core1")]
+    #[test]
+    fn e25_g_and_w_are_orthogonal_and_compose_before_credit() {
+        fn run(gating: bool, window: bool) -> (PlasticSubstrate, RunResult, ArrowId, ArrowId) {
+            let (mut body, feeder, target, positive, negative) = e25_gate_body(-1);
+            body.set_signed_gating(target, gating);
+            body.set_integration_window(target, window);
+            let result = body.arrive(&[input(feeder, 0), input(target, 1)], 1);
+            (body, result, positive, negative)
+        }
+
+        let (g, g_result, g_positive, g_negative) = run(true, false);
+        assert!(g_result.crossings.is_empty());
+        assert_eq!(g.local_participation(g_positive), 0);
+        assert_eq!(g.local_participation(g_negative), 0);
+        assert_eq!(g.temporary_credit_return_count(), 0);
+
+        let (w, w_result, w_positive, w_negative) = run(false, true);
+        assert!(w_result.crossings.is_empty());
+        assert!(w.local_participation(w_positive) > 0);
+        assert!(w.local_participation(w_negative) > 0);
+        assert_eq!(w.temporary_credit_return_count(), 2);
+
+        let (gw, gw_result, gw_positive, gw_negative) = run(true, true);
+        assert!(!gw_result.crossings.is_empty());
+        assert!(gw.local_participation(gw_positive) > 0);
+        assert_eq!(gw.local_participation(gw_negative), 0);
+        assert_eq!(gw.temporary_credit_return_count(), 1);
+        assert!(gw_result.physical_trace.iter().any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::SignedGateCompetition {
+                opportunity_active: true,
+                admitted_sign: 1,
+                ..
+            }
+        )));
+    }
+
+    #[cfg(feature = "core1")]
+    #[test]
+    fn e25_g_admits_a_physically_stronger_negative_alternative() {
+        let (mut body, feeder, target, positive, negative) = e25_gate_body(-2);
+        body.set_signed_gating(target, true);
+        body.set_integration_window(target, true);
+        let result = body.arrive(&[input(feeder, 0), input(target, 1)], 1);
+        assert!(result.crossings.is_empty());
+        assert_eq!(body.local_participation(positive), 0);
+        assert!(body.local_participation(negative) > 0);
+        assert_eq!(body.temporary_credit_return_count(), 1);
+        assert!(result.physical_trace.iter().any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::SignedGateCompetition {
+                opportunity_active: true,
+                admitted_sign: -1,
+                ..
+            }
+        )));
+    }
+
+    #[cfg(feature = "core1")]
+    #[test]
+    fn e25_w_holds_staggered_incidence_but_preserves_cancellation_and_clears() {
+        fn target_body(window: bool) -> (PlasticSubstrate, CellId) {
+            let mut body = PlasticSubstrate::with_capacity(ArenaId(26), 4, 4);
+            body.set_core0_profile(Core0Profile::GenericExternal);
+            body.set_physical_tracing(true);
+            let target = body.add_cell(CellSpec {
+                physical_id: 26_000,
+                position: 0,
+                region: 0,
+                threshold: 2,
+                resistance: u32::MAX,
+            });
+            let output = body.add_cell(CellSpec {
+                physical_id: 26_001,
+                position: 1,
+                region: 1,
+                threshold: 1,
+                resistance: u32::MAX,
+            });
+            body.add_arrow(ArrowSpec {
+                from: target,
+                to: output,
+                delay: 0,
+                phase: 0,
+                coupling: 1,
+                resistance: u32::MAX,
+                mode: TransmissionMode::Drive,
+            });
+            body.set_integration_window(target, window);
+            (body, target)
+        }
+
+        let (mut ordinary, target) = target_body(false);
+        let ordinary_result = ordinary.arrive(&[input(target, 0), input(target, 1)], 1);
+        assert!(ordinary_result.crossings.is_empty());
+
+        let (mut held, target) = target_body(true);
+        let held_result = held.arrive(&[input(target, 0), input(target, 1)], 1);
+        assert!(!held_result.crossings.is_empty());
+
+        let (mut cancellation, target) = target_body(true);
+        let mut negative = input(target, 0);
+        negative.origin_physical = 8;
+        negative.impulse = -1;
+        let cancellation_result = cancellation.arrive(&[input(target, 0), negative], 1);
+        assert!(cancellation_result.crossings.is_empty());
+        assert_eq!(cancellation.core0_activation_material(target), 0);
+
+        let (mut unresolved, target) = target_body(true);
+        let unresolved_result = unresolved.arrive(&[input(target, 0)], 1);
+        assert!(unresolved_result.naturally_quiescent);
+        assert_eq!(unresolved.core0_activation_material(target), 0);
+        assert!(unresolved_result
+            .physical_trace
+            .iter()
+            .any(|transition| matches!(
+                transition.event,
+                PhysicalEvent::IntegrationWindowClosed { target: closed, .. } if closed == target
+            )));
     }
 
     #[cfg(feature = "core1")]

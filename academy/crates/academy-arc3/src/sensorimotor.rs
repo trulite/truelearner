@@ -438,6 +438,24 @@ impl Arc3Sensorimotor {
     }
 
     #[cfg(feature = "core1")]
+    pub fn enable_local_signed_gating(&mut self) {
+        for motors in &self.sites.motors {
+            for motor in motors {
+                self.boundary.set_signed_gating(*motor, true);
+            }
+        }
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn enable_motor_integration_window(&mut self) {
+        for motors in &self.sites.motors {
+            for motor in motors {
+                self.boundary.set_integration_window(*motor, true);
+            }
+        }
+    }
+
+    #[cfg(feature = "core1")]
     pub fn last_action_physical_trace(&self) -> &[PhysicalTransition] {
         &self.last_action_physical_trace
     }
