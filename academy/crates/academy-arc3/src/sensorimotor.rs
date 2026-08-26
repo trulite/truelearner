@@ -2,6 +2,8 @@ use crate::ARC3_FRAME_PIXELS;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use truelearner_arena_format::{ArenaId, ArrowId, CellId, ContentHash};
+#[cfg(feature = "core1")]
+use truelearner_core::PhysicalTransition;
 use truelearner_core::{
     ArrowSpec, BoundaryError, BoundaryRuntime, CellSpec, MechanicalConfig, PlasticSubstrate,
     SpikeInput, TransmissionMode,
@@ -135,6 +137,8 @@ pub struct Arc3ContextDiagnostic {
     pub context: u16,
     pub motor: u8,
     pub source: CellId,
+    pub context_trace: CellId,
+    pub babbler: CellId,
     pub target: CellId,
     pub links: Vec<Arc3CandidateLinkDiagnostic>,
 }
@@ -249,6 +253,8 @@ pub struct Arc3Sensorimotor {
     physical_credit_return_enabled: bool,
     #[cfg(feature = "core1")]
     atomic_credit_return_enabled: bool,
+    #[cfg(feature = "core1")]
+    last_action_physical_trace: Vec<PhysicalTransition>,
 }
 
 impl Arc3Sensorimotor {
@@ -338,6 +344,8 @@ impl Arc3Sensorimotor {
             physical_credit_return_enabled: false,
             #[cfg(feature = "core1")]
             atomic_credit_return_enabled: true,
+            #[cfg(feature = "core1")]
+            last_action_physical_trace: Vec::new(),
         })
     }
 
@@ -422,6 +430,11 @@ impl Arc3Sensorimotor {
     #[cfg(feature = "core1")]
     pub fn temporary_credit_return_count(&self) -> usize {
         self.boundary.temporary_credit_return_count()
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn last_action_physical_trace(&self) -> &[PhysicalTransition] {
+        &self.last_action_physical_trace
     }
 
     #[cfg(feature = "core1")]
@@ -921,6 +934,10 @@ impl Arc3Sensorimotor {
             self.boundary.set_atomic_credit_return_capture(false);
         }
         let result = result?;
+        #[cfg(feature = "core1")]
+        {
+            self.last_action_physical_trace = result.physical_trace.clone();
+        }
         total_work = total_work.saturating_add(result.work.physical_total());
         plasticity_updates = plasticity_updates.saturating_add(result.work.local_return_updates);
         modulatory_deliveries =
@@ -1239,6 +1256,8 @@ impl Arc3Sensorimotor {
             context,
             motor,
             source,
+            context_trace: self.sites.context_traces[context_index][motor_index],
+            babbler: self.sites.babblers[context_index][motor_index],
             target,
             links,
         })
