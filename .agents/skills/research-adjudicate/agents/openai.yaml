@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Adjudicate"
+  short_description: "Judge frozen evidence without repairing results"
+  default_prompt: "Use $research-adjudicate to adjudicate this frozen protocol and neutral evidence bundle."

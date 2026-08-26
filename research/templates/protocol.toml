@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "<protocol-id>"
+program = "<program-id>"
+claim = "<claim-id>"
+status = "preregistered"
+parent_authority = "<exact revision or digest>"
+question = "<falsifiable question>"
+observables = ["<observable>"]
+frozen_variables = ["<frozen variable>"]
+permitted_changes = ["<scientific change boundary>"]
+positive_predicates = ["<required positive predicate>"]
+negative_controls = ["<unchanged negative control>"]
+stop_conditions = ["<condition that freezes a negative or inconclusive result>"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

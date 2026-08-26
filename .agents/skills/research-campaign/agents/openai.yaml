@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Campaign"
+  short_description: "Fork and falsify parallel E2B research arms"
+  default_prompt: "Use $research-campaign to design a parallel falsification-first campaign for this hypothesis."

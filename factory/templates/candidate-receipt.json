@@ -1,0 +1,20 @@
+{
+  "schema": "rust-candidate/v1",
+  "plan": {
+    "path": "<plan path>",
+    "sha256": "<plan sha256>"
+  },
+  "candidate": {
+    "revision": "<git revision>",
+    "tree_sha256": "<candidate tree sha256>"
+  },
+  "scope": ["<allowed path>"],
+  "changed_paths": ["<changed path>"],
+  "checks": [
+    {"name": "fmt", "command": "<command>", "status": "passed", "exit_code": 0, "duration_seconds": 0.0},
+    {"name": "check", "command": "<command>", "status": "passed", "exit_code": 0, "duration_seconds": 0.0},
+    {"name": "clippy", "command": "<command>", "status": "passed", "exit_code": 0, "duration_seconds": 0.0},
+    {"name": "focused-tests", "command": "<command>", "status": "passed", "exit_code": 0, "duration_seconds": 0.0},
+    {"name": "regression-suite", "command": "<representative warm regression command>", "status": "passed", "exit_code": 0, "duration_seconds": 9.99}
+  ]
+}

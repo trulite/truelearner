@@ -1,0 +1,32 @@
+schema = "research-program/v1"
+id = "learner-physics"
+thesis = "Small local physical laws can produce increasingly general learner capabilities without high-level cognitive primitives or hidden evaluator authority."
+pre_frontier_checkpoint = "core1-adoption-code-consolidated-v1@5a57b6acfe26d294e39e7790c85676a2b2badbc9"
+active_frontier = ["ARC-NEXT"]
+
+[[claim]]
+id = "CORE1-LOCAL-LAWS"
+statement = "Route genesis, motor-local participation, participation-born credit return, and executable consolidation compose into the adopted bounded CORE1 behavior."
+status = "authoritative"
+depends_on = []
+falsifiers = [
+  "The consolidated candidate diverges from its accepted reference or replay history.",
+  "The behavior requires evaluator-side path, answer, identity, or episode authority.",
+]
+limitations = [
+  "Authority is bounded to the frozen CORE1 protocols and accepted integration matrix.",
+  "The result does not establish unrestricted cognition or general planning.",
+]
+
+[[claim]]
+id = "ARC-NEXT"
+statement = "A successor frontier can expose genuinely new learner physics from the clean CORE1 checkpoint while preserving adopted local laws and authority boundaries."
+status = "proposed"
+depends_on = ["CORE1-LOCAL-LAWS"]
+falsifiers = [
+  "The successor requires a high-level cognitive primitive before a lower-level physical divergence is isolated.",
+  "The successor weakens CORE1 replay, Production equality, natural quiescence, or hidden-authority controls.",
+]
+limitations = [
+  "The first missing physical transition and bounded successor protocol remain to be localized.",
+]

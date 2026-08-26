@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "<arm-id>"
+campaign = "<campaign-id>"
+kind = "solve"
+parents = []
+imports = []
+mechanism = "<smallest mechanism changed by this arm>"
+prediction = "<distinct prediction>"
+falsifiers = ["<killing observation>"]
+source_revision = "<exact revision>"
+protocol_sha256 = "<protocol digest>"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "<command or adapter case>"
+full_evidence = "<command or adapter case>"

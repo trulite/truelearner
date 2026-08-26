@@ -1,0 +1,8 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "<arm-id>",
+  "outcome": "falsified",
+  "falsifier": "<triggered falsifier or none>",
+  "observations": {"<observation>": "<value>"},
+  "artifacts": [{"path": "<artifact>", "sha256": "<digest>"}]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rust Verify"
+  short_description: "Independently verify exact Rust candidates"
+  default_prompt: "Use $rust-verify to verify this exact Rust candidate against its validated plan."

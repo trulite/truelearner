@@ -1,0 +1,13 @@
+schema = "research-program/v1"
+id = "<program-id>"
+thesis = "<large falsifiable thesis>"
+pre_frontier_checkpoint = "<exact revision or digest>"
+active_frontier = ["<claim-id>"]
+
+[[claim]]
+id = "<claim-id>"
+statement = "<bounded claim>"
+status = "proposed"
+depends_on = []
+falsifiers = ["<observation that would kill the claim>"]
+limitations = ["<explicit limitation>"]

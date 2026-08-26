@@ -1,0 +1,4 @@
+interface:
+  display_name: "Academy"
+  short_description: "Develop and evaluate learner capabilities safely"
+  default_prompt: "Use $academy to design or run this Academy curriculum, evidence, or capstone task."

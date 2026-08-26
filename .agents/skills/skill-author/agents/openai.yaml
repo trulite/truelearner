@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Author"
+  short_description: "Write visual, lagom repo-local skills"
+  default_prompt: "Use $skill-author to create or simplify this repository skill."

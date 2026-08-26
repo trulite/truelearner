@@ -1,0 +1,11 @@
+{
+  "schema": "research-evidence/v1",
+  "experiment": "<protocol-id>",
+  "protocol_sha256": "<protocol digest>",
+  "subject_digest": "<exact tested subject digest>",
+  "producer": "<producer name>",
+  "environment": {"identity": "<environment identity>"},
+  "observations": {"<predicate>": "passed"},
+  "artifacts": [{"path": "<artifact>", "sha256": "<digest>"}],
+  "completed": true
+}

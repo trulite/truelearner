@@ -1,0 +1,322 @@
+schema = "research-lessons/v1"
+program = "learner-physics"
+
+[[lesson]]
+id = "LP-001"
+kind = "learner-physics"
+statement = "Decompose high-level cognitive labels into lower-level physical failures before proposing a primitive."
+evidence = []
+applies_when = ["composition", "exploration", "memory", "policy"]
+research_action = "Localize the earliest missing physical transition."
+
+[[lesson]]
+id = "LP-002"
+kind = "learner-physics"
+statement = "Temporary state can carry capability without becoming permanent memory."
+evidence = []
+applies_when = ["continuation", "delayed consequence", "transient structure"]
+research_action = "Measure which transient structure exists and how long it remains live."
+
+[[lesson]]
+id = "LP-003"
+kind = "learner-physics"
+statement = "Lifetime is part of computation; a correct route can fail by expiring too early."
+evidence = []
+applies_when = ["route disappearance", "late consequence", "continuation failure"]
+research_action = "Treat lifetime and logical correctness as separate experimental variables."
+
+[[lesson]]
+id = "LP-004"
+kind = "learner-physics"
+statement = "Credit belongs to what physically participated, not to reconstructed probable history."
+evidence = []
+applies_when = ["credit assignment", "causal attribution"]
+research_action = "Trace actual participation before changing propagation."
+
+[[lesson]]
+id = "LP-005"
+kind = "learner-physics"
+statement = "A causal event should atomically leave its own temporary future credit path."
+evidence = ["E22"]
+applies_when = ["delayed consequence", "vanishing endpoints"]
+research_action = "Test participation-born temporary topology."
+
+[[lesson]]
+id = "LP-006"
+kind = "learner-physics"
+statement = "Do not reconstruct causal history after relevant endpoints may have disappeared."
+evidence = ["E22"]
+applies_when = ["post-hoc history", "expired topology"]
+research_action = "Record causal state at participation time."
+
+[[lesson]]
+id = "LP-007"
+kind = "learner-physics"
+statement = "Transmission completion and causal completion are distinct events."
+evidence = []
+applies_when = ["action completed", "consequence pending"]
+research_action = "Observe travel completion and consequence arrival separately."
+
+[[lesson]]
+id = "LP-008"
+kind = "learner-physics"
+statement = "Deep credit propagation is not the bottleneck once a live causal path exists."
+evidence = ["E13-D"]
+applies_when = ["PQLC", "deep credit failure"]
+research_action = "Test path genesis and survival before modifying PQLC."
+
+[[lesson]]
+id = "LP-009"
+kind = "learner-physics"
+statement = "Exploration can emerge from ordinary consequence and PQLC without curiosity or information gain."
+evidence = []
+applies_when = ["exploration", "perturbation selection"]
+research_action = "Test whether consequence makes useful perturbations repeat."
+
+[[lesson]]
+id = "LP-010"
+kind = "learner-physics"
+statement = "History preference accelerates learning but is not necessarily fundamental."
+evidence = ["E15"]
+applies_when = ["history preference", "policy learning"]
+research_action = "Include a consequence-only arm before adopting history machinery."
+
+[[lesson]]
+id = "LP-011"
+kind = "learner-physics"
+statement = "Self-triggering supplies continuation but not route diversity."
+evidence = []
+applies_when = ["recurrent activity", "repeated opaque route"]
+research_action = "Separate continuation and alternative exposure."
+
+[[lesson]]
+id = "LP-012"
+kind = "learner-physics"
+statement = "Variation is useful because it exposes alternatives, not because randomness is intrinsically valuable."
+evidence = ["E16"]
+applies_when = ["variation", "randomness"]
+research_action = "Measure alternative exposure separately from random generation."
+
+[[lesson]]
+id = "LP-013"
+kind = "learner-physics"
+statement = "Symmetry breaking and keeping opportunities alive are different mechanisms."
+evidence = ["E17"]
+applies_when = ["symmetry", "opportunity lifetime"]
+research_action = "Use separate arms and a composition arm."
+
+[[lesson]]
+id = "LP-014"
+kind = "learner-physics"
+statement = "Route existence and route executability are distinct."
+evidence = ["E26", "E27"]
+applies_when = ["silent learned route", "re-entry topology"]
+research_action = "Probe topology creation and later invocation separately."
+
+[[lesson]]
+id = "LP-015"
+kind = "learner-physics"
+statement = "Learning and recall or expression are separate physical operations."
+evidence = []
+applies_when = ["strengthened route", "failed recall"]
+research_action = "Test consolidation and input-driven execution independently."
+
+[[lesson]]
+id = "LP-016"
+kind = "learner-physics"
+statement = "A learned policy may be executable topology rather than a policy object."
+evidence = []
+applies_when = ["policy representation"]
+research_action = "Prefer topology-level explanations before adding symbolic policy state."
+
+[[lesson]]
+id = "LP-017"
+kind = "learner-physics"
+statement = "Motor integration is physical: timing, decay, sign, and threshold can block valid routes."
+evidence = []
+applies_when = ["valid route without action", "motor failure"]
+research_action = "Instrument integration dynamics before changing learning."
+
+[[lesson]]
+id = "LP-018"
+kind = "learner-physics"
+statement = "Opposite signed routes may require local competition before integration."
+evidence = []
+applies_when = ["algebraic cancellation", "signed routes"]
+research_action = "Test local competition and integration as separate mechanisms."
+
+[[lesson]]
+id = "LP-019"
+kind = "learner-physics"
+statement = "CORE1 behavior emerged from route genesis, motor-local participation, participation-born credit return, and executable consolidation."
+evidence = ["CORE1"]
+applies_when = ["CORE1 integration", "new physical primitive"]
+research_action = "Prefer compositions of established local laws over a new high-level primitive."
+
+[[lesson]]
+id = "LP-020"
+kind = "learner-physics"
+statement = "Most apparent PQLC failures were failures to deliver physical activity into or back to PQLC."
+evidence = ["E13-D", "CORE1"]
+applies_when = ["credit learning failure", "PQLC"]
+research_action = "Audit activity and return-path physics before modifying PQLC."
+
+[[lesson]]
+id = "RM-001"
+kind = "research-method"
+statement = "A negative benchmark result does not identify the missing capability."
+evidence = ["E14"]
+applies_when = ["negative benchmark"]
+research_action = "Open localization rather than naming a high-level missing primitive."
+
+[[lesson]]
+id = "RM-002"
+kind = "research-method"
+statement = "Find the first physical divergence between positive and negative cases."
+evidence = ["E23"]
+applies_when = ["diagnosis"]
+research_action = "Compare traces from the earliest observable transition."
+
+[[lesson]]
+id = "RM-003"
+kind = "research-method"
+statement = "Once a plausible cause exists, test a solve rather than adding another diagnostic."
+evidence = []
+applies_when = ["localized failure"]
+research_action = "Author the smallest killing solve experiment."
+
+[[lesson]]
+id = "RM-004"
+kind = "research-method"
+statement = "State the prediction before running the experiment."
+evidence = []
+applies_when = ["all solve experiments"]
+research_action = "Require a prediction and falsifier in every arm manifest."
+
+[[lesson]]
+id = "RM-005"
+kind = "research-method"
+statement = "Run competing plausible solves in parallel once the hypothesis space is narrow."
+evidence = []
+applies_when = ["multiple plausible solves"]
+research_action = "Batch isolated arms under one campaign budget."
+
+[[lesson]]
+id = "RM-006"
+kind = "research-method"
+statement = "Include composition arms when mechanisms are known to interact."
+evidence = ["E25"]
+applies_when = ["jointly necessary mechanisms"]
+research_action = "Test each mechanism and their composition in the same round."
+
+[[lesson]]
+id = "RM-007"
+kind = "research-method"
+statement = "Tiny fixtures should kill bad ideas before full benchmarks."
+evidence = []
+applies_when = ["preflight"]
+research_action = "Order gates from cheapest hard falsifier to full evidence."
+
+[[lesson]]
+id = "RM-008"
+kind = "research-method"
+statement = "Do not spend an expensive evidence run after a preflight failure."
+evidence = ["E19", "E20", "E21"]
+applies_when = ["preflight failure"]
+research_action = "Cancel remaining gates and freeze the result."
+
+[[lesson]]
+id = "RM-009"
+kind = "research-method"
+statement = "Keep failed mechanisms frozen."
+evidence = []
+applies_when = ["falsified arm"]
+research_action = "Retain its exact source, protocol, and counterexample."
+
+[[lesson]]
+id = "RM-010"
+kind = "research-method"
+statement = "Do not patch negative controls."
+evidence = []
+applies_when = ["negative control failure"]
+research_action = "Create a new successor protocol if the contract must change."
+
+[[lesson]]
+id = "RM-011"
+kind = "research-method"
+statement = "Distinguish sufficiency from adoption."
+evidence = ["E16"]
+applies_when = ["sufficient mechanism"]
+research_action = "Require a separate clean integration decision."
+
+[[lesson]]
+id = "RM-012"
+kind = "research-method"
+statement = "Distinguish candidate physics from adopted physics."
+evidence = ["E22", "E27"]
+applies_when = ["candidate physics"]
+research_action = "Require integration controls before changing defaults."
+
+[[lesson]]
+id = "RM-013"
+kind = "research-method"
+statement = "Separate behavioral truth from stale test contracts."
+evidence = ["E14"]
+applies_when = ["behavior passes but contract fails"]
+research_action = "Freeze the result and open a separate contract-revision decision."
+
+[[lesson]]
+id = "RM-014"
+kind = "research-method"
+statement = "Benchmark contracts must not dictate organism physics."
+evidence = []
+applies_when = ["acceptance pressure"]
+research_action = "Reject physical distortion introduced only to satisfy a stale assertion."
+
+[[lesson]]
+id = "RM-015"
+kind = "research-method"
+statement = "Reference, replay, and Production equality guard against evaluator-side work."
+evidence = []
+applies_when = ["integration", "authority"]
+research_action = "Gate adoption on exact equality where applicable."
+
+[[lesson]]
+id = "RM-016"
+kind = "research-method"
+statement = "Natural quiescence is part of capability."
+evidence = []
+applies_when = ["evaluator cutoff", "non-settling behavior"]
+research_action = "Reject results that depend on evaluator termination."
+
+[[lesson]]
+id = "RM-017"
+kind = "research-method"
+statement = "No hidden authority may enter through identifiers, answers, episodes, paths, curricula, or evaluator intelligence."
+evidence = []
+applies_when = ["all learner experiments"]
+research_action = "Run an explicit leakage and authority audit."
+
+[[lesson]]
+id = "RM-018"
+kind = "research-method"
+statement = "Prefer local physical state over semantic bookkeeping."
+evidence = []
+applies_when = ["new state proposal"]
+research_action = "Test OPEN, temporary topology, or local refractory state before symbolic memory."
+
+[[lesson]]
+id = "RM-019"
+kind = "research-method"
+statement = "Clean adoption before advancing the benchmark frontier."
+evidence = []
+applies_when = ["adoption"]
+research_action = "Remove switches, arm wiring, duplicate implementations, and benchmark hooks."
+
+[[lesson]]
+id = "RM-020"
+kind = "research-method"
+statement = "Preserve a clean pre-frontier checkpoint."
+evidence = ["CORE1"]
+applies_when = ["new frontier"]
+research_action = "Pin the consolidated parent before exposing new physics."

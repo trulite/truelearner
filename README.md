@@ -10,6 +10,24 @@ and separates it from its research history.
   generated evidence, and audit tooling.
 - `arch.md` is the accepted PXR0/PX-C + Physical Body V1 architectural oracle.
 
+## Agent workflows
+
+```text
+.agents/skills/ -> agent judgment and workflow
+factory/        -> engineering templates, runners, and validators
+research/       -> research programs, campaigns, evidence, and E2B runtime
+```
+
+- [Agent skills](.agents/skills/)
+- [Factory as code](factory/README.md)
+- [Research program as code](research/README.md)
+- [Agent routing](AGENTS.md)
+
+Rust changes flow through `$rust-plan -> $rust-implement -> $rust-verify`,
+with `$categorical-rust` as their modeling discipline. Academy work uses
+`$academy`; benchmark families advance through `$benchmark-climb` without
+letting benchmark knowledge enter the organism.
+
 The current pre-release core preserves the accepted physical transitions behind
 a harness: inputs enter, owned observations leave, and the body and resident
 arena remain private. Checkpoints are opaque and carry no public body format.

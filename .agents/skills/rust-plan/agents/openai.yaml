@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rust Plan"
+  short_description: "Write validated, evidence-grounded Rust plans"
+  default_prompt: "Use $rust-plan to produce a bounded, evidence-grounded, $skill-author-conformant validated plan for this Rust change."
