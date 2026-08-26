@@ -214,18 +214,30 @@ fn run_opportunity(
     organism
         .open_decision_interaction(context)
         .expect("install and OPEN E20 interaction");
+    let initial = organism
+        .observe_open_decision(pixels.to_vec(), &ACTIONS, &ACTIONS)
+        .expect("E20 initial junction activation");
     let mut refractory = HashSet::new();
     let mut attempts = Vec::new();
-    let mut work = 0_u64;
-    let mut quiescent = true;
+    let mut pending_action = initial.action;
+    let mut work = initial.physical_work;
+    let mut quiescent = initial.naturally_quiescent;
 
     while attempts.len() < MAX_COMPLETIONS {
-        let Some(selected) = select_action(&organism, context, order, &refractory) else {
+        let selected = pending_action
+            .take()
+            .or_else(|| select_action(&organism, context, order, &refractory));
+        let Some(selected) = selected else {
             break;
         };
-        let action = trigger(&mut organism, pixels, selected);
-        work = work.saturating_add(action.physical_work);
-        quiescent &= action.naturally_quiescent;
+        let action = if initial.action == Some(selected) && attempts.is_empty() {
+            initial.clone()
+        } else {
+            let action = trigger(&mut organism, pixels, selected);
+            work = work.saturating_add(action.physical_work);
+            quiescent &= action.naturally_quiescent;
+            action
+        };
         let Some(participated) = action.action else {
             break;
         };

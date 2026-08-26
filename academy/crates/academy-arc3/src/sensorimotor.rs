@@ -491,6 +491,30 @@ impl Arc3Sensorimotor {
         })
     }
 
+    #[cfg(feature = "core1")]
+    pub fn observe_open_decision(
+        &mut self,
+        frame: Vec<u8>,
+        available_actions: &[u8],
+        action_map: &[u8],
+    ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
+        if self.decision_openness != Arc3DecisionOpenness::Open {
+            return Err(Arc3SensorimotorError(
+                "decision interaction must be OPEN before junction activation".to_string(),
+            ));
+        }
+        self.boundary.set_used_pending_capture(true);
+        let observation = self.observe(frame, available_actions, None, false, false, action_map);
+        self.boundary.set_used_pending_capture(false);
+        if observation
+            .as_ref()
+            .is_ok_and(|observation| observation.action.is_none())
+        {
+            self.boundary.clear_used_pending();
+        }
+        observation
+    }
+
     #[cfg(feature = "core0")]
     pub fn observe_with_transient_history(
         &mut self,
