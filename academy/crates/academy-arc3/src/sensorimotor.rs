@@ -2,12 +2,12 @@ use crate::ARC3_FRAME_PIXELS;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use truelearner_arena_format::{ArenaId, ArrowId, CellId, ContentHash};
-#[cfg(feature = "core0")]
-use truelearner_core::{Core0Profile, TransmissionTrigger};
 use truelearner_core::{
     ArrowSpec, BoundaryError, BoundaryRuntime, CellSpec, MechanicalConfig, PlasticSubstrate,
     SpikeInput, TransmissionMode,
 };
+#[cfg(feature = "core0")]
+use truelearner_core::{Core0Profile, TransmissionTrigger};
 
 const PALETTE_CONTEXTS: usize = 16;
 const SPATIAL_CONTEXTS: usize = 1_024;
@@ -21,6 +21,10 @@ const MOTOR_PHYSICAL_BASE: u64 = 4_000_000;
 const OUTPUT_PHYSICAL_BASE: u64 = 5_000_000;
 const BABBLER_PHYSICAL_BASE: u64 = 7_000_000;
 const EXTERNAL_PHYSICAL_BASE: u64 = 9_000_000;
+#[cfg(feature = "core1")]
+const DECISION_COMPLETION_PHYSICAL: u64 = 6_500_000;
+#[cfg(feature = "core1")]
+const DECISION_COMPLETION_SINK_PHYSICAL: u64 = 6_500_001;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "snake_case")]
@@ -90,6 +94,23 @@ pub struct Arc3ConsequenceObservation {
     pub admitted: bool,
     pub plasticity_updates: u64,
     pub modulatory_deliveries: u64,
+    pub physical_work: u64,
+    pub naturally_quiescent: bool,
+}
+
+#[cfg(feature = "core1")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Arc3DecisionOpenness {
+    #[default]
+    Closed,
+    Open,
+}
+
+#[cfg(feature = "core1")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Arc3DecisionCompletionObservation {
+    pub delivered: bool,
+    pub reactivation_eligible: bool,
     pub physical_work: u64,
     pub naturally_quiescent: bool,
 }
@@ -215,6 +236,12 @@ pub struct Arc3Sensorimotor {
     previous_context: Option<u16>,
     previous_motor: Option<u8>,
     sequence: u64,
+    #[cfg(feature = "core1")]
+    decision_openness: Arc3DecisionOpenness,
+    #[cfg(feature = "core1")]
+    decision_completion: Option<CellId>,
+    #[cfg(feature = "core1")]
+    decision_completion_context: Option<u16>,
 }
 
 impl Arc3Sensorimotor {
@@ -288,7 +315,143 @@ impl Arc3Sensorimotor {
             previous_context: None,
             previous_motor: None,
             sequence: 0,
+            #[cfg(feature = "core1")]
+            decision_openness: Arc3DecisionOpenness::Closed,
+            #[cfg(feature = "core1")]
+            decision_completion: None,
+            #[cfg(feature = "core1")]
+            decision_completion_context: None,
         })
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn install_decision_completion_junction(
+        &mut self,
+        context: u16,
+    ) -> Result<(), Arc3SensorimotorError> {
+        if self.decision_completion.is_some() {
+            return if self.decision_completion_context == Some(context) {
+                Ok(())
+            } else {
+                Err(Arc3SensorimotorError(
+                    "decision completion junction is already installed elsewhere".to_string(),
+                ))
+            };
+        }
+        let context_index = usize::from(context);
+        if context_index >= self.sites.candidate_sources.len() {
+            return Err(Arc3SensorimotorError(
+                "decision completion context is outside the body".to_string(),
+            ));
+        }
+        let receptor = self.boundary.add_experimental_cell(CellSpec {
+            physical_id: DECISION_COMPLETION_PHYSICAL,
+            position: i32::MIN / 2,
+            region: 0,
+            threshold: 1,
+            resistance: u32::MAX,
+        });
+        let sink = self.boundary.add_experimental_cell(CellSpec {
+            physical_id: DECISION_COMPLETION_SINK_PHYSICAL,
+            position: i32::MIN / 2 + 1,
+            region: 0,
+            threshold: 1,
+            resistance: u32::MAX,
+        });
+        self.boundary.add_arrow_with_trigger(
+            drive(receptor, sink, 0, 1, u32::MAX),
+            TransmissionTrigger::SourceFires,
+        );
+        self.decision_completion = Some(receptor);
+        self.decision_completion_context = Some(context);
+        Ok(())
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn open_decision_interaction(&mut self, context: u16) -> Result<(), Arc3SensorimotorError> {
+        self.install_decision_completion_junction(context)?;
+        self.decision_openness = Arc3DecisionOpenness::Open;
+        Ok(())
+    }
+
+    #[cfg(feature = "core1")]
+    pub const fn decision_openness(&self) -> Arc3DecisionOpenness {
+        self.decision_openness
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn return_decision_completion(
+        &mut self,
+    ) -> Result<Arc3DecisionCompletionObservation, Arc3SensorimotorError> {
+        let receptor = self.decision_completion.ok_or_else(|| {
+            Arc3SensorimotorError("decision completion junction is not installed".to_string())
+        })?;
+        let tick = self.boundary.substrate().clock().tick;
+        let completion = self.boundary.arrive(
+            &[SpikeInput {
+                arrival_tick: tick,
+                phase: 40,
+                origin_physical: EXTERNAL_PHYSICAL_BASE
+                    .saturating_add(self.sequence)
+                    .saturating_add(2_000),
+                target: receptor,
+                impulse: 1,
+            }],
+            OUTWARD_REGION,
+        )?;
+        let delivered = completion.work.physical_total() > 0;
+        let reactivation_eligible =
+            delivered && self.decision_openness == Arc3DecisionOpenness::Open;
+        let mut physical_work = completion.work.physical_total();
+        let mut naturally_quiescent = completion.naturally_quiescent;
+        if reactivation_eligible {
+            let context = self.decision_completion_context.ok_or_else(|| {
+                Arc3SensorimotorError("decision completion context is missing".to_string())
+            })?;
+            let context_index = usize::from(context);
+            let tick = self.boundary.substrate().clock().tick;
+            let origin = EXTERNAL_PHYSICAL_BASE
+                .saturating_add(self.sequence.saturating_mul(100))
+                .saturating_add(u64::from(context))
+                .saturating_add(3_000);
+            let mut inputs = Vec::with_capacity(MOTORS.saturating_mul(2));
+            for motor in 0..MOTORS {
+                inputs.push(SpikeInput {
+                    arrival_tick: tick,
+                    phase: i32::try_from(motor).unwrap_or(0),
+                    origin_physical: origin,
+                    target: self.sites.candidate_sources[context_index][motor],
+                    impulse: 1,
+                });
+                inputs.push(SpikeInput {
+                    arrival_tick: tick,
+                    phase: i32::try_from(motor).unwrap_or(0).saturating_add(8),
+                    origin_physical: origin.saturating_add(50),
+                    target: self.sites.context_traces[context_index][motor],
+                    impulse: 1,
+                });
+            }
+            let junction = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
+            physical_work = physical_work.saturating_add(junction.work.physical_total());
+            naturally_quiescent &= junction.naturally_quiescent;
+        }
+        Ok(Arc3DecisionCompletionObservation {
+            delivered,
+            reactivation_eligible,
+            physical_work,
+            naturally_quiescent,
+        })
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn admit_open_decision_consequence(
+        &mut self,
+    ) -> Result<Arc3ConsequenceObservation, Arc3SensorimotorError> {
+        let observation = self.admit_previous_consequence()?;
+        if observation.admitted {
+            self.decision_openness = Arc3DecisionOpenness::Closed;
+        }
+        Ok(observation)
     }
 
     pub fn observe(
@@ -517,8 +680,9 @@ impl Arc3Sensorimotor {
             SensorMode::DominantPalette => current_tick.saturating_add(1),
             SensorMode::SpatialFingerprint => current_tick,
         };
-        let history_contacts: Option<Vec<(CellId, u64, bool)>> =
-            if let Some(early_sign) = early_material_sign {
+        let history_contacts: Option<Vec<(CellId, u64, bool)>> = if let Some(early_sign) =
+            early_material_sign
+        {
             #[cfg(feature = "core0")]
             {
                 let action = babble_action.ok_or_else(|| {
@@ -538,9 +702,9 @@ impl Arc3Sensorimotor {
                     "transient history requires the core0 integration surface".to_string(),
                 ));
             }
-            } else {
-                None
-            };
+        } else {
+            None
+        };
         let mut inputs = Vec::with_capacity(
             available_motors
                 .len()

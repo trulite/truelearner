@@ -2079,6 +2079,11 @@ impl BoundaryRuntime {
         &self.substrate
     }
 
+    #[cfg(feature = "core1")]
+    pub fn add_experimental_cell(&mut self, spec: CellSpec) -> CellId {
+        self.substrate.add_cell(spec)
+    }
+
     pub fn add_arrow_with_trigger(
         &mut self,
         spec: ArrowSpec,
