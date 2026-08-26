@@ -1,0 +1,4 @@
+mechanics,context,source_fires,context_trace_fires,babbler_fires,pairs_before,pairs_after,paired_proposals,positive_pairs,negative_pairs,action,modulatory,updates,used_pending,credit_returns,physical_work,physical_tick,quiescent,trace_events,replay_exact,mechanics_exact
+reference,779,1,1,1,0,2,2,1,1,none,0,0,0,8,70,3,true,109,true,true
+replay,779,1,1,1,0,2,2,1,1,none,0,0,0,8,70,3,true,109,true,true
+production,779,1,1,1,0,2,2,1,1,none,0,0,0,8,70,3,true,109,true,true
