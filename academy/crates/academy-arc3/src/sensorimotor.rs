@@ -312,6 +312,12 @@ impl Arc3Sensorimotor {
         mechanics: MechanicalConfig,
     ) -> Result<Self, Arc3SensorimotorError> {
         let (boundary, sites) = build_body(seed, sensor_mode, context_count, mechanics)?;
+        #[cfg(feature = "core1")]
+        let boundary = {
+            let mut boundary = boundary;
+            boundary.configure_atomic_credit_return(sites.returning);
+            boundary
+        };
         Ok(Self {
             seed,
             sensor_mode,
@@ -331,7 +337,7 @@ impl Arc3Sensorimotor {
             #[cfg(feature = "core1")]
             physical_credit_return_enabled: false,
             #[cfg(feature = "core1")]
-            atomic_credit_return_enabled: false,
+            atomic_credit_return_enabled: true,
         })
     }
 
@@ -804,6 +810,8 @@ impl Arc3Sensorimotor {
             modulatory_deliveries =
                 modulatory_deliveries.saturating_add(result.work.modulatory_deliveries);
             naturally_quiescent &= result.naturally_quiescent;
+            #[cfg(feature = "core1")]
+            self.boundary.clear_temporary_credit_returns();
         }
 
         if settle_pressure && self.previous_frame.is_some() {
@@ -903,7 +911,16 @@ impl Arc3Sensorimotor {
             }
         }
 
-        let result = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
+        #[cfg(feature = "core1")]
+        if self.atomic_credit_return_enabled {
+            self.boundary.set_atomic_credit_return_capture(true);
+        }
+        let result = self.boundary.arrive(&inputs, OUTWARD_REGION);
+        #[cfg(feature = "core1")]
+        if self.atomic_credit_return_enabled {
+            self.boundary.set_atomic_credit_return_capture(false);
+        }
+        let result = result?;
         total_work = total_work.saturating_add(result.work.physical_total());
         plasticity_updates = plasticity_updates.saturating_add(result.work.local_return_updates);
         modulatory_deliveries =
@@ -1102,6 +1119,8 @@ impl Arc3Sensorimotor {
             }],
             OUTWARD_REGION,
         )?;
+        #[cfg(feature = "core1")]
+        self.boundary.clear_temporary_credit_returns();
         self.clear_episode();
         Ok(Arc3ConsequenceObservation {
             admitted: true,
