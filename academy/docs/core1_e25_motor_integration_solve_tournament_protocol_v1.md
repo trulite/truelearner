@@ -64,10 +64,11 @@ admission and before route participation:
 
 ```text
 opposing contact transmissions arrive
--> local positive subthreshold opportunity exists?
 -> group outgoing material by sign at their common local target
--> greater absolute material strength wins
--> exact strength tie resolves toward the target's positive threshold surface
+-> unequal absolute material strength wins directly
+-> on an exact tie, local positive subthreshold opportunity exists?
+-> if yes, tie resolves toward the target's positive threshold surface
+-> if no, neither tied alternative is admitted
 -> winning-sign arrivals participate and integrate normally
 -> losing-sign arrivals do not participate or integrate
 ```
@@ -75,9 +76,10 @@ opposing contact transmissions arrive
 The target threshold supplies only a local physical direction. The gate may
 not inspect an ARC action, context, useful action, babbler identity,
 consequence, reward, evaluator order, future input, or E22 state. Without
-already-present positive subthreshold activation, neither opposing group is
-admitted. A negative group stronger in physical material must win when an
-opportunity exists; lone-sign incidence remains unchanged.
+already-present positive subthreshold activation, exactly tied opposing groups
+are not admitted. A materially stronger group wins without an opportunity,
+which lets learned physical asymmetry act autonomously. A negative group
+stronger in physical material must win; lone-sign incidence remains unchanged.
 
 Because competition precedes participation, only admitted winning routes may
 receive participation increments or E22 return paths. Physical transmission
@@ -163,8 +165,8 @@ smaller sufficient candidate; composition earns no necessity claim.
   candidate-default behavior remain byte-identical.
 - G disabled preserves synchronous algebraic cancellation.
 - G with only one sign performs no suppression.
-- G with opposing signs but no already-present local opportunity admits
-  neither alternative.
+- G with exactly tied opposing signs but no already-present local opportunity
+  admits neither alternative.
 - G admits a physically stronger negative group, proving it does not encode
   the useful sign.
 - A G-suppressed arrow receives no participation increment and no E22 return.
