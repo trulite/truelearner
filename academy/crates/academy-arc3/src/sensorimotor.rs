@@ -456,6 +456,16 @@ impl Arc3Sensorimotor {
     }
 
     #[cfg(feature = "core1")]
+    pub fn enable_consolidation_reentry(&mut self) {
+        self.boundary.set_consolidation_reentry(true);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn consolidation_reentry_count(&self) -> usize {
+        self.boundary.consolidation_reentry_count()
+    }
+
+    #[cfg(feature = "core1")]
     pub fn last_action_physical_trace(&self) -> &[PhysicalTransition] {
         &self.last_action_physical_trace
     }

@@ -1346,6 +1346,12 @@ pub enum PhysicalEvent {
         target: CellId,
         activation: i64,
     },
+    #[cfg(feature = "core1")]
+    ConsolidationReentry {
+        arrow: ArrowId,
+        source: CellId,
+        contact: CellId,
+    },
     Deliver {
         mode: TransmissionMode,
         target: CellId,
@@ -1630,6 +1636,10 @@ pub struct PlasticSubstrate {
     integration_window_cells: Vec<bool>,
     #[cfg(feature = "core1")]
     integration_wave_open: bool,
+    #[cfg(feature = "core1")]
+    consolidation_reentry_enabled: bool,
+    #[cfg(feature = "core1")]
+    consolidation_reentry_arrows: Vec<bool>,
     #[cfg(feature = "core0")]
     core0_profile: Core0Profile,
     #[cfg(feature = "core0")]
@@ -2200,6 +2210,16 @@ impl BoundaryRuntime {
         self.substrate.set_integration_window(cell, enabled);
     }
 
+    #[cfg(feature = "core1")]
+    pub fn set_consolidation_reentry(&mut self, enabled: bool) {
+        self.substrate.set_consolidation_reentry(enabled);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn consolidation_reentry_count(&self) -> usize {
+        self.substrate.consolidation_reentry_count()
+    }
+
     /// Changes only the mechanical execution strategy beneath the boundary.
     /// Physical law and buffered activity are preserved exactly.
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
@@ -2429,6 +2449,10 @@ impl PlasticSubstrate {
             integration_window_cells: Vec::new(),
             #[cfg(feature = "core1")]
             integration_wave_open: false,
+            #[cfg(feature = "core1")]
+            consolidation_reentry_enabled: false,
+            #[cfg(feature = "core1")]
+            consolidation_reentry_arrows: Vec::new(),
             #[cfg(feature = "core0")]
             core0_profile: Core0Profile::A,
             #[cfg(feature = "core0")]
@@ -2591,6 +2615,25 @@ impl PlasticSubstrate {
     pub fn set_integration_window(&mut self, cell: CellId, enabled: bool) {
         self.require_cell(cell);
         self.integration_window_cells[cell.0 as usize] = enabled;
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_consolidation_reentry(&mut self, enabled: bool) {
+        self.consolidation_reentry_enabled = enabled;
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn consolidation_reentry_count(&self) -> usize {
+        self.consolidation_reentry_arrows
+            .iter()
+            .enumerate()
+            .filter(|(index, reentry)| {
+                **reentry
+                    && self
+                        .arrow_slot(ArrowId(u64::try_from(*index).unwrap_or(u64::MAX)))
+                        .is_some_and(|slot| self.arrows.get(slot.0).live)
+            })
+            .count()
     }
 
     #[cfg(feature = "core1")]
@@ -2791,6 +2834,93 @@ impl PlasticSubstrate {
                     admitted_sign: if admitted_sign == 2 { 0 } else { admitted_sign },
                 },
             });
+        }
+    }
+
+    #[cfg(feature = "core1")]
+    fn maybe_create_consolidation_reentry(
+        &mut self,
+        contact: CellId,
+        work: &mut Work,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
+        if !self.consolidation_reentry_enabled {
+            return;
+        }
+        let Some(contact_slot) = self.cell_slot(contact) else {
+            return;
+        };
+        let contact_cell = self.cells.get(contact_slot.0);
+        let arrows = self.arrows.values();
+        let complete_outgoing = arrows.iter().any(|arrow| {
+            arrow.live
+                && arrow.from == contact
+                && arrow.mode == TransmissionMode::Drive
+                && arrow.trigger == TransmissionTrigger::SourceFires
+                && arrow.participation_level > 0
+        });
+        if !complete_outgoing {
+            return;
+        }
+        let mut sources = arrows
+            .iter()
+            .filter_map(|stem| {
+                if !stem.live
+                    || stem.to != contact
+                    || stem.mode != TransmissionMode::Drive
+                    || stem.trigger != TransmissionTrigger::SourceFires
+                    || stem.participation_level == 0
+                {
+                    return None;
+                }
+                self.cell_slot(stem.from).and_then(|source_slot| {
+                    let source = self.cells.get(source_slot.0);
+                    (source.position == contact_cell.position).then_some(source.id)
+                })
+            })
+            .collect::<Vec<_>>();
+        sources.sort_unstable();
+        sources.dedup();
+        for source in sources {
+            let already_live = self
+                .consolidation_reentry_arrows
+                .iter()
+                .enumerate()
+                .filter(|(_, reentry)| **reentry)
+                .any(|(index, _)| {
+                    let id = ArrowId(u64::try_from(index).unwrap_or(u64::MAX));
+                    self.arrow_slot(id).is_some_and(|slot| {
+                        let arrow = self.arrows.get(slot.0);
+                        arrow.live && arrow.from == source && arrow.to == contact
+                    })
+                });
+            if already_live {
+                continue;
+            }
+            let id = self.add_arrow(ArrowSpec {
+                from: source,
+                to: contact,
+                delay: 1,
+                phase: 0,
+                coupling: 1,
+                resistance: u32::MAX,
+                mode: TransmissionMode::Drive,
+            });
+            self.consolidation_reentry_arrows[id.0 as usize] = true;
+            work.total = work.total.saturating_add(1);
+            work.local_structural_proposals = work.local_structural_proposals.saturating_add(1);
+            if self.trace_physics {
+                physical_trace.push(PhysicalTransition {
+                    tick: self.tick,
+                    phase,
+                    event: PhysicalEvent::ConsolidationReentry {
+                        arrow: id,
+                        source,
+                        contact,
+                    },
+                });
+            }
         }
     }
 
@@ -3036,6 +3166,10 @@ impl PlasticSubstrate {
                 self.temporary_credit_return_arrows.resize(required, false);
             }
             self.temporary_credit_return_arrows[id.0 as usize] = false;
+            if self.consolidation_reentry_arrows.len() < required {
+                self.consolidation_reentry_arrows.resize(required, false);
+            }
+            self.consolidation_reentry_arrows[id.0 as usize] = false;
         }
         let outgoing = &mut self.outgoing_index[spec.from.0 as usize];
         outgoing.push(id);
@@ -3407,6 +3541,10 @@ impl PlasticSubstrate {
         substrate
             .integration_window_cells
             .resize(substrate.cell_slots.len(), false);
+        #[cfg(feature = "core1")]
+        substrate
+            .consolidation_reentry_arrows
+            .resize(substrate.arrow_slots.len(), false);
         Ok(substrate)
     }
 
@@ -4463,6 +4601,8 @@ impl PlasticSubstrate {
         physical_trace: &mut Vec<PhysicalTransition>,
         causal_wave: u64,
     ) {
+        #[cfg(feature = "core1")]
+        let return_updates_before = work.local_return_updates;
         #[cfg(feature = "cc0")]
         {
             let slot = self
@@ -4680,6 +4820,10 @@ impl PlasticSubstrate {
                     });
                 }
             }
+        }
+        #[cfg(feature = "core1")]
+        if work.local_return_updates > return_updates_before {
+            self.maybe_create_consolidation_reentry(cell, work, phase, physical_trace);
         }
         #[cfg(feature = "core1")]
         let qlp_enabled = self.core0_profile.qlp_enabled();
@@ -6987,6 +7131,92 @@ mod tests {
         let restored_result = restored.propagate();
         let substrate_result = substrate.propagate();
         assert_physical_equivalence(&substrate, &substrate_result, &restored, &restored_result);
+    }
+
+    #[cfg(feature = "core1")]
+    #[test]
+    fn e26_consolidation_creates_one_local_reentry_only_for_a_complete_used_route() {
+        fn teach(enabled: bool) -> (PlasticSubstrate, CellId, CellId) {
+            let (mut body, feeder, target, positive, _) = e25_gate_body(-1);
+            body.set_signed_gating(target, true);
+            body.set_integration_window(target, true);
+            body.set_consolidation_reentry(enabled);
+            let action = body.arrive(&[input(feeder, 0), input(target, 1)], 1);
+            assert!(!action.crossings.is_empty());
+            assert_eq!(body.consolidation_reentry_count(), 0);
+            let contact = body.arrows.get(body.arrow_slot(positive).unwrap().0).from;
+            let returning = body
+                .temporary_credit_return_arrows
+                .iter()
+                .enumerate()
+                .find(|(_, temporary)| **temporary)
+                .and_then(|(index, _)| body.arrow_slot(ArrowId(index as u64)))
+                .map(|slot| body.arrows.get(slot.0).from)
+                .expect("used route must leave one return source");
+            (body, returning, contact)
+        }
+
+        let (mut disabled, returning, _) = teach(false);
+        let disabled_tick = disabled.tick;
+        let disabled_result = disabled.arrive(&[input(returning, disabled_tick)], 1);
+        assert!(disabled_result.work.local_return_updates > 0);
+        assert_eq!(disabled.consolidation_reentry_count(), 0);
+
+        let (mut enabled, returning, contact) = teach(true);
+        let enabled_tick = enabled.tick;
+        let consequence = enabled.arrive(&[input(returning, enabled_tick)], 1);
+        assert!(consequence.work.local_return_updates > 0);
+        assert_eq!(enabled.consolidation_reentry_count(), 1);
+        let reentry = enabled
+            .consolidation_reentry_arrows
+            .iter()
+            .enumerate()
+            .find(|(_, reentry)| **reentry)
+            .and_then(|(index, _)| enabled.arrow_slot(ArrowId(index as u64)))
+            .map(|slot| enabled.arrows.get(slot.0))
+            .expect("consolidation must leave a physical re-entry edge");
+        assert_eq!(reentry.to, contact);
+        assert_eq!(reentry.mode, TransmissionMode::Drive);
+        assert_eq!(reentry.trigger, TransmissionTrigger::SourceFires);
+        assert_eq!(reentry.resistance, u32::MAX);
+        let source = enabled
+            .cells
+            .get(enabled.cell_slot(reentry.from).unwrap().0);
+        let contact_cell = enabled.cells.get(enabled.cell_slot(contact).unwrap().0);
+        assert_eq!(source.position, contact_cell.position);
+        assert!(consequence.physical_trace.iter().any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::ConsolidationReentry {
+                arrow,
+                source: event_source,
+                contact: event_contact,
+            } if arrow == reentry.id && event_source == reentry.from && event_contact == contact
+        )));
+
+        let repeat_tick = enabled.tick.saturating_add(1);
+        let repeat = enabled.arrive(&[input(returning, repeat_tick)], 1);
+        assert!(repeat.work.local_return_updates > 0);
+        assert_eq!(enabled.consolidation_reentry_count(), 1);
+
+        let (mut incomplete, _, target, _, _) = e25_gate_body(-1);
+        incomplete.set_signed_gating(target, true);
+        incomplete.set_consolidation_reentry(true);
+        let mut ignored_work = Work::default();
+        let mut ignored_trace = Vec::new();
+        let contact = incomplete
+            .arrows
+            .values()
+            .iter()
+            .find(|arrow| incomplete.signed_gate_route(arrow))
+            .map(|arrow| arrow.from)
+            .expect("test subdivision contact");
+        incomplete.maybe_create_consolidation_reentry(
+            contact,
+            &mut ignored_work,
+            0,
+            &mut ignored_trace,
+        );
+        assert_eq!(incomplete.consolidation_reentry_count(), 0);
     }
 
     #[cfg(feature = "core1")]
