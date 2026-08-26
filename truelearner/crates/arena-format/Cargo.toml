@@ -6,4 +6,5 @@ publish = false
 description = "Canonical durable arena representation for TrueLearner"
 
 [dependencies]
+serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"

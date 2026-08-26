@@ -17,7 +17,6 @@ pub use sensorimotor::{
     Arc3A1Suite, Arc3A1Turn, Arc3AgentCommand, Arc3AgentResponse, Arc3Sensorimotor,
     Arc3SensorimotorError, Arc3SensorimotorObservation, Arc3SensorimotorSnapshot,
 };
-#[cfg(feature = "core0")]
 pub use sensorimotor::{
     Arc3CandidateLinkDiagnostic, Arc3ConsequenceObservation, Arc3ContextDiagnostic,
 };

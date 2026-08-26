@@ -1,13 +1,12 @@
 use crate::{AcademyError, CrossingRecord, PhysicalInput, SpikeRecord, VisualSurface};
 use serde::{Deserialize, Serialize};
 use truelearner_core::{
-    ArenaId, ArrowId, ArrowSpec, BoundaryLiveCheckpoint, BoundaryRuntime, CellId, CellSpec,
-    ContentHash, MechanicalConfig, ResidentArenaId, SpikeInput, TransmissionMode, Work,
+    ArenaId, Checkpoint as BoundaryLiveCheckpoint, ContentHash, Core as BoundaryRuntime,
+    Input as SpikeInput, Junction as CellSpec, JunctionId as CellId, Link as ArrowSpec,
+    LinkId as ArrowId, TransmissionMode, Work,
 };
 
 const OUTWARD_REGION: i16 = 1;
-const INPUT_CAPACITY: usize = 128;
-const OUTPUT_CAPACITY: usize = 128;
 const SCAFFOLD_RESISTANCE: u32 = 100;
 const CANDIDATE_RESISTANCE: u32 = 1;
 const TEACHING_HORIZON: i64 = 50;
@@ -167,7 +166,6 @@ struct Sites {
 pub struct GenuineTeachingLab {
     case: TeachingCase,
     boundary: BoundaryRuntime,
-    placements: Vec<ResidentArenaId>,
     sites: Sites,
     sequence: u64,
     experiences: Vec<A1Experience>,
@@ -179,11 +177,10 @@ impl GenuineTeachingLab {
             case.ports_are_distinct(),
             "generated physical ports must be distinct"
         );
-        let (boundary, placements, sites) = build_world(&case)?;
+        let (boundary, sites) = build_world(&case)?;
         Ok(Self {
             case,
             boundary,
-            placements,
             sites,
             sequence: 0,
             experiences: Vec::new(),
@@ -199,19 +196,19 @@ impl GenuineTeachingLab {
     }
 
     pub fn snapshot(&self) -> Result<A1LabSnapshot, AcademyError> {
-        let body = self.boundary.substrate().canonical_body_bytes(0)?;
+        let body = self.boundary.body().canonical_body_bytes(0)?;
         Ok(A1LabSnapshot {
             body_fingerprint: body_fingerprint(&self.boundary)?,
-            physical_tick: self.boundary.substrate().clock().tick,
-            pressure_phase: self.boundary.substrate().clock().pressure_phase(),
-            resident_arenas: self.boundary.substrate().resident_arena_count(),
+            physical_tick: self.boundary.body().clock().tick,
+            pressure_phase: self.boundary.body().clock().pressure_phase(),
+            resident_arenas: 1,
             durable_bytes: body.len(),
             experience_count: self.sequence,
         })
     }
 
     pub fn teach_supported(&mut self) -> Result<A1Experience, AcademyError> {
-        let start = self.boundary.substrate().clock().tick;
+        let start = self.boundary.body().clock().tick;
         let a = self.sites.sources[physical_port(&self.case.left)];
         let b = self.sites.sources[physical_port(&self.case.right)];
         let inputs = vec![
@@ -233,7 +230,7 @@ impl GenuineTeachingLab {
     }
 
     pub fn teach_unsupported(&mut self) -> Result<A1Experience, AcademyError> {
-        let start = self.boundary.substrate().clock().tick;
+        let start = self.boundary.body().clock().tick;
         let a = self.sites.sources[physical_port(&self.case.left)];
         let b = self.sites.sources[physical_port(&self.case.right)];
         let inputs = vec![
@@ -250,7 +247,7 @@ impl GenuineTeachingLab {
     }
 
     pub fn probe(&mut self, family: A1ProbeFamily) -> Result<A1Experience, AcademyError> {
-        let tick = self.boundary.substrate().clock().tick.saturating_add(1);
+        let tick = self.boundary.body().clock().tick.saturating_add(1);
         let a = self.sites.sources[physical_port(&self.case.left)];
         let b = self.sites.sources[physical_port(&self.case.right)];
         let c = self.sites.sources[physical_port(&self.case.distractor)];
@@ -287,9 +284,7 @@ impl GenuineTeachingLab {
             .find(|experience| experience.id == experience_id)
             .ok_or(AcademyError::NoReplay)?;
         let checkpoint = BoundaryLiveCheckpoint::decode(&experience.checkpoint_before)?;
-        let mut boundary = BoundaryRuntime::from_live_checkpoint(checkpoint)?;
-        boundary.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
-        boundary.repartition_resident(&self.placements);
+        let mut boundary = BoundaryRuntime::restore(checkpoint)?;
         let inputs = experience
             .admitted_inputs
             .iter()
@@ -297,14 +292,13 @@ impl GenuineTeachingLab {
             .map(SpikeInput::from)
             .collect::<Vec<_>>();
         let result = boundary.arrive(&inputs, OUTWARD_REGION)?;
-        let pressure_work = if experience.observation.clock_end > boundary.substrate().clock().tick
-        {
+        let pressure_work = if experience.observation.clock_end > boundary.body().clock().tick {
             boundary.advance_time(experience.observation.clock_end)
         } else {
             Work::default()
         };
         let crossings = result
-            .crossings
+            .outputs
             .iter()
             .copied()
             .map(CrossingRecord::from)
@@ -312,7 +306,7 @@ impl GenuineTeachingLab {
         let body = body_fingerprint(&boundary)?;
         let crossings_exact = crossings == experience.crossings;
         let body_exact = body == experience.observation.body_after;
-        let clock_exact = boundary.substrate().clock().tick == experience.observation.clock_end;
+        let clock_exact = boundary.body().clock().tick == experience.observation.clock_end;
         let observed_work = result.work.total().saturating_add(pressure_work.total());
         let work_exact = observed_work == experience.observation.physical_work;
         let quiescence_exact =
@@ -334,14 +328,11 @@ impl GenuineTeachingLab {
         inputs: Vec<SpikeInput>,
         horizon: i64,
     ) -> Result<A1Experience, AcademyError> {
-        let clock_start = self.boundary.substrate().clock().tick;
+        let clock_start = self.boundary.body().clock().tick;
         let body_before = body_fingerprint(&self.boundary)?;
-        let checkpoint_before = self
-            .boundary
-            .live_checkpoint(self.sequence)?
-            .canonical_bytes()?;
+        let checkpoint_before = self.boundary.save(self.sequence)?.canonical_bytes()?;
         let result = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
-        let pressure_work = if horizon > self.boundary.substrate().clock().tick {
+        let pressure_work = if horizon > self.boundary.body().clock().tick {
             self.boundary.advance_time(horizon)
         } else {
             Work::default()
@@ -349,26 +340,26 @@ impl GenuineTeachingLab {
         let body_after = body_fingerprint(&self.boundary)?;
         let checkpoint_after = self
             .boundary
-            .live_checkpoint(self.sequence.saturating_add(1))?
+            .save(self.sequence.saturating_add(1))?
             .canonical_bytes()?;
         let crossings = result
-            .crossings
+            .outputs
             .iter()
             .copied()
             .map(CrossingRecord::from)
             .collect::<Vec<_>>();
         let outward_relation_crossings = result
-            .crossings
+            .outputs
             .iter()
             .filter(|crossing| crossing.from_physical == self.sites.outward_from[0])
             .count();
         let outward_distractor_crossings = result
-            .crossings
+            .outputs
             .iter()
             .filter(|crossing| crossing.from_physical == self.sites.outward_from[1])
             .count();
         let (candidate_resistance, candidate_live) =
-            candidate_state(self.boundary.substrate(), self.sites.candidates[0]);
+            candidate_state(self.boundary.body(), self.sites.candidates[0]);
         let physical_work = result.work.total().saturating_add(pressure_work.total());
         let observation = A1WorldObservation {
             kind,
@@ -381,7 +372,7 @@ impl GenuineTeachingLab {
             body_before,
             body_after,
             clock_start,
-            clock_end: self.boundary.substrate().clock().tick,
+            clock_end: self.boundary.body().clock().tick,
             candidate_resistance,
             candidate_live,
         };
@@ -411,15 +402,8 @@ impl GenuineTeachingLab {
     }
 }
 
-fn build_world(
-    case: &TeachingCase,
-) -> Result<(BoundaryRuntime, Vec<ResidentArenaId>, Sites), AcademyError> {
-    let mut space = truelearner_core::PlasticSubstrate::with_mechanics(
-        ArenaId(case.seed),
-        64,
-        128,
-        MechanicalConfig::PRODUCTION,
-    );
+fn build_world(case: &TeachingCase) -> Result<(BoundaryRuntime, Sites), AcademyError> {
+    let mut space = truelearner_core::Body::with_capacity(ArenaId(case.seed), 64, 128);
     space.set_physical_tracing(true);
     let namespace = case.seed.wrapping_mul(10_000).wrapping_add(1_000_000);
     let order = if case.reverse_allocation {
@@ -430,13 +414,13 @@ fn build_world(
     let mut sources = [None; 4];
     let mut traces = [None; 4];
     for port in order {
-        sources[port] = Some(space.add_cell(cell(
+        sources[port] = Some(space.add_junction(cell(
             namespace + 100 + port as u64,
             position(case, 100 + port as i32 * 10),
             0,
             1,
         )));
-        traces[port] = Some(space.add_cell(cell(
+        traces[port] = Some(space.add_junction(cell(
             namespace + 200 + port as u64,
             position(case, 500 + port as i32 * 10),
             0,
@@ -457,37 +441,37 @@ fn build_world(
         [0, 1]
     };
     for pair in pair_order {
-        coincidence[pair] = Some(space.add_cell(cell(
+        coincidence[pair] = Some(space.add_junction(cell(
             namespace + 300 + pair as u64,
             position(case, 700 + pair as i32 * 10),
             0,
             2,
         )));
-        inner[pair] = Some(space.add_cell(cell(
+        inner[pair] = Some(space.add_junction(cell(
             namespace + 400 + pair as u64,
             position(case, 900 + pair as i32 * 10),
             0,
             1,
         )));
-        downstream[pair] = Some(space.add_cell(cell(
+        downstream[pair] = Some(space.add_junction(cell(
             namespace + 500 + pair as u64,
             position(case, 1_100 + pair as i32 * 10),
             0,
             2,
         )));
-        downstream_trace[pair] = Some(space.add_cell(cell(
+        downstream_trace[pair] = Some(space.add_junction(cell(
             namespace + 600 + pair as u64,
             position(case, 1_300 + pair as i32 * 10),
             0,
             1,
         )));
-        relay[pair] = Some(space.add_cell(cell(
+        relay[pair] = Some(space.add_junction(cell(
             namespace + 700 + pair as u64,
             position(case, 1_500 + pair as i32 * 10),
             0,
             2,
         )));
-        outward[pair] = Some(space.add_cell(cell(
+        outward[pair] = Some(space.add_junction(cell(
             namespace + 800 + pair as u64,
             position(case, 1_700 + pair as i32 * 10),
             OUTWARD_REGION,
@@ -500,9 +484,9 @@ fn build_world(
     let downstream_trace = downstream_trace.map(Option::unwrap);
     let relay = relay.map(Option::unwrap);
     let outward = outward.map(Option::unwrap);
-    let returning = space.add_cell(cell(namespace + 900, position(case, 1_900), 0, 1));
+    let returning = space.add_junction(cell(namespace + 900, position(case, 1_900), 0, 1));
     for port in order {
-        space.add_arrow(drive(
+        space.add_link(drive(
             sources[port],
             traces[port],
             1,
@@ -510,49 +494,49 @@ fn build_world(
             SCAFFOLD_RESISTANCE,
         ));
     }
-    space.add_arrow(drive(traces[0], coincidence[0], 0, 1, SCAFFOLD_RESISTANCE));
-    space.add_arrow(drive(traces[1], coincidence[0], 0, 1, SCAFFOLD_RESISTANCE));
-    space.add_arrow(drive(traces[0], coincidence[1], 0, 1, SCAFFOLD_RESISTANCE));
-    space.add_arrow(drive(traces[2], coincidence[1], 0, 1, SCAFFOLD_RESISTANCE));
+    space.add_link(drive(traces[0], coincidence[0], 0, 1, SCAFFOLD_RESISTANCE));
+    space.add_link(drive(traces[1], coincidence[0], 0, 1, SCAFFOLD_RESISTANCE));
+    space.add_link(drive(traces[0], coincidence[1], 0, 1, SCAFFOLD_RESISTANCE));
+    space.add_link(drive(traces[2], coincidence[1], 0, 1, SCAFFOLD_RESISTANCE));
     let mut candidates = [None; 2];
     for pair in pair_order {
-        space.add_arrow(drive(
+        space.add_link(drive(
             coincidence[pair],
             inner[pair],
             0,
             1,
             SCAFFOLD_RESISTANCE,
         ));
-        candidates[pair] = Some(space.add_arrow(drive(
+        candidates[pair] = Some(space.add_link(drive(
             inner[pair],
             downstream[pair],
             1,
             1,
             CANDIDATE_RESISTANCE,
         )));
-        space.add_arrow(drive(
+        space.add_link(drive(
             downstream[pair],
             downstream_trace[pair],
             1,
             1,
             SCAFFOLD_RESISTANCE,
         ));
-        space.add_arrow(drive(
+        space.add_link(drive(
             downstream_trace[pair],
             relay[pair],
             0,
             1,
             SCAFFOLD_RESISTANCE,
         ));
-        space.add_arrow(drive(returning, relay[pair], 0, 1, SCAFFOLD_RESISTANCE));
-        space.add_arrow(modulatory(
+        space.add_link(drive(returning, relay[pair], 0, 1, SCAFFOLD_RESISTANCE));
+        space.add_link(modulatory(
             relay[pair],
             inner[pair],
             1,
             1,
             SCAFFOLD_RESISTANCE,
         ));
-        space.add_arrow(drive(
+        space.add_link(drive(
             downstream[pair],
             outward[pair],
             1,
@@ -561,10 +545,6 @@ fn build_world(
         ));
     }
     let candidates = candidates.map(Option::unwrap);
-    let placements = (0..space.arena_body(0).cells.len())
-        .map(|index| ResidentArenaId(u32::try_from((index + case.seed as usize) % 4).unwrap_or(0)))
-        .collect::<Vec<_>>();
-    space.repartition_resident(&placements);
     let sites = Sites {
         sources,
         downstream,
@@ -573,11 +553,7 @@ fn build_world(
         candidates,
         outward_from: [namespace + 500, namespace + 501],
     };
-    Ok((
-        BoundaryRuntime::new(space, OUTWARD_REGION, INPUT_CAPACITY, OUTPUT_CAPACITY)?,
-        placements,
-        sites,
-    ))
+    Ok((BoundaryRuntime::new(space, OUTWARD_REGION), sites))
 }
 
 fn cell(physical_id: u64, position: i32, region: i16, threshold: i32) -> CellSpec {
@@ -624,7 +600,7 @@ fn external(target: CellId, tick: i64, phase: i32, origin: u64) -> SpikeInput {
     }
 }
 
-fn candidate_state(space: &truelearner_core::PlasticSubstrate, arrow: ArrowId) -> (u32, bool) {
+fn candidate_state(space: &truelearner_core::Body, arrow: ArrowId) -> (u32, bool) {
     space
         .arena_body(0)
         .arrows
@@ -636,7 +612,7 @@ fn candidate_state(space: &truelearner_core::PlasticSubstrate, arrow: ArrowId) -
 }
 
 fn body_fingerprint(boundary: &BoundaryRuntime) -> Result<String, AcademyError> {
-    let bytes = boundary.substrate().canonical_body_bytes(0)?;
+    let bytes = boundary.body().canonical_body_bytes(0)?;
     Ok(ContentHash::of(&bytes)
         .as_bytes()
         .iter()

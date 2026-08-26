@@ -1,11 +1,11 @@
 # Language
 
-Use small words for CORE1 behavior.
+Use small words for core behavior.
 
 ## Nouns
 
 ```text
-input · cell · link · path · output · outcome · strength
+input · junction · link · path · output · outcome · strength
 ```
 
 ## Verbs
@@ -18,8 +18,9 @@ fire · form · choose · hold · return · strengthen · reuse
 
 ```text
 input fires
-→ links form a path
-→ one path is chosen
+→ links meet at a junction
+→ links form paths
+→ the junction chooses one path
 → output fires
 → outcome returns along the used path
 → used links strengthen

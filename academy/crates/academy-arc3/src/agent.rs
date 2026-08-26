@@ -2,7 +2,6 @@
 
 use academy_arc3::{Arc3AgentCommand, Arc3AgentResponse, Arc3Sensorimotor};
 use std::io::{self, BufRead, Write};
-use truelearner_core::MechanicalConfig;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arguments = std::env::args().collect::<Vec<_>>();
@@ -12,13 +11,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .transpose()?
         .unwrap_or(205);
     let spatial = arguments.get(2).map(String::as_str) == Some("spatial");
-    let mechanics = match arguments.get(3).map(String::as_str) {
-        None | Some("production") => MechanicalConfig::PRODUCTION,
-        Some("reference") => MechanicalConfig::REFERENCE,
-        Some(other) => return Err(format!("unsupported mechanics {other:?}").into()),
-    };
+    if let Some(argument) = arguments.get(3) {
+        return Err(format!("unexpected argument {argument:?}").into());
+    }
     let mut organism = if spatial {
-        Arc3Sensorimotor::new_spatial_with_mechanics(seed, mechanics)?
+        Arc3Sensorimotor::new_spatial(seed)?
     } else {
         Arc3Sensorimotor::new(seed)?
     };

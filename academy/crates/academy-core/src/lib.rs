@@ -13,8 +13,9 @@ use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::thread::{self, JoinHandle};
 use truelearner_arena_format::FormatError;
 use truelearner_core::{
-    ArenaId, ArrowSpec, BoundaryError, BoundaryLiveCheckpoint, BoundaryRuntime, CellId, CellSpec,
-    ContentHash, Crossing, MechanicalConfig, ResidentArenaId, SpikeInput, TransmissionMode,
+    ArenaId, Checkpoint as BoundaryLiveCheckpoint, ContentHash, Core as BoundaryRuntime,
+    CoreError as BoundaryError, Input as SpikeInput, Junction as CellSpec, JunctionId as CellId,
+    Link as ArrowSpec, Output as Crossing, TransmissionMode,
 };
 
 mod a1;
@@ -34,8 +35,6 @@ const SENSOR_PHYSICAL_BASE: u64 = 10_000;
 const MOTOR_PHYSICAL_BASE: u64 = 20_000;
 const OUTPUT_PHYSICAL_BASE: u64 = 30_000;
 const OUTWARD_REGION: i16 = 1;
-const INPUT_CAPACITY: usize = 4096;
-const OUTPUT_CAPACITY: usize = 4096;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VisualSurface {
@@ -728,7 +727,6 @@ struct ReplayCase {
 pub struct AcademySession {
     boundary: BoundaryRuntime,
     sensors: Vec<CellId>,
-    placements: Vec<ResidentArenaId>,
     capabilities: CapabilityGraph,
     timeline: VecDeque<ExperienceRecord>,
     a1_timeline: VecDeque<A1Experience>,
@@ -748,11 +746,10 @@ pub struct AcademySession {
 
 impl AcademySession {
     pub fn starter() -> Result<Self, AcademyError> {
-        let (boundary, sensors, placements) = starter_body()?;
+        let (boundary, sensors) = starter_body()?;
         Ok(Self {
             boundary,
             sensors,
-            placements,
             capabilities: CapabilityGraph::default(),
             timeline: VecDeque::with_capacity(256),
             a1_timeline: VecDeque::with_capacity(64),
@@ -775,12 +772,9 @@ impl AcademySession {
         &mut self,
         request: InteractionRequest,
     ) -> Result<(ExperienceRecord, VisualSurface), AcademyError> {
-        let clock_start = self.boundary.substrate().clock().tick;
+        let clock_start = self.boundary.body().clock().tick;
         let body_before = self.body_fingerprint()?;
-        let checkpoint = self
-            .boundary
-            .live_checkpoint(self.body_version)?
-            .canonical_bytes()?;
+        let checkpoint = self.boundary.save(self.body_version)?.canonical_bytes()?;
         let spikes = self.physical_inputs(&request.input, clock_start.saturating_add(1));
         if spikes.is_empty() {
             return Err(AcademyError::EmptyPhysicalInput);
@@ -794,12 +788,12 @@ impl AcademySession {
         };
         let result = self.boundary.arrive(&spikes, OUTWARD_REGION)?;
         let crossings = result
-            .crossings
+            .outputs
             .iter()
             .copied()
             .map(CrossingRecord::from)
             .collect::<Vec<_>>();
-        let organism_text = decode_crossings(&result.crossings);
+        let organism_text = decode_crossings(&result.outputs);
         let body_after = self.body_fingerprint()?;
         if body_after != body_before {
             self.body_version = self.body_version.saturating_add(1);
@@ -820,21 +814,21 @@ impl AcademySession {
             body_before,
             body_after: body_after.clone(),
             clock_start,
-            clock_end: self.boundary.substrate().clock().tick,
+            clock_end: self.boundary.body().clock().tick,
             physical_work: result.work.total(),
             drive_deliveries: result.work.drive_deliveries,
             modulatory_deliveries: result.work.modulatory_deliveries,
             plasticity_updates: result.work.local_return_updates,
             proposals: result.work.local_structural_proposals,
             deallocations: result.work.physical_deallocations,
-            resident_bytes: result.resident_bytes,
+            resident_bytes: result.memory_bytes,
             naturally_quiescent: result.naturally_quiescent,
         };
         self.crossing_total = self
             .crossing_total
-            .saturating_add(result.crossings.len() as u64);
+            .saturating_add(result.outputs.len() as u64);
         self.work_total = self.work_total.saturating_add(result.work.total());
-        self.last_run_bytes = result.resident_bytes;
+        self.last_run_bytes = result.memory_bytes;
         self.last_run_work = result.work.total();
         self.last_active_arena_max = result.execution_cost.active_arena_max;
         self.experience_sequence = self.experience_sequence.saturating_add(1);
@@ -851,16 +845,12 @@ impl AcademySession {
             work: record.physical_work,
         });
         self.replay_exact = None;
-        let raster = rasterize_crossings(&result.crossings);
+        let raster = rasterize_crossings(&result.outputs);
         Ok((record, raster))
     }
 
     pub fn save_checkpoint(&mut self) -> Result<u64, AcademyError> {
-        self.saved_checkpoint = Some(
-            self.boundary
-                .live_checkpoint(self.body_version)?
-                .canonical_bytes()?,
-        );
+        self.saved_checkpoint = Some(self.boundary.save(self.body_version)?.canonical_bytes()?);
         Ok(self.body_version)
     }
 
@@ -970,7 +960,7 @@ impl AcademySession {
             .saved_checkpoint
             .clone()
             .ok_or(AcademyError::NoCheckpoint)?;
-        self.boundary = restore_boundary(&bytes, &self.placements)?;
+        self.boundary = restore_boundary(&bytes)?;
         self.body_version = self.body_version.saturating_add(1);
         self.replay_exact = None;
         Ok(self.body_version)
@@ -978,11 +968,11 @@ impl AcademySession {
 
     pub fn replay_last(&mut self) -> Result<ReplayOutcome, AcademyError> {
         let replay = self.last_replay.as_ref().ok_or(AcademyError::NoReplay)?;
-        let mut boundary = restore_boundary(&replay.checkpoint, &self.placements)?;
+        let mut boundary = restore_boundary(&replay.checkpoint)?;
         let result = boundary.arrive(&replay.spikes, OUTWARD_REGION)?;
         let observed_body = fingerprint_body(&boundary, self.body_version)?;
         let observed_crossings = result
-            .crossings
+            .outputs
             .iter()
             .copied()
             .map(CrossingRecord::from)
@@ -990,12 +980,12 @@ impl AcademySession {
         let outcome = ReplayOutcome {
             exact: observed_crossings == replay.crossings
                 && observed_body == replay.body_after
-                && boundary.substrate().clock().tick == replay.clock_end
+                && boundary.body().clock().tick == replay.clock_end
                 && result.work.total() == replay.work,
             expected_body: replay.body_after.clone(),
             observed_body,
             expected_clock: replay.clock_end,
-            observed_clock: boundary.substrate().clock().tick,
+            observed_clock: boundary.body().clock().tick,
             expected_work: replay.work,
             observed_work: result.work.total(),
         };
@@ -1004,7 +994,7 @@ impl AcademySession {
     }
 
     pub fn snapshot(&self) -> Result<SessionSnapshot, AcademyError> {
-        let body_bytes = self.boundary.substrate().canonical_body_bytes(0)?;
+        let body_bytes = self.boundary.body().canonical_body_bytes(0)?;
         let lab = self
             .a1_lab
             .as_ref()
@@ -1019,21 +1009,15 @@ impl AcademySession {
                 ),
                 physical_tick: lab
                     .as_ref()
-                    .map_or(self.boundary.substrate().clock().tick, |lab| {
-                        lab.physical_tick
-                    }),
+                    .map_or(self.boundary.body().clock().tick, |lab| lab.physical_tick),
                 pressure_phase: lab
                     .as_ref()
-                    .map_or(self.boundary.substrate().clock().pressure_phase(), |lab| {
+                    .map_or(self.boundary.body().clock().pressure_phase(), |lab| {
                         lab.pressure_phase
                     }),
-                pending_inputs: self.boundary.input_len(),
-                pending_outputs: self.boundary.output_len(),
-                resident_arenas: lab
-                    .as_ref()
-                    .map_or(self.boundary.substrate().resident_arena_count(), |lab| {
-                        lab.resident_arenas
-                    }),
+                pending_inputs: 0,
+                pending_outputs: 0,
+                resident_arenas: lab.as_ref().map_or(1, |lab| lab.resident_arenas),
                 active_arena_max: self.last_active_arena_max,
                 crossing_total: self.crossing_total,
                 physical_work_total: self.work_total,
@@ -1353,38 +1337,33 @@ impl From<FormatError> for AcademyError {
     }
 }
 
-fn starter_body() -> Result<(BoundaryRuntime, Vec<CellId>, Vec<ResidentArenaId>), AcademyError> {
-    let mut substrate = truelearner_core::PlasticSubstrate::with_mechanics(
-        ArenaId(0),
-        1024,
-        4096,
-        MechanicalConfig::PRODUCTION,
-    );
+fn starter_body() -> Result<(BoundaryRuntime, Vec<CellId>), AcademyError> {
+    let mut substrate = truelearner_core::Body::with_capacity(ArenaId(0), 1024, 4096);
     let mut sensors = Vec::with_capacity(GLYPH_COUNT);
     for index in 0..GLYPH_COUNT {
         let position = i32::try_from(index).unwrap_or(i32::MAX).saturating_mul(6);
-        let sensor = substrate.add_cell(CellSpec {
+        let sensor = substrate.add_junction(CellSpec {
             physical_id: SENSOR_PHYSICAL_BASE.saturating_add(index as u64),
             position,
             region: 0,
             threshold: 1,
             resistance: 64,
         });
-        let motor = substrate.add_cell(CellSpec {
+        let motor = substrate.add_junction(CellSpec {
             physical_id: MOTOR_PHYSICAL_BASE.saturating_add(index as u64),
             position: position.saturating_add(1),
             region: 0,
             threshold: 1,
             resistance: 64,
         });
-        let output = substrate.add_cell(CellSpec {
+        let output = substrate.add_junction(CellSpec {
             physical_id: OUTPUT_PHYSICAL_BASE.saturating_add(index as u64),
             position: position.saturating_add(2),
             region: OUTWARD_REGION,
             threshold: 1,
             resistance: 64,
         });
-        substrate.add_arrow(ArrowSpec {
+        substrate.add_link(ArrowSpec {
             from: motor,
             to: output,
             delay: 1,
@@ -1393,7 +1372,7 @@ fn starter_body() -> Result<(BoundaryRuntime, Vec<CellId>, Vec<ResidentArenaId>)
             resistance: 64,
             mode: TransmissionMode::Drive,
         });
-        substrate.add_arrow(ArrowSpec {
+        substrate.add_link(ArrowSpec {
             from: output,
             to: sensor,
             delay: 1,
@@ -1404,30 +1383,19 @@ fn starter_body() -> Result<(BoundaryRuntime, Vec<CellId>, Vec<ResidentArenaId>)
         });
         sensors.push(sensor);
     }
-    let placements = (0..GLYPH_COUNT.saturating_mul(3))
-        .map(|index| ResidentArenaId(u32::try_from(index % 8).unwrap_or(0)))
-        .collect::<Vec<_>>();
-    substrate.repartition_resident(&placements);
-    let boundary =
-        BoundaryRuntime::new(substrate, OUTWARD_REGION, INPUT_CAPACITY, OUTPUT_CAPACITY)?;
-    Ok((boundary, sensors, placements))
+    let boundary = BoundaryRuntime::new(substrate, OUTWARD_REGION);
+    Ok((boundary, sensors))
 }
 
-fn restore_boundary(
-    bytes: &[u8],
-    placements: &[ResidentArenaId],
-) -> Result<BoundaryRuntime, AcademyError> {
+fn restore_boundary(bytes: &[u8]) -> Result<BoundaryRuntime, AcademyError> {
     let checkpoint = BoundaryLiveCheckpoint::decode(bytes)?;
-    let mut boundary = BoundaryRuntime::from_live_checkpoint(checkpoint)?;
-    boundary.reconfigure_mechanics(MechanicalConfig::PRODUCTION);
-    boundary.repartition_resident(placements);
-    Ok(boundary)
+    Ok(BoundaryRuntime::restore(checkpoint)?)
 }
 
 fn fingerprint_body(boundary: &BoundaryRuntime, _version: u64) -> Result<String, AcademyError> {
     // Academy lineage labels are not physical state. Differential replay uses
     // a neutral durable version so only the organism body is compared.
-    let bytes = boundary.substrate().canonical_body_bytes(0)?;
+    let bytes = boundary.body().canonical_body_bytes(0)?;
     Ok(short_hash(ContentHash::of(&bytes).as_bytes()))
 }
 
@@ -1607,16 +1575,12 @@ mod tests {
     }
 
     #[test]
-    fn checkpoint_restores_and_keeps_production_mechanics() {
+    fn checkpoint_restores_the_body() {
         let mut session = AcademySession::starter().unwrap();
         let saved = session.save_checkpoint().unwrap();
         let restored = session.restore_checkpoint().unwrap();
         assert!(restored > saved);
-        assert_eq!(
-            session.boundary.substrate().mechanical_config(),
-            MechanicalConfig::PRODUCTION
-        );
-        assert_eq!(session.boundary.substrate().resident_arena_count(), 8);
+        assert_eq!(session.boundary.body().clock().tick, 0);
     }
 
     #[test]
