@@ -5,7 +5,10 @@
 //! the physical run and is never admitted back into TrueLearner.
 
 use academy_core::{A1Experience, A1ProbeFamily, GenuineTeachingLab, TeachingCase, VisualSurface};
-use serde::{Deserialize, Serialize};
+pub use academy_review::{
+    EpisodeCatalog, EpisodeClass, EpisodeFrame, EpisodeOutcome, ReviewEpisode,
+};
+use serde::Serialize;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,94 +28,6 @@ const MUTED: [u8; 4] = [166, 179, 190, 255];
 const MINT: [u8; 4] = [139, 226, 190, 255];
 const VIOLET: [u8; 4] = [212, 201, 255, 255];
 const AMBER: [u8; 4] = [240, 197, 150, 255];
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum EpisodeClass {
-    Development,
-    Test,
-    Control,
-}
-
-impl EpisodeClass {
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::Development => "Development",
-            Self::Test => "Test",
-            Self::Control => "Control",
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum EpisodeOutcome {
-    StructureFormed,
-    LearnedResponse,
-    ExpectedSilence,
-    ScaffoldedAction,
-    MappingFollowed,
-    RetainedResponse,
-}
-
-impl EpisodeOutcome {
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::StructureFormed => "Structure formed",
-            Self::LearnedResponse => "Learned response",
-            Self::ExpectedSilence => "Correctly silent",
-            Self::ScaffoldedAction => "Scaffolded action",
-            Self::MappingFollowed => "Physical mapping followed",
-            Self::RetainedResponse => "Retained response",
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EpisodeFrame {
-    pub file: String,
-    pub duration_ms: u32,
-    pub caption: String,
-    pub world_fingerprint: String,
-    pub output_fingerprint: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ReviewEpisode {
-    pub schema_version: u16,
-    pub id: String,
-    pub title: String,
-    pub summary: String,
-    pub display_name: String,
-    pub class: EpisodeClass,
-    pub outcome: EpisodeOutcome,
-    pub seed: u64,
-    pub physical_work: u64,
-    pub plasticity_updates: u64,
-    pub outward_crossings: usize,
-    pub naturally_quiescent: bool,
-    pub replay_exact: bool,
-    pub body_before: String,
-    pub body_after: String,
-    pub video_file: String,
-    pub poster_file: String,
-    pub record_file: String,
-    pub frames: Vec<EpisodeFrame>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EpisodeCatalog {
-    pub schema_version: u16,
-    pub title: String,
-    pub episodes: Vec<ReviewEpisode>,
-}
-
-impl EpisodeCatalog {
-    pub fn load(root: &Path) -> Result<Self, EpisodeError> {
-        let bytes = fs::read(root.join("catalog.json")).map_err(EpisodeError::io)?;
-        serde_json::from_slice(&bytes).map_err(EpisodeError::json)
-    }
-}
 
 pub fn generate_a1_gallery(root: &Path) -> Result<EpisodeCatalog, EpisodeError> {
     fs::create_dir_all(root).map_err(EpisodeError::io)?;

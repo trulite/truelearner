@@ -1,0 +1,61 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/playground-thin-media-candidate.json",
+    "sha256": "f07b7665cf26092afff0e131fb64c490ae69e8c3767e27ea94adbc3d4603691f"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "dependency-and-loading-boundary",
+      "command": "python3 factory-artifacts/playground-thin-media-check.py",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.61
+    },
+    {
+      "name": "academy-workspace",
+      "command": "cargo test --workspace --locked --manifest-path academy/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 3.85
+    },
+    {
+      "name": "native-startup",
+      "command": "python3 -c 'import os,subprocess,time; env=os.environ.copy(); env[\"ACADEMY_EPISODE_DIR\"]=\"results/arc3_a1_v1/gallery\"; process=subprocess.Popen([\"academy/target/debug/academy\"],env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); time.sleep(2); assert process.poll() is None,\"Playground exited during startup\"; process.terminate(); process.wait(timeout=5); print(\"native Playground remained live for startup smoke\")'",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.0
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-review -p academy-episodes --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.28
+    }
+  ],
+  "findings": [
+    "No candidate finding: Playground reaches only academy-review among workspace crates, is absent from default members, contains no eager data-URI path, and all workspace behavior remains green.",
+    "The first read-only verification helper attempt failed because its stack iterator and dependency-name assertion were malformed; corrected independent checks passed without changing production code."
+  ],
+  "residual_uncertainty": [
+    "The native macOS smoke establishes startup and process stability, but automated verification does not visually assert poster rendering, playback, download behavior, or seeking in every platform webview.",
+    "The existing transitive block v0.1.6 dependency emits Cargo's future-incompatibility warning; this candidate neither introduces nor removes it."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/playground-thin-media.md",
+      "sha256": "e40fc85c5d4f8eb12357768e7954e945ded3d9a9d8011f0f84e1d321af6c4db5"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/playground-thin-media-candidate.json",
+      "sha256": "f07b7665cf26092afff0e131fb64c490ae69e8c3767e27ea94adbc3d4603691f"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/playground-thin-media-check.py",
+      "sha256": "4482d2efa57a1e604a3e250c575fe6980c66c0e50329325a6aba172d99295954"
+    }
+  ]
+}

@@ -10,6 +10,7 @@ name = "academy"
 path = "src/main.rs"
 
 [dependencies]
-academy-episodes.workspace = true
-base64.workspace = true
+academy-review.workspace = true
 dioxus = { workspace = true, features = ["desktop", "lib", "launch"] }
+percent-encoding.workspace = true
+tokio.workspace = true

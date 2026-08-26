@@ -34,23 +34,26 @@ The application opens a native window titled `Academy Episodes` at
 - `academy-core`: headless capability evidence, physical admission records,
   deterministic raster surfaces, checkpoints/replay, and the bounded body
   worker.
+- `academy-review`: portable catalog and episode descriptions for causally
+  inert review tools.
 - `academy-episodes`: canonical episode catalog plus deterministic review-frame
   and video generation.
 - `academy-runner`: headless development/test/control runner.
-- `academy-storage`: immutable content-addressed Academy evidence in private
-  S3 storage. It remains outside TrueLearner physics.
 - `playground`: causally inert Dioxus Desktop episode gallery and player.
 
 The dependency direction is:
 
 ```text
-playground -> academy-episodes -> academy-core -> truelearner-core
-academy-runner -> academy-episodes
-academy-storage -> AWS S3
+playground -> academy-review
+academy-runner -> academy-episodes -> academy-core -> truelearner-core
+academy-episodes -> academy-review
 ```
 
-Storage configuration and its object contract are documented in
-[`docs/s3_storage_v1.md`](docs/s3_storage_v1.md).
+The Playground reads `catalog.json` at startup. Its native webview requests
+posters lazily, streams only the selected video through a confined local media
+protocol, and requests a record only when its download link is followed.
+Playground remains a workspace member but is excluded from default members so
+headless Academy checks do not compile the desktop UI stack.
 
 ## ARC-AGI-3 compatibility
 

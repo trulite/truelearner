@@ -1,0 +1,197 @@
+# Separate Academy run, review, integration, and benchmark lanes
+
+```text
+                    ┌─> evidence bundle ─> review media ─> Playground
+worlds -> Academy run
+                    └─> stable fingerprint
+                              |
+                              v
+                       release benchmark
+```
+
+## Outcome
+
+The normal Academy loop compiles and runs only headless curriculum code. A run
+freezes compact, reconstructable evidence before a separate command renders
+posters or videos. Playground and performance measurement are explicit lanes
+with independently disposable target directories.
+
+Benchmarks time already-built release code around fixed headless workloads; they
+do not include Cargo, JSON layout, video encoding, or Playground unless a
+separately named integration benchmark asks for that effect. Benchmark clocks
+remain observers and never enter physical input, time, outcome, or state.
+
+This is an engineering and evidence-layout change. It changes no organism law,
+Academy claim, teaching case, probe, control, or replay criterion. The repository
+is pre-release, so the local episode record layout has no compatibility
+successor requirement; exact information and replay are preserved instead.
+
+## Authority
+
+- Path: `academy.md`; `arch.md` Boundaries; `academy/README.md`;
+  `academy/docs/episode_review_v1.md`; `/Users/satya/work/br/AGENTS.md`
+- Revision: commit `7bf0fbcd878f28ee2a8d69d953c25736767e9341` plus the validated
+  `plans/playground-thin-media.md` candidate;
+  `academy/Cargo.toml` SHA-256
+  `fbb0579db9ef942d19610f47634be5af5f303a305ff0827558aae989d98107e9`;
+  `academy/crates/academy-runner/src/main.rs` SHA-256
+  `142d3b22270cabb261ed23736da8e15c1361119f4b0a8ec9cf72c8f5081658c7`;
+  `academy/crates/academy-episodes/src/lib.rs` SHA-256
+  `e5149f1d2728114a9f75915983c5c3ef0eea048d0d6095ce93f09d84b4ad15c2`;
+  `academy/crates/academy-storage/src/lib.rs` SHA-256
+  `fc3e431506a297677d49c69df0d3ab49971ee257501bb1b17fb3d1920c56581b`
+
+## Model
+
+- A headless suite is a pure description of ordered development, test, and
+  control runs plus effectful execution through the harness. Its output is a
+  fixed collection of complete `A1Experience` values and stable fingerprints.
+- `academy-evidence` maps each experience to a local content-addressed bundle:
+  compact metadata, raw checkpoint blobs, compact inputs/crossings, and lossless
+  PNG surfaces. Its inverse reconstructs the same experience or returns a typed
+  integrity/decoding error. A manifest names and hashes every component.
+- `academy-runner run` executes the suite and atomically publishes evidence
+  manifests only after every referenced component is durable. It invokes no
+  renderer, network client, or UI.
+- `academy-render` maps frozen evidence to review frames, posters, catalog, and
+  optional MP4 derivatives. It cannot invoke a physical run. Rendering one
+  manifest at a time permits incremental reuse when the evidence hash is
+  unchanged.
+- `academy-bench` maps fixed suite configurations to repeated release samples
+  and a JSON measurement receipt. It validates the expected final fingerprint
+  on every sample before reporting time and work distributions.
+- Cargo target lanes are `headless`, `playground`, and `bench`. Each lane
+  owns one cache and can be cleaned without evicting the others. Exact commands
+  are documented; no command silently builds every lane.
+
+## Invariants
+
+- Inputs remain anonymous physical arrivals and evaluator knowledge remains
+  outside the organism.
+- Development, fresh tests, transfer cases, and negative controls keep their
+  existing order, seeds, assertions, work, outputs, fingerprints, and natural
+  quiescence.
+- Writing then reading an evidence bundle reconstructs equal checkpoints,
+  inputs, crossings, surfaces, observation, replay verdict, and fingerprints.
+- Every manifest reference is content-addressed and verified before use; a
+  missing, corrupt, swapped, or truncated component fails closed.
+- A review is a function of frozen evidence. There is no edge from rendering,
+  ffmpeg, Playground, or benchmark time back into a run.
+- The dependency graph contains no AWS SDK or S3 adapter, and the default graph
+  contains no Dioxus or Wry.
+- The benchmark graph contains no Dioxus, Wry, AWS SDK, ffmpeg invocation, or
+  evidence serialization in a headless timing sample.
+- Benchmark samples are rejected if their physical result differs; faster wrong
+  work is never reported as an improvement.
+- The representative warm regression remains strictly under 10 seconds.
+
+## Scope
+
+- Add a small headless suite module/crate that owns A1 orchestration now embedded
+  in episode generation; make the runner and benchmark consume it.
+- Add `academy-evidence` for local manifests, content-addressed components,
+  atomic publication, integrity checks, and exact A1 reconstruction.
+- Make `academy-runner` default to run-only evidence production and add an
+  explicit command for composing run plus review when desired.
+- Make `academy-episodes` consume frozen evidence only; add `academy-render` as
+  the explicit media command and retain the portable `academy-review` catalog.
+- Remove the unused Academy S3 crate and AWS SDK dependency closure entirely.
+- Add a dependency-light `academy-bench` release executable with fixed warmup,
+  sample count, fingerprints, work counters, and machine-readable output.
+- Document separate target directories and commands for headless, Playground,
+  and benchmark lanes. Keep full-workspace CI as an explicit cold gate.
+- Update the episode-review document to describe the new local evidence manifest
+  and separate review derivative.
+
+Exclude changes to TrueLearner physics, harness behavior, accepted checkpoints,
+ARC3 world semantics, research authority, remote benchmark services, Criterion,
+benchmark-driven algorithm changes, Playground visual design, and automatic
+deletion of an existing target directory.
+
+## Development style
+
+TDD. First freeze current suite outputs and add evidence round-trip, corruption,
+dependency-boundary, render-from-frozen-input, and benchmark-determinism tests.
+Then separate the effects and commands without changing the frozen assertions.
+
+## Focused tests
+
+- `cargo test --locked --manifest-path academy/Cargo.toml -p academy-evidence --lib`
+- `cargo test --locked --manifest-path academy/Cargo.toml -p academy-core -p academy-arc3 --lib`
+- `cargo test --locked --manifest-path academy/Cargo.toml -p academy-runner`
+- `cargo test --locked --manifest-path academy/Cargo.toml -p academy-episodes -p academy-render`
+- `cargo check --locked --manifest-path academy/Cargo.toml`
+- `cargo check --locked --manifest-path academy/Cargo.toml -p academy-playground`
+- `cargo build --release --locked --manifest-path academy/Cargo.toml -p academy-bench`
+- `academy/target/bench/release/academy-bench --suite a1 --warmup 2 --samples 3 --verify`
+- `cargo fmt --all --manifest-path academy/Cargo.toml -- --check`
+- `cargo clippy --workspace --all-targets --locked --manifest-path academy/Cargo.toml -- -D warnings`
+
+The tests establish exact evidence reconstruction, fail-closed corruption,
+unchanged physical behavior, run/render separation, explicit UI builds,
+deterministic benchmark results, format, and lint cleanliness.
+
+## Development loop
+
+Representative warm regression suite:
+
+`cargo test --locked --manifest-path academy/Cargo.toml -p academy-core -p academy-arc3 --lib`
+
+Pre-change warm baseline: `1.19 seconds`, strictly under 10 seconds. Record cold
+bootstrap, evidence writing, review rendering, and benchmark execution as four
+separate measurements; none may be substituted for the warm correctness gate.
+
+Measured diagnostic baselines on the current macOS host:
+
+- clean `academy-runner` check: `8.67 seconds`, `53 MiB` target;
+- clean current default check with AWS: `26.58 seconds`, `262 MiB` target;
+- warm direct six-episode run plus review: `5.02 seconds`;
+- same run with ffmpeg replaced by a no-op: `3.44 seconds`;
+- generated gallery: `114 MiB`, of which `113 MiB` is JSON;
+- one record: about `19 MiB` pretty JSON, `6.8 MiB` compact JSON, and
+  `70 KiB` when gzip-compressed;
+- existing Academy target dry-run cleanup: `30,719` files and `3.7 GiB`.
+
+Treat these as local engineering baselines, not portable scientific thresholds.
+
+## Controls and evidence
+
+- Held-out cases: run the ignored Core and ARC3 adversarial tests, reconstruct a
+  bundle in a fresh process, render from that reconstruction, and run a release
+  sample after unrelated experience.
+- Negative controls: missing component, wrong content hash, truncated checkpoint,
+  swapped surface, renderer without evidence, and deliberately wrong
+  benchmark fingerprint all fail without changing the organism or accepted data.
+- Laws: evidence write/read identity; rendering composition gives the same review
+  metadata as rendering the original experience; repeated benchmark samples
+  preserve the same physical result; adding an observer changes no run.
+- Falsifiers: changed physical output/work/fingerprint/replay/control, renderer
+  access to a live harness, benchmark time entering state, AWS/Dioxus in default
+  dependencies, a non-reconstructable bundle, or warm regression at or above 10
+  seconds rejects the candidate.
+- Evidence: validated plan, candidate receipt, dependency graph check, exact
+  before/after target and phase timings, benchmark receipt, and independent
+  verification tied to the candidate digest.
+- Not applicable because this is engineering isolation and measurement: do not
+  create a research arm or use benchmark speed as algorithmic authority.
+
+## Risks and rollback
+
+- Splitting a record can lose self-containment; require a manifest-completeness
+  check and exact reconstruction before publication.
+- PNG encoding must preserve RGBA bytes and dimensions; compare decoded surfaces
+  and fingerprints, not visual similarity.
+- A convenience command can accidentally render before evidence is durable;
+  compose only the two completed commands over a frozen manifest.
+- Benchmarks can reward removed work; validate fingerprints, physical work, and
+  controls before recording each sample.
+- Separate target lanes duplicate some shared dependencies; keep only three named
+  lanes and make each independently cleanable rather than creating per-command
+  caches.
+- Roll back crate edges and commands to the accepted candidate before this plan;
+  evidence produced during development is pre-release and regenerated from the
+  frozen suite.
+
+## Open decisions
+
+None.

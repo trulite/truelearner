@@ -25,8 +25,14 @@ answers, correctness bits, loss, reward, or evaluator state.
   evidence, and developmental records.
 - **Playground** owns human interaction, rendering, and inspection.
 
-Keep the dependency direction
-`playground -> academy-core -> truelearner`. Keep `academy-core` headless.
+Keep the runtime dependency direction
+`playground -> academy-core -> truelearner` for live interaction. Keep
+`academy-core` headless. The causally inert episode reviewer instead depends
+only on the portable review catalog:
+
+```text
+playground -> academy-review <- academy-episodes -> academy-core -> truelearner
+```
 
 ## Development loop
 

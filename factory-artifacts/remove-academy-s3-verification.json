@@ -1,0 +1,61 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/remove-academy-s3-candidate.json",
+    "sha256": "258d61f776b48a53b1e5be08e2867ad1e233d9deb83ad0d8ec00afbfaaf8d61a"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "academy-workspace",
+      "command": "cargo test --workspace --locked --manifest-path academy/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 19.88
+    },
+    {
+      "name": "held-out",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-core -p academy-arc3 --lib -- --ignored",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.70
+    },
+    {
+      "name": "dependency-and-source-absence",
+      "command": "python3 factory-artifacts/remove-academy-s3-check.py",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.15
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-core -p academy-arc3 --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.30
+    }
+  ],
+  "findings": [
+    "No candidate finding: Academy has no living storage crate, AWS SDK dependency, S3 configuration, or S3 documentation; the complete remaining workspace and held-out adversarial tests pass.",
+    "After removing the 3.7 GiB cache, a cold default Academy check completed in 7.99 seconds and populated 53 MiB; the separately selected Playground desktop graph remained outside default members."
+  ],
+  "residual_uncertainty": [
+    "Archived experiment records intentionally retain historical academy-storage and S3 statements and are not part of the living dependency graph.",
+    "The existing transitive block v0.1.6 dependency in the separately selected Playground graph still emits Cargo's future-incompatibility warning; this removal neither introduces nor resolves it."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/remove-academy-s3.md",
+      "sha256": "ee57d728b98b2e938ea239220a78e0227c849e721e3eab382229d82f1ac33486"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/remove-academy-s3-candidate.json",
+      "sha256": "258d61f776b48a53b1e5be08e2867ad1e233d9deb83ad0d8ec00afbfaaf8d61a"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/remove-academy-s3-check.py",
+      "sha256": "660e12e35eb6b8cf8b53979fea8a826c2b0f58c7b71a1914ae7e84c46e18556f"
+    }
+  ]
+}

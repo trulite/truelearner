@@ -1,21 +1,26 @@
 #![forbid(unsafe_code)]
 
-use academy_episodes::{EpisodeCatalog, EpisodeClass, ReviewEpisode};
-use base64::engine::general_purpose::STANDARD as BASE64;
-use base64::Engine;
+mod media;
+
+use academy_review::{EpisodeCatalog, EpisodeClass, ReviewEpisode};
 use dioxus::prelude::*;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 const STYLESHEET: &str = include_str!("styles.css");
 
 fn main() {
+    let root = episode_root();
+    let media_root = media::MediaRoot::new(root);
     let window = dioxus::desktop::WindowBuilder::new()
         .with_title("Academy Episodes")
         .with_inner_size(dioxus::desktop::LogicalSize::new(1440.0, 900.0))
         .with_min_inner_size(dioxus::desktop::LogicalSize::new(1080.0, 720.0));
     dioxus::LaunchBuilder::desktop()
-        .with_cfg(dioxus::desktop::Config::new().with_window(window))
+        .with_cfg(
+            dioxus::desktop::Config::new()
+                .with_window(window)
+                .with_custom_protocol(media::SCHEME, move |_, request| media_root.respond(request)),
+        )
         .launch(App);
 }
 
@@ -50,18 +55,10 @@ impl EpisodeFilter {
 }
 
 #[derive(Clone)]
-struct LoadedEpisode {
-    evidence: ReviewEpisode,
-    video_uri: String,
-    poster_uri: String,
-    record_uri: String,
-}
-
-#[derive(Clone)]
 struct EpisodeLibrary {
     title: String,
     root: PathBuf,
-    episodes: Vec<LoadedEpisode>,
+    episodes: Vec<ReviewEpisode>,
 }
 
 #[derive(Clone)]
@@ -72,12 +69,30 @@ enum LibraryState {
 
 #[component]
 fn App() -> Element {
-    let library = use_hook(load_library);
+    let root = use_hook(episode_root).clone();
+    let root_for_load = root.clone();
+    let library = use_resource(move || {
+        let root = root_for_load.clone();
+        async move { load_library(root).await }
+    });
     let mut filter = use_signal(|| EpisodeFilter::All);
     let mut selected = use_signal(|| 0_usize);
 
+    let library = library.read();
+    let Some(library) = library.as_ref() else {
+        return rsx! {
+            document::Title { "Academy Episodes" }
+            style { {STYLESHEET} }
+            main { class: "empty-library",
+                div { class: "empty-mark", aria_hidden: "true", i {} i {} i {} }
+                h1 { "Loading episodes" }
+                p { "Reading the review catalog." }
+                small { "{root.display()}" }
+            }
+        };
+    };
     let LibraryState::Ready(library) = library else {
-        let LibraryState::Unavailable { root, reason } = &library else {
+        let LibraryState::Unavailable { root, reason } = library else {
             unreachable!()
         };
         return rsx! {
@@ -97,7 +112,7 @@ fn App() -> Element {
         .episodes
         .iter()
         .enumerate()
-        .filter(|(_, episode)| filter().accepts(episode.evidence.class))
+        .filter(|(_, episode)| filter().accepts(episode.class))
         .map(|(index, _)| index)
         .collect::<Vec<_>>();
     let selected_index = if visible.contains(&selected()) {
@@ -129,41 +144,41 @@ fn App() -> Element {
                 main { class: "episode-layout",
                     section { class: "player-stage", aria_label: "Selected episode",
                         video {
-                            key: "video-{episode.evidence.id}",
+                            key: "video-{episode.id}",
                             class: "episode-video",
                             controls: true,
                             autoplay: true,
                             muted: true,
                             playsinline: true,
-                            preload: "auto",
-                            src: "{episode.video_uri}",
-                            poster: "{episode.poster_uri}",
+                            preload: "metadata",
+                            src: "{media::uri(&episode.video_file)}",
+                            poster: "{media::uri(&episode.poster_file)}",
                         }
                     }
 
                     aside { class: "episode-inspector",
                         div { class: "episode-heading",
-                            span { class: class_name(episode.evidence.class), "{episode.evidence.class.label()}" }
-                            h2 { "{episode.evidence.title}" }
-                            p { "{episode.evidence.summary}" }
+                            span { class: class_name(episode.class), "{episode.class.label()}" }
+                            h2 { "{episode.title}" }
+                            p { "{episode.summary}" }
                         }
 
                         dl { class: "evidence-metrics",
-                            Metric { term: "Outcome", value: episode.evidence.outcome.label().to_string() }
-                            Metric { term: "Physical work", value: episode.evidence.physical_work.to_string() }
-                            Metric { term: "Crossings", value: episode.evidence.outward_crossings.to_string() }
-                            Metric { term: "Learning updates", value: episode.evidence.plasticity_updates.to_string() }
-                            Metric { term: "Quiescent", value: yes_no(episode.evidence.naturally_quiescent).to_string() }
-                            Metric { term: "Replay", value: if episode.evidence.replay_exact { "Exact".to_string() } else { "Diverged".to_string() } }
+                            Metric { term: "Outcome", value: episode.outcome.label().to_string() }
+                            Metric { term: "Physical work", value: episode.physical_work.to_string() }
+                            Metric { term: "Crossings", value: episode.outward_crossings.to_string() }
+                            Metric { term: "Learning updates", value: episode.plasticity_updates.to_string() }
+                            Metric { term: "Quiescent", value: yes_no(episode.naturally_quiescent).to_string() }
+                            Metric { term: "Replay", value: if episode.replay_exact { "Exact".to_string() } else { "Diverged".to_string() } }
                         }
 
                         div { class: "body-change",
                             span { "Body" }
-                            code { "{episode.evidence.body_before} → {episode.evidence.body_after}" }
+                            code { "{episode.body_before} → {episode.body_after}" }
                         }
 
                         div { class: "episode-actions",
-                            a { href: "{episode.record_uri}", download: "{episode.evidence.id}.json", "Episode record" }
+                            a { href: "{media::uri(&episode.record_file)}", download: "{episode.id}.json", "Episode record" }
                         }
                     }
 
@@ -171,18 +186,23 @@ fn App() -> Element {
                         for index in visible.iter().copied() {
                             if let Some(item) = library.episodes.get(index) {
                                 button {
-                                    key: "episode-{item.evidence.id}",
+                                    key: "episode-{item.id}",
                                     class: if index == selected_index { "episode-card selected" } else { "episode-card" },
                                     r#type: "button",
                                     onclick: move |_| selected.set(index),
                                     div { class: "episode-poster",
-                                        img { src: "{item.poster_uri}", alt: "" }
-                                        span { class: class_name(item.evidence.class), "{item.evidence.class.label()}" }
+                                        img {
+                                            src: "{media::uri(&item.poster_file)}",
+                                            alt: "",
+                                            loading: "lazy",
+                                            decoding: "async",
+                                        }
+                                        span { class: class_name(item.class), "{item.class.label()}" }
                                         i { class: "play-mark", aria_hidden: "true" }
                                     }
                                     div { class: "episode-card-copy",
-                                        strong { "{item.evidence.title}" }
-                                        span { "{item.evidence.outcome.label()}" }
+                                        strong { "{item.title}" }
+                                        span { "{item.outcome.label()}" }
                                     }
                                 }
                             }
@@ -220,51 +240,35 @@ fn Metric(term: String, value: String) -> Element {
     }
 }
 
-fn load_library() -> LibraryState {
-    let root = std::env::var("ACADEMY_EPISODE_DIR")
+fn episode_root() -> PathBuf {
+    std::env::var("ACADEMY_EPISODE_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("output/academy-episodes"));
-    let catalog = match EpisodeCatalog::load(&root) {
-        Ok(catalog) => catalog,
-        Err(error) => {
+        .unwrap_or_else(|_| PathBuf::from("output/academy-episodes"))
+}
+
+async fn load_library(root: PathBuf) -> LibraryState {
+    let load_root = root.clone();
+    let catalog = match tokio::task::spawn_blocking(move || EpisodeCatalog::load(&load_root)).await
+    {
+        Ok(Ok(catalog)) => catalog,
+        Ok(Err(error)) => {
             return LibraryState::Unavailable {
                 root,
                 reason: error.to_string(),
             }
         }
+        Err(error) => {
+            return LibraryState::Unavailable {
+                root,
+                reason: format!("catalog task failed: {error}"),
+            }
+        }
     };
-    match load_episodes(&root, catalog) {
-        Ok(library) => LibraryState::Ready(library),
-        Err(reason) => LibraryState::Unavailable { root, reason },
-    }
-}
-
-fn load_episodes(root: &Path, catalog: EpisodeCatalog) -> Result<EpisodeLibrary, String> {
-    let episodes = catalog
-        .episodes
-        .into_iter()
-        .map(|episode| {
-            let video_uri = media_uri(&root.join(&episode.video_file), "video/mp4")?;
-            let poster_uri = media_uri(&root.join(&episode.poster_file), "image/png")?;
-            let record_uri = media_uri(&root.join(&episode.record_file), "application/json")?;
-            Ok(LoadedEpisode {
-                evidence: episode,
-                video_uri,
-                poster_uri,
-                record_uri,
-            })
-        })
-        .collect::<Result<Vec<_>, String>>()?;
-    Ok(EpisodeLibrary {
+    LibraryState::Ready(EpisodeLibrary {
         title: catalog.title,
-        root: root.to_path_buf(),
-        episodes,
+        root,
+        episodes: catalog.episodes,
     })
-}
-
-fn media_uri(path: &Path, mime: &str) -> Result<String, String> {
-    let bytes = fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
-    Ok(format!("data:{mime};base64,{}", BASE64.encode(bytes)))
 }
 
 fn class_name(class: EpisodeClass) -> &'static str {

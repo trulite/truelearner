@@ -14,9 +14,12 @@ Each episode directory contains:
 `catalog.json` orders the review collection. V1 contains one A1 development
 episode, one fresh held-out learned-relation test, and four negative controls.
 
-The viewer may select, filter, play, pause, and download records. None of those
-actions are admitted to the organism. Captions, labels, metrics, posters, and
-video timing are Academy observations, not TrueLearner state.
+The viewer loads the catalog first, requests posters lazily, requests only the
+selected video, and fetches a record only for an explicit download. Local media
+requests are confined below the selected episode root and videos support byte
+ranges. The viewer may select, filter, play, pause, and download records. None
+of those actions are admitted to the organism. Captions, labels, metrics,
+posters, and video timing are Academy observations, not TrueLearner state.
 
 The evidence boundary is therefore:
 
