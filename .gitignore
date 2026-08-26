@@ -4,6 +4,9 @@ target/
 .env.e2b
 .env
 academy/.env
+academy/capstones/arc3/.venv/
+academy/capstones/arc3/environment_files/
+academy/capstones/arc3/recordings/
 *.profraw
 *.profdata
 __pycache__/

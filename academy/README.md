@@ -74,6 +74,41 @@ shuffled-boundary, and blocked-return controls. See the
 and
 [development result](../experiments/archive/academy-docs/arc3_a1_sensorimotor_result_v1.md).
 
+### Official capstone boundary
+
+The first-class ARC-AGI-3 capstone uses a separate teaching-free agent and a
+pinned `uv` adapter. The adapter may see official evaluator state; the agent
+receives only the current 64×64 palette frame and available physical actions.
+Every game and every replay starts a fresh agent process.
+
+Build the release agent and exercise the public, non-scoring fixture:
+
+```sh
+cargo build --release --locked --manifest-path academy/Cargo.toml \
+  -p academy-arc3 --bin academy-arc3-capstone-agent
+uv run --locked --project academy/capstones/arc3 \
+  academy/capstones/arc3/capstone.py \
+  --mode fixture \
+  --agent academy/target/release/academy-arc3-capstone-agent \
+  --output output/arc3-capstone-fixture
+```
+
+After the candidate has independent verification, is committed, and the tree
+is clean, run the complete server-selected official suite:
+
+```sh
+ARC_API_KEY=... uv run --locked --project academy/capstones/arc3 \
+  academy/capstones/arc3/capstone.py \
+  --mode official \
+  --agent academy/target/release/academy-arc3-capstone-agent \
+  --output output/arc3-capstone-official
+```
+
+Official mode has no game-subset argument. It refuses a dirty tree, requires a
+registered key, leaves RHAE scoring to the SDK, scrubs credentials from the
+receipt, and writes the content-addressed transcript and receipt atomically.
+Use only `uv run`, `uvx`, or other `uv` project commands for this Python lane.
+
 To review the frozen ARC3-A1 gallery locally:
 
 ```sh

@@ -130,3 +130,22 @@ distributed storage, robots, audio, video input, or a large ontology.
 
 Stop if Academy supplies an answer, action, route, capability, or correctness
 signal to the learner.
+
+## ARC-AGI-3 capstone
+
+The ARC-AGI-3 capstone is an external capability evaluation, not a teaching
+episode. Its Python adapter owns the official SDK, game identity, score,
+terminal state, action budget, and scorecard. A fresh Rust agent is created for
+every server-selected game and receives only an owned 64×64 palette frame and
+the official list of available physical actions.
+
+The Rust agent owns `Arc3Sensorimotor`, which owns the public `Harness`. The
+process boundary exposes no score, game or level identity, expected action,
+babbling, support, settling, action remapping, reset, or diagnostic command.
+Unknown fields and unsupported actuators fail before a Harness transition.
+
+Official scoring remains entirely in the pinned ARC SDK. Academy records the
+official scorecard beside physical work, outward crossings, learning updates,
+quiescence, body fingerprints, and an exact fresh-process transcript replay.
+The public fixture exercises the same semantic firewall but can never support
+an official capstone claim.

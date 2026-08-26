@@ -28,5 +28,9 @@ name = "academy-arc3-agent"
 path = "src/agent.rs"
 
 [[bin]]
+name = "academy-arc3-capstone-agent"
+path = "src/capstone_agent.rs"
+
+[[bin]]
 name = "academy-arc3-a1-review"
 path = "src/sensorimotor_review.rs"
