@@ -247,6 +247,8 @@ pub struct Arc3Sensorimotor {
     decision_completion_context: Option<u16>,
     #[cfg(feature = "core1")]
     physical_credit_return_enabled: bool,
+    #[cfg(feature = "core1")]
+    atomic_credit_return_enabled: bool,
 }
 
 impl Arc3Sensorimotor {
@@ -328,6 +330,8 @@ impl Arc3Sensorimotor {
             decision_completion_context: None,
             #[cfg(feature = "core1")]
             physical_credit_return_enabled: false,
+            #[cfg(feature = "core1")]
+            atomic_credit_return_enabled: false,
         })
     }
 
@@ -394,8 +398,19 @@ impl Arc3Sensorimotor {
     #[cfg(feature = "core1")]
     pub fn enable_physical_credit_return(&mut self) {
         self.physical_credit_return_enabled = true;
+        self.atomic_credit_return_enabled = false;
         self.boundary.clear_used_pending();
         self.boundary.set_used_pending_protection(false);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn enable_atomic_physical_credit_return(&mut self) {
+        self.physical_credit_return_enabled = false;
+        self.atomic_credit_return_enabled = true;
+        self.boundary.clear_used_pending();
+        self.boundary.set_used_pending_protection(false);
+        self.boundary
+            .configure_atomic_credit_return(self.sites.returning);
     }
 
     #[cfg(feature = "core1")]
@@ -556,9 +571,17 @@ impl Arc3Sensorimotor {
                 "decision interaction must be OPEN before junction activation".to_string(),
             ));
         }
-        self.boundary.set_used_pending_capture(true);
+        if self.atomic_credit_return_enabled {
+            self.boundary.set_atomic_credit_return_capture(true);
+        } else {
+            self.boundary.set_used_pending_capture(true);
+        }
         let observation = self.observe(frame, available_actions, None, false, false, action_map);
-        self.boundary.set_used_pending_capture(false);
+        if self.atomic_credit_return_enabled {
+            self.boundary.set_atomic_credit_return_capture(false);
+        } else {
+            self.boundary.set_used_pending_capture(false);
+        }
         let observation = observation?;
         if observation.action.is_none() {
             self.boundary.clear_used_pending();
@@ -654,9 +677,17 @@ impl Arc3Sensorimotor {
             });
         }
 
-        self.boundary.set_used_pending_capture(true);
+        if self.atomic_credit_return_enabled {
+            self.boundary.set_atomic_credit_return_capture(true);
+        } else {
+            self.boundary.set_used_pending_capture(true);
+        }
         let result = self.boundary.arrive(&inputs, OUTWARD_REGION);
-        self.boundary.set_used_pending_capture(false);
+        if self.atomic_credit_return_enabled {
+            self.boundary.set_atomic_credit_return_capture(false);
+        } else {
+            self.boundary.set_used_pending_capture(false);
+        }
         let result = result?;
         let motor_crossings = result
             .crossings

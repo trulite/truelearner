@@ -1605,6 +1605,10 @@ pub struct PlasticSubstrate {
     used_pending_protection_enabled: bool,
     #[cfg(feature = "core1")]
     temporary_credit_return_arrows: Vec<bool>,
+    #[cfg(feature = "core1")]
+    atomic_credit_return_source: Option<CellId>,
+    #[cfg(feature = "core1")]
+    atomic_credit_return_capture: bool,
     #[cfg(feature = "core0")]
     core0_profile: Core0Profile,
     #[cfg(feature = "core0")]
@@ -2150,6 +2154,16 @@ impl BoundaryRuntime {
         self.substrate.temporary_credit_return_count()
     }
 
+    #[cfg(feature = "core1")]
+    pub fn configure_atomic_credit_return(&mut self, returning: CellId) {
+        self.substrate.configure_atomic_credit_return(returning);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_atomic_credit_return_capture(&mut self, enabled: bool) {
+        self.substrate.set_atomic_credit_return_capture(enabled);
+    }
+
     /// Changes only the mechanical execution strategy beneath the boundary.
     /// Physical law and buffered activity are preserved exactly.
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
@@ -2367,6 +2381,10 @@ impl PlasticSubstrate {
             used_pending_protection_enabled: true,
             #[cfg(feature = "core1")]
             temporary_credit_return_arrows: Vec::new(),
+            #[cfg(feature = "core1")]
+            atomic_credit_return_source: None,
+            #[cfg(feature = "core1")]
+            atomic_credit_return_capture: false,
             #[cfg(feature = "core0")]
             core0_profile: Core0Profile::A,
             #[cfg(feature = "core0")]
@@ -2501,6 +2519,80 @@ impl PlasticSubstrate {
             .iter()
             .filter(|temporary| **temporary)
             .count()
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn configure_atomic_credit_return(&mut self, returning: CellId) {
+        self.require_cell(returning);
+        self.atomic_credit_return_source = Some(returning);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_atomic_credit_return_capture(&mut self, enabled: bool) {
+        self.atomic_credit_return_capture = enabled;
+    }
+
+    #[cfg(feature = "core1")]
+    fn maybe_create_atomic_credit_return(&mut self, participating: ArrowId) {
+        if !self.atomic_credit_return_capture {
+            return;
+        }
+        let Some(returning) = self.atomic_credit_return_source else {
+            return;
+        };
+        let Some(slot) = self.arrow_slot(participating) else {
+            return;
+        };
+        let route = self.arrows.get(slot.0);
+        if !route.live
+            || route.mode != TransmissionMode::Drive
+            || route.trigger != TransmissionTrigger::SourceFires
+        {
+            return;
+        }
+        let Some(contact_slot) = self.cell_slot(route.from) else {
+            return;
+        };
+        let contact = self.cells.get(contact_slot.0);
+        let contact_id = contact.id;
+        let contact_position = contact.position;
+        let subdivision = self.arrows.values().iter().any(|stem| {
+            stem.live
+                && stem.mode == TransmissionMode::Drive
+                && stem.trigger == TransmissionTrigger::SourceFires
+                && stem.to == contact_id
+                && stem.from != contact_id
+                && self.cell_slot(stem.from).is_some_and(|source_slot| {
+                    self.cells.get(source_slot.0).position == contact_position
+                })
+        });
+        if !subdivision {
+            return;
+        }
+        let already_live = self
+            .temporary_credit_return_arrows
+            .iter()
+            .enumerate()
+            .filter(|(_, temporary)| **temporary)
+            .any(|(index, _)| {
+                let id = ArrowId(u64::try_from(index).unwrap_or(u64::MAX));
+                self.arrow_slot(id).is_some_and(|connection_slot| {
+                    let connection = self.arrows.get(connection_slot.0);
+                    connection.live && connection.from == returning && connection.to == contact_id
+                })
+            });
+        if already_live {
+            return;
+        }
+        self.add_temporary_credit_return(ArrowSpec {
+            from: returning,
+            to: contact_id,
+            delay: 0,
+            phase: 0,
+            coupling: 1,
+            resistance: u32::MAX,
+            mode: TransmissionMode::Modulatory,
+        });
     }
 
     #[cfg(feature = "core1")]
@@ -3526,6 +3618,10 @@ impl PlasticSubstrate {
                             event: PhysicalEvent::Fire { cell: spike.target },
                         });
                     }
+                    #[cfg(feature = "core1")]
+                    if let Some((participating, _)) = spike.arrow {
+                        self.maybe_create_atomic_credit_return(participating);
+                    }
                     work.total = work.total.saturating_add(1);
                     let source = spike.target;
                     let origin_physical = target.physical_id;
@@ -3936,6 +4032,13 @@ impl PlasticSubstrate {
                     self.core0_activation[target_id.0 as usize] = 0;
                 }
                 self.active_cells.remove(&target_id);
+                #[cfg(feature = "core1")]
+                for participating in spikes
+                    .iter()
+                    .filter_map(|spike| spike.arrow.map(|pair| pair.0))
+                {
+                    self.maybe_create_atomic_credit_return(participating);
+                }
                 firings.push((target_id, target, external_arrival));
             }
 
