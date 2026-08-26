@@ -198,7 +198,7 @@ fn material_from(diagnostic: &Arc3ContextDiagnostic) -> Material {
         .filter(|link| link.role == "stem")
         .filter_map(|link| link.contact)
         .collect::<Vec<_>>();
-    let outgoing = diagnostic
+    let Some(outgoing) = diagnostic
         .links
         .iter()
         .filter(|link| {
@@ -209,13 +209,27 @@ fn material_from(diagnostic: &Arc3ContextDiagnostic) -> Material {
                     .is_some_and(|contact| stem_contacts.contains(&contact))
         })
         .max_by_key(|link| (link.resistance, link.coupling))
-        .expect("positive E17 outgoing route");
-    let stem = diagnostic
+    else {
+        return Material {
+            outgoing_coupling: 0,
+            outgoing_resistance: 0,
+            stem_coupling: 0,
+            stem_resistance: 0,
+        };
+    };
+    let Some(stem) = diagnostic
         .links
         .iter()
         .filter(|link| link.role == "stem" && link.contact == outgoing.contact)
         .max_by_key(|link| (link.resistance, link.coupling))
-        .expect("positive E17 route stem");
+    else {
+        return Material {
+            outgoing_coupling: outgoing.coupling,
+            outgoing_resistance: outgoing.resistance,
+            stem_coupling: 0,
+            stem_resistance: 0,
+        };
+    };
     Material {
         outgoing_coupling: outgoing.coupling,
         outgoing_resistance: outgoing.resistance,
@@ -694,6 +708,119 @@ fn bundle(seed: usize) -> RowBundle {
         reference: execute(seed, MechanicalConfig::REFERENCE, root),
         replay: execute(seed, MechanicalConfig::REFERENCE, root),
         production: execute(seed, MechanicalConfig::PRODUCTION, root),
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct E18Observation {
+    pub seed: usize,
+    pub useful: u8,
+    pub first_action: Option<u8>,
+    pub final_action: Option<u8>,
+    pub attempted: [Vec<u8>; 2],
+    pub participated: [Vec<u8>; 2],
+    pub consequence_updates: [u64; 2],
+    pub live_candidate_links: usize,
+    pub work: u64,
+    pub quiescent: bool,
+}
+
+pub fn e18_observe(
+    seed: usize,
+    mechanics: MechanicalConfig,
+    root: u64,
+    in_flight: bool,
+    protect_all: bool,
+    self_trigger: bool,
+) -> E18Observation {
+    let pixels = frame();
+    let context = spatial_context(&pixels).expect("E18 context");
+    let order = permutation(seed);
+    let useful = useful_action(seed, order);
+    let mut initial = unresolved(root, mechanics, &pixels);
+    initial.set_in_flight_protection(in_flight);
+    initial.set_all_live_arrow_protection(protect_all);
+    if !self_trigger {
+        let observation = initial
+            .observe(pixels, &ACTIONS, None, false, false, &ACTIONS)
+            .expect("E18 no-trigger control");
+        initial
+            .advance_gap(20)
+            .expect("E18 no-trigger expiry control");
+        let live_candidate_links = ACTIONS
+            .into_iter()
+            .filter_map(|action| initial.diagnostic_context(context, action - 1).ok())
+            .flat_map(|diagnostic| diagnostic.links)
+            .filter(|link| matches!(link.role, "stem" | "outgoing"))
+            .filter(|link| link.resistance > 0)
+            .count();
+        return E18Observation {
+            seed,
+            useful,
+            first_action: observation.action,
+            final_action: observation.action,
+            attempted: std::array::from_fn(|_| Vec::new()),
+            participated: std::array::from_fn(|_| Vec::new()),
+            consequence_updates: [observation.plasticity_updates, 0],
+            live_candidate_links,
+            work: observation.physical_work,
+            quiescent: observation.naturally_quiescent,
+        };
+    }
+    if protect_all {
+        initial
+            .advance_gap(20)
+            .expect("E18 global-lifetime observation gap");
+        let live_candidate_links = ACTIONS
+            .into_iter()
+            .filter_map(|action| initial.diagnostic_context(context, action - 1).ok())
+            .flat_map(|diagnostic| diagnostic.links)
+            .filter(|link| matches!(link.role, "stem" | "outgoing"))
+            .filter(|link| link.resistance > 0)
+            .count();
+        return E18Observation {
+            seed,
+            useful,
+            first_action: None,
+            final_action: None,
+            attempted: std::array::from_fn(|_| Vec::new()),
+            participated: std::array::from_fn(|_| Vec::new()),
+            consequence_updates: [0, 0],
+            live_candidate_links,
+            work: 0,
+            quiescent: true,
+        };
+    }
+    let observation = run_arm(
+        Arm::Refractory,
+        &initial,
+        &pixels,
+        context,
+        useful,
+        [order, order],
+    );
+    let mut live_candidate_links = 0_usize;
+    for action in ACTIONS {
+        if let Ok(diagnostic) = initial.diagnostic_context(context, action - 1) {
+            live_candidate_links += diagnostic
+                .links
+                .iter()
+                .filter(|link| matches!(link.role, "stem" | "outgoing"))
+                .filter(|link| link.resistance > 0)
+                .count();
+        }
+    }
+    E18Observation {
+        seed,
+        useful,
+        first_action: observation.first_action,
+        final_action: observation.final_action,
+        attempted: observation.attempted,
+        participated: observation.participated,
+        consequence_updates: observation.consequence_updates,
+        live_candidate_links,
+        work: observation.work,
+        quiescent: observation.quiescent,
     }
 }
 

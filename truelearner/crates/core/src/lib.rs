@@ -994,7 +994,9 @@ const MATERIAL_ONE: i64 = 1_i64 << 32;
 const MATERIAL_ONE_U64: u64 = 1_u64 << 32;
 const DEFAULT_CELL_CAPACITY: u32 = 65_536;
 const DEFAULT_ARROW_CAPACITY: u32 = 262_144;
-#[cfg(feature = "si0")]
+#[cfg(feature = "core1")]
+const CHECKPOINT_VERSION: u16 = 6;
+#[cfg(all(feature = "si0", not(feature = "core1")))]
 const CHECKPOINT_VERSION: u16 = 5;
 #[cfg(all(not(feature = "si0"), not(feature = "cl0")))]
 const CHECKPOINT_VERSION: u16 = 2;
@@ -1589,6 +1591,12 @@ pub struct PlasticSubstrate {
     active_cells: HashSet<CellId>,
     trace_physics: bool,
     zero_delay_live_arrows: usize,
+    #[cfg(feature = "core1")]
+    in_flight_protection: bool,
+    #[cfg(feature = "core1")]
+    protect_all_live_arrows: bool,
+    #[cfg(feature = "core1")]
+    in_flight_arrows: Vec<u32>,
     #[cfg(feature = "core0")]
     core0_profile: Core0Profile,
     #[cfg(feature = "core0")]
@@ -1627,6 +1635,12 @@ pub struct LiveCheckpoint {
     pending: Vec<Spike>,
     next_serial: u64,
     pending_loads: Vec<PendingLoad>,
+    #[cfg(feature = "core1")]
+    core0_profile: Core0Profile,
+    #[cfg(feature = "core1")]
+    in_flight_protection: bool,
+    #[cfg(feature = "core1")]
+    protect_all_live_arrows: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1766,6 +1780,12 @@ impl LiveCheckpoint {
         let mut payload = Vec::new();
         payload.extend_from_slice(&manifest);
         payload.extend_from_slice(&body);
+        #[cfg(feature = "core1")]
+        {
+            payload.push(core0_profile_byte(self.core0_profile));
+            payload.push(u8::from(self.in_flight_protection));
+            payload.push(u8::from(self.protect_all_live_arrows));
+        }
         for cell in &cells {
             checkpoint_put_u64(&mut payload, cell.id.0);
             checkpoint_put_i32(&mut payload, cell.state);
@@ -1854,6 +1874,20 @@ impl LiveCheckpoint {
         let body = ArenaBody::decode(&payload[manifest_len..structural_len])?;
         validate_manifest(&body_version, &body)?;
         let mut transient = CheckpointCursor::new(payload, structural_len);
+        #[cfg(feature = "core1")]
+        let core0_profile = core0_profile_from_byte(transient.u8()?)?;
+        #[cfg(feature = "core1")]
+        let in_flight_protection = match transient.u8()? {
+            0 => false,
+            1 => true,
+            _ => return Err(CheckpointError::InvalidCheckpoint),
+        };
+        #[cfg(feature = "core1")]
+        let protect_all_live_arrows = match transient.u8()? {
+            0 => false,
+            1 => true,
+            _ => return Err(CheckpointError::InvalidCheckpoint),
+        };
         let mut cells = Vec::with_capacity(cell_count);
         for _ in 0..cell_count {
             cells.push(CellRuntime {
@@ -1910,6 +1944,12 @@ impl LiveCheckpoint {
             pending,
             next_serial,
             pending_loads,
+            #[cfg(feature = "core1")]
+            core0_profile,
+            #[cfg(feature = "core1")]
+            in_flight_protection,
+            #[cfg(feature = "core1")]
+            protect_all_live_arrows,
         })
     }
 }
@@ -2050,6 +2090,16 @@ impl BoundaryRuntime {
     #[cfg(feature = "core0")]
     pub fn set_core0_profile(&mut self, profile: Core0Profile) {
         self.substrate.set_core0_profile(profile);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_in_flight_protection(&mut self, enabled: bool) {
+        self.substrate.set_in_flight_protection(enabled);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_all_live_arrow_protection(&mut self, enabled: bool) {
+        self.substrate.set_all_live_arrow_protection(enabled);
     }
 
     /// Changes only the mechanical execution strategy beneath the boundary.
@@ -2255,6 +2305,12 @@ impl PlasticSubstrate {
             active_cells: HashSet::new(),
             trace_physics: false,
             zero_delay_live_arrows: 0,
+            #[cfg(feature = "core1")]
+            in_flight_protection: false,
+            #[cfg(feature = "core1")]
+            protect_all_live_arrows: false,
+            #[cfg(feature = "core1")]
+            in_flight_arrows: Vec::new(),
             #[cfg(feature = "core0")]
             core0_profile: Core0Profile::A,
             #[cfg(feature = "core0")]
@@ -2296,6 +2352,24 @@ impl PlasticSubstrate {
     #[cfg(feature = "core0")]
     pub fn core0_profile(&self) -> Core0Profile {
         self.core0_profile
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_in_flight_protection(&mut self, enabled: bool) {
+        self.in_flight_protection = enabled;
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_all_live_arrow_protection(&mut self, enabled: bool) {
+        self.protect_all_live_arrows = enabled;
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn in_flight_count(&self, id: ArrowId) -> u32 {
+        self.in_flight_arrows
+            .get(id.0 as usize)
+            .copied()
+            .unwrap_or(0)
     }
 
     pub fn mechanical_config(&self) -> MechanicalConfig {
@@ -2501,6 +2575,14 @@ impl PlasticSubstrate {
             self.arrows.push(arrow);
             self.arrow_slots.push(Some(slot));
         }
+        #[cfg(feature = "core1")]
+        {
+            let required = id.0 as usize + 1;
+            if self.in_flight_arrows.len() < required {
+                self.in_flight_arrows.resize(required, 0);
+            }
+            self.in_flight_arrows[id.0 as usize] = 0;
+        }
         let outgoing = &mut self.outgoing_index[spec.from.0 as usize];
         outgoing.push(id);
         #[cfg(feature = "core0")]
@@ -2545,6 +2627,40 @@ impl PlasticSubstrate {
             .trigger
     }
 
+    fn enqueue_physical_spike(&mut self, spike: Spike, cost: &mut ExecutionCost) {
+        #[cfg(feature = "core1")]
+        if let Some((arrow, generation)) = spike.arrow {
+            if self
+                .arrow_slot(arrow)
+                .is_some_and(|slot| self.arrows.get(slot.0).generation == generation)
+            {
+                let index = arrow.0 as usize;
+                if self.in_flight_arrows.len() <= index {
+                    self.in_flight_arrows.resize(index + 1, 0);
+                }
+                self.in_flight_arrows[index] = self.in_flight_arrows[index].saturating_add(1);
+            }
+        }
+        self.pending.push(spike, cost);
+    }
+
+    #[cfg(feature = "core1")]
+    fn resolve_physical_spike(&mut self, spike: &Spike) {
+        let Some((arrow, generation)) = spike.arrow else {
+            return;
+        };
+        let Some(slot) = self.arrow_slot(arrow) else {
+            return;
+        };
+        if self.arrows.get(slot.0).generation != generation {
+            return;
+        }
+        let count = &mut self.in_flight_arrows[arrow.0 as usize];
+        *count = count
+            .checked_sub(1)
+            .expect("resolved physical arrival must have been emitted");
+    }
+
     pub fn enter(&mut self, input: SpikeInput) {
         self.require_cell(input.target);
         assert!(
@@ -2552,7 +2668,7 @@ impl PlasticSubstrate {
             "physical arrivals cannot precede current substrate time"
         );
         let mut ignored = ExecutionCost::default();
-        self.pending.push(
+        self.enqueue_physical_spike(
             Spike {
                 arrival_tick: input.arrival_tick,
                 phase: input.phase,
@@ -2817,6 +2933,10 @@ impl PlasticSubstrate {
             substrate.outgoing_index[durable.from.id.0 as usize].push(durable.id);
         }
         substrate.rebuild_mechanical_indexes();
+        #[cfg(feature = "core1")]
+        substrate
+            .in_flight_arrows
+            .resize(substrate.arrow_slots.len(), 0);
         Ok(substrate)
     }
 
@@ -2922,6 +3042,12 @@ impl PlasticSubstrate {
             pending,
             next_serial: self.next_serial,
             pending_loads: self.pending_loads.clone(),
+            #[cfg(feature = "core1")]
+            core0_profile: self.core0_profile,
+            #[cfg(feature = "core1")]
+            in_flight_protection: self.in_flight_protection,
+            #[cfg(feature = "core1")]
+            protect_all_live_arrows: self.protect_all_live_arrows,
         })
     }
 
@@ -2970,6 +3096,8 @@ impl PlasticSubstrate {
                 arrow.trigger = runtime.trigger;
             });
         }
+        #[cfg(feature = "core1")]
+        substrate.set_core0_profile(checkpoint.core0_profile);
         substrate.pending = PendingSchedule::from_canonical(
             SchedulerKind::Vec,
             checkpoint.clock.tick,
@@ -2977,6 +3105,23 @@ impl PlasticSubstrate {
         );
         substrate.next_serial = checkpoint.next_serial;
         substrate.pending_loads = checkpoint.pending_loads;
+        #[cfg(feature = "core1")]
+        {
+            substrate.in_flight_protection = checkpoint.in_flight_protection;
+            substrate.protect_all_live_arrows = checkpoint.protect_all_live_arrows;
+            substrate.in_flight_arrows.fill(0);
+            for spike in substrate.pending.canonical() {
+                if let Some((arrow, generation)) = spike.arrow {
+                    if substrate
+                        .arrow_slot(arrow)
+                        .is_some_and(|slot| substrate.arrows.get(slot.0).generation == generation)
+                    {
+                        let count = &mut substrate.in_flight_arrows[arrow.0 as usize];
+                        *count = count.saturating_add(1);
+                    }
+                }
+            }
+        }
         substrate.active_cells = substrate
             .cells
             .values()
@@ -3114,6 +3259,8 @@ impl PlasticSubstrate {
                         &mut physical_trace,
                     );
                     self.tick = spike.arrival_tick;
+                    #[cfg(feature = "core1")]
+                    self.resolve_physical_spike(&spike);
                     work.total = work.total.saturating_add(2);
 
                     if let Some((arrow_id, generation)) = spike.arrow {
@@ -3322,7 +3469,7 @@ impl PlasticSubstrate {
                         {
                             execution_cost.arena_hops = execution_cost.arena_hops.saturating_add(1);
                         }
-                        self.pending.push(
+                        self.enqueue_physical_spike(
                             Spike {
                                 arrival_tick: self.tick.saturating_add(arrow.delay),
                                 phase: arrow.phase,
@@ -3396,6 +3543,8 @@ impl PlasticSubstrate {
             let mut incidences: Vec<(CellId, Vec<Spike>, Vec<Spike>)> = Vec::new();
             for (spike, _mechanical_comparisons) in batch {
                 execution_cost.touch::<Spike>(1);
+                #[cfg(feature = "core1")]
+                self.resolve_physical_spike(&spike);
                 let mode = if let Some((arrow_id, generation)) = spike.arrow {
                     let Some(arrow_slot) = self.arrow_slot(arrow_id) else {
                         continue;
@@ -3741,7 +3890,7 @@ impl PlasticSubstrate {
                     } else {
                         0
                     };
-                    self.pending.push(
+                    self.enqueue_physical_spike(
                         Spike {
                             arrival_tick: next_tick,
                             phase: arrow.phase,
@@ -4110,7 +4259,7 @@ impl PlasticSubstrate {
                     event: PhysicalEvent::QualifiedLocalTraversal { arrow: id },
                 });
             }
-            self.pending.push(
+            self.enqueue_physical_spike(
                 Spike {
                     arrival_tick,
                     phase: arrival_phase,
@@ -4223,6 +4372,19 @@ impl PlasticSubstrate {
                 if !snapshot.live {
                     continue;
                 }
+                #[cfg(feature = "core1")]
+                if self.protect_all_live_arrows
+                    || (self.in_flight_protection
+                        && self.in_flight_arrows[snapshot.id.0 as usize] > 0)
+                {
+                    self.arrows.with_mut(index, |arrow| {
+                        arrow.participation_level =
+                            relax_participation(arrow.participation_level, elapsed);
+                    });
+                    work.total = work.total.saturating_add(elapsed_u64);
+                    execution_cost.touch::<Arrow>(1);
+                    continue;
+                }
                 let material_index = snapshot.id.0 as usize;
                 let before = self.core0_resistance[material_index];
                 let decay_numerator = elapsed_u64
@@ -4268,6 +4430,22 @@ impl PlasticSubstrate {
                     }
                 }
                 continue;
+            }
+            #[cfg(feature = "core1")]
+            if self.in_flight_protection || self.protect_all_live_arrows {
+                let snapshot = self.arrows.get(index);
+                if snapshot.live
+                    && (self.protect_all_live_arrows
+                        || self.in_flight_arrows[snapshot.id.0 as usize] > 0)
+                {
+                    self.arrows.with_mut(index, |arrow| {
+                        arrow.participation_level =
+                            relax_participation(arrow.participation_level, elapsed);
+                    });
+                    work.total = work.total.saturating_add(elapsed_u64);
+                    execution_cost.touch::<Arrow>(1);
+                    continue;
+                }
             }
             let (deallocated, zero_delay, active_ticks) = self.arrows.with_mut(index, |arrow| {
                 if !arrow.live {
@@ -5317,6 +5495,18 @@ impl PlasticSubstrate {
                     std::mem::size_of::<CellId>() + 3 * std::mem::size_of::<usize>(),
                 ),
             )
+            .saturating_add({
+                #[cfg(feature = "core1")]
+                {
+                    self.in_flight_arrows
+                        .capacity()
+                        .saturating_mul(std::mem::size_of::<u32>())
+                }
+                #[cfg(not(feature = "core1"))]
+                {
+                    0
+                }
+            })
     }
 }
 
@@ -5395,6 +5585,35 @@ fn transmission_trigger_from_byte(trigger: u8) -> Result<TransmissionTrigger, Ch
         0 => Ok(TransmissionTrigger::SourceFires),
         1 => Ok(TransmissionTrigger::QualifiedLocalParticipation),
         other => Err(CheckpointError::UnsupportedTransmissionMode(other)),
+    }
+}
+
+#[cfg(feature = "core1")]
+fn core0_profile_byte(profile: Core0Profile) -> u8 {
+    match profile {
+        Core0Profile::A => 0,
+        Core0Profile::B => 1,
+        Core0Profile::C => 2,
+        Core0Profile::D => 3,
+        Core0Profile::GenericExternal => 4,
+        Core0Profile::GenericActivity => 5,
+        Core0Profile::GenericDistance => 6,
+        Core0Profile::GenericDistanceNoQlp => 7,
+    }
+}
+
+#[cfg(feature = "core1")]
+fn core0_profile_from_byte(profile: u8) -> Result<Core0Profile, CheckpointError> {
+    match profile {
+        0 => Ok(Core0Profile::A),
+        1 => Ok(Core0Profile::B),
+        2 => Ok(Core0Profile::C),
+        3 => Ok(Core0Profile::D),
+        4 => Ok(Core0Profile::GenericExternal),
+        5 => Ok(Core0Profile::GenericActivity),
+        6 => Ok(Core0Profile::GenericDistance),
+        7 => Ok(Core0Profile::GenericDistanceNoQlp),
+        _ => Err(CheckpointError::InvalidCheckpoint),
     }
 }
 
@@ -6063,6 +6282,51 @@ mod tests {
         let restored_result = restored.propagate();
         let substrate_result = substrate.propagate();
         assert_physical_equivalence(&substrate, &substrate_result, &restored, &restored_result);
+    }
+
+    #[cfg(feature = "core1")]
+    #[test]
+    fn e18_in_flight_generation_round_trips_and_protects_only_until_resolution() {
+        fn delayed(protected: bool) -> (PlasticSubstrate, CellId, ArrowId) {
+            let (mut substrate, source, _target, arrow) = substrate(1);
+            let slot = substrate.arrow_slot(arrow).unwrap();
+            substrate
+                .arrows
+                .with_mut(slot.0, |candidate| candidate.delay = 20);
+            substrate.set_core0_profile(Core0Profile::GenericExternal);
+            substrate.set_in_flight_protection(protected);
+            (substrate, source, arrow)
+        }
+
+        let (mut protected, source, arrow) = delayed(true);
+        protected.enter(input(source, 0));
+        let prefix = protected.propagate_with_observation_ceiling(1);
+        assert!(!prefix.run.naturally_quiescent);
+        assert_eq!(protected.in_flight_count(arrow), 1);
+
+        let bytes = protected
+            .live_checkpoint(18)
+            .unwrap()
+            .canonical_bytes()
+            .unwrap();
+        let checkpoint = LiveCheckpoint::decode(&bytes).unwrap();
+        let mut restored = PlasticSubstrate::from_live_checkpoint(checkpoint).unwrap();
+        assert_eq!(restored.in_flight_count(arrow), 1);
+        let suffix = restored.propagate();
+        assert!(suffix.naturally_quiescent);
+        assert_eq!(restored.in_flight_count(arrow), 0);
+        assert!(restored
+            .arrow_slot(arrow)
+            .is_some_and(|slot| restored.arrows.get(slot.0).live));
+
+        let (mut idle_decay, idle_source, idle_arrow) = delayed(false);
+        idle_decay.enter(input(idle_source, 0));
+        idle_decay.propagate_with_observation_ceiling(1);
+        let unprotected = idle_decay.propagate();
+        assert!(unprotected.naturally_quiescent);
+        assert!(!idle_decay
+            .arrow_slot(idle_arrow)
+            .is_some_and(|slot| idle_decay.arrows.get(slot.0).live));
     }
 
     #[test]

@@ -245,6 +245,16 @@ impl Arc3Sensorimotor {
         Ok(organism)
     }
 
+    #[cfg(feature = "core1")]
+    pub fn set_in_flight_protection(&mut self, enabled: bool) {
+        self.boundary.set_in_flight_protection(enabled);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_all_live_arrow_protection(&mut self, enabled: bool) {
+        self.boundary.set_all_live_arrow_protection(enabled);
+    }
+
     fn with_sensor(seed: u64, sensor_mode: SensorMode) -> Result<Self, Arc3SensorimotorError> {
         Self::with_sensor_and_mechanics(seed, sensor_mode, MechanicalConfig::PRODUCTION)
     }
