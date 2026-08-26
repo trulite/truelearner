@@ -245,6 +245,8 @@ pub struct Arc3Sensorimotor {
     decision_completion: Option<CellId>,
     #[cfg(feature = "core1")]
     decision_completion_context: Option<u16>,
+    #[cfg(feature = "core1")]
+    physical_credit_return_enabled: bool,
 }
 
 impl Arc3Sensorimotor {
@@ -324,6 +326,8 @@ impl Arc3Sensorimotor {
             decision_completion: None,
             #[cfg(feature = "core1")]
             decision_completion_context: None,
+            #[cfg(feature = "core1")]
+            physical_credit_return_enabled: false,
         })
     }
 
@@ -385,6 +389,53 @@ impl Arc3Sensorimotor {
     #[cfg(feature = "core1")]
     pub fn used_pending_count(&self) -> usize {
         self.boundary.used_pending_count()
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn enable_physical_credit_return(&mut self) {
+        self.physical_credit_return_enabled = true;
+        self.boundary.clear_used_pending();
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn temporary_credit_return_count(&self) -> usize {
+        self.boundary.temporary_credit_return_count()
+    }
+
+    #[cfg(feature = "core1")]
+    fn materialize_physical_credit_return(
+        &mut self,
+        context: u16,
+        motor: u8,
+    ) -> Result<usize, Arc3SensorimotorError> {
+        let diagnostic = self.diagnostic_context(context, motor)?;
+        let mut contacts = diagnostic
+            .links
+            .iter()
+            .filter(|link| link.role == "stem" && link.used_pending && link.coupling > 0)
+            .filter_map(|link| link.contact)
+            .filter(|contact| {
+                diagnostic.links.iter().any(|link| {
+                    link.role == "outgoing"
+                        && link.contact == Some(*contact)
+                        && link.used_pending
+                        && link.coupling > 0
+                })
+            })
+            .collect::<Vec<_>>();
+        contacts.sort_unstable();
+        contacts.dedup();
+        for contact in &contacts {
+            self.boundary.add_temporary_credit_return(modulatory(
+                self.sites.returning,
+                *contact,
+                0,
+                1,
+                u32::MAX,
+            ));
+        }
+        self.boundary.clear_used_pending();
+        Ok(contacts.len())
     }
 
     #[cfg(feature = "core1")]
@@ -465,6 +516,7 @@ impl Arc3Sensorimotor {
     ) -> Result<Arc3ConsequenceObservation, Arc3SensorimotorError> {
         let observation = self.admit_previous_consequence()?;
         if observation.admitted {
+            self.boundary.clear_temporary_credit_returns();
             self.boundary.clear_used_pending();
             self.decision_openness = Arc3DecisionOpenness::Closed;
         }
@@ -506,13 +558,18 @@ impl Arc3Sensorimotor {
         self.boundary.set_used_pending_capture(true);
         let observation = self.observe(frame, available_actions, None, false, false, action_map);
         self.boundary.set_used_pending_capture(false);
-        if observation
-            .as_ref()
-            .is_ok_and(|observation| observation.action.is_none())
-        {
+        let observation = observation?;
+        if observation.action.is_none() {
             self.boundary.clear_used_pending();
+        } else if self.physical_credit_return_enabled {
+            let motor = observation.motor_crossing.ok_or_else(|| {
+                Arc3SensorimotorError(
+                    "expressed OPEN decision is missing its physical motor crossing".to_string(),
+                )
+            })?;
+            self.materialize_physical_credit_return(observation.context, motor)?;
         }
-        observation
+        Ok(observation)
     }
 
     #[cfg(feature = "core0")]
@@ -618,6 +675,13 @@ impl Arc3Sensorimotor {
         }
         let motor_crossing = motor_crossings.first().copied();
         let expressed = motor_crossing.map(|index| action_map[usize::from(index)]);
+        if self.physical_credit_return_enabled {
+            if let Some(motor) = motor_crossing {
+                self.materialize_physical_credit_return(context, motor)?;
+            } else {
+                self.boundary.clear_used_pending();
+            }
+        }
         let (candidate_resistance, candidate_coupling, candidate_live) =
             self.candidate_state(context, motor);
         let frame_changed = self

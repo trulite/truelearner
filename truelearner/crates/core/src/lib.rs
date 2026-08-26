@@ -1601,6 +1601,8 @@ pub struct PlasticSubstrate {
     capture_used_pending: bool,
     #[cfg(feature = "core1")]
     used_pending_arrows: Vec<bool>,
+    #[cfg(feature = "core1")]
+    temporary_credit_return_arrows: Vec<bool>,
     #[cfg(feature = "core0")]
     core0_profile: Core0Profile,
     #[cfg(feature = "core0")]
@@ -2126,6 +2128,21 @@ impl BoundaryRuntime {
         self.substrate.used_pending_count()
     }
 
+    #[cfg(feature = "core1")]
+    pub fn add_temporary_credit_return(&mut self, spec: ArrowSpec) -> ArrowId {
+        self.substrate.add_temporary_credit_return(spec)
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn clear_temporary_credit_returns(&mut self) {
+        self.substrate.clear_temporary_credit_returns();
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn temporary_credit_return_count(&self) -> usize {
+        self.substrate.temporary_credit_return_count()
+    }
+
     /// Changes only the mechanical execution strategy beneath the boundary.
     /// Physical law and buffered activity are preserved exactly.
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
@@ -2339,6 +2356,8 @@ impl PlasticSubstrate {
             capture_used_pending: false,
             #[cfg(feature = "core1")]
             used_pending_arrows: Vec::new(),
+            #[cfg(feature = "core1")]
+            temporary_credit_return_arrows: Vec::new(),
             #[cfg(feature = "core0")]
             core0_profile: Core0Profile::A,
             #[cfg(feature = "core0")]
@@ -2424,6 +2443,69 @@ impl PlasticSubstrate {
             .get(id.0 as usize)
             .copied()
             .unwrap_or(false)
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn add_temporary_credit_return(&mut self, spec: ArrowSpec) -> ArrowId {
+        assert_eq!(spec.mode, TransmissionMode::Modulatory);
+        let id = self.add_arrow(spec);
+        self.temporary_credit_return_arrows[id.0 as usize] = true;
+        id
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn clear_temporary_credit_returns(&mut self) {
+        for index in 0..self.temporary_credit_return_arrows.len() {
+            if !self.temporary_credit_return_arrows[index] {
+                continue;
+            }
+            self.temporary_credit_return_arrows[index] = false;
+            let id = ArrowId(u64::try_from(index).unwrap_or(u64::MAX));
+            let Some(slot) = self.arrow_slot(id) else {
+                continue;
+            };
+            let snapshot = self.arrows.get(slot.0);
+            if !snapshot.live {
+                continue;
+            }
+            if snapshot.delay == 0 {
+                self.zero_delay_live_arrows = self.zero_delay_live_arrows.saturating_sub(1);
+            }
+            #[cfg(feature = "core0")]
+            {
+                self.core0_resistance[index] = 0;
+                self.core0_decay_remainder[index] = 0;
+            }
+            self.arrows
+                .with_mut(slot.0, |arrow| decay_arrow(arrow, u32::MAX));
+        }
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn temporary_credit_return_count(&self) -> usize {
+        self.temporary_credit_return_arrows
+            .iter()
+            .filter(|temporary| **temporary)
+            .count()
+    }
+
+    #[cfg(feature = "core1")]
+    fn protected_by_temporary_credit_return(&self, candidate: &Arrow) -> bool {
+        if candidate.mode != TransmissionMode::Drive || candidate.participation_level == 0 {
+            return false;
+        }
+        self.temporary_credit_return_arrows
+            .iter()
+            .enumerate()
+            .filter(|(_, temporary)| **temporary)
+            .any(|(index, _)| {
+                let id = ArrowId(u64::try_from(index).unwrap_or(u64::MAX));
+                self.arrow_slot(id).is_some_and(|slot| {
+                    let connection = self.arrows.get(slot.0);
+                    connection.live
+                        && (candidate.from == connection.to || candidate.to == connection.to)
+                })
+            })
     }
 
     pub fn mechanical_config(&self) -> MechanicalConfig {
@@ -2640,6 +2722,10 @@ impl PlasticSubstrate {
                 self.used_pending_arrows.resize(required, false);
             }
             self.used_pending_arrows[id.0 as usize] = false;
+            if self.temporary_credit_return_arrows.len() < required {
+                self.temporary_credit_return_arrows.resize(required, false);
+            }
+            self.temporary_credit_return_arrows[id.0 as usize] = false;
         }
         let outgoing = &mut self.outgoing_index[spec.from.0 as usize];
         outgoing.push(id);
@@ -2999,6 +3085,10 @@ impl PlasticSubstrate {
         substrate
             .used_pending_arrows
             .resize(substrate.arrow_slots.len(), false);
+        #[cfg(feature = "core1")]
+        substrate
+            .temporary_credit_return_arrows
+            .resize(substrate.arrow_slots.len(), false);
         Ok(substrate)
     }
 
@@ -3037,7 +3127,7 @@ impl PlasticSubstrate {
             && {
                 #[cfg(feature = "core1")]
                 {
-                    self.used_pending_count() == 0
+                    self.used_pending_count() == 0 && self.temporary_credit_return_count() == 0
                 }
                 #[cfg(not(feature = "core1"))]
                 {
@@ -4457,6 +4547,8 @@ impl PlasticSubstrate {
                     || (self.in_flight_protection
                         && self.in_flight_arrows[snapshot.id.0 as usize] > 0)
                     || self.used_pending_arrows[snapshot.id.0 as usize]
+                    || self.temporary_credit_return_arrows[snapshot.id.0 as usize]
+                    || self.protected_by_temporary_credit_return(&snapshot)
                 {
                     self.arrows.with_mut(index, |arrow| {
                         arrow.participation_level =
@@ -4516,12 +4608,15 @@ impl PlasticSubstrate {
             if self.in_flight_protection
                 || self.protect_all_live_arrows
                 || self.used_pending_count() > 0
+                || self.temporary_credit_return_count() > 0
             {
                 let snapshot = self.arrows.get(index);
                 if snapshot.live
                     && (self.protect_all_live_arrows
                         || self.in_flight_arrows[snapshot.id.0 as usize] > 0
-                        || self.used_pending_arrows[snapshot.id.0 as usize])
+                        || self.used_pending_arrows[snapshot.id.0 as usize]
+                        || self.temporary_credit_return_arrows[snapshot.id.0 as usize]
+                        || self.protected_by_temporary_credit_return(&snapshot))
                 {
                     self.arrows.with_mut(index, |arrow| {
                         arrow.participation_level =
@@ -5588,6 +5683,11 @@ impl PlasticSubstrate {
                         .saturating_mul(std::mem::size_of::<u32>())
                         .saturating_add(
                             self.used_pending_arrows
+                                .capacity()
+                                .saturating_mul(std::mem::size_of::<bool>()),
+                        )
+                        .saturating_add(
+                            self.temporary_credit_return_arrows
                                 .capacity()
                                 .saturating_mul(std::mem::size_of::<bool>()),
                         )
