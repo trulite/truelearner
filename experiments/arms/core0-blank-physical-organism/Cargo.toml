@@ -3,9 +3,18 @@ name = "core1-radical-desupply"
 version = "0.1.0"
 edition = "2021"
 publish = false
+autobins = false
 
 [dependencies]
 academy-arc3 = { path = "../../../academy/crates/academy-arc3", features = ["core1"] }
 truelearner-core = { path = "../../../truelearner/crates/core", features = ["core1"] }
 
 [workspace]
+
+[[bin]]
+name = "core1-e14-arc-a2"
+path = "src/bin/core1-e14-arc-a2.rs"
+
+[[bin]]
+name = "core1-adoption-gate-e14"
+path = "src/bin/core1-adoption-gate-e14.rs"

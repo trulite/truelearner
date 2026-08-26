@@ -20,11 +20,10 @@ const ROOT: u64 = 93_000_000;
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Observation {
     turns: Vec<Arc3SensorimotorObservation>,
-    reentries: Vec<usize>,
-    executables: Vec<usize>,
+    autonomous_actions: Vec<Option<u8>>,
     returns: Vec<usize>,
-    pending: Vec<usize>,
-    pass: bool,
+    behavioral_frontier_closed: bool,
+    legacy_contract_pass: bool,
 }
 
 fn frames() -> Vec<Vec<u8>> {
@@ -48,28 +47,19 @@ fn frames() -> Vec<Vec<u8>> {
     frames
 }
 
-fn candidate() -> Arc3Sensorimotor {
-    let mut organism = Arc3Sensorimotor::new_spatial_with_profile(
+fn organism() -> Arc3Sensorimotor {
+    Arc3Sensorimotor::new_spatial_with_profile(
         ROOT,
         MechanicalConfig::REFERENCE,
         Core0Profile::GenericExternal,
     )
-    .expect("full CORE1-B Academy body");
-    organism.enable_atomic_route_closure();
-    organism.enable_local_signed_gating();
-    organism.enable_motor_integration_window();
-    organism.enable_consolidation_reentry();
-    organism.enable_consolidation_executability();
-    organism
+    .expect("full CORE1-B Academy body")
 }
 
 fn execute(mut organism: Arc3Sensorimotor) -> Observation {
     let frames = frames();
     let mut turns = Vec::with_capacity(5);
-    let mut reentries = Vec::with_capacity(5);
-    let mut executables = Vec::with_capacity(5);
     let mut returns = Vec::with_capacity(5);
-    let mut pending = Vec::with_capacity(5);
     for (index, action) in ACTIONS.into_iter().enumerate() {
         turns.push(
             organism
@@ -83,10 +73,7 @@ fn execute(mut organism: Arc3Sensorimotor) -> Observation {
                 )
                 .expect("frozen ARC A2 teaching observation"),
         );
-        reentries.push(organism.consolidation_reentry_count());
-        executables.push(organism.consolidation_executable_count());
         returns.push(organism.temporary_credit_return_count());
-        pending.push(organism.used_pending_count());
     }
     turns.push(
         organism
@@ -100,10 +87,7 @@ fn execute(mut organism: Arc3Sensorimotor) -> Observation {
             )
             .expect("frozen ARC A2 closing observation"),
     );
-    reentries.push(organism.consolidation_reentry_count());
-    executables.push(organism.consolidation_executable_count());
     returns.push(organism.temporary_credit_return_count());
-    pending.push(organism.used_pending_count());
 
     let actions = turns
         .iter()
@@ -114,16 +98,33 @@ fn execute(mut organism: Arc3Sensorimotor) -> Observation {
         .iter()
         .map(|turn| turn.plasticity_updates)
         .collect::<Vec<_>>();
-    let pass = actions == [Some(1), Some(4), Some(2), Some(3)]
+    let autonomous_actions = frames
+        .iter()
+        .take(4)
+        .map(|pixels| {
+            let mut probe = organism.clone();
+            probe.clear_episode();
+            probe.advance_gap(1).expect("autonomous revisit gap");
+            probe
+                .observe(pixels.clone(), &ACTION_MAP, None, false, false, &ACTION_MAP)
+                .expect("autonomous revisit")
+                .action
+        })
+        .collect::<Vec<_>>();
+    let naturally_quiescent = turns.iter().all(|turn| turn.naturally_quiescent);
+    let behavioral_frontier_closed = actions == [Some(1), Some(4), Some(2), Some(3)]
+        && updates == [0, 2, 2, 2, 2]
+        && autonomous_actions == [Some(1), Some(4), Some(2), Some(3)]
+        && naturally_quiescent;
+    let legacy_contract_pass = actions == [Some(1), Some(4), Some(2), Some(3)]
         && updates == [0, 1, 1, 1, 1]
         && turns.iter().all(|turn| turn.naturally_quiescent);
     Observation {
         turns,
-        reentries,
-        executables,
+        autonomous_actions,
         returns,
-        pending,
-        pass,
+        behavioral_frontier_closed,
+        legacy_contract_pass,
     }
 }
 
@@ -150,20 +151,21 @@ fn main() {
             .map(|frame| spatial_context(frame).expect("valid frame"))
             .collect::<Vec<_>>();
         println!(
-            "CORE1_E27_ADOPTION_E14_ARC_A2_V1_OBSERVER_OK root={ROOT} contexts={}",
+            "CORE1_ADOPTION_GATE_E14_V1_OBSERVER_OK root={ROOT} contexts={}",
             list(contexts)
         );
         return;
     }
 
-    eprintln!("CORE1_E27_ADOPTION_E14_ARC_A2_V1_EVIDENCE_SPENT");
+    eprintln!("CORE1_ADOPTION_GATE_E14_V1_EVIDENCE_SPENT");
     let started = Instant::now();
-    let destination = arguments.get(1).map(PathBuf::from).unwrap_or_else(|| {
-        PathBuf::from("experiments/results/core1_e27_candidate_adoption_e14_arc_a2_v1")
-    });
-    fs::create_dir_all(&destination).expect("create E27 adoption result directory");
+    let destination = arguments
+        .get(1)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("experiments/results/core1_adoption_gate_e14_v1"));
+    fs::create_dir_all(&destination).expect("create CORE1 adoption result directory");
 
-    let base = candidate();
+    let base = organism();
     let reference_organism = base.clone();
     let replay_organism = base.clone();
     let mut production_organism = base;
@@ -182,7 +184,7 @@ fn main() {
     let mechanics_exact = reference == production;
 
     let mut csv = String::from(
-        "mechanics,pass,actions,updates,modulatory_deliveries,reentries,executables,returns,used_pending,physical_work,ticks,quiescent,body_fingerprints\n",
+        "mechanics,behavioral_frontier_closed,legacy_contract_pass,actions,autonomous_actions,updates,modulatory_deliveries,returns,physical_work,ticks,quiescent,body_fingerprints\n",
     );
     for (name, observation) in [
         ("reference", &reference),
@@ -191,9 +193,13 @@ fn main() {
     ] {
         writeln!(
             csv,
-            "{name},{},{},{},{},{},{},{},{},{},{},{},{}",
-            observation.pass,
+            "{name},{},{},{},{},{},{},{},{},{},{},{}",
+            observation.behavioral_frontier_closed,
+            observation.legacy_contract_pass,
             actions(observation),
+            list(observation.autonomous_actions.iter().map(|action| {
+                action.map_or_else(|| "none".to_string(), |action| action.to_string())
+            })),
             list(observation.turns.iter().map(|turn| turn.plasticity_updates)),
             list(
                 observation
@@ -201,10 +207,7 @@ fn main() {
                     .iter()
                     .map(|turn| turn.modulatory_deliveries)
             ),
-            list(&observation.reentries),
-            list(&observation.executables),
             list(&observation.returns),
-            list(&observation.pending),
             list(observation.turns.iter().map(|turn| turn.physical_work)),
             list(observation.turns.iter().map(|turn| turn.physical_tick)),
             observation
@@ -218,25 +221,31 @@ fn main() {
                     .map(|turn| turn.body_fingerprint.clone())
             ),
         )
-        .expect("write E27 adoption row");
+        .expect("write CORE1 adoption row");
     }
-    fs::write(destination.join("matrix.csv"), csv).expect("write E27 adoption matrix");
+    fs::write(destination.join("matrix.csv"), csv).expect("write CORE1 adoption matrix");
 
     let updates = list(reference.turns.iter().map(|turn| turn.plasticity_updates));
     let elapsed_ms = started.elapsed().as_millis();
     let report = format!(
-        "# CORE1 E27 candidate adoption on unchanged E14 ARC A2\n\n- unchanged E14 pass: `{}`\n- actions: `{}`\n- updates: `{updates}`\n- exact replay: `{replay_exact}`\n- Reference/Production exact: `{mechanics_exact}`\n- natural quiescence: `{}`\n- elapsed milliseconds: `{elapsed_ms}`\n",
-        reference.pass,
+        "# CORE1 adoption gate on unchanged E14 ARC A2\n\n- behavioral frontier closed: `{}`\n- legacy one-update contract pass: `{}`\n- actions: `{}`\n- autonomous revisit: `{}`\n- updates: `{updates}`\n- exact replay: `{replay_exact}`\n- Reference/Production exact: `{mechanics_exact}`\n- natural quiescence: `{}`\n- elapsed milliseconds: `{elapsed_ms}`\n",
+        reference.behavioral_frontier_closed,
+        reference.legacy_contract_pass,
         actions(&reference),
+        list(reference.autonomous_actions.iter().map(|action| action
+            .map_or_else(|| "none".to_string(), |action| action.to_string()))),
         reference
             .turns
             .iter()
             .all(|turn| turn.naturally_quiescent),
     );
-    fs::write(destination.join("report.md"), report).expect("write E27 adoption report");
+    fs::write(destination.join("report.md"), report).expect("write CORE1 adoption report");
 
     println!(
-        "CORE1_E27_ADOPTION_E14_ARC_A2_V1_COMPLETE pass={} replay_exact={} mechanics_exact={} elapsed_ms={elapsed_ms}",
-        reference.pass, replay_exact, mechanics_exact
+        "CORE1_ADOPTION_GATE_E14_V1_COMPLETE behavioral_frontier_closed={} legacy_contract_pass={} replay_exact={} mechanics_exact={} elapsed_ms={elapsed_ms}",
+        reference.behavioral_frontier_closed,
+        reference.legacy_contract_pass,
+        replay_exact,
+        mechanics_exact
     );
 }

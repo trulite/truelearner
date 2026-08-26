@@ -2,14 +2,14 @@ use crate::ARC3_FRAME_PIXELS;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use truelearner_arena_format::{ArenaId, ArrowId, CellId, ContentHash};
+#[cfg(feature = "core0")]
+use truelearner_core::Core0Profile;
 #[cfg(feature = "core1")]
 use truelearner_core::PhysicalTransition;
 use truelearner_core::{
     ArrowSpec, BoundaryError, BoundaryRuntime, CellSpec, MechanicalConfig, PlasticSubstrate,
     SpikeInput, TransmissionMode,
 };
-#[cfg(feature = "core0")]
-use truelearner_core::{Core0Profile, TransmissionTrigger};
 
 const PALETTE_CONTEXTS: usize = 16;
 const SPATIAL_CONTEXTS: usize = 1_024;
@@ -23,10 +23,6 @@ const MOTOR_PHYSICAL_BASE: u64 = 4_000_000;
 const OUTPUT_PHYSICAL_BASE: u64 = 5_000_000;
 const BABBLER_PHYSICAL_BASE: u64 = 7_000_000;
 const EXTERNAL_PHYSICAL_BASE: u64 = 9_000_000;
-#[cfg(feature = "core1")]
-const DECISION_COMPLETION_PHYSICAL: u64 = 6_500_000;
-#[cfg(feature = "core1")]
-const DECISION_COMPLETION_SINK_PHYSICAL: u64 = 6_500_001;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "command", rename_all = "snake_case")]
@@ -100,24 +96,6 @@ pub struct Arc3ConsequenceObservation {
     pub naturally_quiescent: bool,
 }
 
-#[cfg(feature = "core1")]
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum Arc3DecisionOpenness {
-    #[default]
-    Closed,
-    Open,
-}
-
-#[cfg(feature = "core1")]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Arc3DecisionCompletionObservation {
-    pub delivered: bool,
-    pub reactivation_eligible: bool,
-    pub variation_cycles: u8,
-    pub physical_work: u64,
-    pub naturally_quiescent: bool,
-}
-
 #[cfg(feature = "core0")]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Arc3CandidateLinkDiagnostic {
@@ -127,8 +105,6 @@ pub struct Arc3CandidateLinkDiagnostic {
     pub coupling: i64,
     pub resistance: u64,
     pub participation: u64,
-    #[cfg(feature = "core1")]
-    pub used_pending: bool,
 }
 
 #[cfg(feature = "core0")]
@@ -143,17 +119,6 @@ pub struct Arc3ContextDiagnostic {
     pub links: Vec<Arc3CandidateLinkDiagnostic>,
 }
 
-#[cfg(feature = "core0")]
-pub struct Arc3TransientHistoryRequest<'a> {
-    pub frame: Vec<u8>,
-    pub available_actions: &'a [u8],
-    pub babble_action: u8,
-    pub support_previous: bool,
-    pub settle_pressure: bool,
-    pub action_map: &'a [u8],
-    pub early_material_sign: i8,
-}
-
 struct Arc3ObserveRequest<'a> {
     frame: Vec<u8>,
     available_actions: &'a [u8],
@@ -161,7 +126,6 @@ struct Arc3ObserveRequest<'a> {
     support_previous: bool,
     settle_pressure: bool,
     action_map: &'a [u8],
-    early_material_sign: Option<i8>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -224,8 +188,6 @@ enum SensorMode {
 struct Sites {
     candidate_sources: Vec<[CellId; MOTORS]>,
     context_traces: Vec<[CellId; MOTORS]>,
-    #[cfg(feature = "core0")]
-    relays: Vec<[CellId; MOTORS]>,
     motors: Vec<[CellId; MOTORS]>,
     babblers: Vec<[CellId; MOTORS]>,
     returning: CellId,
@@ -243,16 +205,6 @@ pub struct Arc3Sensorimotor {
     previous_context: Option<u16>,
     previous_motor: Option<u8>,
     sequence: u64,
-    #[cfg(feature = "core1")]
-    decision_openness: Arc3DecisionOpenness,
-    #[cfg(feature = "core1")]
-    decision_completion: Option<CellId>,
-    #[cfg(feature = "core1")]
-    decision_completion_context: Option<u16>,
-    #[cfg(feature = "core1")]
-    physical_credit_return_enabled: bool,
-    #[cfg(feature = "core1")]
-    atomic_credit_return_enabled: bool,
     #[cfg(feature = "core1")]
     last_action_physical_trace: Vec<PhysicalTransition>,
 }
@@ -307,16 +259,6 @@ impl Arc3Sensorimotor {
         Ok(organism)
     }
 
-    #[cfg(feature = "core1")]
-    pub fn set_in_flight_protection(&mut self, enabled: bool) {
-        self.boundary.set_in_flight_protection(enabled);
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn set_all_live_arrow_protection(&mut self, enabled: bool) {
-        self.boundary.set_all_live_arrow_protection(enabled);
-    }
-
     fn with_sensor(seed: u64, sensor_mode: SensorMode) -> Result<Self, Arc3SensorimotorError> {
         Self::with_sensor_and_mechanics(seed, sensor_mode, MechanicalConfig::PRODUCTION)
     }
@@ -343,7 +285,7 @@ impl Arc3Sensorimotor {
         #[cfg(feature = "core1")]
         let boundary = {
             let mut boundary = boundary;
-            boundary.configure_atomic_credit_return(sites.returning);
+            boundary.configure_consequence_return(sites.returning);
             boundary
         };
         Ok(Self {
@@ -357,144 +299,13 @@ impl Arc3Sensorimotor {
             previous_motor: None,
             sequence: 0,
             #[cfg(feature = "core1")]
-            decision_openness: Arc3DecisionOpenness::Closed,
-            #[cfg(feature = "core1")]
-            decision_completion: None,
-            #[cfg(feature = "core1")]
-            decision_completion_context: None,
-            #[cfg(feature = "core1")]
-            physical_credit_return_enabled: false,
-            #[cfg(feature = "core1")]
-            atomic_credit_return_enabled: true,
-            #[cfg(feature = "core1")]
             last_action_physical_trace: Vec::new(),
         })
     }
 
     #[cfg(feature = "core1")]
-    pub fn install_decision_completion_junction(
-        &mut self,
-        context: u16,
-    ) -> Result<(), Arc3SensorimotorError> {
-        if self.decision_completion.is_some() {
-            return if self.decision_completion_context == Some(context) {
-                Ok(())
-            } else {
-                Err(Arc3SensorimotorError(
-                    "decision completion junction is already installed elsewhere".to_string(),
-                ))
-            };
-        }
-        let context_index = usize::from(context);
-        if context_index >= self.sites.candidate_sources.len() {
-            return Err(Arc3SensorimotorError(
-                "decision completion context is outside the body".to_string(),
-            ));
-        }
-        let receptor = self.boundary.add_experimental_cell(CellSpec {
-            physical_id: DECISION_COMPLETION_PHYSICAL,
-            position: i32::MIN / 2,
-            region: 0,
-            threshold: 1,
-            resistance: u32::MAX,
-        });
-        let sink = self.boundary.add_experimental_cell(CellSpec {
-            physical_id: DECISION_COMPLETION_SINK_PHYSICAL,
-            position: i32::MIN / 2 + 1,
-            region: 0,
-            threshold: 1,
-            resistance: u32::MAX,
-        });
-        self.boundary.add_arrow_with_trigger(
-            drive(receptor, sink, 0, 1, u32::MAX),
-            TransmissionTrigger::SourceFires,
-        );
-        self.decision_completion = Some(receptor);
-        self.decision_completion_context = Some(context);
-        Ok(())
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn open_decision_interaction(&mut self, context: u16) -> Result<(), Arc3SensorimotorError> {
-        self.install_decision_completion_junction(context)?;
-        self.decision_openness = Arc3DecisionOpenness::Open;
-        Ok(())
-    }
-
-    #[cfg(feature = "core1")]
-    pub const fn decision_openness(&self) -> Arc3DecisionOpenness {
-        self.decision_openness
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn used_pending_count(&self) -> usize {
-        self.boundary.used_pending_count()
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn enable_physical_credit_return(&mut self) {
-        self.physical_credit_return_enabled = true;
-        self.atomic_credit_return_enabled = false;
-        self.boundary.clear_used_pending();
-        self.boundary.set_used_pending_protection(false);
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn enable_atomic_physical_credit_return(&mut self) {
-        self.physical_credit_return_enabled = false;
-        self.atomic_credit_return_enabled = true;
-        self.boundary.clear_used_pending();
-        self.boundary.set_used_pending_protection(false);
-        self.boundary
-            .configure_atomic_credit_return(self.sites.returning);
-    }
-
-    #[cfg(feature = "core1")]
     pub fn temporary_credit_return_count(&self) -> usize {
         self.boundary.temporary_credit_return_count()
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn enable_atomic_route_closure(&mut self) {
-        self.boundary.set_atomic_route_closure(true);
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn enable_local_signed_gating(&mut self) {
-        for motors in &self.sites.motors {
-            for motor in motors {
-                self.boundary.set_signed_gating(*motor, true);
-            }
-        }
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn enable_motor_integration_window(&mut self) {
-        for motors in &self.sites.motors {
-            for motor in motors {
-                self.boundary.set_integration_window(*motor, true);
-            }
-        }
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn enable_consolidation_reentry(&mut self) {
-        self.boundary.set_consolidation_reentry(true);
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn consolidation_reentry_count(&self) -> usize {
-        self.boundary.consolidation_reentry_count()
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn enable_consolidation_executability(&mut self) {
-        self.boundary.set_consolidation_executability(true);
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn consolidation_executable_count(&self) -> usize {
-        self.boundary.consolidation_executable_count()
     }
 
     #[cfg(feature = "core1")]
@@ -506,127 +317,6 @@ impl Arc3Sensorimotor {
     #[cfg(feature = "core1")]
     pub fn last_action_physical_trace(&self) -> &[PhysicalTransition] {
         &self.last_action_physical_trace
-    }
-
-    #[cfg(feature = "core1")]
-    fn materialize_physical_credit_return(
-        &mut self,
-        context: u16,
-        motor: u8,
-    ) -> Result<usize, Arc3SensorimotorError> {
-        let diagnostic = self.diagnostic_context(context, motor)?;
-        let mut contacts = diagnostic
-            .links
-            .iter()
-            .filter(|link| link.role == "stem" && link.used_pending && link.coupling > 0)
-            .filter_map(|link| link.contact)
-            .filter(|contact| {
-                diagnostic.links.iter().any(|link| {
-                    link.role == "outgoing"
-                        && link.contact == Some(*contact)
-                        && link.used_pending
-                        && link.coupling > 0
-                })
-            })
-            .collect::<Vec<_>>();
-        contacts.sort_unstable();
-        contacts.dedup();
-        for contact in &contacts {
-            self.boundary.add_temporary_credit_return(modulatory(
-                self.sites.returning,
-                *contact,
-                0,
-                1,
-                u32::MAX,
-            ));
-        }
-        self.boundary.clear_used_pending();
-        Ok(contacts.len())
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn return_decision_completion(
-        &mut self,
-    ) -> Result<Arc3DecisionCompletionObservation, Arc3SensorimotorError> {
-        let receptor = self.decision_completion.ok_or_else(|| {
-            Arc3SensorimotorError("decision completion junction is not installed".to_string())
-        })?;
-        let tick = self.boundary.substrate().clock().tick;
-        let completion = self.boundary.arrive(
-            &[SpikeInput {
-                arrival_tick: tick,
-                phase: 40,
-                origin_physical: EXTERNAL_PHYSICAL_BASE
-                    .saturating_add(self.sequence)
-                    .saturating_add(2_000),
-                target: receptor,
-                impulse: 1,
-            }],
-            OUTWARD_REGION,
-        )?;
-        let delivered = completion.work.physical_total() > 0;
-        let reactivation_eligible =
-            delivered && self.decision_openness == Arc3DecisionOpenness::Open;
-        let mut physical_work = completion.work.physical_total();
-        let mut naturally_quiescent = completion.naturally_quiescent;
-        if reactivation_eligible {
-            let context = self.decision_completion_context.ok_or_else(|| {
-                Arc3SensorimotorError("decision completion context is missing".to_string())
-            })?;
-            let context_index = usize::from(context);
-            let tick = self.boundary.substrate().clock().tick;
-            let origin = EXTERNAL_PHYSICAL_BASE
-                .saturating_add(self.sequence.saturating_mul(100))
-                .saturating_add(u64::from(context))
-                .saturating_add(3_000);
-            let mut inputs = Vec::with_capacity(MOTORS.saturating_mul(3));
-            for motor in 0..MOTORS {
-                inputs.push(SpikeInput {
-                    arrival_tick: tick,
-                    phase: i32::try_from(motor).unwrap_or(0),
-                    origin_physical: origin,
-                    target: self.sites.candidate_sources[context_index][motor],
-                    impulse: 1,
-                });
-                inputs.push(SpikeInput {
-                    arrival_tick: tick.saturating_add(1),
-                    phase: i32::try_from(motor).unwrap_or(0).saturating_add(4),
-                    origin_physical: origin.saturating_add(25),
-                    target: self.sites.candidate_sources[context_index][motor],
-                    impulse: 1,
-                });
-                inputs.push(SpikeInput {
-                    arrival_tick: tick.saturating_add(2),
-                    phase: i32::try_from(motor).unwrap_or(0).saturating_add(8),
-                    origin_physical: origin.saturating_add(50),
-                    target: self.sites.context_traces[context_index][motor],
-                    impulse: 1,
-                });
-            }
-            let junction = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
-            physical_work = physical_work.saturating_add(junction.work.physical_total());
-            naturally_quiescent &= junction.naturally_quiescent;
-        }
-        Ok(Arc3DecisionCompletionObservation {
-            delivered,
-            reactivation_eligible,
-            variation_cycles: u8::from(reactivation_eligible),
-            physical_work,
-            naturally_quiescent,
-        })
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn admit_open_decision_consequence(
-        &mut self,
-    ) -> Result<Arc3ConsequenceObservation, Arc3SensorimotorError> {
-        let observation = self.admit_previous_consequence()?;
-        if observation.admitted {
-            self.boundary.clear_temporary_credit_returns();
-            self.boundary.clear_used_pending();
-            self.decision_openness = Arc3DecisionOpenness::Closed;
-        }
-        Ok(observation)
     }
 
     pub fn observe(
@@ -645,196 +335,7 @@ impl Arc3Sensorimotor {
             support_previous,
             settle_pressure,
             action_map,
-            early_material_sign: None,
         })
-    }
-
-    #[cfg(feature = "core1")]
-    pub fn observe_open_decision(
-        &mut self,
-        frame: Vec<u8>,
-        available_actions: &[u8],
-        action_map: &[u8],
-    ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
-        if self.decision_openness != Arc3DecisionOpenness::Open {
-            return Err(Arc3SensorimotorError(
-                "decision interaction must be OPEN before junction activation".to_string(),
-            ));
-        }
-        if self.atomic_credit_return_enabled {
-            self.boundary.set_atomic_credit_return_capture(true);
-        } else {
-            self.boundary.set_used_pending_capture(true);
-        }
-        let observation = self.observe(frame, available_actions, None, false, false, action_map);
-        if self.atomic_credit_return_enabled {
-            self.boundary.set_atomic_credit_return_capture(false);
-        } else {
-            self.boundary.set_used_pending_capture(false);
-        }
-        let observation = observation?;
-        if observation.action.is_none() {
-            self.boundary.clear_used_pending();
-        } else if self.physical_credit_return_enabled {
-            let motor = observation.motor_crossing.ok_or_else(|| {
-                Arc3SensorimotorError(
-                    "expressed OPEN decision is missing its physical motor crossing".to_string(),
-                )
-            })?;
-            self.materialize_physical_credit_return(observation.context, motor)?;
-        }
-        Ok(observation)
-    }
-
-    #[cfg(feature = "core0")]
-    pub fn observe_with_transient_history(
-        &mut self,
-        request: Arc3TransientHistoryRequest<'_>,
-    ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
-        if !matches!(request.early_material_sign, -1 | 1) {
-            return Err(Arc3SensorimotorError(
-                "transient-history material sign must be -1 or +1".to_string(),
-            ));
-        }
-        self.observe_inner(Arc3ObserveRequest {
-            frame: request.frame,
-            available_actions: request.available_actions,
-            babble_action: Some(request.babble_action),
-            support_previous: request.support_previous,
-            settle_pressure: request.settle_pressure,
-            action_map: request.action_map,
-            early_material_sign: Some(request.early_material_sign),
-        })
-    }
-
-    #[cfg(feature = "core0")]
-    pub fn trigger_transient_continuation(
-        &mut self,
-        frame: Vec<u8>,
-        action: u8,
-        action_map: &[u8],
-        early_material_sign: i8,
-    ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
-        validate_sensor_frame(&frame)?;
-        validate_action_map(action_map)?;
-        if !matches!(early_material_sign, -1 | 1) {
-            return Err(Arc3SensorimotorError(
-                "transient-continuation material sign must be -1 or +1".to_string(),
-            ));
-        }
-        let motor = action_index(action)?;
-        let context = self.sensor_context(&frame)?;
-        let context_index = usize::from(context);
-        let contacts =
-            self.transient_history_contacts(context_index, motor, early_material_sign)?;
-        self.ensure_transient_history_closure(context_index, motor, &contacts);
-        let tick = self.boundary.substrate().clock().tick;
-        let origin = EXTERNAL_PHYSICAL_BASE
-            .saturating_add(self.sequence.saturating_mul(100))
-            .saturating_add(u64::from(context));
-        let mut inputs = Vec::with_capacity(contacts.len().saturating_add(3));
-        inputs.push(SpikeInput {
-            arrival_tick: tick,
-            phase: 0,
-            origin_physical: origin,
-            target: self.sites.candidate_sources[context_index][motor],
-            impulse: 1,
-        });
-        inputs.push(SpikeInput {
-            arrival_tick: tick.saturating_add(1),
-            phase: i32::try_from(motor).unwrap_or(0).saturating_add(8),
-            origin_physical: origin.saturating_add(50),
-            target: self.sites.context_traces[context_index][motor],
-            impulse: 1,
-        });
-        inputs.push(SpikeInput {
-            arrival_tick: tick.saturating_add(2),
-            phase: 30,
-            origin_physical: origin.saturating_add(99),
-            target: self.sites.babblers[context_index][motor],
-            impulse: 1,
-        });
-        for (contact, physical_id, selected) in contacts {
-            if selected {
-                continue;
-            }
-            inputs.push(SpikeInput {
-                arrival_tick: tick.saturating_add(1),
-                phase: 0,
-                origin_physical: origin.saturating_add(20_000).saturating_add(physical_id),
-                target: contact,
-                impulse: -1,
-            });
-        }
-
-        if self.atomic_credit_return_enabled {
-            self.boundary.set_atomic_credit_return_capture(true);
-        } else {
-            self.boundary.set_used_pending_capture(true);
-        }
-        let result = self.boundary.arrive(&inputs, OUTWARD_REGION);
-        if self.atomic_credit_return_enabled {
-            self.boundary.set_atomic_credit_return_capture(false);
-        } else {
-            self.boundary.set_used_pending_capture(false);
-        }
-        let result = result?;
-        let motor_crossings = result
-            .crossings
-            .iter()
-            .filter_map(|crossing| {
-                crossing
-                    .from_physical
-                    .checked_sub(MOTOR_PHYSICAL_BASE)
-                    .and_then(|index| u8::try_from(index % MOTORS as u64).ok())
-            })
-            .collect::<Vec<_>>();
-        if motor_crossings.len() > 1 {
-            return Err(Arc3SensorimotorError(format!(
-                "ambiguous organism continuation: {} motor crossings",
-                motor_crossings.len()
-            )));
-        }
-        let motor_crossing = motor_crossings.first().copied();
-        let expressed = motor_crossing.map(|index| action_map[usize::from(index)]);
-        if self.physical_credit_return_enabled {
-            if let Some(motor) = motor_crossing {
-                self.materialize_physical_credit_return(context, motor)?;
-            } else {
-                self.boundary.clear_used_pending();
-            }
-        }
-        let (candidate_resistance, candidate_coupling, candidate_live) =
-            self.candidate_state(context, motor);
-        let frame_changed = self
-            .previous_frame
-            .as_ref()
-            .map(|previous| previous != &frame);
-        self.previous_frame = Some(frame);
-        self.previous_context = Some(context);
-        self.previous_motor = motor_crossing;
-        let observation = Arc3SensorimotorObservation {
-            sequence: self.sequence,
-            context,
-            frame_changed,
-            support_admitted: false,
-            babble_action: Some(action),
-            motor_crossing,
-            action: expressed,
-            outward_crossings: result.crossings.len(),
-            plasticity_updates: result.work.local_return_updates,
-            modulatory_deliveries: result.work.modulatory_deliveries,
-            physical_work: result.work.physical_total(),
-            naturally_quiescent: result.naturally_quiescent,
-            candidate_resistance,
-            candidate_coupling,
-            candidate_live,
-            body_fingerprint: self.body_fingerprint()?,
-            physical_tick: self.boundary.substrate().clock().tick,
-            pressure_phase: self.boundary.substrate().clock().pressure_phase(),
-        };
-        self.sequence = self.sequence.saturating_add(1);
-        Ok(observation)
     }
 
     fn observe_inner(
@@ -848,7 +349,6 @@ impl Arc3Sensorimotor {
             support_previous,
             settle_pressure,
             action_map,
-            early_material_sign,
         } = request;
         validate_sensor_frame(&frame)?;
         let available_motors = available_motor_indices(available_actions)?;
@@ -894,8 +394,6 @@ impl Arc3Sensorimotor {
             modulatory_deliveries =
                 modulatory_deliveries.saturating_add(result.work.modulatory_deliveries);
             naturally_quiescent &= result.naturally_quiescent;
-            #[cfg(feature = "core1")]
-            self.boundary.clear_temporary_credit_returns();
         }
 
         if settle_pressure && self.previous_frame.is_some() {
@@ -912,38 +410,8 @@ impl Arc3Sensorimotor {
             SensorMode::DominantPalette => current_tick.saturating_add(1),
             SensorMode::SpatialFingerprint => current_tick,
         };
-        let history_contacts: Option<Vec<(CellId, u64, bool)>> = if let Some(early_sign) =
-            early_material_sign
-        {
-            #[cfg(feature = "core0")]
-            {
-                let action = babble_action.ok_or_else(|| {
-                    Arc3SensorimotorError(
-                        "transient history requires an ordinary babble action".to_string(),
-                    )
-                })?;
-                let motor = action_index(action)?;
-                let contacts = self.transient_history_contacts(context_index, motor, early_sign)?;
-                self.ensure_transient_history_closure(context_index, motor, &contacts);
-                Some(contacts)
-            }
-            #[cfg(not(feature = "core0"))]
-            {
-                let _ = early_sign;
-                return Err(Arc3SensorimotorError(
-                    "transient history requires the core0 integration surface".to_string(),
-                ));
-            }
-        } else {
-            None
-        };
-        let mut inputs = Vec::with_capacity(
-            available_motors
-                .len()
-                .saturating_mul(2)
-                .saturating_add(history_contacts.as_ref().map_or(0, Vec::len))
-                .saturating_add(1),
-        );
+        let mut inputs =
+            Vec::with_capacity(available_motors.len().saturating_mul(2).saturating_add(1));
         for motor in &available_motors {
             inputs.push(SpikeInput {
                 arrival_tick: start,
@@ -955,7 +423,7 @@ impl Arc3Sensorimotor {
                 impulse: 1,
             });
             inputs.push(SpikeInput {
-                arrival_tick: start.saturating_add(i64::from(history_contacts.is_some())),
+                arrival_tick: start,
                 phase: i32::try_from(*motor).unwrap_or(0).saturating_add(8),
                 origin_physical: EXTERNAL_PHYSICAL_BASE
                     .saturating_add(self.sequence.saturating_mul(100))
@@ -968,7 +436,7 @@ impl Arc3Sensorimotor {
         if let Some(action) = babble_action {
             let motor = action_index(action)?;
             inputs.push(SpikeInput {
-                arrival_tick: start.saturating_add(if history_contacts.is_some() { 2 } else { 1 }),
+                arrival_tick: start.saturating_add(1),
                 phase: 30,
                 origin_physical: EXTERNAL_PHYSICAL_BASE
                     .saturating_add(self.sequence.saturating_mul(100))
@@ -977,33 +445,7 @@ impl Arc3Sensorimotor {
                 impulse: 1,
             });
         }
-        if let Some(history_contacts) = history_contacts {
-            for (contact, physical_id, selected) in history_contacts {
-                if selected {
-                    continue;
-                }
-                inputs.push(SpikeInput {
-                    arrival_tick: start.saturating_add(1),
-                    phase: 0,
-                    origin_physical: EXTERNAL_PHYSICAL_BASE
-                        .saturating_add(self.sequence.saturating_mul(100))
-                        .saturating_add(20_000)
-                        .saturating_add(physical_id),
-                    target: contact,
-                    impulse: -1,
-                });
-            }
-        }
-
-        #[cfg(feature = "core1")]
-        if self.atomic_credit_return_enabled {
-            self.boundary.set_atomic_credit_return_capture(true);
-        }
         let result = self.boundary.arrive(&inputs, OUTWARD_REGION);
-        #[cfg(feature = "core1")]
-        if self.atomic_credit_return_enabled {
-            self.boundary.set_atomic_credit_return_capture(false);
-        }
         let result = result?;
         #[cfg(feature = "core1")]
         {
@@ -1072,108 +514,6 @@ impl Arc3Sensorimotor {
         Ok(observation)
     }
 
-    #[cfg(feature = "core0")]
-    fn transient_history_contacts(
-        &self,
-        context: usize,
-        motor: usize,
-        early_material_sign: i8,
-    ) -> Result<Vec<(CellId, u64, bool)>, Arc3SensorimotorError> {
-        let source = self.sites.candidate_sources[context][motor];
-        let target = self.sites.motors[context][motor];
-        let substrate = self.boundary.substrate();
-        let durable = substrate.arena_body(0);
-        let mut contacts = Vec::new();
-        let mut positive = false;
-        let mut negative = false;
-        for contact in durable.cells.iter().filter(|cell| cell.live) {
-            let stem_exists = durable
-                .arrows
-                .iter()
-                .any(|arrow| arrow.live && arrow.from.id == source && arrow.to.id == contact.id);
-            if !stem_exists {
-                continue;
-            }
-            let mut contact_sign = 0_i8;
-            for outgoing in durable
-                .arrows
-                .iter()
-                .filter(|arrow| arrow.live && arrow.from.id == contact.id && arrow.to.id == target)
-            {
-                let sign = substrate.core0_coupling_material(outgoing.id).signum() as i8;
-                if sign == 0 {
-                    continue;
-                }
-                if contact_sign != 0 && contact_sign != sign {
-                    contact_sign = 2;
-                    break;
-                }
-                contact_sign = sign;
-            }
-            if !matches!(contact_sign, -1 | 1) {
-                continue;
-            }
-            positive |= contact_sign > 0;
-            negative |= contact_sign < 0;
-            contacts.push((
-                contact.id,
-                contact.physical_id,
-                contact_sign == early_material_sign,
-            ));
-        }
-        if !positive || !negative {
-            return Err(Arc3SensorimotorError(format!(
-                "transient history requires live positive and negative contact alternatives; positive={positive} negative={negative} contacts={}",
-                contacts.len()
-            )));
-        }
-        Ok(contacts)
-    }
-
-    #[cfg(feature = "core0")]
-    fn ensure_transient_history_closure(
-        &mut self,
-        context: usize,
-        motor: usize,
-        contacts: &[(CellId, u64, bool)],
-    ) {
-        let relay = self.sites.relays[context][motor];
-        let source = self.sites.candidate_sources[context][motor];
-        let target = self.sites.motors[context][motor];
-        let substrate = self.boundary.substrate();
-        let durable = substrate.arena_body(0);
-        let downstream_return_exists = durable
-            .arrows
-            .iter()
-            .any(|arrow| arrow.live && arrow.from.id == relay && arrow.to.id == target);
-        let missing_qlp = contacts
-            .iter()
-            .flat_map(|(contact, _, _)| [(target, *contact), (*contact, source)])
-            .filter(|(from, to)| {
-                !durable.arrows.iter().any(|arrow| {
-                    arrow.live
-                        && arrow.from.id == *from
-                        && arrow.to.id == *to
-                        && substrate.transmission_trigger(arrow.id)
-                            == TransmissionTrigger::QualifiedLocalParticipation
-                })
-            })
-            .collect::<Vec<_>>();
-
-        if !downstream_return_exists {
-            self.boundary.add_arrow_with_trigger(
-                modulatory(relay, target, 0, 1, SCAFFOLD_RESISTANCE),
-                TransmissionTrigger::SourceFires,
-            );
-        }
-        for (from, to) in missing_qlp {
-            self.boundary.add_arrow_with_trigger(
-                modulatory(from, to, 0, 1, CANDIDATE_RESISTANCE),
-                TransmissionTrigger::QualifiedLocalParticipation,
-            );
-        }
-    }
-
     pub fn clear_episode(&mut self) {
         self.previous_frame = None;
         self.previous_context = None;
@@ -1207,8 +547,6 @@ impl Arc3Sensorimotor {
             }],
             OUTWARD_REGION,
         )?;
-        #[cfg(feature = "core1")]
-        self.boundary.clear_temporary_credit_returns();
         self.clear_episode();
         Ok(Arc3ConsequenceObservation {
             admitted: true,
@@ -1280,8 +618,6 @@ impl Arc3Sensorimotor {
                 coupling: substrate.core0_coupling_material(direct.id),
                 resistance: substrate.core0_resistance_material(direct.id),
                 participation: substrate.local_participation(direct.id),
-                #[cfg(feature = "core1")]
-                used_pending: substrate.used_pending(direct.id),
             });
         }
         for contact in durable.cells.iter().filter(|cell| cell.live) {
@@ -1305,8 +641,6 @@ impl Arc3Sensorimotor {
                     coupling: substrate.core0_coupling_material(stem.id),
                     resistance: substrate.core0_resistance_material(stem.id),
                     participation: substrate.local_participation(stem.id),
-                    #[cfg(feature = "core1")]
-                    used_pending: substrate.used_pending(stem.id),
                 });
             }
             for candidate in &outgoing {
@@ -1317,8 +651,6 @@ impl Arc3Sensorimotor {
                     coupling: substrate.core0_coupling_material(candidate.id),
                     resistance: substrate.core0_resistance_material(candidate.id),
                     participation: substrate.local_participation(candidate.id),
-                    #[cfg(feature = "core1")]
-                    used_pending: substrate.used_pending(candidate.id),
                 });
             }
         }
@@ -1451,17 +783,17 @@ fn build_body(
     let cells_per_pair: usize = if spatial { 6 } else { 3 };
     let arrows_per_pair: usize = if spatial { 6 } else { 5 };
     #[cfg(feature = "core1")]
-    let experimental_cells_per_pair = usize::from(spatial).saturating_mul(4);
+    let route_cells_per_pair = usize::from(spatial).saturating_mul(4);
     #[cfg(not(feature = "core1"))]
-    let experimental_cells_per_pair = 0;
+    let route_cells_per_pair = 0;
     #[cfg(feature = "core1")]
-    let experimental_arrows_per_pair = usize::from(spatial).saturating_mul(12);
+    let route_arrows_per_pair = usize::from(spatial).saturating_mul(12);
     #[cfg(not(feature = "core1"))]
-    let experimental_arrows_per_pair = 0;
+    let route_arrows_per_pair = 0;
     let cell_capacity = u32::try_from(
         (context_count
             .saturating_mul(MOTORS)
-            .saturating_mul(cells_per_pair.saturating_add(experimental_cells_per_pair))
+            .saturating_mul(cells_per_pair.saturating_add(route_cells_per_pair))
             + 16)
             .max(512),
     )
@@ -1469,7 +801,7 @@ fn build_body(
     let arrow_capacity = u32::try_from(
         context_count
             .saturating_mul(MOTORS)
-            .saturating_mul(arrows_per_pair.saturating_add(experimental_arrows_per_pair))
+            .saturating_mul(arrows_per_pair.saturating_add(route_arrows_per_pair))
             .saturating_add(context_count.saturating_mul(8))
             .saturating_add(256)
             .max(1_024),
@@ -1648,8 +980,6 @@ fn build_body(
     let sites = Sites {
         candidate_sources,
         context_traces,
-        #[cfg(feature = "core0")]
-        relays,
         motors,
         babblers,
         returning,
@@ -1775,6 +1105,119 @@ mod tests {
 
     fn frame(color: u8) -> Vec<u8> {
         vec![color; ARC3_FRAME_PIXELS]
+    }
+
+    #[cfg(feature = "core1")]
+    #[test]
+    fn core1_defaults_form_and_participate_in_a_complete_route() {
+        let mut organism = Arc3Sensorimotor::new_spatial_fixture_with_profile(
+            93_000_000,
+            MechanicalConfig::REFERENCE,
+            5,
+            Core0Profile::GenericExternal,
+        )
+        .unwrap();
+        let pixels = (0_u16..u16::MAX)
+            .find_map(|nonce| {
+                let mut candidate = frame(4);
+                candidate[0] = (nonce & 0x0f) as u8;
+                candidate[1] = (nonce >> 4 & 0x0f) as u8;
+                candidate[2] = (nonce >> 8 & 0x0f) as u8;
+                candidate[3] = (nonce >> 12 & 0x0f) as u8;
+                (usize::from(spatial_context(&candidate).ok()?) < 5).then_some(candidate)
+            })
+            .unwrap();
+        let observation = organism
+            .observe(pixels, &[1, 2, 3, 4], Some(1), false, false, &[1, 2, 3, 4])
+            .unwrap();
+        assert_eq!(
+            observation.action,
+            Some(1),
+            "trace: {:#?}",
+            organism.last_action_physical_trace()
+        );
+        assert!(observation.naturally_quiescent);
+        assert_eq!(organism.temporary_credit_return_count(), 1);
+    }
+
+    #[cfg(feature = "core1")]
+    #[test]
+    fn core1_consequence_makes_used_routes_autonomously_executable() {
+        let mut organism = Arc3Sensorimotor::new_spatial_fixture_with_profile(
+            93_000_000,
+            MechanicalConfig::REFERENCE,
+            5,
+            Core0Profile::GenericExternal,
+        )
+        .unwrap();
+        let mut contexts = BTreeSet::new();
+        let frames = (0_u16..u16::MAX)
+            .filter_map(|nonce| {
+                let mut candidate = frame(4);
+                candidate[0] = (nonce & 0x0f) as u8;
+                candidate[1] = (nonce >> 4 & 0x0f) as u8;
+                candidate[2] = (nonce >> 8 & 0x0f) as u8;
+                candidate[3] = (nonce >> 12 & 0x0f) as u8;
+                let context = spatial_context(&candidate).ok()?;
+                (usize::from(context) < 5 && contexts.insert(context)).then_some(candidate)
+            })
+            .take(5)
+            .collect::<Vec<_>>();
+        assert_eq!(frames.len(), 5);
+
+        let mut actions = Vec::new();
+        let mut updates = Vec::new();
+        for (index, action) in [1, 4, 2, 3].into_iter().enumerate() {
+            let turn = organism
+                .observe(
+                    frames[index].clone(),
+                    &[1, 2, 3, 4],
+                    Some(action),
+                    index > 0,
+                    false,
+                    &[1, 2, 3, 4],
+                )
+                .unwrap();
+            actions.push(turn.action);
+            updates.push(turn.plasticity_updates);
+            assert!(turn.naturally_quiescent);
+        }
+        let closing = organism
+            .observe(
+                frames[4].clone(),
+                &[1, 2, 3, 4],
+                None,
+                true,
+                false,
+                &[1, 2, 3, 4],
+            )
+            .unwrap();
+        updates.push(closing.plasticity_updates);
+        assert_eq!(actions, [Some(1), Some(4), Some(2), Some(3)]);
+        assert_eq!(updates, [0, 2, 2, 2, 2]);
+        assert_eq!(organism.temporary_credit_return_count(), 0);
+
+        let probes = frames
+            .iter()
+            .take(4)
+            .map(|pixels| {
+                let mut probe = organism.clone();
+                probe.clear_episode();
+                probe.advance_gap(1).unwrap();
+                probe
+                    .observe(
+                        pixels.clone(),
+                        &[1, 2, 3, 4],
+                        None,
+                        false,
+                        false,
+                        &[1, 2, 3, 4],
+                    )
+                    .unwrap()
+                    .action
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(probes, [Some(1), Some(4), Some(2), Some(3)]);
     }
 
     fn four_context_regimen(
