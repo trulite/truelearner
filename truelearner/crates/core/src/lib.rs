@@ -1352,6 +1352,20 @@ pub enum PhysicalEvent {
         source: CellId,
         contact: CellId,
     },
+    #[cfg(feature = "core1")]
+    ConsolidationExecutable {
+        arrow: ArrowId,
+        from: CellId,
+        to: CellId,
+        coupling_before: i32,
+        coupling_after: i32,
+    },
+    #[cfg(feature = "core1")]
+    ConsolidatedExecution {
+        arrow: ArrowId,
+        from: CellId,
+        to: CellId,
+    },
     Deliver {
         mode: TransmissionMode,
         target: CellId,
@@ -1640,6 +1654,10 @@ pub struct PlasticSubstrate {
     consolidation_reentry_enabled: bool,
     #[cfg(feature = "core1")]
     consolidation_reentry_arrows: Vec<bool>,
+    #[cfg(feature = "core1")]
+    consolidation_executability_enabled: bool,
+    #[cfg(feature = "core1")]
+    consolidation_executable_arrows: Vec<bool>,
     #[cfg(feature = "core0")]
     core0_profile: Core0Profile,
     #[cfg(feature = "core0")]
@@ -2220,6 +2238,16 @@ impl BoundaryRuntime {
         self.substrate.consolidation_reentry_count()
     }
 
+    #[cfg(feature = "core1")]
+    pub fn set_consolidation_executability(&mut self, enabled: bool) {
+        self.substrate.set_consolidation_executability(enabled);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn consolidation_executable_count(&self) -> usize {
+        self.substrate.consolidation_executable_count()
+    }
+
     /// Changes only the mechanical execution strategy beneath the boundary.
     /// Physical law and buffered activity are preserved exactly.
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
@@ -2453,6 +2481,10 @@ impl PlasticSubstrate {
             consolidation_reentry_enabled: false,
             #[cfg(feature = "core1")]
             consolidation_reentry_arrows: Vec::new(),
+            #[cfg(feature = "core1")]
+            consolidation_executability_enabled: false,
+            #[cfg(feature = "core1")]
+            consolidation_executable_arrows: Vec::new(),
             #[cfg(feature = "core0")]
             core0_profile: Core0Profile::A,
             #[cfg(feature = "core0")]
@@ -2637,6 +2669,99 @@ impl PlasticSubstrate {
     }
 
     #[cfg(feature = "core1")]
+    pub fn set_consolidation_executability(&mut self, enabled: bool) {
+        self.consolidation_executability_enabled = enabled;
+        if enabled {
+            self.consolidation_reentry_enabled = true;
+        }
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn consolidation_executable_count(&self) -> usize {
+        self.consolidation_executable_arrows
+            .iter()
+            .enumerate()
+            .filter(|(index, executable)| {
+                **executable
+                    && self
+                        .arrow_slot(ArrowId(u64::try_from(*index).unwrap_or(u64::MAX)))
+                        .is_some_and(|slot| self.arrows.get(slot.0).live)
+            })
+            .count()
+    }
+
+    #[cfg(feature = "core1")]
+    fn make_consolidation_executable(
+        &mut self,
+        id: ArrowId,
+        work: &mut Work,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
+        if !self.consolidation_executability_enabled {
+            return;
+        }
+        let Some(slot) = self.arrow_slot(id) else {
+            return;
+        };
+        let arrow = self.arrows.get(slot.0);
+        if !arrow.live
+            || arrow.mode != TransmissionMode::Drive
+            || arrow.trigger != TransmissionTrigger::SourceFires
+        {
+            return;
+        }
+        let Some(target_slot) = self.cell_slot(arrow.to) else {
+            return;
+        };
+        let target_threshold = self.cells.get(target_slot.0).threshold;
+        let material_before = self.core0_coupling[id.0 as usize];
+        let sign = material_before.signum();
+        if sign == 0 {
+            return;
+        }
+        let required = i64::from(target_threshold)
+            .saturating_mul(MATERIAL_ONE)
+            .saturating_mul(sign);
+        let material_after = if material_before.unsigned_abs() < required.unsigned_abs() {
+            required
+        } else {
+            material_before
+        };
+        let coupling_before = arrow.coupling;
+        let coupling_after = i32::try_from(material_after / MATERIAL_ONE).unwrap_or_else(|_| {
+            if material_after.is_negative() {
+                i32::MIN
+            } else {
+                i32::MAX
+            }
+        });
+        self.core0_coupling[id.0 as usize] = material_after;
+        self.core0_resistance[id.0 as usize] = u64::from(u32::MAX).saturating_mul(MATERIAL_ONE_U64);
+        self.core0_decay_remainder[id.0 as usize] = 0;
+        self.arrows.with_mut(slot.0, |live_arrow| {
+            live_arrow.coupling = coupling_after;
+            live_arrow.resistance = u32::MAX;
+            live_arrow.decay_load = 0;
+        });
+        self.consolidation_executable_arrows[id.0 as usize] = true;
+        work.total = work.total.saturating_add(3);
+        if self.trace_physics {
+            physical_trace.push(PhysicalTransition {
+                tick: self.tick,
+                phase,
+                event: PhysicalEvent::ConsolidationExecutable {
+                    arrow: id,
+                    from: arrow.from,
+                    to: arrow.to,
+                    coupling_before,
+                    coupling_after,
+                },
+            });
+        }
+    }
+
+    #[cfg(feature = "core1")]
     fn maybe_create_atomic_credit_return(&mut self, participating: ArrowId) {
         if !self.atomic_credit_return_capture {
             return;
@@ -2742,6 +2867,37 @@ impl PlasticSubstrate {
             self.used_pending_arrows[arrow.0 as usize] = true;
         }
         self.maybe_create_atomic_credit_return(arrow);
+    }
+
+    #[cfg(feature = "core1")]
+    fn trace_consolidated_execution(
+        &self,
+        arrow: ArrowId,
+        phase: i32,
+        physical_trace: &mut Vec<PhysicalTransition>,
+    ) {
+        if !self.trace_physics
+            || !self
+                .consolidation_executable_arrows
+                .get(arrow.0 as usize)
+                .copied()
+                .unwrap_or(false)
+        {
+            return;
+        }
+        let Some(slot) = self.arrow_slot(arrow) else {
+            return;
+        };
+        let route = self.arrows.get(slot.0);
+        physical_trace.push(PhysicalTransition {
+            tick: self.tick,
+            phase,
+            event: PhysicalEvent::ConsolidatedExecution {
+                arrow,
+                from: route.from,
+                to: route.to,
+            },
+        });
     }
 
     #[cfg(feature = "core1")]
@@ -2853,14 +3009,18 @@ impl PlasticSubstrate {
         };
         let contact_cell = self.cells.get(contact_slot.0);
         let arrows = self.arrows.values();
-        let complete_outgoing = arrows.iter().any(|arrow| {
-            arrow.live
-                && arrow.from == contact
-                && arrow.mode == TransmissionMode::Drive
-                && arrow.trigger == TransmissionTrigger::SourceFires
-                && arrow.participation_level > 0
-        });
-        if !complete_outgoing {
+        let complete_outgoing = arrows
+            .iter()
+            .filter(|arrow| {
+                arrow.live
+                    && arrow.from == contact
+                    && arrow.mode == TransmissionMode::Drive
+                    && arrow.trigger == TransmissionTrigger::SourceFires
+                    && arrow.participation_level > 0
+            })
+            .map(|arrow| arrow.id)
+            .collect::<Vec<_>>();
+        if complete_outgoing.is_empty() {
             return;
         }
         let mut sources = arrows
@@ -2908,6 +3068,10 @@ impl PlasticSubstrate {
                 mode: TransmissionMode::Drive,
             });
             self.consolidation_reentry_arrows[id.0 as usize] = true;
+            self.make_consolidation_executable(id, work, phase, physical_trace);
+            for outgoing in &complete_outgoing {
+                self.make_consolidation_executable(*outgoing, work, phase, physical_trace);
+            }
             work.total = work.total.saturating_add(1);
             work.local_structural_proposals = work.local_structural_proposals.saturating_add(1);
             if self.trace_physics {
@@ -3170,6 +3334,10 @@ impl PlasticSubstrate {
                 self.consolidation_reentry_arrows.resize(required, false);
             }
             self.consolidation_reentry_arrows[id.0 as usize] = false;
+            if self.consolidation_executable_arrows.len() < required {
+                self.consolidation_executable_arrows.resize(required, false);
+            }
+            self.consolidation_executable_arrows[id.0 as usize] = false;
         }
         let outgoing = &mut self.outgoing_index[spec.from.0 as usize];
         outgoing.push(id);
@@ -3544,6 +3712,10 @@ impl PlasticSubstrate {
         #[cfg(feature = "core1")]
         substrate
             .consolidation_reentry_arrows
+            .resize(substrate.arrow_slots.len(), false);
+        #[cfg(feature = "core1")]
+        substrate
+            .consolidation_executable_arrows
             .resize(substrate.arrow_slots.len(), false);
         Ok(substrate)
     }
@@ -4073,6 +4245,12 @@ impl PlasticSubstrate {
                             crossings.push(crossing);
                         }
                         #[cfg(feature = "core1")]
+                        self.trace_consolidated_execution(
+                            arrow_id,
+                            spike.phase,
+                            &mut physical_trace,
+                        );
+                        #[cfg(feature = "core1")]
                         if !self.signed_gate_route(&arrow) {
                             self.register_route_participation(arrow_id);
                         }
@@ -4511,6 +4689,8 @@ impl PlasticSubstrate {
                         }
                         crossings.push(crossing);
                     }
+                    #[cfg(feature = "core1")]
+                    self.trace_consolidated_execution(arrow_id, phase, &mut physical_trace);
                     #[cfg(feature = "core1")]
                     if !self.signed_gate_route(&arrow) {
                         self.register_route_participation(arrow_id);
@@ -5036,6 +5216,7 @@ impl PlasticSubstrate {
                     || (self.used_pending_protection_enabled
                         && self.used_pending_arrows[snapshot.id.0 as usize])
                     || self.temporary_credit_return_arrows[snapshot.id.0 as usize]
+                    || self.consolidation_executable_arrows[snapshot.id.0 as usize]
                     || self.protected_by_temporary_credit_return(&snapshot)
                 {
                     self.arrows.with_mut(index, |arrow| {
@@ -5105,6 +5286,7 @@ impl PlasticSubstrate {
                         || (self.used_pending_protection_enabled
                             && self.used_pending_arrows[snapshot.id.0 as usize])
                         || self.temporary_credit_return_arrows[snapshot.id.0 as usize]
+                        || self.consolidation_executable_arrows[snapshot.id.0 as usize]
                         || self.protected_by_temporary_credit_return(&snapshot))
                 {
                     self.arrows.with_mut(index, |arrow| {
@@ -7217,6 +7399,81 @@ mod tests {
             &mut ignored_trace,
         );
         assert_eq!(incomplete.consolidation_reentry_count(), 0);
+    }
+
+    #[cfg(feature = "core1")]
+    #[test]
+    fn e27_consolidation_closes_the_used_route_to_ordinary_execution() {
+        fn teach(executable: bool) -> (PlasticSubstrate, CellId) {
+            let (mut body, feeder, target, positive, _) = e25_gate_body(-1);
+            body.set_signed_gating(target, true);
+            body.set_integration_window(target, true);
+            body.set_consolidation_reentry(true);
+            body.set_consolidation_executability(executable);
+            let action = body.arrive(&[input(feeder, 0), input(target, 1)], 1);
+            assert!(!action.crossings.is_empty());
+            let positive_contact = body.arrows.get(body.arrow_slot(positive).unwrap().0).from;
+            let source = body
+                .arrows
+                .values()
+                .iter()
+                .find(|arrow| arrow.live && arrow.to == positive_contact)
+                .map(|arrow| arrow.from)
+                .expect("used contact must have a source stem");
+            let returning = body
+                .temporary_credit_return_arrows
+                .iter()
+                .enumerate()
+                .find(|(_, temporary)| **temporary)
+                .and_then(|(index, _)| body.arrow_slot(ArrowId(index as u64)))
+                .map(|slot| body.arrows.get(slot.0).from)
+                .expect("used route must leave one return source");
+            let consequence = body.arrive(&[input(returning, body.tick)], 1);
+            assert!(consequence.work.local_return_updates > 0);
+            assert_eq!(body.consolidation_reentry_count(), 1);
+            (body, source)
+        }
+
+        let (disabled, _) = teach(false);
+        assert_eq!(disabled.consolidation_executable_count(), 0);
+
+        let (mut enabled, source) = teach(true);
+        assert_eq!(enabled.consolidation_executable_count(), 2);
+        let executable = enabled
+            .consolidation_executable_arrows
+            .iter()
+            .enumerate()
+            .filter(|(_, marked)| **marked)
+            .map(|(index, _)| ArrowId(index as u64))
+            .collect::<Vec<_>>();
+        for id in &executable {
+            let arrow = enabled.arrows.get(enabled.arrow_slot(*id).unwrap().0);
+            let target = enabled.cells.get(enabled.cell_slot(arrow.to).unwrap().0);
+            assert_eq!(arrow.trigger, TransmissionTrigger::SourceFires);
+            assert_eq!(arrow.resistance, u32::MAX);
+            assert_eq!(
+                enabled.core0_coupling[id.0 as usize].unsigned_abs(),
+                i64::from(target.threshold)
+                    .saturating_mul(MATERIAL_ONE)
+                    .unsigned_abs()
+            );
+        }
+
+        let probe_tick = enabled.tick.saturating_add(2);
+        let probe = enabled.arrive(&[input(source, probe_tick)], 1);
+        assert!(!probe.crossings.is_empty());
+        let traversed = probe
+            .physical_trace
+            .iter()
+            .filter(|transition| {
+                matches!(
+                    transition.event,
+                    PhysicalEvent::ConsolidatedExecution { .. }
+                )
+            })
+            .count();
+        assert!(traversed >= 2);
+        assert_eq!(enabled.consolidation_executable_count(), 2);
     }
 
     #[cfg(feature = "core1")]
