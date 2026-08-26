@@ -3618,10 +3618,6 @@ impl PlasticSubstrate {
                             event: PhysicalEvent::Fire { cell: spike.target },
                         });
                     }
-                    #[cfg(feature = "core1")]
-                    if let Some((participating, _)) = spike.arrow {
-                        self.maybe_create_atomic_credit_return(participating);
-                    }
                     work.total = work.total.saturating_add(1);
                     let source = spike.target;
                     let origin_physical = target.physical_id;
@@ -3736,6 +3732,8 @@ impl PlasticSubstrate {
                         if self.capture_used_pending {
                             self.used_pending_arrows[arrow_id.0 as usize] = true;
                         }
+                        #[cfg(feature = "core1")]
+                        self.maybe_create_atomic_credit_return(arrow_id);
                         execution_cost.touch::<Arrow>(1);
                         work.total = work.total.saturating_add(1);
                         execution_cost.arena_lookups =
@@ -4032,13 +4030,6 @@ impl PlasticSubstrate {
                     self.core0_activation[target_id.0 as usize] = 0;
                 }
                 self.active_cells.remove(&target_id);
-                #[cfg(feature = "core1")]
-                for participating in spikes
-                    .iter()
-                    .filter_map(|spike| spike.arrow.map(|pair| pair.0))
-                {
-                    self.maybe_create_atomic_credit_return(participating);
-                }
                 firings.push((target_id, target, external_arrival));
             }
 
@@ -4164,6 +4155,8 @@ impl PlasticSubstrate {
                     if self.capture_used_pending {
                         self.used_pending_arrows[arrow_id.0 as usize] = true;
                     }
+                    #[cfg(feature = "core1")]
+                    self.maybe_create_atomic_credit_return(arrow_id);
                     execution_cost.touch::<Arrow>(1);
                     execution_cost.arena_lookups = execution_cost.arena_lookups.saturating_add(2);
                     if self.resident_arenas[arrow.from.0 as usize]
