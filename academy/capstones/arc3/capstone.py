@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import importlib.metadata
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -62,9 +63,9 @@ def load_protocol(path: Path) -> dict[str, Any]:
     missing = sorted(required - data.keys())
     if missing:
         raise CapstoneError(f"protocol is missing fields: {', '.join(missing)}")
-    if data["agent_request_fields"] != ["command", "frame", "available_actions"]:
+    if data["agent_request_fields"] != ["command", "frame", "actions"]:
         raise CapstoneError("protocol changes the organism-visible request projection")
-    if data["supported_actions"] != [1, 2, 3, 4]:
+    if data["supported_actions"] != [1, 2, 3, 4, 5, 6, 7]:
         raise CapstoneError("protocol changes the frozen physical actuators")
     return data
 
@@ -95,10 +96,21 @@ def project_observation(observation: Any) -> dict[str, object]:
         raise CapstoneError("official observation exposes no available actions")
     if any(value < 1 or value > 7 for value in actions):
         raise CapstoneError("official observation exposes an invalid action identifier")
+    offers = [
+        {
+            "id": action,
+            "schema": (
+                {"type": "point", "width": 64, "height": 64}
+                if action == 6
+                else {"type": "unit"}
+            ),
+        }
+        for action in actions
+    ]
     return {
         "command": "observe",
         "frame": frame,
-        "available_actions": actions,
+        "actions": {"offers": offers},
     }
 
 
@@ -171,18 +183,37 @@ class AgentProcess:
 class FixtureWorld:
     """Public, deterministic, non-scoring smoke world."""
 
-    def reset(self) -> SimpleNamespace:
+    def __init__(self) -> None:
+        self.turn = 0
+        self.last_action = 0
+
+    def _observation(self) -> SimpleNamespace:
         frame = [[0 for _ in range(64)] for _ in range(64)]
         frame[31][31] = 9
+        frame[31][32] = self.turn
+        frame[31][33] = self.last_action
+        terminal = self.turn >= 3
         return SimpleNamespace(
             frame=[frame],
-            available_actions=[1, 2, 3, 4],
-            state=SimpleNamespace(value="NOT_FINISHED"),
-            levels_completed=0,
+            available_actions=[1, 2, 3, 4, 5, 7],
+            state=SimpleNamespace(value="WIN" if terminal else "NOT_FINISHED"),
+            levels_completed=int(terminal),
         )
 
-    def step(self, _action: int) -> SimpleNamespace:
-        raise CapstoneError("fixture body unexpectedly produced an action")
+    def reset(self) -> SimpleNamespace:
+        self.turn = 0
+        self.last_action = 0
+        return self._observation()
+
+    def step(self, call: dict[str, object]) -> SimpleNamespace:
+        action = int(call["id"])
+        if action not in (1, 2, 3, 4, 5, 7):
+            raise CapstoneError(f"fixture received unsupported action call {call}")
+        if call.get("arguments") != {"type": "unit"}:
+            raise CapstoneError(f"fixture received invalid action arguments {call}")
+        self.turn += 1
+        self.last_action = action
+        return self._observation()
 
 
 def _state(observation: Any) -> str:
@@ -252,23 +283,31 @@ def run_game(
             failure = "agent transition did not reach natural quiescence"
             break
         final_fingerprint = str(response.get("body_fingerprint", ""))
-        action = response.get("action")
-        if action is None:
+        call = response.get("call")
+        if call is None:
             stop_reason = "no_outward_crossing"
             break
-        action_id = int(action)
-        if action_id not in request["available_actions"]:
+        if not isinstance(call, dict):
+            stop_reason = "protocol_failure"
+            failure = "agent emitted a non-object action call"
+            break
+        action_id = int(call.get("id", -1))
+        offered = {
+            int(offer["id"])
+            for offer in request["actions"]["offers"]
+        }
+        if action_id not in offered:
             stop_reason = "unavailable_action"
             failure = f"agent selected unavailable action {action_id}"
             break
-        observation = world.step(action_id)
+        observation = world.step(call)
     else:
         failure = f"action budget {max_actions} exhausted"
 
     summary: dict[str, object] = {
         "game": game,
         "actions": sum(
-            record["response"].get("action") is not None
+            record["response"].get("call") is not None
             for record in transcript
             if record["response"].get("response") == "observation"
         ),
@@ -475,6 +514,147 @@ def run_fixture(
     return write_evidence(output, receipt, transcript)
 
 
+def run_public(
+    repository: Path,
+    protocol_path: Path,
+    agent_path: Path,
+    output: Path,
+) -> dict[str, object]:
+    """Run every anonymously accessible public game without a scorecard."""
+    protocol = load_protocol(protocol_path)
+    seed = int(protocol["organism_seed"])
+    max_actions = int(protocol["max_actions_per_game"])
+    revision = _default_git(["git", "rev-parse", "HEAD"], repository)
+    receipt = _base_receipt("public", protocol, protocol_path, agent_path, revision)
+
+    from arc_agi import Arcade, OperationMode
+
+    sdk_logger = logging.getLogger("truelearner.arc3.public")
+    sdk_logger.handlers = [logging.NullHandler()]
+    sdk_logger.propagate = False
+    sdk_logger.setLevel(logging.CRITICAL + 1)
+    storage = protocol_path.parent
+    arcade = Arcade(
+        operation_mode=OperationMode.NORMAL,
+        environments_dir=str(storage / "environment_files"),
+        recordings_dir=str(storage / "recordings"),
+        logger=sdk_logger,
+    )
+    summaries: list[dict[str, object]] = []
+    transcript: list[dict[str, object]] = []
+    discovered: list[str] = []
+    suite_failure: str | None = None
+    started = time.monotonic()
+    try:
+        environments = arcade.get_environments()
+        discovered = [str(item.game_id) for item in environments]
+        if not discovered or len(discovered) != len(set(discovered)):
+            raise CapstoneError(
+                "server-discovered public suite is empty or contains duplicates"
+            )
+        for game in discovered:
+            agent: AgentProcess | None = None
+            try:
+                agent = AgentProcess.start(agent_path, seed)
+                environment = arcade.make(
+                    game,
+                    seed=seed,
+                    save_recording=False,
+                    include_frame_data=True,
+                )
+                if environment is None:
+                    raise CapstoneError(f"public SDK could not create {game}")
+                summary, records = run_game(
+                    game, OfficialWorld(environment), agent, max_actions
+                )
+                summaries.append(summary)
+                transcript.extend(records)
+            except Exception as error:  # noqa: BLE001 - preserve public evidence.
+                summaries.append(
+                    {
+                        "game": game,
+                        "actions": 0,
+                        "observations": 0,
+                        "outward_crossings": 0,
+                        "plasticity_updates": 0,
+                        "modulatory_deliveries": 0,
+                        "physical_work": 0,
+                        "official_state": "UNKNOWN",
+                        "levels_completed": 0,
+                        "stop_reason": "execution_failure",
+                        "first_failure": str(error),
+                        "initial_body_fingerprint": str(
+                            agent.ready.get("body_fingerprint", "") if agent else ""
+                        ),
+                        "final_body_fingerprint": str(
+                            agent.ready.get("body_fingerprint", "") if agent else ""
+                        ),
+                    }
+                )
+            finally:
+                if agent is not None:
+                    try:
+                        agent.close()
+                    except Exception as error:  # noqa: BLE001 - preserve partial evidence.
+                        summaries[-1]["first_failure"] = (
+                            summaries[-1].get("first_failure")
+                            or f"agent close failed: {error}"
+                        )
+                        summaries[-1]["stop_reason"] = "agent_exit"
+    except Exception as error:  # noqa: BLE001 - preserve partial SDK evidence.
+        suite_failure = str(error)
+
+    try:
+        replay = replay_transcript(
+            transcript, lambda _game: AgentProcess.start(agent_path, seed)
+        )
+    except Exception as error:  # noqa: BLE001 - divergence is evidence.
+        replay = {"exact": False, "error": str(error)}
+
+    invalid_stops = {
+        "boundary_failure",
+        "protocol_failure",
+        "non_quiescent",
+        "unavailable_action",
+        "execution_failure",
+        "agent_exit",
+    }
+    execution_failures = [
+        str(summary.get("first_failure"))
+        for summary in summaries
+        if summary.get("stop_reason") in invalid_stops
+    ]
+    if suite_failure:
+        execution_failures.append(suite_failure)
+    if not bool(replay.get("exact")):
+        execution_failures.append(str(replay.get("error", "transcript replay diverged")))
+    benchmark_failures = [
+        str(summary["first_failure"])
+        for summary in summaries
+        if summary.get("first_failure") is not None
+    ]
+    receipt.update(
+        {
+            "verdict": "complete" if not execution_failures else "inconclusive",
+            "official": False,
+            "suite_selection": "complete-server-discovered-public-suite",
+            "discovered_games": discovered,
+            "games": summaries,
+            "physical_totals": _totals(summaries),
+            "first_failure": (
+                execution_failures[0]
+                if execution_failures
+                else benchmark_failures[0]
+                if benchmark_failures
+                else None
+            ),
+            "transcript_replay": replay,
+            "wall_seconds": time.monotonic() - started,
+        }
+    )
+    return write_evidence(output, receipt, transcript)
+
+
 def _scrub_secrets(value: Any) -> Any:
     if isinstance(value, dict):
         return {
@@ -497,13 +677,21 @@ class OfficialWorld:
             raise CapstoneError("official reset returned no observation")
         return observation
 
-    def step(self, action_id: int) -> Any:
+    def step(self, call: dict[str, object]) -> Any:
         from arcengine import GameAction
 
+        action_id = int(call["id"])
         action = GameAction.from_id(action_id)
-        if not action.is_simple():
-            raise CapstoneError(f"coordinate action {action_id} is unsupported")
-        observation = self.environment.step(action, data={})
+        arguments = call.get("arguments")
+        if action.is_simple():
+            if arguments != {"type": "unit"}:
+                raise CapstoneError(f"simple action {action_id} has invalid arguments")
+            data: dict[str, int] = {}
+        else:
+            if not isinstance(arguments, dict) or arguments.get("type") != "point":
+                raise CapstoneError(f"coordinate action {action_id} has invalid arguments")
+            data = {"x": int(arguments["x"]), "y": int(arguments["y"])}
+        observation = self.environment.step(action, data=data)
         if observation is None:
             raise CapstoneError("official step returned no observation")
         return observation
@@ -651,7 +839,9 @@ def run_official(
 
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=("fixture", "official"), required=True)
+    parser.add_argument(
+        "--mode", choices=("fixture", "public", "official"), required=True
+    )
     parser.add_argument("--agent", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
@@ -667,6 +857,10 @@ def main() -> int:
         raise CapstoneError(f"capstone agent does not exist: {agent_path}")
     if args.mode == "fixture":
         receipt = run_fixture(
+            repository, protocol_path, agent_path, args.output.resolve()
+        )
+    elif args.mode == "public":
+        receipt = run_public(
             repository, protocol_path, agent_path, args.output.resolve()
         )
     else:

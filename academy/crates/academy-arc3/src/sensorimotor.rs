@@ -12,7 +12,8 @@ use truelearner_core::{
 
 const PALETTE_CONTEXTS: usize = 16;
 const SPATIAL_CONTEXTS: usize = 1_024;
-const MOTORS: usize = 4;
+const SIMPLE_ACTIONS: [u8; 6] = [1, 2, 3, 4, 5, 7];
+const MOTORS: usize = SIMPLE_ACTIONS.len();
 const OUTWARD_REGION: i16 = 1;
 const SCAFFOLD_RESISTANCE: u32 = 64;
 const CANDIDATE_RESISTANCE: u32 = 1;
@@ -276,6 +277,50 @@ impl Arc3Sensorimotor {
         })
     }
 
+    /// Observe without an externally selected action or consequence signal.
+    ///
+    /// Existing paths get the first opportunity to cross. A silent body then
+    /// receives one deterministic, organism-owned motor opportunity through
+    /// the same Harness boundary. Visible change after an actual crossing is
+    /// the only event that returns the previous outcome.
+    pub fn observe_autonomous(
+        &mut self,
+        frame: Vec<u8>,
+        available_actions: &[u8],
+        action_map: &[u8],
+    ) -> Result<Arc3SensorimotorObservation, Arc3SensorimotorError> {
+        let support_previous = self.previous_motor.is_some()
+            && self
+                .previous_frame
+                .as_ref()
+                .is_some_and(|previous| previous != &frame);
+
+        let mut reuse_probe = self.clone();
+        let reused = reuse_probe.observe(
+            frame.clone(),
+            available_actions,
+            None,
+            support_previous,
+            false,
+            action_map,
+        )?;
+        if reused.action.is_some() {
+            *self = reuse_probe;
+            return Ok(reused);
+        }
+
+        let opportunity =
+            autonomous_opportunity(self.seed, reused.context, self.sequence, available_actions)?;
+        self.observe(
+            frame,
+            available_actions,
+            Some(opportunity),
+            support_previous,
+            false,
+            action_map,
+        )
+    }
+
     fn observe_inner(
         &mut self,
         request: Arc3ObserveRequest<'_>,
@@ -291,6 +336,14 @@ impl Arc3Sensorimotor {
         validate_sensor_frame(&frame)?;
         let available_motors = available_motor_indices(available_actions)?;
         validate_action_map(action_map)?;
+        if available_motors
+            .iter()
+            .any(|motor| *motor >= action_map.len())
+        {
+            return Err(Arc3SensorimotorError(
+                "action map does not cover every available motor".to_string(),
+            ));
+        }
         if let Some(action) = babble_action {
             if !available_actions.contains(&action) {
                 return Err(Arc3SensorimotorError(format!(
@@ -345,8 +398,16 @@ impl Arc3Sensorimotor {
             SensorMode::DominantPalette => current_tick.saturating_add(1),
             SensorMode::SpatialFingerprint => current_tick,
         };
-        let mut inputs =
-            Vec::with_capacity(available_motors.len().saturating_mul(2).saturating_add(1));
+        let inputs_per_motor = match self.sensor_mode {
+            SensorMode::DominantPalette => 2,
+            SensorMode::SpatialFingerprint => 1,
+        };
+        let mut inputs = Vec::with_capacity(
+            available_motors
+                .len()
+                .saturating_mul(inputs_per_motor)
+                .saturating_add(1),
+        );
         for motor in &available_motors {
             inputs.push(SpikeInput {
                 arrival_tick: start,
@@ -357,16 +418,18 @@ impl Arc3Sensorimotor {
                 target: self.sites.candidate_sources[context_index][*motor],
                 impulse: 1,
             });
-            inputs.push(SpikeInput {
-                arrival_tick: start,
-                phase: i32::try_from(*motor).unwrap_or(0).saturating_add(8),
-                origin_physical: EXTERNAL_PHYSICAL_BASE
-                    .saturating_add(self.sequence.saturating_mul(100))
-                    .saturating_add(50)
-                    .saturating_add(u64::from(context)),
-                target: self.sites.context_traces[context_index][*motor],
-                impulse: 1,
-            });
+            if self.sensor_mode == SensorMode::DominantPalette {
+                inputs.push(SpikeInput {
+                    arrival_tick: start,
+                    phase: i32::try_from(*motor).unwrap_or(0).saturating_add(8),
+                    origin_physical: EXTERNAL_PHYSICAL_BASE
+                        .saturating_add(self.sequence.saturating_mul(100))
+                        .saturating_add(50)
+                        .saturating_add(u64::from(context)),
+                    target: self.sites.context_traces[context_index][*motor],
+                    impulse: 1,
+                });
+            }
         }
         if let Some(action) = babble_action {
             let motor = action_index(action)?;
@@ -715,10 +778,10 @@ fn build_body(
     context_count: usize,
 ) -> Result<(BoundaryRuntime, Sites), Arc3SensorimotorError> {
     let spatial = sensor_mode == SensorMode::SpatialFingerprint;
-    let cells_per_pair: usize = if spatial { 6 } else { 3 };
-    let arrows_per_pair: usize = if spatial { 6 } else { 5 };
-    let path_cells_per_pair = usize::from(spatial).saturating_mul(4);
-    let path_arrows_per_pair = usize::from(spatial).saturating_mul(12);
+    let cells_per_pair: usize = if spatial { 1 } else { 3 };
+    let arrows_per_pair: usize = if spatial { 0 } else { 5 };
+    let path_cells_per_pair = usize::from(spatial).saturating_mul(2);
+    let path_arrows_per_pair = usize::from(spatial).saturating_mul(6);
     let cell_capacity = u32::try_from(
         (context_count
             .saturating_mul(MOTORS)
@@ -784,37 +847,50 @@ fn build_body(
     for context in 0..context_count {
         for motor in 0..MOTORS {
             let pair = context.saturating_mul(MOTORS).saturating_add(motor);
-            let offset = i32::try_from(pair.saturating_mul(20))
+            let position_index = if spatial { motor } else { pair };
+            let offset = i32::try_from(position_index.saturating_mul(20))
                 .map_err(|_| Arc3SensorimotorError("context position exceeds i32".to_string()))?;
             candidate_sources[context][motor] =
                 body.add_junction(cell(1_000_000 + pair as u64, 100 + offset, 0, 1));
-            context_traces[context][motor] =
-                body.add_junction(cell(2_000_000 + pair as u64, trace_base + offset, 0, 1));
-            relays[context][motor] =
-                body.add_junction(cell(3_000_000 + pair as u64, relay_base + offset, 0, 3));
             if spatial {
-                motors[context][motor] = body.add_junction(cell(
-                    MOTOR_PHYSICAL_BASE + pair as u64,
-                    motor_base + offset + 1,
-                    0,
-                    2,
-                ));
-                babblers[context][motor] = body.add_junction(cell(
-                    BABBLER_PHYSICAL_BASE + pair as u64,
-                    babble_base + offset,
-                    0,
-                    1,
-                ));
-                outputs[context][motor] = body.add_junction(cell(
-                    OUTPUT_PHYSICAL_BASE + pair as u64,
-                    output_base + offset,
-                    OUTWARD_REGION,
-                    1,
-                ));
+                context_traces[context][motor] = candidate_sources[context][motor];
+            } else {
+                context_traces[context][motor] =
+                    body.add_junction(cell(2_000_000 + pair as u64, trace_base + offset, 0, 1));
+                relays[context][motor] =
+                    body.add_junction(cell(3_000_000 + pair as u64, relay_base + offset, 0, 3));
             }
         }
     }
-    if !spatial {
+    if spatial {
+        let shared_motors = std::array::from_fn(|motor| {
+            body.add_junction(cell(
+                MOTOR_PHYSICAL_BASE + motor as u64,
+                motor_base + motor as i32 * 20 + 1,
+                0,
+                2,
+            ))
+        });
+        let shared_babblers = std::array::from_fn(|motor| {
+            body.add_junction(cell(
+                BABBLER_PHYSICAL_BASE + motor as u64,
+                babble_base + motor as i32 * 20,
+                0,
+                1,
+            ))
+        });
+        let shared_outputs = std::array::from_fn(|motor| {
+            body.add_junction(cell(
+                OUTPUT_PHYSICAL_BASE + motor as u64,
+                output_base + motor as i32 * 20,
+                OUTWARD_REGION,
+                1,
+            ))
+        });
+        motors.fill(shared_motors);
+        babblers.fill(shared_babblers);
+        outputs.fill(shared_outputs);
+    } else {
         let shared_motors = std::array::from_fn(|motor| {
             body.add_junction(cell(
                 MOTOR_PHYSICAL_BASE + motor as u64,
@@ -836,10 +912,22 @@ fn build_body(
         outputs.fill(shared_outputs);
     }
     let returning = body.add_junction(cell(6_000_000, return_position, 0, 1));
+    let spatial_anchor = spatial
+        .then(|| body.add_junction(cell(8_000_000, return_position.saturating_add(100), 0, 99)));
+    if let Some(anchor) = spatial_anchor {
+        body.add_link(drive(anchor, returning, 0, 1, SCAFFOLD_RESISTANCE));
+        for sources in &candidate_sources {
+            for source in sources {
+                body.add_link(drive(anchor, *source, 0, 1, SCAFFOLD_RESISTANCE));
+            }
+        }
+    }
     let mut candidates = vec![[None; MOTORS]; context_count];
     for context in 0..context_count {
         for motor in 0..MOTORS {
-            if !spatial {
+            if spatial {
+                continue;
+            } else {
                 candidates[context][motor] = Some(body.add_link(drive(
                     candidate_sources[context][motor],
                     motors[context][motor],
@@ -876,25 +964,26 @@ fn build_body(
                 1,
                 SCAFFOLD_RESISTANCE,
             ));
-            if spatial {
-                body.add_link(drive(
-                    babblers[context][motor],
-                    motors[context][motor],
-                    0,
-                    1,
-                    SCAFFOLD_RESISTANCE,
-                ));
-                body.add_link(drive(
-                    motors[context][motor],
-                    outputs[context][motor],
-                    0,
-                    1,
-                    SCAFFOLD_RESISTANCE,
-                ));
-            }
         }
     }
-    if !spatial {
+    if spatial {
+        for motor in 0..MOTORS {
+            body.add_link(drive(
+                babblers[0][motor],
+                motors[0][motor],
+                0,
+                1,
+                SCAFFOLD_RESISTANCE,
+            ));
+            body.add_link(drive(
+                motors[0][motor],
+                outputs[0][motor],
+                0,
+                1,
+                SCAFFOLD_RESISTANCE,
+            ));
+        }
+    } else {
         for motor in 0..MOTORS {
             body.add_link(drive(
                 motors[0][motor],
@@ -983,19 +1072,35 @@ fn available_motor_indices(actions: &[u8]) -> Result<Vec<usize>, Arc3Sensorimoto
     Ok(motors)
 }
 
+fn autonomous_opportunity(
+    seed: u64,
+    context: u16,
+    sequence: u64,
+    available_actions: &[u8],
+) -> Result<u8, Arc3SensorimotorError> {
+    let motors = available_motor_indices(available_actions)?;
+    let phase = seed
+        .wrapping_add(u64::from(context).wrapping_mul(0x9e37_79b9_7f4a_7c15))
+        .wrapping_add(sequence);
+    let choice = usize::try_from(phase % motors.len() as u64).unwrap_or(0);
+    Ok(SIMPLE_ACTIONS[motors[choice]])
+}
+
 fn action_index(action: u8) -> Result<usize, Arc3SensorimotorError> {
-    if !(1..=MOTORS as u8).contains(&action) {
-        return Err(Arc3SensorimotorError(format!(
-            "ARC3-A1 supports simple actions 1..={MOTORS}; received {action}"
-        )));
-    }
-    Ok(usize::from(action - 1))
+    SIMPLE_ACTIONS
+        .iter()
+        .position(|candidate| *candidate == action)
+        .ok_or_else(|| {
+            Arc3SensorimotorError(format!(
+                "ARC3 supports nullary actions 1, 2, 3, 4, 5, and 7; received {action}"
+            ))
+        })
 }
 
 fn validate_action_map(map: &[u8]) -> Result<(), Arc3SensorimotorError> {
-    if map.len() != MOTORS || map.iter().any(|action| !(1..=7).contains(action)) {
+    if map.is_empty() || map.len() > MOTORS || map.iter().any(|action| !(1..=7).contains(action)) {
         return Err(Arc3SensorimotorError(
-            "action map must contain four ARC action identifiers in 1..=7".to_string(),
+            "action map must contain one to six ARC action identifiers in 1..=7".to_string(),
         ));
     }
     Ok(())
@@ -1011,6 +1116,12 @@ impl fmt::Display for Arc3SensorimotorError {
 }
 
 impl std::error::Error for Arc3SensorimotorError {}
+
+impl Arc3SensorimotorError {
+    pub(crate) fn boundary(message: impl Into<String>) -> Self {
+        Self(message.into())
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -1096,6 +1207,34 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(probes, [Some(1), Some(4), Some(2), Some(3)]);
+    }
+
+    #[test]
+    fn autonomous_input_explores_returns_raw_consequence_and_reuses() {
+        let mut organism = Arc3Sensorimotor::new_spatial_fixture(93_000_007, 5).unwrap();
+        let frames = distinct_inputs(2, 5);
+
+        let first = organism
+            .observe_autonomous(frames[0].clone(), &[1, 2, 3, 4], &[1, 2, 3, 4])
+            .unwrap();
+        let learned_action = first.action.expect("fresh body must physically explore");
+        assert_eq!(first.babble_action, Some(learned_action));
+        assert_eq!(first.plasticity_updates, 0);
+
+        let consequence = organism
+            .observe_autonomous(frames[1].clone(), &[1, 2, 3, 4], &[1, 2, 3, 4])
+            .unwrap();
+        assert!(consequence.support_admitted);
+        assert_eq!(consequence.plasticity_updates, 2);
+
+        organism.clear_episode();
+        let reused = organism
+            .observe_autonomous(frames[0].clone(), &[1, 2, 3, 4], &[1, 2, 3, 4])
+            .unwrap();
+        assert_eq!(reused.action, Some(learned_action));
+        assert_eq!(reused.babble_action, None);
+        assert_eq!(reused.plasticity_updates, 0);
+        assert!(reused.naturally_quiescent);
     }
 
     #[test]
@@ -1228,7 +1367,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "adversarial unsupported boundary"]
     fn input_without_outcome_strengthens_nothing() {
         let mut organism = Arc3Sensorimotor::new(206).unwrap();
         let first = organism
@@ -1350,7 +1488,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "adversarial full-body path reuse"]
     fn later_inputs_reuse_four_paths_at_the_time_boundary() {
         for initial_gap in [0, 9] {
             let behavior = four_context_regimen(initial_gap);

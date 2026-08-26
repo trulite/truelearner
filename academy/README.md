@@ -18,6 +18,27 @@ This writes a catalog plus six A1 episodes: one development run, one fresh
 learned-relation test, and four negative controls. Each episode contains its
 canonical JSON record, frame evidence, poster, and derived MP4.
 
+## Run Body Discovery
+
+The development-only visual-touch body has two foveated eyes and two
+five-finger hands. Opposing motor effort is integrated per physical axis, then
+signed position, actual velocity, effort, joint limits, and touch return as
+ordinary input. Its headless Academy course develops and probes body control
+without selecting movements for the learner or counting canceled effort as
+movement. Receptors are local only to their anatomical eye, hand, or digit axis
+and are equally distant from both motor directions. Gaze contingency requires
+repeated net movement with a recorded visual consequence:
+
+```sh
+cargo run --locked --manifest-path academy/Cargo.toml \
+  -p academy-body --bin academy-body-course -- \
+  --seed 31001 --output output/body-course-fixture
+```
+
+The output contains an immutable receipt and a content-addressed transcript.
+Development commits learning; probes use cloned checkpoints and cannot teach
+the durable learner. A preserved first failure is an honest course result.
+
 ## Run on macOS
 
 From the repository root:
@@ -34,6 +55,8 @@ The application opens a native window titled `Academy Episodes` at
 - `academy-core`: headless capability evidence, physical admission records,
   deterministic raster surfaces, checkpoints/replay, and the bounded body
   worker.
+- `academy-body`: generated Body Discovery development, probes, controls,
+  replay, and evidence through the public `HumanHarness`.
 - `academy-review`: portable catalog and episode descriptions for causally
   inert review tools.
 - `academy-episodes`: canonical episode catalog plus deterministic review-frame
@@ -47,6 +70,8 @@ The dependency direction is:
 playground -> academy-review
 academy-runner -> academy-episodes -> academy-core -> truelearner-core
 academy-episodes -> academy-review
+academy-body -> academy-core -> truelearner-core
+academy-body -> truelearner-human -> truelearner-core
 ```
 
 The Playground reads `catalog.json` at startup. Its native webview requests
@@ -78,8 +103,10 @@ and
 
 The first-class ARC-AGI-3 capstone uses a separate teaching-free agent and a
 pinned `uv` adapter. The adapter may see official evaluator state; the agent
-receives only the current 64×64 palette frame and available physical actions.
-Every game and every replay starts a fresh agent process.
+receives only the current 64×64 palette frame and a typed catalogue of available
+physical actions. Nullary actions produce unit calls; coordinate actions are
+represented as bounded point calls and remain silent until foveation supplies
+their arguments. Every game and every replay starts a fresh agent process.
 
 Build the release agent and exercise the public, non-scoring fixture:
 
@@ -91,6 +118,17 @@ uv run --locked --project academy/capstones/arc3 \
   --mode fixture \
   --agent academy/target/release/academy-arc3-capstone-agent \
   --output output/arc3-capstone-fixture
+```
+
+Run every anonymously accessible public game locally, without a key or an
+official scorecard:
+
+```sh
+uv run --locked --project academy/capstones/arc3 \
+  academy/capstones/arc3/capstone.py \
+  --mode public \
+  --agent academy/target/release/academy-arc3-capstone-agent \
+  --output output/arc3-capstone-public
 ```
 
 After the candidate has independent verification, is committed, and the tree

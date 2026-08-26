@@ -1,4 +1,4 @@
-schema_version = 1
+schema_version = 2
 receipt_schema_version = 1
 name = "academy-arc3-official-capstone"
 toolkit_source_revision = "arcprize/ARC-AGI@f12822c4d550121c35a275008d964afbbed47d2f"
@@ -11,6 +11,6 @@ organism_seed = 205
 max_actions_per_game = 1000
 frame_side = 64
 palette_size = 16
-supported_actions = [1, 2, 3, 4]
-agent_request_fields = ["command", "frame", "available_actions"]
+supported_actions = [1, 2, 3, 4, 5, 6, 7]
+agent_request_fields = ["command", "frame", "actions"]
 replay_required = true

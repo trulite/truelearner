@@ -13,7 +13,9 @@ use std::path::Path;
 
 mod capstone;
 mod sensorimotor;
-pub use capstone::{Arc3CapstoneAgent, Arc3CapstoneCommand, Arc3CapstoneResponse};
+pub use capstone::{
+    Arc3CapstoneAgent, Arc3CapstoneCommand, Arc3CapstoneObservation, Arc3CapstoneResponse,
+};
 pub use sensorimotor::{
     dominant_palette, spatial_context, Arc3A1Episode, Arc3A1EpisodeClass, Arc3A1EpisodeOutcome,
     Arc3A1Suite, Arc3A1Turn, Arc3AgentCommand, Arc3AgentResponse, Arc3Sensorimotor,

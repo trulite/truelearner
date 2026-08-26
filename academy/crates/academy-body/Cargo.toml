@@ -1,0 +1,20 @@
+[package]
+name = "academy-body"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Headless Body Discovery course for TrueLearner Academy"
+
+[dependencies]
+academy-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+truelearner-human.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "academy-body-course"
+path = "src/main.rs"

@@ -19,9 +19,13 @@ use truelearner_core::{
 };
 
 mod a1;
+mod action;
 pub use a1::{
     A1Experience, A1ExperienceKind, A1LabSnapshot, A1ProbeFamily, A1ReplayOutcome,
     A1WorldObservation, GenuineTeachingLab, TeachingCase,
+};
+pub use action::{
+    ActionArguments, ActionCall, ActionCatalog, ActionError, ActionId, ActionOffer, ActionSchema,
 };
 
 pub const SURFACE_WIDTH: u32 = 640;

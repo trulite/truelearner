@@ -88,6 +88,32 @@ These names never enter TrueLearner.
 Track whether comparable new capabilities require fewer experiences and less
 physical work. This is the main learning-to-learn measure.
 
+## Body discovery
+
+Before interface or benchmark curricula, the headless Body Discovery course
+lets the learner discover the visual-touch body exposed by `HumanHarness`: two
+foveated eyes and two five-finger hands with touch plus signed position,
+velocity, opposing effort, and joint-limit input.
+Development experience may commit learning. Fresh probes, transfers, retention
+checks, and controls run from cloned checkpoints and discard mutation.
+
+Academy arranges only light and contact worlds. It never chooses or injects a
+gaze, hand, finger, direction, pressure, or action output. If ordinary sensory
+experience produces no unguided outward exploration, the course preserves
+`MissingExploration` as its first failure instead of teaching an action route.
+Opposing outputs are combined by the body's fixed force law, and Academy counts
+only the resulting net pose change as movement.
+`GazeContingency` additionally requires repeated net gaze changes that change
+light sampled at the before/after focus in the same recorded world. One
+accidental movement, passive light change, or visually inert movement cannot
+establish the capability.
+
+The course advances through gaze, independent hand and digit control,
+self/world discrimination, contact, visual reaching, tap/hold/release,
+dragging, pinching, and two-hand coordination. Every claim requires fresh
+generated evidence, exact replay, natural quiescence, unchanged negative
+controls, and bounded physical work.
+
 ## First curriculum
 
 Start with a small set that can be inspected completely:
@@ -137,7 +163,10 @@ The ARC-AGI-3 capstone is an external capability evaluation, not a teaching
 episode. Its Python adapter owns the official SDK, game identity, score,
 terminal state, action budget, and scorecard. A fresh Rust agent is created for
 every server-selected game and receives only an owned 64×64 palette frame and
-the official list of available physical actions.
+an action catalog derived from the official list of available physical actions.
+The catalog contains only opaque action identities and public argument shapes.
+Complete typed calls may leave the agent; descriptions, active coordinates,
+scores, and evaluator state may not enter it.
 
 The Rust agent owns `Arc3Sensorimotor`, which owns the public `Harness`. The
 process boundary exposes no score, game or level identity, expected action,

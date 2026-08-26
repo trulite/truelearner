@@ -15,6 +15,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "academy-body"
+version = "0.1.0"
+dependencies = [
+ "academy-core",
+ "serde",
+ "serde_json",
+ "sha2",
+ "truelearner-human",
+]
+
+[[package]]
 name = "academy-core"
 version = "0.1.0"
 dependencies = [
@@ -4485,6 +4496,16 @@ dependencies = [
  "bincode",
  "serde",
  "sha2",
+]
+
+[[package]]
+name = "truelearner-human"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "serde",
+ "sha2",
+ "truelearner-core",
 ]
 
 [[package]]

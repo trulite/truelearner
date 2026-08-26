@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/academy-core",
+    "crates/academy-body",
     "crates/academy-arc3",
     "crates/academy-review",
     "crates/academy-episodes",
@@ -9,6 +10,7 @@ members = [
 ]
 default-members = [
     "crates/academy-core",
+    "crates/academy-body",
     "crates/academy-arc3",
     "crates/academy-review",
     "crates/academy-episodes",
@@ -23,10 +25,12 @@ publish = false
 
 [workspace.dependencies]
 academy-core = { path = "crates/academy-core" }
+academy-body = { path = "crates/academy-body" }
 academy-arc3 = { path = "crates/academy-arc3" }
 academy-review = { path = "crates/academy-review" }
 academy-episodes = { path = "crates/academy-episodes" }
 truelearner-core = { path = "../truelearner/crates/core" }
+truelearner-human = { path = "../truelearner/crates/human" }
 dioxus = { version = "0.7.10", default-features = false }
 futures-timer = "3.0.3"
 font8x8 = "0.3.1"

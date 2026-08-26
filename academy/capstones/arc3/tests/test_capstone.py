@@ -24,7 +24,7 @@ class FakeAgent:
         return {
             "response": "observation",
             "sequence": len(self.requests) - 1,
-            "action": None,
+            "call": None,
             "outward_crossings": 0,
             "plasticity_updates": 0,
             "modulatory_deliveries": 0,
@@ -59,7 +59,32 @@ class ProjectionTests(unittest.TestCase):
         left = capstone.project_observation(observation(game_id="one", score=0.0))
         right = capstone.project_observation(observation(game_id="two", score=1.0))
         self.assertEqual(left, right)
-        self.assertEqual(set(left), {"command", "frame", "available_actions"})
+        self.assertEqual(set(left), {"command", "frame", "actions"})
+        self.assertEqual(
+            left["actions"],
+            {
+                "offers": [
+                    {"id": 1, "schema": {"type": "unit"}},
+                    {"id": 2, "schema": {"type": "unit"}},
+                    {"id": 3, "schema": {"type": "unit"}},
+                    {"id": 4, "schema": {"type": "unit"}},
+                ]
+            },
+        )
+
+    def test_coordinate_action_exposes_only_its_public_shape(self) -> None:
+        request = capstone.project_observation(observation(available_actions=[6]))
+        self.assertEqual(
+            request["actions"],
+            {
+                "offers": [
+                    {
+                        "id": 6,
+                        "schema": {"type": "point", "width": 64, "height": 64},
+                    }
+                ]
+            },
+        )
 
     def test_invalid_palette_is_rejected(self) -> None:
         bad = observation(frame=[[[16 for _ in range(64)] for _ in range(64)]])
@@ -74,9 +99,7 @@ class ExecutionTests(unittest.TestCase):
         summary, transcript = capstone.run_game("fixture", world, agent, 4)
         self.assertEqual(summary["stop_reason"], "no_outward_crossing")
         self.assertEqual(len(transcript), 1)
-        self.assertEqual(
-            set(agent.requests[0]), {"command", "frame", "available_actions"}
-        )
+        self.assertEqual(set(agent.requests[0]), {"command", "frame", "actions"})
 
     def test_replay_divergence_fails_closed(self) -> None:
         records = [
@@ -86,12 +109,21 @@ class ExecutionTests(unittest.TestCase):
                 "request": {
                     "command": "observe",
                     "frame": [0] * 4096,
-                    "available_actions": [1],
+                    "actions": {
+                        "offers": [{"id": 1, "schema": {"type": "unit"}}]
+                    },
                 },
-                "response": {"response": "observation", "action": None},
+                "response": {"response": "observation", "call": None},
             }
         ]
-        agent = FakeAgent([{"response": "observation", "action": 1}])
+        agent = FakeAgent(
+            [
+                {
+                    "response": "observation",
+                    "call": {"id": 1, "arguments": {"type": "unit"}},
+                }
+            ]
+        )
         with self.assertRaisesRegex(capstone.CapstoneError, "replay diverged"):
             capstone.replay_transcript(records, lambda _game: agent)
 
@@ -106,6 +138,24 @@ class ExecutionTests(unittest.TestCase):
         self.assertEqual(summary["stop_reason"], "boundary_failure")
         self.assertIn("action 6", summary["first_failure"])
         self.assertEqual(transcript[0]["response"]["response"], "error")
+
+    def test_official_world_executes_typed_unit_and_point_calls(self) -> None:
+        class Environment:
+            def __init__(self) -> None:
+                self.calls: list[tuple[object, dict[str, int]]] = []
+
+            def step(self, action: object, data: dict[str, int]) -> object:
+                self.calls.append((action, data))
+                return observation()
+
+        environment = Environment()
+        world = capstone.OfficialWorld(environment)
+        world.step({"id": 5, "arguments": {"type": "unit"}})
+        world.step(
+            {"id": 6, "arguments": {"type": "point", "x": 12, "y": 34}}
+        )
+        self.assertEqual(environment.calls[0][1], {})
+        self.assertEqual(environment.calls[1][1], {"x": 12, "y": 34})
 
 
 class EvidenceTests(unittest.TestCase):
@@ -122,7 +172,7 @@ class EvidenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "receipt"
             receipt = {"schema_version": 1, "verdict": "fixture-only"}
-            records = [{"request": {"frame": [0]}, "response": {"action": None}}]
+            records = [{"request": {"frame": [0]}, "response": {"call": None}}]
             result = capstone.write_evidence(output, receipt, records)
             transcript = output / result["transcript_file"]
             self.assertTrue(transcript.is_file())
