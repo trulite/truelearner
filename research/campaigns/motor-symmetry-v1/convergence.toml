@@ -1,0 +1,37 @@
+schema = "research-convergence/v1"
+campaign = "learner-motor-symmetry-v1"
+round = 1
+survived = []
+falsified = ["fixed-local-winner", "rotating-local-winner", "strength-then-rotation"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "local competition prevents paired outward crossings from canceling in the body",
+  "a tie mechanism must vary on actual repeated participation rather than a commensurate wall-free clock phase",
+]
+strongest_counterexamples = [
+  "fixed-local-winner: repeated crossings retain one physical side",
+  "rotating-local-winner: the four-tick body recurrence phase-locks tick parity",
+  "strength-then-rotation: strength cannot guide the first choice, so the same phase-lock blocks alternative exposure",
+]
+retired_families = ["fixed physical-side priority", "period-two physical-tick rotation"]
+next_discriminators = [
+  "compare learned strength first and otherwise prefer the route with less recent physical participation",
+  "show alternation without outcome, consequence-dependent reuse, nonlocal independence, and exact replay in one tiny fixture",
+]
+
+[[new_arm]]
+id = "strength-then-least-participation"
+kind = "composition"
+parents = ["fixed-local-winner", "strength-then-rotation"]
+imports = [
+  "strength-then-rotation: learned strength has priority",
+  "fixed-local-winner: deterministic local admission",
+]
+interaction_prediction = "Equal-strength routes expose the less-used alternative, while a consequentially strengthened participant wins later local competition."
+falsifiers = [
+  "outcome-free repetitions do not expose both alternatives",
+  "consequence does not make the participant reusable",
+  "far outputs suppress one another",
+  "checkpoint replay changes the admitted sequence",
+]

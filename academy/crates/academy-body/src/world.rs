@@ -65,7 +65,9 @@ fn render_eye(
     body: &HumanRead,
     side: Side,
 ) -> Result<LightField, BodyCourseError> {
-    let mut pixels = vec![0_u8; usize::from(SIDE) * usize::from(SIDE)];
+    let mut pixels = (0..SIDE)
+        .flat_map(|y| (0..SIDE).map(move |x| background_light(seed, x, y)))
+        .collect::<Vec<_>>();
     set_body_pixel(&mut pixels, target, 255);
     for index in 0..6_u64 {
         let x = i16::try_from((seed.rotate_left(index as u32) + index * 97) % 1_024).unwrap_or(0);
@@ -78,6 +80,12 @@ fn render_eye(
         set_body_pixel(&mut pixels, hand.fingertip(digit), 128);
     }
     Ok(LightField::new(SIDE, SIDE, pixels)?)
+}
+
+fn background_light(seed: u64, x: u16, y: u16) -> u8 {
+    let offset = u64::from(x) * 5 + u64::from(y) * 11;
+    let value = seed.wrapping_add(offset) % 32;
+    u8::try_from(value).unwrap_or(0)
 }
 
 fn set_body_pixel(pixels: &mut [u8], point: Point, value: u8) {
@@ -143,5 +151,39 @@ impl PointOffset for Point {
             self.y().saturating_add(dy).clamp(0, BODY_MAX),
         )
         .expect("clamped point is bounded")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use truelearner_human::HumanHarness;
+
+    #[test]
+    fn background_distinguishes_every_adjacent_cell_without_high_contrast() {
+        for seed in [0, 71, u64::MAX] {
+            for y in 0..SIDE {
+                for x in 0..SIDE {
+                    let value = background_light(seed, x, y);
+                    assert!(value < 48);
+                    if x + 1 < SIDE {
+                        assert_ne!(value, background_light(seed, x + 1, y));
+                    }
+                    if y + 1 < SIDE {
+                        assert_ne!(value, background_light(seed, x, y + 1));
+                    }
+                    if x + 1 < SIDE && y + 1 < SIDE {
+                        assert_ne!(value, background_light(seed, x + 1, y + 1));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn generated_world_is_static_for_an_unchanged_body() {
+        let body = HumanHarness::new(72).unwrap().read().unwrap();
+        let mut world = FlatWorld::generated(73, BodyCapability::GazeContingency);
+        assert_eq!(world.sample(&body).unwrap(), world.sample(&body).unwrap());
     }
 }

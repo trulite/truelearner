@@ -1,0 +1,21 @@
+schema = "research-arm/v1"
+id = "strength-then-rotation"
+campaign = "learner-motor-symmetry-v1"
+kind = "composition"
+parents = ["fixed-local-winner", "rotating-local-winner"]
+imports = ["fixed-local-winner:local activation comparison", "rotating-local-winner:tie variation"]
+mechanism = "Admit the strongest simultaneously ready local output; rotate by physical time and position only when strengths are exactly tied."
+prediction = "Initial ties expose alternatives without fixed bias, while an actual consequence makes its stronger participating route win and reappear on later input."
+falsifiers = [
+  "Initial reflection has a permanent side preference.",
+  "Outcome-free trials create stable preference.",
+  "A consequential participant does not win later local competition.",
+  "Far-apart outputs suppress one another.",
+]
+source_revision = "bf633bc932be4684bc7070d1e6fb37b2614ef811"
+protocol_sha256 = "921c8233b38dda4aa3596a5b45c92348f88bb993f24f65638f3a36a4894e6676"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "cargo test -p truelearner-core local_motor_competition"
+full_evidence = "cargo test --workspace --locked and Body Discovery seed 31001"

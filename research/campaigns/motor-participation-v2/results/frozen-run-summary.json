@@ -1,0 +1,41 @@
+{
+  "schema": "research-observation/v1",
+  "campaign": "learner-motor-participation-v2",
+  "protocol_sha256": "9cba5e9efbf00db7d11b28d28737720e79dc90f2db2dced7823ebe86e8b0eb48",
+  "parent_revision": "bf633bc932be4684bc7070d1e6fb37b2614ef811",
+  "candidate_revision": "18ae5e4",
+  "environment": "fresh detached worktree",
+  "valid_run": 1,
+  "gates": {
+    "tiny_local_competition_tests": "2 passed",
+    "truelearner_workspace": "22 passed, 2 ignored adversarial boundaries",
+    "academy_body": "9 passed",
+    "semantic_firewall": "passed",
+    "far_output_independence": "passed",
+    "reflected_checkpoint_replay": "exact",
+    "natural_quiescence": true
+  },
+  "tiny_fixture": {
+    "first_outputs": 1,
+    "outcome_free_second_outputs": 1,
+    "outcome_free_alternative_changed": true,
+    "return_paths_after_competition": 1,
+    "outcome_updates_positive": true,
+    "consequential_output_reused": true
+  },
+  "body_discovery_seed_91003": {
+    "development_verdict": "failed",
+    "development_crossings": 60,
+    "development_changed_movements": 60,
+    "development_plasticity_updates": 348,
+    "probe_verdict": "failed",
+    "probe_crossings": 60,
+    "probe_changed_movements": 36,
+    "probe_plasticity_updates": 370,
+    "first_failure": "gaze_contingency",
+    "exact_replay": true,
+    "receipt_sha256": "929a7bd8b058f84c808452f75eaedc30f777ffcccf25e8c82e6f5f5da73091ac",
+    "transcript_sha256": "4e272c47f7420e368a2e3b3f35ced7b1636a79bcd37391ae9c0b320a29181228"
+  },
+  "interpretation": "Local participation competition fixes MissingExploration and selective credit. The next preserved failure is sparse visual consequence in GazeContingency; no Academy pass is claimed."
+}

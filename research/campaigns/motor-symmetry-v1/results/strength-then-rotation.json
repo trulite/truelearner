@@ -1,0 +1,20 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "strength-then-rotation",
+  "outcome": "falsified",
+  "falsifier": "Before consequence can distinguish strengths, tick-parity rotation phase-locks and exposes only one alternative.",
+  "observations": {
+    "development_changed_movements": "60",
+    "development_plasticity_updates": "348",
+    "probe_changed_movements": "36",
+    "selected_side": "odd control identity on all crossings",
+    "body_course_result": "0 acquired; GazeContingency first failure",
+    "exact_replay": "true"
+  },
+  "artifacts": [
+    {
+      "path": "results/clock-locked-body-course-summary.json",
+      "sha256": "c0ccb7d43531f35bf4e2461ca7fe80dbfa31652361d91eb156cf8856b470b697"
+    }
+  ]
+}

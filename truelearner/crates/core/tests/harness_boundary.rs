@@ -134,6 +134,73 @@ struct DeepWorld {
     returns: Vec<LinkId>,
 }
 
+struct LocalPairWorld {
+    harness: Harness,
+    input: JunctionId,
+    opportunities: [JunctionId; 2],
+    outcome: JunctionId,
+}
+
+impl LocalPairWorld {
+    fn new() -> Self {
+        Self::with_positions([-1, 1])
+    }
+
+    fn with_positions(positions: [i32; 2]) -> Self {
+        let mut builder = HarnessBuilder::with_capacity(32, 64, OUTWARD_REGION);
+        let input = junction(&mut builder, 27_000, 0, 0, 1);
+        let left = junction(&mut builder, 27_001, positions[0], 0, 2);
+        let right = junction(&mut builder, 27_002, positions[1], 0, 2);
+        let left_sink = junction(&mut builder, 27_003, positions[0], 1, 1);
+        let right_sink = junction(&mut builder, 27_004, positions[1], 1, 1);
+        let outcome = junction(&mut builder, 27_005, 50, 0, 1);
+        let anchor = junction(&mut builder, 27_006, 100, 0, 99);
+        for target in [input, outcome] {
+            link(
+                &mut builder,
+                anchor,
+                target,
+                0,
+                1,
+                u32::MAX,
+                TransmissionMode::Drive,
+            );
+        }
+        for (motor, sink) in [(left, left_sink), (right, right_sink)] {
+            link(
+                &mut builder,
+                motor,
+                sink,
+                0,
+                1,
+                u32::MAX,
+                TransmissionMode::Drive,
+            );
+        }
+        builder.set_outcome_source(outcome);
+        Self {
+            harness: builder.build(),
+            input,
+            opportunities: [left, right],
+            outcome,
+        }
+    }
+
+    fn stimulate(&mut self) -> Run {
+        let input_tick = self.harness.read().clock.tick.saturating_add(1);
+        self.harness.send(&[
+            input(self.input, input_tick),
+            input(self.opportunities[0], input_tick.saturating_add(1)),
+            input(self.opportunities[1], input_tick.saturating_add(1)),
+        ])
+    }
+
+    fn outcome(&mut self) -> Run {
+        let tick = self.harness.read().clock.tick.saturating_add(1);
+        self.harness.send(&[input(self.outcome, tick)])
+    }
+}
+
 impl DeepWorld {
     fn new(depth: usize, resistance: u32) -> Self {
         assert!(depth > 0);
@@ -292,6 +359,122 @@ fn junction_chooses_one_path_and_output_fires() {
     assert_eq!(choice, Some((UNIT_U64, UNIT_U64, true, 1)));
     assert_eq!(run.outputs.len(), 1);
     assert_eq!(world.harness.read().return_path_count, 1);
+}
+
+#[test]
+fn local_motor_competition_explores_then_reuses_consequence() {
+    let mut without_outcome = LocalPairWorld::new();
+    let first = without_outcome.stimulate();
+    let first_observation = without_outcome.harness.read();
+    let second = without_outcome.stimulate();
+    assert_eq!(first.outputs.len(), 1);
+    assert_eq!(second.outputs.len(), 1);
+    assert_ne!(
+        first.outputs[0].from_physical,
+        second.outputs[0].from_physical
+    );
+    let winner = first_observation
+        .junctions
+        .iter()
+        .find(|junction| junction.physical_id == first.outputs[0].from_physical)
+        .unwrap()
+        .id;
+    let loser = without_outcome
+        .opportunities
+        .into_iter()
+        .find(|opportunity| *opportunity != winner)
+        .unwrap();
+    let loser_seconds = first_observation
+        .links
+        .iter()
+        .filter(|link| link.live && link.to == loser)
+        .collect::<Vec<_>>();
+    assert!(loser_seconds.iter().all(|link| link.participation == 0));
+    assert!(loser_seconds.iter().any(|second| {
+        first_observation
+            .links
+            .iter()
+            .any(|first| first.live && first.to == second.from && first.participation > 0)
+    }));
+
+    let mut with_outcome = LocalPairWorld::new();
+    let consequential = with_outcome.stimulate();
+    assert_eq!(consequential.outputs.len(), 1);
+    assert_eq!(with_outcome.harness.read().return_path_count, 1);
+    assert!(with_outcome.outcome().work.local_return_updates > 0);
+    let reused = with_outcome.stimulate();
+    assert_eq!(reused.outputs.len(), 1);
+    assert_eq!(
+        consequential.outputs[0].from_physical,
+        reused.outputs[0].from_physical
+    );
+
+    let mut reflected = LocalPairWorld::with_positions([1, -1]);
+    let reflected_first = reflected.stimulate();
+    let reflected_second = reflected.stimulate();
+    assert_eq!(reflected_first.outputs.len(), 1);
+    assert_eq!(reflected_second.outputs.len(), 1);
+    assert_ne!(
+        reflected_first.outputs[0].from_physical,
+        reflected_second.outputs[0].from_physical
+    );
+
+    let checkpoint = reflected.harness.save().unwrap();
+    let mut restored = Harness::restore(checkpoint).unwrap();
+    let input_tick = restored.read().clock.tick.saturating_add(1);
+    let inputs = [
+        input(reflected.input, input_tick),
+        input(reflected.opportunities[0], input_tick.saturating_add(1)),
+        input(reflected.opportunities[1], input_tick.saturating_add(1)),
+    ];
+    assert_eq!(reflected.harness.send(&inputs), restored.send(&inputs));
+    assert_eq!(
+        reflected.harness.save().unwrap().canonical_bytes().unwrap(),
+        restored.save().unwrap().canonical_bytes().unwrap()
+    );
+}
+
+#[test]
+fn local_motor_competition_does_not_suppress_far_outputs() {
+    let mut builder = HarnessBuilder::with_capacity(32, 64, OUTWARD_REGION);
+    let left_input = junction(&mut builder, 28_000, 0, 0, 1);
+    let left_motor = junction(&mut builder, 28_001, 1, 0, 2);
+    let left_sink = junction(&mut builder, 28_002, 1, 1, 1);
+    let right_input = junction(&mut builder, 28_003, 10, 0, 1);
+    let right_motor = junction(&mut builder, 28_004, 11, 0, 2);
+    let right_sink = junction(&mut builder, 28_005, 11, 1, 1);
+    let anchor = junction(&mut builder, 28_006, 100, 0, 99);
+    for target in [left_input, right_input] {
+        link(
+            &mut builder,
+            anchor,
+            target,
+            0,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    for (motor, sink) in [(left_motor, left_sink), (right_motor, right_sink)] {
+        link(
+            &mut builder,
+            motor,
+            sink,
+            0,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    let mut harness = builder.build();
+    let run = harness.send(&[
+        input(left_input, 1),
+        input(right_input, 1),
+        input(left_motor, 2),
+        input(right_motor, 2),
+    ]);
+    assert_eq!(run.outputs.len(), 2);
+    assert!(run.naturally_quiescent);
 }
 
 #[test]

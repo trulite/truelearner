@@ -1,0 +1,53 @@
+schema = "research-protocol/v1"
+id = "motor-symmetry-v1"
+program = "learner-physics"
+claim = "ARC-NEXT"
+status = "preregistered"
+parent_authority = "bf633bc932be4684bc7070d1e6fb37b2614ef811"
+question = "Can a local meaning-blind competition between simultaneously ready neighboring outputs expose one physical alternative and let ordinary consequence make that alternative reusable?"
+observables = [
+  "number and identity of locally ready motor outputs",
+  "outward crossings per local motor pair",
+  "net body movement and returned physical outcome",
+  "participating path strength before and after outcome",
+  "later autonomous output reuse",
+  "exact replay, natural quiescence, physical work, and resident bytes",
+]
+frozen_variables = [
+  "parent commit bf633bc932be4684bc7070d1e6fb37b2614ef811",
+  "neutral anatomical receptor topology",
+  "signed actuator integration and proprioceptive projection",
+  "Academy worlds, evaluator firewall, work bound, and first-failure rule",
+  "accepted route formation, participation, outcome return, and strengthening outside the permitted local competition point",
+]
+permitted_changes = [
+  "same-phase opportunity for physically paired neighboring outputs",
+  "one local competition law among simultaneously ready output junctions",
+  "temporary local tie state derived only from physical time, position, activation, or strength",
+]
+positive_predicates = [
+  "a tiny neutral two-output world exposes exactly one alternative",
+  "an actual consequence strengthens only the participating alternative",
+  "later input reuses the strengthened alternative without an evaluator-selected output",
+  "the unchanged Body Discovery course advances beyond MissingExploration on at least one disjoint seed",
+  "an unrelated two-output world shows the same mechanism",
+]
+negative_controls = [
+  "far-apart outputs do not suppress one another",
+  "reflection does not create a permanent lower-position or identity preference",
+  "no consequence creates no stable preference",
+  "no evaluator, capability, action, axis, direction, or answer field enters learner input or state",
+  "core boundary controls, exact replay, and natural quiescence remain unchanged",
+]
+stop_conditions = [
+  "the tiny two-output fixture remains balanced or emits both alternatives",
+  "a fixed physical side wins under reflection",
+  "competition suppresses nonlocal independent outputs",
+  "exploration does not become consequence-dependent reuse",
+  "the Academy benchmark improves without the unrelated transfer fixture",
+  "replay, quiescence, semantic firewall, work bound, or core boundary control fails",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

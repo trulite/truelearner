@@ -1,0 +1,19 @@
+schema = "research-arm/v1"
+id = "rotating-local-winner"
+campaign = "learner-motor-symmetry-v1"
+kind = "solve"
+parents = []
+imports = []
+mechanism = "Among a tied local output pair, alternate the admitted physical side from physical time and local position only."
+prediction = "The tiny fixture explores both sides without permanent bias, but consequence cannot create stable reuse because time rotation overrides strength."
+falsifiers = [
+  "Reflection reveals a persistent side preference.",
+  "A returned consequence makes the participating output stably win later probes despite unconditional rotation.",
+]
+source_revision = "bf633bc932be4684bc7070d1e6fb37b2614ef811"
+protocol_sha256 = "921c8233b38dda4aa3596a5b45c92348f88bb993f24f65638f3a36a4894e6676"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "cargo test -p truelearner-core local_motor_competition"
+full_evidence = "cargo test --workspace --locked and Body Discovery seed 31001"

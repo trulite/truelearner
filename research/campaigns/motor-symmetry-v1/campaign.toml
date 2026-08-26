@@ -1,0 +1,48 @@
+schema = "research-campaign/v1"
+id = "learner-motor-symmetry-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Local competition can expose one of two simultaneously ready neighboring outputs without body or evaluator direction, and ordinary consequence can make the participating alternative reusable."
+first_divergence = "Both neighboring motor output junctions participate and cross before signed body integration cancels them."
+missing_transition = "One benchmark-blind local alternative must participate before antagonistic motor integration."
+prediction = "Only a mechanism that separates tie variation from strength-based reuse will produce initial movement, preserve reflection, and later repeat the consequential alternative."
+falsifiers = [
+  "No arm produces exactly one local crossing in the tiny fixture.",
+  "A survivor requires an axis, direction, capability, evaluator, or answer identity.",
+  "No survivor passes both Body Discovery and an unrelated transfer fixture.",
+]
+positive_reference = "bf633bc932be4684bc7070d1e6fb37b2614ef811: Body Discovery seed 91003 has 120 crossings, 60 balanced activations, zero net movement, and exact replay."
+negative_controls = [
+  "bf633bc932be4684bc7070d1e6fb37b2614ef811 core harness boundary tests",
+  "far-apart simultaneous outputs remain independent",
+  "reflected local pair has no permanent physical-side preference",
+  "no-outcome trials create no durable preference",
+]
+arm_paths = [
+  "arms/fixed-local-winner.toml",
+  "arms/rotating-local-winner.toml",
+  "arms/strength-then-rotation.toml",
+]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 45
+max_minutes_per_arm = 15
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.34
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

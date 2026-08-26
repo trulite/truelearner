@@ -1,0 +1,21 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "strength-then-least-participation",
+  "outcome": "survived",
+  "falsifier": "none",
+  "observations": {
+    "outcome_free_alternatives": "both exposed",
+    "consequence_reuse": "same participant reused",
+    "suppressed_return_paths": "none",
+    "far_outputs": "both independent outputs crossed",
+    "reflected_replay": "exact",
+    "body_seed_91003": "movement and plasticity present; next failure GazeContingency",
+    "natural_quiescence": "true"
+  },
+  "artifacts": [
+    {
+      "path": "results/frozen-run-summary.json",
+      "sha256": "eeb0c9e3041ceca655152f019e6e38dea1f931ac1c4df6756b7a25a6fa5d13a1"
+    }
+  ]
+}

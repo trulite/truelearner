@@ -20,29 +20,28 @@ fn sample() -> WorldSample {
 }
 
 #[test]
-fn repeated_physical_input_forms_balanced_paths_without_a_fake_outcome() {
+fn local_competition_turns_symmetric_routes_into_physical_exploration() {
     let mut body = HumanHarness::new(91).unwrap();
     let formed = body.step(sample()).unwrap();
     assert!(formed.metrics.structural_proposals > 0);
-    let balanced = if formed.crossings.is_empty() {
+    let explored = if formed.crossings.is_empty() {
         body.step(sample()).unwrap()
     } else {
         formed
     };
-    assert!(!balanced.crossings.is_empty());
-    assert!(!balanced.movements.is_empty());
-    assert!(!balanced.pose_changed);
-    assert!(!balanced.pending_outcome);
-    assert!(balanced.movements.iter().all(|movement| !movement.changed
-        && movement.velocity == 0
-        && movement.net_impulse == 0
-        && movement.decrease_effort == movement.increase_effort));
-    assert!(balanced.naturally_quiescent);
+    assert!(!explored.crossings.is_empty());
+    assert!(!explored.movements.is_empty());
+    assert!(explored.pose_changed);
+    assert!(explored.pending_outcome);
+    assert!(explored.movements.iter().all(|movement| movement.changed
+        && movement.velocity != 0
+        && movement.net_impulse != 0
+        && movement.decrease_effort != movement.increase_effort));
+    assert!(explored.naturally_quiescent);
 
-    let without_outcome = body.step(sample()).unwrap();
-    assert_eq!(without_outcome.metrics.plasticity_updates, 0);
-    assert!(!without_outcome.pending_outcome);
-    assert!(without_outcome.naturally_quiescent);
+    let consequential = body.step(sample()).unwrap();
+    assert!(consequential.metrics.plasticity_updates > 0);
+    assert!(consequential.naturally_quiescent);
 }
 
 #[test]

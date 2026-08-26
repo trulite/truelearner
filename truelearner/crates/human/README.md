@@ -16,8 +16,10 @@ meet it before an output can fire. No caller selects a control or direction.
 Decrease and increase outputs are opposing effort on one of 25 physical axes.
 The body adds each pair, applies the bounded net impulse once, and returns
 signed position, actual velocity, both effort magnitudes, and joint limits as
-ordinary input on the next step. Equal opposing effort is felt but does not
-move the pose or produce a movement outcome.
+ordinary input on the next step. A dedicated neutral-position receptor makes a
+still joint physically present before it first moves; it is silent off neutral,
+where the existing signed position receptors take over. Equal opposing effort
+is felt but does not move the pose or produce a movement outcome.
 
 Receptors have a fixed anatomical locality rather than an ordinal motor map.
 Retina is local only to eye axes, palm and fingertip touch to the matching hand

@@ -12,7 +12,7 @@ use truelearner_core::{
 
 const OUTWARD_REGION: i16 = 1;
 const EXTERNAL_FEATURE_COUNT: usize = 36;
-const RECEPTORS_PER_AXIS: usize = 8;
+const RECEPTORS_PER_AXIS: usize = 9;
 const FEATURE_COUNT: usize = EXTERNAL_FEATURE_COUNT + AXIS_COUNT * RECEPTORS_PER_AXIS;
 const BINS: usize = 4;
 const CONTROL_COUNT: usize = 50;
@@ -445,6 +445,7 @@ fn sensory_features(sample: &WorldSample, state: &HumanState) -> [u8; FEATURE_CO
     for sense in state.proprioception() {
         for value in signed_channels(sense.position / 4)
             .into_iter()
+            .chain([if sense.position == 0 { u8::MAX } else { 0 }])
             .chain(signed_channels(sense.velocity))
             .chain([
                 magnitude(sense.decrease_effort),
@@ -609,22 +610,44 @@ mod tests {
 
     #[test]
     fn proprioceptive_receptors_preserve_position_velocity_and_effort_sign() {
+        let neutral = sensory_features(&dark_sample(), &HumanState::default());
+        assert_eq!(&neutral[36..45], &[0, 0, u8::MAX, 0, 0, 0, 0, 0, 0]);
+
         let mut state = HumanState::default();
         let mut increase = ActuatorFrame::default();
         increase.activate(BodyAxis::GazeHorizontal, Direction::Increase, 1);
         state.integrate(increase);
         let positive = sensory_features(&dark_sample(), &state);
-        assert_eq!(&positive[36..44], &[0, 4, 0, 16, 0, 1, 0, 0]);
+        assert_eq!(&positive[36..45], &[0, 4, 0, 0, 16, 0, 1, 0, 0]);
 
         let mut decrease = ActuatorFrame::default();
         decrease.activate(BodyAxis::GazeHorizontal, Direction::Decrease, 2);
         state.integrate(decrease);
         let negative = sensory_features(&dark_sample(), &state);
-        assert_eq!(&negative[36..44], &[4, 0, 32, 0, 2, 0, 0, 0]);
+        assert_eq!(&negative[36..45], &[4, 0, 0, 32, 0, 2, 0, 0, 0]);
 
         state.integrate(ActuatorFrame::default());
         let still = sensory_features(&dark_sample(), &state);
-        assert_eq!(&still[36..44], &[4, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(&still[36..45], &[4, 0, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn every_neutral_axis_has_one_truthful_position_presence_receptor() {
+        let features = sensory_features(&dark_sample(), &HumanState::default());
+        for axis in BodyAxis::ALL {
+            let first = EXTERNAL_FEATURE_COUNT + axis.index() * RECEPTORS_PER_AXIS;
+            assert_eq!(features[first], 0);
+            assert_eq!(features[first + 1], 0);
+            assert_eq!(features[first + 2], u8::MAX);
+            assert_eq!(
+                features[first..first + 3]
+                    .iter()
+                    .filter(|value| **value > 0)
+                    .count(),
+                1,
+                "axis {axis:?}"
+            );
+        }
     }
 
     #[test]

@@ -1,0 +1,45 @@
+{
+  "schema": "academy-body-heldout/v1",
+  "candidate_tree_sha256": "1d87dc1d67a3c6878301978b613d151056498d45efff6e273aa830dc9638760f",
+  "sensor_laws": {
+    "neutral_position_present_on_all_25_axes": true,
+    "neutral_position_silent_off_neutral": true,
+    "signed_position_and_velocity_preserved": true,
+    "equal_distance_motor_locality_preserved": true
+  },
+  "seed_31001": {
+    "acquired_contains": ["gaze_contingency", "gaze_control", "hand_contingency"],
+    "first_failure_is_not": "hand_contingency",
+    "exact_replay": true
+  },
+  "seed_91003": {
+    "acquired": ["gaze_contingency", "gaze_control", "hand_contingency"],
+    "first_failure": "digit_separation",
+    "experience_count": 8,
+    "exact_replay": true,
+    "all_experiences_naturally_quiescent": true,
+    "physical_work": 140866,
+    "plasticity_updates": 14388,
+    "hand_development": {
+      "verdict": "passed",
+      "replay_exact": true,
+      "physical_work": 19164,
+      "plasticity_updates": 2386
+    },
+    "hand_probe": {
+      "verdict": "passed",
+      "durable_unchanged": true,
+      "replay_exact": true,
+      "physical_work": 16594,
+      "plasticity_updates": 1386
+    },
+    "receipt_sha256": "aeb9c2065b56d1f461ea5e3748890b7e9197c44f5a7b7f88b4fba6113c72d143",
+    "transcript_sha256": "e8f4074b763bfad590bbfcb15bc54ab05739c15e2074fa7a98062db395d9c5cd"
+  },
+  "independent_controls": {
+    "semantic_firewall": "passed",
+    "probe_isolation": "passed",
+    "warm_regression_seconds": 0.08
+  },
+  "claim": "Truthful neutral-position proprioception lets the learner acquire hand contingency; digit separation remains the next measured frontier."
+}

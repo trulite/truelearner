@@ -11,6 +11,7 @@ fn development_commits_but_probe_is_discarded_and_replays_exactly() {
         )
         .unwrap();
     assert!(development.replay_exact);
+    assert_eq!(development.verdict, BodyVerdict::Passed);
     let durable = course.checkpoint_bytes().unwrap();
 
     let probe = course
@@ -21,6 +22,7 @@ fn development_commits_but_probe_is_discarded_and_replays_exactly() {
         )
         .unwrap();
     assert!(probe.replay_exact);
+    assert_eq!(probe.verdict, BodyVerdict::Passed);
     assert!(probe.durable_unchanged);
     assert_eq!(course.checkpoint_bytes().unwrap(), durable);
 }
@@ -30,6 +32,8 @@ fn generated_course_preserves_first_failure_instead_of_teaching_around_it() {
     let run = BodyCourse::new(31_001).unwrap().run().unwrap();
     assert!(run.exact_replay);
     assert!(!run.experiences.is_empty());
+    assert!(run.acquired.contains(&BodyCapability::HandContingency));
+    assert_ne!(run.first_failure, Some(BodyCapability::HandContingency));
     if let Some(failure) = run.first_failure {
         let last = run.experiences.last().unwrap();
         assert_eq!(last.capability, failure);

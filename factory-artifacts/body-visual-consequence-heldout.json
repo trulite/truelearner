@@ -1,0 +1,32 @@
+{
+  "schema": "academy-body-heldout/v1",
+  "candidate_tree_sha256": "ce74c9440951e7847e13f878485ffcfe9aa3c6f6ec22c9b1f95bb2aea2cb659b",
+  "world_laws": {
+    "static_for_unchanged_body": true,
+    "all_adjacent_cells_distinct": true,
+    "background_below_existing_distractor_contrast": true,
+    "seed_cases": [0, 71, 18446744073709551615]
+  },
+  "seed_31001": {
+    "acquired": ["gaze_contingency", "gaze_control"],
+    "first_failure": "hand_contingency",
+    "exact_replay": true,
+    "receipt_sha256": "689552984c19b6eb8cb95e510d949008b97f82771fa44bd2ef4120d2d151df51",
+    "transcript_sha256": "c7db51d014f20862f159c724e557693a731c4d38feccc7da55446e7d7d617e1c"
+  },
+  "seed_91003": {
+    "acquired": ["gaze_contingency", "gaze_control"],
+    "first_failure": "hand_contingency",
+    "exact_replay": true,
+    "all_experiences_naturally_quiescent": true,
+    "receipt_sha256": "6436088c89623f1b25dd13758f35b614eb7880203e2293e2aa89894dfbb02d7f",
+    "transcript_sha256": "0747f9ceea147ac4beb6786026ad67579624d50f87dbf5ff0ed5ca794f97cca4"
+  },
+  "independent_controls": {
+    "truelearner_workspace": "22 passed, 2 ignored adversarial boundaries",
+    "semantic_firewall": "passed",
+    "probe_isolation": "passed",
+    "warm_regression_seconds": 0.14
+  },
+  "claim": "Static spatial texture supplies truthful gaze consequence; it does not establish hand contingency or later body capabilities."
+}
