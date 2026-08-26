@@ -1,4 +1,4 @@
-# Academy — Post-R6 Consolidated Handoff
+# Academy — Current Post-R6 Handoff
 
 ## Current state
 
@@ -295,7 +295,7 @@ show novel visual object X
 +
 present novel symbol "dax"
 +
-ordinary physical interaction/consequence
+ordinary physical interaction and outcome
 ```
 
 Later generate independently:
@@ -358,7 +358,7 @@ A1 is development-positive only when:
 ```text
 1. No general Probe uses submitted input as its own expected answer.
 
-2. Teaching cases create a genuine physical relationship/consequence.
+2. Teaching cases create a genuine physical relationship and outcome.
 
 3. Probe instances are generated independently from teaching instances.
 
@@ -817,7 +817,7 @@ Organism action
     ↓
 WorldSurface changes
     ↓
-organism perceives consequence
+organism perceives outcome
     ↓
 human sees same world
 ```

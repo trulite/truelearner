@@ -57,16 +57,19 @@ Storage configuration and its object contract are documented in
 The first external-world adapter lives in `academy-arc3`. It normalizes the
 official 64×64, sixteen-color, turn-based ARC-AGI-3 boundary into recorded
 Academy evidence and renders review videos. ARC game/action/score semantics stay
-outside TrueLearner. See the [protocol](docs/arc3_compatibility_protocol_v1.md)
-and [first live result](docs/arc3_compatibility_result_v1.md).
+outside TrueLearner. See the
+[protocol](../experiments/archive/academy-docs/arc3_compatibility_protocol_v1.md)
+and
+[first live result](../experiments/archive/academy-docs/arc3_compatibility_result_v1.md).
 
 The next ARC3-A1 slice closes the loop through the physical organism. A fixed
 raster sensor admits an official frame, organism crossings select actions, and
-visible changed-raster return can preserve the route that actually acted. The
+visible changed-raster outcome can strengthen the path that was used. The
 headless suite includes development, a frozen learned probe, retention,
 shuffled-boundary, and blocked-return controls. See the
-[ARC3-A1 protocol](docs/arc3_a1_sensorimotor_protocol_v1.md) and
-[development result](docs/arc3_a1_sensorimotor_result_v1.md).
+[ARC3-A1 protocol](../experiments/archive/academy-docs/arc3_a1_sensorimotor_protocol_v1.md)
+and
+[development result](../experiments/archive/academy-docs/arc3_a1_sensorimotor_result_v1.md).
 
 To review the frozen ARC3-A1 gallery locally:
 

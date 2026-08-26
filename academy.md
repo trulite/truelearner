@@ -24,7 +24,7 @@ ACADEMY
 curriculum, probes, capability evidence, developmental scheduling
 ↓
 BOUNDARY / WORLD
-turns semantic UI objects into physical surfaces and consequences
+turns semantic UI objects into physical surfaces and outcomes
 ↓
 TRUELEARNER
 CELL / ARROW / SPIKE physical organism
@@ -279,8 +279,8 @@ Academy may know the expected behavior for scheduling and evaluation. That evalu
 ```text
 organism acts
 → world changes
-→ user/world produces ordinary consequence
-→ organism experiences that consequence
+→ user/world produces an ordinary outcome
+→ organism experiences that outcome
 Academy separately records:
 PASS / FAIL / evidence strength
 ```

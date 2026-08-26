@@ -124,9 +124,9 @@ The same laws always run:
 ```text
 activity
 → traversal
-→ transient participation
+→ recent use
 → eligibility
-→ physical consequence/modulation
+→ physical outcome returns
 → structural change
 → pressure/forgetting
 → further activity
@@ -183,7 +183,7 @@ ARROW
     resistance
     generation / liveness
     eligibility window
-    Drive | Modulatory
+    Drive | Outcome
 
 SPIKE
     arrival time
@@ -222,12 +222,12 @@ Drive
 → propagation
 → traversed structure becomes temporarily eligible
 
-Modulation
+Outcome
 → cannot excite/fire
 → may alter live eligible structure
 → consumes eligibility
 
-Use + useful physical consequence
+Use + useful outcome
 → resistance can rise
 
 non-use / unsupported use
@@ -495,9 +495,9 @@ A hotspot is simply a region of the graph currently carrying unusually concentra
 
 ```text
 high traversal
-high recent participation
+high recent use
 high local eligibility
-high useful consequence support
+high useful outcome support
 ```
 
 Hotspots should form and cool through ordinary physics.
@@ -890,14 +890,14 @@ The organism should be able to learn the machine it inhabits.
 Example:
 
 ```text
-route A
+path A
 → useful result in 3 ticks
 
-route B
+path B
 → equivalent result in 80 ticks
 ```
 
-Over life, the organism may learn routes and structures better suited to its computational body.
+Over life, the organism may learn paths and structures better suited to its computational body.
 
 This is computational proprioception.
 
@@ -945,7 +945,7 @@ what to replicate
 what structures should co-locate
 ```
 
-through observed delays, capacity pressure, and consequences.
+through observed delays, capacity pressure, and outcomes.
 
 There may still be an invisible behavior-preserving OS/runtime cache beneath this.
 
@@ -968,14 +968,14 @@ LOOK_AT_FACE
 Expose physical channels:
 
 ```text
-motor current
+output current
 joint torque
 camera movement
 gripper tension
 speaker/output surface
 ```
 
-Then the organism discovers what the body can do through physical consequence.
+Then the organism discovers what the body can do through physical outcomes.
 
 The cognitive architecture must not change when moving from:
 
@@ -1011,7 +1011,7 @@ more stable routing
 more precise semantic foveation
 ```
 
-Same executable.
+Same program.
 
 No:
 
@@ -1040,7 +1040,7 @@ Each inference context gets a private transient overlay:
 ```text
 CELL activation
 refractory state
-participation traces
+use traces
 eligibility
 pending spikes / timing-ring buckets
 temporary structures
@@ -1235,7 +1235,7 @@ cached structure arrives sooner
 
 Do not tell it those names.
 
-It experiences only physical timing and consequences.
+It experiences only physical timing and outcomes.
 
 Over development it may learn:
 

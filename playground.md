@@ -408,7 +408,7 @@ DRAW_FACE
 
 Those are semantic actions.
 
-The organism should learn how physical drawing operations produce visible consequences.
+The organism should learn how physical drawing operations produce visible outcomes.
 
 ---
 
@@ -728,7 +728,7 @@ loss
 capability_id
 ```
 
-unless such feedback is physically embodied in the world through ordinary consequences.
+unless such feedback is physically embodied in the world through ordinary outcomes.
 
 Evaluator semantics remain outside.
 
@@ -1125,7 +1125,7 @@ custom-world difficulty
 license/dependency burden
 ```
 
-Do not connect reward directly to TrueLearner credit.
+Do not let reward directly strengthen TrueLearner.
 
 MiniWorld is the leading candidate for the first foveation wind tunnel because it is intentionally small and customizable.
 
@@ -1327,4 +1327,3 @@ semantic world APIs inside TrueLearner
 ```
 
 It merely establishes which existing external world should be attached to the raster Playground once the foveation experiment begins.
-

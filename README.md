@@ -1,5 +1,7 @@
 # TrueLearner
 
+CORE1 writing follows the small vocabulary in [LANGUAGE.md](LANGUAGE.md).
+
 This branch contains the authoritative Physical Body V1 production organism
 and separates it from its research history.
 
