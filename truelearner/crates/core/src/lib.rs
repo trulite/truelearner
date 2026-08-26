@@ -1597,6 +1597,10 @@ pub struct PlasticSubstrate {
     protect_all_live_arrows: bool,
     #[cfg(feature = "core1")]
     in_flight_arrows: Vec<u32>,
+    #[cfg(feature = "core1")]
+    capture_used_pending: bool,
+    #[cfg(feature = "core1")]
+    used_pending_arrows: Vec<bool>,
     #[cfg(feature = "core0")]
     core0_profile: Core0Profile,
     #[cfg(feature = "core0")]
@@ -2107,6 +2111,21 @@ impl BoundaryRuntime {
         self.substrate.set_all_live_arrow_protection(enabled);
     }
 
+    #[cfg(feature = "core1")]
+    pub fn set_used_pending_capture(&mut self, enabled: bool) {
+        self.substrate.set_used_pending_capture(enabled);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn clear_used_pending(&mut self) {
+        self.substrate.clear_used_pending();
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn used_pending_count(&self) -> usize {
+        self.substrate.used_pending_count()
+    }
+
     /// Changes only the mechanical execution strategy beneath the boundary.
     /// Physical law and buffered activity are preserved exactly.
     pub fn reconfigure_mechanics(&mut self, mechanics: MechanicalConfig) {
@@ -2316,6 +2335,10 @@ impl PlasticSubstrate {
             protect_all_live_arrows: false,
             #[cfg(feature = "core1")]
             in_flight_arrows: Vec::new(),
+            #[cfg(feature = "core1")]
+            capture_used_pending: false,
+            #[cfg(feature = "core1")]
+            used_pending_arrows: Vec::new(),
             #[cfg(feature = "core0")]
             core0_profile: Core0Profile::A,
             #[cfg(feature = "core0")]
@@ -2375,6 +2398,32 @@ impl PlasticSubstrate {
             .get(id.0 as usize)
             .copied()
             .unwrap_or(0)
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn set_used_pending_capture(&mut self, enabled: bool) {
+        self.capture_used_pending = enabled;
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn clear_used_pending(&mut self) {
+        self.used_pending_arrows.fill(false);
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn used_pending_count(&self) -> usize {
+        self.used_pending_arrows
+            .iter()
+            .filter(|pending| **pending)
+            .count()
+    }
+
+    #[cfg(feature = "core1")]
+    pub fn used_pending(&self, id: ArrowId) -> bool {
+        self.used_pending_arrows
+            .get(id.0 as usize)
+            .copied()
+            .unwrap_or(false)
     }
 
     pub fn mechanical_config(&self) -> MechanicalConfig {
@@ -2587,6 +2636,10 @@ impl PlasticSubstrate {
                 self.in_flight_arrows.resize(required, 0);
             }
             self.in_flight_arrows[id.0 as usize] = 0;
+            if self.used_pending_arrows.len() < required {
+                self.used_pending_arrows.resize(required, false);
+            }
+            self.used_pending_arrows[id.0 as usize] = false;
         }
         let outgoing = &mut self.outgoing_index[spec.from.0 as usize];
         outgoing.push(id);
@@ -2942,6 +2995,10 @@ impl PlasticSubstrate {
         substrate
             .in_flight_arrows
             .resize(substrate.arrow_slots.len(), 0);
+        #[cfg(feature = "core1")]
+        substrate
+            .used_pending_arrows
+            .resize(substrate.arrow_slots.len(), false);
         Ok(substrate)
     }
 
@@ -2976,7 +3033,17 @@ impl PlasticSubstrate {
                 .arrows
                 .values()
                 .iter()
-                .all(|arrow| arrow.participation_level == 0 && arrow.decay_load == 0);
+                .all(|arrow| arrow.participation_level == 0 && arrow.decay_load == 0)
+            && {
+                #[cfg(feature = "core1")]
+                {
+                    self.used_pending_count() == 0
+                }
+                #[cfg(not(feature = "core1"))]
+                {
+                    true
+                }
+            };
         if !transiently_quiet {
             return Err(CheckpointError::NotQuiescent);
         }
@@ -3465,6 +3532,10 @@ impl PlasticSubstrate {
                                 .participation_level
                                 .saturating_add(PARTICIPATION_IMPULSE);
                         });
+                        #[cfg(feature = "core1")]
+                        if self.capture_used_pending {
+                            self.used_pending_arrows[arrow_id.0 as usize] = true;
+                        }
                         execution_cost.touch::<Arrow>(1);
                         work.total = work.total.saturating_add(1);
                         execution_cost.arena_lookups =
@@ -3882,6 +3953,10 @@ impl PlasticSubstrate {
                             .participation_level
                             .saturating_add(PARTICIPATION_IMPULSE);
                     });
+                    #[cfg(feature = "core1")]
+                    if self.capture_used_pending {
+                        self.used_pending_arrows[arrow_id.0 as usize] = true;
+                    }
                     execution_cost.touch::<Arrow>(1);
                     execution_cost.arena_lookups = execution_cost.arena_lookups.saturating_add(2);
                     if self.resident_arenas[arrow.from.0 as usize]
@@ -4381,6 +4456,7 @@ impl PlasticSubstrate {
                 if self.protect_all_live_arrows
                     || (self.in_flight_protection
                         && self.in_flight_arrows[snapshot.id.0 as usize] > 0)
+                    || self.used_pending_arrows[snapshot.id.0 as usize]
                 {
                     self.arrows.with_mut(index, |arrow| {
                         arrow.participation_level =
@@ -4437,11 +4513,15 @@ impl PlasticSubstrate {
                 continue;
             }
             #[cfg(feature = "core1")]
-            if self.in_flight_protection || self.protect_all_live_arrows {
+            if self.in_flight_protection
+                || self.protect_all_live_arrows
+                || self.used_pending_count() > 0
+            {
                 let snapshot = self.arrows.get(index);
                 if snapshot.live
                     && (self.protect_all_live_arrows
-                        || self.in_flight_arrows[snapshot.id.0 as usize] > 0)
+                        || self.in_flight_arrows[snapshot.id.0 as usize] > 0
+                        || self.used_pending_arrows[snapshot.id.0 as usize])
                 {
                     self.arrows.with_mut(index, |arrow| {
                         arrow.participation_level =
@@ -5506,6 +5586,11 @@ impl PlasticSubstrate {
                     self.in_flight_arrows
                         .capacity()
                         .saturating_mul(std::mem::size_of::<u32>())
+                        .saturating_add(
+                            self.used_pending_arrows
+                                .capacity()
+                                .saturating_mul(std::mem::size_of::<bool>()),
+                        )
                 }
                 #[cfg(not(feature = "core1"))]
                 {

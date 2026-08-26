@@ -111,6 +111,7 @@ pub enum Arc3DecisionOpenness {
 pub struct Arc3DecisionCompletionObservation {
     pub delivered: bool,
     pub reactivation_eligible: bool,
+    pub variation_cycles: u8,
     pub physical_work: u64,
     pub naturally_quiescent: bool,
 }
@@ -124,6 +125,8 @@ pub struct Arc3CandidateLinkDiagnostic {
     pub coupling: i64,
     pub resistance: u64,
     pub participation: u64,
+    #[cfg(feature = "core1")]
+    pub used_pending: bool,
 }
 
 #[cfg(feature = "core0")]
@@ -380,6 +383,11 @@ impl Arc3Sensorimotor {
     }
 
     #[cfg(feature = "core1")]
+    pub fn used_pending_count(&self) -> usize {
+        self.boundary.used_pending_count()
+    }
+
+    #[cfg(feature = "core1")]
     pub fn return_decision_completion(
         &mut self,
     ) -> Result<Arc3DecisionCompletionObservation, Arc3SensorimotorError> {
@@ -414,7 +422,7 @@ impl Arc3Sensorimotor {
                 .saturating_add(self.sequence.saturating_mul(100))
                 .saturating_add(u64::from(context))
                 .saturating_add(3_000);
-            let mut inputs = Vec::with_capacity(MOTORS.saturating_mul(2));
+            let mut inputs = Vec::with_capacity(MOTORS.saturating_mul(3));
             for motor in 0..MOTORS {
                 inputs.push(SpikeInput {
                     arrival_tick: tick,
@@ -424,7 +432,14 @@ impl Arc3Sensorimotor {
                     impulse: 1,
                 });
                 inputs.push(SpikeInput {
-                    arrival_tick: tick,
+                    arrival_tick: tick.saturating_add(1),
+                    phase: i32::try_from(motor).unwrap_or(0).saturating_add(4),
+                    origin_physical: origin.saturating_add(25),
+                    target: self.sites.candidate_sources[context_index][motor],
+                    impulse: 1,
+                });
+                inputs.push(SpikeInput {
+                    arrival_tick: tick.saturating_add(2),
                     phase: i32::try_from(motor).unwrap_or(0).saturating_add(8),
                     origin_physical: origin.saturating_add(50),
                     target: self.sites.context_traces[context_index][motor],
@@ -438,6 +453,7 @@ impl Arc3Sensorimotor {
         Ok(Arc3DecisionCompletionObservation {
             delivered,
             reactivation_eligible,
+            variation_cycles: u8::from(reactivation_eligible),
             physical_work,
             naturally_quiescent,
         })
@@ -449,6 +465,7 @@ impl Arc3Sensorimotor {
     ) -> Result<Arc3ConsequenceObservation, Arc3SensorimotorError> {
         let observation = self.admit_previous_consequence()?;
         if observation.admitted {
+            self.boundary.clear_used_pending();
             self.decision_openness = Arc3DecisionOpenness::Closed;
         }
         Ok(observation)
@@ -555,7 +572,10 @@ impl Arc3Sensorimotor {
             });
         }
 
-        let result = self.boundary.arrive(&inputs, OUTWARD_REGION)?;
+        self.boundary.set_used_pending_capture(true);
+        let result = self.boundary.arrive(&inputs, OUTWARD_REGION);
+        self.boundary.set_used_pending_capture(false);
+        let result = result?;
         let motor_crossings = result
             .crossings
             .iter()
@@ -1033,6 +1053,8 @@ impl Arc3Sensorimotor {
                 coupling: substrate.core0_coupling_material(direct.id),
                 resistance: substrate.core0_resistance_material(direct.id),
                 participation: substrate.local_participation(direct.id),
+                #[cfg(feature = "core1")]
+                used_pending: substrate.used_pending(direct.id),
             });
         }
         for contact in durable.cells.iter().filter(|cell| cell.live) {
@@ -1056,6 +1078,8 @@ impl Arc3Sensorimotor {
                     coupling: substrate.core0_coupling_material(stem.id),
                     resistance: substrate.core0_resistance_material(stem.id),
                     participation: substrate.local_participation(stem.id),
+                    #[cfg(feature = "core1")]
+                    used_pending: substrate.used_pending(stem.id),
                 });
             }
             for candidate in &outgoing {
@@ -1066,6 +1090,8 @@ impl Arc3Sensorimotor {
                     coupling: substrate.core0_coupling_material(candidate.id),
                     resistance: substrate.core0_resistance_material(candidate.id),
                     participation: substrate.local_participation(candidate.id),
+                    #[cfg(feature = "core1")]
+                    used_pending: substrate.used_pending(candidate.id),
                 });
             }
         }
