@@ -27,6 +27,10 @@ This is a fixture-size correction, not a physical shortcut:
 The v2 evaluator must complete its whole matrix in seconds. Runtime is reported
 as a harness property, not a biological acceptance predicate.
 
+A non-evidence smoke root `94999999` may run both arms once under Reference to
+verify fixture equivalence and measure the corrected harness before the frozen
+roots are exposed.
+
 ## Tournament
 
 Run two arms in the same five-context fixture:

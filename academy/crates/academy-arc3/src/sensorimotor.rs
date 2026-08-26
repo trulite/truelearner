@@ -286,6 +286,28 @@ impl Arc3Sensorimotor {
     }
 
     #[cfg(feature = "core1")]
+    pub fn new_spatial_fixture_with_profile(
+        seed: u64,
+        mechanics: MechanicalConfig,
+        context_count: usize,
+        profile: Core0Profile,
+    ) -> Result<Self, Arc3SensorimotorError> {
+        if context_count == 0 || context_count > SPATIAL_CONTEXTS {
+            return Err(Arc3SensorimotorError(format!(
+                "spatial fixture context count must be in 1..={SPATIAL_CONTEXTS}"
+            )));
+        }
+        let mut organism = Self::with_sensor_context_count(
+            seed,
+            SensorMode::SpatialFingerprint,
+            context_count,
+            mechanics,
+        )?;
+        organism.boundary.set_core0_profile(profile);
+        Ok(organism)
+    }
+
+    #[cfg(feature = "core1")]
     pub fn set_in_flight_protection(&mut self, enabled: bool) {
         self.boundary.set_in_flight_protection(enabled);
     }
