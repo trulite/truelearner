@@ -39,15 +39,11 @@ impl Arena {
     }
 
     pub(crate) fn path_for_second(&self, link: LinkId) -> Option<Path> {
-        let Some(second) = self.link_by_id(link) else {
-            return None;
-        };
+        let second = self.link_by_id(link)?;
         if !self.path_link(second) || !self.is_output_junction(second.to) {
             return None;
         }
-        let Some(junction) = self.junction_by_id(second.from) else {
-            return None;
-        };
+        let junction = self.junction_by_id(second.from)?;
         self.incoming_index[junction.id.0 as usize]
             .iter()
             .find_map(|id| {

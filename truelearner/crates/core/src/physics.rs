@@ -71,6 +71,18 @@ impl Protocol {
                 hold,
                 finish,
             },
+            Self::RecursiveLearnerConstruction => Bindings {
+                start,
+                links_meet: Body::meet_links,
+                choose: Body::choose_sensorimotor_candidate,
+                outcome_returns: Body::outcomes_return,
+                strengthen: Body::strengthen_candidate_outcomes,
+                fire_junction: Body::fire,
+                form_paths: Body::form_from_participation,
+                fire_output: Body::fire_output_from,
+                hold,
+                finish,
+            },
         }
     }
 }

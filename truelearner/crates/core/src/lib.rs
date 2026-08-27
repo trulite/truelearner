@@ -9,6 +9,7 @@ mod hold;
 mod identity;
 mod input;
 mod junction;
+mod learner;
 mod link;
 mod outcome;
 mod output;
@@ -27,6 +28,7 @@ mod prelude {
     pub(crate) use crate::core::*;
     pub(crate) use crate::identity::*;
     pub(crate) use crate::junction::*;
+    pub(crate) use crate::learner::*;
     pub(crate) use crate::link::*;
     pub(crate) use crate::schedule::*;
     pub(crate) use crate::trace::*;

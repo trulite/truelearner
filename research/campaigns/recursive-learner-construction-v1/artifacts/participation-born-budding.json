@@ -1,0 +1,14 @@
+{
+  "schema": "recursive-learner-construction/v1",
+  "arm": "participation-born-budding",
+  "outcome": "falsified",
+  "observations": {
+    "descendant_constructed": false,
+    "exact_replay": true,
+    "false_constructions": 0,
+    "root_constructed": true
+  },
+  "falsifier": "lineage-preserving budding constructed a root child but did not demonstrate recursive depth-three construction",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

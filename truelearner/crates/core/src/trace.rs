@@ -96,6 +96,20 @@ pub enum PhysicalEvent {
     ReturnSuperseded {
         link: LinkId,
     },
+    CausalClosureObserved {
+        parent: Option<LearnerId>,
+        surface: JunctionId,
+        output: JunctionId,
+        evidence: u32,
+    },
+    LearnerConstructed {
+        learner: LearnerId,
+        parent: Option<LearnerId>,
+        surface: JunctionId,
+        output: JunctionId,
+        junction_count: u32,
+        link_count: u32,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -116,6 +130,8 @@ pub struct Work {
     pub junction_deallocations: u64,
     pub local_junction_proposals: u64,
     pub qualified_local_traversals: u64,
+    pub causal_closure_observations: u64,
+    pub learner_constructions: u64,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -195,7 +211,9 @@ impl Work {
             .saturating_add(self.physical_deallocations);
         let total = total.saturating_add(self.junction_deallocations);
         let total = total.saturating_add(self.local_junction_proposals);
-        total.saturating_add(self.qualified_local_traversals)
+        let total = total.saturating_add(self.qualified_local_traversals);
+        let total = total.saturating_add(self.causal_closure_observations);
+        total.saturating_add(self.learner_constructions)
     }
 }
 

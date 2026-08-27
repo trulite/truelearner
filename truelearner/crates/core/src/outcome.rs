@@ -93,7 +93,7 @@ impl Body {
                 };
                 if self.accept_return_origin(link, outcome.origin_physical) {
                     self.apply_outcome(incidence.junction, moment, run);
-                    if self.protocol == Protocol::SensorimotorSynthesis {
+                    if self.protocol.consolidates_reverse_paths() {
                         self.consolidate_reverse_path(link, outcome.origin_physical, moment, run);
                     }
                 }
@@ -198,6 +198,19 @@ impl Body {
                 },
             });
         }
+        self.observe_causal_closure(
+            source,
+            output,
+            &[
+                return_link,
+                action.first,
+                action.second,
+                reverse.first,
+                reverse.second,
+            ],
+            moment,
+            run,
+        );
     }
 
     fn accept_return_origin(&mut self, id: LinkId, origin: u64) -> bool {
@@ -205,10 +218,10 @@ impl Body {
             return false;
         };
         let state = self.arena.link_snapshot(slot.0);
-        if !state.live
-            || state.mode != TransmissionMode::Modulatory
-            || state.return_origins.contains(&origin)
-        {
+        if !state.live || state.mode != TransmissionMode::Modulatory {
+            return false;
+        }
+        if state.return_origins.contains(&origin) {
             return false;
         }
         let Some(source) = self.arena.junction_by_id(state.from) else {

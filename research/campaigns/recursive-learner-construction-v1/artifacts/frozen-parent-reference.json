@@ -1,0 +1,36 @@
+{
+  "schema": "recursive-learner-construction/v1",
+  "arm": "frozen-parent-reference",
+  "outcome": "survived",
+  "observations": {
+    "complete_candidate_reference": "survived",
+    "one_joint": {
+      "falsifier": "causal locality isolated credit but did not produce bidirectional limit recovery",
+      "observations": {
+        "bilateral_changes": 0,
+        "changed_steps": 12,
+        "delayed_acoustic_changes": 0,
+        "directions": [
+          -1,
+          1
+        ],
+        "escaped_lower": false,
+        "escaped_upper": false,
+        "exact_replay": true,
+        "isolated_axes": [
+          0
+        ],
+        "naturally_quiescent": true,
+        "reached_lower": false,
+        "reached_upper": false,
+        "steps": 16
+      },
+      "stage": "one_joint_control",
+      "status": "failed"
+    },
+    "one_joint_control": "falsified"
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

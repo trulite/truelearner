@@ -15,6 +15,9 @@ pub(crate) struct Body {
     pub(crate) outcome_source: Option<JunctionId>,
     pub(crate) local_outcome_sources: Vec<(JunctionId, JunctionId)>,
     pub(crate) output_wave_open: bool,
+    pub(crate) learners: Vec<LearnerState>,
+    pub(crate) causal_closures: Vec<CausalClosureState>,
+    pub(crate) next_learner_id: u64,
 }
 
 // Body advances time. Junctions and links change inside its arena.
@@ -103,6 +106,9 @@ impl Body {
             outcome_source: None,
             local_outcome_sources: Vec::new(),
             output_wave_open: false,
+            learners: Vec::new(),
+            causal_closures: Vec::new(),
+            next_learner_id: 1,
         }
     }
 }
@@ -215,5 +221,6 @@ impl Body {
         std::mem::size_of::<Self>()
             .saturating_add(self.arena.allocated_bytes())
             .saturating_add(self.pending.memory_bytes())
+            .saturating_add(self.recursive_learning_bytes())
     }
 }

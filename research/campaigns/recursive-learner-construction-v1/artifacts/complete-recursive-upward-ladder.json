@@ -1,0 +1,41 @@
+{
+  "schema": "recursive-learner-construction/v1",
+  "arm": "complete-recursive-upward-ladder",
+  "outcome": "falsified",
+  "observations": {
+    "executed_rungs": [
+      {
+        "passed": true,
+        "rung": 0
+      },
+      {
+        "passed": true,
+        "rung": 1
+      },
+      {
+        "passed": true,
+        "rung": 2
+      },
+      {
+        "passed": true,
+        "rung": 3,
+        "structural_scans": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "constructed_depth": 1,
+        "passed": false,
+        "required_depth": 3,
+        "rung": 4
+      }
+    ],
+    "first_failed_rung": 4,
+    "rungs_5_through_10": "not-run"
+  },
+  "falsifier": "rung 4 failed: no child-owned closure constructed a grandchild, so dependent rungs were not run",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

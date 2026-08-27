@@ -1227,6 +1227,141 @@ fn sensorimotor_candidate_consolidates_actual_surface_consequence_for_reverse_ex
     assert!(unrelated_run.naturally_quiescent);
 }
 
+fn recursive_learner_world(
+    protocol: Protocol,
+) -> (Harness, JunctionId, JunctionId, JunctionId, JunctionId) {
+    let mut builder = HarnessBuilder::with_capacity(64, 128, OUTWARD_REGION);
+    builder.set_protocol(protocol);
+    builder.set_physical_tracing(true);
+    let action = junction(&mut builder, 35_000, 0, 0, 1);
+    let surface = junction(&mut builder, 35_001, 2, 0, 1);
+    let unrelated = junction(&mut builder, 35_002, 20, 0, 1);
+    let motor = junction(&mut builder, 35_010, 1, 0, 2);
+    let sink = junction(&mut builder, 35_011, 1, OUTWARD_REGION, 1);
+    let outcome = junction(&mut builder, 35_012, 50, 0, 1);
+    let anchor = junction(&mut builder, 35_013, 100, 0, 99);
+    for target in [action, surface, unrelated, outcome] {
+        link(
+            &mut builder,
+            anchor,
+            target,
+            0,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    for source in [surface, unrelated] {
+        link(
+            &mut builder,
+            source,
+            outcome,
+            3,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    link(
+        &mut builder,
+        motor,
+        sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    builder.set_outcome_source_for_output(motor, outcome);
+    (builder.build(), action, surface, unrelated, motor)
+}
+
+fn send_physical(harness: &mut Harness, target: JunctionId, physical: u64) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: physical,
+        target,
+        impulse: 1,
+    }])
+}
+
+#[test]
+fn recursive_learner_constructs_once_from_repeated_actual_closure_and_replays() {
+    let (mut harness, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConstruction);
+    harness.send(&[input(action, 0), input(motor, 2)]);
+
+    let first = send_physical(&mut harness, surface, 35_001);
+    assert_eq!(first.work.causal_closure_observations, 1);
+    assert_eq!(first.work.learner_constructions, 0);
+    assert!(harness.read().learners.is_empty());
+
+    let checkpoint = harness.save().expect("closure checkpoint saves");
+    let mut replay = Harness::restore(checkpoint).expect("closure checkpoint restores");
+    let retrain_tick = harness.read().clock.tick.saturating_add(1);
+    let retrain = [
+        Input {
+            arrival_tick: retrain_tick,
+            phase: 0,
+            origin_physical: 35_000,
+            target: action,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: retrain_tick.saturating_add(2),
+            phase: 0,
+            origin_physical: 35_010,
+            target: motor,
+            impulse: 1,
+        },
+    ];
+    assert_eq!(harness.send(&retrain), replay.send(&retrain));
+    let second = send_physical(&mut harness, surface, 35_001);
+    let replayed = send_physical(&mut replay, surface, 35_001);
+    assert_eq!(second, replayed);
+    assert_eq!(second.work.causal_closure_observations, 1);
+    assert_eq!(second.work.learner_constructions, 1);
+    assert!(second.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::LearnerConstructed { parent: None, .. }
+    )));
+    let observed = harness.read();
+    assert_eq!(observed.learners.len(), 1);
+    assert_eq!(observed.learners[0].parent, None);
+    assert!(observed.learners[0].junctions.contains(&surface));
+    assert!(observed.learners[0].junctions.contains(&motor));
+    assert_eq!(
+        harness.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+
+    let duplicate = send_physical(&mut harness, surface, 35_001);
+    assert_eq!(duplicate.work.causal_closure_observations, 0);
+    assert_eq!(duplicate.work.learner_constructions, 0);
+    assert_eq!(harness.read().learners.len(), 1);
+    assert!(duplicate.naturally_quiescent);
+}
+
+#[test]
+fn recursive_learner_rejects_noncausal_and_single_closure_controls() {
+    let (mut harness, action, surface, unrelated, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConstruction);
+    harness.send(&[input(action, 0), input(motor, 2)]);
+    let one = send_physical(&mut harness, surface, 35_001);
+    assert_eq!(one.work.causal_closure_observations, 1);
+    let unrelated_run = send_physical(&mut harness, unrelated, 35_002);
+    assert_eq!(unrelated_run.work.causal_closure_observations, 0);
+    assert!(harness.read().learners.is_empty());
+
+    let (mut accepted, action, surface, _, motor) =
+        recursive_learner_world(Protocol::SensorimotorSynthesis);
+    accepted.send(&[input(action, 0), input(motor, 2)]);
+    send_physical(&mut accepted, surface, 35_001);
+    send_physical(&mut accepted, surface, 35_001);
+    assert!(accepted.read().learners.is_empty());
+}
+
 fn candidate_structural_run(dormant_outputs: usize) -> Run {
     let capacity = u32::try_from(dormant_outputs.saturating_mul(2).saturating_add(32)).unwrap();
     let mut builder =

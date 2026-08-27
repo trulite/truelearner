@@ -1,7 +1,7 @@
 //! The algorithm and its public contract.
 
 pub use crate::checkpoint::{Checkpoint, CheckpointError};
-pub use crate::identity::{JunctionId, LinkId};
+pub use crate::identity::{JunctionId, LearnerId, LinkId};
 pub use crate::junction::Junction;
 pub use crate::link::{Link, TransmissionMode, TransmissionTrigger};
 pub use crate::schedule::PhysicalClock;
@@ -49,14 +49,28 @@ pub enum Protocol {
     UnansweredReturnReplacement,
     SensorimotorCandidate,
     SensorimotorSynthesis,
+    RecursiveLearnerConstruction,
 }
 
 impl Protocol {
     pub(crate) fn is_sensorimotor(self) -> bool {
         matches!(
             self,
-            Self::SensorimotorCandidate | Self::SensorimotorSynthesis
+            Self::SensorimotorCandidate
+                | Self::SensorimotorSynthesis
+                | Self::RecursiveLearnerConstruction
         )
+    }
+
+    pub(crate) fn consolidates_reverse_paths(self) -> bool {
+        matches!(
+            self,
+            Self::SensorimotorSynthesis | Self::RecursiveLearnerConstruction
+        )
+    }
+
+    pub(crate) fn integrates_current_opportunity(self) -> bool {
+        self.consolidates_reverse_paths()
     }
 }
 
@@ -148,6 +162,16 @@ pub struct LinkObservation {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LearnerObservation {
+    pub id: LearnerId,
+    pub parent: Option<LearnerId>,
+    pub surface: JunctionId,
+    pub output: JunctionId,
+    pub junctions: Vec<JunctionId>,
+    pub links: Vec<LinkId>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HarnessObservation {
     pub clock: PhysicalClock,
     pub protocol: Protocol,
@@ -155,6 +179,7 @@ pub struct HarnessObservation {
     pub resident_bytes: usize,
     pub junctions: Vec<JunctionObservation>,
     pub links: Vec<LinkObservation>,
+    pub learners: Vec<LearnerObservation>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -246,6 +271,19 @@ impl HarnessObservation {
             }
             hash.update([u8::from(link.live)]);
         }
+        for learner in &self.learners {
+            hash.update(learner.id.0.to_le_bytes());
+            hash.update(learner.parent.unwrap_or_default().0.to_le_bytes());
+            hash.update([u8::from(learner.parent.is_some())]);
+            hash.update(learner.surface.0.to_le_bytes());
+            hash.update(learner.output.0.to_le_bytes());
+            for junction in &learner.junctions {
+                hash.update(junction.0.to_le_bytes());
+            }
+            for link in &learner.links {
+                hash.update(link.0.to_le_bytes());
+            }
+        }
         hash.finalize().into()
     }
 
@@ -316,6 +354,19 @@ impl Harness {
                 live: link.live,
             })
             .collect();
+        let learners = self
+            .body
+            .learners
+            .iter()
+            .map(|learner| LearnerObservation {
+                id: learner.id,
+                parent: learner.parent,
+                surface: learner.surface,
+                output: learner.output,
+                junctions: learner.junctions.clone(),
+                links: learner.links.clone(),
+            })
+            .collect();
         HarnessObservation {
             clock: self.body.clock(),
             protocol: self.body.protocol(),
@@ -323,6 +374,7 @@ impl Harness {
             resident_bytes: self.body.arena.memory_bytes(),
             junctions,
             links,
+            learners,
         }
     }
 

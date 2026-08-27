@@ -107,7 +107,7 @@ impl Body {
                         sum.saturating_add(firing.strength)
                     }
                 });
-                let opportunity = if self.protocol == Protocol::SensorimotorSynthesis {
+                let opportunity = if self.protocol.integrates_current_opportunity() {
                     held.saturating_add(other)
                 } else {
                     held
@@ -255,7 +255,7 @@ impl Body {
                 let (drive, participation, _) = admitted_path_drive(
                     &self.arena,
                     &value.inputs,
-                    if self.protocol == Protocol::SensorimotorSynthesis {
+                    if self.protocol.integrates_current_opportunity() {
                         held.saturating_add(other)
                     } else {
                         held
@@ -367,7 +367,7 @@ impl Body {
             .copied()
             .unwrap_or(0)
             > 0;
-        let current_opportunity = self.protocol == Protocol::SensorimotorSynthesis
+        let current_opportunity = self.protocol.integrates_current_opportunity()
             && firings.iter().any(|firing| {
                 firing
                     .link

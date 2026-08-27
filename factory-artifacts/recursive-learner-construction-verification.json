@@ -1,0 +1,70 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "recursive-learner-construction-candidate.json",
+    "sha256": "6135b5447e75745ee7f7f4ea4bfd55f29e6fce92ca31a4a8c22b25034e1d7779"
+  },
+  "verdict": "supported",
+  "independent_test_count": 5,
+  "checks": [
+    {
+      "name": "public-boundary-held-out",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary recursive_learner_rejects_noncausal_and_single_closure_controls",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.12
+    },
+    {
+      "name": "campaign-lineage",
+      "command": "uv run research/validators/validate_campaign.py --file research/campaigns/recursive-learner-construction-v1/campaign.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "convergence-lineage",
+      "command": "uv run research/validators/validate_convergence.py --file research/campaigns/recursive-learner-construction-v1/convergence.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.02
+    },
+    {
+      "name": "research-contract",
+      "command": "uv run --with pytest pytest -q research/tests/test_research_contract.py",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.73
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path research/experiments/recursive-learner-construction/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.99
+    }
+  ],
+  "findings": [
+    "The new protocol records closure only through an accepted finite participating return and requires a fresh output-return round trip for each evidence increment.",
+    "Two fresh true round trips constructed exactly one learner with three sorted unique live lineage links from the second round trip; one round trip, an unrelated surface, and a duplicate return without fresh output constructed none.",
+    "The learner forest and pending closure evidence checkpoint byte-exactly and all tested runs quiesce naturally.",
+    "Existing protocols remain construction-free and all frozen parent classifications reproduce, including the twelve-of-sixteen monolithic one-joint falsification.",
+    "The upward ladder passed rungs zero through three with structural scans constant at one for 4, 64, and 1024 dormant surfaces.",
+    "Rung four was correctly falsified at constructed depth one; rungs five through ten and every downward ablation remained unrun.",
+    "All tests and research probes interacted only through public Harness and HarnessBuilder surfaces."
+  ],
+  "residual_uncertainty": [
+    "The constructed boundary is not yet shown to receive a distinct post-construction causal opportunity as learner-local activity.",
+    "No child-owned closure, grandchild, nested consequence, adjacent recruitment, sibling composition, local motor control, or body composition has been established.",
+    "Construction metadata is experimental physics and has not been adopted as organism authority."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/recursive-learner-construction-v1/convergence.toml",
+      "sha256": "0eebff737657f5ec6ce5fb3a1d9d58e925c8c3d77ad3da37b443d505f9ad5bf6"
+    },
+    {
+      "path": "research/campaigns/recursive-learner-construction-v1/artifacts/complete-recursive-upward-ladder.json",
+      "sha256": "9fee7a7ee49896ff2347ccbc57402f618b126e7c5b3b541b19ae287feb6a65da"
+    }
+  ]
+}

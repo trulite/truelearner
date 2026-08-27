@@ -1,0 +1,13 @@
+{
+  "schema": "recursive-learner-construction/v1",
+  "arm": "closure-subgraph-autonomy",
+  "outcome": "falsified",
+  "observations": {
+    "allocated_learner_records": 1,
+    "closure_observed": 1,
+    "reason": "the implemented candidate buds a separate causal learner record"
+  },
+  "falsifier": "causal closure did not become autonomous without a separate learner allocation",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

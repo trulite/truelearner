@@ -1,0 +1,12 @@
+{
+  "schema": "recursive-learner-construction/v1",
+  "arm": "conditional-downward-ablations",
+  "outcome": "inconclusive",
+  "observations": {
+    "ablations_run": 0,
+    "upward_outcome": "falsified"
+  },
+  "falsifier": "downward ablations are forbidden because rung ten did not pass",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

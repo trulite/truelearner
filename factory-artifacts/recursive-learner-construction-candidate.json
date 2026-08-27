@@ -1,0 +1,96 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-27T13:51:26.938508+00:00",
+  "started_at": "2026-08-27T13:51:21.439780+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/recursive-learner-construction.md",
+    "sha256": "f4c1553a4e6bcfd270dba1cd597cc09739e2a699d42390f80f38c66fac1cc53f"
+  },
+  "candidate": {
+    "revision": "0e82c73c43b84d78f60f1e019e45e21ff1633845",
+    "tree_sha256": "0118fdd6d923587e830e049812d68646ea4610b5866f3a2440899efe2668b778"
+  },
+  "scope": [
+    "plans",
+    "truelearner/crates/core",
+    "research/experiments/recursive-learner-construction",
+    "research/campaigns/recursive-learner-construction-v1",
+    "factory-artifacts"
+  ],
+  "changed_paths": [
+    "plans/recursive-learner-construction.md",
+    "research/campaigns/recursive-learner-construction-v1/artifacts/blank-child-budding.json",
+    "research/campaigns/recursive-learner-construction-v1/artifacts/closure-subgraph-autonomy.json",
+    "research/campaigns/recursive-learner-construction-v1/artifacts/complete-recursive-upward-ladder.json",
+    "research/campaigns/recursive-learner-construction-v1/artifacts/conditional-downward-ablations.json",
+    "research/campaigns/recursive-learner-construction-v1/artifacts/first-failure-localization.json",
+    "research/campaigns/recursive-learner-construction-v1/artifacts/frozen-parent-reference.json",
+    "research/campaigns/recursive-learner-construction-v1/artifacts/participation-born-budding.json",
+    "research/campaigns/recursive-learner-construction-v1/convergence.toml",
+    "research/campaigns/recursive-learner-construction-v1/results/blank-child-budding.json",
+    "research/campaigns/recursive-learner-construction-v1/results/closure-subgraph-autonomy.json",
+    "research/campaigns/recursive-learner-construction-v1/results/complete-recursive-upward-ladder.json",
+    "research/campaigns/recursive-learner-construction-v1/results/conditional-downward-ablations.json",
+    "research/campaigns/recursive-learner-construction-v1/results/first-failure-localization.json",
+    "research/campaigns/recursive-learner-construction-v1/results/frozen-parent-reference.json",
+    "research/campaigns/recursive-learner-construction-v1/results/participation-born-budding.json",
+    "research/experiments/recursive-learner-construction/Cargo.lock",
+    "research/experiments/recursive-learner-construction/Cargo.toml",
+    "research/experiments/recursive-learner-construction/src/lib.rs",
+    "research/experiments/recursive-learner-construction/src/main.rs",
+    "truelearner/crates/core/src/body.rs",
+    "truelearner/crates/core/src/choose.rs",
+    "truelearner/crates/core/src/core.rs",
+    "truelearner/crates/core/src/identity.rs",
+    "truelearner/crates/core/src/learner.rs",
+    "truelearner/crates/core/src/lib.rs",
+    "truelearner/crates/core/src/outcome.rs",
+    "truelearner/crates/core/src/path.rs",
+    "truelearner/crates/core/src/physics.rs",
+    "truelearner/crates/core/src/snapshot.rs",
+    "truelearner/crates/core/src/trace.rs",
+    "truelearner/crates/core/tests/harness_boundary.rs"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path truelearner/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.12249,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --manifest-path research/experiments/recursive-learner-construction/Cargo.toml --all-targets",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.237699,
+      "output_sha256": "2dd74919c9a308a26e20d7deefc404be62f8d3b8b4570dd8df44413a7bc86acb"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --all-targets -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.705828,
+      "output_sha256": "ab7e4c10e8cdd950a3ae223a41482051d856b7ab136061bd46559ed6cb7a266a"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary recursive_learner",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.125321,
+      "output_sha256": "b975aadc4aced13397c6c5ea8f91842c773011e96920d83463058d39206af95b"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path research/experiments/recursive-learner-construction/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 4.306467,
+      "output_sha256": "5d2d8ef5cb998a3bc783bc3fe1db886178d7e50e340e7ac9212819e8a8d62920"
+    }
+  ]
+}

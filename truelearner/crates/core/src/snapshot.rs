@@ -12,6 +12,9 @@ pub(crate) struct BodySnapshot {
     outcome_source: Option<JunctionId>,
     local_outcome_sources: Vec<(JunctionId, JunctionId)>,
     output_wave_open: bool,
+    learners: Vec<LearnerState>,
+    causal_closures: Vec<CausalClosureState>,
+    next_learner_id: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -66,6 +69,9 @@ impl Body {
             outcome_source: self.outcome_source,
             local_outcome_sources: self.local_outcome_sources.clone(),
             output_wave_open: self.output_wave_open,
+            learners: self.learners.clone(),
+            causal_closures: self.causal_closures.clone(),
+            next_learner_id: self.next_learner_id,
         })
     }
 
@@ -98,6 +104,60 @@ impl Body {
         }
         body.local_outcome_sources = snapshot.local_outcome_sources;
         body.output_wave_open = snapshot.output_wave_open;
+        let mut learner_ids = HashSet::new();
+        let mut previous_id = LearnerId(0);
+        for learner in &snapshot.learners {
+            if learner.id.0 == 0
+                || !learner_ids.insert(learner.id)
+                || learner.id <= previous_id
+                || learner
+                    .parent
+                    .is_some_and(|parent| !learner_ids.contains(&parent))
+                || learner.junctions.is_empty()
+                || learner.links.is_empty()
+                || !strictly_sorted(&learner.junctions)
+                || !strictly_sorted(&learner.links)
+                || learner
+                    .junctions
+                    .iter()
+                    .any(|junction| body.arena.junction_slot(*junction).is_none())
+                || learner
+                    .links
+                    .iter()
+                    .any(|link| body.arena.link_slot(*link).is_none())
+                || learner.junctions.binary_search(&learner.surface).is_err()
+                || learner.junctions.binary_search(&learner.output).is_err()
+            {
+                return Err(CheckpointError::InvalidCheckpoint);
+            }
+            previous_id = learner.id;
+        }
+        let mut closure_keys = HashSet::new();
+        for closure in &snapshot.causal_closures {
+            if !closure_keys.insert((closure.surface, closure.output))
+                || closure.evidence == 0
+                || body.arena.junction_slot(closure.surface).is_none()
+                || body.arena.junction_slot(closure.output).is_none()
+                || closure
+                    .parent
+                    .is_some_and(|parent| !learner_ids.contains(&parent))
+                || closure
+                    .constructed
+                    .is_some_and(|learner| !learner_ids.contains(&learner))
+            {
+                return Err(CheckpointError::InvalidCheckpoint);
+            }
+        }
+        if snapshot.next_learner_id == 0
+            || learner_ids
+                .iter()
+                .any(|learner| learner.0 >= snapshot.next_learner_id)
+        {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
+        body.learners = snapshot.learners;
+        body.causal_closures = snapshot.causal_closures;
+        body.next_learner_id = snapshot.next_learner_id;
         for firing in &snapshot.pending {
             if firing.arrival_tick < snapshot.clock.tick {
                 return Err(CheckpointError::InvalidCheckpoint);
@@ -123,6 +183,10 @@ impl Body {
         body.next_serial = snapshot.next_serial;
         Ok(body)
     }
+}
+
+fn strictly_sorted<T: Ord>(values: &[T]) -> bool {
+    values.windows(2).all(|pair| pair[0] < pair[1])
 }
 
 impl ArenaSnapshot {
