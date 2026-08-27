@@ -1,0 +1,8 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "consolidated-reuse",
+  "outcome": "survived",
+  "falsifier": null,
+  "observations": {"summary": "one of 64 learned routes recalled alone", "trained_routes": 64, "unrelated_outputs": 0, "exact_replay": true, "naturally_quiescent": true},
+  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/consolidated-reuse.json", "sha256": "563754b8ba597ab7876a4850a0fc005877e741466fa6355b70eb64b7cad0083e"}]
+}

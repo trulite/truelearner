@@ -1,0 +1,29 @@
+schema = "research-arm/v1"
+id = "local-return-deferral"
+campaign = "sensorimotor-opportunity-v1"
+kind = "solve"
+parents = [
+  "sensorimotor-locality-v1:causal-local-return",
+  "motor-no-consequence-v1:pending-return-deferral",
+]
+imports = [
+  "causal-local output-to-outcome wiring",
+  "an open physical return identifies a route still awaiting consequence",
+  "a ready local neighbor can be exposed without action or direction identity",
+]
+mechanism = "If the route ordinary local choice would admit has an unanswered return from its physically wired outcome source, admit exactly one ready neighbor inside the existing local competition radius for that moment and retain every return unchanged."
+prediction = "One fresh neighbor fires and escapes the first limit while no far output changes, but the retained stale return eventually leaves both directions awaiting outcome and the joint fails recovery from the second limit."
+falsifiers = [
+  "No fresh local neighbor fires after the admitted route receives no outcome.",
+  "More than one neighbor or any far output changes eligibility.",
+  "The displaced return closes despite this arm retaining every return.",
+  "The arm recovers from both limits without any superseded-return closure.",
+  "Exact causal credit, replay, or natural quiescence fails.",
+]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "e6516ec58923aa51a473e5ae0501a3658a2299c49ab732c6e426fbf787f9f26e"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/sensorimotor-emergence/Cargo.toml unanswered_local_return_defers_to_one_fresh_neighbor"
+full_evidence = "cargo run --locked --manifest-path research/experiments/sensorimotor-emergence/Cargo.toml -- --arm local-return-deferral --suite full"

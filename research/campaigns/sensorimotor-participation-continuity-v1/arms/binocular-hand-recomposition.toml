@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "binocular-hand-recomposition"
+campaign = "sensorimotor-participation-continuity-v1"
+kind = "composition"
+parents = ["participation-continuity-solves", "one-joint-recomposition"]
+imports = ["paired visual surfaces", "five neighboring motor outputs", "surviving one-joint loop"]
+mechanism = "Stage paired visual correction and five-output hand grouping after coalition and surface predicates survive."
+prediction = "Paired sensing produces bilateral correction and five jointly consequential outputs recall without monocular or either-alone coactivation."
+falsifiers = ["An actual prerequisite fails.", "Paired correction or five-output grouping fails.", "A control coactivates."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "da7cb7500f74fdd8fcdc2acc16c1c446a15d56551f12d74707a29cd9f3dc4d3a"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-participation-continuity/Cargo.toml probe_binocular_hand_recomposition"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-participation-continuity/Cargo.toml -- --arm binocular-hand-recomposition"

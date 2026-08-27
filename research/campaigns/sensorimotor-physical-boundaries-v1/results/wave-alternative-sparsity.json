@@ -1,0 +1,1 @@
+{"schema":"research-arm-result/v1","arm":"wave-alternative-sparsity","outcome":"survived","falsifier":null,"observations":{"shared_origin_outputs":1,"independent_origin_outputs":8},"artifacts":[{"path":"research/campaigns/sensorimotor-physical-boundaries-v1/artifacts/wave-alternative-sparsity.json","sha256":"8c7aa65b055765e1c57f264781d756cf284cedd2579d630e2ce864a3ab555929"}]}

@@ -30,3 +30,123 @@ falsifiers = [
 limitations = [
   "The first missing physical transition and bounded successor protocol remain to be localized.",
 ]
+
+[[claim]]
+id = "SENSORIMOTOR-LOCALITY"
+statement = "Participation-born causal locality can make one undivided learner develop reusable control across proprioceptive, visual, tactile, binocular, auditory, and vocal physical surfaces without semantic controllers."
+status = "executed"
+depends_on = ["CORE1-LOCAL-LAWS"]
+falsifiers = [
+  "A consequence strengthens a participating path whose output did not cause the corresponding local physical change.",
+  "Correctly local returns are indistinguishable from shuffled or global returns in the neutral isolation fixture.",
+  "The law isolates credit but produces no transfer beyond the fixture under the frozen sensorimotor ladder.",
+  "The result requires axis, digit, eye, ear, voice, capability, target, score, or evaluator identity inside the learner.",
+  "The candidate weakens exact replay, reference equality, natural quiescence, or accepted CORE1 controls.",
+]
+limitations = [
+  "Discovery established exact causal credit but falsified causal locality as sufficient for bidirectional single-joint control.",
+  "Auditory and vocal stages concern nonlinguistic physical control, not speech or language.",
+  "The stage-gated campaign stopped before repeated-axis, binocular, auditory, vocal, or composition stages.",
+  "Exact local return remains candidate physics and is not adopted organism authority.",
+]
+
+[[claim]]
+id = "SENSORIMOTOR-OPPORTUNITY"
+statement = "Causal-local return, one bounded local alternative opportunity, and closure of only the superseded unanswered return can compose into bidirectional sensorimotor control without semantic action identity."
+status = "executed"
+depends_on = ["CORE1-LOCAL-LAWS", "SENSORIMOTOR-LOCALITY"]
+falsifiers = [
+  "An unanswered path does not yield one opportunity to a physically local fresh output.",
+  "Replacement closes or credits an unrelated path, or loses a valid delayed outcome without an intervening competing opportunity.",
+  "The composition preserves exact credit but cannot produce both directions and recovery from either reflected joint limit.",
+  "The mechanism causes broad coactivation or requires axis, direction, body-part, limit, target, score, or evaluator identity.",
+  "The candidate weakens exact replay, reference equality, natural quiescence, accepted CORE1 controls, or the frozen causal-local trace.",
+]
+limitations = [
+  "Discovery proved exact one-neighbor exposure and exact superseded-return closure, but falsified both mechanisms as sufficient for recovery from both one-joint limits.",
+  "Deferral reached both limits but could not leave the lower limit; replacement left the upper limit but never reached the lower limit within 40 steps.",
+  "Repeated-axis, digit, binocular, vocal-auditory, multimodal, and foveation stages were not run after the one-joint failures.",
+  "Causal-local return and opportunity release remain candidate physics, not adopted organism authority.",
+  "Success would establish survival only within the declared ladder and would not establish unrestricted motor control or planning.",
+]
+
+[[claim]]
+id = "SENSORIMOTOR-DEPENDENCY-SWEEP"
+statement = "The forecasted sensorimotor dependency stack can be tested in one batch through isolated physical fixtures plus explicit composition arms, without allowing an upstream failure to hide later evidence."
+status = "executed"
+depends_on = ["CORE1-LOCAL-LAWS", "SENSORIMOTOR-LOCALITY", "SENSORIMOTOR-OPPORTUNITY"]
+falsifiers = [
+  "A later fixture encodes the result while supplying an earlier prerequisite.",
+  "An isolated survival is treated as composition sufficiency or a current failure as proof of unique necessity.",
+  "Any arm requires private Body access, semantic learner identity, non-replayable state, or evaluator termination.",
+  "A launched arm is omitted from convergence or a negative result is repaired in place.",
+]
+limitations = [
+  "Ten of fourteen transitions survived isolated fixtures; sparse shared opportunity, delayed multisurface alignment, scale selectivity, and one-joint composition were falsified.",
+  "Four-cycle consequence-supported continuation, no-consequence release, reversible competition, two-stage sequence recall, coalition credit, and one-of-64 consolidated recall survived only their declared fixtures.",
+  "The one-joint composition still failed lower-limit recovery, so isolated local survival is not sufficient for closed sensorimotor control.",
+  "The sweep is discovery evidence over candidate physics and does not adopt a new protocol or establish necessity, generality, foveation, or authority.",
+]
+
+[[claim]]
+id = "SENSORIMOTOR-COMPOSITION-SWEEP"
+statement = "Closed-loop timing, strength-conditioned continuation, context continuity, causal-wave sparsity, fixed-active scaling, learned coalitions, multisurface association, and embodied compositions can be localized in one successor batch without semantic body controllers."
+status = "executed"
+depends_on = ["CORE1-LOCAL-LAWS", "SENSORIMOTOR-DEPENDENCY-SWEEP"]
+falsifiers = [
+  "The batch cannot distinguish entrenched strength, sensory context, consequence timing, and motor integration.",
+  "Same-wave sparsity suppresses independently driven far outputs or fixed-active scaling activates dormant surface.",
+  "A coalition or multisurface fixture encodes its expected output rather than measuring learned participation.",
+  "A dependent body composition is called successful after an actual prerequisite fails.",
+  "Any result requires semantic body identity, evaluator intelligence, non-replayable state, or evaluator termination.",
+]
+limitations = [
+  "Only causal-return-reference, opportunity-reference, and choice-to-motion survived; twelve hypotheses were falsified and four dependent compositions were inconclusive.",
+  "The current learner lacks demonstrated strength-conditioned renewal, adjacent-context continuity, bounded causal lifetime, wave-scoped sparsity, dormant-surface cost isolation, learned coalitions, and order-robust multisurface association.",
+  "The one-joint composition still failed lower-limit recovery even though signed choice survived physical integration and reflection.",
+  "Eye-hand, vocal-auditory, and full-body composition remain untested because their actual prerequisites failed; no solve or organism authority was adopted.",
+  "The batch is discovery evidence over declared fixtures and does not establish unique necessity, unrestricted embodiment, or ARC capability.",
+]
+
+[[claim]]
+id = "SENSORIMOTOR-PHYSICAL-BOUNDARIES"
+statement = "Recent local consequence, finite return lifetime, active-topology indexing, physical-origin competition, and learned consequential cohorts can repair the five localized sensorimotor boundaries and compose without semantic body controllers."
+status = "executed"
+depends_on = ["CORE1-LOCAL-LAWS", "SENSORIMOTOR-COMPOSITION-SWEEP"]
+falsifiers = [
+  "Recent consequence cannot mediate entrenched drive without erasing durable strength or causing lock.",
+  "Finite local return cannot preserve delay 20 while rejecting delay 200.",
+  "Execution cost still follows dormant stable topology rather than touched or aging structure.",
+  "Physical causal origin and consequential participation cannot distinguish alternatives from coalitions.",
+  "A bounded return cohort cannot retain two useful local surfaces while rejecting duplicate, unrelated, and stale credit.",
+  "The isolated transitions survive but their actual sensorimotor compositions fail.",
+  "The candidate weakens frozen references, replay, natural quiescence, or evaluator isolation.",
+]
+limitations = [
+  "Finite return lifetime, active-frontier scaling, and physical-origin sparsity survived their isolated controls alongside unchanged predecessor references.",
+  "Recent consequential eligibility, learned coalition preservation, and surface-return cohort were falsified; the surface failure occurred before any return update.",
+  "One-joint, binocular-hand, vocal-auditory, and full-body recompositions were inconclusive after their actual prerequisites failed.",
+  "The campaign tested one explicit experimental protocol; survival of three boundaries does not establish unique necessity or adoption.",
+  "Auditory and vocal fixtures are nonlinguistic physical loops, not speech or language.",
+  "The evidence is bounded to declared fixtures and does not establish ARC or unrestricted embodiment.",
+]
+
+[[claim]]
+id = "SENSORIMOTOR-PARTICIPATION-CONTINUITY"
+statement = "Executable-path prerequisites, consequence write/read, action-surface association, reverse execution, and structural locality can be separated before retrying embodied composition."
+status = "executed"
+depends_on = ["CORE1-LOCAL-LAWS", "SENSORIMOTOR-PHYSICAL-BOUNDARIES"]
+falsifiers = [
+  "A credit or selection diagnosis remains valid when its intended path never formed or its intended output never participated.",
+  "Action-to-surface consequence association necessarily implies reverse surface-to-action execution.",
+  "Active aging locality alone bounds path-formation work in the one-joint world.",
+  "A dependent body stage is advanced after a zero-movement or over-budget prerequisite.",
+  "The result requires semantic route, coalition, surface, body-part, or evaluator identity.",
+]
+limitations = [
+  "The original recent-route and coalition fixtures were falsified as tests of their named boundaries because the intended fresh route received no consequence and one coalition member lacked an executable consequential path.",
+  "Corrected fixtures observed recent continuation through ratio 8 and two-member recall under one later shared origin, but these positives occurred inside a hybrid arm whose reverse-surface predicate was falsified.",
+  "One action return retained two useful surface origins once in either order and rejected duplicate, unrelated, and stale returns; neither surface expressed the reverse motor action.",
+  "The four-step one-joint and acoustic preflights produced no movement, while the full candidate run exceeded the development budget under topology growth.",
+  "No one-joint, binocular-hand, vocal-auditory, full-body, default-physics, authority, or ARC capability was established.",
+]

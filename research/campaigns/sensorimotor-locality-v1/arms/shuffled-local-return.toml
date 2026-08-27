@@ -1,0 +1,20 @@
+schema = "research-arm/v1"
+id = "shuffled-local-return"
+campaign = "sensorimotor-locality-v1"
+kind = "control"
+parents = []
+imports = []
+mechanism = "Use the same number, timing, and cost of local outcome sources as the candidate, but reflect their physical output wiring so each consequence returns to the wrong participating output."
+prediction = "The arm preserves source count and local work but fails reflected causal isolation and does not match the candidate on transfer, showing that correct causality rather than extra channels produces any gain."
+falsifiers = [
+  "Shuffled wiring accidentally equals correct wiring in any declared fixture.",
+  "The shuffled arm isolates causal paths and matches the candidate across the full ladder.",
+  "The control changes timing, opportunity, source count, or sensory input relative to the candidate.",
+]
+source_revision = "277fa3141a5d028f738984c0ccede76e615ad88e"
+protocol_sha256 = "567013ff4fea943da4546277e3c98ec7e98d35d548a3c92a735a4e555d933db4"
+budget_minutes = 60
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/sensorimotor-emergence/Cargo.toml shuffled_local_return"
+full_evidence = "cargo run --locked --manifest-path research/experiments/sensorimotor-emergence/Cargo.toml -- --arm shuffled-local-return --suite full"

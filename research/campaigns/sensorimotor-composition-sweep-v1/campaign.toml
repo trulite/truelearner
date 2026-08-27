@@ -1,0 +1,64 @@
+schema = "research-campaign/v1"
+id = "sensorimotor-composition-sweep-v1"
+program = "learner-physics"
+kind = "diagnostic"
+mode = "discovery"
+hypothesis = "The first closed-loop failure and later embodied limits can be localized in one batch by separating strength-conditioned renewal, context continuity, causal timing, integration, causal-wave sparsity, dormant-surface cost, coalitions, surface association, and actual composition."
+first_divergence = "unknown"
+prediction = "Frozen references survive; the batch identifies the earliest current physical insufficiency without hiding evidence about later isolated transitions or promoting fixture-assisted compositions."
+falsifiers = [
+  "A frozen reference changes.",
+  "An arm supplies the output it claims to measure.",
+  "A dependent composition passes despite a falsified actual prerequisite.",
+  "Replay, quiescence, or semantic isolation fails.",
+]
+positive_reference = "sensorimotor-dependency-sweep-v1 exact causal return, opportunity replacement, four-cycle balanced continuation, coalition credit, sequence recall, and one-of-64 recall"
+negative_controls = [
+  "frozen one-joint lower-limit failure",
+  "shared-wave eight-output coactivation",
+  "second delayed surface zero-return counterexample",
+  "independent far-output preservation and shuffled causal credit",
+]
+arm_paths = [
+  "arms/causal-return-reference.toml",
+  "arms/opportunity-reference.toml",
+  "arms/entrenched-continuation.toml",
+  "arms/context-shift-continuation.toml",
+  "arms/causal-window.toml",
+  "arms/choice-to-motion.toml",
+  "arms/one-joint-composition.toml",
+  "arms/wave-scoped-competition.toml",
+  "arms/consequence-stabilized-selection.toml",
+  "arms/fixed-active-scaling.toml",
+  "arms/distant-coalition-recall.toml",
+  "arms/local-coalition-discrimination.toml",
+  "arms/multisurface-association.toml",
+  "arms/surface-order-alignment.toml",
+  "arms/binocular-coalition.toml",
+  "arms/digit-hand-coalitions.toml",
+  "arms/eye-hand-composition.toml",
+  "arms/vocal-auditory-loop.toml",
+  "arms/full-body-bounded-composition.toml",
+]
+max_parallel_arms = 19
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 190
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

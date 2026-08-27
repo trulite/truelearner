@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "multisurface-association"
+campaign = "sensorimotor-composition-sweep-v1"
+kind = "diagnostic"
+parents = ["causal-window", "distant-coalition-recall"]
+imports = ["one action", "two delayed anonymous surfaces", "surface-specific probe routes"]
+mechanism = "Expose surfaces A then B after one action and later probe each surface's learned participation."
+prediction = "Both surfaces form useful distinguishable association without duplicate stale action credit."
+falsifiers = ["Surface B remains unrelated.", "Repeated A double-credits or a stale return persists."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "dc7f9dcbbb88c09e22d073af3df6640fbddccd164f47e516706d000b8b3bb73b"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml probe_multisurface_association"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml -- --arm multisurface-association"

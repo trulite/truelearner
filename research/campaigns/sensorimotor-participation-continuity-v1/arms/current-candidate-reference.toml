@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "current-candidate-reference"
+campaign = "sensorimotor-participation-continuity-v1"
+kind = "control"
+parents = ["sensorimotor-physical-boundaries-v1:current-physics-reference"]
+imports = ["all eleven frozen parent classifications"]
+mechanism = "Re-run the parent probes unchanged before interpreting successor behavior."
+prediction = "Every parent classification, replay predicate, and quiescence predicate is unchanged."
+falsifiers = ["Any parent classification changes.", "Replay or quiescence changes."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "da7cb7500f74fdd8fcdc2acc16c1c446a15d56551f12d74707a29cd9f3dc4d3a"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-participation-continuity/Cargo.toml probe_current_candidate_reference"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-participation-continuity/Cargo.toml -- --arm current-candidate-reference"

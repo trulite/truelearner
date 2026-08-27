@@ -1,0 +1,65 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "sensorimotor-dependency-sweep-candidate.json",
+    "sha256": "47aca7df73436a612f1f0b1fb6ace1fd8c4dcc6554ab6fd6647221689948075d"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "artifact-reproduction",
+      "command": "run all fourteen arms into a fresh temporary directory and diff against frozen artifacts",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.777227
+    },
+    {
+      "name": "public-boundary-core-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.407315
+    },
+    {
+      "name": "research-lineage",
+      "command": "validate campaign, convergence, program, and research contracts",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.225789
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.25
+    }
+  ],
+  "findings": [
+    "The research experiment imports no private Body surface and regenerates all fourteen artifacts byte-for-byte through the public Harness boundary.",
+    "Ten isolated transitions survived; sparse shared opportunity, delayed multisurface alignment, scale selectivity, and the one-joint composition were scientifically falsified.",
+    "Four consequence-renewed continuation cycles survived, so generic missing continuation and generic irreversible strength are not supported explanations for the frozen one-joint failure.",
+    "The core harness preserves causal-local, shuffled, delayed-return, far-output, checkpoint, replay, and natural-quiescence controls; 18 tests passed and two unchanged adversarial tests remain ignored.",
+    "The representative warm regression completed in 0.25 seconds, strictly under 10 seconds."
+  ],
+  "residual_uncertainty": [
+    "The first compositional divergence inside the one-joint world is not yet localized between consequence order, next competition, and motor integration.",
+    "Isolated survival under supplied prerequisites does not establish necessity, unrestricted transfer, or body-scale authority.",
+    "No candidate physics was adopted; the sweep remains discovery evidence over the exact dirty tree identified by the candidate receipt."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/sensorimotor-dependency-sweep-v1/convergence.toml",
+      "sha256": "2a3bcca44cadec21c0fe3de7e798317be31bc2647098beece4074e575e2afe7f"
+    },
+    {
+      "path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/one-joint-composition.json",
+      "sha256": "61f6a41f6427e0c8a13b65b762eadb1492fd2895112e37b9d2ff5ddf9caec707"
+    },
+    {
+      "path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/sparse-shared-opportunity.json",
+      "sha256": "844658d3cbd8a6585feb0364f4b7fb72bb0e416c84be8214767505c132879618"
+    }
+  ]
+}

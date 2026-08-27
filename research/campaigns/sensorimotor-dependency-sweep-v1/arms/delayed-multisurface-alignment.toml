@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "delayed-multisurface-alignment"
+campaign = "sensorimotor-dependency-sweep-v1"
+kind = "diagnostic"
+parents = ["delayed-return-lifetime", "coalition-separate-credit"]
+imports = ["one participating output", "two anonymous delayed consequence surfaces"]
+mechanism = "Attempt to retain two distinguishable local consequence sources for the same output and deliver them at different delays."
+prediction = "Both surfaces remain separately representable and causally attributable."
+falsifiers = ["The public physical topology permits only one local consequence source per output.", "The surfaces become indistinguishable or replay/quiescence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "90e799b67507832138d9668154e24193ef50d1bdf812c72c009fb3b1d1f17ad3"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml probe_delayed_multisurface_alignment"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml -- --arm delayed-multisurface-alignment"

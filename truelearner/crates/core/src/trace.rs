@@ -78,6 +78,24 @@ pub enum PhysicalEvent {
     QualifiedLocalTraversal {
         link: LinkId,
     },
+    ConsequenceRecorded {
+        link: LinkId,
+        junction: JunctionId,
+    },
+    ReversePathConsolidated {
+        source: JunctionId,
+        output: JunctionId,
+        link: LinkId,
+    },
+    CandidateSelection {
+        target: JunctionId,
+        origin_scope: Option<u64>,
+        consequence_tick: Option<i64>,
+        admitted: bool,
+    },
+    ReturnSuperseded {
+        link: LinkId,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -122,6 +140,7 @@ pub struct ExecutionCost {
     pub active_arena_samples: u64,
     pub active_arena_total: u64,
     pub active_arena_max: u64,
+    pub local_structural_scans: u64,
 }
 
 impl ExecutionCost {

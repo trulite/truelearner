@@ -1,0 +1,8 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "sparse-shared-opportunity",
+  "outcome": "falsified",
+  "falsifier": "One shared root activated all eight distant outputs while the independent-drive control correctly preserved all eight outputs.",
+  "observations": {"shared_root_outputs": 8, "independently_driven_outputs": 8, "exact_replay": true, "naturally_quiescent": true},
+  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/sparse-shared-opportunity.json", "sha256": "844658d3cbd8a6585feb0364f4b7fb72bb0e416c84be8214767505c132879618"}]
+}

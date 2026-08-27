@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "first-motor-output"
+campaign = "sensorimotor-synthesis-ladder-v1"
+kind = "composition"
+parents = ["physical-continuity", "reverse-surface-execution"]
+imports = ["signed learned drive", "current anonymous proprioception", "motor threshold", "physical output"]
+mechanism = "Compose current proprioceptive incidence with learned signed drive before physical motor threshold evaluation."
+prediction = "The four-step one-joint preflight changes the world and exposes both signed directions."
+falsifiers = ["No step changes.", "Only evaluator-side motion occurs.", "Replay or quiescence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "e06f21f611d6d7ec16516d7efdf2270fbad551a6ea7c41107e3582adbf95bdd4"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml complete_candidate_climbs_the_primitive_rungs"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml -- --arm first-motor-output"

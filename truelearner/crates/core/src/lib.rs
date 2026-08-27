@@ -31,7 +31,7 @@ mod prelude {
     pub(crate) use crate::schedule::*;
     pub(crate) use crate::trace::*;
     pub(crate) use serde::{Deserialize, Serialize};
-    pub(crate) use std::collections::HashSet;
+    pub(crate) use std::collections::{BTreeMap, BTreeSet, HashSet};
 }
 
 pub use core::*;

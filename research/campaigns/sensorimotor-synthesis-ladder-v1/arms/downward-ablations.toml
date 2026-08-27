@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "downward-ablations"
+campaign = "sensorimotor-synthesis-ladder-v1"
+kind = "hybrid"
+parents = ["full-body-composition"]
+imports = ["exact frozen full-body survivor", "complete upward ladder", "one-at-a-time restoration"]
+mechanism = "Conditionally remove each included law from a frozen full survivor and rerun the complete upward ladder."
+prediction = "No removal executes before full success; afterward each removal yields evidence about necessity or redundancy without changing the reference."
+falsifiers = ["Any removal runs before full-body success.", "The reference is not restored between removals.", "A removal is called redundant without replay, quiescence, controls, and cost equality."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "e06f21f611d6d7ec16516d7efdf2270fbad551a6ea7c41107e3582adbf95bdd4"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml downward_ablation_is_conditional_on_full_success"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml -- --arm downward-ablations"

@@ -1,0 +1,32 @@
+{
+  "schema": "sensorimotor-synthesis-ladder/v1",
+  "arm": "first-motor-output",
+  "outcome": "survived",
+  "observations": {
+    "falsifier": "causal locality isolated credit but did not produce bidirectional limit recovery",
+    "observations": {
+      "bilateral_changes": 0,
+      "changed_steps": 3,
+      "delayed_acoustic_changes": 0,
+      "directions": [
+        -1,
+        1
+      ],
+      "escaped_lower": false,
+      "escaped_upper": false,
+      "exact_replay": true,
+      "isolated_axes": [
+        0
+      ],
+      "naturally_quiescent": true,
+      "reached_lower": false,
+      "reached_upper": false,
+      "steps": 4
+    },
+    "stage": "first_motor_output",
+    "status": "failed"
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

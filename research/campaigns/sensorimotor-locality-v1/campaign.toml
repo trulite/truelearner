@@ -1,0 +1,51 @@
+schema = "research-campaign/v1"
+id = "sensorimotor-locality-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Participation-born causal locality is sufficient to isolate physical credit and can produce reusable sensorimotor control across unrelated bodies without specialist learners or semantic authority."
+first_divergence = "After several outputs participate, the body records only that some pose changed and returns one global outcome capable of reaching every open participating path, including blocked and unrelated axes."
+missing_transition = "Each actual local physical change must return only along the temporary path opened by the output that caused it."
+prediction = "Correct local return isolates strengthened paths exactly and improves bidirectional, sparse, binocular, and delayed vocal-auditory control; global and shuffled returns fail at least the causal-isolation and transfer gates."
+falsifiers = [
+  "Correct local return credits a path whose output did not cause the returned local change.",
+  "Correct and shuffled return topologies are indistinguishable in the reflected two-output fixture.",
+  "The candidate passes isolation but changes no sensorimotor frontier in the full ladder.",
+  "The mechanism requires body-part, action, capability, target, score, or evaluator identity.",
+  "The frozen global reference, exact replay, reference equality, or natural quiescence changes.",
+]
+positive_reference = "277fa3141a5d028f738984c0ccede76e615ad88e: the global-return organism acquires gaze contingency, gaze control, and hand contingency; BinocularDepth and DigitSeparation remain independent first frontiers with exact replay."
+negative_controls = [
+  "the exact parent with one global outcome source",
+  "equal-count outcome sources wired to the wrong outputs",
+  "passive sensor change, blocked output, cancelled opposition, disconnected sensor, and unrelated moving-axis fixtures",
+  "external acoustic input without vocal participation",
+  "accepted core boundary, reflection, replay, reference, quiescence, and Academy semantic-firewall controls",
+]
+arm_paths = [
+  "arms/global-return-reference.toml",
+  "arms/causal-local-return.toml",
+  "arms/shuffled-local-return.toml",
+]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = false
+
+[budget]
+total_sandbox_minutes = 180
+max_minutes_per_arm = 60
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.34
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

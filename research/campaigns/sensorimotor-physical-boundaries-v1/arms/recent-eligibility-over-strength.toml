@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "recent-eligibility-over-strength"
+campaign = "sensorimotor-physical-boundaries-v1"
+kind = "solve"
+parents = ["sensorimotor-composition-sweep-v1:entrenched-continuation"]
+imports = ["incumbent ratios 1, 2, 4, and 8", "fresh local consequence", "no-consequence release"]
+mechanism = "Rank ready local paths by bounded recent consequential participation before durable drive, without mutating stored drive."
+prediction = "The fresh route continues through ratio 8, stored incumbent strength is preserved, and no-consequence releases."
+falsifiers = ["Fresh continuation fails.", "Historical strength is erased.", "Fresh selection locks without consequence."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "68f6e6bfd2c1542a8052cdcb8bd6209308796eedaf3366f574401d5476c0e797"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-physical-boundaries/Cargo.toml probe_recent_eligibility_over_strength"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-physical-boundaries/Cargo.toml -- --arm recent-eligibility-over-strength"

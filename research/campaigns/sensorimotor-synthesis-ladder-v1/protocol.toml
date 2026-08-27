@@ -1,0 +1,60 @@
+schema = "research-protocol/v1"
+id = "sensorimotor-synthesis-ladder-v1"
+program = "learner-physics"
+claim = "SENSORIMOTOR-PARTICIPATION-CONTINUITY"
+status = "preregistered"
+parent_authority = "sensorimotor-participation-continuity-v1@f536bce2f6e4d4f21140e281f35e12512fd9d57255f0ed07907acef31f8846a1"
+question = "Are all relevant established and constrained sensorimotor lessons jointly sufficient for an upward capability ladder, and which laws are necessary only if the complete candidate reaches full-body success?"
+observables = [
+  "frozen parent classifications, exact replay, natural quiescence, and unchanged default behavior",
+  "local structural scans and formed path count with 4, 64, and 1024 dormant outputs",
+  "action return, two causal surface origins in both orders, reverse executable output, unrelated rejection, and learned lifetime",
+  "first motor output, changed steps, signed directions, and current proprioceptive threshold completion",
+  "one-joint changed steps, reflected limits, limit escape, replay, quiescence, and development time through 16 steps",
+  "repeated-axis isolation, digit isolation, binocular changes, delayed acoustic changes, and full-body composition",
+  "conditional ablation gate and complete upward rerun after each permitted removal",
+]
+frozen_variables = [
+  "source revision 67ee08f2cc4b7bd05edc00a8574f484e36aa37d6 and lessons digest d9e8bb799e61fe704dc576e33c8a924f2ebc21e48b5990c20d8ded640146cb84",
+  "all parent artifacts, classifications, default protocols, and negative controls",
+  "public Harness input, output, read, save, restore, replay, and natural-quiescence boundary",
+  "anonymous physical topology without semantic action, surface, axis, digit, eye, ear, voice, body-part, target, score, episode, answer, or evaluator identity",
+  "no downward ablation before the exact full-body candidate succeeds",
+]
+permitted_changes = [
+  "compose established finite return, active aging, origin sparsity, recent consequence, cooperating recall, local opportunity, and executable consolidation in one experimental protocol",
+  "index physical outputs by position and resolve paths through source-local adjacency without changing formed paths",
+  "let an actual causal surface plus an open action return consolidate a reverse executable route and carry the learned action path lifetime",
+  "let current anonymous proprioceptive incidence participate in physical motor threshold integration",
+  "add research-only upward ladder, conditional ablation manifests, artifacts, and receipts",
+]
+positive_predicates = [
+  "all frozen parent classifications reproduce before successor interpretation",
+  "structural scans and path proposals remain constant from 4 to 1024 dormant outputs",
+  "both useful surfaces recall in either order, unrelated surfaces remain silent, and replay is exact",
+  "the four-step preflight produces at least one physical movement and both signed directions remain observable",
+  "the 16-step one-joint gate reaches and leaves both reflected limits within the development budget",
+  "later upward stages run only after every actual prerequisite survives",
+  "downward ablations run only after full-body success and rerun the complete ladder",
+]
+negative_controls = [
+  "unchanged parent protocols and classifications",
+  "4 versus 1024 dormant outputs with exact local formed-path equality",
+  "surface order reversal, unrelated surface, duplicate association accounting, and stale return",
+  "one-tick-shifted versus current proprioceptive incidence",
+  "untrained shared-origin fanout, no-consequence release, and either-member-alone output",
+  "forbidden ablation before full success",
+]
+stop_conditions = [
+  "any fixture calls Body or private learner state",
+  "a mechanism uses semantic identity, reconstructed history, evaluator knowledge, or an evaluator-selected active set",
+  "a frozen parent classification, replay, quiescence, or unchanged default behavior changes",
+  "an upward stage advances after an actual prerequisite fails",
+  "a removal ablation runs before full-body success",
+  "the representative warm regression reaches 10 seconds",
+  "discovery survival is presented as necessity, adoption, or unrestricted capability",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

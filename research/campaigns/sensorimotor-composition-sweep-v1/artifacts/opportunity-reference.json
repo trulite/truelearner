@@ -1,0 +1,15 @@
+{
+  "schema": "sensorimotor-composition-sweep/v1",
+  "arm": "opportunity-reference",
+  "outcome": "survived",
+  "observations": {
+    "outcomes": [
+      "survived",
+      "survived",
+      "survived"
+    ]
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

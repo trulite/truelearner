@@ -4,30 +4,14 @@ const PARTICIPATION_RELAX_NUMERATOR: u64 = 15;
 const PARTICIPATION_RELAX_DENOMINATOR: u64 = 16;
 
 impl Arena {
-    pub(crate) fn held_links(&self, outcome: Option<JunctionId>) -> HashSet<LinkId> {
-        let paths = self.paths();
-        let junctions = paths
-            .iter()
-            .map(|path| path.junction)
-            .collect::<HashSet<_>>();
-        let returns = self
-            .links
-            .iter()
-            .filter(|link| {
-                link.live
-                    && link.mode == TransmissionMode::Modulatory
-                    && Some(link.from) == outcome
-                    && junctions.contains(&link.to)
-            })
-            .map(|link| link.id)
-            .collect::<Vec<_>>();
+    pub(crate) fn held_links(&self, outcomes: &[JunctionId]) -> HashSet<LinkId> {
+        let returns = self.return_links(outcomes);
         let open = returns
             .iter()
             .filter_map(|id| self.link_by_id(*id).map(|link| link.to))
             .collect::<HashSet<_>>();
-        paths
-            .into_iter()
-            .filter(|path| open.contains(&path.junction))
+        open.into_iter()
+            .flat_map(|junction| self.paths_through(junction))
             .flat_map(|path| [path.first, path.second])
             .chain(returns)
             .collect()
@@ -35,6 +19,102 @@ impl Arena {
 }
 
 impl Body {
+    pub(crate) fn decay_indexed_links_to(
+        &mut self,
+        tick: i64,
+        work: &mut Work,
+        execution_cost: &mut ExecutionCost,
+        physical_trace: Option<&mut Vec<PhysicalTransition>>,
+        phase: i32,
+    ) -> bool {
+        let mut physical_trace = physical_trace;
+        let elapsed = tick.saturating_sub(self.tick);
+        let elapsed_u64 = u64::try_from(elapsed).unwrap_or(u64::MAX);
+        let candidates = self.arena.aging_links.iter().copied().collect::<Vec<_>>();
+        let outcomes = self.outcome_sources();
+        let open = candidates
+            .iter()
+            .filter_map(|id| self.arena.link_by_id(*id))
+            .filter(|link| {
+                link.live
+                    && link.mode == TransmissionMode::Modulatory
+                    && outcomes.contains(&link.from)
+            })
+            .map(|link| link.to)
+            .collect::<HashSet<_>>();
+        execution_cost.allocations = execution_cost.allocations.saturating_add(2);
+        let active = u64::try_from(candidates.len()).unwrap_or(u64::MAX);
+        execution_cost.active_arena_samples = execution_cost.active_arena_samples.saturating_add(1);
+        execution_cost.active_arena_total =
+            execution_cost.active_arena_total.saturating_add(active);
+        execution_cost.active_arena_max = execution_cost.active_arena_max.max(active);
+        let mut any_deallocated = false;
+        for id in candidates {
+            execution_cost.scans = execution_cost.scans.saturating_add(1);
+            let Some(slot) = self.arena.link_slot(id) else {
+                self.arena.aging_links.remove(&id);
+                continue;
+            };
+            let snapshot = self.arena.link_snapshot(slot.0);
+            if !snapshot.live {
+                self.arena.aging_links.remove(&id);
+                continue;
+            }
+            let held_drive = snapshot.mode == TransmissionMode::Drive
+                && (open.contains(&snapshot.from) || open.contains(&snapshot.to));
+            if held_drive {
+                self.arena.edit_link(slot.0, |link| {
+                    link.participation_level =
+                        relax_participation(link.participation_level, elapsed);
+                });
+                work.total = work.total.saturating_add(elapsed_u64);
+                execution_cost.touch::<LinkState>(1);
+                continue;
+            }
+            let index = snapshot.id.0 as usize;
+            let before = self.arena.life[index];
+            let decay_numerator = elapsed_u64
+                .saturating_mul(UNIT_U64)
+                .saturating_add(self.arena.decay_remainder[index]);
+            let loss = decay_numerator / 10;
+            self.arena.decay_remainder[index] = decay_numerator % 10;
+            let active_ticks =
+                elapsed_u64.min(before.saturating_mul(10).saturating_add(UNIT_U64 - 1) / UNIT_U64);
+            let after = before.saturating_sub(loss);
+            self.arena.life[index] = after;
+            let deallocated = before > 0 && after == 0;
+            self.arena.edit_link(slot.0, |link| {
+                link.participation_level = relax_participation(link.participation_level, elapsed);
+                if deallocated {
+                    link.retire();
+                } else {
+                    let observer = after.saturating_add(UNIT_U64 - 1) / UNIT_U64;
+                    link.resistance = u32::try_from(observer).unwrap_or(u32::MAX);
+                }
+            });
+            work.total = work.total.saturating_add(active_ticks);
+            execution_cost.touch::<LinkState>(1);
+            if deallocated {
+                any_deallocated = true;
+                self.arena.aging_links.remove(&id);
+                if snapshot.delay == 0 {
+                    self.arena.zero_delay_live_links =
+                        self.arena.zero_delay_live_links.saturating_sub(1);
+                }
+                work.total = work.total.saturating_add(1);
+                work.physical_deallocations = work.physical_deallocations.saturating_add(1);
+                if let Some(trace) = physical_trace.as_deref_mut() {
+                    trace.push(PhysicalTransition {
+                        tick,
+                        phase,
+                        event: PhysicalEvent::Deallocate { link: snapshot.id },
+                    });
+                }
+            }
+        }
+        any_deallocated
+    }
+
     pub(crate) fn decay_links_to(
         &mut self,
         tick: i64,
@@ -46,7 +126,7 @@ impl Body {
         let mut physical_trace = physical_trace;
         let elapsed = tick.saturating_sub(self.tick);
         let elapsed_u64 = u64::try_from(elapsed).unwrap_or(u64::MAX);
-        let held = self.arena.held_links(self.outcome_source);
+        let held = self.arena.held_links(&self.outcome_sources());
         for index in 0..self.arena.links.len() {
             execution_cost.scans = execution_cost.scans.saturating_add(1);
             let snapshot = self.arena.link_snapshot(index);
@@ -90,6 +170,7 @@ impl Body {
                     self.arena.zero_delay_live_links.saturating_sub(1);
             }
             if deallocated {
+                self.arena.aging_links.remove(&snapshot.id);
                 work.total = work.total.saturating_add(1);
                 work.physical_deallocations = work.physical_deallocations.saturating_add(1);
                 if let Some(trace) = physical_trace.as_deref_mut() {

@@ -1,0 +1,40 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "sensorimotor-local-opportunity-candidate.json",
+    "sha256": "4d7f35a53d988e7525bf106faa8756cd300a9d82ae84872fc397747328c67954"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "held-out",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core causal_local_outcome",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.14
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core unanswered_local_return",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.14
+    }
+  ],
+  "findings": [
+    "The candidate preserves the frozen global, causal-local, shuffled, replay, checkpoint, delayed-return, far-output, and natural-quiescence controls.",
+    "Deferral and replacement are implemented as distinct physical protocols with the unchanged Physical protocol remaining the default.",
+    "Software verification supports faithful execution and measurement of the campaign; it does not reverse the scientific falsification of either solve arm."
+  ],
+  "residual_uncertainty": [
+    "No solve arm reached and left both one-joint limits within the frozen 40-step budget, so repeated-axis and later sensorimotor claims remain untested.",
+    "Causal-local return, deferral, and replacement remain candidate physics and have not entered organism authority."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/sensorimotor-opportunity-v1/artifacts/local-return-replacement.json",
+      "sha256": "c6f7644822d5a2624b64723aa3ba97b4281660e925c1b2c3316c5f72df31b541"
+    }
+  ]
+}

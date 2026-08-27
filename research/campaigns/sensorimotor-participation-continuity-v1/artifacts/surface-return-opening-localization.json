@@ -1,0 +1,22 @@
+{
+  "schema": "sensorimotor-participation-continuity/v1",
+  "arm": "surface-return-opening-localization",
+  "outcome": "survived",
+  "observations": {
+    "distance_one": {
+      "path": true,
+      "records": 2,
+      "returns": 1,
+      "updates": 2
+    },
+    "distance_zero": {
+      "path": false,
+      "records": 0,
+      "returns": 0,
+      "updates": 0
+    }
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

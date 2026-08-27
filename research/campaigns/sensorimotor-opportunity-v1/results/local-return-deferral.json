@@ -1,0 +1,33 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "local-return-deferral",
+  "outcome": "falsified",
+  "falsifier": "Deferral exposed one fresh local output and reached both limits, but retaining both unanswered returns left the lower limit inescapable.",
+  "observations": {
+    "credited_paths": 1,
+    "credited_path": 0,
+    "opportunity_passed": true,
+    "return_paths_before_alternative_outcome": 2,
+    "superseded_returns": 0,
+    "alternative_return_updates": 2,
+    "displaced_strength_unchanged": true,
+    "single_joint_steps": 40,
+    "single_joint_changed_steps": 12,
+    "single_joint_directions": [-1, 1],
+    "reached_upper": true,
+    "reached_lower": true,
+    "escaped_upper": true,
+    "escaped_lower": false,
+    "later_stages": "not_run",
+    "exact_replay": true,
+    "naturally_quiescent": true,
+    "candidate_diff_sha256": "8bec79301ac56df64972e1ee65fc123081445791fd20a9e1694b8f56265d54bf",
+    "experiment_tree_sha256": "bfacc2537131b13acfb58042403de649308f2e790953acab046f21c6cf3bdf42"
+  },
+  "artifacts": [
+    {
+      "path": "research/campaigns/sensorimotor-opportunity-v1/artifacts/local-return-deferral.json",
+      "sha256": "d39919bd56be2dd0462feff170b7887f6e0be23d75362d5f9aea99a77b40b93a"
+    }
+  ]
+}

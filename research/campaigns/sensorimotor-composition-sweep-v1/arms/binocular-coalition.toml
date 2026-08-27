@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "binocular-coalition"
+campaign = "sensorimotor-composition-sweep-v1"
+kind = "composition"
+parents = ["distant-coalition-recall", "surface-order-alignment"]
+imports = ["paired correlated sensors", "paired corrective outputs", "monocular and shuffled controls"]
+mechanism = "Train paired anonymous sensing to paired output and measure a physical disparity delta."
+prediction = "Paired sensing reduces disparity; monocular or shuffled sensing does not match."
+falsifiers = ["No bilateral correction occurs.", "Monocular or shuffled control matches the paired case."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "dc7f9dcbbb88c09e22d073af3df6640fbddccd164f47e516706d000b8b3bb73b"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml probe_binocular_coalition"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml -- --arm binocular-coalition"

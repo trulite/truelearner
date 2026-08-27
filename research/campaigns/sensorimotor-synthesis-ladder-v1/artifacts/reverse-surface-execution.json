@@ -1,0 +1,24 @@
+{
+  "schema": "sensorimotor-synthesis-ladder/v1",
+  "arm": "reverse-surface-execution",
+  "outcome": "survived",
+  "observations": {
+    "forward": {
+      "recalled": [
+        true,
+        true
+      ],
+      "unrelated": false
+    },
+    "reverse": {
+      "recalled": [
+        true,
+        true
+      ],
+      "unrelated": false
+    }
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

@@ -1,0 +1,38 @@
+{
+  "schema": "sensorimotor-physical-boundaries/v1",
+  "arm": "surface-return-cohort",
+  "outcome": "falsified",
+  "observations": {
+    "forward": {
+      "recall": [
+        false,
+        false
+      ],
+      "returns_after_expiry": 0,
+      "unrelated": false,
+      "updates": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "reverse": {
+      "recall": [
+        false,
+        false
+      ],
+      "returns_after_expiry": 0,
+      "unrelated": false,
+      "updates": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "falsifier": "the return did not retain two distinct local surfaces once each in either order",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

@@ -1,0 +1,67 @@
+schema = "research-convergence/v1"
+campaign = "sensorimotor-dependency-sweep-v1"
+round = 1
+survived = [
+  "causal-local-credit",
+  "delayed-return-lifetime",
+  "local-alternative-exposure",
+  "displaced-return-closure",
+  "consequence-supported-continuation",
+  "no-consequence-release",
+  "reversible-local-competition",
+  "coalition-separate-credit",
+  "composed-output-sequence",
+  "consolidated-reuse",
+]
+falsified = [
+  "sparse-shared-opportunity",
+  "delayed-multisurface-alignment",
+  "scale-selectivity",
+  "one-joint-composition",
+]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "participation-born local return preserves exact causal credit across a 20-tick delay",
+  "unanswered-return replacement exposes one neighbor, closes only the displaced return, and releases a dominant route after no consequence",
+  "ordinary physical strengthening keeps a fresh consequential route selected for four renewed cycles and later contrary evidence can reverse an earlier advantage",
+  "simultaneous output coalitions retain separate local credit",
+  "two learned local routes compose into a two-output physical sequence without direct motor input during recall",
+  "one of 64 learned local routes recalls without activating the other 63",
+  "isolated survival of every local control law does not imply their sufficiency in the closed one-joint composition",
+]
+strongest_counterexamples = [
+  "one-joint-composition: both directions appeared and the upper limit was reached and left, but the lower limit was never reached or left despite four-cycle continuation surviving in isolation",
+  "sparse-shared-opportunity: one anonymous shared root activated all eight distant outputs while eight separately driven far outputs also correctly remained independent",
+  "scale-selectivity: expanding the shared surface from four to 64 outputs expanded firing from four to 64 and work from 78 to 1158",
+  "delayed-multisurface-alignment: the first delayed sensory surface produced two return updates and closed the action return; the second produced zero",
+]
+retired_families = [
+  "generic absence of consequence-supported continuation as the explanation for the one-joint failure",
+  "generic inability to reverse local strength as the explanation for the one-joint failure",
+  "conflating a shared physical opportunity with separately driven far-output independence",
+  "treating one return closure as sufficient for several distinguishable delayed sensory consequences",
+  "advancing body stages from isolated component survival without a composition arm",
+]
+next_discriminators = [
+  "compare the isolated continuation trace with the first diverging one-joint trace at consequence arrival, next stimulus, choice, and motor integration",
+  "vary whether the same real joint consequence arrives before or after the next local opportunity while freezing topology and strength",
+  "separate a causal wave-local sparse opportunity from independent far drives before proposing body-scale foveation",
+  "test whether a physical return cohort or causal window can retain several delayed surface consequences without duplicate credit or stale returns",
+]
+
+[[new_arm]]
+id = "joint-consequence-timing-localization"
+kind = "diagnostic"
+parents = ["consequence-supported-continuation", "one-joint-composition"]
+imports = [
+  "consequence-supported-continuation: four renewed fresh-route cycles",
+  "one-joint-composition: lower-limit recovery failure",
+]
+interaction_prediction = "The first divergence is the ordering between a real joint consequence and the next local competition: consequence arriving before the next opportunity preserves the fresh route, while a later or absent consequence releases it before enough contrary movement accumulates."
+falsifiers = [
+  "The isolated and joint traces already differ before consequence timing can matter.",
+  "Changing consequence order does not change the selected route or accumulated joint direction.",
+  "The distinction requires direction, limit, target, or score identity inside the learner.",
+  "Replay, local credit, or natural quiescence changes.",
+]

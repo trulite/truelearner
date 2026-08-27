@@ -1,0 +1,106 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-27T08:20:07.867899+00:00",
+  "started_at": "2026-08-27T08:20:07.258036+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/sensorimotor-local-opportunity.md",
+    "sha256": "af33e21d9756eb92fbcd677074852d843710219f377e51ded266dae598e71ab2"
+  },
+  "candidate": {
+    "revision": "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6",
+    "tree_sha256": "8479b747ceacdea2f32e789a52dc9c6261c8c371cc87dac9b2bcac21fb042d7a"
+  },
+  "scope": [
+    "plans",
+    "research/campaigns",
+    "research/programs/learner",
+    "research/experiments/sensorimotor-emergence",
+    "truelearner/crates/core"
+  ],
+  "changed_paths": [
+    "plans/sensorimotor-causal-locality.md",
+    "plans/sensorimotor-local-opportunity.md",
+    "research/campaigns/sensorimotor-locality-v1/arms/causal-local-return.toml",
+    "research/campaigns/sensorimotor-locality-v1/arms/global-return-reference.toml",
+    "research/campaigns/sensorimotor-locality-v1/arms/shuffled-local-return.toml",
+    "research/campaigns/sensorimotor-locality-v1/campaign.toml",
+    "research/campaigns/sensorimotor-locality-v1/convergence.toml",
+    "research/campaigns/sensorimotor-locality-v1/protocol.toml",
+    "research/campaigns/sensorimotor-locality-v1/results/causal-local-return.json",
+    "research/campaigns/sensorimotor-locality-v1/results/global-return-reference.json",
+    "research/campaigns/sensorimotor-locality-v1/results/shuffled-local-return.json",
+    "research/campaigns/sensorimotor-opportunity-v1/arms/causal-local-reference.toml",
+    "research/campaigns/sensorimotor-opportunity-v1/arms/local-return-deferral.toml",
+    "research/campaigns/sensorimotor-opportunity-v1/arms/local-return-replacement.toml",
+    "research/campaigns/sensorimotor-opportunity-v1/arms/shuffled-local-reference.toml",
+    "research/campaigns/sensorimotor-opportunity-v1/artifacts/causal-local-reference.json",
+    "research/campaigns/sensorimotor-opportunity-v1/artifacts/local-return-deferral.json",
+    "research/campaigns/sensorimotor-opportunity-v1/artifacts/local-return-replacement.json",
+    "research/campaigns/sensorimotor-opportunity-v1/artifacts/shuffled-local-reference.json",
+    "research/campaigns/sensorimotor-opportunity-v1/campaign.toml",
+    "research/campaigns/sensorimotor-opportunity-v1/convergence.toml",
+    "research/campaigns/sensorimotor-opportunity-v1/forecast.md",
+    "research/campaigns/sensorimotor-opportunity-v1/protocol.toml",
+    "research/campaigns/sensorimotor-opportunity-v1/results/causal-local-reference.json",
+    "research/campaigns/sensorimotor-opportunity-v1/results/local-return-deferral.json",
+    "research/campaigns/sensorimotor-opportunity-v1/results/local-return-replacement.json",
+    "research/campaigns/sensorimotor-opportunity-v1/results/shuffled-local-reference.json",
+    "research/experiments/sensorimotor-emergence/Cargo.lock",
+    "research/experiments/sensorimotor-emergence/Cargo.toml",
+    "research/experiments/sensorimotor-emergence/src/lib.rs",
+    "research/experiments/sensorimotor-emergence/src/main.rs",
+    "research/programs/learner/program.toml",
+    "truelearner/crates/core/src/body.rs",
+    "truelearner/crates/core/src/choose.rs",
+    "truelearner/crates/core/src/core.rs",
+    "truelearner/crates/core/src/hold.rs",
+    "truelearner/crates/core/src/outcome.rs",
+    "truelearner/crates/core/src/physics.rs",
+    "truelearner/crates/core/src/reuse.rs",
+    "truelearner/crates/core/src/snapshot.rs",
+    "truelearner/crates/core/src/trace.rs",
+    "truelearner/crates/core/tests/harness_boundary.rs"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path truelearner/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.235858,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --workspace --locked --manifest-path truelearner/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.065842,
+      "output_sha256": "8a1ce2fcb021dd6114bf59c3b21b7080240a69df2b0566080b7a3d9fc84dcb14"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --workspace --all-targets --locked --manifest-path truelearner/Cargo.toml -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.162303,
+      "output_sha256": "c002af5fa79f68d69a2b5cdb95ea4b752d8b259920c251c41861db398633558d"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core unanswered_local_return",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.104527,
+      "output_sha256": "41113958f7628642c40ec665cd1422d32294ec6453b4b3b94cdc549663d37988"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core unanswered_local_return",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.040738,
+      "output_sha256": "186df0c40cb01554ceaac6fc61101613da396dca386be91924a8935ab453a5df"
+    }
+  ]
+}

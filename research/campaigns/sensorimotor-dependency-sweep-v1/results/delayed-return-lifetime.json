@@ -1,0 +1,8 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "delayed-return-lifetime",
+  "outcome": "survived",
+  "falsifier": null,
+  "observations": {"summary": "the 20-tick return strengthened exactly and closed", "exact_replay": true, "naturally_quiescent": true},
+  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/delayed-return-lifetime.json", "sha256": "02a2aef0961fbcb05d528c6c377c939c52a8ef52315987caaf924989fc4004f7"}]
+}

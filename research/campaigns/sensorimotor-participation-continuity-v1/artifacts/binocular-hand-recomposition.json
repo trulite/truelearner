@@ -1,0 +1,11 @@
+{
+  "schema": "sensorimotor-participation-continuity/v1",
+  "arm": "binocular-hand-recomposition",
+  "outcome": "inconclusive",
+  "observations": {
+    "one_joint": "inconclusive"
+  },
+  "falsifier": "an actual binocular-hand prerequisite failed",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "sensorimotor-physical-boundaries/v1",
+  "arm": "current-physics-reference",
+  "outcome": "survived",
+  "observations": {
+    "classifications": [
+      {
+        "arm": "causal-return-reference",
+        "outcome": "survived"
+      },
+      {
+        "arm": "opportunity-reference",
+        "outcome": "survived"
+      },
+      {
+        "arm": "choice-to-motion",
+        "outcome": "survived"
+      },
+      {
+        "arm": "entrenched-continuation",
+        "outcome": "falsified"
+      },
+      {
+        "arm": "causal-window",
+        "outcome": "falsified"
+      },
+      {
+        "arm": "fixed-active-scaling",
+        "outcome": "falsified"
+      },
+      {
+        "arm": "wave-scoped-competition",
+        "outcome": "falsified"
+      },
+      {
+        "arm": "surface-order-alignment",
+        "outcome": "falsified"
+      }
+    ]
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

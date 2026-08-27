@@ -1,4 +1,4 @@
 interface:
   display_name: "Research Campaign"
-  short_description: "Fork and falsify parallel E2B research arms"
-  default_prompt: "Use $research-campaign to design a parallel falsification-first campaign for this hypothesis."
+  short_description: "Climb complete candidates and ablate survivors"
+  default_prompt: "Use $research-campaign to test the complete established candidate upward, diagnose its first failure, and run conditional downward ablations only after end-to-end success."

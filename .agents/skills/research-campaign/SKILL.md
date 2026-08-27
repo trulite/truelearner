@@ -1,6 +1,6 @@
 ---
 name: research-campaign
-description: Turn an admissible research question into a parallel falsification-first campaign with isolated arms, composition arms, controls, budgets, convergence gates, and optional E2B execution batches. Use for diagnostics, competing mechanisms, rapid experiments, or large hypothesis searches.
+description: Run a synthesis-first research campaign that tests a complete evidence-backed candidate upward, localizes its first failure, or ablates a successful candidate downward. Use for capability climbs, diagnostics, competing mechanisms, controlled removals, rapid experiments, or large hypothesis searches.
 ---
 
 # Research Campaign
@@ -9,31 +9,29 @@ description: Turn an admissible research question into a parallel falsification-
 Admissible question
         |
         v
-Locate first missing
-physical transition
+Build complete candidate from
+applicable established lessons
         |
         v
-Fork diagnostic, solve,
-control, and composition arms
+Run controls and climb the
+upward capability ladder
         |
-        v
-Run tiny preflight gates
-in isolated E2B workers
+        +-- fails --> localize first break
+        |             and test minimal solves
         |
-        v
-Falsified? stop + freeze
-Survived? full evidence
-        |
-        v
-Hand all outcomes to
-$research-converge
+        `-- works --> remove downward and
+                      rerun the full ladder
 ```
 
 ## Rules
 
 - Read `research/constitution.md` and applicable program lessons before authoring arms.
+- Manifest the complete candidate by listing every included established mechanism, inherited constraint, and excluded incompatible or falsified proposal.
+- Make that complete candidate the frozen positive reference. Do not begin by withholding established prerequisites.
+- Test it upward from primitive transitions to the end-to-end capability, with cheap gates before expensive rungs.
 - Treat a high-level failure label as a symptom; locate the earliest physical divergence between positive and negative cases.
-- If the divergence is unknown, parallelize diagnostic arms. Once localized, parallelize competing minimal solves.
+- If the complete candidate fails, stop dependent upward rungs, parallelize diagnostic arms, and then test competing minimal solves at the first divergence. Do not run removal ablations.
+- If the complete candidate succeeds, run downward ablations against the frozen reference: remove one mechanism, rerun the whole upward ladder, restore the reference, and then test justified mechanism coalitions.
 - State each arm's prediction and killing falsifier before execution.
 - Add composition arms when proposed mechanisms may be jointly necessary.
 - Keep the positive reference and unchanged negative controls frozen.

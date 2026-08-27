@@ -13,6 +13,7 @@ pub(crate) struct Body {
     pub(crate) pressure_tick: i64,
     pub(crate) trace_physics: bool,
     pub(crate) outcome_source: Option<JunctionId>,
+    pub(crate) local_outcome_sources: Vec<(JunctionId, JunctionId)>,
     pub(crate) output_wave_open: bool,
 }
 
@@ -24,8 +25,14 @@ impl Body {
         work: &mut Work,
         execution_cost: &mut ExecutionCost,
     ) {
-        self.decay_links_to(tick, work, execution_cost, None, 0);
-        self.retire_unlinked_junctions(tick, work, execution_cost, None, 0);
+        if self.protocol.is_sensorimotor() {
+            if self.decay_indexed_links_to(tick, work, execution_cost, None, 0) {
+                self.retire_unlinked_junctions(tick, work, execution_cost, None, 0);
+            }
+        } else {
+            self.decay_links_to(tick, work, execution_cost, None, 0);
+            self.retire_unlinked_junctions(tick, work, execution_cost, None, 0);
+        }
         self.elapse_activation_to(tick, execution_cost);
     }
 
@@ -37,20 +44,38 @@ impl Body {
         phase: i32,
         physical_trace: &mut Vec<PhysicalTransition>,
     ) {
-        self.decay_links_to(
-            tick,
-            work,
-            execution_cost,
-            Some(&mut *physical_trace),
-            phase,
-        );
-        self.retire_unlinked_junctions(
-            tick,
-            work,
-            execution_cost,
-            Some(&mut *physical_trace),
-            phase,
-        );
+        if self.protocol.is_sensorimotor() {
+            if self.decay_indexed_links_to(
+                tick,
+                work,
+                execution_cost,
+                Some(&mut *physical_trace),
+                phase,
+            ) {
+                self.retire_unlinked_junctions(
+                    tick,
+                    work,
+                    execution_cost,
+                    Some(&mut *physical_trace),
+                    phase,
+                );
+            }
+        } else {
+            self.decay_links_to(
+                tick,
+                work,
+                execution_cost,
+                Some(&mut *physical_trace),
+                phase,
+            );
+            self.retire_unlinked_junctions(
+                tick,
+                work,
+                execution_cost,
+                Some(&mut *physical_trace),
+                phase,
+            );
+        }
         self.elapse_activation_to(tick, execution_cost);
     }
 }
@@ -76,6 +101,7 @@ impl Body {
             pressure_tick: 0,
             trace_physics: false,
             outcome_source: None,
+            local_outcome_sources: Vec::new(),
             output_wave_open: false,
         }
     }
@@ -103,8 +129,49 @@ impl Body {
         self.outcome_source = Some(source);
     }
 
+    pub(crate) fn set_outcome_source_for_output(&mut self, output: JunctionId, source: JunctionId) {
+        self.arena.require_junction(output);
+        self.arena.require_junction(source);
+        assert!(
+            self.arena.is_output_junction(output),
+            "local outcome wiring requires an output junction"
+        );
+        assert!(
+            !self
+                .local_outcome_sources
+                .iter()
+                .any(|(wired_output, _)| *wired_output == output),
+            "an output may have only one local outcome source"
+        );
+        self.local_outcome_sources.push((output, source));
+        self.local_outcome_sources
+            .sort_unstable_by_key(|pair| pair.0);
+    }
+
+    pub(crate) fn outcome_source_for_output(&self, output: JunctionId) -> Option<JunctionId> {
+        self.local_outcome_sources
+            .binary_search_by_key(&output, |pair| pair.0)
+            .ok()
+            .map(|index| self.local_outcome_sources[index].1)
+            .or(self.outcome_source)
+    }
+
+    pub(crate) fn outcome_sources(&self) -> Vec<JunctionId> {
+        let mut sources = self
+            .local_outcome_sources
+            .iter()
+            .map(|(_, source)| *source)
+            .collect::<Vec<_>>();
+        if let Some(source) = self.outcome_source {
+            sources.push(source);
+        }
+        sources.sort_unstable();
+        sources.dedup();
+        sources
+    }
+
     pub(crate) fn return_path_count(&self) -> usize {
-        self.arena.return_links(self.outcome_source).len()
+        self.arena.return_links(&self.outcome_sources()).len()
     }
 
     pub(crate) fn add_junction(&mut self, spec: Junction) -> JunctionId {

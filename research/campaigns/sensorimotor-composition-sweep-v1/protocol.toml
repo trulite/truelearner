@@ -1,0 +1,61 @@
+schema = "research-protocol/v1"
+id = "sensorimotor-composition-sweep-v1"
+program = "learner-physics"
+claim = "SENSORIMOTOR-COMPOSITION-SWEEP"
+status = "preregistered"
+parent_authority = "sensorimotor-dependency-sweep-v1@2a3bcca44cadec21c0fe3de7e798317be31bc2647098beece4074e575e2afe7f"
+question = "Which closed-loop, sparse-wave, coalition, multisurface, and embodied composition transitions exist in current candidate physics when the complete forecast is tested in one batch?"
+observables = [
+  "winner sequence across incumbent strength ratios and adjacent sensory contexts",
+  "credit and return state across inside and outside causal delays",
+  "selected signed output and resulting physical delta",
+  "both one-joint directions, reflected limits, and escapes",
+  "same-wave and independent-wave output counts",
+  "work, scans, outputs, active frontier, and resident bytes with fixed active structure",
+  "simultaneous learned coalition recall and local joint-effect participation",
+  "surface-specific learned association under delayed and reversed order",
+  "paired sensory correction, digit grouping, sequential multimodal output, acoustic feedback, replay, and quiescence",
+]
+frozen_variables = [
+  "source revision 67ee08f2cc4b7bd05edc00a8574f484e36aa37d6 and predecessor dirty-tree receipt 47aca7df73436a612f1f0b1fb6ace1fd8c4dcc6554ab6fd6647221689948075d",
+  "adopted CORE1 behavior and all frozen predecessor artifacts",
+  "current causal-local, opportunity, strengthening, formation, choice, integration, timing, and decay laws",
+  "anonymous topology without body-part, action, direction, target, score, capability, or evaluator identity inside the learner",
+]
+permitted_changes = [
+  "a new research-only crate may build anonymous topology and interact through public Harness calls",
+  "fixtures may physically train an incumbent, fresh route, coalition, or association as a declared prerequisite",
+  "world adapters may translate a recorded physical output into its preregistered physical consequence",
+  "composition arms may become inconclusive when an actual prerequisite arm is falsified",
+]
+positive_predicates = [
+  "frozen references reproduce exactly",
+  "fresh consequence renews against bounded incumbent advantage, crosses adjacent context, and respects a bounded causal window",
+  "choice produces nonzero correctly signed motion and the one-joint composition reaches and leaves both reflected limits",
+  "one causal wave selects bounded distant structure while independent waves remain unsuppressed",
+  "fixed active work stays bounded as dormant surface grows",
+  "distant and local joint-effect coalitions recall without broad coactivation",
+  "two delayed surfaces form useful order-robust associations without duplicate or stale credit",
+  "paired sensing, digit grouping, eye-hand sequence, and acoustic loop survive isolated fixtures",
+  "all executed arms replay exactly and quiesce naturally",
+]
+negative_controls = [
+  "frozen shuffled credit and unanswered-return controls",
+  "no-consequence release after renewal",
+  "outside-window stale consequence",
+  "independent far waves",
+  "dormant rather than activated added surface",
+  "either-output-alone world, monocular input, shuffled surface wiring, and unrelated outputs",
+]
+stop_conditions = [
+  "any fixture calls Body or private learner state",
+  "a fixture encodes the expected winner, body identity, target, or score inside the learner",
+  "a frozen predecessor changes",
+  "a dependent composition is called successful after its actual prerequisite failed",
+  "replay differs, activity requires evaluator cutoff, or a negative is repaired in place",
+  "current insufficiency is reported as proof of unique necessity or adopted authority",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

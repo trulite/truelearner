@@ -1,0 +1,84 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "sensorimotor-participation-continuity-candidate.json",
+    "sha256": "c8910b79797ca2581b47643d47845e6234ef04f806ab168f713030bfd27c6981"
+  },
+  "verdict": "supported",
+  "independent_test_count": 5,
+  "checks": [
+    {
+      "name": "artifact-reproduction",
+      "command": "run all ten arms into a fresh temporary directory and diff against frozen artifacts",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.55
+    },
+    {
+      "name": "public-boundary-core-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.53
+    },
+    {
+      "name": "research-lineage",
+      "command": "validate protocol, campaign, convergence, program, and research contracts with uv",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.2
+    },
+    {
+      "name": "public-harness-audit",
+      "command": "audit successor experiment and tests for Body or private learner access",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path research/experiments/sensorimotor-participation-continuity/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.46
+    }
+  ],
+  "findings": [
+    "All ten artifacts reproduce byte-for-byte through public Harness; 19 public core tests passed, two unchanged adversarial tests remained ignored, and the ten-arm warm suite completed in 0.46 seconds.",
+    "The original recent-route diagnostic was invalid for its named write/read boundary: its presumed fresh output was unintended dynamic topology and received zero return updates at ratios 1, 2, 4, and 8.",
+    "The original coalition diagnostic was invalid for lineage preservation: one proposed member had no executable consequential path before shared-origin selection.",
+    "Corrected neutral fixtures used existing candidate physics to continue a recent successful route through ratio 8 with later release and to recall both actually trained cooperating members under one shared origin.",
+    "The original surface zero-update failure was a distance-zero no-path fixture; distance one formed the action path, opened one finite return, and delivered two updates.",
+    "One action return retained both useful surface origins once in either order while rejecting duplicate and unrelated origins and expiring naturally, but neither surface expressed the reverse motor action.",
+    "Finite return, indexed active aging, and origin sparsity retained their exact predicates under neutral composition.",
+    "The one-joint and acoustic four-step preflights produced zero motion; the attempted full one-joint run exceeded the development budget under topology growth, so later body compositions remained inconclusive."
+  ],
+  "residual_uncertainty": [
+    "The corrected recent-route and cooperating-pair positives are observations inside a falsified hybrid arm and require standalone frozen replication before becoming positive campaign claims.",
+    "Action-to-surface association has not been shown sufficient for reverse surface-to-action execution.",
+    "The first zero-movement transition and the source of structural path-formation growth remain unlocalized.",
+    "No candidate mechanism was adopted into default physics, and no one-joint, binocular-hand, vocal-auditory, full-body, Academy, ARC, or authority capability advanced."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/sensorimotor-participation-continuity-v1/convergence.toml",
+      "sha256": "f536bce2f6e4d4f21140e281f35e12512fd9d57255f0ed07907acef31f8846a1"
+    },
+    {
+      "path": "research/campaigns/sensorimotor-participation-continuity-v1/artifacts/surface-return-opening-localization.json",
+      "sha256": "f96a5dd7bd4fe065f950746beeddcf0e4a02a6e41c2704d5d5957fcc27ba29f9"
+    },
+    {
+      "path": "research/campaigns/sensorimotor-participation-continuity-v1/artifacts/participation-continuity-solves.json",
+      "sha256": "96e816ba536c9f557a1d48b7f5ed18cb435a15618ac07d958d3e7d3f9dfbd5d4"
+    },
+    {
+      "path": "research/campaigns/sensorimotor-participation-continuity-v1/artifacts/one-joint-recomposition.json",
+      "sha256": "89dc2c6c0044c634362b9d22ca4432838e3ca51c5cbd5b59c272943e62669f7f"
+    },
+    {
+      "path": "research/campaigns/sensorimotor-participation-continuity-v1/artifacts/surviving-boundaries-composition.json",
+      "sha256": "721009cbb96f1edbcb43dc366ebe6d02ce36bc8c3e9545b67add35bfb252519e"
+    }
+  ]
+}

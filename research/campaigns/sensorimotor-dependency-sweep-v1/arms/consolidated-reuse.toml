@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "consolidated-reuse"
+campaign = "sensorimotor-dependency-sweep-v1"
+kind = "diagnostic"
+parents = ["delayed-return-lifetime"]
+imports = ["many independently trained local routes", "one-route recall"]
+mechanism = "Physically train eight distant local routes, then send only one learned input with no motor injection."
+prediction = "Exactly its learned output recalls and every unrelated route remains silent."
+falsifiers = ["The learned output is absent or another route fires.", "Replay or quiescence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "90e799b67507832138d9668154e24193ef50d1bdf812c72c009fb3b1d1f17ad3"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml probe_consolidated_reuse"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml -- --arm consolidated-reuse"

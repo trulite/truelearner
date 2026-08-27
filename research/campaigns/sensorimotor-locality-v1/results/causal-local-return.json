@@ -1,0 +1,22 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "causal-local-return",
+  "outcome": "falsified",
+  "falsifier": "Causal locality isolated credit exactly but did not produce bidirectional limit recovery in one anonymous antagonistic joint.",
+  "observations": {
+    "isolation_participating_outputs": 2,
+    "isolation_credited_paths": 1,
+    "isolation_credited_path": 0,
+    "isolation_local_return_updates": 2,
+    "single_joint_steps": 40,
+    "single_joint_changed_steps": 4,
+    "single_joint_directions": [1],
+    "single_joint_reached_upper_limit": true,
+    "single_joint_escaped_limit": false,
+    "later_stages": "not_run",
+    "exact_replay": true,
+    "naturally_quiescent": true,
+    "candidate_diff_sha256": "abbe725a1159b77c3cc3c6b8b41c215f3f891e4a9e7889ea2311e301fb099f38"
+  },
+  "artifacts": []
+}

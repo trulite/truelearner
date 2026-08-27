@@ -11,18 +11,16 @@ impl Body {
                 .participation_level
                 .saturating_add(PARTICIPATION_IMPULSE);
         });
-        let Some(path) = self
-            .arena
-            .paths()
-            .into_iter()
-            .find(|path| path.second == link)
-        else {
+        let Some(path) = self.arena.path_for_second(link) else {
             return;
         };
-        let Some(outcome) = self.outcome_source else {
+        let Some(output) = self.arena.link_by_id(path.second).map(|link| link.to) else {
             return;
         };
-        if self.arena.return_links(Some(outcome)).iter().any(|id| {
+        let Some(outcome) = self.outcome_source_for_output(output) else {
+            return;
+        };
+        if self.arena.return_links(&[outcome]).iter().any(|id| {
             self.arena
                 .link_snapshot(self.arena.link_slot(*id).unwrap().0)
                 .to
@@ -36,7 +34,11 @@ impl Body {
             delay: 0,
             phase: 0,
             coupling: 1,
-            resistance: u32::MAX,
+            resistance: if self.protocol.is_sensorimotor() {
+                LOCAL_RETURN_STRENGTH
+            } else {
+                u32::MAX
+            },
             mode: TransmissionMode::Modulatory,
         });
     }

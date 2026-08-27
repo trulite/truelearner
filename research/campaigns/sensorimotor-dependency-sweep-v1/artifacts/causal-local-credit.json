@@ -1,0 +1,21 @@
+{
+  "schema": "sensorimotor-dependency-sweep/v1",
+  "arm": "causal-local-credit",
+  "outcome": "survived",
+  "prediction": "one consequence credits only its causal output path",
+  "observations": {
+    "local_return_updates": 2,
+    "participating_outputs": 2,
+    "strength_after": [
+      8589934592,
+      4294967296
+    ],
+    "strength_before": [
+      4294967296,
+      4294967296
+    ]
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

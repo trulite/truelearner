@@ -1,0 +1,1 @@
+{"schema":"research-arm-result/v1","arm":"complete-candidate-reference","outcome":"survived","falsifier":null,"observations":{"parent_classifications_unchanged":true},"artifacts":[{"path":"research/campaigns/sensorimotor-synthesis-ladder-v1/artifacts/complete-candidate-reference.json","sha256":"ce3e0fc81c279b674eb7103a2cb7ba7c842c931770cfeff23eda47e67689f7ba"}]}

@@ -1,0 +1,12 @@
+{
+  "schema": "sensorimotor-composition-sweep/v1",
+  "arm": "wave-scoped-competition",
+  "outcome": "falsified",
+  "observations": {
+    "independent_wave_outputs": 8,
+    "shared_wave_outputs": 8
+  },
+  "falsifier": "one causal wave did not select bounded distant structure while preserving independent waves",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

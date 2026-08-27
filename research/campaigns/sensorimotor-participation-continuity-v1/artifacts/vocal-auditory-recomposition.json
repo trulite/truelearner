@@ -1,0 +1,61 @@
+{
+  "schema": "sensorimotor-participation-continuity/v1",
+  "arm": "vocal-auditory-recomposition",
+  "outcome": "inconclusive",
+  "observations": {
+    "four_step_preflight": {
+      "falsifier": "vocal_auditory_control did not satisfy its preregistered emergence predicate",
+      "observations": {
+        "bilateral_changes": 0,
+        "changed_steps": 0,
+        "delayed_acoustic_changes": 0,
+        "directions": [],
+        "escaped_lower": false,
+        "escaped_upper": false,
+        "exact_replay": true,
+        "isolated_axes": [],
+        "naturally_quiescent": true,
+        "reached_lower": false,
+        "reached_upper": false,
+        "steps": 4
+      },
+      "stage": "vocal_auditory_control",
+      "status": "failed"
+    },
+    "prerequisites": {
+      "action_surface_association": true,
+      "coalition": true,
+      "recent_continuation": true,
+      "surface_observations": {
+        "forward_return_origins": [
+          [
+            90001,
+            90002
+          ]
+        ],
+        "forward_updates": [
+          2,
+          0,
+          0,
+          2
+        ],
+        "reverse_recall_established": false,
+        "reverse_return_origins": [
+          [
+            90001,
+            90002
+          ]
+        ],
+        "reverse_updates": [
+          2,
+          0,
+          0,
+          2
+        ]
+      }
+    }
+  },
+  "falsifier": "the vocal-auditory preflight produced no admissible movement before the full-run cost gate",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

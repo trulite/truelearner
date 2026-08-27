@@ -1,0 +1,24 @@
+{
+  "schema": "sensorimotor-dependency-sweep/v1",
+  "arm": "coalition-separate-credit",
+  "outcome": "survived",
+  "prediction": "simultaneous outputs retain consequence-specific causal credit",
+  "observations": {
+    "after_first_consequence": [
+      8589934592,
+      4294967296
+    ],
+    "after_second_consequence": [
+      4294967296,
+      8589934592
+    ],
+    "coalition_outputs": 2,
+    "strength_before": [
+      4294967296,
+      4294967296
+    ]
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

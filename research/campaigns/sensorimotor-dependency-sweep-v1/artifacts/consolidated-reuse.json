@@ -1,0 +1,18 @@
+{
+  "schema": "sensorimotor-dependency-sweep/v1",
+  "arm": "consolidated-reuse",
+  "outcome": "survived",
+  "prediction": "one learned route recalls without activating dormant learned routes",
+  "observations": {
+    "recalled_outputs": [
+      9203
+    ],
+    "selected_route": 3,
+    "trained_routes": 64,
+    "training_outputs": 64,
+    "unrelated_outputs": 0
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

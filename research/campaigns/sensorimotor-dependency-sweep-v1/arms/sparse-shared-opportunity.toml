@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "sparse-shared-opportunity"
+campaign = "sensorimotor-dependency-sweep-v1"
+kind = "diagnostic"
+parents = ["local-alternative-exposure"]
+imports = ["anonymous shared physical root", "distant ready outputs"]
+mechanism = "Compare one shared root fanning into distant outputs with a control that drives those far outputs independently."
+prediction = "The shared opportunity admits bounded output while independent far drives remain unsuppressed."
+falsifiers = ["The shared root broadly coactivates every distant output.", "The independent-drive control is suppressed or replay/quiescence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "90e799b67507832138d9668154e24193ef50d1bdf812c72c009fb3b1d1f17ad3"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml probe_sparse_shared_opportunity"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml -- --arm sparse-shared-opportunity"

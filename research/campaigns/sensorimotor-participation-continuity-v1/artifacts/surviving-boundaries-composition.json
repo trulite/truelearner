@@ -1,0 +1,76 @@
+{
+  "schema": "sensorimotor-participation-continuity/v1",
+  "arm": "surviving-boundaries-composition",
+  "outcome": "survived",
+  "observations": {
+    "components": [
+      {
+        "arm": "bounded-return-eligibility",
+        "observations": {
+          "trials": [
+            {
+              "credited": true,
+              "delay": 1,
+              "return_updates": 2,
+              "returns_after_expiry": 0
+            },
+            {
+              "credited": true,
+              "delay": 20,
+              "return_updates": 2,
+              "returns_after_expiry": 0
+            },
+            {
+              "credited": false,
+              "delay": 200,
+              "return_updates": 0,
+              "returns_after_expiry": 0
+            }
+          ]
+        },
+        "outcome": "survived"
+      },
+      {
+        "arm": "active-frontier-scaling",
+        "observations": {
+          "large": {
+            "active": 4,
+            "bytes": 263296,
+            "dormant": 1024,
+            "outputs": 1,
+            "scans": 18,
+            "work": 60
+          },
+          "medium": {
+            "active": 4,
+            "bytes": 17536,
+            "dormant": 64,
+            "outputs": 1,
+            "scans": 18,
+            "work": 60
+          },
+          "small": {
+            "active": 4,
+            "bytes": 2176,
+            "dormant": 4,
+            "outputs": 1,
+            "scans": 18,
+            "work": 60
+          }
+        },
+        "outcome": "survived"
+      },
+      {
+        "arm": "wave-alternative-sparsity",
+        "observations": {
+          "independent_origin_outputs": 8,
+          "shared_origin_outputs": 1
+        },
+        "outcome": "survived"
+      }
+    ]
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

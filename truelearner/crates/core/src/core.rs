@@ -37,6 +37,7 @@ pub(crate) struct Fired {
     pub junction: JunctionId,
     pub state: JunctionState,
     pub external: bool,
+    pub causal_origin: u64,
 }
 
 /// A coherent choice of physical implementation for the algorithm.
@@ -44,6 +45,19 @@ pub(crate) struct Fired {
 pub enum Protocol {
     #[default]
     Physical,
+    UnansweredReturnDeferral,
+    UnansweredReturnReplacement,
+    SensorimotorCandidate,
+    SensorimotorSynthesis,
+}
+
+impl Protocol {
+    pub(crate) fn is_sensorimotor(self) -> bool {
+        matches!(
+            self,
+            Self::SensorimotorCandidate | Self::SensorimotorSynthesis
+        )
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -128,6 +142,8 @@ pub struct LinkObservation {
     pub strength: i64,
     pub life: u64,
     pub participation: u64,
+    pub last_consequence_tick: Option<i64>,
+    pub return_origins: Vec<u64>,
     pub live: bool,
 }
 
@@ -179,6 +195,10 @@ impl HarnessBuilder {
         self.body.set_outcome_source(source);
     }
 
+    pub fn set_outcome_source_for_output(&mut self, output: JunctionId, source: JunctionId) {
+        self.body.set_outcome_source_for_output(output, source);
+    }
+
     pub fn build(self) -> Harness {
         Harness {
             body: self.body,
@@ -215,6 +235,15 @@ impl HarnessObservation {
             hash.update(link.strength.to_le_bytes());
             hash.update(link.life.to_le_bytes());
             hash.update(link.participation.to_le_bytes());
+            hash.update(link.last_consequence_tick.unwrap_or(i64::MIN).to_le_bytes());
+            hash.update(
+                u64::try_from(link.return_origins.len())
+                    .unwrap_or(u64::MAX)
+                    .to_le_bytes(),
+            );
+            for origin in &link.return_origins {
+                hash.update(origin.to_le_bytes());
+            }
             hash.update([u8::from(link.live)]);
         }
         hash.finalize().into()
@@ -282,6 +311,8 @@ impl Harness {
                 strength: self.body.arena.strength[link.id.0 as usize],
                 life: self.body.arena.life[link.id.0 as usize],
                 participation: link.participation_level,
+                last_consequence_tick: link.last_consequence_tick,
+                return_origins: link.return_origins.clone(),
                 live: link.live,
             })
             .collect();

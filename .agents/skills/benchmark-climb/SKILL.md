@@ -6,19 +6,27 @@ description: Advance a benchmark frontier by locating missing physical transitio
 # Benchmark Climb
 
 ```text
-frozen organism -> unchanged benchmark -> first failing physical transition
-                                             |
-                                             v
-                                   2-4 candidate laws
-                                             |
-                                             v
-                                  tiny adversarial worlds
-                                             |
-                                             v
-                         benchmark + regression + transfer + holdout
-                                             |
-                                             v
-                              clean adoption or frozen rejection
+frozen organism + unchanged benchmark
+                  |
+                  v
+       strongest benchmark-blind
+          established candidate
+                  |
+                  v
+        climb upward capability
+                 ladder
+                  |
+          +-------+-------+
+          |               |
+        fails            works
+          |               |
+ descend to first     downward ablation
+ physical break       ladder; rerun upward
+          |               |
+          +-------+-------+
+                  |
+                  v
+       transfer + holdout + adoption
 ```
 
 ## Rule
@@ -37,7 +45,18 @@ what it is allowed to know.
   what participates, what fires, what strengthens, and what later reappears.
 - Keep a hidden holdout that is not inspected during discovery.
 
-## Locate
+## Synthesize and climb
+
+- Use `$research-forecast` to compose every applicable compatible established
+  lesson into the strongest benchmark-blind candidate.
+- Preserve incompatible alternatives and falsified proposals as constraints; do
+  not withhold a known prerequisite merely to rediscover it one rung at a time.
+- Freeze the complete candidate, then test it upward from primitive physical
+  continuity through composed capability, the unchanged benchmark, transfer,
+  controls, replay, natural quiescence, and cost bounds.
+- Stop dependent upward rungs after the first failed prerequisite.
+
+## Descend a failed candidate
 
 Classify the first failed physical transition:
 
@@ -54,7 +73,7 @@ Track routes generated, routes participating, motor firings, credit returns,
 PQLC updates, autonomous probes, work, spikes, and quiescence separately from
 benchmark score.
 
-## Falsify
+Once the first physical divergence is localized:
 
 - State two to four benchmark-blind physical hypotheses before coding.
 - Give each hypothesis a prediction, killing falsifier, negative control, and
@@ -70,6 +89,17 @@ benchmark score.
 A candidate must earn itself twice: the constructed world must expose its
 mechanism, and the original benchmark must improve. Either result alone is
 insufficient.
+
+## Climb the downward ablation ladder
+
+- Freeze the successful complete candidate as the positive reference.
+- Remove one mechanism at a time, rerun the complete upward ladder, and restore
+  the reference before the next removal.
+- Then test only evidence-motivated coalitions and interactions.
+- Treat a removal as surviving only when capability, transfer, controls, replay,
+  natural quiescence, and cost bounds remain intact.
+- Do not infer necessity or run removal ablations from a candidate that never
+  passed the complete upward ladder.
 
 ## Transfer
 
@@ -102,8 +132,8 @@ across unseen variants; do not celebrate an individual task number.
 - Require minimal, readable, benchmark-blind adoption code.
 - Hand clean adoption to `$rust-plan`, `$rust-implement`, and `$rust-verify`.
 - Keep the representative warm regression loop strictly under 10 seconds.
-- Re-run the full benchmark ladder from the frozen clean organism after each
-  declared adoption group.
+- Re-run the complete upward capability ladder from the frozen clean organism
+  after each declared adoption group.
 - Do not let experiment order or residual state become a dependency.
 
 Record one frontier entry per level with only:

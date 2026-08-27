@@ -1,0 +1,8 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "local-alternative-exposure",
+  "outcome": "survived",
+  "falsifier": null,
+  "observations": {"summary": "one fresh neighbor replaced the unanswered winner", "exact_replay": true, "naturally_quiescent": true},
+  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/local-alternative-exposure.json", "sha256": "c8797d0bf9e1706f88dc94f598200d5e87463de0ad60784dfd44330a866d1d5f"}]
+}

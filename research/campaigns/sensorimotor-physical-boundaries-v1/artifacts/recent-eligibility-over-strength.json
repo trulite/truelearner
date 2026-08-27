@@ -1,0 +1,40 @@
+{
+  "schema": "sensorimotor-physical-boundaries/v1",
+  "arm": "recent-eligibility-over-strength",
+  "outcome": "falsified",
+  "observations": {
+    "trials": [
+      {
+        "continued": false,
+        "incumbent_after": 8589934592,
+        "incumbent_before": 8589934592,
+        "ratio": 1,
+        "released": true
+      },
+      {
+        "continued": false,
+        "incumbent_after": 8589934592,
+        "incumbent_before": 8589934592,
+        "ratio": 2,
+        "released": true
+      },
+      {
+        "continued": false,
+        "incumbent_after": 8589934592,
+        "incumbent_before": 8589934592,
+        "ratio": 4,
+        "released": true
+      },
+      {
+        "continued": false,
+        "incumbent_after": 17110291617,
+        "incumbent_before": 17110291617,
+        "ratio": 8,
+        "released": true
+      }
+    ]
+  },
+  "falsifier": "recent consequence did not mediate entrenched strength while preserving history and release",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

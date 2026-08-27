@@ -7,8 +7,10 @@ pub(crate) struct BodySnapshot {
     clock: PhysicalClock,
     pending: Vec<Firing>,
     protocol: Protocol,
+    trace_physics: bool,
     next_serial: u64,
     outcome_source: Option<JunctionId>,
+    local_outcome_sources: Vec<(JunctionId, JunctionId)>,
     output_wave_open: bool,
 }
 
@@ -24,6 +26,8 @@ struct ArenaSnapshot {
     strength: Vec<i64>,
     life: Vec<u64>,
     decay_remainder: Vec<u64>,
+    aging_links: Vec<LinkId>,
+    active_junctions: Vec<JunctionId>,
 }
 
 impl Body {
@@ -42,12 +46,25 @@ impl Body {
                 strength: self.arena.strength.clone(),
                 life: self.arena.life.clone(),
                 decay_remainder: self.arena.decay_remainder.clone(),
+                aging_links: self.arena.aging_links.iter().copied().collect(),
+                active_junctions: {
+                    let mut active = self
+                        .arena
+                        .active_junctions
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>();
+                    active.sort_unstable();
+                    active
+                },
             },
             clock: self.clock(),
             pending: self.pending.canonical(),
             protocol: self.protocol,
+            trace_physics: self.trace_physics,
             next_serial: self.next_serial,
             outcome_source: self.outcome_source,
+            local_outcome_sources: self.local_outcome_sources.clone(),
             output_wave_open: self.output_wave_open,
         })
     }
@@ -56,6 +73,7 @@ impl Body {
         let mut body = Self::from_arena(snapshot.arena.open()?);
         body.tick = snapshot.clock.tick;
         body.protocol = snapshot.protocol;
+        body.trace_physics = snapshot.trace_physics;
         body.pressure_tick = pressure_epoch(snapshot.clock.tick);
         body.outcome_source = snapshot.outcome_source;
         if let Some(source) = body.outcome_source {
@@ -63,6 +81,22 @@ impl Body {
                 return Err(CheckpointError::MissingJunction(source));
             }
         }
+        let mut previous_output = None;
+        for (output, source) in &snapshot.local_outcome_sources {
+            if body.arena.junction_slot(*output).is_none() {
+                return Err(CheckpointError::MissingJunction(*output));
+            }
+            if body.arena.junction_slot(*source).is_none() {
+                return Err(CheckpointError::MissingJunction(*source));
+            }
+            if !body.arena.is_output_junction(*output)
+                || previous_output.is_some_and(|previous| previous >= *output)
+            {
+                return Err(CheckpointError::InvalidCheckpoint);
+            }
+            previous_output = Some(*output);
+        }
+        body.local_outcome_sources = snapshot.local_outcome_sources;
         body.output_wave_open = snapshot.output_wave_open;
         for firing in &snapshot.pending {
             if firing.arrival_tick < snapshot.clock.tick {
@@ -93,6 +127,18 @@ impl Body {
 
 impl ArenaSnapshot {
     fn open(self) -> Result<Arena, CheckpointError> {
+        let aging_links = self.aging_links.iter().copied().collect::<BTreeSet<_>>();
+        if aging_links.len() != self.aging_links.len() {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
+        let active_junctions = self
+            .active_junctions
+            .iter()
+            .copied()
+            .collect::<HashSet<_>>();
+        if active_junctions.len() != self.active_junctions.len() {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
         let junction_identity_count = usize::try_from(self.junction_identity_count)
             .map_err(|_| CheckpointError::InvalidCheckpoint)?;
         let link_identity_count = usize::try_from(self.link_identity_count)
@@ -170,6 +216,21 @@ impl ArenaSnapshot {
         arena.life = self.life;
         arena.decay_remainder = self.decay_remainder;
         arena.rebuild_indexes();
+        if aging_links
+            .iter()
+            .any(|id| arena.link_by_id(*id).is_none_or(|link| !link.live))
+        {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
+        arena.aging_links = aging_links;
+        if active_junctions.iter().any(|id| {
+            arena
+                .junction_by_id(*id)
+                .is_none_or(|junction| !junction.live)
+        }) {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
+        arena.active_junctions = active_junctions;
         Ok(arena)
     }
 }

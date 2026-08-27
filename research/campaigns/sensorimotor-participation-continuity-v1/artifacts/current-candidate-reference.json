@@ -1,0 +1,56 @@
+{
+  "schema": "sensorimotor-participation-continuity/v1",
+  "arm": "current-candidate-reference",
+  "outcome": "survived",
+  "observations": {
+    "classifications": [
+      {
+        "arm": "current-physics-reference",
+        "outcome": "survived"
+      },
+      {
+        "arm": "recent-eligibility-over-strength",
+        "outcome": "falsified"
+      },
+      {
+        "arm": "bounded-return-eligibility",
+        "outcome": "survived"
+      },
+      {
+        "arm": "active-frontier-scaling",
+        "outcome": "survived"
+      },
+      {
+        "arm": "wave-alternative-sparsity",
+        "outcome": "survived"
+      },
+      {
+        "arm": "learned-coalition-preservation",
+        "outcome": "falsified"
+      },
+      {
+        "arm": "surface-return-cohort",
+        "outcome": "falsified"
+      },
+      {
+        "arm": "one-joint-recomposition",
+        "outcome": "inconclusive"
+      },
+      {
+        "arm": "binocular-hand-recomposition",
+        "outcome": "inconclusive"
+      },
+      {
+        "arm": "vocal-auditory-recomposition",
+        "outcome": "inconclusive"
+      },
+      {
+        "arm": "full-body-recomposition",
+        "outcome": "inconclusive"
+      }
+    ]
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

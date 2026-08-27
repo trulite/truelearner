@@ -1,0 +1,59 @@
+schema = "research-campaign/v1"
+id = "sensorimotor-synthesis-ladder-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Composing all relevant established sensorimotor lessons first is sufficient to climb from local physical continuity through embodied control; only a full survivor may be ablated downward for necessity."
+first_divergence = "the parent candidate associates causal surfaces without reverse execution, emits no motor output in four steps, and scans structural opportunity beyond the active source"
+missing_transition = "the complete candidate must preserve source-local formation, consolidate actual surface consequence into reverse execution, and integrate current proprioception before composed control can be tested"
+prediction = "The complete synthesis passes frozen references, structural locality, reverse execution, and first motor output; the upward ladder then either reaches full body and unlocks ablation or stops at its first actual failed composition."
+falsifiers = [
+  "A frozen parent classification, replay, quiescence, or default behavior changes.",
+  "Structural work grows with dormant topology or formed paths change.",
+  "Either useful causal surface fails reverse execution or an unrelated surface recalls.",
+  "The four-step complete candidate still produces no motor movement.",
+  "An upward stage advances after a prerequisite fails or an ablation runs before full success.",
+]
+positive_reference = "sensorimotor-participation-continuity-v1 classifications plus the exact SensorimotorSynthesis candidate"
+negative_controls = [
+  "unchanged parent protocols",
+  "dormant-output scale 4 versus 1024",
+  "unrelated and stale surfaces",
+  "shifted motor timing",
+  "forbidden early ablation",
+]
+arm_paths = [
+  "arms/complete-candidate-reference.toml",
+  "arms/physical-continuity.toml",
+  "arms/reverse-surface-execution.toml",
+  "arms/first-motor-output.toml",
+  "arms/one-joint-control.toml",
+  "arms/repeated-axis-control.toml",
+  "arms/digit-separation.toml",
+  "arms/binocular-depth.toml",
+  "arms/vocal-auditory-control.toml",
+  "arms/full-body-composition.toml",
+  "arms/downward-ablations.toml",
+]
+max_parallel_arms = 11
+max_rounds = 2
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 110
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

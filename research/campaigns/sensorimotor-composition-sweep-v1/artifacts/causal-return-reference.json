@@ -1,0 +1,12 @@
+{
+  "schema": "sensorimotor-composition-sweep/v1",
+  "arm": "causal-return-reference",
+  "outcome": "survived",
+  "observations": {
+    "causal": "survived",
+    "delayed": "survived"
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

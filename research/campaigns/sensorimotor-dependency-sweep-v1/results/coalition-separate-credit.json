@@ -1,0 +1,8 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "coalition-separate-credit",
+  "outcome": "survived",
+  "falsifier": null,
+  "observations": {"summary": "each coalition consequence strengthened only its own participating path", "exact_replay": true, "naturally_quiescent": true},
+  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/coalition-separate-credit.json", "sha256": "a2e6bcc89087ea012c1c6b5d3f7764c8ba0214e21602f541568bd7fe9c552ec3"}]
+}

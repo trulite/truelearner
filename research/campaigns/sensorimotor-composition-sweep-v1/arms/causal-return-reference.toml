@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "causal-return-reference"
+campaign = "sensorimotor-composition-sweep-v1"
+kind = "control"
+parents = ["sensorimotor-dependency-sweep-v1:causal-local-credit", "sensorimotor-dependency-sweep-v1:delayed-return-lifetime"]
+imports = ["frozen exact causal credit", "frozen 20-tick lifetime"]
+mechanism = "Replay the frozen causal credit and delayed-return probes unchanged."
+prediction = "Both frozen references survive exactly."
+falsifiers = ["Either reference changes.", "Replay or quiescence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "dc7f9dcbbb88c09e22d073af3df6640fbddccd164f47e516706d000b8b3bb73b"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml probe_causal_return_reference"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml -- --arm causal-return-reference"

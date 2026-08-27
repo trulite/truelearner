@@ -1,0 +1,20 @@
+{
+  "schema": "sensorimotor-composition-sweep/v1",
+  "arm": "surface-order-alignment",
+  "outcome": "falsified",
+  "observations": {
+    "forward_recall": [
+      true,
+      false
+    ],
+    "forward_unrelated": false,
+    "reverse_recall": [
+      false,
+      true
+    ],
+    "reverse_unrelated": false
+  },
+  "falsifier": "surface association depended on arrival order or included an unrelated surface",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

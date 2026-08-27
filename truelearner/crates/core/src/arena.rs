@@ -13,11 +13,13 @@ pub struct Arena {
     pub(crate) incoming_index: Vec<Vec<LinkId>>,
     pub(crate) zero_delay_live_links: usize,
     pub(crate) output_junctions: Vec<bool>,
+    pub(crate) outputs_by_position: BTreeMap<i32, Vec<JunctionId>>,
     pub(crate) activation: Vec<i64>,
     pub(crate) strength: Vec<i64>,
     pub(crate) life: Vec<u64>,
     pub(crate) decay_remainder: Vec<u64>,
     pub(crate) active_junctions: HashSet<JunctionId>,
+    pub(crate) aging_links: BTreeSet<LinkId>,
 }
 
 impl Arena {
@@ -33,11 +35,13 @@ impl Arena {
             incoming_index: Vec::new(),
             zero_delay_live_links: 0,
             output_junctions: Vec::new(),
+            outputs_by_position: BTreeMap::new(),
             activation: Vec::new(),
             strength: Vec::new(),
             life: Vec::new(),
             decay_remainder: Vec::new(),
             active_junctions: HashSet::new(),
+            aging_links: BTreeSet::new(),
         }
     }
 
@@ -107,6 +111,12 @@ impl Arena {
             .iter()
             .filter(|link| link.live && link.delay == 0)
             .count();
+        self.aging_links = self
+            .links
+            .iter()
+            .filter(|link| link.live && link.resistance < u32::MAX)
+            .map(|link| link.id)
+            .collect();
         self.find_output_junctions();
     }
 
@@ -118,13 +128,13 @@ impl Arena {
     pub(crate) fn allocated_bytes(&self) -> usize {
         self.junctions.capacity() * std::mem::size_of::<JunctionState>()
             + self.links.capacity() * std::mem::size_of::<LinkState>()
-            + self.junction_slots.capacity() * std::mem::size_of::<Option<JunctionSlot>>()
-            + self.link_slots.capacity() * std::mem::size_of::<Option<LinkSlot>>()
-            + indexed_bytes(&self.outgoing_index, self.outgoing_index.capacity())
-            + indexed_bytes(&self.incoming_index, self.incoming_index.capacity())
+            + self.junction_slots.len() * std::mem::size_of::<Option<JunctionSlot>>()
+            + self.link_slots.len() * std::mem::size_of::<Option<LinkSlot>>()
+            + indexed_bytes(&self.outgoing_index)
+            + indexed_bytes(&self.incoming_index)
             + self.active_junctions.len()
                 * (std::mem::size_of::<JunctionId>() + 3 * std::mem::size_of::<usize>())
-            + self.output_junctions.capacity() * std::mem::size_of::<bool>()
+            + self.output_junctions.len() * std::mem::size_of::<bool>()
     }
 
     pub(crate) fn junction_by_id(&self, id: JunctionId) -> Option<&JunctionState> {
@@ -138,10 +148,10 @@ impl Arena {
     }
 }
 
-fn indexed_bytes(index: &[Vec<LinkId>], capacity: usize) -> usize {
-    capacity * std::mem::size_of::<Vec<LinkId>>()
+fn indexed_bytes(index: &[Vec<LinkId>]) -> usize {
+    std::mem::size_of_val(index)
         + index
             .iter()
-            .map(|links| links.capacity() * std::mem::size_of::<LinkId>())
+            .map(|links| links.len() * std::mem::size_of::<LinkId>())
             .sum::<usize>()
 }

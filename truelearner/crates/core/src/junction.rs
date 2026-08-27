@@ -106,6 +106,24 @@ impl Body {
             });
         }
 
+        let causal_origin = if self.protocol.is_sensorimotor() {
+            let mut origins = incidence
+                .inputs
+                .iter()
+                .map(|firing| firing.origin_physical)
+                .collect::<Vec<_>>();
+            origins.sort_unstable();
+            origins.dedup();
+            if origins.len() == 1 {
+                origins[0]
+            } else {
+                self.arena
+                    .junction_snapshot(self.arena.junction_slot(incidence.junction).unwrap().0)
+                    .physical_id
+            }
+        } else {
+            0
+        };
         let (state, held) = self.hold_input(incidence.junction, strength);
         if self.trace_physics {
             run.trace.push(PhysicalTransition {
@@ -128,6 +146,7 @@ impl Body {
             junction: incidence.junction,
             state,
             external,
+            causal_origin,
         })
     }
 

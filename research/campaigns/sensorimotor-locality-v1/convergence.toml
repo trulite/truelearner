@@ -1,0 +1,31 @@
+schema = "research-convergence/v1"
+campaign = "sensorimotor-locality-v1"
+round = 1
+survived = [
+  "global-return-reference",
+  "shuffled-local-return",
+]
+falsified = ["causal-local-return"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "actual output participation can open a temporary return from an anonymous physically wired source without semantic identity",
+  "the fired physical source selects which participating path receives outcome while leaving accepted strengthening unchanged",
+  "causal credit isolation and alternative motor participation are distinct physical transitions",
+]
+strongest_counterexamples = [
+  "global-return-reference: one returned consequence strengthened both simultaneously participating paths",
+  "shuffled-local-return: equal-count local sources strengthened exactly one path, but physical miswiring selected the noncausal path",
+  "causal-local-return: exact isolation passed, then the anonymous joint moved positive four times, saturated at its upper limit, selected no negative movement in the remaining 36 steps, and never escaped",
+]
+retired_families = [
+  "causal locality alone as a sufficient law for emergent sensorimotor control",
+  "additional outcome channels alone as a source of alternative motor participation",
+  "running multi-axis, binocular, vocal-auditory, or composition evidence after single-joint reversal has failed",
+]
+next_discriminators = [
+  "hold exact causal-local return fixed and locate why a consequential path remains selected after it produces no local change",
+  "compare benchmark-blind local opportunity-release laws in the one-joint fixture before reopening any multimodal stage",
+  "require the next candidate to preserve exact isolation while producing both directions and recovery from either reflected limit",
+  "only after single-joint reversal survives should the frozen repeated-axis, digit, binocular, vocal-auditory, and composition ladder resume",
+]

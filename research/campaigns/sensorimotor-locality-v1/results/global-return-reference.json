@@ -1,0 +1,15 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "global-return-reference",
+  "outcome": "survived",
+  "falsifier": null,
+  "observations": {
+    "participating_outputs": 2,
+    "credited_paths": 2,
+    "local_return_updates": 4,
+    "prediction_confirmed": "one global consequence credited both participating paths",
+    "exact_replay": true,
+    "naturally_quiescent": true
+  },
+  "artifacts": []
+}

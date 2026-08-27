@@ -1,0 +1,36 @@
+{
+  "schema": "sensorimotor-composition-sweep/v1",
+  "arm": "entrenched-continuation",
+  "outcome": "falsified",
+  "observations": {
+    "trials": [
+      {
+        "continued_fresh": true,
+        "fresh_strength": 8589934592,
+        "incumbent_strength": 8589934592,
+        "incumbent_training": 1
+      },
+      {
+        "continued_fresh": false,
+        "fresh_strength": 8589934592,
+        "incumbent_strength": 15726866432,
+        "incumbent_training": 2
+      },
+      {
+        "continued_fresh": false,
+        "fresh_strength": 8589934592,
+        "incumbent_strength": 36662186282,
+        "incumbent_training": 4
+      },
+      {
+        "continued_fresh": false,
+        "fresh_strength": 8589934592,
+        "incumbent_strength": 93674444909,
+        "incumbent_training": 8
+      }
+    ]
+  },
+  "falsifier": "one fresh consequence did not renew against an entrenched incumbent",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

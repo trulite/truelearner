@@ -1,0 +1,16 @@
+{
+  "schema": "sensorimotor-dependency-sweep/v1",
+  "arm": "delayed-return-lifetime",
+  "outcome": "survived",
+  "prediction": "a used path remains exactly creditable after 20 ticks",
+  "observations": {
+    "delay_ticks": 20,
+    "local_return_updates": 2,
+    "remaining_returns": 0,
+    "strength_after": 8589934592,
+    "strength_before": 4294967296
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

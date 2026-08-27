@@ -47,6 +47,8 @@ pub(crate) struct LinkState {
     pub(crate) resistance: u32,
     pub(crate) live: bool,
     pub(crate) participation_level: u64,
+    pub(crate) last_consequence_tick: Option<i64>,
+    pub(crate) return_origins: Vec<u64>,
     pub(crate) plastic_support: u64,
     pub(crate) decay_load: u64,
     pub(crate) mode: TransmissionMode,
@@ -58,6 +60,8 @@ impl LinkState {
         self.resistance = 0;
         self.live = false;
         self.participation_level = 0;
+        self.last_consequence_tick = None;
+        self.return_origins.clear();
         self.plastic_support = 0;
         self.decay_load = 0;
         self.generation = Generation(self.generation.0.wrapping_add(1).max(1));
@@ -110,6 +114,8 @@ impl Arena {
             resistance: spec.resistance,
             live: spec.resistance > 0,
             participation_level: 0,
+            last_consequence_tick: None,
+            return_origins: Vec::new(),
             plastic_support: 0,
             decay_load: 0,
             mode: spec.mode,
@@ -126,10 +132,22 @@ impl Arena {
             self.links.push(link);
             self.link_slots.push(Some(slot));
         }
+        self.aging_links.remove(&id);
+        if spec.resistance > 0 && spec.resistance < u32::MAX {
+            self.aging_links.insert(id);
+        }
         self.outgoing_index[spec.from.0 as usize].push(id);
         self.incoming_index[spec.to.0 as usize].push(id);
         if self.junctions[source_slot.0].region != self.junctions[target_slot.0].region {
+            let newly_output = !self.output_junctions[spec.from.0 as usize];
             self.output_junctions[spec.from.0 as usize] = true;
+            if newly_output {
+                let position = self.junctions[source_slot.0].position;
+                let outputs = self.outputs_by_position.entry(position).or_default();
+                outputs.push(spec.from);
+                outputs.sort_unstable();
+                outputs.dedup();
+            }
         }
         let index = id.0 as usize;
         if self.strength.len() <= index {

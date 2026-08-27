@@ -1,0 +1,13 @@
+{
+  "schema": "sensorimotor-physical-boundaries/v1",
+  "arm": "one-joint-recomposition",
+  "outcome": "inconclusive",
+  "observations": {
+    "bounded_return": "survived",
+    "recent": "falsified",
+    "wave": "survived"
+  },
+  "falsifier": "an actual one-joint prerequisite was falsified",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

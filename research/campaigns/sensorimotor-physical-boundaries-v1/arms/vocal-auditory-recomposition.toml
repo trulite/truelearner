@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "vocal-auditory-recomposition"
+campaign = "sensorimotor-physical-boundaries-v1"
+kind = "composition"
+parents = ["bounded-return-eligibility", "surface-return-cohort"]
+imports = ["one anonymous output", "two delayed acoustic surfaces", "learned second output", "no-consequence release"]
+mechanism = "Run a nonlinguistic delayed acoustic loop only after actual return and surface laws survive."
+prediction = "Both acoustic surfaces associate, invoke the second output, and later release."
+falsifiers = ["Any actual prerequisite fails.", "The loop does not recall or locks."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "68f6e6bfd2c1542a8052cdcb8bd6209308796eedaf3366f574401d5476c0e797"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-physical-boundaries/Cargo.toml probe_vocal_auditory_recomposition"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-physical-boundaries/Cargo.toml -- --arm vocal-auditory-recomposition"

@@ -1,0 +1,23 @@
+{
+  "schema": "sensorimotor-dependency-sweep/v1",
+  "arm": "scale-selectivity",
+  "outcome": "falsified",
+  "prediction": "active output and work stay bounded as available surface grows",
+  "observations": {
+    "large_active_frontier": 0,
+    "large_available": 64,
+    "large_outputs": 64,
+    "large_resident_bytes": 19520,
+    "large_work": 1158,
+    "output_bounded": false,
+    "small_active_frontier": 0,
+    "small_available": 4,
+    "small_outputs": 4,
+    "small_resident_bytes": 1280,
+    "small_work": 78,
+    "work_bounded": false
+  },
+  "falsifier": "active output or work scaled with the full available surface",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

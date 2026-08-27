@@ -1,0 +1,20 @@
+{
+  "schema": "sensorimotor-dependency-sweep/v1",
+  "arm": "consequence-supported-continuation",
+  "outcome": "survived",
+  "prediction": "one real consequence keeps the fresh route eligible for bounded reuse",
+  "observations": {
+    "consecutive_fresh_cycles": 4,
+    "continuation_outputs": [
+      3010,
+      3010,
+      3010,
+      3010
+    ],
+    "fresh_output": 3010,
+    "prior_output": 3011
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

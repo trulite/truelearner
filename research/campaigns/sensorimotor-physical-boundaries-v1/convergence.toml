@@ -1,0 +1,96 @@
+schema = "research-convergence/v1"
+campaign = "sensorimotor-physical-boundaries-v1"
+round = 1
+survived = [
+  "current-physics-reference",
+  "bounded-return-eligibility",
+  "active-frontier-scaling",
+  "wave-alternative-sparsity",
+]
+falsified = [
+  "recent-eligibility-over-strength",
+  "learned-coalition-preservation",
+  "surface-return-cohort",
+]
+inconclusive = [
+  "one-joint-recomposition",
+  "binocular-hand-recomposition",
+  "vocal-auditory-recomposition",
+  "full-body-recomposition",
+]
+infrastructure_failed = []
+shared_mechanisms = [
+  "ordinary finite physical resistance on temporary returns preserved exact credit at delays 1 and 20 while rejecting delay 200",
+  "an indexed aging frontier held one active output, work 60, scans 18, and active size 4 constant as dormant stable outputs grew from 4 to 1024",
+  "propagated anonymous physical origin reduced one shared eight-output fanout to one while preserving eight independently originated outputs",
+  "all unchanged predecessor classifications, exact checkpoint replay, and natural quiescence survived",
+  "the experimental protocol demonstrates that the three surviving local boundaries coexist, but it is not adopted physics",
+]
+strongest_counterexamples = [
+  "recent-eligibility-over-strength: recent consequence never continued the fresh route at ratios 1, 2, 4, or 8 even though incumbent strength remained unchanged and later no-consequence release succeeded",
+  "learned-coalition-preservation: origin-scoped sparsity kept both controls at one output, but a simultaneously consequential learned pair also recalled only one",
+  "surface-return-cohort: both orders produced zero local return updates and neither surface recalled, so the failure precedes duplicate, order, or cohort-retention policy",
+]
+retired_families = [
+  "an indefinitely held return as necessary for valid 20-tick consequence",
+  "global topology aging as necessary to preserve dormant stable structure",
+  "spatial distance alone as the only available distinction between one shared fanout and independent far outputs",
+  "adding a last-consequence timestamp alone as sufficient to make a fresh consequential route visible to the next competition",
+  "preserving a same-tick consequence mark alone as sufficient to recall a learned output coalition",
+  "tuning surface cohort capacity before establishing that a return is opened and reached by either surface",
+]
+next_discriminators = [
+  "trace the exact write and read path of consequential eligibility from local return update to the next candidate ranking, while holding strength and topology fixed",
+  "trace path formation, output participation, return opening, and modulatory delivery for the first local surface before testing a multi-origin cohort",
+  "trace causal origin and last-consequence state across both members of a trained pair to find where the learned coalition collapses to one",
+  "compose only bounded return, active frontier, and origin sparsity in a neutral combined control while keeping all three falsified mechanisms absent",
+  "retry one-joint and later body stages only after their actual missing isolated transitions survive",
+]
+
+[[new_arm]]
+id = "eligibility-write-read-localization"
+kind = "diagnostic"
+parents = ["recent-eligibility-over-strength"]
+imports = ["one fresh consequence", "fixed incumbent strength", "next competition trace"]
+interaction_prediction = "The first divergence lies between the consequence updating a participating drive link and the next candidate reading that same link as recently eligible."
+falsifiers = [
+  "The write and read address the same live link and the fresh candidate is still not selected.",
+  "The divergence occurs before local return update.",
+  "Localization requires semantic route or action identity.",
+]
+
+[[new_arm]]
+id = "surface-return-opening-localization"
+kind = "diagnostic"
+parents = ["surface-return-cohort", "bounded-return-eligibility"]
+imports = ["one action output", "one local surface", "return formation and delivery trace"]
+interaction_prediction = "The first surface failure occurs before cohort policy, at path participation, return creation, or modulatory delivery."
+falsifiers = [
+  "A local return update occurs but recall still fails.",
+  "The single-surface trace succeeds and only the second distinct surface fails.",
+  "The fixture supplies the association it claims to measure.",
+]
+
+[[new_arm]]
+id = "coalition-lineage-localization"
+kind = "diagnostic"
+parents = ["learned-coalition-preservation", "wave-alternative-sparsity"]
+imports = ["trained consequential pair", "untrained shared fanout", "per-member origin and consequence trace"]
+interaction_prediction = "One member loses shared consequential lineage before or during origin-scoped selection, explaining why the trained pair collapses while untrained sparsity remains correct."
+falsifiers = [
+  "Both candidates retain identical recent consequential lineage and one is still suppressed.",
+  "The pair never forms two executable routes before selection.",
+  "The distinction requires a named coalition or body part.",
+]
+
+[[new_arm]]
+id = "surviving-boundaries-composition"
+kind = "composition"
+parents = ["bounded-return-eligibility", "active-frontier-scaling", "wave-alternative-sparsity"]
+imports = ["finite return", "indexed aging frontier", "physical-origin sparsity"]
+interaction_prediction = "All three surviving boundaries retain their exact isolated predicates in one neutral combined fixture without depending on the falsified mechanisms."
+falsifiers = [
+  "Any isolated predicate changes under composition.",
+  "Replay or quiescence changes.",
+  "The composition introduces semantic or evaluator authority.",
+]

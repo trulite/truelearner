@@ -44,15 +44,15 @@ class ResearchContractTest(unittest.TestCase):
                 self.assertFalse(any(token in text for token in forbidden))
                 self.assertTrue((SKILLS / skill / "agents" / "openai.yaml").is_file())
 
-    def test_all_forty_lessons_are_encoded(self):
+    def test_original_lessons_remain_and_new_lessons_have_unique_ids(self):
         import tomllib
 
         value = tomllib.loads(
             (ROOT / "research" / "programs" / "learner" / "lessons.toml").read_text(encoding="utf-8")
         )
         lessons = value["lesson"]
-        self.assertEqual(40, len(lessons))
-        self.assertEqual(40, len({lesson["id"] for lesson in lessons}))
+        self.assertGreaterEqual(len(lessons), 40)
+        self.assertEqual(len(lessons), len({lesson["id"] for lesson in lessons}))
         self.assertEqual({"learner-physics", "research-method"}, {lesson["kind"] for lesson in lessons})
 
     def test_program_graph_validation(self):

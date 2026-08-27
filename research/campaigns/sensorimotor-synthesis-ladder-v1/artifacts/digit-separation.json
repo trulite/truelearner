@@ -1,0 +1,12 @@
+{
+  "schema": "sensorimotor-synthesis-ladder/v1",
+  "arm": "digit-separation",
+  "outcome": "inconclusive",
+  "observations": {
+    "outcome": "falsified",
+    "prerequisite": "one-joint-control"
+  },
+  "falsifier": "an upward prerequisite failed",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

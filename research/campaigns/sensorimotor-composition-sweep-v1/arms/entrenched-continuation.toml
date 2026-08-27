@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "entrenched-continuation"
+campaign = "sensorimotor-composition-sweep-v1"
+kind = "diagnostic"
+parents = ["opportunity-reference"]
+imports = ["physically trained incumbent", "fresh consequence"]
+mechanism = "Sweep incumbent training ratios 1, 2, 4, and 8 before one consequential fresh opportunity."
+prediction = "The fresh route receives bounded renewed participation despite the incumbent advantage, then releases without consequence."
+falsifiers = ["Renewal fails as incumbent strength grows.", "Fresh route locks without renewed consequence."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "dc7f9dcbbb88c09e22d073af3df6640fbddccd164f47e516706d000b8b3bb73b"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml probe_entrenched_continuation"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml -- --arm entrenched-continuation"

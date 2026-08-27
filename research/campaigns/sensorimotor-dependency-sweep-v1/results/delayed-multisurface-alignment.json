@@ -1,0 +1,8 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "delayed-multisurface-alignment",
+  "outcome": "falsified",
+  "falsifier": "The first delayed surface returned and closed the action path; the second delayed surface produced zero return updates.",
+  "observations": {"first_surface_return_updates": 2, "second_surface_return_updates": 0, "exact_replay": true, "naturally_quiescent": true},
+  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/delayed-multisurface-alignment.json", "sha256": "c245c0850d57497a7ed66287ea773f55a614d4e50f6ba3f556f88ce1c8da25b7"}]
+}

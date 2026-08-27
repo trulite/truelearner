@@ -1,0 +1,28 @@
+{
+  "schema": "sensorimotor-physical-boundaries/v1",
+  "arm": "full-body-recomposition",
+  "outcome": "inconclusive",
+  "observations": {
+    "prerequisites": [
+      {
+        "arm": "one-joint-recomposition",
+        "outcome": "inconclusive"
+      },
+      {
+        "arm": "active-frontier-scaling",
+        "outcome": "survived"
+      },
+      {
+        "arm": "binocular-hand-recomposition",
+        "outcome": "inconclusive"
+      },
+      {
+        "arm": "vocal-auditory-recomposition",
+        "outcome": "inconclusive"
+      }
+    ]
+  },
+  "falsifier": "one or more actual full-body prerequisites did not survive",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

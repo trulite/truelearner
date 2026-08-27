@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "eye-hand-composition"
+campaign = "sensorimotor-composition-sweep-v1"
+kind = "composition"
+parents = ["binocular-coalition", "digit-hand-coalitions", "sensorimotor-dependency-sweep-v1:composed-output-sequence"]
+imports = ["paired sensing", "hand coalition", "learned two-stage sequence"]
+mechanism = "Invoke a hand coalition from paired sensing and deliver its tactile consequence only if actual components survive."
+prediction = "Paired sensing recalls the hand coalition and physical touch consequence without direct motor injection."
+falsifiers = ["An actual component prerequisite fails.", "The supplied components survive but the sequence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "dc7f9dcbbb88c09e22d073af3df6640fbddccd164f47e516706d000b8b3bb73b"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml probe_eye_hand_composition"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml -- --arm eye-hand-composition"

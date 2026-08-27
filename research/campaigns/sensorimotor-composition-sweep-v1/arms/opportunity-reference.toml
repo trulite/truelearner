@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "opportunity-reference"
+campaign = "sensorimotor-composition-sweep-v1"
+kind = "control"
+parents = ["sensorimotor-dependency-sweep-v1:local-alternative-exposure", "sensorimotor-dependency-sweep-v1:displaced-return-closure", "sensorimotor-dependency-sweep-v1:no-consequence-release"]
+imports = ["frozen exposure", "frozen supersession", "frozen release"]
+mechanism = "Replay the frozen opportunity probes unchanged."
+prediction = "Exposure, exact closure, and no-consequence release survive."
+falsifiers = ["Any frozen opportunity observation changes.", "Replay or quiescence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "dc7f9dcbbb88c09e22d073af3df6640fbddccd164f47e516706d000b8b3bb73b"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml probe_opportunity_reference"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml -- --arm opportunity-reference"

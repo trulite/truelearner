@@ -1,0 +1,56 @@
+schema = "research-protocol/v1"
+id = "sensorimotor-opportunity-v1"
+program = "learner-physics"
+claim = "SENSORIMOTOR-OPPORTUNITY"
+status = "preregistered"
+parent_authority = "277fa3141a5d028f738984c0ccede76e615ad88e"
+question = "When a used output path remains open without a local outcome, can one physically neighboring fresh output receive one bounded opportunity and supersede only that unanswered return, preserving causal-local credit while enabling an undivided learner to leave either joint limit?"
+observables = [
+  "the path that baseline choice would admit, its physically wired outcome source, and whether its temporary return remains open",
+  "the single neighboring output admitted after an unanswered return and every far output left unchanged",
+  "the exact return links retained, superseded, returned, and credited",
+  "ordered joint movement, direction, first and second limit reached, and escape from each reflected limit",
+  "cross-axis output, return closure, credit, replay equality, natural quiescence, physical work, and resident bytes",
+]
+frozen_variables = [
+  "authority parent 277fa3141a5d028f738984c0ccede76e615ad88e and source revision 67ee08f2cc4b7bd05edc00a8574f484e36aa37d6",
+  "sensorimotor-locality-v1 candidate diff abbe725a1159b77c3cc3c6b8b41c215f3f891e4a9e7889ea2311e301fb099f38",
+  "input, junction, link, path, output, strength, formation, ordinary choice, participation, strengthening, consolidation, timing, decay, and body integration laws",
+  "anonymous physical topology; no action, axis, direction, digit, eye, ear, voice, limit, target, capability, score, or evaluator identity enters the learner",
+  "the causal-local isolation fixture, global and shuffled controls, accepted core boundary controls, exact replay, and natural quiescence",
+]
+permitted_changes = [
+  "an experimental physical protocol may observe whether the otherwise admitted path has a live return from the outcome source wired to that output",
+  "when that path awaits outcome and a fresh output exists within the existing local competition radius, exactly one fresh output may be admitted for that local moment",
+  "a deferral arm retains the displaced return; a replacement arm closes only the displaced return when the fresh output actually receives the opportunity",
+  "the research-only ladder may resume later neutral body stages only after the one-joint gate passes",
+]
+positive_predicates = [
+  "the unchanged causal-local reference preserves exact isolation and its recorded one-direction saturation history",
+  "deferral admits one fresh local output after no outcome while retaining the displaced return and leaving far outputs unchanged",
+  "replacement admits the same fresh output, closes only the displaced unanswered return, and credits only the fresh output after its consequence",
+  "without an intervening competing opportunity, an immediate or delayed outcome returns and strengthens the original path exactly",
+  "the replacement arm produces consequential movement in both directions, reaches and later leaves both physical limits, and commutes with left-right reflection",
+  "unrelated axes neither fire nor lose returns during a local replacement, and disconnected alternatives receive no credit",
+  "all surviving stages retain exact replay, reference equality, natural quiescence, semantic isolation, and bounded work",
+]
+negative_controls = [
+  "the frozen causal-local reference preserves exact credit but remains saturated in one direction",
+  "the frozen shuffled local wiring credits the wrong physical path",
+  "deferral without superseded closure retains the old return and must not be reinterpreted as successful replacement",
+  "a far ready output outside the accepted local radius is not an alternative",
+  "passive change, blocked output, equal opposing cancellation, disconnected sensor, and unrelated moving-axis fixtures receive no local credit",
+  "a delayed outcome with no intervening local competitor is not treated as absent",
+]
+stop_conditions = [
+  "causal-local isolation, its global control, or its shuffled control changes",
+  "more than one fresh local output participates, or any far output changes eligibility, return state, or credit",
+  "a displaced unanswered return remains creditable after replacement, or a valid delayed return closes without an intervening competing opportunity",
+  "the replacement arm fails either movement direction or fails to leave either reflected physical limit",
+  "the mechanism requires semantic identity, reconstructed probable history, evaluator feedback, or a specialist learner",
+  "replay, reference equality, natural quiescence, accepted boundaries, runtime, memory, or work bounds fail",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

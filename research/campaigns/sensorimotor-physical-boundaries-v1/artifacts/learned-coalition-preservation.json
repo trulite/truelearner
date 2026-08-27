@@ -1,0 +1,13 @@
+{
+  "schema": "sensorimotor-physical-boundaries/v1",
+  "arm": "learned-coalition-preservation",
+  "outcome": "falsified",
+  "observations": {
+    "either_alone_outputs": 1,
+    "learned_pair_outputs": 1,
+    "untrained_shared_outputs": 1
+  },
+  "falsifier": "learned consequential cohort did not survive alternative sparsity controls",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

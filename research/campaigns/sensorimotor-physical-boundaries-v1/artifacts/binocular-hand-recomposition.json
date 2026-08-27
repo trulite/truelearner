@@ -1,0 +1,12 @@
+{
+  "schema": "sensorimotor-physical-boundaries/v1",
+  "arm": "binocular-hand-recomposition",
+  "outcome": "inconclusive",
+  "observations": {
+    "coalition": "falsified",
+    "surfaces": "falsified"
+  },
+  "falsifier": "an actual binocular-hand prerequisite was falsified",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

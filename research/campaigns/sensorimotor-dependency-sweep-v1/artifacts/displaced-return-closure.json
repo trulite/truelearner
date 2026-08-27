@@ -1,0 +1,17 @@
+{
+  "schema": "sensorimotor-dependency-sweep/v1",
+  "arm": "displaced-return-closure",
+  "outcome": "survived",
+  "prediction": "replacement closes only the displaced unanswered return",
+  "observations": {
+    "fresh_output": 3010,
+    "fresh_return_updates": 2,
+    "prior_output": 3011,
+    "returns_after_fresh_consequence": 0,
+    "returns_before_fresh_consequence": 1,
+    "superseded_returns": 1
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

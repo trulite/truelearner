@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "one-joint-composition"
+campaign = "sensorimotor-composition-sweep-v1"
+kind = "composition"
+parents = ["entrenched-continuation", "context-shift-continuation", "causal-window", "choice-to-motion"]
+imports = ["frozen one-joint replacement world"]
+mechanism = "Re-run the frozen one-joint composition and classify it against both-limit recovery."
+prediction = "Both directions occur and both reflected limits are reached and left."
+falsifiers = ["Either limit is not reached and left.", "Replay or quiescence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "dc7f9dcbbb88c09e22d073af3df6640fbddccd164f47e516706d000b8b3bb73b"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml probe_one_joint_composition"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-composition-sweep/Cargo.toml -- --arm one-joint-composition"

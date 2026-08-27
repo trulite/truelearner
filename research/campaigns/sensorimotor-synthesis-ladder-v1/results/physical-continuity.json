@@ -1,0 +1,1 @@
+{"schema":"research-arm-result/v1","arm":"physical-continuity","outcome":"survived","falsifier":null,"observations":{"local_path_proposals":2,"structural_scans":{"4":1,"64":1,"1024":1}},"artifacts":[{"path":"research/campaigns/sensorimotor-synthesis-ladder-v1/artifacts/physical-continuity.json","sha256":"8e59df6151dc5e7bed92ab9f0d48c7299665173641c103716a9dc463bbf93628"}]}

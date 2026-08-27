@@ -1,0 +1,8 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "composed-output-sequence",
+  "outcome": "survived",
+  "falsifier": null,
+  "observations": {"summary": "output A and then output B recalled with zero direct motor inputs", "exact_replay": true, "naturally_quiescent": true},
+  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/composed-output-sequence.json", "sha256": "0509c5584f142d14332f6a91c4553c7b32972c93ace8ced93cd1e97d3f68e581"}]
+}

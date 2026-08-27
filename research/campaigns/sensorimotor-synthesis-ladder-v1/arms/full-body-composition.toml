@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "full-body-composition"
+campaign = "sensorimotor-synthesis-ladder-v1"
+kind = "composition"
+parents = ["repeated-axis-control", "digit-separation", "binocular-depth", "vocal-auditory-control"]
+imports = ["all surviving upward body rungs"]
+mechanism = "Run proprioceptive, digit, binocular, and acoustic physical surfaces in one undivided learner."
+prediction = "All component predicates coexist with exact replay and natural quiescence."
+falsifiers = ["Any actual prerequisite fails.", "A component disappears or interferes under composition."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "e06f21f611d6d7ec16516d7efdf2270fbad551a6ea7c41107e3582adbf95bdd4"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml downward_ablation_is_conditional_on_full_success"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml -- --arm full-body-composition"

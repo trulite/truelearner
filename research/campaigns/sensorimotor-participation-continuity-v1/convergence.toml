@@ -1,0 +1,96 @@
+schema = "research-convergence/v1"
+campaign = "sensorimotor-participation-continuity-v1"
+round = 1
+survived = [
+  "current-candidate-reference",
+  "surface-return-opening-localization",
+  "surviving-boundaries-composition",
+]
+falsified = [
+  "eligibility-write-read-localization",
+  "coalition-lineage-localization",
+  "participation-continuity-solves",
+]
+inconclusive = [
+  "one-joint-recomposition",
+  "binocular-hand-recomposition",
+  "vocal-auditory-recomposition",
+  "full-body-recomposition",
+]
+infrastructure_failed = []
+shared_mechanisms = [
+  "the frozen parent classifications, exact replay, and natural quiescence remained unchanged",
+  "the zero-update surface counterexample was caused by distance-zero topology: distance one formed a path, opened one finite return, and delivered two local updates",
+  "under corrected prerequisite fixtures, current candidate physics let recent consequence beat the incumbent through ratio 8 and release after expiry",
+  "under corrected prerequisite fixtures, two independently admitted cooperating outputs received same-tick consequence lineage and both recalled under one later shared origin",
+  "one action return retained both useful physical surface origins once in either order, rejected duplicate and unrelated origins, and expired naturally",
+  "finite return, active-frontier aging, and origin-scoped sparsity retained their exact isolated predicates under neutral fan-in",
+]
+strongest_counterexamples = [
+  "eligibility-write-read-localization: the presumed fresh output was unintended dynamic topology and received zero return updates at every ratio, so no fresh write/read existed",
+  "coalition-lineage-localization: one proposed member had no executable consequential path and the later shared-origin read saw consequence ticks null and 3",
+  "participation-continuity-solves: action-to-surface origins [90001, 90002] were learned once in both orders, but neither surface later expressed the motor action",
+  "one-joint-recomposition: all isolated prerequisites were supplied, yet the four-step candidate preflight produced zero changed steps and the full 40-step run exceeded the development budget under topology growth",
+]
+retired_families = [
+  "historical strength as the demonstrated cause of the original recent-route fixture failure",
+  "coalition selection as the demonstrated cause when both proposed members never first obtained executable consequential paths",
+  "surface cohort capacity as the cause of a fixture that formed no action path",
+  "treating action-to-surface association as sufficient evidence of reverse surface-to-action execution",
+  "advancing embodied composition after a zero-movement one-joint preflight",
+]
+next_discriminators = [
+  "freeze standalone corrected recent-route and cooperating-pair replications so their positive observations are not hidden inside a falsified hybrid arm",
+  "separate action-to-surface association from surface-to-action executable consolidation with distinct physical predicates and no reverse semantic assumption",
+  "trace the first four one-joint steps from sensory path formation through candidate admission, motor threshold, output, and physical motion to locate the first zero-movement divergence",
+  "measure candidate structural proposal count and path-formation scan cost per step, then test a local structural frontier before rerunning forty steps",
+  "retry binocular-hand, vocal-auditory, and full-body stages only after the one-joint output and structural-cost boundaries survive",
+]
+
+[[new_arm]]
+id = "corrected-continuity-replications"
+kind = "hybrid"
+parents = ["eligibility-write-read-localization", "coalition-lineage-localization", "participation-continuity-solves"]
+imports = ["corrected executable-path prerequisites", "recent bounded consequence", "same-tick per-member consequence lineage"]
+interaction_prediction = "Recent continuation and cooperating-pair recall reproduce as separate positives while reverse surface execution remains explicitly outside their claims."
+falsifiers = [
+  "Recent continuation loses at ratio 8 or fails to release.",
+  "Both trained pair members do not recall under one shared origin.",
+  "The fixture supplies the selected output or named coalition.",
+]
+
+[[new_arm]]
+id = "action-surface-versus-reverse-execution"
+kind = "diagnostic"
+parents = ["surface-return-opening-localization", "participation-continuity-solves"]
+imports = ["valid action path", "delayed local surfaces", "bounded distinct return origins"]
+interaction_prediction = "Action consequence association is present as retained return origins, while reverse execution diverges later at surface-path participation or consolidation."
+falsifiers = [
+  "The action return does not retain both useful origins once.",
+  "A surface path is already executable and consequential but recall still fails.",
+  "The distinction requires semantic direction labels.",
+]
+
+[[new_arm]]
+id = "first-motor-output-localization"
+kind = "diagnostic"
+parents = ["one-joint-recomposition", "surviving-boundaries-composition"]
+imports = ["four-step one-joint preflight", "physical candidate trace", "motor threshold and output observations"]
+interaction_prediction = "The first one-joint divergence lies before physical motion, at path formation, candidate admission, or motor threshold crossing."
+falsifiers = [
+  "A valid motor output occurs but the world records no motion.",
+  "The first divergence is evaluator-side.",
+  "Localization requires axis or direction identity inside the learner.",
+]
+
+[[new_arm]]
+id = "local-structural-frontier"
+kind = "solve"
+parents = ["one-joint-recomposition", "surviving-boundaries-composition"]
+imports = ["active-frontier indexing", "source-local output neighborhood", "exact output reference"]
+interaction_prediction = "Path formation visits only the source-local output neighborhood, bounding structural proposals and scans per active step without changing formed paths."
+falsifiers = [
+  "Structural work still grows with dormant or previously formed topology.",
+  "The formed path set or outputs change.",
+  "A semantic fovea or evaluator-selected active set is introduced.",
+]

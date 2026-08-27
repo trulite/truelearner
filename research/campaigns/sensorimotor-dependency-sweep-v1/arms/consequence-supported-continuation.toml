@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "consequence-supported-continuation"
+campaign = "sensorimotor-dependency-sweep-v1"
+kind = "diagnostic"
+parents = ["local-alternative-exposure", "displaced-return-closure"]
+imports = ["fresh local consequence", "bounded continuation forecast"]
+mechanism = "Give the exposed fresh route one real local consequence, then present the unchanged local opportunity again."
+prediction = "The fresh consequential route remains eligible for the next bounded participation."
+falsifiers = ["It immediately yields back to the prior winner.", "It locks permanently, affects a far output, or replay/quiescence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "90e799b67507832138d9668154e24193ef50d1bdf812c72c009fb3b1d1f17ad3"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml probe_consequence_supported_continuation"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml -- --arm consequence-supported-continuation"

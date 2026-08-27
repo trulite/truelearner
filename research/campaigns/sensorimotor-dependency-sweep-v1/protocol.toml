@@ -1,0 +1,60 @@
+schema = "research-protocol/v1"
+id = "sensorimotor-dependency-sweep-v1"
+program = "learner-physics"
+claim = "SENSORIMOTOR-DEPENDENCY-SWEEP"
+status = "preregistered"
+parent_authority = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+question = "Which forecasted sensorimotor transitions already exist in the current candidate physics, and which are falsified by isolated killing fixtures when their earlier prerequisites are supplied neutrally?"
+observables = [
+  "participating output paths and exact per-source strength changes",
+  "return creation, delay, supersession, closure, and stale credit",
+  "ordered local winners after consequence and after withheld consequence",
+  "shared-root versus independently driven distant outputs",
+  "coalition outputs and consequence-specific credit",
+  "number of consequence surfaces representable for one output",
+  "first and second recalled output in a learned physical sequence",
+  "outputs, work, active frontier, resident bytes, replay equality, and quiescence across body scale",
+  "ordered one-joint direction, both reflected limits reached, and both limits escaped under the frozen replacement composition",
+]
+frozen_variables = [
+  "source revision 67ee08f2cc4b7bd05edc00a8574f484e36aa37d6 and the uncommitted candidate identified by each artifact digest",
+  "the causal-local, unanswered-return replacement, strengthening, formation, reuse, timing, decay, and output laws",
+  "anonymous topology with no action, axis, direction, body-part, target, score, capability, or evaluator identity inside the learner",
+  "the frozen sensorimotor-locality-v1 and sensorimotor-opportunity-v1 artifacts",
+]
+permitted_changes = [
+  "a new research-only experiment may build anonymous fixtures through HarnessBuilder",
+  "the experiment may send physical inputs, translate observed physical outputs into preregistered world consequences, and read public observations",
+  "independent fixtures may physically train prerequisite paths before their killing event",
+  "a duplicate consequence-source probe may record whether the public builder rejects a second source for one output",
+]
+positive_predicates = [
+  "causal credit, delayed lifetime, alternative exposure, and displaced closure reproduce their frozen positive observations",
+  "a fresh consequential route continues for at least one bounded subsequent opportunity and a route without consequence releases to one local competitor",
+  "later contrary local consequence can displace an earlier strength advantage without permanent locking",
+  "a shared opportunity activates bounded distant structure while separately driven far outputs remain independent",
+  "simultaneous outputs receive consequence-specific local credit",
+  "one output can retain distinguishable delayed consequences from at least two anonymous surfaces",
+  "recalling the first learned output and its physical world consequence invokes the second learned output without direct motor injection",
+  "active outputs and work remain bounded when dormant available surface grows, and one learned route recalls without unrelated output",
+  "the isolated local laws compose into both movement directions and reaching then leaving both one-joint limits",
+  "every arm has exact replay and natural quiescence",
+]
+negative_controls = [
+  "shuffled consequence wiring must not be accepted as causal-local credit",
+  "a valid delayed consequence without competition must not be treated as absence",
+  "separately physically driven far outputs must not be suppressed by the shared-opportunity predicate",
+  "withholding consequence must not create credit",
+  "dormant unrelated learned routes must not fire during one-route recall",
+]
+stop_conditions = [
+  "a fixture calls Body or another private learner surface directly",
+  "a supplied prerequisite encodes the winner, target, score, or expected sequence inside learner state",
+  "a frozen predecessor artifact or oracle changes",
+  "replay differs, a run requires evaluator termination, or a control is reinterpreted after execution",
+  "a failure of current physics is reported as proof that one forecasted mechanism is necessary",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

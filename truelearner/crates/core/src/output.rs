@@ -3,6 +3,7 @@ use crate::prelude::*;
 impl Arena {
     pub(crate) fn find_output_junctions(&mut self) {
         self.output_junctions = vec![false; self.junction_slots.len()];
+        self.outputs_by_position.clear();
         for link in &self.links {
             let Some(from) = self.junction_slot(link.from) else {
                 continue;
@@ -14,6 +15,18 @@ impl Arena {
                 self.output_junctions[link.from.0 as usize] = true;
             }
         }
+        for junction in &self.junctions {
+            if junction.live && self.is_output_junction(junction.id) {
+                self.outputs_by_position
+                    .entry(junction.position)
+                    .or_default()
+                    .push(junction.id);
+            }
+        }
+        for outputs in self.outputs_by_position.values_mut() {
+            outputs.sort_unstable();
+            outputs.dedup();
+        }
     }
 
     pub(crate) fn is_output_junction(&self, junction: JunctionId) -> bool {
@@ -21,6 +34,19 @@ impl Arena {
             .get(junction.0 as usize)
             .copied()
             .unwrap_or(false)
+    }
+
+    pub(crate) fn local_outputs(&self, position: i32) -> Vec<JunctionId> {
+        let lower = position.saturating_sub(LOCAL_VARIATION_RADIUS);
+        let upper = position.saturating_add(LOCAL_VARIATION_RADIUS);
+        self.outputs_by_position
+            .range(lower..=upper)
+            .flat_map(|(_, outputs)| outputs.iter().copied())
+            .filter(|output| {
+                self.junction_by_id(*output)
+                    .is_some_and(|junction| junction.live && junction.position != position)
+            })
+            .collect()
     }
 }
 
@@ -106,7 +132,11 @@ impl Body {
                     arrival_tick: next_tick,
                     phase: link.phase,
                     causal_wave: next_wave,
-                    origin_physical: fired.state.physical_id,
+                    origin_physical: if self.protocol.is_sensorimotor() {
+                        fired.causal_origin
+                    } else {
+                        fired.state.physical_id
+                    },
                     target_physical: to.physical_id,
                     target: link.to,
                     target_generation: to.generation,

@@ -1,0 +1,58 @@
+schema = "research-campaign/v1"
+id = "sensorimotor-physical-boundaries-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Recent consequence, finite return lifetime, active-topology indexing, physical-origin competition, and learned consequential cohorts jointly repair the localized sensorimotor boundaries without semantic controllers."
+first_divergence = "historical route strength outranks a freshly consequential route; independent later divergences occur at return lifetime, topology scanning, output grouping, and surface return closure"
+missing_transition = "bounded local eligibility and grouping state must mediate durable structure without replacing it"
+prediction = "Each isolated boundary survives its killing controls and the surviving subset composes through actual body fixtures."
+falsifiers = [
+  "A candidate law fails its isolated killing control.",
+  "A candidate repairs its positive case by weakening a frozen reference or negative control.",
+  "The isolated laws survive but their actual composition fails.",
+  "The result requires hidden semantic or evaluator authority.",
+]
+positive_reference = "sensorimotor-composition-sweep-v1 causal-return-reference, opportunity-reference, and choice-to-motion"
+negative_controls = [
+  "frozen entrenched ratio-8 loss",
+  "frozen delay-200 credit",
+  "frozen dormant 1024 scans",
+  "frozen shared-wave eight-output fanout and local pair suppression",
+  "frozen first-arrival-only surface recall",
+]
+arm_paths = [
+  "arms/current-physics-reference.toml",
+  "arms/recent-eligibility-over-strength.toml",
+  "arms/bounded-return-eligibility.toml",
+  "arms/active-frontier-scaling.toml",
+  "arms/wave-alternative-sparsity.toml",
+  "arms/learned-coalition-preservation.toml",
+  "arms/surface-return-cohort.toml",
+  "arms/one-joint-recomposition.toml",
+  "arms/binocular-hand-recomposition.toml",
+  "arms/vocal-auditory-recomposition.toml",
+  "arms/full-body-recomposition.toml",
+]
+max_parallel_arms = 11
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 110
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

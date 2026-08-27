@@ -1,0 +1,20 @@
+schema = "research-arm/v1"
+id = "shuffled-local-reference"
+campaign = "sensorimotor-opportunity-v1"
+kind = "control"
+parents = ["sensorimotor-locality-v1:shuffled-local-return"]
+imports = ["sensorimotor-locality-v1 equal-count shuffled physical wiring"]
+mechanism = "Preserve the same source count, timing, and ordinary choice as the causal-local reference, but swap which physical source is wired to each output."
+prediction = "Exactly one participating path strengthens, but it is the noncausal path, reproducing the frozen shuffled trace."
+falsifiers = [
+  "Shuffled wiring differs in source count, timing, opportunity, or work from the frozen control.",
+  "The physically causal path receives the returned consequence.",
+  "Replay or natural quiescence differs from the frozen result.",
+]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "e6516ec58923aa51a473e5ae0501a3658a2299c49ab732c6e426fbf787f9f26e"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/sensorimotor-emergence/Cargo.toml shuffled_local_reference_preserves_wrong_credit"
+full_evidence = "cargo run --locked --manifest-path research/experiments/sensorimotor-emergence/Cargo.toml -- --arm shuffled-local-reference --suite full"

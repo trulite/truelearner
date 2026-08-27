@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "scale-selectivity"
+campaign = "sensorimotor-dependency-sweep-v1"
+kind = "diagnostic"
+parents = ["sparse-shared-opportunity"]
+imports = ["identical anonymous shared opportunity at small and large surface sizes"]
+mechanism = "Compare output count, physical work, and active frontier for 4 versus 64 distant available outputs."
+prediction = "Active output and work stay bounded rather than scaling with all available surface."
+falsifiers = ["Outputs and physical work grow with the full surface.", "Replay or quiescence fails."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "90e799b67507832138d9668154e24193ef50d1bdf812c72c009fb3b1d1f17ad3"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml probe_scale_selectivity"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml -- --arm scale-selectivity"

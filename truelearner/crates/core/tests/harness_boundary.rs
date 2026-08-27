@@ -68,8 +68,17 @@ impl PathWorld {
     }
 
     fn with_tracing(output_distance: i32, tracing: bool) -> Self {
+        Self::with_protocol(output_distance, tracing, Protocol::Physical)
+    }
+
+    fn candidate(output_distance: i32) -> Self {
+        Self::with_protocol(output_distance, false, Protocol::SensorimotorCandidate)
+    }
+
+    fn with_protocol(output_distance: i32, tracing: bool, protocol: Protocol) -> Self {
         let mut builder = HarnessBuilder::with_capacity(32, 64, OUTWARD_REGION);
         builder.set_physical_tracing(tracing);
+        builder.set_protocol(protocol);
         let input = junction(&mut builder, 25_000, 0, 0, 1);
         let opportunity = junction(&mut builder, 25_001, output_distance, 0, 2);
         let output = junction(&mut builder, 25_002, output_distance + 1, 1, 1);
@@ -141,6 +150,139 @@ struct LocalPairWorld {
     outcome: JunctionId,
 }
 
+struct LocalOutcomePairWorld {
+    harness: Harness,
+    input: JunctionId,
+    opportunities: [JunctionId; 2],
+    outcomes: [JunctionId; 2],
+    physical_outputs: [u64; 2],
+}
+
+#[derive(Clone, Copy)]
+enum OutcomeWiring {
+    Global,
+    Local,
+    Shuffled,
+}
+
+struct CausalPairWorld {
+    harness: Harness,
+    inputs: [JunctionId; 2],
+    opportunities: [JunctionId; 2],
+    outcomes: [JunctionId; 2],
+}
+
+impl CausalPairWorld {
+    fn new(wiring: OutcomeWiring, reflected: bool) -> Self {
+        let positions = if reflected { [10, 0] } else { [0, 10] };
+        let mut builder = HarnessBuilder::with_capacity(64, 128, OUTWARD_REGION);
+        builder.set_physical_tracing(true);
+        let inputs: [JunctionId; 2] = std::array::from_fn(|index| {
+            junction(&mut builder, 29_000 + index as u64, positions[index], 0, 1)
+        });
+        let opportunities: [JunctionId; 2] = std::array::from_fn(|index| {
+            junction(
+                &mut builder,
+                29_010 + index as u64,
+                positions[index] + 1,
+                0,
+                2,
+            )
+        });
+        let sinks: [JunctionId; 2] = std::array::from_fn(|index| {
+            junction(
+                &mut builder,
+                29_020 + index as u64,
+                positions[index] + 1,
+                OUTWARD_REGION,
+                1,
+            )
+        });
+        let outcomes: [JunctionId; 2] = std::array::from_fn(|index| {
+            junction(
+                &mut builder,
+                29_030 + index as u64,
+                100 + index as i32 * 10,
+                0,
+                1,
+            )
+        });
+        let anchor = junction(&mut builder, 29_040, 1_000, 0, 99);
+        for target in inputs.into_iter().chain(outcomes) {
+            link(
+                &mut builder,
+                anchor,
+                target,
+                0,
+                1,
+                u32::MAX,
+                TransmissionMode::Drive,
+            );
+        }
+        for index in 0..2 {
+            link(
+                &mut builder,
+                opportunities[index],
+                sinks[index],
+                0,
+                1,
+                u32::MAX,
+                TransmissionMode::Drive,
+            );
+        }
+        match wiring {
+            OutcomeWiring::Global => builder.set_outcome_source(outcomes[0]),
+            OutcomeWiring::Local => {
+                for index in 0..2 {
+                    builder.set_outcome_source_for_output(opportunities[index], outcomes[index]);
+                }
+            }
+            OutcomeWiring::Shuffled => {
+                for index in 0..2 {
+                    builder
+                        .set_outcome_source_for_output(opportunities[index], outcomes[1 - index]);
+                }
+            }
+        }
+        Self {
+            harness: builder.build(),
+            inputs,
+            opportunities,
+            outcomes,
+        }
+    }
+
+    fn participate(&mut self) -> Run {
+        let tick = self.harness.read().clock.tick.saturating_add(1);
+        self.harness.send(&[
+            input(self.inputs[0], tick),
+            input(self.inputs[1], tick),
+            input(self.opportunities[0], tick.saturating_add(1)),
+            input(self.opportunities[1], tick.saturating_add(1)),
+        ])
+    }
+
+    fn return_first_physical_consequence(&mut self) -> Run {
+        let tick = self.harness.read().clock.tick.saturating_add(1);
+        self.harness.send(&[input(self.outcomes[0], tick)])
+    }
+
+    fn used_second_strengths(&self) -> [i64; 2] {
+        let observation = self.harness.read();
+        std::array::from_fn(|index| {
+            observation
+                .links
+                .iter()
+                .filter(|link| {
+                    link.live && link.to == self.opportunities[index] && link.participation > 0
+                })
+                .map(|link| link.strength)
+                .max()
+                .expect("each participating output has one used second link")
+        })
+    }
+}
+
 impl LocalPairWorld {
     fn new() -> Self {
         Self::with_positions([-1, 1])
@@ -198,6 +340,101 @@ impl LocalPairWorld {
     fn outcome(&mut self) -> Run {
         let tick = self.harness.read().clock.tick.saturating_add(1);
         self.harness.send(&[input(self.outcome, tick)])
+    }
+}
+
+impl LocalOutcomePairWorld {
+    fn new(protocol: Protocol) -> Self {
+        Self::with_positions(protocol, [-1, 1])
+    }
+
+    fn with_positions(protocol: Protocol, positions: [i32; 2]) -> Self {
+        let mut builder = HarnessBuilder::with_capacity(48, 96, OUTWARD_REGION);
+        builder.set_physical_tracing(true);
+        builder.set_protocol(protocol);
+        let input = junction(&mut builder, 28_000, 0, 0, 1);
+        let physical_outputs = [28_001, 28_002];
+        let opportunities = [
+            junction(&mut builder, physical_outputs[0], positions[0], 0, 2),
+            junction(&mut builder, physical_outputs[1], positions[1], 0, 2),
+        ];
+        let sinks = [
+            junction(&mut builder, 28_003, positions[0], OUTWARD_REGION, 1),
+            junction(&mut builder, 28_004, positions[1], OUTWARD_REGION, 1),
+        ];
+        let outcomes = [
+            junction(&mut builder, 28_005, 50, 0, 1),
+            junction(&mut builder, 28_006, 60, 0, 1),
+        ];
+        let anchor = junction(&mut builder, 28_007, 100, 0, 99);
+        for target in [input, outcomes[0], outcomes[1]] {
+            link(
+                &mut builder,
+                anchor,
+                target,
+                0,
+                1,
+                u32::MAX,
+                TransmissionMode::Drive,
+            );
+        }
+        for index in 0..2 {
+            link(
+                &mut builder,
+                opportunities[index],
+                sinks[index],
+                0,
+                1,
+                u32::MAX,
+                TransmissionMode::Drive,
+            );
+            builder.set_outcome_source_for_output(opportunities[index], outcomes[index]);
+        }
+        Self {
+            harness: builder.build(),
+            input,
+            opportunities,
+            outcomes,
+            physical_outputs,
+        }
+    }
+
+    fn stimulate(&mut self) -> Run {
+        let tick = self.harness.read().clock.tick.saturating_add(1);
+        self.harness.send(&[
+            input(self.input, tick),
+            input(self.opportunities[0], tick.saturating_add(1)),
+            input(self.opportunities[1], tick.saturating_add(1)),
+        ])
+    }
+
+    fn outcome_for(&mut self, output: u64, delay: i64) -> Run {
+        let index = self
+            .physical_outputs
+            .iter()
+            .position(|physical| *physical == output)
+            .expect("output belongs to the local pair");
+        let tick = self.harness.read().clock.tick.saturating_add(delay);
+        self.harness.advance_to(tick);
+        self.harness.send(&[input(self.outcomes[index], tick)])
+    }
+
+    fn used_strength(&self, output: u64) -> i64 {
+        let index = self
+            .physical_outputs
+            .iter()
+            .position(|physical| *physical == output)
+            .expect("output belongs to the local pair");
+        self.harness
+            .read()
+            .links
+            .into_iter()
+            .filter(|link| {
+                link.live && link.to == self.opportunities[index] && link.participation > 0
+            })
+            .map(|link| link.strength)
+            .max()
+            .expect("participating output has a used path")
     }
 }
 
@@ -435,6 +672,171 @@ fn local_motor_competition_explores_then_reuses_consequence() {
 }
 
 #[test]
+fn unanswered_local_return_deferral_exposes_one_neighbor() {
+    let mut world = LocalOutcomePairWorld::new(Protocol::UnansweredReturnDeferral);
+    let first = world.stimulate().outputs[0].from_physical;
+    assert_eq!(world.outcome_for(first, 1).work.local_return_updates, 2);
+    let reused = world.stimulate().outputs[0].from_physical;
+    let alternative = world.stimulate();
+
+    assert_eq!(reused, first);
+    assert_eq!(alternative.outputs.len(), 1);
+    assert_ne!(alternative.outputs[0].from_physical, reused);
+    assert_eq!(world.harness.read().return_path_count, 2);
+    assert!(alternative.naturally_quiescent);
+}
+
+#[test]
+fn unanswered_local_return_replacement_closes_only_the_displaced_return() {
+    let mut world = LocalOutcomePairWorld::new(Protocol::UnansweredReturnReplacement);
+    let first = world.stimulate().outputs[0].from_physical;
+    world.outcome_for(first, 1);
+    let reused = world.stimulate().outputs[0].from_physical;
+    let before = world.used_strength(reused);
+    let alternative = world.stimulate();
+    let fresh = alternative.outputs[0].from_physical;
+
+    assert_eq!(reused, first);
+    assert_ne!(fresh, reused);
+    assert_eq!(world.harness.read().return_path_count, 1);
+    assert!(alternative
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(transition.event, PhysicalEvent::ReturnSuperseded { .. })));
+    let returned = world.outcome_for(fresh, 1);
+    assert_eq!(returned.work.local_return_updates, 2);
+    assert_eq!(world.used_strength(reused), before);
+    assert_eq!(world.harness.read().return_path_count, 0);
+}
+
+#[test]
+fn unanswered_local_return_keeps_a_valid_delay_without_competition() {
+    let mut world = LocalOutcomePairWorld::new(Protocol::UnansweredReturnReplacement);
+    let first = world.stimulate().outputs[0].from_physical;
+    let before = world.used_strength(first);
+    let returned = world.outcome_for(first, 20);
+
+    assert_eq!(returned.work.local_return_updates, 2);
+    assert!(world.used_strength(first) > before);
+    assert_eq!(world.harness.read().return_path_count, 0);
+}
+
+#[test]
+fn unanswered_local_return_protocol_reflects_and_survives_checkpoint() {
+    let mut ordinary =
+        LocalOutcomePairWorld::with_positions(Protocol::UnansweredReturnReplacement, [-1, 1]);
+    let mut reflected =
+        LocalOutcomePairWorld::with_positions(Protocol::UnansweredReturnReplacement, [1, -1]);
+    let ordinary_first = ordinary.stimulate().outputs[0].from_physical;
+    let reflected_first = reflected.stimulate().outputs[0].from_physical;
+    ordinary.outcome_for(ordinary_first, 1);
+    reflected.outcome_for(reflected_first, 1);
+    ordinary.stimulate();
+    reflected.stimulate();
+    let ordinary_alternative = ordinary.stimulate().outputs[0].from_physical;
+    let reflected_alternative = reflected.stimulate().outputs[0].from_physical;
+
+    let checkpoint = ordinary.harness.save().expect("checkpoint saves");
+    let restored = Harness::restore(checkpoint).expect("checkpoint restores");
+    assert_eq!(restored.read(), ordinary.harness.read());
+    assert_eq!(
+        restored.read().protocol,
+        Protocol::UnansweredReturnReplacement
+    );
+    assert_ne!(ordinary_first, reflected_first);
+    assert_eq!(ordinary_first, reflected_alternative);
+    assert_eq!(reflected_first, ordinary_alternative);
+}
+
+#[test]
+fn unanswered_local_return_replacement_does_not_suppress_a_far_output() {
+    let mut builder = HarnessBuilder::with_capacity(64, 128, OUTWARD_REGION);
+    builder.set_protocol(Protocol::UnansweredReturnReplacement);
+    let local_input = junction(&mut builder, 28_100, 0, 0, 1);
+    let local_motors = [
+        junction(&mut builder, 28_101, -1, 0, 2),
+        junction(&mut builder, 28_102, 1, 0, 2),
+    ];
+    let local_sinks = [
+        junction(&mut builder, 28_103, -1, OUTWARD_REGION, 1),
+        junction(&mut builder, 28_104, 1, OUTWARD_REGION, 1),
+    ];
+    let local_outcomes = [
+        junction(&mut builder, 28_105, 50, 0, 1),
+        junction(&mut builder, 28_106, 60, 0, 1),
+    ];
+    let far_input = junction(&mut builder, 28_107, 20, 0, 1);
+    let far_motor = junction(&mut builder, 28_108, 21, 0, 2);
+    let far_sink = junction(&mut builder, 28_109, 21, OUTWARD_REGION, 1);
+    let anchor = junction(&mut builder, 28_110, 100, 0, 99);
+    for target in [local_input, far_input, local_outcomes[0], local_outcomes[1]] {
+        link(
+            &mut builder,
+            anchor,
+            target,
+            0,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    for index in 0..2 {
+        link(
+            &mut builder,
+            local_motors[index],
+            local_sinks[index],
+            0,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+        builder.set_outcome_source_for_output(local_motors[index], local_outcomes[index]);
+    }
+    link(
+        &mut builder,
+        far_motor,
+        far_sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    let mut harness = builder.build();
+    let stimulate = |harness: &Harness| {
+        let tick = harness.read().clock.tick.saturating_add(1);
+        [
+            input(local_input, tick),
+            input(far_input, tick),
+            input(local_motors[0], tick + 1),
+            input(local_motors[1], tick + 1),
+            input(far_motor, tick + 1),
+        ]
+    };
+    let first = harness.send(&stimulate(&harness));
+    let local_first = first
+        .outputs
+        .iter()
+        .find(|output| output.from_physical != 28_108)
+        .expect("one local output fires")
+        .from_physical;
+    let local_outcome = if local_first == 28_101 {
+        local_outcomes[0]
+    } else {
+        local_outcomes[1]
+    };
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[input(local_outcome, tick)]);
+    harness.send(&stimulate(&harness));
+    let alternative = harness.send(&stimulate(&harness));
+
+    assert_eq!(alternative.outputs.len(), 2);
+    assert!(alternative
+        .outputs
+        .iter()
+        .any(|output| output.from_physical == 28_108));
+}
+
+#[test]
 fn local_motor_competition_does_not_suppress_far_outputs() {
     let mut builder = HarnessBuilder::with_capacity(32, 64, OUTWARD_REGION);
     let left_input = junction(&mut builder, 28_000, 0, 0, 1);
@@ -475,6 +877,82 @@ fn local_motor_competition_does_not_suppress_far_outputs() {
     ]);
     assert_eq!(run.outputs.len(), 2);
     assert!(run.naturally_quiescent);
+}
+
+#[test]
+fn causal_local_outcome_global_reference_credits_both_participating_paths() {
+    let mut world = CausalPairWorld::new(OutcomeWiring::Global, false);
+    assert_eq!(world.participate().outputs.len(), 2);
+    let before = world.used_second_strengths();
+    let returned = world.return_first_physical_consequence();
+    let after = world.used_second_strengths();
+
+    assert!(returned.work.local_return_updates >= 4);
+    assert!(after[0] > before[0]);
+    assert!(after[1] > before[1]);
+}
+
+#[test]
+fn causal_local_outcome_credits_only_the_physically_wired_path() {
+    for reflected in [false, true] {
+        let mut world = CausalPairWorld::new(OutcomeWiring::Local, reflected);
+        assert_eq!(world.participate().outputs.len(), 2);
+        let before = world.used_second_strengths();
+        assert_eq!(world.harness.read().return_path_count, 2);
+        let checkpoint = world.harness.save().unwrap();
+
+        let returned = world.return_first_physical_consequence();
+        let after = world.used_second_strengths();
+        assert!(returned.work.local_return_updates >= 2);
+        assert!(after[0] > before[0]);
+        assert_eq!(after[1], before[1]);
+        assert_eq!(world.harness.read().return_path_count, 1);
+        assert!(returned.naturally_quiescent);
+
+        let mut restored = Harness::restore(checkpoint).unwrap();
+        let tick = restored.read().clock.tick.saturating_add(1);
+        let replayed = restored.send(&[input(world.outcomes[0], tick)]);
+        assert_eq!(returned.outputs, replayed.outputs);
+        assert_eq!(returned.work, replayed.work);
+        assert_eq!(returned.naturally_quiescent, replayed.naturally_quiescent);
+        assert_eq!(
+            world.harness.save().unwrap().canonical_bytes().unwrap(),
+            restored.save().unwrap().canonical_bytes().unwrap()
+        );
+    }
+}
+
+#[test]
+fn causal_local_outcome_shuffled_wiring_credits_the_wrong_path() {
+    let mut world = CausalPairWorld::new(OutcomeWiring::Shuffled, false);
+    assert_eq!(world.participate().outputs.len(), 2);
+    let before = world.used_second_strengths();
+    world.return_first_physical_consequence();
+    let after = world.used_second_strengths();
+
+    assert_eq!(after[0], before[0]);
+    assert!(after[1] > before[1]);
+}
+
+#[test]
+#[should_panic(expected = "an output may have only one local outcome source")]
+fn causal_local_outcome_rejects_duplicate_output_wiring() {
+    let mut builder = HarnessBuilder::with_capacity(8, 8, OUTWARD_REGION);
+    let motor = junction(&mut builder, 29_100, 0, 0, 1);
+    let sink = junction(&mut builder, 29_101, 0, OUTWARD_REGION, 1);
+    let first = junction(&mut builder, 29_102, 10, 0, 1);
+    let second = junction(&mut builder, 29_103, 20, 0, 1);
+    link(
+        &mut builder,
+        motor,
+        sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    builder.set_outcome_source_for_output(motor, first);
+    builder.set_outcome_source_for_output(motor, second);
 }
 
 #[test]
@@ -572,6 +1050,238 @@ fn checkpoint_and_reads_preserve_body_time_and_protocol() {
         without_read.save().unwrap().canonical_bytes().unwrap(),
         with_read.save().unwrap().canonical_bytes().unwrap()
     );
+}
+
+#[test]
+fn sensorimotor_candidate_preserves_valid_return_expires_stale_return_and_replays() {
+    let mut valid = PathWorld::with_protocol(1, true, Protocol::SensorimotorCandidate);
+    let used = valid.use_path();
+    assert_eq!(used.outputs.len(), 1);
+    let tick = valid.harness.read().clock.tick.saturating_add(20);
+    valid.harness.advance_to(tick);
+    let checkpoint = valid.harness.save().unwrap();
+    let mut replay = Harness::restore(checkpoint.clone()).unwrap();
+    let consequence = [Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 25_003,
+        target: valid.outcome,
+        impulse: 1,
+    }];
+    let observed = valid.harness.send(&consequence);
+    let replayed = replay.send(&consequence);
+    assert_eq!(observed, replayed);
+    assert!(observed.work.local_return_updates > 0);
+    assert!(observed
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(transition.event, PhysicalEvent::ConsequenceRecorded { .. })));
+    assert!(valid
+        .harness
+        .read()
+        .links
+        .iter()
+        .any(|link| link.last_consequence_tick == Some(tick)));
+    assert_eq!(
+        valid.harness.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+
+    let mut stale = PathWorld::candidate(1);
+    stale.use_path();
+    let tick = stale.harness.read().clock.tick.saturating_add(200);
+    stale.harness.advance_to(tick);
+    let returned = stale.harness.send(&[Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 25_003,
+        target: stale.outcome,
+        impulse: 1,
+    }]);
+    assert_eq!(returned.work.local_return_updates, 0);
+    assert_eq!(stale.harness.read().return_path_count, 0);
+    assert!(returned.naturally_quiescent);
+}
+
+#[test]
+fn sensorimotor_candidate_uses_current_proprioception_to_cross_motor_threshold() {
+    let mut builder = HarnessBuilder::with_capacity(32, 64, OUTWARD_REGION);
+    builder.set_protocol(Protocol::SensorimotorSynthesis);
+    let source = junction(&mut builder, 31_000, 0, 0, 1);
+    let motor = junction(&mut builder, 31_001, 1, 0, 2);
+    let sink = junction(&mut builder, 31_002, 1, OUTWARD_REGION, 1);
+    let anchor = junction(&mut builder, 31_003, 100, 0, 99);
+    link(
+        &mut builder,
+        anchor,
+        source,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    link(
+        &mut builder,
+        motor,
+        sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    let mut harness = builder.build();
+
+    let run = harness.send(&[input(source, 0), input(motor, 2)]);
+
+    assert_eq!(run.outputs.len(), 1);
+    assert_eq!(run.outputs[0].from_physical, 31_001);
+    assert!(run.naturally_quiescent);
+}
+
+#[test]
+fn sensorimotor_candidate_consolidates_actual_surface_consequence_for_reverse_execution() {
+    let mut builder = HarnessBuilder::with_capacity(64, 128, OUTWARD_REGION);
+    builder.set_protocol(Protocol::SensorimotorSynthesis);
+    let action = junction(&mut builder, 32_000, 0, 0, 1);
+    let surface = junction(&mut builder, 32_001, 2, 0, 1);
+    let unrelated = junction(&mut builder, 32_002, 20, 0, 1);
+    let motor = junction(&mut builder, 32_010, 1, 0, 2);
+    let sink = junction(&mut builder, 32_011, 1, OUTWARD_REGION, 1);
+    let outcome = junction(&mut builder, 32_012, 50, 0, 1);
+    let anchor = junction(&mut builder, 32_013, 100, 0, 99);
+    for target in [action, surface, unrelated, outcome] {
+        link(
+            &mut builder,
+            anchor,
+            target,
+            0,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    link(
+        &mut builder,
+        surface,
+        outcome,
+        3,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    link(
+        &mut builder,
+        unrelated,
+        outcome,
+        3,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    link(
+        &mut builder,
+        motor,
+        sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    builder.set_outcome_source_for_output(motor, outcome);
+    let mut harness = builder.build();
+    harness.send(&[input(action, 0), input(motor, 2)]);
+    let surface_tick = harness.read().clock.tick.saturating_add(1);
+    let consequence = harness.send(&[Input {
+        arrival_tick: surface_tick,
+        phase: 0,
+        origin_physical: 32_001,
+        target: surface,
+        impulse: 1,
+    }]);
+    assert!(consequence.work.local_return_updates > 0);
+    let checkpoint = harness.save().expect("surface checkpoint saves");
+
+    let recall_tick = harness.read().clock.tick.saturating_add(1);
+    let recalled = harness.send(&[Input {
+        arrival_tick: recall_tick,
+        phase: 0,
+        origin_physical: 32_001,
+        target: surface,
+        impulse: 1,
+    }]);
+    let mut control = Harness::restore(checkpoint).expect("surface checkpoint restores");
+    let unrelated_run = control.send(&[Input {
+        arrival_tick: recall_tick,
+        phase: 0,
+        origin_physical: 32_002,
+        target: unrelated,
+        impulse: 1,
+    }]);
+
+    assert!(recalled
+        .outputs
+        .iter()
+        .any(|output| output.from_physical == 32_010));
+    assert!(unrelated_run.outputs.is_empty());
+    assert!(recalled.naturally_quiescent);
+    assert!(unrelated_run.naturally_quiescent);
+}
+
+fn candidate_structural_run(dormant_outputs: usize) -> Run {
+    let capacity = u32::try_from(dormant_outputs.saturating_mul(2).saturating_add(32)).unwrap();
+    let mut builder =
+        HarnessBuilder::with_capacity(capacity, capacity.saturating_mul(4), OUTWARD_REGION);
+    builder.set_protocol(Protocol::SensorimotorSynthesis);
+    let source = junction(&mut builder, 33_000, 0, 0, 1);
+    let local = junction(&mut builder, 33_001, 1, 0, 2);
+    let local_sink = junction(&mut builder, 33_002, 1, OUTWARD_REGION, 1);
+    link(
+        &mut builder,
+        local,
+        local_sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    for index in 0..dormant_outputs {
+        let position = 100_i32.saturating_add(i32::try_from(index).unwrap());
+        let physical = 34_000_u64.saturating_add(u64::try_from(index).unwrap());
+        let output = junction(&mut builder, physical, position, 0, 2);
+        let sink = junction(
+            &mut builder,
+            physical.saturating_add(10_000),
+            position,
+            OUTWARD_REGION,
+            1,
+        );
+        link(
+            &mut builder,
+            output,
+            sink,
+            0,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    builder.build().send(&[input(source, 0)])
+}
+
+#[test]
+fn sensorimotor_candidate_structural_work_follows_the_local_source_neighborhood() {
+    let small = candidate_structural_run(4);
+    let large = candidate_structural_run(1_024);
+
+    assert_eq!(small.work.local_junction_proposals, 2);
+    assert_eq!(large.work.local_junction_proposals, 2);
+    assert_eq!(
+        small.execution_cost.local_structural_scans,
+        large.execution_cost.local_structural_scans
+    );
+    assert!(large.execution_cost.local_structural_scans <= 8);
+    assert!(small.naturally_quiescent);
+    assert!(large.naturally_quiescent);
 }
 
 #[test]

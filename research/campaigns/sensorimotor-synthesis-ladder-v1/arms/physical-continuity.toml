@@ -1,0 +1,15 @@
+schema = "research-arm/v1"
+id = "physical-continuity"
+campaign = "sensorimotor-synthesis-ladder-v1"
+kind = "solve"
+parents = ["complete-candidate-reference", "sensorimotor-participation-continuity-v1:local-structural-frontier"]
+imports = ["active-frontier indexing", "source-local physical positions", "exact replay"]
+mechanism = "Index nearby output opportunity and resolve formed paths through source-local adjacency."
+prediction = "Two signed local paths form with constant structural scans as dormant outputs grow from 4 to 1024."
+falsifiers = ["Structural scans grow with dormant outputs.", "The formed local path count, replay, or quiescence changes."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "e06f21f611d6d7ec16516d7efdf2270fbad551a6ea7c41107e3582adbf95bdd4"
+budget_minutes = 10
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml complete_candidate_climbs_the_primitive_rungs"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml -- --arm physical-continuity"

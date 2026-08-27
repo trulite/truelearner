@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "composed-output-sequence"
+campaign = "sensorimotor-dependency-sweep-v1"
+kind = "composition"
+parents = ["delayed-return-lifetime", "consolidated-reuse"]
+imports = ["two independently learned local routes", "physical output-to-consequence world transition"]
+mechanism = "Train input A to output A and its world consequence to output B, then recall A without direct motor injection."
+prediction = "Output A recalls; the preregistered physical world consequence then invokes learned output B."
+falsifiers = ["Recall stops after A or B requires direct motor injection.", "An unrelated output, replay, or quiescence changes."]
+source_revision = "67ee08f2cc4b7bd05edc00a8574f484e36aa37d6"
+protocol_sha256 = "90e799b67507832138d9668154e24193ef50d1bdf812c72c009fb3b1d1f17ad3"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml probe_composed_output_sequence"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-dependency-sweep/Cargo.toml -- --arm composed-output-sequence"

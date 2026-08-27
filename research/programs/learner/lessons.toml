@@ -162,6 +162,142 @@ applies_when = ["credit learning failure", "PQLC"]
 research_action = "Audit activity and return-path physics before modifying PQLC."
 
 [[lesson]]
+id = "LP-021"
+kind = "learner-physics"
+statement = "A local law can survive isolation and still fail when consequence timing, competition, and body integration compose."
+evidence = ["sensorimotor-dependency-sweep-v1:one-joint-composition"]
+applies_when = ["isolated mechanism survival", "sensorimotor composition"]
+research_action = "Add a composition arm and localize its first trace divergence before changing the surviving local law."
+
+[[lesson]]
+id = "LP-022"
+kind = "learner-physics"
+statement = "Sparse allocation of one shared opportunity is distinct from preserving independently driven far outputs."
+evidence = ["sensorimotor-dependency-sweep-v1:sparse-shared-opportunity"]
+applies_when = ["foveation", "broad coactivation", "distant motor groups"]
+research_action = "Compare one causal shared wave against separate physical drives in the same round."
+
+[[lesson]]
+id = "LP-023"
+kind = "learner-physics"
+statement = "One action return can close after its first delayed sensory consequence before another causal surface arrives."
+evidence = ["sensorimotor-dependency-sweep-v1:delayed-multisurface-alignment"]
+applies_when = ["multisurface consequence", "delayed alignment", "return lifetime"]
+research_action = "Test a bounded physical return cohort or causal window without duplicate credit or stale returns."
+
+[[lesson]]
+id = "LP-024"
+kind = "learner-physics"
+statement = "Consequential continuation that survives balanced alternatives can still lose to accumulated historical strength."
+evidence = ["sensorimotor-composition-sweep-v1:entrenched-continuation"]
+applies_when = ["entrenched route", "fresh consequential alternative", "strength asymmetry"]
+research_action = "Separate recent consequential eligibility from durable route strength and preserve a no-consequence release control."
+
+[[lesson]]
+id = "LP-025"
+kind = "learner-physics"
+statement = "Current return eligibility is causally local but not temporally bounded: an otherwise identical return still credits after an arbitrarily long idle delay."
+evidence = ["sensorimotor-composition-sweep-v1:causal-window"]
+applies_when = ["delayed consequence", "stale return", "causal lifetime"]
+research_action = "Compare activity-, opportunity-, and time-bounded local eligibility against valid delayed and stale controls."
+
+[[lesson]]
+id = "LP-026"
+kind = "learner-physics"
+statement = "Keeping outputs fixed does not keep execution local when dormant topology is still globally scanned."
+evidence = ["sensorimotor-composition-sweep-v1:fixed-active-scaling"]
+applies_when = ["large dormant body", "foveation", "execution cost"]
+research_action = "Index execution by touched adjacency and active causal frontier while measuring output equality separately from resident storage."
+
+[[lesson]]
+id = "LP-027"
+kind = "learner-physics"
+statement = "One undifferentiated competition rule cannot be assumed to both suppress distant alternatives and preserve neighboring members needed for one joint physical effect."
+evidence = ["sensorimotor-composition-sweep-v1:wave-scoped-competition", "sensorimotor-composition-sweep-v1:local-coalition-discrimination"]
+applies_when = ["causal wave", "motor coalition", "shared physical effect"]
+research_action = "Test alternative-versus-coalition discrimination through local participation and consequence rather than spatial distance alone."
+
+[[lesson]]
+id = "LP-028"
+kind = "learner-physics"
+statement = "Current delayed surface learning follows first arrival rather than retaining an order-robust set of useful causal associations."
+evidence = ["sensorimotor-composition-sweep-v1:multisurface-association", "sensorimotor-composition-sweep-v1:surface-order-alignment"]
+applies_when = ["multisurface learning", "sensor order", "action consequence"]
+research_action = "Test a bounded surface-return cohort with reversed order, unrelated-surface, duplicate-credit, and stale-return controls."
+
+[[lesson]]
+id = "LP-029"
+kind = "learner-physics"
+statement = "A temporary local return can use ordinary finite physical resistance to preserve useful delay while rejecting stale consequence."
+evidence = ["sensorimotor-physical-boundaries-v1:bounded-return-eligibility"]
+applies_when = ["return lifetime", "delayed consequence", "stale credit"]
+research_action = "Carry the finite-return survivor into neutral composition without adopting it before integration."
+
+[[lesson]]
+id = "LP-030"
+kind = "learner-physics"
+statement = "Stable dormant topology need not be scanned when physical aging is indexed by its active frontier."
+evidence = ["sensorimotor-physical-boundaries-v1:active-frontier-scaling"]
+applies_when = ["large dormant body", "execution cost", "physical aging"]
+research_action = "Separate resident storage growth from touched and aging work in every later scale claim."
+
+[[lesson]]
+id = "LP-031"
+kind = "learner-physics"
+statement = "Propagated physical causal origin can bound alternatives from one source without suppressing independently originated far outputs."
+evidence = ["sensorimotor-physical-boundaries-v1:wave-alternative-sparsity"]
+applies_when = ["shared fanout", "independent outputs", "causal wave"]
+research_action = "Preserve the origin-scoped sparsity control while separately localizing learned coalition lineage."
+
+[[lesson]]
+id = "LP-032"
+kind = "learner-physics"
+statement = "Adding local eligibility or cohort state does not help unless the exact participating structure writes it and the later decision reads the same live structure."
+evidence = ["sensorimotor-physical-boundaries-v1:recent-eligibility-over-strength", "sensorimotor-physical-boundaries-v1:learned-coalition-preservation"]
+applies_when = ["candidate local memory", "selection", "causal lineage"]
+research_action = "Localize state write, preservation, and read as separate physical transitions before changing its ranking rule."
+
+[[lesson]]
+id = "LP-033"
+kind = "learner-physics"
+statement = "A zero-update multisurface result is a return-opening or delivery failure, not evidence about cohort capacity or duplicate policy."
+evidence = ["sensorimotor-physical-boundaries-v1:surface-return-cohort"]
+applies_when = ["multisurface return", "zero credit", "cohort design"]
+research_action = "Establish one-surface return opening and delivery before retrying a multisurface cohort."
+
+[[lesson]]
+id = "LP-034"
+kind = "learner-physics"
+statement = "A consequence write/read hypothesis is inadmissible until the intended executable path forms, the intended output participates, and the return reaches that same path."
+evidence = ["sensorimotor-participation-continuity-v1:eligibility-write-read-localization", "sensorimotor-participation-continuity-v1:coalition-lineage-localization", "sensorimotor-participation-continuity-v1:surface-return-opening-localization"]
+applies_when = ["zero return update", "unexpected output", "missing coalition member", "credit diagnosis"]
+research_action = "Gate credit and selection diagnostics on path, output, return, and update observations in that order."
+
+[[lesson]]
+id = "LP-035"
+kind = "learner-physics"
+statement = "Action-to-surface consequence association and reverse surface-to-action execution are distinct physical operations."
+evidence = ["sensorimotor-participation-continuity-v1:participation-continuity-solves"]
+applies_when = ["sensory association", "reverse recall", "sensorimotor policy"]
+research_action = "Measure retained consequence origins separately from surface-path participation, consolidation, and later execution."
+
+[[lesson]]
+id = "LP-036"
+kind = "learner-physics"
+statement = "Selection cannot preserve a cooperating member that never first obtained an executable consequential path."
+evidence = ["sensorimotor-participation-continuity-v1:coalition-lineage-localization"]
+applies_when = ["coalition learning", "origin sparsity", "missing member"]
+research_action = "Establish per-member participation and consequence lineage before testing shared-origin coalition recall."
+
+[[lesson]]
+id = "LP-037"
+kind = "learner-physics"
+statement = "Bounding active aging does not bound structural path formation; execution and structural locality require separate physical frontiers."
+evidence = ["sensorimotor-participation-continuity-v1:one-joint-recomposition"]
+applies_when = ["topology growth", "path formation cost", "large body", "foveation"]
+research_action = "Measure source-local structural proposals and scans independently from active aging before rerunning embodied loops."
+
+[[lesson]]
 id = "RM-001"
 kind = "research-method"
 statement = "A negative benchmark result does not identify the missing capability."

@@ -1,0 +1,1 @@
+{"schema":"research-arm-result/v1","arm":"digit-separation","outcome":"inconclusive","falsifier":"The one-joint prerequisite was falsified.","observations":{"stopped_after":"one-joint-control"},"artifacts":[{"path":"research/campaigns/sensorimotor-synthesis-ladder-v1/artifacts/digit-separation.json","sha256":"84d2994fdb5ed5704274b9a1c41e867f6e2e1ea1132442e4d8330cb36632ac51"}]}

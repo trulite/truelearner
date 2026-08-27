@@ -1,4 +1,4 @@
 interface:
   display_name: "Research Forecast"
-  short_description: "Predict evidence-ranked mechanism dependencies"
-  default_prompt: "Use $research-forecast to predict the physical dependency ladder for this capability from accumulated research evidence."
+  short_description: "Synthesize, climb, diagnose, and ablate"
+  default_prompt: "Use $research-forecast to compose all applicable established lessons, define the upward capability ladder, and preregister diagnostic descent and conditional downward ablations for one $research-campaign batch."
