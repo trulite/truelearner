@@ -1,0 +1,26 @@
+schema = "research-convergence/v1"
+campaign = "learner-motor-no-consequence-v1"
+round = 1
+survived = []
+falsified = ["pending-return-deferral"]
+inconclusive = ["pending-return-replacement"]
+infrastructure_failed = []
+shared_mechanisms = [
+  "an open physical return identifies a route whose consequence has not arrived",
+  "a fresh neighboring route can be exposed without axis, direction, finger, or evaluator identity",
+]
+strongest_counterexamples = [
+  "pending-return-deferral: the next real consequence updated four links, including the stale failed route",
+  "pending-return-replacement: all ten fingers moved together on every digit-motion step, yet the current evaluator reported DigitSeparation",
+  "pending-return-replacement: up to all 25 axes moved in one step, so the 10/10 course result is broad coactivation rather than evidence of selective body control",
+]
+retired_families = [
+  "deferring unanswered routes without closing stale returns",
+  "using the current any-finger-moved verdict as evidence of digit separation",
+]
+next_discriminators = [
+  "revise the external DigitSeparation claim to require a proper subset of fingers to move in at least two steps while preserving MissingExploration",
+  "re-run the frozen parent and pending-return replacement against the corrected evaluator",
+  "trace whether one body's global outcome credits blocked or unrelated axes when another axis moves",
+  "only after that trace, compare physical output-local consequence with a generic bounded action-opportunity mechanism",
+]

@@ -33,7 +33,8 @@ fn generated_course_preserves_first_failure_instead_of_teaching_around_it() {
     assert!(run.exact_replay);
     assert!(!run.experiences.is_empty());
     assert!(run.acquired.contains(&BodyCapability::HandContingency));
-    assert_ne!(run.first_failure, Some(BodyCapability::HandContingency));
+    assert!(!run.acquired.contains(&BodyCapability::DigitSeparation));
+    assert_eq!(run.first_failure, Some(BodyCapability::DigitSeparation));
     if let Some(failure) = run.first_failure {
         let last = run.experiences.last().unwrap();
         assert_eq!(last.capability, failure);

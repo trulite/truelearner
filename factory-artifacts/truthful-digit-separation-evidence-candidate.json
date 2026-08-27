@@ -1,0 +1,62 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-26T23:41:50.214350+00:00",
+  "started_at": "2026-08-26T23:39:07.994968+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/truthful-digit-separation-evidence.md",
+    "sha256": "c41c61bf559c6bee71a893006d47cdfbd9595719ac4fd8ff5187b9cf1f47f300"
+  },
+  "candidate": {
+    "revision": "86d471654497ac27af0a1beb9b52cada7d52bd7d",
+    "tree_sha256": "841c6363d85d7109e93b57f379dfa14d7f3010736f7c364646f51dc437b3065f"
+  },
+  "scope": [
+    "academy/crates/academy-body"
+  ],
+  "changed_paths": [
+    "academy/crates/academy-body/src/course.rs",
+    "academy/crates/academy-body/tests/body_course.rs"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path academy/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.136228,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --workspace --locked --manifest-path academy/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 31.410692,
+      "output_sha256": "3254e837faf8d890fdce4f0da36bbc8b580023fb0b47e3443ae181e00e130431"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --workspace --all-targets --locked --manifest-path academy/Cargo.toml -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.941835,
+      "output_sha256": "081208ca31f4396e22d8b710499719a2982e46d30a61b5a6f22b9a6e5861c0ea"
+    },
+    {
+      "name": "focused-tests",
+      "command": "sh -c 'cargo test --locked --manifest-path academy/Cargo.toml -p academy-body --lib && cargo test --locked --manifest-path academy/Cargo.toml -p academy-body --test body_course generated_course_preserves_first_failure_instead_of_teaching_around_it && cargo test --workspace --locked --manifest-path truelearner/Cargo.toml'",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 128.406004,
+      "output_sha256": "b2cf6388a43a2f6ebf8876fba0fa0c10d8ed712da123a320b0d3978eb83b6a35"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-body --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.320904,
+      "output_sha256": "4fa8ce6bc45e0b5dc0ae309a7f5efc480a1f45cf795bd8ddc8c6542d309eda82"
+    }
+  ]
+}

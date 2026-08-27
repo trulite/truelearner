@@ -1,0 +1,15 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "pending-return-deferral",
+  "outcome": "falsified",
+  "falsifier": "The alternative's later outcome updated both its two-link path and the stale two-link path from the failed prior action.",
+  "observations": {
+    "learned_route_reused_after_immediate_outcome": true,
+    "alternative_exposed_after_no_consequence": true,
+    "open_returns_before_alternative_outcome": 2,
+    "links_updated_by_alternative_outcome": 4,
+    "tiny_fixture_passed": true,
+    "candidate_diff_sha256": "b9f0100524322d7b0f6df8b1a8c4796d4cc1eb92060fbab3c68f456a27516e6e"
+  },
+  "artifacts": []
+}

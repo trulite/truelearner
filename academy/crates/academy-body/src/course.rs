@@ -280,6 +280,24 @@ fn evaluate(
     samples: &[WorldSample],
     observations: &[HumanStepObservation],
 ) -> BodyVerdict {
+    if capability == BodyCapability::DigitSeparation {
+        let any_movement = observations
+            .iter()
+            .flat_map(|observation| &observation.movements)
+            .any(|movement| movement.changed);
+        if !any_movement {
+            return BodyVerdict::MissingExploration;
+        }
+        return if has_digit_separation(
+            observations
+                .iter()
+                .map(|observation| observation.movements.as_slice()),
+        ) {
+            BodyVerdict::Passed
+        } else {
+            BodyVerdict::Failed
+        };
+    }
     let movements = observations
         .iter()
         .flat_map(|observation| &observation.movements)
@@ -352,7 +370,7 @@ fn evaluate_physical(
         BodyCapability::GazeContingency => unreachable!("handled above"),
         BodyCapability::GazeControl => gaze >= 2,
         BodyCapability::HandContingency => hand >= 1,
-        BodyCapability::DigitSeparation => fingers >= 1,
+        BodyCapability::DigitSeparation => unreachable!("handled before movement flattening"),
         BodyCapability::SelfWorld => gaze >= 1 && hand >= 1,
         BodyCapability::Contact => contact,
         BodyCapability::VisualReach => contact && gaze >= 1 && palm >= 1,
@@ -365,6 +383,26 @@ fn evaluate_physical(
     } else {
         BodyVerdict::Failed
     }
+}
+
+fn has_digit_separation<'a>(steps: impl IntoIterator<Item = &'a [BodyMovement]>) -> bool {
+    let mut isolated = Vec::with_capacity(2);
+    for movements in steps {
+        let fingers = movements
+            .iter()
+            .filter(|movement| movement.changed)
+            .filter_map(|movement| match movement.axis {
+                axis @ BodyAxis::FingerFlexion { .. } => Some(axis),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if let [finger] = fingers.as_slice() {
+            if !isolated.contains(finger) {
+                isolated.push(*finger);
+            }
+        }
+    }
+    isolated.len() >= 2
 }
 
 fn gaze_visual_consequences(
@@ -540,5 +578,44 @@ mod tests {
             Point::new(0, 0).unwrap(),
             Point::new(BODY_MAX, 0).unwrap()
         ));
+    }
+
+    fn changed(axis: BodyAxis) -> BodyMovement {
+        BodyMovement {
+            axis,
+            decrease_effort: 0,
+            increase_effort: 1,
+            net_impulse: 1,
+            velocity: 1,
+            changed: true,
+        }
+    }
+
+    #[test]
+    fn digit_separation_requires_two_distinct_isolated_fingers() {
+        let all_together = [Side::Left, Side::Right]
+            .into_iter()
+            .flat_map(|side| {
+                truelearner_human::Digit::ALL
+                    .into_iter()
+                    .map(move |digit| changed(BodyAxis::FingerFlexion { side, digit }))
+            })
+            .collect::<Vec<_>>();
+        assert!(!has_digit_separation([all_together.as_slice()]));
+
+        let thumb = changed(BodyAxis::FingerFlexion {
+            side: Side::Left,
+            digit: truelearner_human::Digit::Thumb,
+        });
+        assert!(!has_digit_separation([&[thumb][..], &[thumb][..]]));
+
+        let index = changed(BodyAxis::FingerFlexion {
+            side: Side::Left,
+            digit: truelearner_human::Digit::Index,
+        });
+        assert!(has_digit_separation([&[thumb][..], &[index][..]]));
+
+        let two_together = [thumb, index];
+        assert!(!has_digit_separation([two_together.as_slice()]));
     }
 }
