@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research Forecast"
+  short_description: "Predict evidence-ranked mechanism dependencies"
+  default_prompt: "Use $research-forecast to predict the physical dependency ladder for this capability from accumulated research evidence."

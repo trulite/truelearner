@@ -6,6 +6,7 @@ Request
   |-- Rust model ----------> $categorical-rust
   |-- Rust change ---------> $rust-plan -> $rust-implement -> $rust-verify
   |-- Research program ----> $research-program
+  |-- Research forecast ---> $research-forecast
   |-- Experiment batch ----> $research-campaign -> $research-converge
   |-- Benchmark frontier --> $benchmark-climb
   |-- Frozen evidence -----> $research-adjudicate

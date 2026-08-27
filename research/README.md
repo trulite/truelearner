@@ -1,7 +1,7 @@
 # Research program as code
 
 ```text
-program -> fork arms -> falsify cheaply -> converge -> freeze -> adjudicate
+program -> forecast dependencies -> fork arms -> falsify -> converge -> adjudicate
 ```
 
 Research owns claims, lessons, protocols, evidence, verdicts, and authority.
@@ -10,6 +10,7 @@ and evidence envelopes.
 
 Its agent procedures live in
 [research-program](../.agents/skills/research-program/),
+[research-forecast](../.agents/skills/research-forecast/),
 [research-campaign](../.agents/skills/research-campaign/),
 [research-converge](../.agents/skills/research-converge/), and
 [research-adjudicate](../.agents/skills/research-adjudicate/).
