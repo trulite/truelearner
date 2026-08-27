@@ -5,6 +5,31 @@ use truelearner_human::{
 
 const SIDE: u16 = 33;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StereoDepth {
+    Near,
+    Middle,
+    Far,
+}
+
+impl StereoDepth {
+    const fn generated(seed: u64) -> Self {
+        match seed % 3 {
+            0 => Self::Near,
+            1 => Self::Middle,
+            _ => Self::Far,
+        }
+    }
+
+    const fn half_disparity(self) -> i16 {
+        match self {
+            Self::Near => 96,
+            Self::Middle => 64,
+            Self::Far => 32,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct FlatWorld {
     seed: u64,
@@ -18,7 +43,9 @@ impl FlatWorld {
     pub(crate) fn generated(seed: u64, capability: BodyCapability) -> Self {
         let target = if matches!(
             capability,
-            BodyCapability::GazeContingency | BodyCapability::GazeControl
+            BodyCapability::GazeContingency
+                | BodyCapability::GazeControl
+                | BodyCapability::BinocularDepth
         ) {
             Point::new(512, 512).expect("fixed target is bounded")
         } else {
@@ -51,12 +78,24 @@ impl FlatWorld {
         } else {
             self.target
         };
-        let left = render_eye(self.seed, target, body, Side::Left)?;
-        let right = render_eye(self.seed.rotate_left(11), target, body, Side::Right)?;
+        let [left_target, right_target] = eye_targets(self.capability, self.seed, target);
+        let left = render_eye(self.seed, left_target, body, Side::Left)?;
+        let right = render_eye(self.seed.rotate_left(11), right_target, body, Side::Right)?;
         let contacts = contacts(self.capability, body)?;
         self.step = self.step.saturating_add(1);
         Ok(WorldSample::new([left, right], contacts)?)
     }
+}
+
+fn eye_targets(capability: BodyCapability, seed: u64, center: Point) -> [Point; 2] {
+    if capability != BodyCapability::BinocularDepth {
+        return [center, center];
+    }
+    let disparity = StereoDepth::generated(seed).half_disparity();
+    [
+        center.offset_public(-disparity, 0),
+        center.offset_public(disparity, 0),
+    ]
 }
 
 fn render_eye(
@@ -185,5 +224,50 @@ mod tests {
         let body = HumanHarness::new(72).unwrap().read().unwrap();
         let mut world = FlatWorld::generated(73, BodyCapability::GazeContingency);
         assert_eq!(world.sample(&body).unwrap(), world.sample(&body).unwrap());
+    }
+
+    #[test]
+    fn stereo_targets_are_symmetric_and_near_means_more_disparity() {
+        let center = Point::new(512, 512).unwrap();
+        let near = eye_targets(BodyCapability::BinocularDepth, 0, center);
+        let middle = eye_targets(BodyCapability::BinocularDepth, 1, center);
+        let far = eye_targets(BodyCapability::BinocularDepth, 2, center);
+
+        for targets in [near, middle, far] {
+            assert_eq!(targets[0].y(), center.y());
+            assert_eq!(targets[1].y(), center.y());
+            assert_eq!(targets[0].x() + targets[1].x(), center.x() * 2);
+            assert!(targets[0].x() < targets[1].x());
+        }
+        let disparity = |targets: [Point; 2]| targets[1].x() - targets[0].x();
+        assert!(disparity(near) > disparity(middle));
+        assert!(disparity(middle) > disparity(far));
+        assert_eq!(
+            eye_targets(BodyCapability::GazeControl, 0, center),
+            [center, center]
+        );
+    }
+
+    #[test]
+    fn binocular_world_exposes_displaced_targets_without_depth_metadata() {
+        let body = HumanHarness::new(74).unwrap().read().unwrap();
+        let sample = FlatWorld::generated(75, BodyCapability::BinocularDepth)
+            .sample(&body)
+            .unwrap();
+        let target_column = |side| {
+            let field = sample.eye(side);
+            field
+                .pixels()
+                .iter()
+                .position(|pixel| *pixel == 255)
+                .unwrap()
+                % usize::from(field.width())
+        };
+        assert_ne!(target_column(Side::Left), target_column(Side::Right));
+
+        let wire = serde_json::to_string(&sample).unwrap();
+        for forbidden in ["depth", "disparity", "target", "course", "capability"] {
+            assert!(!wire.contains(forbidden), "leaked {forbidden}: {wire}");
+        }
     }
 }

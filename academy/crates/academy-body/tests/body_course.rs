@@ -1,4 +1,6 @@
-use academy_body::{BodyCapability, BodyCourse, BodyExperienceMode, BodyVerdict};
+use academy_body::{
+    BodyCapability, BodyCourse, BodyCourseKind, BodyCourseOutcome, BodyExperienceMode, BodyVerdict,
+};
 
 #[test]
 fn development_commits_but_probe_is_discarded_and_replays_exactly() {
@@ -34,12 +36,23 @@ fn generated_course_preserves_first_failure_instead_of_teaching_around_it() {
     assert!(!run.experiences.is_empty());
     assert!(run.acquired.contains(&BodyCapability::HandContingency));
     assert!(!run.acquired.contains(&BodyCapability::DigitSeparation));
-    assert_eq!(run.first_failure, Some(BodyCapability::DigitSeparation));
-    if let Some(failure) = run.first_failure {
-        let last = run.experiences.last().unwrap();
-        assert_eq!(last.capability, failure);
-        assert_ne!(last.verdict, BodyVerdict::Passed);
-    }
+    assert_eq!(run.first_failure, Some(BodyCapability::BinocularDepth));
+    assert_eq!(run.courses.len(), BodyCourseKind::ORDER.len());
+    assert_eq!(run.courses[0].course, BodyCourseKind::EyeControl);
+    assert_eq!(
+        run.courses[0].outcome,
+        BodyCourseOutcome::Failed(BodyCapability::BinocularDepth)
+    );
+    assert_eq!(
+        run.courses[1].outcome,
+        BodyCourseOutcome::Failed(BodyCapability::DigitSeparation)
+    );
+    assert!(run.courses[2..]
+        .iter()
+        .all(|course| course.outcome == BodyCourseOutcome::NotReached));
+    let last = run.experiences.last().unwrap();
+    assert_eq!(last.capability, BodyCapability::DigitSeparation);
+    assert_ne!(last.verdict, BodyVerdict::Passed);
     assert!(run
         .experiences
         .iter()

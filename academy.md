@@ -90,7 +90,7 @@ physical work. This is the main learning-to-learn measure.
 
 ## Body discovery
 
-Before interface or benchmark curricula, the headless Body Discovery course
+Before interface or benchmark curricula, the headless Body Discovery curriculum
 lets the learner discover the visual-touch body exposed by `HumanHarness`: two
 foveated eyes and two five-finger hands with touch plus signed position,
 velocity, opposing effort, and joint-limit input.
@@ -108,11 +108,32 @@ light sampled at the before/after focus in the same recorded world. One
 accidental movement, passive light change, or visually inert movement cannot
 establish the capability.
 
-The course advances through gaze, independent hand and digit control,
-self/world discrimination, contact, visual reaching, tap/hold/release,
-dragging, pinching, and two-hand coordination. Every claim requires fresh
-generated evidence, exact replay, natural quiescence, unchanged negative
-controls, and bounded physical work.
+Body Discovery is split into five courses:
+
+1. Eye Control: gaze contingency, gaze control, and binocular depth.
+2. Hand and Finger Control: hand contingency and independent digits.
+3. Eye-Hand Coordination: distinguishing and coordinating self and world.
+4. Touch-Guided Manipulation: contact, visual reach, tap/hold/release, drag,
+   and pinch.
+5. Two-Hand Coordination: bimanual control.
+
+Eye and hand foundations may develop independently. Coordination and
+manipulation are not reached until their actual capability prerequisites have
+been acquired. A failure closes only its course, so evidence can preserve both
+an eye frontier and a hand frontier without teaching around either one. Failed
+lesson evidence is preserved, but its unacquired development checkpoint is not
+carried into another independent course.
+
+The initial binocular claim is deliberately small. Academy presents one target
+at equal-and-opposite horizontal disparities in the two eye fields, with larger
+disparity for a nearer external depth band. The capability requires repeated
+vergence movement with a recorded light consequence in both eyes. The learner
+receives only pixels and proprioception: target, depth, disparity, and verdict
+stay outside the harness. Passing does not establish distance estimation,
+depth-directed reaching, or general 3D understanding.
+
+Every claim requires fresh generated evidence, exact replay, natural
+quiescence, unchanged negative controls, and bounded physical work.
 
 ## First curriculum
 

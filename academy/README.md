@@ -21,7 +21,18 @@ canonical JSON record, frame evidence, poster, and derived MP4.
 ## Run Body Discovery
 
 The development-only visual-touch body has two foveated eyes and two
-five-finger hands. Opposing motor effort is integrated per physical axis, then
+five-finger hands. Body Discovery is reported as five courses: Eye Control,
+Hand and Finger Control, Eye-Hand Coordination, Touch-Guided Manipulation, and
+Two-Hand Coordination. Eye and hand foundations can advance independently;
+dependent courses remain not reached when their prerequisites fail.
+
+Eye Control includes a bounded binocular-depth lesson. A target is projected
+with equal-and-opposite horizontal disparity, and the probe requires repeated
+vergence with actual light consequences in both eyes. This tests a stereo
+sensorimotor contingency, not general 3D understanding or depth-directed
+reaching.
+
+Opposing motor effort is integrated per physical axis, then
 signed position, actual velocity, effort, joint limits, and touch return as
 ordinary input. Its headless Academy course develops and probes body control
 without selecting movements for the learner or counting canceled effort as

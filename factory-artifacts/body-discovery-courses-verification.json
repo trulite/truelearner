@@ -1,0 +1,59 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "body-discovery-courses-candidate.json",
+    "sha256": "6baee7d714b91b67d83db4b689246643a2ccb293600b46c57bfe8dfa5bf96417"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "held-out-seed-91003",
+      "command": "cargo run --locked --manifest-path academy/Cargo.toml -p academy-body --bin academy-body-course -- --seed 91003 --output <fresh-temporary-directory>/run",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 140.83
+    },
+    {
+      "name": "public-course-and-semantic-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-body --test body_course",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 156.84
+    },
+    {
+      "name": "frozen-learner-and-body",
+      "command": "cargo test --workspace --locked --manifest-path truelearner/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.44
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-body --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.265327
+    }
+  ],
+  "findings": [
+    "The five courses partition the eleven capability claims exactly and retain acyclic prerequisites.",
+    "The stereo world projects one target symmetrically with larger disparity for nearer depth while leaking no target, depth, disparity, course, or verdict metadata.",
+    "BinocularDepth rejects ordinary gaze, one accidental vergence event, and monocular consequence; it requires repeated vergence consequences in both eyes.",
+    "Seeds 31001 and 91003 acquire gaze contingency, gaze control, and hand contingency; Eye Control stops at BinocularDepth and Hand and Finger Control stops independently at DigitSeparation.",
+    "Failed lesson checkpoints do not contaminate independent courses; their transcripts retain exact replay.",
+    "No learner-core or human-body source changed, and no verification finding refutes the bounded plan claim."
+  ],
+  "residual_uncertainty": [
+    "The learner does not yet demonstrate the new binocular-depth capability.",
+    "The stereo claim does not establish distance estimation, depth-directed reaching, object permanence, or general 3D understanding.",
+    "Eye-Hand Coordination and later manipulation courses remain not reached until both independent foundation frontiers are acquired.",
+    "Existing later capability evaluators still need separate selectivity audits when their prerequisites become reachable."
+  ],
+  "artifacts": [
+    {
+      "path": "body-discovery-courses-heldout.json",
+      "sha256": "2338b6bdd5bdf0436caf65305c1d5349cb499eb110690cebffee62513b27165d"
+    }
+  ]
+}

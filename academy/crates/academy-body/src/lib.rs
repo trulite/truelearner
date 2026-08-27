@@ -6,7 +6,7 @@ mod evidence;
 mod world;
 
 pub use course::{
-    BodyCapability, BodyCourse, BodyCourseError, BodyExperience, BodyExperienceMode, BodyVerdict,
-    CourseRun,
+    BodyCapability, BodyCourse, BodyCourseError, BodyCourseKind, BodyCourseOutcome,
+    BodyCourseProgress, BodyExperience, BodyExperienceMode, BodyVerdict, CourseRun,
 };
 pub use evidence::{write_course_evidence, CourseReceipt, EvidencePaths};

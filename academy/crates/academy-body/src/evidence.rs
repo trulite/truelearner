@@ -1,4 +1,4 @@
-use crate::{BodyCapability, BodyCourseError, CourseRun};
+use crate::{BodyCapability, BodyCourseError, BodyCourseProgress, CourseRun};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 pub struct CourseReceipt {
     pub schema: String,
     pub seed: u64,
+    pub courses: Vec<BodyCourseProgress>,
     pub acquired: Vec<BodyCapability>,
     pub first_failure: Option<BodyCapability>,
     pub experience_count: usize,
@@ -36,8 +37,9 @@ pub fn write_course_evidence(
     let transcript_sha256 = hex(&Sha256::digest(&transcript));
     let transcript_file = format!("transcript-{transcript_sha256}.json");
     let receipt = CourseReceipt {
-        schema: "body-course/v1".to_string(),
+        schema: "body-course/v2".to_string(),
         seed: run.seed,
+        courses: run.courses.clone(),
         acquired: run.acquired.clone(),
         first_failure: run.first_failure,
         experience_count: run.experiences.len(),

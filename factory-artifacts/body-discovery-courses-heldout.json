@@ -1,0 +1,47 @@
+{
+  "schema": "academy-body-courses-heldout/v1",
+  "candidate_tree_sha256": "e9a66be8cf23f6e11f7bda5273a19fbfbf67a7705d0c2f423ace700ef2ca0f6b",
+  "course_partition": [
+    "eye_control",
+    "hand_and_finger_control",
+    "eye_hand_coordination",
+    "touch_guided_manipulation",
+    "two_hand_coordination"
+  ],
+  "binocular_controls": {
+    "equal_images": "failed",
+    "one_vergence_consequence": "failed",
+    "monocular_consequence": "failed",
+    "two_binocular_vergence_consequences": "passed",
+    "symmetric_disparity": "passed",
+    "nearer_has_larger_disparity": "passed",
+    "organism_receives_depth_metadata": false
+  },
+  "seed_31001": {
+    "acquired": ["gaze_contingency", "gaze_control", "hand_contingency"],
+    "eye_control_frontier": "binocular_depth",
+    "hand_control_frontier": "digit_separation",
+    "dependent_courses": "not_reached",
+    "exact_replay": true
+  },
+  "seed_91003": {
+    "acquired": ["gaze_contingency", "gaze_control", "hand_contingency"],
+    "eye_control_frontier": "binocular_depth",
+    "hand_control_frontier": "digit_separation",
+    "dependent_courses": "not_reached",
+    "experience_count": 10,
+    "physical_work": 176108,
+    "plasticity_updates": 18140,
+    "exact_replay": true,
+    "receipt_sha256": "71517f2b05c7aa337ec573a150665eab1282337a4a4175824cb35f9a9bd0ee6e",
+    "transcript_sha256": "a9d7ad428fd234c2321e4cb05cebfeb904f0808a810ed3332829dcce492718ba"
+  },
+  "independent_controls": {
+    "semantic_firewall": "passed",
+    "probe_isolation": "passed",
+    "failed_lesson_isolation": "passed",
+    "warm_regression_seconds": 0.265327,
+    "learner_and_body_changed_paths": 0
+  },
+  "claim": "Body Discovery has independent eye and hand foundations; binocular depth establishes only stereo exposure plus repeated two-eye vergence consequences."
+}

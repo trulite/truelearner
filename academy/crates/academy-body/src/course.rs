@@ -15,6 +15,7 @@ const PHYSICAL_WORK_BOUND: u64 = 2_000_000;
 pub enum BodyCapability {
     GazeContingency,
     GazeControl,
+    BinocularDepth,
     HandContingency,
     DigitSeparation,
     SelfWorld,
@@ -26,9 +27,10 @@ pub enum BodyCapability {
 }
 
 impl BodyCapability {
-    pub const ORDER: [Self; 10] = [
+    pub const ORDER: [Self; 11] = [
         Self::GazeContingency,
         Self::GazeControl,
+        Self::BinocularDepth,
         Self::HandContingency,
         Self::DigitSeparation,
         Self::SelfWorld,
@@ -43,8 +45,9 @@ impl BodyCapability {
         match self {
             Self::GazeContingency | Self::HandContingency => &[],
             Self::GazeControl => &[Self::GazeContingency],
+            Self::BinocularDepth => &[Self::GazeControl],
             Self::DigitSeparation => &[Self::HandContingency],
-            Self::SelfWorld => &[Self::GazeControl, Self::DigitSeparation],
+            Self::SelfWorld => &[Self::BinocularDepth, Self::DigitSeparation],
             Self::Contact => &[Self::SelfWorld],
             Self::VisualReach => &[Self::Contact],
             Self::TapHoldRelease => &[Self::VisualReach],
@@ -52,6 +55,63 @@ impl BodyCapability {
             Self::Bimanual => &[Self::DragPinch],
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BodyCourseKind {
+    EyeControl,
+    HandAndFingerControl,
+    EyeHandCoordination,
+    TouchGuidedManipulation,
+    TwoHandCoordination,
+}
+
+impl BodyCourseKind {
+    pub const ORDER: [Self; 5] = [
+        Self::EyeControl,
+        Self::HandAndFingerControl,
+        Self::EyeHandCoordination,
+        Self::TouchGuidedManipulation,
+        Self::TwoHandCoordination,
+    ];
+
+    pub const fn capabilities(self) -> &'static [BodyCapability] {
+        match self {
+            Self::EyeControl => &[
+                BodyCapability::GazeContingency,
+                BodyCapability::GazeControl,
+                BodyCapability::BinocularDepth,
+            ],
+            Self::HandAndFingerControl => &[
+                BodyCapability::HandContingency,
+                BodyCapability::DigitSeparation,
+            ],
+            Self::EyeHandCoordination => &[BodyCapability::SelfWorld],
+            Self::TouchGuidedManipulation => &[
+                BodyCapability::Contact,
+                BodyCapability::VisualReach,
+                BodyCapability::TapHoldRelease,
+                BodyCapability::DragPinch,
+            ],
+            Self::TwoHandCoordination => &[BodyCapability::Bimanual],
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "status", content = "capability", rename_all = "snake_case")]
+pub enum BodyCourseOutcome {
+    Acquired,
+    Failed(BodyCapability),
+    NotReached,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BodyCourseProgress {
+    pub course: BodyCourseKind,
+    pub acquired: Vec<BodyCapability>,
+    pub outcome: BodyCourseOutcome,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -96,6 +156,7 @@ pub struct BodyExperience {
 pub struct CourseRun {
     pub schema_version: u16,
     pub seed: u64,
+    pub courses: Vec<BodyCourseProgress>,
     pub acquired: Vec<BodyCapability>,
     pub first_failure: Option<BodyCapability>,
     pub experiences: Vec<BodyExperience>,
@@ -213,42 +274,70 @@ impl BodyCourse {
 
     pub fn run(mut self) -> Result<CourseRun, BodyCourseError> {
         let mut first_failure = None;
-        for (index, capability) in BodyCapability::ORDER.into_iter().enumerate() {
-            if !capability
-                .prerequisites()
-                .iter()
-                .all(|required| self.acquired.contains(required))
-            {
+        let mut courses = Vec::with_capacity(BodyCourseKind::ORDER.len());
+        for course in BodyCourseKind::ORDER {
+            let mut course_acquired = Vec::with_capacity(course.capabilities().len());
+            let mut course_failure = None;
+            let mut course_blocked = false;
+            for capability in course.capabilities().iter().copied() {
+                if !capability
+                    .prerequisites()
+                    .iter()
+                    .all(|required| self.acquired.contains(required))
+                {
+                    course_blocked = true;
+                    break;
+                }
+                let capability_index = BodyCapability::ORDER
+                    .iter()
+                    .position(|candidate| *candidate == capability)
+                    .expect("course partition contains only ordered capabilities");
+                let development_seed = self.seed.saturating_add(capability_index as u64 * 10 + 1);
+                let checkpoint_before_lesson = self.checkpoint_bytes()?;
+                let development = self.experience(
+                    capability,
+                    BodyExperienceMode::Development,
+                    development_seed,
+                )?;
+                if matches!(
+                    development.verdict,
+                    BodyVerdict::MissingExploration | BodyVerdict::BudgetExceeded
+                ) {
+                    self.restore_checkpoint(&checkpoint_before_lesson)?;
+                    course_failure = Some(capability);
+                    break;
+                }
+                let probe = self.experience(
+                    capability,
+                    BodyExperienceMode::Probe,
+                    development_seed.saturating_add(1_000_000),
+                )?;
+                if probe.verdict != BodyVerdict::Passed || !probe.durable_unchanged {
+                    self.restore_checkpoint(&checkpoint_before_lesson)?;
+                    course_failure = Some(capability);
+                    break;
+                }
+                self.acquired.insert(capability);
+                course_acquired.push(capability);
+            }
+            let outcome = if course_blocked {
+                BodyCourseOutcome::NotReached
+            } else if let Some(capability) = course_failure {
                 first_failure.get_or_insert(capability);
-                break;
-            }
-            let development_seed = self.seed.saturating_add(index as u64 * 10 + 1);
-            let development = self.experience(
-                capability,
-                BodyExperienceMode::Development,
-                development_seed,
-            )?;
-            if matches!(
-                development.verdict,
-                BodyVerdict::MissingExploration | BodyVerdict::BudgetExceeded
-            ) {
-                first_failure = Some(capability);
-                break;
-            }
-            let probe = self.experience(
-                capability,
-                BodyExperienceMode::Probe,
-                development_seed.saturating_add(1_000_000),
-            )?;
-            if probe.verdict != BodyVerdict::Passed || !probe.durable_unchanged {
-                first_failure = Some(capability);
-                break;
-            }
-            self.acquired.insert(capability);
+                BodyCourseOutcome::Failed(capability)
+            } else {
+                BodyCourseOutcome::Acquired
+            };
+            courses.push(BodyCourseProgress {
+                course,
+                acquired: course_acquired,
+                outcome,
+            });
         }
         Ok(CourseRun {
-            schema_version: 1,
+            schema_version: 2,
             seed: self.seed,
+            courses,
             acquired: self.acquired.iter().copied().collect(),
             first_failure,
             exact_replay: self
@@ -257,6 +346,12 @@ impl BodyCourse {
                 .all(|experience| experience.replay_exact),
             experiences: self.experiences,
         })
+    }
+
+    fn restore_checkpoint(&mut self, bytes: &[u8]) -> Result<(), BodyCourseError> {
+        let checkpoint = truelearner_human::HumanCheckpoint::decode(bytes)?;
+        self.harness = HumanHarness::restore(checkpoint)?;
+        Ok(())
     }
 }
 
@@ -297,6 +392,24 @@ fn evaluate(
         } else {
             BodyVerdict::Failed
         };
+    }
+    if capability == BodyCapability::BinocularDepth {
+        let vergence_movements = observations
+            .iter()
+            .flat_map(|observation| &observation.movements)
+            .filter(|movement| movement.changed && movement.axis == BodyAxis::Vergence)
+            .count();
+        if !observations
+            .iter()
+            .flat_map(|observation| &observation.movements)
+            .any(|movement| movement.changed)
+        {
+            return BodyVerdict::MissingExploration;
+        }
+        return binocular_depth_verdict(
+            vergence_movements,
+            binocular_visual_consequences(samples, observations),
+        );
     }
     let movements = observations
         .iter()
@@ -369,6 +482,7 @@ fn evaluate_physical(
     let passed = match capability {
         BodyCapability::GazeContingency => unreachable!("handled above"),
         BodyCapability::GazeControl => gaze >= 2,
+        BodyCapability::BinocularDepth => unreachable!("handled before movement flattening"),
         BodyCapability::HandContingency => hand >= 1,
         BodyCapability::DigitSeparation => unreachable!("handled before movement flattening"),
         BodyCapability::SelfWorld => gaze >= 1 && hand >= 1,
@@ -383,6 +497,58 @@ fn evaluate_physical(
     } else {
         BodyVerdict::Failed
     }
+}
+
+fn binocular_visual_consequences(
+    samples: &[WorldSample],
+    observations: &[HumanStepObservation],
+) -> usize {
+    samples
+        .iter()
+        .zip(observations)
+        .filter(|(_, observation)| {
+            observation
+                .movements
+                .iter()
+                .any(|movement| movement.changed && movement.axis == BodyAxis::Vergence)
+        })
+        .filter(|(sample, _)| has_stereo_target(sample))
+        .filter(|(sample, observation)| {
+            [Side::Left, Side::Right].into_iter().all(|side| {
+                focus_changes_light(
+                    sample.eye(side),
+                    observation.state_before.eyes().focus(side),
+                    observation.state_after.eyes().focus(side),
+                )
+            })
+        })
+        .count()
+}
+
+fn binocular_depth_verdict(
+    vergence_movements: usize,
+    binocular_visual_consequences: usize,
+) -> BodyVerdict {
+    if vergence_movements >= 2 && binocular_visual_consequences >= 2 {
+        BodyVerdict::Passed
+    } else {
+        BodyVerdict::Failed
+    }
+}
+
+fn has_stereo_target(sample: &WorldSample) -> bool {
+    let target_column = |side| {
+        let field = sample.eye(side);
+        field
+            .pixels()
+            .iter()
+            .position(|pixel| *pixel == 255)
+            .map(|index| index % usize::from(field.width()))
+    };
+    matches!(
+        (target_column(Side::Left), target_column(Side::Right)),
+        (Some(left), Some(right)) if left != right
+    )
 }
 
 fn has_digit_separation<'a>(steps: impl IntoIterator<Item = &'a [BodyMovement]>) -> bool {
@@ -515,6 +681,19 @@ mod tests {
     }
 
     #[test]
+    fn courses_partition_the_capability_order_exactly() {
+        let flattened = BodyCourseKind::ORDER
+            .into_iter()
+            .flat_map(BodyCourseKind::capabilities)
+            .copied()
+            .collect::<Vec<_>>();
+        assert_eq!(flattened, BodyCapability::ORDER);
+        assert!(BodyCourseKind::ORDER
+            .into_iter()
+            .all(|course| !course.capabilities().is_empty()));
+    }
+
+    #[test]
     fn passive_world_change_is_not_self_movement() {
         let harness = HumanHarness::new(11).unwrap();
         let mut world = FlatWorld::passive(12);
@@ -560,6 +739,15 @@ mod tests {
         );
         assert_eq!(gaze_contingency_verdict(3, 0), BodyVerdict::Failed);
         assert_eq!(gaze_contingency_verdict(2, 2), BodyVerdict::Passed);
+    }
+
+    #[test]
+    fn binocular_depth_requires_repeated_two_eye_vergence_consequences() {
+        assert_eq!(binocular_depth_verdict(0, 0), BodyVerdict::Failed);
+        assert_eq!(binocular_depth_verdict(2, 0), BodyVerdict::Failed);
+        assert_eq!(binocular_depth_verdict(1, 1), BodyVerdict::Failed);
+        assert_eq!(binocular_depth_verdict(3, 1), BodyVerdict::Failed);
+        assert_eq!(binocular_depth_verdict(2, 2), BodyVerdict::Passed);
     }
 
     #[test]
