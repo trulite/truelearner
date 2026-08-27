@@ -1,0 +1,54 @@
+schema = "research-protocol/v1"
+id = "recursive-learner-reentry-v1"
+program = "learner-physics"
+claim = "CAUSAL-LEARNER-CONSTRUCTION"
+status = "preregistered"
+parent_authority = "recursive-learner-construction-v1@4665502be09bb134c102a817836120aeaa6adaf5"
+question = "Can ordinary causal activity reenter a newly constructed learner as a distinct learner-local closure, so the same anonymous law constructs descendants without evaluator routing or depth identity?"
+observables = [
+  "all recursive-learner-construction-v1 rung-zero-through-three observations, classifications, replay, quiescence, and local cost",
+  "learner ownership before each closure observation",
+  "post-construction causal incidence at an already owned physical surface",
+  "closure identity, evidence, and construction parent at depths zero through three",
+  "reordered and reflected discovery, false closure at every realized depth, exact checkpoint replay, and natural quiescence",
+]
+frozen_variables = [
+  "CORE1 authority and every accepted protocol",
+  "recursive-learner-construction-v1 implementation, artifacts, convergence, and first failure at rung four",
+  "public Harness send/read boundary with no private Body access or learner-addressing operation",
+  "two fresh accepted causal observations per construction, finite causal return, participating lineage, and source-local work",
+  "anonymous physical surface, output, event schedule, resource limits, and false-closure controls",
+  "upward rungs zero through three and the unchanged rung-four depth-three requirement",
+]
+permitted_changes = [
+  "experimental learner-local ownership of a fresh causal-closure observation",
+  "experimental closure identity sufficient to distinguish adjacent ownership boundaries over the same live causal surface",
+  "physical tracing required to observe boundary reentry and descendant construction",
+]
+positive_predicates = [
+  "the frozen root-construction reference remains exact",
+  "ordinary activity after construction produces a new closure owned by the deepest learner already containing the participating surface",
+  "two fresh observations of that learner-local closure construct exactly one child of that learner",
+  "the same law repeats through depth three with no root, child, or depth branch",
+  "pre-construction, disconnected, shuffled, correlated, duplicate, and stale activity cannot impersonate learner-local reentry",
+  "reflection, reordered discovery, checkpoint replay, natural quiescence, and local cost remain exact",
+]
+negative_controls = [
+  "frozen recursive-learner-construction-v1 root construction and complete first-round artifact set",
+  "one post-construction observation only",
+  "matched activity before any learner owns the surface",
+  "disconnected, shuffled, merely correlated, duplicate-without-fresh-output, and stale returns",
+  "unrelated sibling surface and reflected discovery order",
+  "four, sixty-four, and one-thousand-twenty-four dormant anonymous surfaces",
+]
+stop_conditions = [
+  "any frozen reference, replay, natural quiescence, or warm runtime bound changes",
+  "the fixture names, selects, routes to, or allocates a learner or supplies a depth signal",
+  "ownership is inferred from semantic anatomy, action, target, score, evaluator identity, or reconstructed history",
+  "a false closure constructs a learner or one physical closure constructs more than once per owner",
+  "stop at the first absent transition and do not run recursive composition after learner-local closure genesis fails",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true
