@@ -2,7 +2,7 @@ schema = "research-program/v1"
 id = "learner-physics"
 thesis = "Small local physical laws can produce increasingly general learner capabilities without high-level cognitive primitives or hidden evaluator authority."
 pre_frontier_checkpoint = "core1-adoption-code-consolidated-v1@5a57b6acfe26d294e39e7790c85676a2b2badbc9"
-active_frontier = ["ARC-NEXT"]
+active_frontier = ["CAUSAL-LEARNER-CONSTRUCTION"]
 
 [[claim]]
 id = "CORE1-LOCAL-LAWS"
@@ -149,4 +149,43 @@ limitations = [
   "One action return retained two useful surface origins once in either order and rejected duplicate, unrelated, and stale returns; neither surface expressed the reverse motor action.",
   "The four-step one-joint and acoustic preflights produced no movement, while the full candidate run exceeded the development budget under topology growth.",
   "No one-joint, binocular-hand, vocal-auditory, full-body, default-physics, authority, or ARC capability was established.",
+]
+
+[[claim]]
+id = "SENSORIMOTOR-SYNTHESIS-LADDER"
+statement = "The strongest compatible sensorimotor candidate can be tested upward from physical continuity through embodied composition, with failure localized before any downward ablation."
+status = "executed"
+depends_on = ["CORE1-LOCAL-LAWS", "SENSORIMOTOR-PARTICIPATION-CONTINUITY"]
+falsifiers = [
+  "The complete candidate omits an applicable compatible established mechanism.",
+  "A dependent body rung advances after an earlier physical prerequisite fails.",
+  "A removal ablation is interpreted before the complete candidate succeeds.",
+  "The candidate requires semantic anatomy, evaluator-selected actions, non-replayable state, or evaluator termination.",
+]
+limitations = [
+  "Physical continuity, reverse surface execution, and first motor output survived with exact replay and natural quiescence.",
+  "The one-joint loop moved on twelve of sixteen steps in both directions but reached neither reflected limit.",
+  "Repeated-axis, digit, binocular, acoustic, full-body, and downward-ablation rungs were not established after the one-joint failure.",
+  "The result falsifies sufficiency of the tested monolithic composition; it does not establish recursive learner construction or any adopted organism physics.",
+]
+
+[[claim]]
+id = "CAUSAL-LEARNER-CONSTRUCTION"
+statement = "From anonymous output participation and proprioceptive return alone, an organism can recursively construct bounded learners around controllable physical surfaces; every constructed learner retains the same construction capability, develops local control, passes ordinary consequence across nested boundaries, and remains composable with sibling learners."
+status = "proposed"
+depends_on = ["CORE1-LOCAL-LAWS", "SENSORIMOTOR-SYNTHESIS-LADDER"]
+falsifiers = [
+  "A matched causally constructed child does not acquire complete local control beyond the monolithic candidate.",
+  "Construction requires axis, direction, sensor, actuator, body-part, capability, target, score, or evaluator identity.",
+  "A child forms around a disconnected, shuffled, or merely correlated surface without output-caused proprioceptive return.",
+  "Local or parent consequence cannot reach the exact participating child structure without duplicate, unrelated, or stale credit.",
+  "A child cannot construct a grandchild under the same anonymous causal conditions, or behavior depends on root, depth, parent, or child identity.",
+  "Reflection, reordered surfaces, multiple independent children, replay, natural quiescence, or inherited CORE1 controls fail.",
+]
+limitations = [
+  "Repeated isolated local survival with failed monolithic composition motivates this hypothesis but does not establish it.",
+  "No physical construction trigger, learner boundary, nested interface, successful child, or successful grandchild currently exists.",
+  "Recursion is bounded only by ordinary physical resources and causal evidence; this claim does not assume infinite construction or an evaluator-selected maximum depth.",
+  "A test fixture may expose anonymous physical surfaces but may not construct, name, select, or train the child on the organism's behalf.",
+  "Any discovery result remains candidate physics and cannot establish unrestricted embodiment, cognition, ARC capability, or organism authority.",
 ]

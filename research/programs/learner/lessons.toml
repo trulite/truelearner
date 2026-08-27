@@ -298,6 +298,14 @@ applies_when = ["topology growth", "path formation cost", "large body", "foveati
 research_action = "Measure source-local structural proposals and scans independently from active aging before rerunning embodied loops."
 
 [[lesson]]
+id = "LP-038"
+kind = "learner-physics"
+statement = "Repeated survival of local sensorimotor laws alongside failure of their monolithic composition warrants testing causally discovered learner boundaries before adding another global controller rule."
+evidence = ["sensorimotor-dependency-sweep-v1:one-joint-composition", "sensorimotor-participation-continuity-v1:one-joint-recomposition", "sensorimotor-synthesis-ladder-v1:one-joint-control"]
+applies_when = ["isolated local survival", "monolithic composition failure", "recursive learner construction"]
+research_action = "Compare recursively constructed learners with the matched monolithic candidate under anonymous, reflected, noncausal, nested, sibling, and multiple-surface controls."
+
+[[lesson]]
 id = "RM-001"
 kind = "research-method"
 statement = "A negative benchmark result does not identify the missing capability."
