@@ -1,0 +1,21 @@
+schema = "research-arm/v1"
+id = "closure-subgraph-autonomy"
+campaign = "recursive-learner-construction-v1"
+kind = "solve"
+parents = ["CAUSAL-LEARNER-CONSTRUCTION", "LP-038"]
+imports = ["actual output participation", "bounded proprioceptive return", "source-local structural frontier", "same learner physics"]
+mechanism = "A repeatedly participating causally closed subgraph becomes an independently scheduled learner boundary without allocating a separate learner or transferring historical state; any autonomous subgraph may close a descendant subgraph by the same law."
+prediction = "Causal closure becomes autonomous through depth three, false closures remain ordinary topology, and nested local control appears without a separate allocation event."
+falsifiers = [
+  "The subgraph cannot become independently adapting or cannot recursively close a descendant.",
+  "Autonomy requires root, depth, anatomy, target, or evaluator identity.",
+  "A disconnected, shuffled, or merely correlated subgraph becomes autonomous.",
+  "Nested consequence or checkpoint replay cannot distinguish the proposed boundary.",
+]
+source_revision = "257cf737462321f383c8c64eb3b5a75ef690dec8"
+protocol_sha256 = "abcaf0db09e7a47ad27e783719b09afda77448f6093db5b75d9cab003fd22173"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/recursive-learner-construction/Cargo.toml probe_closure_subgraph_autonomy"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/recursive-learner-construction/Cargo.toml -- --arm closure-subgraph-autonomy"

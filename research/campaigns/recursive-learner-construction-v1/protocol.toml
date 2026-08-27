@@ -1,0 +1,70 @@
+schema = "research-protocol/v1"
+id = "recursive-learner-construction-v1"
+program = "learner-physics"
+claim = "CAUSAL-LEARNER-CONSTRUCTION"
+status = "preregistered"
+parent_authority = "core1-adoption-code-consolidated-v1@5a57b6acfe26d294e39e7790c85676a2b2badbc9"
+question = "Can repeated anonymous output-caused proprioceptive closure construct recursively identical bounded learners whose causal consequence remains exact across nested and sibling boundaries?"
+observables = [
+  "frozen parent classifications, exact replay, and natural quiescence",
+  "output participation, physical change, proprioceptive incidence, local return, and closure evidence",
+  "learner construction event, boundary membership, parent-facing ports, and physical depth",
+  "learner physics equality, inherited construction capability, checkpoint equality, and local execution cost",
+  "child and grandchild bidirectional control, reflected limit arrival, and reflected limit escape",
+  "adjacent-parent recruitment and unrelated-activity silence",
+  "per-boundary consequence delivery, exact participating-path updates, release, duplicate credit, and stale credit",
+  "sibling construction, causal isolation, learned sequences, learned coalitions, and broad coactivation",
+  "stage-gated repeated-axis, digit, binocular, acoustic, and full-body composition",
+]
+frozen_variables = [
+  "CORE1 authority and all accepted reference behavior",
+  "development parent 257cf737462321f383c8c64eb3b5a75ef690dec8",
+  "sensorimotor synthesis parent classifications and twelve-of-sixteen monolithic one-joint counterexample",
+  "public Harness send/read boundary with no private Body access",
+  "anonymous physical event schedules, surface capacities, per-learner resources, and warm runtime budget",
+  "reflection, reversed discovery order, delayed-valid, stale, disconnected, shuffled, merely correlated, unrelated, and either-alone controls",
+  "upward rungs zero through ten and strictly conditional downward ablations",
+]
+permitted_changes = [
+  "experimental causal-closure evidence and construction potential",
+  "experimental recursively identical learner boundary representation",
+  "experimental adjacent-boundary activity and consequence routing",
+  "physical tracing required to observe construction, depth symmetry, boundary delivery, and cost",
+]
+positive_predicates = [
+  "all frozen parent references remain exact",
+  "a causal anonymous surface produces exact closure while false closures do not",
+  "causal closure constructs one bounded learner without evaluator-supplied boundary or anatomy",
+  "the constructed learner has the same physics, checkpoint behavior, quiescence, and construction capability as its parent",
+  "a child constructs a grandchild under isomorphic anonymous conditions through depth three",
+  "child and grandchild each acquire bidirectional reflected local control",
+  "ordinary adjacent-parent activity recruits learned behavior while unrelated activity remains silent",
+  "consequence crosses two boundaries once, credits only actual participants, and releases without stale retention",
+  "two sibling learners construct and learn without cross-credit or broad coactivation",
+  "the parent recruits descendants and siblings in learned sequences and coalitions",
+  "the recursive candidate passes the complete stage-gated body ladder under the warm budget",
+]
+negative_controls = [
+  "matched monolithic synthesis reference",
+  "disconnected surface with matched event counts",
+  "shuffled return with matched topology",
+  "merely correlated sensory change without output causation",
+  "false closure at root, child, and grandchild levels",
+  "reflected and reordered construction at depths one through three",
+  "untrained learner, unrelated parent activity, unrelated sibling, and unrelated third child",
+  "valid delayed return, stale delayed return, no-consequence release, either-alone sequence, and either-alone coalition",
+  "four, sixty-four, and one-thousand-twenty-four dormant anonymous surfaces",
+]
+stop_conditions = [
+  "any frozen parent reference, replay, natural quiescence, or warm runtime bound changes",
+  "a learner is constructed for a disconnected, shuffled, or merely correlated surface",
+  "construction or recruitment uses semantic anatomy, root, depth, action, target, score, or evaluator identity",
+  "the fixture constructs, names, selects, trains, or supplies the boundary of the learner it claims to observe",
+  "a child lacks the same construction capability as its parent under isomorphic conditions",
+  "consequence is lost, duplicated, credited across siblings, reconstructed after participation, or retained stale",
+  "stop dependent upward rungs at the first failed prerequisite and do not run downward ablations unless rung ten passes",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

@@ -1,0 +1,20 @@
+schema = "research-arm/v1"
+id = "first-failure-localization"
+campaign = "recursive-learner-construction-v1"
+kind = "diagnostic"
+parents = ["complete-recursive-upward-ladder"]
+imports = ["per-transition public Harness trace", "matched causal and false-closure events", "first failed upward rung only"]
+mechanism = "At the first failed upward rung, record output participation, world change, proprioceptive incidence, return, closure evidence, construction, boundary membership, inherited construction capability, descendant construction, per-boundary consequence, adjacent recruitment, and resulting output without changing physics."
+prediction = "The trace identifies one earliest absent or divergent physical transition while every earlier transition and matched control remains exact."
+falsifiers = [
+  "The trace cannot distinguish the positive and matched negative cases before the high-level failure.",
+  "The diagnostic supplies a child, boundary, action, depth, or expected result.",
+  "An earlier supposedly surviving transition is absent.",
+]
+source_revision = "257cf737462321f383c8c64eb3b5a75ef690dec8"
+protocol_sha256 = "abcaf0db09e7a47ad27e783719b09afda77448f6093db5b75d9cab003fd22173"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/recursive-learner-construction/Cargo.toml probe_first_failure_localization"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/recursive-learner-construction/Cargo.toml -- --arm first-failure-localization"

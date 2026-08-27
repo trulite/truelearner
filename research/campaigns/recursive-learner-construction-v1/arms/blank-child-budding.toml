@@ -1,0 +1,21 @@
+schema = "research-arm/v1"
+id = "blank-child-budding"
+campaign = "recursive-learner-construction-v1"
+kind = "solve"
+parents = ["CAUSAL-LEARNER-CONSTRUCTION", "LP-038"]
+imports = ["repeated causal closure", "anonymous participating input and output surfaces", "same learner physics", "matched per-learner resources"]
+mechanism = "Repeated causal closure allocates a blank same-type learner and attaches only the actually participating anonymous surfaces; no learned strength, return, or path state crosses into the new learner."
+prediction = "A blank child and grandchild form only for causal closures, learn from subsequent experience without historical leakage, and preserve exact nested consequence after learning."
+falsifiers = [
+  "The blank learner cannot acquire local control or construct a grandchild under isomorphic conditions.",
+  "Construction copies learned state, uses semantic ports, or is supplied by the fixture.",
+  "A false closure constructs a learner.",
+  "The blank child loses the physical lineage needed for exact consequence or parent recruitment.",
+]
+source_revision = "257cf737462321f383c8c64eb3b5a75ef690dec8"
+protocol_sha256 = "abcaf0db09e7a47ad27e783719b09afda77448f6093db5b75d9cab003fd22173"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/recursive-learner-construction/Cargo.toml probe_blank_child_budding"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/recursive-learner-construction/Cargo.toml -- --arm blank-child-budding"
