@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "production-and-sample-controls"
+campaign = "workstation-return-bearing-opportunity-composition-v1"
+kind = "control"
+parents = ["workstation-shared-opportunity-incidence-authority-v1", "workstation-return-bearing-choice-localization-v1:diagnostic-purity-control"]
+imports = ["GenericOnly production", "unchanged sample", "core trace purity", "Academy semantic firewall"]
+mechanism = "Keep composed opportunity research-only and require production identity unchanged samples replay quiet work and firewall controls."
+prediction = "All controls remain exact and no unchanged sample creates local opportunity."
+falsifiers = ["Production changes.", "A sample opens composed opportunity.", "Diagnostics change physics.", "Semantic leakage appears."]
+source_revision = "plan:420f894e1e243f191e7f003b10c773bb5ac113db95462c1736978b8efccf90ec"
+protocol_sha256 = "34a337ad9af774a7e45705e6fc6c98596482e79cd26b3aea7c01e4deb359bb81"
+budget_minutes = 4
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation"
+full_evidence = "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields"
