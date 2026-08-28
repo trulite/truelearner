@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "workstation-transition-local-opportunity-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "A generic exploration cause and an actual returned local transition are distinct physical causes; composing one ephemeral local opportunity from the return with the generic opportunity lets the existing continuation and topology-product laws preserve contact-relevant movement until real surface contact."
+first_divergence = "At palm-depth movements on sequences 18 26 and 41 the actual transition returned on the next step but same-axis movement occurred zero times; unrelated eye and spread components moved instead."
+missing_transition = "A just-returned changed physical component needs one local opportunity to continue its ordinary motor arrow alongside rather than inside the next generic exploration cause."
+prediction = "The transition-local candidate creates no difference before an actual return, then follows at least one contact-relevant return with same-component movement, reduces the frozen surface gap below 312, and reaches correctly sensed contact within 120 steps while the immutable parent remains negative."
+falsifiers = ["The immutable parent artifact or recording digest drifts.", "A local opportunity appears without an actual changed-axis return.", "No returned depth change is followed by same-component movement.", "Depth fails to improve below the parent gap or broad five-finger coactivation returns.", "A surface entry lacks next-sample local pressure.", "Replay quiescence work semantic firewall or inherited controls fail."]
+positive_reference = "Generic Workstation Opportunity V1@119e7293de1aca925e07d0b2deedb2d3e2fc62cd; immutable contact parent recording sha256:6403bd01744a3a5a80039e8b6119a82c36bce382194da44e5657ce2df7afc371"
+negative_controls = ["immutable generic-only 120-step surface-entry wall", "no transition-local opportunity before an actual return", "unchanged stable sample does not open opportunity", "opposing alternatives remain ordinary inside one component", "no contact reward desired direction named anatomy or evaluator action", "exact replay natural quiescence and work below 2000"]
+included_mechanisms = ["authoritative connected outcome-topology product", "adopted shared generic opportunity incidence", "actual physical transition classification and return", "current-transition continuation", "ephemeral component-local opportunity", "real hand and workstation contact physics"]
+inherited_constraints = ["research-only candidate", "no new durable learner or body state", "no altered geometry pose force or contact threshold", "stop after first failed rung", "generated recording remains outside version control"]
+excluded_proposals = ["unchanged-sample opportunity", "global extra opportunity", "fixed direction", "contact reward", "visual target semantics", "moved surface", "changed initial pose", "longer waiting as solve"]
+arm_paths = ["arms/immutable-parent-reference.toml", "arms/transition-local-candidate.toml", "arms/unchanged-sample-control.toml"]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 20
+max_minutes_per_arm = 12
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true
