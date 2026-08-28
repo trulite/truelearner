@@ -7,7 +7,7 @@ imports = ["ordinary session checkpoint", "bounded checksummed recording", "exac
 mechanism = "Verify that recording is an inert view of the ordinary session and that decoding and replay reproduce every complete step."
 prediction = "Recorded and unrecorded ordinary sessions remain exactly equal, and the 120-step evidence recording replays without divergence."
 falsifiers = ["Capture changes any ordinary observation.", "Decode or replay diverges.", "The contact projection requires a learner-facing diagnostic field."]
-source_revision = "119e7293de1aca925e07d0b2deedb2d3e2fc62cd"
+source_revision = "ede3adbe62d43f29cc5e809d537643fcbf5141f8"
 protocol_sha256 = "480d668bf727f3935b9e044ca7c45f78db1f9a06b74c723fb616b8f094c44eed"
 budget_minutes = 4
 
