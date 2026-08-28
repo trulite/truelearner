@@ -7,7 +7,7 @@ imports = ["sample-versus-transition incidence", "empty initial returned-transit
 mechanism = "Require exact candidate versus parent equality before any actual transition returns and verify that stable sensory resampling alone opens no local motor opportunity."
 prediction = "The first step is exactly equal and only a later actual changed-axis return can introduce the candidate opportunity."
 falsifiers = ["Candidate and parent differ on the initial step.", "An unchanged sample creates local opportunity inputs.", "The control requires hidden pose direction or anatomy knowledge."]
-source_revision = "d0e284880201a77ecf4f338e818a7993dd078bd0"
+source_revision = "02d6f71890857041e968091f841ab7032517cd0b"
 protocol_sha256 = "de8c3f9140ea2f3512693e236f41218a0440d2fac01a48c1d6cf15fc6d2b2071"
 budget_minutes = 4
 

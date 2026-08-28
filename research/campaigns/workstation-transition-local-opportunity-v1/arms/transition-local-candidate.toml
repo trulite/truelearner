@@ -7,7 +7,7 @@ imports = ["shared generic opportunity", "actual physical transition return", "c
 mechanism = "For each changed axis returned at the start of a step, emit its two motor alternatives once with the same event-local phase and physical origin, beside the separate shared generic wave."
 prediction = "The local cause makes a returned contact-relevant component move again, preserves bounded alternatives, accumulates approach, and reaches correctly sensed real contact within 120 steps."
 falsifiers = ["The candidate differs before its first actual return.", "No depth return is followed by same-component movement.", "Depth does not beat gap 312.", "Five-finger coactivation cancellation replay non-quiescence work above 2000 or semantic leakage appears.", "Surface entry occurs without local next-sample pressure."]
-source_revision = "d0e284880201a77ecf4f338e818a7993dd078bd0"
+source_revision = "02d6f71890857041e968091f841ab7032517cd0b"
 protocol_sha256 = "de8c3f9140ea2f3512693e236f41218a0440d2fac01a48c1d6cf15fc6d2b2071"
 budget_minutes = 12
 
