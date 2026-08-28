@@ -1,0 +1,105 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-27T14:51:21.232232+00:00",
+  "started_at": "2026-08-27T14:51:12.251838+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/recursive-learner-fresh-memory.md",
+    "sha256": "90bc903c049103ec2dd09fb56c7873239ff979fa112cfd78ee3fd9483aff1ef9"
+  },
+  "candidate": {
+    "revision": "b94482267e96baffecc9576ddb6878918d9a4974",
+    "tree_sha256": "b970cd48b76c61ea6413b15510896ef639e9869dba67848ab429d95366177f3c"
+  },
+  "scope": [
+    "plans",
+    "truelearner/crates/core",
+    "research",
+    "factory-artifacts"
+  ],
+  "changed_paths": [
+    "factory-artifacts/recursive-learner-reentry-candidate.json",
+    "factory-artifacts/recursive-learner-reentry-verification.json",
+    "plans/recursive-learner-fresh-memory.md",
+    "plans/recursive-learner-reentry.md",
+    "research/campaigns/recursive-learner-fresh-memory-v1/arms/construction-scoped-return-reopening.toml",
+    "research/campaigns/recursive-learner-fresh-memory-v1/arms/owner-participation-return-eligibility.toml",
+    "research/campaigns/recursive-learner-fresh-memory-v1/arms/return-eligibility-lifetime-localization.toml",
+    "research/campaigns/recursive-learner-fresh-memory-v1/arms/return-reentry-composition.toml",
+    "research/campaigns/recursive-learner-fresh-memory-v1/artifacts/construction-scoped-return-reopening.json",
+    "research/campaigns/recursive-learner-fresh-memory-v1/artifacts/owner-participation-return-eligibility.json",
+    "research/campaigns/recursive-learner-fresh-memory-v1/artifacts/return-eligibility-lifetime-localization.json",
+    "research/campaigns/recursive-learner-fresh-memory-v1/artifacts/return-reentry-composition.json",
+    "research/campaigns/recursive-learner-fresh-memory-v1/campaign.toml",
+    "research/campaigns/recursive-learner-fresh-memory-v1/convergence.toml",
+    "research/campaigns/recursive-learner-fresh-memory-v1/protocol.toml",
+    "research/campaigns/recursive-learner-fresh-memory-v1/results/construction-scoped-return-reopening.json",
+    "research/campaigns/recursive-learner-fresh-memory-v1/results/owner-participation-return-eligibility.json",
+    "research/campaigns/recursive-learner-fresh-memory-v1/results/return-eligibility-lifetime-localization.json",
+    "research/campaigns/recursive-learner-fresh-memory-v1/results/return-reentry-composition.json",
+    "research/campaigns/recursive-learner-reentry-v1/artifacts/child-owned-closure-genesis.json",
+    "research/campaigns/recursive-learner-reentry-v1/artifacts/post-construction-causal-opportunity.json",
+    "research/campaigns/recursive-learner-reentry-v1/artifacts/recursive-depth-reentry.json",
+    "research/campaigns/recursive-learner-reentry-v1/convergence.toml",
+    "research/campaigns/recursive-learner-reentry-v1/results/child-owned-closure-genesis.json",
+    "research/campaigns/recursive-learner-reentry-v1/results/post-construction-causal-opportunity.json",
+    "research/campaigns/recursive-learner-reentry-v1/results/recursive-depth-reentry.json",
+    "research/experiments/recursive-learner-fresh-memory/Cargo.lock",
+    "research/experiments/recursive-learner-fresh-memory/Cargo.toml",
+    "research/experiments/recursive-learner-fresh-memory/src/lib.rs",
+    "research/experiments/recursive-learner-fresh-memory/src/main.rs",
+    "research/experiments/recursive-learner-reentry/Cargo.lock",
+    "research/experiments/recursive-learner-reentry/Cargo.toml",
+    "research/experiments/recursive-learner-reentry/src/lib.rs",
+    "research/experiments/recursive-learner-reentry/src/main.rs",
+    "truelearner/crates/core/src/arena.rs",
+    "truelearner/crates/core/src/choose.rs",
+    "truelearner/crates/core/src/learner.rs",
+    "truelearner/crates/core/src/link.rs",
+    "truelearner/crates/core/src/outcome.rs",
+    "truelearner/crates/core/src/snapshot.rs",
+    "truelearner/crates/core/src/trace.rs",
+    "truelearner/crates/core/tests/harness_boundary.rs"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.128907,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --locked --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml --all-targets",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.001592,
+      "output_sha256": "6dcc7b58367cd0b988ba8bdc78dbaee2dc66bde5da5820336432084cd894c32d"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --all-targets -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.178859,
+      "output_sha256": "e7db73f4e3512c7d5981bbe4a05e6bbb164f3512d72c47214d43200d6c22a9fa"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary recursive_learner",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 3.848966,
+      "output_sha256": "6fdf54884a1f80b937e529bd2bc1750bb55598ed02df4aedd6df544df953950c"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.820428,
+      "output_sha256": "f96a486b40dc9a6be1454303ea5d6478cdc571fe1baab89ed2ad1f7aea5075a0"
+    }
+  ]
+}

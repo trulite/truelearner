@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "exact-boundary-repetition"
+campaign = "hand-physical-boundary-member-novelty-v1"
+kind = "solve"
+parents = ["boundary-novelty-after-temporal-gate"]
+imports = ["surviving temporal composition", "one-boundary depth-four counterexample"]
+mechanism = "Before closure-state mutation, reject a proposed child whose stable junction set is wholly contained in its proposed parent's owned junction set."
+prediction = "A root constructs normally, then twelve exact repetitions produce zero new closure evidence and zero new learners even as temporary links regenerate."
+falsifiers = ["Any owned repetition earns closure or depth.", "Temporary link identity counts as novelty.", "Replay or quiescence fails."]
+source_revision = "plan:c7de5c6a6f66e12ee6f7cf53bcd29f59f50fb124f3585f7f96a929ae7e5e0895"
+protocol_sha256 = "de2fea80fcce50fb6a313d16762d2025c1ff359df9435ae6d8c14a9494cf4915"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-physical-boundary-member-novelty/Cargo.toml exact_repetition_does_not_turn_regenerated_links_into_novelty"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-physical-boundary-member-novelty/Cargo.toml -- --arm exact-boundary-repetition"

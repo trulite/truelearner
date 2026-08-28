@@ -1,0 +1,48 @@
+schema = "research-campaign/v1"
+id = "hand-owner-local-candidate-factorization-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "A mixed output incidence can preserve private learner boundaries by evaluating independently executable owner-local input groups and admitting at most one unique physical winner."
+first_divergence = "Strong motor inputs reach one output incidence but exact ownership resolution fails before executability."
+missing_transition = "A local factorization from mixed completing-path inputs to one independently executable exact-owner candidate."
+prediction = "The law produces one private effect in an unrelated two-owner world and improves the unchanged hand; origin and common-boundary diagnostics explain any failed transfer."
+falsifiers = [
+  "The unrelated fixture produces zero, multiple, cross-owner, or order-dependent effects.",
+  "The hand remains at three changed steps after the fixture survives.",
+  "Replay, quiescence, boundary, locality, or temporal controls regress.",
+]
+positive_reference = "hand-autonomous-reuse-localization-v1 mixed-owner first-failure convergence"
+negative_controls = ["strict boundary protocol fixture", "unowned origin and common-boundary prerequisites", "unchanged hand and inherited regressions"]
+included_mechanisms = ["complete boundary candidate", "strict owner-only factorization", "unique winner without owner-ID tie break", "one-effect ordinary pipeline"]
+inherited_constraints = ["private memory, actual participation, no benchmark identity, exact replay, natural quiescence, and warm cost"]
+excluded_proposals = ["absorbing unowned paths", "causal-origin factorization", "common-ancestor fallback", "semantic motor selection", "default adoption"]
+arm_paths = [
+  "arms/unrelated-mixed-owner-transfer.toml",
+  "arms/unowned-origin-discriminator.toml",
+  "arms/conditional-reflected-hand.toml",
+  "arms/complete-composition.toml",
+]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 40
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true
+

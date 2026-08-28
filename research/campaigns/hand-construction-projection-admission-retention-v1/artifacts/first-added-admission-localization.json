@@ -1,0 +1,875 @@
+{
+  "schema": "hand-construction-projection-admission-retention/v1",
+  "arm": "first-added-admission-localization",
+  "outcome": "falsified",
+  "observations": {
+    "candidate_choices": [
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": null,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Missing",
+        "crosses_ownership_view": false,
+        "hand_step": 0,
+        "ordinal": 0,
+        "phase": 0,
+        "tick": 3
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": null,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 1,
+        "ordinal": 1,
+        "phase": 0,
+        "tick": 11
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 3,
+        "ordinal": 2,
+        "phase": 0,
+        "tick": 23
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 3,
+        "ordinal": 3,
+        "phase": 0,
+        "tick": 27
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 4,
+        "ordinal": 4,
+        "phase": 0,
+        "tick": 35
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 5,
+        "ordinal": 5,
+        "phase": 0,
+        "tick": 39
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 6,
+        "ordinal": 6,
+        "phase": 0,
+        "tick": 43
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 6,
+        "ordinal": 7,
+        "phase": 0,
+        "tick": 47
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 7,
+        "ordinal": 8,
+        "phase": 0,
+        "tick": 51
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 7,
+        "ordinal": 9,
+        "phase": 0,
+        "tick": 55
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 8,
+        "ordinal": 10,
+        "phase": 0,
+        "tick": 59
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 9,
+        "ordinal": 11,
+        "phase": 0,
+        "tick": 63
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 9,
+        "ordinal": 12,
+        "phase": 0,
+        "tick": 67
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 10,
+        "ordinal": 13,
+        "phase": 0,
+        "tick": 71
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 11,
+        "ordinal": 14,
+        "phase": 0,
+        "tick": 75
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 11,
+        "ordinal": 15,
+        "phase": 0,
+        "tick": 79
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 12,
+        "ordinal": 16,
+        "phase": 0,
+        "tick": 83
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": null,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": true,
+        "hand_step": 12,
+        "ordinal": 17,
+        "phase": 0,
+        "tick": 87
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": null,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": true,
+        "hand_step": 13,
+        "ordinal": 18,
+        "phase": 0,
+        "tick": 91
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 4,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": true,
+        "hand_step": 13,
+        "ordinal": 19,
+        "phase": 0,
+        "tick": 95
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 14,
+        "ordinal": 20,
+        "phase": 0,
+        "tick": 99
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": 5,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 14,
+        "ordinal": 21,
+        "phase": 0,
+        "tick": 103
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 5,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 15,
+        "ordinal": 22,
+        "phase": 0,
+        "tick": 107
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 5,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 15,
+        "ordinal": 23,
+        "phase": 0,
+        "tick": 111
+      }
+    ],
+    "construction_projections": [
+      {
+        "consequence_tick": 16,
+        "construction_tick": 16,
+        "generation": 1,
+        "hand_step": 2,
+        "learner": 1,
+        "link": 44
+      },
+      {
+        "consequence_tick": 16,
+        "construction_tick": 16,
+        "generation": 1,
+        "hand_step": 2,
+        "learner": 1,
+        "link": 45
+      },
+      {
+        "consequence_tick": 16,
+        "construction_tick": 16,
+        "generation": 1,
+        "hand_step": 2,
+        "learner": 2,
+        "link": 36
+      },
+      {
+        "consequence_tick": 16,
+        "construction_tick": 16,
+        "generation": 1,
+        "hand_step": 2,
+        "learner": 2,
+        "link": 44
+      },
+      {
+        "consequence_tick": 16,
+        "construction_tick": 16,
+        "generation": 1,
+        "hand_step": 2,
+        "learner": 2,
+        "link": 45
+      },
+      {
+        "consequence_tick": 44,
+        "construction_tick": 44,
+        "generation": 3,
+        "hand_step": 6,
+        "learner": 3,
+        "link": 33
+      },
+      {
+        "consequence_tick": 44,
+        "construction_tick": 44,
+        "generation": 3,
+        "hand_step": 6,
+        "learner": 3,
+        "link": 34
+      },
+      {
+        "consequence_tick": 44,
+        "construction_tick": 44,
+        "generation": 2,
+        "hand_step": 6,
+        "learner": 3,
+        "link": 41
+      },
+      {
+        "consequence_tick": 92,
+        "construction_tick": 92,
+        "generation": 8,
+        "hand_step": 13,
+        "learner": 4,
+        "link": 38
+      },
+      {
+        "consequence_tick": 92,
+        "construction_tick": 92,
+        "generation": 7,
+        "hand_step": 13,
+        "learner": 4,
+        "link": 46
+      },
+      {
+        "consequence_tick": 100,
+        "construction_tick": 100,
+        "generation": 3,
+        "hand_step": 14,
+        "learner": 5,
+        "link": 34
+      },
+      {
+        "consequence_tick": 100,
+        "construction_tick": 100,
+        "generation": 8,
+        "hand_step": 14,
+        "learner": 5,
+        "link": 38
+      },
+      {
+        "consequence_tick": 100,
+        "construction_tick": 100,
+        "generation": 7,
+        "hand_step": 14,
+        "learner": 5,
+        "link": 46
+      }
+    ],
+    "localization": {
+      "candidate_choice": {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 5,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 15,
+        "ordinal": 23,
+        "phase": 0,
+        "tick": 111
+      },
+      "completed_cycle": null,
+      "completing_links": [],
+      "construction_tick": null,
+      "decisive_slice": [],
+      "parent_choice": null,
+      "projected_links": [],
+      "reason": "choice identity changed before a comparable added admission",
+      "verdict": "choice-identity-mismatch"
+    },
+    "parent_choices": [
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": null,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Missing",
+        "crosses_ownership_view": false,
+        "hand_step": 0,
+        "ordinal": 0,
+        "phase": 0,
+        "tick": 3
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": null,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 1,
+        "ordinal": 1,
+        "phase": 0,
+        "tick": 11
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Missing",
+        "crosses_ownership_view": false,
+        "hand_step": 3,
+        "ordinal": 2,
+        "phase": 0,
+        "tick": 23
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 3,
+        "ordinal": 3,
+        "phase": 0,
+        "tick": 27
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 4,
+        "ordinal": 4,
+        "phase": 0,
+        "tick": 35
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 5,
+        "ordinal": 5,
+        "phase": 0,
+        "tick": 39
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 2,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 6,
+        "ordinal": 6,
+        "phase": 0,
+        "tick": 43
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Missing",
+        "crosses_ownership_view": false,
+        "hand_step": 6,
+        "ordinal": 7,
+        "phase": 0,
+        "tick": 47
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Missing",
+        "crosses_ownership_view": false,
+        "hand_step": 7,
+        "ordinal": 8,
+        "phase": 0,
+        "tick": 51
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Missing",
+        "crosses_ownership_view": false,
+        "hand_step": 8,
+        "ordinal": 9,
+        "phase": 0,
+        "tick": 55
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 8,
+        "ordinal": 10,
+        "phase": 0,
+        "tick": 59
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 9,
+        "ordinal": 11,
+        "phase": 0,
+        "tick": 63
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 10,
+        "ordinal": 12,
+        "phase": 0,
+        "tick": 67
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 10,
+        "ordinal": 13,
+        "phase": 0,
+        "tick": 71
+      },
+      {
+        "admission_basis": "FreshAlternative",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 11,
+        "ordinal": 14,
+        "phase": 0,
+        "tick": 75
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 12,
+        "ordinal": 15,
+        "phase": 0,
+        "tick": 79
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 12,
+        "ordinal": 16,
+        "phase": 0,
+        "tick": 83
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": false,
+        "hand_step": 13,
+        "ordinal": 17,
+        "phase": 0,
+        "tick": 87
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": null,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": true,
+        "hand_step": 13,
+        "ordinal": 18,
+        "phase": 0,
+        "tick": 91
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": null,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Stale",
+        "crosses_ownership_view": true,
+        "hand_step": 14,
+        "ordinal": 19,
+        "phase": 0,
+        "tick": 95
+      },
+      {
+        "admission_basis": "CompletedCycle",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 10
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": false,
+        "hand_step": 14,
+        "ordinal": 20,
+        "phase": 0,
+        "tick": 99
+      },
+      {
+        "admission_basis": "Ordinary",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Missing",
+        "crosses_ownership_view": true,
+        "hand_step": 15,
+        "ordinal": 21,
+        "phase": 0,
+        "tick": 103
+      },
+      {
+        "admission_basis": "CoherentEffect",
+        "admitted": [
+          {
+            "owner": 3,
+            "target": 11
+          }
+        ],
+        "completed_cycle_state": "Unique",
+        "crosses_ownership_view": true,
+        "hand_step": 15,
+        "ordinal": 22,
+        "phase": 0,
+        "tick": 107
+      }
+    ],
+    "parent_control": {
+      "choice_count": 23,
+      "expected_sha256": "e4c38011cc9ff198474f553f72b6e4e7b366f3201a83fc114acd7c38a20e04d3",
+      "sha256": "e4c38011cc9ff198474f553f72b6e4e7b366f3201a83fc114acd7c38a20e04d3",
+      "survived": true,
+      "unique_count": 9
+    },
+    "summary": {
+      "actual_position_changes": 12,
+      "completed_cycle_admissions": 10,
+      "cross_view_admissions": 2,
+      "effect_composition": "batched",
+      "escaped_lower": false,
+      "escaped_upper": false,
+      "exact_replay": true,
+      "final_position": -2,
+      "naturally_quiescent": true,
+      "opposing_output_steps": 4,
+      "output_choice_resolutions": 24,
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerConstructionOutcomeComposition",
+      "reached_lower": false,
+      "reached_upper": false,
+      "stopped": false
+    }
+  },
+  "falsifier": "the first added admission was not tick-forty-seven learner-three target eleven from a composed tick-forty-four projection",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

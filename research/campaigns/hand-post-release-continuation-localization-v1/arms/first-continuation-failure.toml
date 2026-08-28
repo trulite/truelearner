@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "first-continuation-failure"
+campaign = "hand-post-release-continuation-localization-v1"
+kind = "diagnostic"
+parents = ["trajectory-integrity"]
+imports = ["candidate upper release", "ordered first-failure descent"]
+mechanism = "Compare the upper-escape step with the first later step that does not continue in the same physical direction, retaining every causal diagnostic needed to classify their first divergence."
+prediction = "Exactly one earliest loss-of-continuation step is present and its path, candidate, owner-read, output, and return evidence distinguish disappearance from reversal."
+falsifiers = ["No post-release loss of continuation exists.", "The transition is ambiguous because required diagnostics were not recorded."]
+source_revision = "plan:87f29d2b11327939f798e380631a098071f4511422c7b9b53cbf2342e3a06f67"
+protocol_sha256 = "f447a5cc1fc896a3671c6a84aa32781598a618f537981bced6b19333366f800b"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary organism_root_fresh_opportunity"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-post-release-continuation-localization/Cargo.toml -- --arm first-continuation-failure"

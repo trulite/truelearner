@@ -1,0 +1,17 @@
+{
+  "schema": "hand-causal-origin-ownership-factorization/v1",
+  "arm": "complete-composition",
+  "outcome": "falsified",
+  "observations": {
+    "first_exhaustion_step": 8,
+    "movement_improved": true,
+    "naturally_quiescent": false,
+    "next_question": "what feedback transition re-enters the selected origin and creates the self-sustaining wave",
+    "safe_hand_improvement": false,
+    "same_origin_control": false,
+    "unrelated_transfer": true
+  },
+  "falsifier": "causal-origin factorization did not earn transfer, boundary safety, and a naturally quiet hand together",
+  "exact_replay": true,
+  "naturally_quiescent": false
+}

@@ -1,0 +1,56 @@
+schema = "research-convergence/v1"
+campaign = "hand-origin-feedback-cycle-localization-v1"
+round = 1
+survived = ["origin-path-provenance-disagreement", "step-eight-feedback-cycle", "matched-boundary-control", "complete-localization"]
+falsified = []
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "the trace observed 697 completing inputs, 244 path-owner versus origin-owner disagreements, and 86 cases where an owned path carried an unowned origin",
+  "the first exhausted hand step contained a graph-contiguous closed six-edge cycle carried by unowned physical origin 10004",
+  "each cycle edge occurred 42 times before the 256-moment bound; the cycle crossed from region zero outward twice and re-entered region zero twice",
+  "the closed cycle alternated physical motor junctions 20000 and 20001 through outward effect junctions 30000 and 30001 plus learned outward junctions 90040 and 90005",
+  "all six cycle edges were unowned by both path and carried origin, so the non-quiescent core is organism-scope topology rather than private learner memory",
+  "the boundary reference preserved three changed steps, final position minus one, exact replay, natural quiescence, zero exhaustions, and zero repeated cycles; the failed candidate preserved its frozen eight-step, position-four, two-exhaustion result",
+]
+strongest_counterexamples = [
+  "ownership disagreement is real but does not explain the core loop because every edge in the shortest closed cycle is unowned on both dimensions",
+  "the loop is not a zero-delay causal-wave artifact: its delayed edges advance physical ticks and reset causal-wave counters while the graph still closes",
+  "motor-candidate ranking is not sufficient to restore quiescence because already-formed outward-region paths feed each emitted effect into the opposite motor",
+]
+retired_families = [
+  "private learner-memory repair as the direct solve for step-eight non-quiescence",
+  "carried-origin ownership repair alone as a way to break the closed loop",
+  "causal-wave-only suppression for a cycle containing delayed physical edges",
+  "treating outward motor effect delivery and inward learned path formation as one unrestricted operation",
+]
+next_discriminators = [
+  "test a same-region learned-path law: a participating source may form a path to an output junction only when source and output remain in the same physical region",
+  "compare the narrower same-region completion law with a broader outward-effect-terminal law that prevents outward receiving junctions from seeding any new path",
+  "require both laws to preserve ordinary within-region sensor-to-motor path formation, outward effect delivery, unrelated output worlds, exact replay, and natural quiescence",
+  "only retry the unchanged hand after an unrelated cross-region feedback fixture selects the smallest law",
+]
+
+[[new_arm]]
+id = "same-region-learned-path-closure"
+kind = "solve"
+parents = ["step-eight-feedback-cycle", "matched-boundary-control"]
+imports = ["source and target regions", "learned path formation", "outward effect execution"]
+interaction_prediction = "Requiring a learned path's participating source and output target to share one region preserves internal sensor-to-motor learning and outward effect execution while removing both inward re-entry legs of the six-edge cycle."
+falsifiers = [
+  "An unrelated cross-region feedback fixture still cycles or loses outward effect delivery.",
+  "A same-region sensor path no longer forms or acts.",
+  "The unchanged hand still exhausts, loses its useful movement, or regresses replay and controls.",
+]
+
+[[new_arm]]
+id = "outward-effect-terminal-formation"
+kind = "solve"
+parents = ["step-eight-feedback-cycle"]
+imports = ["outward receiving junction", "path genesis", "effect delivery"]
+interaction_prediction = "Allowing an outward effect junction to receive and expose the physical effect but not seed new learned paths breaks the cycle at its two outward sources."
+falsifiers = [
+  "The unrelated loop remains live.",
+  "The rule suppresses a legitimate nonterminal outward surface or changes effect output.",
+  "The broader rule is not needed after same-region closure succeeds.",
+]

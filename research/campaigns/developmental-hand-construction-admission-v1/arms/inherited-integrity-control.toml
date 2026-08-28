@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "inherited-integrity-control"
+campaign = "developmental-hand-construction-admission-v1"
+kind = "control"
+parents = []
+imports = ["frozen hand decomposition classifications", "frozen return-reentry composition", "active core regressions"]
+mechanism = "Replay the two parent research references before interpreting the successor factorial."
+prediction = "The previous eight hand/fresh-memory predicates used by this campaign remain unchanged, replayable, and naturally quiescent."
+falsifiers = ["Any imported parent result or exact frozen hand trace changes.", "Replay, quiescence, or inherited core behavior changes."]
+source_revision = "plan:6c21af4d0ef39d52e87d71c64a4260b71e68cb915cc5d03ad5af3f47e60bf232"
+protocol_sha256 = "1cf5d5ae65fd1ea9671332829060e23972027ce53016c3a3caa85cd129264ec2"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml inherited_integrity_control"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml -- --arm inherited-integrity-control"

@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "developmental-hand-multi-joint-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "The complete one-joint physical arrow composes as a product through two and conditionally five anonymous joint modules inside one harness."
+first_divergence = "Unknown before execution; compare every component with the exact one-module identity from step zero."
+missing_transition = "Unknown unless a composed component loses the one-joint physical arrow."
+prediction = "One module remains exact, two components close under either registration order and proximal perturbation, then five components do the same with activity-bounded work."
+falsifiers = ["One-module identity changes.", "Either two-joint component loses a sign limit escape or recovery.", "Registration order changes physical history.", "Proximal change destroys distal control.", "Five joints fail after the two-joint prerequisite passes.", "Replay quiescence exhaustion or activity-normalized work fails."]
+positive_reference = "hand-activity-normalized-build-v1:complete-one-joint sha256:60245d1ab700e879f41d8011c8f4ba39a27815d301bce9d62a1163f059db4053"
+negative_controls = ["one-module identity", "reverse registration", "proximal-only perturbation", "five-joint prerequisite stop", "zero semantic input", "unchanged core suite"]
+included_mechanisms = ["stable causal-wave extraction", "return-bearing current transition", "bounded construction outcome", "multi-origin no-change release", "one shared harness product world"]
+inherited_constraints = ["anonymous physical input", "official batched force", "fresh child memory", "no direction position joint or hand knowledge", "candidate remains opt-in", "development evidence only"]
+excluded_proposals = ["separate learner per joint", "semantic module label inside learner", "evaluator-selected action", "longer run after a localized prerequisite failure", "five-joint run after two-joint failure", "accepted-default or authority promotion"]
+arm_paths = ["arms/one-module-identity.toml", "arms/two-joint-serial-composition.toml", "arms/registration-order-invariance.toml", "arms/proximal-change-isolation.toml", "arms/conditional-five-joint.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 10
+max_minutes_per_arm = 2
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

@@ -1,0 +1,70 @@
+schema = "research-convergence/v1"
+campaign = "hand-upper-boundary-release-localization-v1"
+round = 1
+survived = [
+  "upper-boundary-opposite-candidate-localization",
+  "pre-boundary-matched-control",
+  "complete-localization",
+]
+falsified = []
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "the last moving and first clamped steps retained the same two physical motor endpoints, complete paths, executable candidates, exact replay, natural quiescence, and zero propagation exhaustion",
+  "at first clamp the silent motor crossed threshold as a combined executable candidate but was rejected by local output competition; the consequential incumbent was admitted and emitted",
+  "every later clamped step delivered no post-movement surface yet admitted physical origins 10001, 10002, and 10004 as returns and wrote a fresh consequence tick",
+  "the existing closure diagnostic classified those repeated origins as born before the new return opened, so they were ineligible for causal closure while still refreshing candidate preference",
+  "candidate, selection, return, consequence, and eligibility details all came from existing core events; only the research adapter stopped discarding them",
+]
+strongest_counterexamples = [
+  "a live path and threshold-crossing motor candidate do not imply action when local competition rejects it",
+  "bounded recent-consequence release cannot occur if temporally ineligible repeated context is allowed to renew consequence on every output",
+  "an eligibility fact is ineffective when one downstream consumer enforces it for closure but an earlier consequence-write consumer ignores it",
+]
+retired_families = [
+  "missing reverse-path lifetime, subthreshold drive, origin-factorization deletion, output failure, or propagation exhaustion as the first upper-boundary explanation",
+  "adding another candidate-ranking preference before making consequence admission truthful",
+  "adding persistent hand position, direction, contact, or repeated-context memory when existing return birth and opening times already discriminate the transition",
+]
+next_discriminators = [
+  "apply the existing consequence-born timing predicate at return admission so an origin born at or before the return opened cannot write consequence or answer that return",
+  "in a tiny fixture, preserve a genuinely later return and reject a coactive pre-opening origin while retaining duplicate, unrelated, stale, replay, and quiescence controls",
+  "compose the timing gate with existing unanswered-return replacement and require a previously suppressed executable alternative to fire after the incumbent receives no valid consequence",
+  "rerun the unchanged reflected hand and require upper release, lower travel, exact replay, natural quiescence, no propagation exhaustion, and no default adoption",
+]
+
+[[new_arm]]
+id = "consequence-born-return-admission"
+kind = "solve"
+parents = ["complete-localization"]
+imports = ["consequence-born closure eligibility", "finite live return", "typed return-origin admission"]
+interaction_prediction = "The same birth-after-opening predicate rejects coactive pre-opening surface origins before consequence write while preserving genuinely later physical returns."
+falsifiers = [
+  "A pre-opening origin still writes consequence or answers the return.",
+  "A genuinely later local return is rejected.",
+  "The rule requires hand, contact, position, or direction identity.",
+]
+
+[[new_arm]]
+id = "truthful-no-consequence-release"
+kind = "composition"
+parents = ["complete-localization"]
+imports = ["proposed consequence-born return admission", "unanswered-return replacement", "fresh executable alternative", "bounded recent consequence"]
+interaction_prediction = "When the incumbent receives only pre-opening context, its return remains unanswered and the existing replacement law admits one fresh executable alternative without erasing learned strength."
+falsifiers = [
+  "The incumbent remains selected indefinitely.",
+  "Both alternatives emit or learned strength is erased.",
+  "A valid delayed consequence fails to preserve continuation.",
+]
+
+[[new_arm]]
+id = "conditional-reflected-hand-release"
+kind = "composition"
+parents = ["complete-localization"]
+imports = ["hand-boundary-effect-reentry-v1:conditional-reflected-hand", "proposed truthful consequence admission", "existing no-consequence release"]
+interaction_prediction = "The unchanged hand leaves the upper boundary and expresses the other physical motor without reintroducing the cross-boundary feedback cycle."
+falsifiers = [
+  "The upper boundary remains clamped.",
+  "Release reintroduces propagation exhaustion or non-quiescence.",
+  "The gain depends on semantic direction or evaluator-selected action.",
+]

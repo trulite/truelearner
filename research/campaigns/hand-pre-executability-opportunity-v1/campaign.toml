@@ -1,0 +1,46 @@
+schema = "research-campaign/v1"
+id = "hand-pre-executability-opportunity-v1"
+program = "learner-physics"
+kind = "diagnostic"
+mode = "discovery"
+hypothesis = "The silent motor has complete live opposing paths but loses its only fresh opportunity before algebraic cancellation and executability."
+first_divergence = "After false consequence renewal stops, the incumbent remains executable while the neighboring motor has path inputs but zero projected drive."
+missing_transition = "Classify live signed drive, ownership, opportunity, and incumbent unanswered-return availability before output ranking."
+prediction = "Balanced-drive, ownership-gate, and zero-live-drive predicates are mutually discriminated in one unchanged hand run."
+falsifiers = [
+  "The diagnostic changes hand behavior.",
+  "Raw signed strength and incumbent return availability remain unobservable.",
+  "The frozen predicates overlap or all fail.",
+]
+positive_reference = "hand-physical-change-resampling-v1 physical-transition-return"
+negative_controls = ["trace-disabled equality", "parent hand trajectory", "exact replay", "natural quiescence", "zero propagation exhaustion"]
+included_mechanisms = ["complete path observation", "candidate ownership", "current opportunity", "unanswered-return replacement", "physical-transition return"]
+inherited_constraints = ["benchmark-blind core", "observational instrumentation only", "warm runtime below ten seconds"]
+excluded_proposals = ["fresh-opportunity behavior", "strength reset", "random motor choice", "semantic reversal", "persistent exploration state", "default adoption"]
+arm_paths = [
+  "arms/balanced-drive-without-opportunity.toml",
+  "arms/ownership-rejection.toml",
+  "arms/no-live-path-drive.toml",
+]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = false
+
+[budget]
+total_sandbox_minutes = 24
+max_minutes_per_arm = 8
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.34
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

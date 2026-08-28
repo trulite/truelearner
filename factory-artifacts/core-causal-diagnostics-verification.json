@@ -1,0 +1,72 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "core-causal-diagnostics-candidate.json",
+    "sha256": "53d0dcc3e4441dd068bdb864682f209d1e58093b0eb6d51f1f1574f3b01ee54e"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "trace-opt-in-purity-and-replay-held-out",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core physical_diagnostics_are_opt_in_pure_and_replayable",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.07
+    },
+    {
+      "name": "fresh-return-memory-regression-control",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core recursive_learner_children_start_with_fresh_return_memory",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.02
+    },
+    {
+      "name": "frozen-hand-consumer-compatibility",
+      "command": "cargo check --locked --manifest-path research/experiments/hand-same-lineage-closure-renewal/Cargo.toml --all-targets",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.5
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.13
+    }
+  ],
+  "findings": [
+    "The opt-in core trace now exposes per-firing drive and modulatory provenance, typed causal-origin resolution, typed return-origin evaluation, and typed reverse-path evaluation through ordinary public Rust enums.",
+    "The public physical_diagnostics iterator is a pure projection of the existing trace; tracing-disabled runs remain empty, traced and untraced behavior remains equal, and traced checkpoint replay remains exact.",
+    "A two-origin incidence reports both physical origins and reports JunctionFallback with the receiving junction physical identity; a one-origin incidence reports Preserved.",
+    "Return decisions distinguish direct and local admission, remembered and same-moment duplicates, missing or inactive edges and endpoints, absent origins, and measured non-local rejection without changing the existing admission result.",
+    "Every existing reverse-consolidation early return now emits one typed terminal reason, while success emits Consolidated and retains the existing ReversePathConsolidated event.",
+    "The frozen hand experiment was not rerun or rewritten. It still compiles against the append-only event vocabulary.",
+    "Combined with the frozen hand observation that surfaces 10002 and 10001 were delivered but outcome origin 40001 was admitted, the tested core mechanism explains the likely chain: multiple causal origins collapse to the outcome junction identity, that identity is admitted directly, and reverse consolidation stops because the origin is the return source.",
+    "All 30 active core tests pass, the two pre-existing adversarial tests remain ignored, and the independently timed warm suite completed in 0.13 seconds, strictly under 10 seconds."
+  ],
+  "residual_uncertainty": [
+    "The exact new diagnostic sequence for the frozen hand episode is an inference from immutable prior evidence plus the now-covered core transition; it was intentionally not regenerated. The next ordinary hand development run can capture it directly without another bespoke diagnostic campaign.",
+    "Tracing increases returned trace volume only when explicitly enabled; no production trace retention or sampling policy was added.",
+    "The receipt covers the current shared dirty worktree, which contains earlier research changes outside this feature; those paths were acknowledged for receipt validation but were not modified by this implementation."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/core-causal-diagnostics.md",
+      "sha256": "3b40150b7ce2479d40c26ebd34f06ebae204a229c676d2d91e22b85b4b0812e9"
+    },
+    {
+      "path": "truelearner/crates/core/src/trace.rs",
+      "sha256": "7a9f88a77c7f07e7468d3f56832939b73991f55f31c25ef9e4d48ff0fc29fc92"
+    },
+    {
+      "path": "truelearner/crates/core/src/junction.rs",
+      "sha256": "0edcff610c1b5aee3b5b6f5d006ba52ebfefb7b167b07847abb7b1aaef289ad4"
+    },
+    {
+      "path": "truelearner/crates/core/src/outcome.rs",
+      "sha256": "b32429c951fe2913499485458fdd3b0ec854bb7c7de6f7721be2906e5fc65c01"
+    }
+  ]
+}

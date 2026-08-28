@@ -1,0 +1,78 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-27T14:09:51.326101+00:00",
+  "started_at": "2026-08-27T14:09:45.727261+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/recursive-learner-reentry.md",
+    "sha256": "80b62150e092c3fd44525740530726a8d49ae7631c0681c00493dfc01d1a5edb"
+  },
+  "candidate": {
+    "revision": "b94482267e96baffecc9576ddb6878918d9a4974",
+    "tree_sha256": "72e3c1560e68330450321e96db5039159c7959506164c7dd798104e654f72477"
+  },
+  "scope": [
+    "plans",
+    "truelearner/crates/core",
+    "research/experiments/recursive-learner-reentry",
+    "research/campaigns/recursive-learner-reentry-v1",
+    "factory-artifacts"
+  ],
+  "changed_paths": [
+    "plans/recursive-learner-reentry.md",
+    "research/campaigns/recursive-learner-reentry-v1/artifacts/child-owned-closure-genesis.json",
+    "research/campaigns/recursive-learner-reentry-v1/artifacts/post-construction-causal-opportunity.json",
+    "research/campaigns/recursive-learner-reentry-v1/artifacts/recursive-depth-reentry.json",
+    "research/campaigns/recursive-learner-reentry-v1/convergence.toml",
+    "research/campaigns/recursive-learner-reentry-v1/results/child-owned-closure-genesis.json",
+    "research/campaigns/recursive-learner-reentry-v1/results/post-construction-causal-opportunity.json",
+    "research/campaigns/recursive-learner-reentry-v1/results/recursive-depth-reentry.json",
+    "research/experiments/recursive-learner-reentry/Cargo.lock",
+    "research/experiments/recursive-learner-reentry/Cargo.toml",
+    "research/experiments/recursive-learner-reentry/src/lib.rs",
+    "research/experiments/recursive-learner-reentry/src/main.rs",
+    "truelearner/crates/core/src/learner.rs",
+    "truelearner/crates/core/src/snapshot.rs"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path research/experiments/recursive-learner-reentry/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.110129,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --manifest-path research/experiments/recursive-learner-reentry/Cargo.toml --all-targets",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.550627,
+      "output_sha256": "81e245de8ec6630e29bb862794f2e36783d9018fa016916287bdab6ab1683887"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --all-targets -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.657649,
+      "output_sha256": "9e70b3e8daa0366d7e9f7254bcded86e4909ad29c2506ec955e5bc8f099cd806"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary recursive_learner",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.833344,
+      "output_sha256": "309ffe4be59af8893750591fe49e85c0d1aea5bf46665e73b6adf2ad03f3c26f"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path research/experiments/recursive-learner-reentry/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.446366,
+      "output_sha256": "018e04f112af7e12448f9ddb947b0c72dd4b53bb27614165c10d8aaa91c46de2"
+    }
+  ]
+}

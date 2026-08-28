@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "shared-prefix-work"
+campaign = "hand-prefix-and-activity-work-localization-v1"
+kind = "diagnostic"
+parents = ["hand-bounded-first-use-construction-continuation-v1:bounded-first-use-fixtures", "hand-bounded-first-use-construction-continuation-v1:reflected-hand-first-wall"]
+imports = ["exact first held-state use", "candidate per-step cost", "unchanged parent physics"]
+mechanism = "Align the two live executions by external step and separately total the shared prefix and exact first repaired choice."
+prediction = "Steps zero through two match in physical outputs topology comparisons and scans, while step three retains the repaired arrow and exact consume event with no work delta."
+falsifiers = ["Work or topology differs before step three.", "Step three adds comparison or scan work.", "The exact repaired choice or consumption is absent.", "Step sums differ from published totals."]
+source_revision = "plan:e42ca08c3d1a2e16a7c1ad47c8005fa6fa505c6e25341496a57629d432096258"
+protocol_sha256 = "07cb8621ebe1ec68dbc352ce1c690376372ffda96313a0974b8184486d7e011d"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-prefix-and-activity-work-localization/Cargo.toml fold_separates_shared_repaired_and_divergent_regions"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-prefix-and-activity-work-localization/Cargo.toml -- --predecessor-dir research/campaigns/hand-bounded-first-use-construction-continuation-v1 --output-dir research/campaigns/hand-prefix-and-activity-work-localization-v1/artifacts"

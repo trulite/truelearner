@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "remove-opportunity-factorization"
+campaign = "hand-causal-topology-product-ablation-v1"
+kind = "diagnostic"
+parents = ["hand-causal-topology-product-ablation-v1:complete-reference"]
+imports = ["component-local output competition", "global predecessor fresh opportunity"]
+mechanism = "Remove only connected-component fresh-opportunity factorization while retaining connected-component output choice."
+prediction = "One-module identity survives, the distal joint first loses its continued arrow at two-joint step five, and five is not executed."
+falsifiers = ["One-module identity changes.", "Two joints survive.", "The first failure is not the distal step-five continued arrow.", "Five executes."]
+source_revision = "plan:52cdea8d318d7420467021c3beb96f116a2bf456ba929e20def2730553920bf1"
+protocol_sha256 = "de99633e1508f27c54dc7b369279d70ebfe4215e1092b8842988d64eda202919"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml topology_ablation_removing_opportunity_factorization_restores_shared_reversal_asymmetry"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml -- --predecessor-dir research/campaigns/hand-activity-normalized-build-v1 --output-dir research/campaigns/hand-causal-topology-product-ablation-v1/artifacts/remove-opportunity-factorization --protocol causal-topology-output-only"

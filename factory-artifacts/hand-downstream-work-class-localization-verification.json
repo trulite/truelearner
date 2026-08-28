@@ -1,0 +1,58 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/hand-downstream-work-class-localization-candidate.json",
+    "sha256": "b84c0feb367e9119d950f7b504e6382001f32f74f56197ba30f7605770ef7139"
+  },
+  "verdict": "supported",
+  "independent_test_count": 3,
+  "checks": [
+    {
+      "name": "held-out-comparison-partition",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core timing_wheel_comparison_attribution",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.07
+    },
+    {
+      "name": "held-out-phase-conservation",
+      "command": "cargo test --locked --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml reflected_hand_phase_work_preserves_step_totals",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.09
+    },
+    {
+      "name": "held-out-decision-alternatives",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-downstream-work-class-localization/Cargo.toml classifier_distinguishes_finite_activity_waste_and_runaway",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.06
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.15
+    }
+  ],
+  "findings": [
+    "The new core counters partition the existing timing-wheel comparison total without changing scheduling, ordering, or outputs.",
+    "The adapter observes existing Run values once and conserves work and execution cost from phases to each step.",
+    "The pure classifier keeps finite activity, unexplained waste, and runaway as distinct outcomes.",
+    "All sixty-five non-ignored boundary tests and six core unit tests passed; two preexisting tests remained ignored and the warm suite stayed under ten seconds."
+  ],
+  "residual_uncertainty": [
+    "Software verification proves diagnostic inertness and classifier boundaries; the frozen run must still decide which outcome describes the real downstream hand."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/hand-downstream-work-class-localization.md",
+      "sha256": "c78aae74fd1544c2ebe79a615eff1300f56e055873ef1b8c75323a6d37b444a9"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/research/campaigns/hand-downstream-work-class-localization-v1/protocol.toml",
+      "sha256": "512c65c4832bade394647376039f58ada031134dd5b5b288c7ae89fe4dfbb1e0"
+    }
+  ]
+}

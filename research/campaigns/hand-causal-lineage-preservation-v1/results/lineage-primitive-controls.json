@@ -1,0 +1,23 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "lineage-primitive-controls",
+  "outcome": "survived",
+  "falsifier": null,
+  "observations": {
+    "forward_members": [81001, 81002],
+    "reversed_members": [81001, 81002],
+    "duplicate_members": [81001],
+    "scalar_output_count": 1,
+    "lineage_output_count": 1,
+    "output_impulse": 1,
+    "order_independent": true,
+    "duplicate_free": true,
+    "naturally_quiescent": true
+  },
+  "artifacts": [
+    {
+      "path": "research/campaigns/hand-causal-lineage-preservation-v1/artifacts/lineage-primitive-controls.json",
+      "sha256": "2a12289971f7f66aaf9b8382d48d9f8f9f74a79884775be36179368fd5ecf3c3"
+    }
+  ]
+}

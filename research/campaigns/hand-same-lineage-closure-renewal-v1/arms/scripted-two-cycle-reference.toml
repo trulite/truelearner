@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "scripted-two-cycle-reference"
+campaign = "hand-same-lineage-closure-renewal-v1"
+kind = "control"
+parents = ["recursive-learner-fresh-memory-v1:return-reentry-composition"]
+imports = ["explicit action-plus-motor then truthful surface observation repeated twice"]
+mechanism = "Trace the established scripted second closure through actual participation, return state, surface-origin admission, reverse consolidation, closure identity, and construction."
+prediction = "The second scripted round admits its delivered surface origin, reproduces the first closure key at evidence two, and constructs with exact replay and natural quiescence."
+falsifiers = ["Any ordered transition through construction is absent or the positive reference loses replay or quiescence."]
+source_revision = "plan:8236ac197588eda4800b68f8f1435c3a59d3f77066a123909f3f7850651ee58d"
+protocol_sha256 = "250b49ee91a8ca9b2b496fa6671bf15c4dd47be2c54791c9eebb4bedb8870dce"
+budget_minutes = 20
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-same-lineage-closure-renewal/Cargo.toml scripted_second_round_reaches_evidence_two"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-same-lineage-closure-renewal/Cargo.toml -- --arm scripted-two-cycle-reference"

@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "conditional-reflected-hand-release"
+campaign = "hand-physical-transition-continuation-v1"
+kind = "composition"
+parents = ["physical-transition-continuation", "sample-and-parent-controls"]
+imports = ["transition continuation", "root opportunity", "unchanged hand"]
+mechanism = "Compose continuation with upper release."
+prediction = "Both motors remain available and upper contact is reached and escaped."
+falsifiers = ["Either direction or upper release is lost."]
+source_revision = "plan:d97c914f007a54607bb76e484eb5bc948d367c107f500054072016cbc0d096af"
+protocol_sha256 = "92b3546a178f938849cbe51ae341b927e68f5baf33d0348d314a98db44647e8e"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary physical_transition_continuation"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-physical-transition-continuation/Cargo.toml -- --arm conditional-reflected-hand-release"

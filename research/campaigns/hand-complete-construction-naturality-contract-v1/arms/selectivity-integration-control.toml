@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "selectivity-integration-control"
+campaign = "hand-complete-construction-naturality-contract-v1"
+kind = "control"
+parents = ["hand-unconditional-existing-trace-localization-v1:full-snapshot-control", "hand-unconditional-existing-trace-localization-v1:tick-forty-seven-link-composition"]
+imports = ["same-tick live-lineage selectivity", "fresh owner memory", "sibling isolation", "replay and accepted protocol controls"]
+mechanism = "Run the unchanged construction-outcome, completed-cycle lifecycle, recursive freshness, sibling, replacement, deallocation, ambiguity, replay, and quiescence controls against the exact candidate."
+prediction = "All negative controls reject non-witness history and the opt-in candidate integrates without changing accepted defaults or external hand behavior."
+falsifiers = ["Any stale unrelated dead replaced deallocated ambiguous non-completing or sibling witness is admitted.", "Fresh child memory inherits unrelated preference.", "Any inherited core test, replay, quiescence, or accepted default changes."]
+source_revision = "plan:4e959b882fd96f890998e00be2ce81d1160d62cef86050737685a13a246af6b4"
+protocol_sha256 = "f8d32fafe3a951075dbea5606a37659010cb16a9f54403c7e0c36f3309d49d9d"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core construction_outcome_composition"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-complete-construction-naturality-contract/Cargo.toml -- --parent research/campaigns/hand-completed-cycle-naturality-v1/artifacts/completed-cycle-first-arrow-change.json --output-dir research/campaigns/hand-complete-construction-naturality-contract-v1/artifacts"

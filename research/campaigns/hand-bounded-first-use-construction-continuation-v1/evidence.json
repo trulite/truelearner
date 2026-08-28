@@ -1,0 +1,87 @@
+{
+  "schema": "research-evidence/v1",
+  "experiment": "hand-bounded-first-use-construction-continuation-v1",
+  "protocol_sha256": "6fe08a4a258c2c57700f9bbcbc744c593af263eda2030989394d19aa975c886f",
+  "subject_digest": "d12fb56771c1ceff9c9036551001df3c1e256767ee0691d434f9f1fd669ca046",
+  "producer": "hand-bounded-first-use-construction-continuation",
+  "environment": {
+    "identity": "bb-worktree:b94482267e96baffecc9576ddb6878918d9a4974",
+    "rustc": "1.97.1",
+    "run_policy": "one valid frozen candidate execution with immutable and live parent controls"
+  },
+  "observations": {
+    "reported_arm_outcomes": [
+      "bounded-first-use-fixtures=falsified",
+      "reflected-hand-first-wall=falsified",
+      "parent-and-lifetime-controls=survived"
+    ],
+    "first_wall": {
+      "tick": 23,
+      "step": 3,
+      "owner": 2,
+      "target": 11,
+      "consequence_tick": 16,
+      "witness_link": 36,
+      "generation": 1,
+      "completed_cycle_state": "Unique",
+      "choice_basis": "CompletedCycle",
+      "position_before": 3,
+      "position_after": 4,
+      "held_state_consumed": true
+    },
+    "candidate_hand": {
+      "positions": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 4], [4, 4], [4, 4], [4, 4], [4, 3], [3, 3], [3, 4], [4, 3], [3, 2], [2, 2], [2, 3], [3, 3]],
+      "reached_upper": true,
+      "escaped_upper": true,
+      "reached_lower": false,
+      "actual_position_changes": 9,
+      "final_position": 3,
+      "exact_replay": true,
+      "naturally_quiescent": true,
+      "propagation_budget_exhaustions": 0
+    },
+    "lifetime": {
+      "consumptions": [
+        {"tick": 23, "owner": 2, "target": 11, "link": 36, "generation": 1, "consequence_tick": 16},
+        {"tick": 75, "owner": 4, "target": 10, "link": 40, "generation": 5, "consequence_tick": 68}
+      ],
+      "duplicate_consumptions": 0,
+      "stale_reuses_after_consumption": 0
+    },
+    "work": {
+      "parent_comparisons": 5370,
+      "candidate_comparisons": 7320,
+      "parent_scans": 4426,
+      "candidate_scans": 4681,
+      "frozen_plus_256_bound": "failed",
+      "comparison_delta": 1950,
+      "scan_delta": 255
+    },
+    "parent": {
+      "artifact_sha256": "7d1d9d51d3291a03d59df16948cd8313b3324eb30c91b058d438dbda6b3aaf26",
+      "artifact_matched": true,
+      "live_summary_matched": true
+    },
+    "software": {
+      "core_regression": "65 passed, 2 unchanged ignored",
+      "warm_seconds": 0.83,
+      "candidate_receipt_sha256": "3e3bc64c6f6602a2c650bccab18a640e051c784ab6c136a8fd9bd3fd7ec46f32",
+      "verification_receipt_sha256": "c8e166ff1d21a965c57d2d8914d77f84e36dec5ecfebb54403e010936086e53c"
+    }
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/bounded-first-use-fixtures.json",
+      "sha256": "c2143100494b7b2839e14dc600faf1d79f76350ad03967fc4de9b82a125cfe0a"
+    },
+    {
+      "path": "artifacts/reflected-hand-first-wall.json",
+      "sha256": "20dbcb67da31289cc053e5a0f6e44ece3f6a1fb921a2441d5e445c7430478c7d"
+    },
+    {
+      "path": "artifacts/parent-and-lifetime-controls.json",
+      "sha256": "32d6b8f657b271b2fbbd1227eab6978418671d27ea4ddfbbcd487f49b2293cfc"
+    }
+  ],
+  "completed": true
+}

@@ -1,0 +1,418 @@
+{
+  "schema": "hand-completed-cycle-naturality/v1",
+  "arm": "completed-cycle-first-arrow-change",
+  "outcome": "survived",
+  "observations": {
+    "frozen_parent_summary": {
+      "actual_position_changes": 12,
+      "completed_cycle_admissions": 9,
+      "cross_view_admissions": 2,
+      "effect_composition": "batched",
+      "escaped_lower": false,
+      "escaped_upper": false,
+      "exact_replay": true,
+      "final_position": -2,
+      "naturally_quiescent": true,
+      "opposing_output_steps": 4,
+      "output_choice_resolutions": 23,
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerCompletedCycle",
+      "reached_lower": false,
+      "reached_upper": false,
+      "stopped": false
+    },
+    "naturality": {
+      "first_failure": {
+        "admission_basis": "FreshAlternative",
+        "completed_cycle_state": "Missing",
+        "current_ordinal": 2,
+        "current_owners": [
+          2
+        ],
+        "current_targets": [
+          10
+        ],
+        "hand_step": 3,
+        "kind": "NonNaturalOwnershipChange",
+        "phase": 0,
+        "previous_ordinal": 1,
+        "previous_owner": null,
+        "previous_target": 11,
+        "tick": 23
+      },
+      "first_multi_target": null,
+      "first_non_natural": {
+        "admission_basis": "FreshAlternative",
+        "completed_cycle_state": "Missing",
+        "current_ordinal": 2,
+        "current_owners": [
+          2
+        ],
+        "current_targets": [
+          10
+        ],
+        "hand_step": 3,
+        "kind": "NonNaturalOwnershipChange",
+        "phase": 0,
+        "previous_ordinal": 1,
+        "previous_owner": null,
+        "previous_target": 11,
+        "tick": 23
+      },
+      "multi_target_admissions": 0,
+      "ordered_choices": [
+        {
+          "admission_basis": "Ordinary",
+          "admitted": [
+            {
+              "owner": null,
+              "target": 11
+            }
+          ],
+          "completed_cycle_state": "Missing",
+          "crosses_ownership_view": false,
+          "hand_step": 0,
+          "ordinal": 0,
+          "phase": 0,
+          "tick": 3
+        },
+        {
+          "admission_basis": "CompletedCycle",
+          "admitted": [
+            {
+              "owner": null,
+              "target": 11
+            }
+          ],
+          "completed_cycle_state": "Unique",
+          "crosses_ownership_view": false,
+          "hand_step": 1,
+          "ordinal": 1,
+          "phase": 0,
+          "tick": 11
+        },
+        {
+          "admission_basis": "FreshAlternative",
+          "admitted": [
+            {
+              "owner": 2,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Missing",
+          "crosses_ownership_view": false,
+          "hand_step": 3,
+          "ordinal": 2,
+          "phase": 0,
+          "tick": 23
+        },
+        {
+          "admission_basis": "CoherentEffect",
+          "admitted": [
+            {
+              "owner": 2,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Unique",
+          "crosses_ownership_view": false,
+          "hand_step": 3,
+          "ordinal": 3,
+          "phase": 0,
+          "tick": 27
+        },
+        {
+          "admission_basis": "CompletedCycle",
+          "admitted": [
+            {
+              "owner": 2,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Unique",
+          "crosses_ownership_view": false,
+          "hand_step": 4,
+          "ordinal": 4,
+          "phase": 0,
+          "tick": 35
+        },
+        {
+          "admission_basis": "Ordinary",
+          "admitted": [
+            {
+              "owner": 2,
+              "target": 11
+            }
+          ],
+          "completed_cycle_state": "Stale",
+          "crosses_ownership_view": false,
+          "hand_step": 5,
+          "ordinal": 5,
+          "phase": 0,
+          "tick": 39
+        },
+        {
+          "admission_basis": "FreshAlternative",
+          "admitted": [
+            {
+              "owner": 2,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Stale",
+          "crosses_ownership_view": false,
+          "hand_step": 6,
+          "ordinal": 6,
+          "phase": 0,
+          "tick": 43
+        },
+        {
+          "admission_basis": "Ordinary",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 11
+            }
+          ],
+          "completed_cycle_state": "Missing",
+          "crosses_ownership_view": false,
+          "hand_step": 6,
+          "ordinal": 7,
+          "phase": 0,
+          "tick": 47
+        },
+        {
+          "admission_basis": "FreshAlternative",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Missing",
+          "crosses_ownership_view": false,
+          "hand_step": 7,
+          "ordinal": 8,
+          "phase": 0,
+          "tick": 51
+        },
+        {
+          "admission_basis": "Ordinary",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 11
+            }
+          ],
+          "completed_cycle_state": "Missing",
+          "crosses_ownership_view": false,
+          "hand_step": 8,
+          "ordinal": 9,
+          "phase": 0,
+          "tick": 55
+        },
+        {
+          "admission_basis": "CompletedCycle",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Unique",
+          "crosses_ownership_view": false,
+          "hand_step": 8,
+          "ordinal": 10,
+          "phase": 0,
+          "tick": 59
+        },
+        {
+          "admission_basis": "FreshAlternative",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Stale",
+          "crosses_ownership_view": false,
+          "hand_step": 9,
+          "ordinal": 11,
+          "phase": 0,
+          "tick": 63
+        },
+        {
+          "admission_basis": "Ordinary",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 11
+            }
+          ],
+          "completed_cycle_state": "Stale",
+          "crosses_ownership_view": false,
+          "hand_step": 10,
+          "ordinal": 12,
+          "phase": 0,
+          "tick": 67
+        },
+        {
+          "admission_basis": "CompletedCycle",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Unique",
+          "crosses_ownership_view": false,
+          "hand_step": 10,
+          "ordinal": 13,
+          "phase": 0,
+          "tick": 71
+        },
+        {
+          "admission_basis": "FreshAlternative",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Stale",
+          "crosses_ownership_view": false,
+          "hand_step": 11,
+          "ordinal": 14,
+          "phase": 0,
+          "tick": 75
+        },
+        {
+          "admission_basis": "CoherentEffect",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Stale",
+          "crosses_ownership_view": false,
+          "hand_step": 12,
+          "ordinal": 15,
+          "phase": 0,
+          "tick": 79
+        },
+        {
+          "admission_basis": "CompletedCycle",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Unique",
+          "crosses_ownership_view": false,
+          "hand_step": 12,
+          "ordinal": 16,
+          "phase": 0,
+          "tick": 83
+        },
+        {
+          "admission_basis": "CoherentEffect",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Stale",
+          "crosses_ownership_view": false,
+          "hand_step": 13,
+          "ordinal": 17,
+          "phase": 0,
+          "tick": 87
+        },
+        {
+          "admission_basis": "CompletedCycle",
+          "admitted": [
+            {
+              "owner": null,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Unique",
+          "crosses_ownership_view": true,
+          "hand_step": 13,
+          "ordinal": 18,
+          "phase": 0,
+          "tick": 91
+        },
+        {
+          "admission_basis": "CoherentEffect",
+          "admitted": [
+            {
+              "owner": null,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Stale",
+          "crosses_ownership_view": true,
+          "hand_step": 14,
+          "ordinal": 19,
+          "phase": 0,
+          "tick": 95
+        },
+        {
+          "admission_basis": "CompletedCycle",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 10
+            }
+          ],
+          "completed_cycle_state": "Unique",
+          "crosses_ownership_view": false,
+          "hand_step": 14,
+          "ordinal": 20,
+          "phase": 0,
+          "tick": 99
+        },
+        {
+          "admission_basis": "Ordinary",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 11
+            }
+          ],
+          "completed_cycle_state": "Missing",
+          "crosses_ownership_view": true,
+          "hand_step": 15,
+          "ordinal": 21,
+          "phase": 0,
+          "tick": 103
+        },
+        {
+          "admission_basis": "CoherentEffect",
+          "admitted": [
+            {
+              "owner": 3,
+              "target": 11
+            }
+          ],
+          "completed_cycle_state": "Unique",
+          "crosses_ownership_view": true,
+          "hand_step": 15,
+          "ordinal": 22,
+          "phase": 0,
+          "tick": 107
+        }
+      ],
+      "ownership_changes_changing_target": 2,
+      "ownership_changes_preserving_target": 2,
+      "target_changes_without_ownership_change": 8
+    }
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

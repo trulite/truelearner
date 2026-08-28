@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "two-joint-serial-composition"
+campaign = "hand-causal-topology-product-output-composition-v1"
+kind = "composition"
+parents = ["hand-causal-topology-product-output-composition-v1:one-module-identity"]
+imports = ["one shared harness", "two disconnected outcome components", "component-local output and opportunity choice"]
+mechanism = "Run two anonymous serial joint modules while factoring choice and fresh opportunity over their connected physical outcome components."
+prediction = "Both components reach and leave both limits, emit both signs, replay exactly, quiesce, and remain activity bounded."
+falsifiers = ["Either joint loses a sign limit or escape.", "The first physical arrow differs from its one-module identity.", "Execution exhausts becomes non-quiescent or exceeds the declared bound."]
+source_revision = "plan:b2b768986e94c95bfd073c110e15ae5a23aa50bbed5e66d1cd4d5c2d77ed2c0c"
+protocol_sha256 = "628a6ba39fc8d82be016837070230e7dd77fa284cd31e8dc9898ce7310176a5a"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core causal_topology_product"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml -- --predecessor-dir research/campaigns/hand-activity-normalized-build-v1 --output-dir research/campaigns/hand-causal-topology-product-output-composition-v1/artifacts/topology-product --protocol causal-topology-product"

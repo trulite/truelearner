@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-bounded-first-use-construction-continuation-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "An outcome transported through learner construction needs no longer timestamp or held path; the smallest missing physics is a one-use lifetime that keeps the exact outcome eligible until its first matching local choice and then restores ordinary expiry."
+first_divergence = "At hand step three and tick twenty-three, target eleven's exact construction-projected tick-sixteen consequence is stale before its first matching post-construction competition, so fresh target ten reverses the physical arrow at plus three."
+missing_transition = "One bounded use of an exact transported consequence at its first matching owner-local completing-path competition."
+prediction = "Small fixtures consume the exact held consequence once and release it to ordinary stale behavior; the unchanged parent remains exact; the successor uniquely admits target eleven at tick twenty-three, moves from plus three to plus four, reaches the upper boundary, and preserves replay, quiescence, zero exhaustion, and bounded work."
+falsifiers = ["A held consequence remains reusable after its first matching competition.", "Ordinary stale evidence becomes eligible.", "Wrong-generation dead unrelated non-completing or sibling evidence is consumed.", "The parent hand changes.", "Target eleven is not uniquely admitted at tick twenty-three or the hand does not reach plus four.", "Replay quiescence exhaustion or work controls fail."]
+positive_reference = "hand-complete-construction-naturality-contract-v1 integrated opt-in parent convergence sha256:16582b6023366d642d6346c29e7594abd1746868edb9a96603da5c1c191784b8"
+negative_controls = ["exact RecursiveLearnerConstructionOutcomeComposition hand", "ordinary four-tick stale release", "same-tick exact-lineage construction selectivity", "fresh child and sibling isolation", "single-candidate non-consumption", "wrong-generation dead non-completing and losing-candidate lifetime controls", "accepted default protocol"]
+included_mechanisms = ["completed-cycle composition", "same-tick exact-lineage construction outcome composition", "owner-local consequence memory", "original consequence tick preservation", "bounded first matching choice lifetime"]
+inherited_constraints = ["benchmark blind", "fresh child private memory", "actual live exact-generation completing witness", "official batched adapter", "exact replay", "natural quiescence", "bounded work", "one frozen hand run"]
+excluded_proposals = ["global recency extension", "timestamp refresh", "held path", "parent-memory copy", "semantic direction or position", "winner-only consumption", "adapter change", "default authority promotion"]
+arm_paths = ["arms/bounded-first-use-fixtures.toml", "arms/reflected-hand-first-wall.toml", "arms/parent-and-lifetime-controls.toml"]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 12
+max_minutes_per_arm = 4
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

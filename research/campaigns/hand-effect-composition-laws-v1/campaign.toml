@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-effect-composition-laws-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "The first post-release wall is a composition mismatch between naturally quiescent learner runs and the external fixed-force update, or an unresolved local output transaction that spans those runs."
+first_divergence = "Opposing outputs produced by separate naturally quiescent Harness runs are combined into one zero-net external update."
+missing_transition = "Order-preserving world composition or one unresolved local output choice across later input."
+prediction = "Sequential phase composition changes the next sensed state; coherent unresolved-effect admission exports one local sign until answer or expiry; their composition distinguishes independent from interacting requirements."
+falsifiers = ["Batched reference differs.", "Either arm leaks evaluator state.", "Coherence persists after expiry.", "Neither arm changes opposing cancellation or actual travel.", "Replay, quiescence, propagation, or cost fails."]
+positive_reference = "hand-organism-root-fresh-opportunity-v1 conditional-reflected-hand-release"
+negative_controls = ["frozen batched root-fresh trajectory", "physical-transition-continuation counterexample", "sample and return-lifetime fixtures", "reflection and replay"]
+included_mechanisms = ["physical-transition return admission", "typed organism-to-root fresh opportunity", "fixed opposing-force law", "naturally quiescent Harness phases", "recent unanswered return lifetime"]
+inherited_constraints = ["benchmark blind", "no semantic action", "no external step in learner state", "no new durable memory", "warm runtime below ten seconds"]
+excluded_proposals = ["official Academy force-law replacement", "evaluator-selected action", "position/direction/contact labels", "persistent direction memory", "default adoption"]
+arm_paths = ["arms/sequential-world-composition.toml", "arms/coherent-unresolved-effect.toml", "arms/combined-composition.toml", "arms/frozen-batched-parent.toml"]
+max_parallel_arms = 4
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 40
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

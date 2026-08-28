@@ -1,0 +1,65 @@
+schema = "research-convergence/v1"
+campaign = "hand-causal-lineage-preservation-v1"
+round = 1
+survived = [
+  "inherited-negative-reference",
+  "lineage-primitive-controls",
+  "first-transition-localization",
+]
+falsified = ["hand-causal-lineage-preservation"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "temporary sorted unique causal lineage preserved two actual origins across a merge while output count and impulse remained equal to the scalar reference",
+  "the unchanged hand's delivered physical surfaces reached modulatory lineage, were admitted under the existing local law, and reverse-consolidated",
+  "the candidate produced thirty-five closure observations and fourteen constructions on other anonymous surface/output/parent keys with exact replay and natural quiescence",
+  "the frozen scalar counterexample remained intact without rerunning or repairing its failed protocol",
+]
+strongest_counterexamples = [
+  "hand-causal-lineage-preservation: the original first closure was parent null, surface junction 3, output junction 11 at evidence one; later delivered surfaces reverse-consolidated, but that exact key never reached evidence two",
+  "the candidate constructed fourteen learners yet reached neither reflected limit and changed position on only nine of sixteen steps, so provenance repair is not sufficient for closed hand control",
+  "construction rapidly shifted across other output, surface, and nested-parent keys, so counting any construction as success without a selectivity audit would reinterpret the preregistered contract",
+]
+retired_families = [
+  "loss of truthful surface provenance as the remaining explanation after delivered surfaces are visible at modulatory incidence",
+  "return locality or duplicate rejection as the remaining explanation after both delivered surface origins are admitted",
+  "absence of reverse executable paths as the remaining explanation after both delivered surfaces reverse-consolidate",
+  "causal-lineage preservation alone as sufficient for same-first-closure renewal or reflected-limit control",
+  "treating same-first-closure renewal as automatically equivalent to anonymous causal-owner formation without a separate contract decision",
+]
+next_discriminators = [
+  "adjudicate whether the developmental construction claim requires renewal of the chronologically first closure or formation of any repeated actual anonymous surface/output closure, without changing or rerunning the candidate",
+  "audit the fourteen constructions against disconnected, shuffled, duplicate, sibling, adjacent-parent, and broad-coactivation controls to distinguish causal boundary discovery from overconstruction",
+  "only if an unchanged construction satisfies the clarified contract and selectivity controls, carry the frozen lineage candidate into the reflected-joint gate and localize its first failure before either limit",
+]
+
+[[new_arm]]
+id = "closure-identity-versus-owner-formation"
+kind = "diagnostic"
+parents = ["hand-causal-lineage-preservation", "first-transition-localization"]
+imports = [
+  "hand-causal-lineage-preservation: fourteen constructions on repeated actual anonymous closure keys",
+  "first-transition-localization: exact original closure key did not renew",
+]
+interaction_prediction = "A frozen claim-level comparison can determine whether at least one constructed boundary satisfies the existing causal-owner predicates independently of chronological-first identity; disagreement is a contract question, not permission to alter the evidence."
+falsifiers = [
+  "The comparison changes learner physics, reruns the candidate, or selects a favorable closure after seeing evaluator success.",
+  "A construction is accepted without two actual reverse consolidations on one exact parent/surface/output key.",
+  "The result silently rewrites the preregistered same-first-closure arm as survived.",
+]
+
+[[new_arm]]
+id = "lineage-construction-selectivity"
+kind = "diagnostic"
+parents = ["hand-causal-lineage-preservation", "lineage-primitive-controls"]
+imports = [
+  "hand-causal-lineage-preservation: observed constructed closure identities and ancestry",
+  "lineage-primitive-controls: order-independent duplicate-free physical provenance",
+]
+interaction_prediction = "Actual lineage should construct only repeated causally connected boundaries; disconnected, shuffled, duplicate-only, sibling-crossing, or broadly coactive lineage must not reproduce the same construction pattern."
+falsifiers = [
+  "A disconnected or shuffled surface constructs under matched activity.",
+  "Duplicate lineage supplies two-observation evidence.",
+  "Construction count grows from broad coactivation rather than distinct repeated causal closure.",
+  "The audit requires semantic anatomy, expected owner identity, or evaluator-selected lineage.",
+]

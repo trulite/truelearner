@@ -1,0 +1,46 @@
+{
+  "schema": "hand-causal-lineage-preservation/v1",
+  "arm": "lineage-primitive-controls",
+  "outcome": "survived",
+  "observations": {
+    "duplicate_free": true,
+    "duplicate_members": [
+      81001
+    ],
+    "forward_members": [
+      81001,
+      81002
+    ],
+    "lineage_outputs": [
+      {
+        "from_physical": 81000,
+        "from_region": 0,
+        "impulse": 1,
+        "tick": 0,
+        "to_physical": 81010,
+        "to_region": 1
+      }
+    ],
+    "naturally_quiescent": true,
+    "one_impulse": true,
+    "order_independent": true,
+    "reversed_members": [
+      81001,
+      81002
+    ],
+    "scalar_outputs": [
+      {
+        "from_physical": 81000,
+        "from_region": 0,
+        "impulse": 1,
+        "tick": 0,
+        "to_physical": 81010,
+        "to_region": 1
+      }
+    ],
+    "survived": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

@@ -5,6 +5,11 @@ impl Body {
         let protocol = self.protocol.bindings();
         crate::core::run(self, protocol)
     }
+
+    pub(crate) fn propagate_bounded(&mut self, max_moments: u64) -> RunResult {
+        let protocol = self.protocol.bindings();
+        crate::core::run_bounded(self, protocol, max_moments)
+    }
 }
 
 // Bind each line of the algorithm to one coherent physical implementation.
@@ -71,7 +76,31 @@ impl Protocol {
                 hold,
                 finish,
             },
-            Self::RecursiveLearnerConstruction => Bindings {
+            Self::RecursiveLearnerConstruction
+            | Self::RecursiveLearnerCausalLineage
+            | Self::RecursiveLearnerConsequenceBornClosure
+            | Self::RecursiveLearnerConsequenceCohortClosure
+            | Self::RecursiveLearnerEligibleReturnClosure
+            | Self::RecursiveLearnerBoundaryNovelty
+            | Self::RecursiveLearnerOwnerFactorization
+            | Self::RecursiveLearnerCausalOriginFactorization
+            | Self::RecursiveLearnerRegionalPathClosure
+            | Self::RecursiveLearnerBoundaryEffectTerminal
+            | Self::RecursiveLearnerConsequenceBornReturn
+            | Self::RecursiveLearnerPhysicalTransitionReturn
+            | Self::RecursiveLearnerFreshOpportunity
+            | Self::RecursiveLearnerRootFreshOpportunity
+            | Self::RecursiveLearnerTransitionContinuation
+            | Self::RecursiveLearnerCoherentEffect
+            | Self::RecursiveLearnerCompletedCycle
+            | Self::RecursiveLearnerConstructionOutcomeComposition
+            | Self::RecursiveLearnerBoundedConstructionContinuation
+            | Self::RecursiveLearnerReturnBearingContinuation
+            | Self::RecursiveLearnerCausalOriginProductComposition
+            | Self::RecursiveLearnerCausalPathProductComposition
+            | Self::RecursiveLearnerCausalTopologyOutputComposition
+            | Self::RecursiveLearnerCausalTopologyOpportunityComposition
+            | Self::RecursiveLearnerCausalTopologyProductComposition => Bindings {
                 start,
                 links_meet: Body::meet_links,
                 choose: Body::choose_sensorimotor_candidate,

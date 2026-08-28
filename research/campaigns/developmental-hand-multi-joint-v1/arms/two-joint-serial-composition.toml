@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "two-joint-serial-composition"
+campaign = "developmental-hand-multi-joint-v1"
+kind = "composition"
+parents = ["developmental-hand-multi-joint-v1:one-module-identity"]
+imports = ["one shared harness", "two anonymous local loops", "cumulative serial pose"]
+mechanism = "Compose two identical reflected modules in one harness and apply their outward effects componentwise."
+prediction = "Both components retain the complete one-joint loop with bounded work."
+falsifiers = ["Either component loses a direction limit or escape.", "Execution exhausts or becomes non-quiescent.", "Work exceeds twice the activity-normalized allowance."]
+source_revision = "plan:79a5f132f8caa09dfa5524762127b022c768e391a50941bc84771ac826f91d7d"
+protocol_sha256 = "b834e1e04e3a41cf4c772444312d7ed2427978f3d90c5099e916f7e93f36ebe3"
+budget_minutes = 2
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml two_joint_serial_composition"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml -- --predecessor-dir research/campaigns/hand-activity-normalized-build-v1 --output-dir research/campaigns/developmental-hand-multi-joint-v1/artifacts"

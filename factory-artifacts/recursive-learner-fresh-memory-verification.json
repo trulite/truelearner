@@ -1,0 +1,87 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "recursive-learner-fresh-memory-candidate.json",
+    "sha256": "c456956c8043e2dbb9bdeba45ccaa13e853e536649915947c269c28ee0ecd76f"
+  },
+  "verdict": "supported",
+  "independent_test_count": 7,
+  "checks": [
+    {
+      "name": "plan-and-candidate-lineage",
+      "command": "uv run factory/validators/validate_plan.py --file plans/recursive-learner-fresh-memory.md && uv run factory/validators/validate_candidate.py --file factory-artifacts/recursive-learner-fresh-memory-candidate.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.27
+    },
+    {
+      "name": "held-out-owner-memory",
+      "command": "cargo test --locked --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml probe_owner_participation_return_eligibility",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.1
+    },
+    {
+      "name": "held-out-depth-composition",
+      "command": "cargo test --locked --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml probe_return_reentry_composition",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.09
+    },
+    {
+      "name": "research-lineage",
+      "command": "uv run research/validators/validate_protocol.py --file research/campaigns/recursive-learner-fresh-memory-v1/protocol.toml && uv run research/validators/validate_campaign.py --file research/campaigns/recursive-learner-fresh-memory-v1/campaign.toml && uv run research/validators/validate_convergence.py --file research/campaigns/recursive-learner-fresh-memory-v1/convergence.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.23
+    },
+    {
+      "name": "deterministic-artifacts",
+      "command": "cargo run --quiet --locked --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml -- --all --output-dir <fresh-temp-dir> && diff -ru research/campaigns/recursive-learner-fresh-memory-v1/artifacts <fresh-temp-dir>",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.36
+    },
+    {
+      "name": "core-regression",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.04
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.22
+    }
+  ],
+  "findings": [
+    "Each constructed learner has serialized, sorted private return memory and begins with no accepted-return entries; parent-global return history remains unchanged by child admission.",
+    "Scheduling exposes construction-lineage ownership, while truthful physical-origin membership resolves return links formed after construction without semantic learner, depth, anatomy, target, score, episode, or evaluator routing.",
+    "An exact owner-link-generation-origin tuple is rejected, distinct later physical participation is accepted, and a retired and reused generation is fresh.",
+    "One causal moment contributes at most one recursive return admission per physical origin, preventing multiple return links from double-crediting one participation.",
+    "Fresh return memory composes with owner-aware closure identity to exact adjacent ancestry through depth three, byte-exact checkpoint replay, natural quiescence, and unchanged unrelated-return behavior.",
+    "All 25 active core tests, strict candidate checks, deterministic discovery artifacts, and the 0.22-second independent warm regression suite pass."
+  ],
+  "residual_uncertainty": [
+    "The supported claim is fresh-memory recursive construction through depth three; it does not establish learner-local consequence control, action selection, recruitment, sibling isolation, body composition, or authority.",
+    "Reflection, reordered discovery, and dormant-surface scaling remain inherited candidate controls rather than separate authority runs for this mechanism.",
+    "The discovery and verification evidence supports sufficiency of the candidate mechanism, not default protocol adoption."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/recursive-learner-fresh-memory-v1/convergence.toml",
+      "sha256": "ff9925fd267a6e7d80c02a19e06047ed25859f16e19dd8536a40a3160de3cf76"
+    },
+    {
+      "path": "research/campaigns/recursive-learner-fresh-memory-v1/artifacts/owner-participation-return-eligibility.json",
+      "sha256": "dd585945e7bb1f7854ef2dbc487c742215f55633bdf9c6e420a218a2cac4c1b6"
+    },
+    {
+      "path": "research/campaigns/recursive-learner-fresh-memory-v1/artifacts/return-reentry-composition.json",
+      "sha256": "08fe6a67c04a9aa5d35d348f3ba5b3ff4b547ada3d1837a2203eadca6c3f3e34"
+    }
+  ]
+}

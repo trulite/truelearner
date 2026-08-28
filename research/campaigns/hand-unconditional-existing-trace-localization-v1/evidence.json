@@ -1,0 +1,63 @@
+{
+  "schema": "research-evidence/v1",
+  "experiment": "hand-unconditional-existing-trace-localization-v1",
+  "protocol_sha256": "42d4d1ad59421af4a5e0b38751f8d644c673c40919572bb7a7543f8c0ee316ac",
+  "subject_digest": "cfa4865e66b03f327d5f9fb877fb8dffa5a7ee4ffdca64eea07ded879e3b538e",
+  "producer": "hand-unconditional-existing-trace-localization",
+  "environment": {
+    "identity": "bb-worktree:b94482267e96baffecc9576ddb6878918d9a4974",
+    "rustc": "1.97.1",
+    "run_policy": "one valid frozen candidate execution"
+  },
+  "observations": {
+    "reported_arm_outcomes": [
+      "full-snapshot-control=survived",
+      "tick-forty-seven-link-composition=survived"
+    ],
+    "snapshot": {
+      "hand_steps": 16,
+      "existing_witness_events": 2109,
+      "retained_on_every_verdict": true
+    },
+    "candidate_integrity": {
+      "actual_position_changes": 12,
+      "opposing_output_steps": 4,
+      "final_position": -2,
+      "completed_cycle_admissions": 10,
+      "output_choice_resolutions": 24,
+      "exact_replay": true,
+      "naturally_quiescent": true,
+      "propagation_budget_exhaustions": 0
+    },
+    "tick_forty_seven_choice": {
+      "owner": 3,
+      "target": 10,
+      "completed_cycle_state": "Unique",
+      "admission_basis": "CompletedCycle"
+    },
+    "tick_forty_four_projections": [
+      {"link": 33, "generation": 3, "consequence_tick": 44},
+      {"link": 34, "generation": 3, "consequence_tick": 44},
+      {"link": 41, "generation": 2, "consequence_tick": 44}
+    ],
+    "completing_same_lineage_projection": {
+      "link": 34,
+      "generation": 3,
+      "construction_tick": 44,
+      "choice_tick": 47,
+      "target": 10
+    },
+    "localization_verdict": "composed"
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/full-snapshot-control.json",
+      "sha256": "59d7192c6d9c42d306b35a2e696074419403c32ba33bdcbb0cf847ba0ebcda4b"
+    },
+    {
+      "path": "artifacts/tick-forty-seven-link-composition.json",
+      "sha256": "8d2639b1c1a7e87335eb1d4386b58cb205895abd1253d020d7b2d78cc95433bc"
+    }
+  ],
+  "completed": true
+}

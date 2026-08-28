@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-composition"
+campaign = "hand-consequence-born-return-admission-v1"
+kind = "composition"
+parents = ["complete-localization"]
+imports = ["strict admission", "truthful release", "safe reflected hand"]
+mechanism = "Require the full one-joint contract and perturbation recovery after the local transition and hand release gates."
+prediction = "The candidate reaches and leaves both limits and recovers from perturbation with exact replay, natural quiescence, and no exhaustion."
+falsifiers = ["Either reflected limit or escape is missing.", "Perturbation recovery fails.", "Any safety or integrity gate fails."]
+source_revision = "plan:79705eb6df17210a241f37d65a87c2bc1680a02b58f7eff2c5f2e260af29424f"
+protocol_sha256 = "f4f0999a33fe0c04b09975d33586b0dfbd51945434f958d1d0abf517f9ae93cc"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-consequence-born-return-admission/Cargo.toml"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-consequence-born-return-admission/Cargo.toml -- --arm complete-composition"

@@ -1,0 +1,98 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "developmental-hand-construction-admission-candidate.json",
+    "sha256": "b31fdf58349f47cda66d93a356efe5592ae3a47d4a5e3a437048b83bb631a244"
+  },
+  "verdict": "supported",
+  "independent_test_count": 8,
+  "checks": [
+    {
+      "name": "held-out-mirrored-perturbation-gate",
+      "command": "cargo test --locked --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml mirrored_perturbation_is_held_out_and_deterministic_when_primary_closes",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.53
+    },
+    {
+      "name": "physical-surface-capacity-stop",
+      "command": "cargo test --locked --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml physical_surface_capacity_exhaustion_is_typed_and_replayable",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "public-boundary-core-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.50
+    },
+    {
+      "name": "campaign-lineage",
+      "command": "uv run research/validators/validate_campaign.py --file research/campaigns/developmental-hand-construction-admission-v1/campaign.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.33
+    },
+    {
+      "name": "convergence-lineage",
+      "command": "uv run research/validators/validate_convergence.py --file research/campaigns/developmental-hand-construction-admission-v1/convergence.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.17
+    },
+    {
+      "name": "research-contract",
+      "command": "uv run --with pytest pytest -q research/tests/test_research_contract.py",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.37
+    },
+    {
+      "name": "result-artifact-digests",
+      "command": "independently recompute all eight result artifact SHA-256 digests",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml --lib -- --test-threads=1",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.42
+    }
+  ],
+  "findings": [
+    "The candidate is confined to a new research crate and successor campaign; it changes no truelearner-core source, prior experiment, frozen evidence, Academy behavior, benchmark, or authority state.",
+    "The typed two-axis product is implemented faithfully: absent versus equal delay-three all-sensor-to-both-outcome paths and direct-outcome versus actual post-movement-surface delivery are independently selectable, while capacities, learner protocol, geometry, integration, reflection, and horizon remain fixed.",
+    "The frozen truthful-recursive reference reproduces exactly: sixteen steps, fifteen movements, both signs, upper reach and release, no lower reach, final position three, zero closures, zero constructions, exact replay, and natural quiescence.",
+    "The complete scientific candidate is correctly falsified: physical reentry crosses reverse consolidation and causal closure exactly once, but evidence remains one and no child is constructed.",
+    "The path-only control also reaches closure evidence one, while delivery-only reaches no outcome return; both axes change the trace but show no construction interaction.",
+    "Child freshness, reflected-joint retry, and both perturbation schedules remain correctly unexecuted after construction failure.",
+    "Low-capacity physical-surface delivery becomes a typed replayable PhysicalStop, and unexpected panic payloads remain rethrown.",
+    "All eight result digests match their frozen artifacts; 27 active core tests pass with two unchanged adversarial tests ignored.",
+    "The independent representative warm regression completed in 0.42 seconds, strictly under 10 seconds."
+  ],
+  "residual_uncertainty": [
+    "The current trace establishes failure to renew closure evidence but does not yet distinguish lack of a fresh live return from rejection, failed reverse consolidation, or a changed closure key after the first closure.",
+    "Because no child formed, the experiment provides no new evidence about child memory, child-local consequence control, full reflected-joint closure, or perturbation recovery.",
+    "Symmetric surface paths strongly alter motion and produce the first closure without explicit pending surface delivery; their broader transfer and necessity are not established.",
+    "This remains discovery evidence over candidate physics and does not authorize integration or adoption."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/developmental-hand-construction-admission-v1/convergence.toml",
+      "sha256": "778bbfd7bcc2d7d8428ff93bf7d1d39cbf9bc98f9f352d5f37da53e888b3f808"
+    },
+    {
+      "path": "research/campaigns/developmental-hand-construction-admission-v1/artifacts/truthful-hand-construction-admission.json",
+      "sha256": "058723a7dc7e7b88087d4572d2452cdee7af9daee82aa9e59117a5df85f2464e"
+    },
+    {
+      "path": "research/campaigns/developmental-hand-construction-admission-v1/artifacts/surface-path-delivery-factorial-localization.json",
+      "sha256": "c5e7d3a5fb502bcbcdd570c2dc009b64e74db34f87200a09d8799b03cf1b8174"
+    }
+  ]
+}

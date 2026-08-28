@@ -1,0 +1,81 @@
+{
+  "schema": "hand-opportunity-owner-boundary/v1",
+  "arm": "relation-classifier-controls",
+  "outcome": "survived",
+  "observations": {
+    "actual_position_changes": 4,
+    "classifier_relations": [
+      "SameOwner",
+      "SameOwner",
+      "OrganismToRoot",
+      "RootToOrganism",
+      "ParentToChild",
+      "ChildToParent",
+      "Siblings",
+      "Unrelated",
+      "Unrelated"
+    ],
+    "emitted_physical": [
+      20001
+    ],
+    "escaped_upper": false,
+    "evaluations": [
+      {
+        "decision": "RejectedOwnerMismatch",
+        "donor": 11,
+        "ownership_relation": "OrganismToRoot",
+        "recipient": 10,
+        "recipient_owner": 2,
+        "return_link": 40,
+        "return_owner": null,
+        "tick": 23
+      },
+      {
+        "decision": "RejectedRecentDonor",
+        "donor": 11,
+        "ownership_relation": "OrganismToRoot",
+        "recipient": 10,
+        "recipient_owner": 2,
+        "return_link": 48,
+        "return_owner": null,
+        "tick": 27
+      },
+      {
+        "decision": "RejectedOwnerMismatch",
+        "donor": 11,
+        "ownership_relation": "OrganismToRoot",
+        "recipient": 10,
+        "recipient_owner": 2,
+        "return_link": 32,
+        "return_owner": null,
+        "tick": 39
+      },
+      {
+        "decision": "RejectedOwnerMismatch",
+        "donor": 11,
+        "ownership_relation": "OrganismToRoot",
+        "recipient": 10,
+        "recipient_owner": 2,
+        "return_link": 32,
+        "return_owner": null,
+        "tick": 51
+      },
+      {
+        "decision": "RejectedOwnerMismatch",
+        "donor": 11,
+        "ownership_relation": "OrganismToRoot",
+        "recipient": 10,
+        "recipient_owner": 2,
+        "return_link": 32,
+        "return_owner": null,
+        "tick": 63
+      }
+    ],
+    "exact_replay": true,
+    "naturally_quiescent": true,
+    "propagation_budget_exhaustions": 0
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

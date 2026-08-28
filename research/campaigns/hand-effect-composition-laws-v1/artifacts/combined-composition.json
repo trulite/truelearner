@@ -1,0 +1,485 @@
+{
+  "schema": "hand-effect-composition-laws/v1",
+  "arm": "combined-composition",
+  "outcome": "falsified",
+  "observations": {
+    "candidate": {
+      "actual_position_changes": 20,
+      "coherent_admissions": 9,
+      "coherent_effects": [
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": null,
+          "target": 10,
+          "tick": 3,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": null,
+          "target": 11,
+          "tick": 3,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": null,
+          "target": 10,
+          "tick": 11,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": null,
+          "target": 11,
+          "tick": 11,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 2,
+          "target": 10,
+          "tick": 31,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": 19,
+          "owner": 2,
+          "target": 11,
+          "tick": 31,
+          "unanswered_returns": 1
+        },
+        {
+          "admitted": true,
+          "latest_unanswered_opened_tick": 31,
+          "owner": 2,
+          "target": 10,
+          "tick": 35,
+          "unanswered_returns": 2
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 2,
+          "target": 11,
+          "tick": 35,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 2,
+          "target": 10,
+          "tick": 39,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 2,
+          "target": 11,
+          "tick": 39,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": true,
+          "latest_unanswered_opened_tick": 39,
+          "owner": 2,
+          "target": 10,
+          "tick": 43,
+          "unanswered_returns": 2
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 2,
+          "target": 11,
+          "tick": 43,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 10,
+          "tick": 47,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 11,
+          "tick": 47,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 10,
+          "tick": 51,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 11,
+          "tick": 51,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 10,
+          "tick": 55,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": 47,
+          "owner": 3,
+          "target": 11,
+          "tick": 55,
+          "unanswered_returns": 1
+        },
+        {
+          "admitted": true,
+          "latest_unanswered_opened_tick": 55,
+          "owner": 3,
+          "target": 10,
+          "tick": 59,
+          "unanswered_returns": 1
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 11,
+          "tick": 59,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 10,
+          "tick": 63,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 11,
+          "tick": 63,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": true,
+          "latest_unanswered_opened_tick": 63,
+          "owner": 3,
+          "target": 10,
+          "tick": 67,
+          "unanswered_returns": 1
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 11,
+          "tick": 67,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": null,
+          "target": 10,
+          "tick": 71,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 11,
+          "tick": 71,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 3,
+          "target": 10,
+          "tick": 75,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": true,
+          "latest_unanswered_opened_tick": 71,
+          "owner": 3,
+          "target": 11,
+          "tick": 75,
+          "unanswered_returns": 1
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 4,
+          "target": 10,
+          "tick": 79,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 4,
+          "target": 11,
+          "tick": 79,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 4,
+          "target": 10,
+          "tick": 83,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": true,
+          "latest_unanswered_opened_tick": 79,
+          "owner": 4,
+          "target": 11,
+          "tick": 83,
+          "unanswered_returns": 1
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 5,
+          "target": 10,
+          "tick": 87,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 5,
+          "target": 11,
+          "tick": 87,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 5,
+          "target": 10,
+          "tick": 91,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": true,
+          "latest_unanswered_opened_tick": 87,
+          "owner": 5,
+          "target": 11,
+          "tick": 91,
+          "unanswered_returns": 1
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 5,
+          "target": 10,
+          "tick": 95,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 5,
+          "target": 11,
+          "tick": 95,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 5,
+          "target": 10,
+          "tick": 99,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 5,
+          "target": 11,
+          "tick": 99,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 6,
+          "target": 10,
+          "tick": 103,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": true,
+          "latest_unanswered_opened_tick": 99,
+          "owner": 5,
+          "target": 11,
+          "tick": 103,
+          "unanswered_returns": 1
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 6,
+          "target": 10,
+          "tick": 107,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 6,
+          "target": 11,
+          "tick": 107,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": false,
+          "latest_unanswered_opened_tick": null,
+          "owner": 6,
+          "target": 10,
+          "tick": 111,
+          "unanswered_returns": 0
+        },
+        {
+          "admitted": true,
+          "latest_unanswered_opened_tick": 107,
+          "owner": 6,
+          "target": 11,
+          "tick": 111,
+          "unanswered_returns": 1
+        }
+      ],
+      "coherent_rejections": 37,
+      "directions": [
+        -1,
+        1
+      ],
+      "effect_composition": "quiescent-phase-sequential",
+      "emitted_physical": [
+        20000,
+        20001
+      ],
+      "escaped_lower": false,
+      "escaped_upper": true,
+      "exact_replay": true,
+      "final_position": 4,
+      "naturally_quiescent": true,
+      "net_changed_steps": 9,
+      "opposing_output_steps": 3,
+      "perturbation_recovered": false,
+      "phase_directions": [
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        -1,
+        -1,
+        -1,
+        -1,
+        1,
+        1,
+        -1,
+        -1,
+        -1,
+        -1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "primary_closed": false,
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerCoherentEffect",
+      "reached_lower": false,
+      "reached_upper": true,
+      "stopped": false
+    },
+    "frozen_batched_parent": {
+      "actual_position_changes": 9,
+      "coherent_admissions": 0,
+      "coherent_effects": [],
+      "coherent_rejections": 0,
+      "directions": [
+        -1,
+        1
+      ],
+      "effect_composition": "batched",
+      "emitted_physical": [
+        20000,
+        20001
+      ],
+      "escaped_lower": false,
+      "escaped_upper": true,
+      "exact_replay": true,
+      "final_position": 3,
+      "naturally_quiescent": true,
+      "net_changed_steps": 9,
+      "opposing_output_steps": 6,
+      "perturbation_recovered": false,
+      "phase_directions": [
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        -1,
+        0,
+        1,
+        0,
+        -1,
+        0,
+        -1,
+        1,
+        0
+      ],
+      "primary_closed": false,
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerRootFreshOpportunity",
+      "reached_lower": false,
+      "reached_upper": true,
+      "stopped": false
+    }
+  },
+  "falsifier": "the composed laws did not produce complete reflected-joint control",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

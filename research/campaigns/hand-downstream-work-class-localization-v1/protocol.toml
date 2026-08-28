@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-downstream-work-class-localization-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-prefix-and-activity-work-localization-v1 convergence sha256:78cdbd2a8e769a5fcd3bc978f943d860636409073c2f43271b274fbfcb6ef34e"
+question = "Are the downstream step-four and step-eleven comparison spikes finite physical work caused by newly reached boundary input and learner construction, unexplained waste, or runaway activity?"
+observables = ["per-phase actual input output and trace-event counts", "complete structured Work and ExecutionCost fields", "minimum-key and bucket-selection comparison attribution", "phase-to-step and step-to-run conservation", "step-four boundary-input activity", "step-eleven learner-construction activity", "all major positive comparison spikes", "replay quiescence exhaustion and immutable predecessor controls", "finite-useful-activity unexplained-waste or runaway decision"]
+frozen_variables = ["RecursiveLearnerConstructionOutcomeComposition parent physics", "RecursiveLearnerBoundedConstructionContinuation candidate physics", "official batched reflected-hand adapter", "sixteen external steps", "existing comparison and scan totals", "predecessor negative cost gate", "immutable predecessor evidence"]
+permitted_changes = ["two exhaustive timing-wheel comparison attribution counters beside existing increments", "public behavior-inert phase projection of existing Work ExecutionCost inputs outputs and trace size", "one pure three-way activity classifier", "one one-shot diagnostic successor artifact"]
+positive_predicates = ["all predecessor digests and exact live parent and candidate summaries reproduce", "minimum-key plus bucket-selection comparisons equal existing comparisons for every phase step and run", "all Work and ExecutionCost fields compose from phases to steps without loss", "major positive comparison spikes remain exactly steps four and eleven", "step four begins from newly reached upper contact receives more actual input performs more physical work and reconciles every comparison", "step eleven receives more actual input performs more physical work constructs more learners and reconciles every comparison", "all major spikes classify as finite useful activity rather than unexplained waste or runaway", "exact replay natural quiescence zero exhaustion and accepted defaults remain unchanged"]
+negative_controls = ["no scheduling ordering learner state choice force or total cost changes", "no extra learner run or diagnostic input", "no position contact hand answer or decision fact enters learner execution", "no cost-gate loosening optimization lower-side behavior or adoption", "unexplained-work and non-quiescent synthetic classifiers remain distinct"]
+stop_conditions = ["a predecessor digest or live execution changes", "attributed comparisons fail to equal existing comparisons", "phase evidence fails to conserve a step field", "a major positive spike lacks more actual input or physical work", "step eleven contains no learner construction", "any run is non-quiescent exhausted or stopped", "a spike remains unexplained after the complete phase evidence"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

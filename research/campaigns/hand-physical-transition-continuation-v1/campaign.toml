@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-physical-transition-continuation-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "A unique current owner-local physical transition with an unanswered return is sufficient to retain its causal incumbent before consequence writing."
+first_divergence = "At step 8 an older opposite motor fires during transition delivery before the causal incumbent receives its fresh consequence write."
+missing_transition = "Pre-write continuation in local output competition."
+prediction = "The incumbent fires through transition delivery, samples still release it, opposing coactivation falls, and the complete joint closes."
+falsifiers = ["No unique continuation admission.", "Samples continue an incumbent.", "Opposing effects still cancel.", "Complete control or integrity fails."]
+positive_reference = "hand-post-release-continuation-localization-v1 step 8 counterexample"
+negative_controls = ["root-fresh parent", "samples", "answered/stale/mismatched transitions", "reflection", "replay and quiescence"]
+included_mechanisms = ["typed root opportunity", "current transition lineage", "unanswered return", "owner-local competition"]
+inherited_constraints = ["transient only", "benchmark blind", "no semantic state", "warm runtime below ten seconds"]
+excluded_proposals = ["persistent direction memory", "output identity", "position/contact labels", "global continuation", "default adoption"]
+arm_paths = ["arms/physical-transition-continuation.toml", "arms/sample-and-parent-controls.toml", "arms/conditional-reflected-hand-release.toml", "arms/complete-composition.toml"]
+max_parallel_arms = 4
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 40
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

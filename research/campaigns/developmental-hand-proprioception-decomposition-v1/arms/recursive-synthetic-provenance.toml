@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "recursive-synthetic-provenance"
+campaign = "developmental-hand-proprioception-decomposition-v1"
+kind = "diagnostic"
+parents = ["synthetic-monolithic-reference"]
+imports = ["same bounded factorial fixture", "synthetic sequence-unique origins", "complete recursive learner physics"]
+mechanism = "Change only learner protocol to recursive construction while retaining synthetic physical origins that cannot truthfully identify a causal surface."
+prediction = "This cell isolates whether recursive physics has any trajectory effect without truthful same-owner provenance and whether causal owners can form under synthetic tags."
+falsifiers = ["The cell is not matched to the synthetic monolithic reference except for protocol.", "A claimed owner-local effect occurs without an actual causal owner.", "Capacity, warm runtime, replay, or quiescence fails."]
+source_revision = "candidate-tree:cf8f2b971d70fafff1873536b05e82f35413b20b0911e462c5eaf50f85a89178"
+protocol_sha256 = "9ab7a51253c03f1dc1f4f9d1dabfcc5574e174bf9d77d5978467f16b2892bb61"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/developmental-hand-one-joint/Cargo.toml recursive_synthetic_provenance"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/developmental-hand-one-joint/Cargo.toml -- --arm recursive-synthetic-provenance"

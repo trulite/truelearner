@@ -1,0 +1,17 @@
+{
+  "schema": "hand-consequence-born-closure-eligibility/v1",
+  "arm": "temporal-cohort-counterexample",
+  "outcome": "falsified",
+  "observations": {
+    "coactive_closures": 0,
+    "coactive_constructions": 0,
+    "delayed_closures": 1,
+    "delayed_constructions": 0,
+    "quiescent": true,
+    "replay": true,
+    "survived": false
+  },
+  "falsifier": "a newly opened ineligible return is processed before the valid older return and consumes the origin",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

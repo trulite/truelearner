@@ -100,6 +100,12 @@ impl Arena {
             self.outgoing_index[link.from.0 as usize].push(link.id);
             self.incoming_index[link.to.0 as usize].push(link.id);
         }
+        for links in &mut self.outgoing_index {
+            links.sort_unstable();
+        }
+        for links in &mut self.incoming_index {
+            links.sort_unstable();
+        }
         self.active_junctions = self
             .junctions
             .iter()

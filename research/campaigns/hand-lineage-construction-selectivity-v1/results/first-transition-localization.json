@@ -1,0 +1,23 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "first-transition-localization",
+  "outcome": "survived",
+  "falsifier": null,
+  "observations": {
+    "lineage_preservation": "survived in the frozen parent",
+    "earliest_missing_transition": "causal-closure observation eligibility",
+    "first_false_admission": "a pre-movement/current-state surface observation counts as closure evidence",
+    "dependent_boundary_failure": "the same owned surface/output boundary can then generate deeper copies without new physical boundary",
+    "lineage_narrowing_recommended": false,
+    "next_solve": "preserve lineage and require consequence-born temporal eligibility before closure evidence; test physical boundary novelty separately",
+    "exact_replay": true,
+    "naturally_quiescent": true
+  },
+  "artifacts": [
+    {
+      "path": "research/campaigns/hand-lineage-construction-selectivity-v1/artifacts/first-transition-localization.json",
+      "sha256": "85deef3d91da114d670010841e68c32054696e562bc709931bbf514067cdcd6d"
+    }
+  ]
+}
+

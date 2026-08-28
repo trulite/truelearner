@@ -1,0 +1,25 @@
+schema = "research-arm/v1"
+id = "owner-local-recent-consequence"
+campaign = "recursive-learner-proprioceptive-control-v1"
+kind = "solve"
+parents = ["recursive-learner-fresh-memory-v1:owner-participation-return-eligibility", "sensorimotor-synthesis-ladder-v1:first-motor-output"]
+imports = [
+  "fresh private learner memory",
+  "actual participating finite return",
+  "bounded recent-consequence candidate preference",
+  "current same-owner proprioceptive opportunity",
+]
+mechanism = "Each learner owns an initially empty sorted map from participating live path link and generation to last accepted consequence tick. An accepted owner-local return writes it; owned candidate selection reads only it, uses no global recency or learned-strength tie break, and releases after the existing recent window."
+prediction = "A child begins preference-neutral, one actual consequence makes only its participating alternative locally recent, matching current proprioception recalls it, withheld consequence releases it, and parent-global or sibling preference remains unchanged."
+falsifiers = [
+  "The child begins with any parent consequence entry or selection still follows global link recency or learned strength.",
+  "A nonparticipating, duplicate, stale, unrelated, or blocked consequence writes owner-local preference.",
+  "The local preference is not read, never releases, changes another owner, or loses replay and quiescence.",
+]
+source_revision = "rust-candidate-tree:b970cd48b76c61ea6413b15510896ef639e9869dba67848ab429d95366177f3c"
+protocol_sha256 = "ff8ad9ce27fefe9876f7cb4d9cfd4ce47983531e3d47793c65e26663dd1dbbc2"
+budget_minutes = 40
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/recursive-learner-proprioceptive-control/Cargo.toml probe_owner_local_recent_consequence"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/recursive-learner-proprioceptive-control/Cargo.toml -- --arm owner-local-recent-consequence"

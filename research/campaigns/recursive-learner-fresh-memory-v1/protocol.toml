@@ -1,0 +1,60 @@
+schema = "research-protocol/v1"
+id = "recursive-learner-fresh-memory-v1"
+program = "learner-physics"
+claim = "CAUSAL-LEARNER-CONSTRUCTION"
+status = "preregistered"
+parent_authority = "recursive-learner-reentry-v1/convergence.toml@ecf5dab1bee003a8b34940e6e229dd5bea05abac4cb181363574d1819652bed7"
+question = "Can every constructed learner inherit the same causal learning prototype while starting with fresh owner-local finite-return memory, so actual repeated participation constructs descendants without admitting duplicates, stale returns, or evaluator routing?"
+observables = [
+  "frozen root construction, owner-aware closure identity, exact replay, natural quiescence, and local cost",
+  "return scheduling, physical-origin admission, reverse consolidation, and owner-local closure evidence",
+  "owner, live return-link identity and generation, physical origin, and accepted-return memory",
+  "fresh child memory at construction and preserved parent memory",
+  "one accepted origin per owner, link generation, and physical origin",
+  "adjacent construction ancestry through depths one, two, and three",
+]
+frozen_variables = [
+  "CORE1 authority and every accepted protocol",
+  "recursive-learner-construction-v1 and recursive-learner-reentry-v1 artifacts, classifications, and counterexamples",
+  "owner-aware closure identity from candidate tree 72e3c1560e68330450321e96db5039159c7959506164c7dd798104e654f72477",
+  "public Harness send/read boundary with no learner addressing, routing, allocation, or memory-writing operation",
+  "two fresh accepted causal observations per construction and the existing finite-return lifetime",
+  "anonymous topology, event schedule, physical resources, reflection, replay, quiescence, false-closure, and dormant-surface controls",
+]
+permitted_changes = [
+  "experimental private finite-return memory owned by each constructed learner",
+  "experimental return scheduling and origin admission that read the current physical owner and live return-link generation",
+  "checkpoint and memory accounting for owner-local return memory",
+  "physical tracing needed to distinguish return scheduling, admission, owner, and duplicate rejection",
+]
+positive_predicates = [
+  "a child inherits the same construction law and causal membership but no accepted-return entries from its parent",
+  "the parent's global or owner-local accepted-return history remains unchanged when a child is constructed",
+  "fresh output participation can schedule and admit one return for the deepest learner physically owning the return link",
+  "the same owner, link generation, and physical origin cannot be admitted twice",
+  "a retired and physically renewed return link generation is fresh without erasing old history",
+  "two fresh child-owned observations construct exactly one grandchild and the same law repeats through depth three",
+  "disconnected, shuffled, correlated, duplicate, stale, unrelated, and pre-construction controls construct no false descendant",
+  "checkpoint replay, natural quiescence, frozen references, and source-local cost remain exact",
+]
+negative_controls = [
+  "frozen recursive-learner-reentry owner-key-only candidate and its absent child-owned closure",
+  "construction-time global clearing of parent return history",
+  "same owner, return-link generation, and origin delivered twice",
+  "one child-owned observation only",
+  "disconnected, shuffled, correlated, stale, pre-construction, and unrelated-surface returns",
+  "reflected and reordered construction through depth three",
+  "four, sixty-four, and one-thousand-twenty-four dormant anonymous surfaces",
+]
+stop_conditions = [
+  "any accepted protocol or frozen root classification, replay, quiescence, or warm runtime bound changes",
+  "construction clears or copies the parent's learned return history into the child",
+  "return admission uses semantic learner, depth, anatomy, action, target, score, episode, or evaluator identity",
+  "one physical participation is credited twice, or a stale, disconnected, shuffled, correlated, or unrelated return is admitted",
+  "checkpoint restoration changes ownership, link generation, accepted origins, ancestry, output, or cost",
+  "stop dependent depth composition at the first failed return or closure prerequisite",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

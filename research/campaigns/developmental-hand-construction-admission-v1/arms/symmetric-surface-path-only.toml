@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "symmetric-surface-path-only"
+campaign = "developmental-hand-construction-admission-v1"
+kind = "diagnostic"
+parents = ["frozen-truthful-recursive-reference"]
+imports = ["equal sensor-to-both-outcome delay-three drive paths", "unchanged direct outcome delivery"]
+mechanism = "Change only the surface-path axis so ordinary position incidence can reach either outcome symmetrically while preserving old direct return delivery."
+prediction = "This cell measures whether symmetric topology alone changes reverse consolidation, closure, construction, trajectory, or physical cost."
+falsifiers = ["The topology is asymmetric or direction-selected.", "Any variable other than the surface-path axis changes.", "A false control, capacity, replay, or quiescence predicate fails."]
+source_revision = "plan:6c21af4d0ef39d52e87d71c64a4260b71e68cb915cc5d03ad5af3f47e60bf232"
+protocol_sha256 = "1cf5d5ae65fd1ea9671332829060e23972027ce53016c3a3caa85cd129264ec2"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml symmetric_surface_paths_are_direction_blind"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml -- --arm symmetric-surface-path-only"

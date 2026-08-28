@@ -1,0 +1,80 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "hand-physical-change-resampling-candidate.json",
+    "sha256": "56da2eb0f6a41e9a6468ef9da5c3e8b49d9d3d47e2595fd2ff350abf7c44066d"
+  },
+  "verdict": "supported",
+  "independent_test_count": 61,
+  "checks": [
+    {
+      "name": "held-out-full-core",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary --no-fail-fast",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "parent-hand-control",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-consequence-born-return-admission/Cargo.toml --no-fail-fast",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 3.1
+    },
+    {
+      "name": "research-contracts",
+      "command": "uv run research/validators/validate_protocol.py --file research/campaigns/hand-physical-change-resampling-v1/protocol.toml && uv run research/validators/validate_campaign.py --file research/campaigns/hand-physical-change-resampling-v1/campaign.toml && uv run research/validators/validate_convergence.py --file research/campaigns/hand-physical-change-resampling-v1/convergence.toml && uv run research/validators/validate_program.py --file research/programs/learner/program.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.08
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-physical-change-resampling/Cargo.toml --no-fail-fast",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    }
+  ],
+  "findings": [
+    "PhysicalInput classifies external incidence as Sample or Transition while preserving the same ordinary drive path; only the opt-in protocol reads transition eligibility for consequence.",
+    "Causal lineage preserves an optional transition tick per anonymous physical origin through merging, selection, propagation, checkpoint save, and exact replay.",
+    "For the same later origin, Sample produced typed RejectedUnchangedSample with no consequence write, while Transition was admitted and consequential.",
+    "The hand adapter records sample and transition incidence plus transition eligibility in its reusable whole-decision evidence without exposing position, direction, contact, desired action, or hand identity to the learner.",
+    "The local discriminator survived: origins 10001, 10002, and 10004 were admitted on physical transition and rejected on later sampling; seventy-six unchanged samples were rejected with exact replay, natural quiescence, and zero propagation exhaustion.",
+    "Stable active-member novelty was falsified by two actual movements with the same active-origin set.",
+    "Hand release was falsified: after false writes stopped, the silent motor retained path inputs but had zero projected drive, remained non-executable, and never fired; the candidate retained four position changes and upper clamp.",
+    "All 55 non-ignored core tests passed, two adversarial tests remained explicitly ignored, all parent and candidate experiment tests passed, and the independent warm loop completed in 0.04 seconds."
+  ],
+  "residual_uncertainty": [
+    "The opt-in physical-transition protocol is locally supported discovery physics, not default behavior or organism authority.",
+    "Correct transition classification is an explicit external physical boundary; worlds whose physical sensors cannot expose change remain observationally unable to distinguish it.",
+    "The hand remains unsolved. The next localized frontier is one bounded unanswered-return opportunity reaching a fresh local alternative before path-sign cancellation and executability."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/hand-physical-change-resampling-v1/artifacts/existing-lineage-discriminator.json",
+      "sha256": "4d005eba690bde0966378d4060f33c1abf1b19c0387347694a9dea21fb6a0325"
+    },
+    {
+      "path": "research/campaigns/hand-physical-change-resampling-v1/artifacts/stable-surface-activation-edge.json",
+      "sha256": "72b2b494ce2bf9eb0c9e756c2041449575979105410d710de4ae45a10893bdde"
+    },
+    {
+      "path": "research/campaigns/hand-physical-change-resampling-v1/artifacts/physical-transition-return.json",
+      "sha256": "07fea5a3038990c77602f6086dd2eee2dcb2b2702c239c10e6229cdae3d1caed"
+    },
+    {
+      "path": "research/campaigns/hand-physical-change-resampling-v1/artifacts/conditional-reflected-hand-release.json",
+      "sha256": "72747d7f364a719e1f9928f3e35dc2b59900276e3bf424b5fb4cd027168e4860"
+    },
+    {
+      "path": "research/campaigns/hand-physical-change-resampling-v1/artifacts/complete-composition.json",
+      "sha256": "eedf35e0083db770cf6f3093ca8a526da6578fa83ffa3704bee960d21bb76559"
+    },
+    {
+      "path": "research/campaigns/hand-physical-change-resampling-v1/convergence.toml",
+      "sha256": "afbb99e4d39228c61f5e6ee76bdd3e8cc06772dcc39ff41952762d915571d06c"
+    }
+  ]
+}

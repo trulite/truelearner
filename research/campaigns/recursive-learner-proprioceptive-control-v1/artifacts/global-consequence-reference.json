@@ -1,0 +1,13 @@
+{
+  "schema": "recursive-learner-proprioceptive-control/v1",
+  "arm": "global-consequence-reference",
+  "outcome": "falsified",
+  "observations": {
+    "fresh_owner_selected_with_no_private_tick": true,
+    "global_history_sufficient_for_isolated_child_preference": false,
+    "global_link_history_present_at_learner_birth": true
+  },
+  "falsifier": "global link consequence history cannot provide fresh owner-local preference isolation",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

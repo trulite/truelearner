@@ -1,0 +1,21 @@
+{
+  "schema": "hand-lineage-construction-selectivity/v1",
+  "arm": "temporal-coactivity-selectivity",
+  "outcome": "falsified",
+  "observations": {
+    "coactive_closures": 2,
+    "coactive_constructions": 1,
+    "delayed_closures": 2,
+    "delayed_constructions": 1,
+    "disconnected_closures": 0,
+    "disconnected_constructions": 0,
+    "duplicate_closures": 1,
+    "duplicate_constructions": 0,
+    "exact_replay": true,
+    "naturally_quiescent": true,
+    "selectivity_survived": false
+  },
+  "falsifier": "current closure eligibility cannot distinguish output-caused delivery from current-state temporal coactivity",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

@@ -1,0 +1,54 @@
+schema = "research-convergence/v1"
+campaign = "hand-same-lineage-closure-renewal-v1"
+round = 1
+survived = [
+  "inherited-integrity-control",
+  "scripted-two-cycle-reference",
+  "hand-first-closure-reference",
+  "first-transition-localization",
+]
+falsified = ["hand-same-lineage-closure-renewal"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "the scripted and hand rounds both have fresh output participation, changed participating topology, return-scheduling decisions, and live modulatory return state when the consequence arrives",
+  "the scripted round admits its actually delivered surface origin and continues through reverse consolidation, the same closure key at evidence two, and construction",
+  "the hand's first later actual movement occurs at step three after two retained zero-displacement attempts and delivers only its actual post-movement surfaces on the unchanged schedule",
+  "the frozen parent classifications, first hand closure, exact checkpoint replay, natural quiescence, fixed horizon, and semantic firewall remain intact",
+]
+strongest_counterexamples = [
+  "hand-same-lineage-closure-renewal: after movement from position one to two, surfaces 10002 and 10001 were delivered while live returns existed, but neither surface origin was admitted; outcome origin 40001 was admitted instead, followed by zero reverse consolidations, closures, or constructions",
+  "the immediately preceding pending delivery likewise admitted two origins but produced zero reverse consolidations or closures, so merely repeating physical delivery does not renew the closure",
+]
+retired_families = [
+  "absence of fresh motor output participation after the first hand closure",
+  "absence of changed participating topology in the later actual movement",
+  "expiration of every return before the later physical surface arrives",
+  "absence of generic return scheduling or generic origin admission",
+  "a general closure-renewal or construction-threshold mechanism before truthful surface-origin admission is established",
+]
+next_discriminators = [
+  "within the failed hand delivery, trace each actual surface from drive incidence through surface-to-outcome traversal to modulatory incidence and separate failure to reach a return from local/direct rejection or duplicate-origin rejection",
+  "compare the scripted and hand return endpoints at the moment of surface arrival, including source and target position, owner, generation, prior origins, and causal-wave continuity, without changing topology or admission law",
+  "only after that localization, test the smallest physical solve predicted for the exact missing incidence or eligibility transition against outcome-origin, unrelated, duplicate, stale, replay, and frozen-hand controls",
+]
+
+[[new_arm]]
+id = "hand-surface-to-return-incidence-localization"
+kind = "diagnostic"
+parents = [
+  "hand-same-lineage-closure-renewal",
+  "first-transition-localization",
+  "scripted-two-cycle-reference",
+]
+imports = [
+  "hand-same-lineage-closure-renewal: actual delivered surfaces fail admission despite live return state",
+  "scripted-two-cycle-reference: actual delivered surface reaches admission and construction",
+]
+interaction_prediction = "The first scripted-positive hand-negative subtransition can be isolated inside delivered-surface-origin admission as either no surface-origin modulatory incidence, a nonlocal return endpoint, a duplicate origin on the relevant generation, or loss of causal-wave origin before admission."
+falsifiers = [
+  "The diagnostic changes return topology, admission law, timing, origins, or the frozen hand trajectory.",
+  "It infers an intended route rather than tracing actual physical incidence and live state.",
+  "It cannot distinguish absent incidence, locality rejection, duplicate rejection, and origin transformation.",
+  "Outcome-origin, unrelated, duplicate, stale, replay, quiescence, or parent controls change.",
+]

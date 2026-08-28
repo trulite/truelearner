@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-completed-cycle-composition-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-effect-composition-laws-v1 convergence sha256:4baad6ac07b71c5923a4542d4596911f2bd17cb66ee5c3b44a15baa318f6ef57"
+question = "Can a truthful completed output-transition-return cycle compose into one successor choice in the new physical context without direction memory or evaluator state?"
+observables = ["candidate owner view, consequence tick, unique-latest completed cycle, open returns, selection and outputs", "actual net movement, opposing-output steps, contacts, escapes, perturbation, replay, quiescence, propagation, and work"]
+frozen_variables = ["official batched hand force law", "coherent-effect and root-fresh parents", "anonymous hand topology, inputs, schedule, reflection, and limits"]
+permitted_changes = ["one cumulative opt-in completed-cycle selection law using existing physical-transition consequence ticks", "typed observational diagnostics for that law"]
+positive_predicates = ["a unique recent completed physical cycle survives a changed ownership view", "sample, ambiguity, stale, and old protocols do not continue", "the official batched hand trajectory improves", "complete control reaches and leaves both limits and recovers from perturbation"]
+negative_controls = ["unchanged sample", "equal-latest ambiguity", "stale consequence", "unrelated ownership", "old protocols", "reflection", "exact batched parent", "replay", "natural quiescence", "zero propagation exhaustion"]
+stop_conditions = ["position, direction, limit, hand step, output meaning, score, or evaluator state enters the learner", "the official batched parent changes", "a sample refreshes continuation", "a clamped output locks", "integrity fails", "no hand trajectory improvement"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

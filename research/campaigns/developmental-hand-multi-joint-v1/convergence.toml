@@ -1,0 +1,46 @@
+schema = "research-convergence/v1"
+campaign = "developmental-hand-multi-joint-v1"
+round = 1
+survived = ["one-module-identity", "registration-order-invariance"]
+falsified = ["two-joint-serial-composition", "proximal-change-isolation"]
+inconclusive = ["conditional-five-joint"]
+infrastructure_failed = []
+shared_mechanisms = [
+  "the product adapter is an exact source-mapped identity for one module",
+  "forward and reverse module registration preserve the same two-joint history",
+  "both modules receive physical motor drive with zero foreign-origin motor drive",
+  "the failure is finite exactly replayable naturally quiet and unexhausted",
+]
+strongest_counterexamples = [
+  "at step zero local output competition emitted only distal positive output although both anonymous modules had motor drive; proximal position remained zero instead of following the one-module zero-to-one arrow",
+  "the proximal component later reached both limits but failed lower release, while the distal component stayed at upper contact and never emitted the negative sign",
+  "five joints were correctly not executed after the two-joint prerequisite failed",
+]
+retired_families = [
+  "learner ownership as the first solve because the divergence occurs before any learner exists",
+  "moving modules farther apart because adapter geometry would hide rather than solve independent local output suppression",
+  "running longer because the missing output arrow begins at step zero and the distal component remains clamped for twelve steps",
+]
+next_discriminators = [
+  "test an opt-in local-output partition whose connected components require both physical locality and overlap of anonymous causal origins",
+  "preserve ordinary competition for candidates sharing an origin and preserve the exact one-joint trajectory",
+  "if the tiny independent-nearby-output fixture and one-module identity pass, rerun unchanged two joints and only then conditionally run five",
+]
+
+[[new_arm]]
+id = "causal-origin-product-output-composition"
+kind = "solve"
+parents = ["one-module-identity", "registration-order-invariance", "two-joint-serial-composition"]
+imports = [
+  "one-module-identity: exact local reflected arrow",
+  "registration-order-invariance: representation-independent failure",
+  "two-joint-serial-composition: first missing proximal output at step zero with zero foreign motor drive",
+]
+interaction_prediction = "Nearby output candidates with disjoint anonymous causal-origin sets remain independent, while candidates sharing an origin retain ordinary local competition; the exact one-joint arrow is unchanged and two then five joints close."
+falsifiers = [
+  "A shared-origin alternative no longer competes.",
+  "An independently originated nearby output is still suppressed.",
+  "The exact one-joint trajectory changes.",
+  "Two joints still fail before five, or five fails after two survives.",
+  "Replay quiescence or activity-bounded work fails.",
+]

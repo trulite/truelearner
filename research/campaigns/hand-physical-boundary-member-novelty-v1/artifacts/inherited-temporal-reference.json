@@ -1,0 +1,14 @@
+{
+  "schema": "hand-physical-boundary-member-novelty/v1",
+  "arm": "inherited-temporal-reference",
+  "outcome": "survived",
+  "observations": {
+    "next_frontier": "physical-boundary-member-novelty",
+    "parent_intact": true,
+    "parent_sha256": "b8e0518d323c576923bdb2c677f0db1dff2c3452fb0a51beae9451f5c3fae5c6",
+    "temporal_composition": "survived"
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

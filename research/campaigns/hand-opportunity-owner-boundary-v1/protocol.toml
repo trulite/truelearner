@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-opportunity-owner-boundary-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-bounded-fresh-opportunity-v1 convergence sha256:e53b6b40f897d2ecdf6b757331cefb8a35e7d3acae726d1e97224f3b4e40263c"
+question = "Is the failed hand owner mismatch exactly an organism-to-root adjacent recruitment boundary, distinct from sibling and unrelated transfer?"
+observables = ["donor owner, recipient owner, actual learner parent relation, opportunity decision", "hand trajectory, transfer count, replay, quiescence, and propagation"]
+frozen_variables = ["strict owner-equality candidate behavior", "unchanged reflected hand and parent reference"]
+permitted_changes = ["add one pure learner-ownership relation classifier", "record the relation in the existing diagnostic event and evaluator adapter"]
+positive_predicates = ["every non-recent useful hand pair is organism-to-root", "same, parent-child, sibling, unrelated, and missing-ID controls classify distinctly", "behavior remains exactly unchanged"]
+negative_controls = ["no cross-boundary admission", "no semantic anatomy or evaluator state", "replay, quiescence, work, and old protocols unchanged"]
+stop_conditions = ["a hand pair is sibling, unrelated, or non-adjacent", "the classifier aliases controls", "instrumentation changes behavior"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

@@ -1,0 +1,54 @@
+schema = "research-convergence/v1"
+campaign = "developmental-hand-construction-admission-v1"
+round = 1
+survived = [
+  "inherited-integrity-control",
+  "frozen-truthful-recursive-reference",
+  "symmetric-surface-path-only",
+  "physical-surface-delivery-only",
+  "surface-path-delivery-factorial-localization",
+]
+falsified = ["truthful-hand-construction-admission"]
+inconclusive = ["child-freshness-boundary", "reflected-joint-retry"]
+infrastructure_failed = []
+shared_mechanisms = [
+  "equal delay-three paths from every anonymous sensor to both outcomes are sufficient for one reverse consolidation and one causal-closure observation in the hand world",
+  "actual post-movement surface delivery changes the bounded trajectory but is not necessary for the first closure and does not produce a second closure",
+  "both typed axes have trace effects, but their composition shows no interaction on construction: path-only and complete cells each stop at closure evidence one",
+  "the frozen fifteen-of-sixteen hand trace, established return-reentry composition, exact replay, natural quiescence, fixed capacity, and dependent-gate ordering remain intact",
+]
+strongest_counterexamples = [
+  "truthful-hand-construction-admission: twelve positive movements reached the upper limit, but exactly one reverse consolidation yielded closure evidence one; no second same-lineage observation or learner construction occurred",
+  "symmetric-surface-path-only: ordinary position incidence already produced the sole reverse consolidation and closure, so explicit pending physical-surface delivery is not the missing requirement for first closure",
+  "physical-surface-delivery-only: truthful surfaces were delivered on eight movements, but without a path to an outcome they produced zero return admissions, reverse consolidations, closures, or constructions",
+]
+retired_families = [
+  "absence of any proprioceptive surface-to-outcome path as the complete explanation for failed hand construction",
+  "explicit physical-surface delivery as uniquely necessary for the first hand closure",
+  "adding child-local memory before the hand produces the second closure required to construct that child",
+  "advancing joint or perturbation gates after one closure or zero constructed learners",
+]
+next_discriminators = [
+  "compare the established two-cycle return-reentry fixture with the hand immediately after its first closure across renewed output participation, live return generation, origin admission, reverse consolidation, and closure key identity",
+  "hold the first hand closure fixed and test whether a second actual motor-output round trip renews the same anonymous surface/output lineage without clearing return history or injecting a semantic episode boundary",
+  "separate failure to schedule a fresh live return from failure to admit, consolidate, or recognize that return as the same causal closure",
+]
+
+[[new_arm]]
+id = "hand-same-lineage-closure-renewal"
+kind = "hybrid"
+parents = [
+  "truthful-hand-construction-admission",
+  "surface-path-delivery-factorial-localization",
+]
+imports = [
+  "truthful-hand-construction-admission: first physical closure in the reflected hand",
+  "return-reentry-composition: two fresh actual round trips on one anonymous lineage",
+]
+interaction_prediction = "After the first hand closure, a second actual output participation creates a fresh live return generation for the same anonymous surface/output closure; its truthful origin is admitted and closure evidence advances from one to two without global reset, copied memory, semantic episode identity, or altered construction threshold."
+falsifiers = [
+  "No fresh return is scheduled after the second actual motor participation.",
+  "A fresh return is scheduled but rejected, fails reverse consolidation, or changes the closure surface/output key.",
+  "Renewal requires clearing return history, changing the two-observation threshold, or supplying direction, limit, target, score, episode, evaluator, or anatomy identity.",
+  "Duplicate, stale, disconnected, shuffled, replay, quiescence, capacity, or frozen-reference controls change.",
+]

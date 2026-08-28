@@ -1,0 +1,823 @@
+{
+  "schema": "hand-same-lineage-closure-renewal/v1",
+  "arm": "first-transition-localization",
+  "outcome": "survived",
+  "observations": {
+    "explanation": "the live return admitted an outcome origin but not either actually delivered post-movement surface origin",
+    "first_divergence": "delivered-surface-origin-admission",
+    "hand_round": {
+      "action_output_physical": [
+        20001,
+        40001
+      ],
+      "closures": [],
+      "constructions": [],
+      "delivered_surface_admissions": [],
+      "delivered_surface_origins": [
+        10002,
+        10001
+      ],
+      "naturally_quiescent": true,
+      "origin_admissions": [
+        {
+          "admitted": true,
+          "origin_physical": 40001,
+          "token": {
+            "generation": 2,
+            "link": 44,
+            "owner": null
+          }
+        }
+      ],
+      "participating_links": [
+        10,
+        15,
+        16,
+        17,
+        18,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        38,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        53,
+        54,
+        57,
+        58,
+        69,
+        70,
+        75,
+        108,
+        109
+      ],
+      "participating_links_at_consequence": [
+        {
+          "exists": true,
+          "from": 11,
+          "life": 18446744069414584320,
+          "link": 10,
+          "live": true,
+          "modulatory": false,
+          "participation": 17179869184,
+          "return_origins": [],
+          "to": 13
+        },
+        {
+          "exists": true,
+          "from": 2,
+          "life": 18446744069414584320,
+          "link": 15,
+          "live": true,
+          "modulatory": false,
+          "participation": 17179869184,
+          "return_origins": [],
+          "to": 14
+        },
+        {
+          "exists": true,
+          "from": 2,
+          "life": 18446744069414584320,
+          "link": 16,
+          "live": true,
+          "modulatory": false,
+          "participation": 17179869184,
+          "return_origins": [],
+          "to": 15
+        },
+        {
+          "exists": true,
+          "from": 3,
+          "life": 18446744069414584320,
+          "link": 17,
+          "live": true,
+          "modulatory": false,
+          "participation": 21474836480,
+          "return_origins": [],
+          "to": 14
+        },
+        {
+          "exists": true,
+          "from": 3,
+          "life": 18446744069414584320,
+          "link": 18,
+          "live": true,
+          "modulatory": false,
+          "participation": 21474836480,
+          "return_origins": [],
+          "to": 15
+        },
+        {
+          "exists": true,
+          "from": 14,
+          "life": 3865470567,
+          "link": 31,
+          "live": true,
+          "modulatory": true,
+          "participation": 3545500622,
+          "return_origins": [
+            40000
+          ],
+          "to": 21
+        },
+        {
+          "exists": true,
+          "from": 3,
+          "life": 18446744069414584320,
+          "link": 32,
+          "live": true,
+          "modulatory": false,
+          "participation": 6031802489,
+          "return_origins": [],
+          "to": 36
+        },
+        {
+          "exists": true,
+          "from": 36,
+          "life": 18446744069414584320,
+          "link": 33,
+          "live": true,
+          "modulatory": false,
+          "participation": 1344134832,
+          "return_origins": [],
+          "to": 10
+        },
+        {
+          "exists": true,
+          "from": 3,
+          "life": 2147483648,
+          "link": 34,
+          "live": true,
+          "modulatory": false,
+          "participation": 3110400000,
+          "return_origins": [],
+          "to": 143
+        },
+        {
+          "exists": true,
+          "from": 3,
+          "life": 18446744069414584320,
+          "link": 35,
+          "live": true,
+          "modulatory": false,
+          "participation": 7378427610,
+          "return_origins": [],
+          "to": 18
+        },
+        {
+          "exists": true,
+          "from": 18,
+          "life": 18446744069414584320,
+          "link": 36,
+          "live": true,
+          "modulatory": false,
+          "participation": 7050876135,
+          "return_origins": [],
+          "to": 11
+        },
+        {
+          "exists": true,
+          "from": 3,
+          "life": 2147483648,
+          "link": 38,
+          "live": true,
+          "modulatory": false,
+          "participation": 3110400000,
+          "return_origins": [],
+          "to": 144
+        },
+        {
+          "exists": true,
+          "from": 13,
+          "life": 18446744069414584320,
+          "link": 40,
+          "live": true,
+          "modulatory": false,
+          "participation": 2772643290,
+          "return_origins": [],
+          "to": 20
+        },
+        {
+          "exists": true,
+          "from": 20,
+          "life": 18446744069414584320,
+          "link": 41,
+          "live": true,
+          "modulatory": false,
+          "participation": 3154651922,
+          "return_origins": [],
+          "to": 10
+        },
+        {
+          "exists": true,
+          "from": 13,
+          "life": 18446744069414584320,
+          "link": 42,
+          "live": true,
+          "modulatory": false,
+          "participation": 4748291250,
+          "return_origins": [],
+          "to": 21
+        },
+        {
+          "exists": true,
+          "from": 21,
+          "life": 18446744069414584320,
+          "link": 43,
+          "live": true,
+          "modulatory": false,
+          "participation": 5402500268,
+          "return_origins": [],
+          "to": 10
+        },
+        {
+          "exists": true,
+          "from": 14,
+          "life": 1288490189,
+          "link": 44,
+          "live": true,
+          "modulatory": true,
+          "participation": 4518918275,
+          "return_origins": [
+            40000
+          ],
+          "to": 20
+        },
+        {
+          "exists": true,
+          "from": 15,
+          "life": 6442450944,
+          "link": 45,
+          "live": true,
+          "modulatory": true,
+          "participation": 3774873600,
+          "return_origins": [
+            40001
+          ],
+          "to": 55
+        },
+        {
+          "exists": true,
+          "from": 2,
+          "life": 858993460,
+          "link": 53,
+          "live": true,
+          "modulatory": false,
+          "participation": 6833873919,
+          "return_origins": [],
+          "to": 26
+        },
+        {
+          "exists": true,
+          "from": 26,
+          "life": 858993460,
+          "link": 54,
+          "live": true,
+          "modulatory": false,
+          "participation": 1344134832,
+          "return_origins": [],
+          "to": 10
+        },
+        {
+          "exists": true,
+          "from": 2,
+          "life": 858993460,
+          "link": 57,
+          "live": true,
+          "modulatory": false,
+          "participation": 6833873919,
+          "return_origins": [],
+          "to": 28
+        },
+        {
+          "exists": true,
+          "from": 28,
+          "life": 858993460,
+          "link": 58,
+          "live": true,
+          "modulatory": false,
+          "participation": 6431295048,
+          "return_origins": [],
+          "to": 11
+        },
+        {
+          "exists": true,
+          "from": 14,
+          "life": 5153960756,
+          "link": 69,
+          "live": true,
+          "modulatory": true,
+          "participation": 3545500622,
+          "return_origins": [
+            40000
+          ],
+          "to": 36
+        },
+        {
+          "exists": true,
+          "from": 15,
+          "life": 7730941133,
+          "link": 70,
+          "live": true,
+          "modulatory": true,
+          "participation": 3774873600,
+          "return_origins": [],
+          "to": 28
+        },
+        {
+          "exists": true,
+          "from": 14,
+          "life": 5153960756,
+          "link": 75,
+          "live": true,
+          "modulatory": true,
+          "participation": 3545500622,
+          "return_origins": [],
+          "to": 26
+        },
+        {
+          "exists": true,
+          "from": 12,
+          "life": 18446744069414584320,
+          "link": 108,
+          "live": true,
+          "modulatory": false,
+          "participation": 3996634446,
+          "return_origins": [],
+          "to": 55
+        },
+        {
+          "exists": true,
+          "from": 55,
+          "life": 18446744069414584320,
+          "link": 109,
+          "live": true,
+          "modulatory": false,
+          "participation": 4547281860,
+          "return_origins": [],
+          "to": 11
+        }
+      ],
+      "reverse_consolidations": [],
+      "scheduled_links_at_consequence": [
+        {
+          "exists": true,
+          "from": 15,
+          "life": 0,
+          "link": 39,
+          "live": false,
+          "modulatory": true,
+          "participation": 0,
+          "return_origins": [],
+          "to": 18
+        },
+        {
+          "exists": true,
+          "from": 14,
+          "life": 5153960756,
+          "link": 69,
+          "live": true,
+          "modulatory": true,
+          "participation": 3545500622,
+          "return_origins": [
+            40000
+          ],
+          "to": 36
+        },
+        {
+          "exists": true,
+          "from": 15,
+          "life": 7730941133,
+          "link": 70,
+          "live": true,
+          "modulatory": true,
+          "participation": 3774873600,
+          "return_origins": [],
+          "to": 28
+        },
+        {
+          "exists": true,
+          "from": 14,
+          "life": 5153960756,
+          "link": 75,
+          "live": true,
+          "modulatory": true,
+          "participation": 3545500622,
+          "return_origins": [],
+          "to": 26
+        },
+        {
+          "exists": true,
+          "from": 14,
+          "life": 0,
+          "link": 69,
+          "live": false,
+          "modulatory": true,
+          "participation": 0,
+          "return_origins": [],
+          "to": 36
+        },
+        {
+          "exists": true,
+          "from": 15,
+          "life": 2576980378,
+          "link": 70,
+          "live": true,
+          "modulatory": true,
+          "participation": 4302924609,
+          "return_origins": [],
+          "to": 28
+        },
+        {
+          "exists": true,
+          "from": 14,
+          "life": 0,
+          "link": 75,
+          "live": false,
+          "modulatory": true,
+          "participation": 0,
+          "return_origins": [],
+          "to": 26
+        },
+        {
+          "exists": true,
+          "from": 15,
+          "life": 1288490189,
+          "link": 45,
+          "live": true,
+          "modulatory": true,
+          "participation": 4302924609,
+          "return_origins": [
+            40001
+          ],
+          "to": 55
+        }
+      ],
+      "scheduled_returns": [
+        {
+          "admitted": false,
+          "phase": "action",
+          "token": {
+            "generation": 1,
+            "link": 39,
+            "owner": null
+          }
+        },
+        {
+          "admitted": false,
+          "phase": "action",
+          "token": {
+            "generation": 2,
+            "link": 69,
+            "owner": null
+          }
+        },
+        {
+          "admitted": true,
+          "phase": "action",
+          "token": {
+            "generation": 2,
+            "link": 70,
+            "owner": null
+          }
+        },
+        {
+          "admitted": true,
+          "phase": "action",
+          "token": {
+            "generation": 1,
+            "link": 75,
+            "owner": null
+          }
+        },
+        {
+          "admitted": false,
+          "phase": "consequence",
+          "token": {
+            "generation": 2,
+            "link": 69,
+            "owner": null
+          }
+        },
+        {
+          "admitted": true,
+          "phase": "consequence",
+          "token": {
+            "generation": 2,
+            "link": 70,
+            "owner": null
+          }
+        },
+        {
+          "admitted": true,
+          "phase": "consequence",
+          "token": {
+            "generation": 1,
+            "link": 75,
+            "owner": null
+          }
+        },
+        {
+          "admitted": false,
+          "phase": "consequence",
+          "token": {
+            "generation": 2,
+            "link": 45,
+            "owner": null
+          }
+        }
+      ],
+      "strengthened_links": [
+        35,
+        36
+      ]
+    },
+    "intervening_deliveries": [
+      {
+        "admissions": 2,
+        "before_step": 1,
+        "closures": [],
+        "naturally_quiescent": true,
+        "reverse_consolidations": 0,
+        "surface_origins": [
+          10002,
+          10001
+        ]
+      }
+    ],
+    "ordered_comparison": [
+      {
+        "hand": true,
+        "scripted": true,
+        "stage": "first-closure"
+      },
+      {
+        "hand": true,
+        "scripted": true,
+        "stage": "fresh-output-participation"
+      },
+      {
+        "hand": true,
+        "scripted": true,
+        "stage": "participating-traversal"
+      },
+      {
+        "hand": true,
+        "scripted": true,
+        "stage": "fresh-return-scheduling"
+      },
+      {
+        "hand": true,
+        "scripted": true,
+        "stage": "return-live-at-consequence"
+      },
+      {
+        "hand": false,
+        "scripted": true,
+        "stage": "delivered-surface-origin-admission"
+      },
+      {
+        "hand": false,
+        "scripted": true,
+        "stage": "reverse-consolidation"
+      },
+      {
+        "hand": false,
+        "scripted": true,
+        "stage": "same-closure-identity"
+      },
+      {
+        "hand": false,
+        "scripted": true,
+        "stage": "evidence-two"
+      },
+      {
+        "hand": false,
+        "scripted": true,
+        "stage": "construction"
+      }
+    ],
+    "scripted_round": {
+      "action_output_physical": [
+        75010
+      ],
+      "closures": [
+        {
+          "evidence": 2,
+          "key": {
+            "output": 2,
+            "parent": null,
+            "surface": 1
+          }
+        }
+      ],
+      "constructions": [
+        {
+          "key": {
+            "output": 2,
+            "parent": null,
+            "surface": 1
+          },
+          "learner": 1
+        }
+      ],
+      "delivered_surface_admissions": [
+        {
+          "admitted": true,
+          "origin_physical": 75001,
+          "token": {
+            "generation": 2,
+            "link": 7,
+            "owner": null
+          }
+        }
+      ],
+      "delivered_surface_origins": [
+        75001
+      ],
+      "naturally_quiescent": true,
+      "origin_admissions": [
+        {
+          "admitted": true,
+          "origin_physical": 75001,
+          "token": {
+            "generation": 2,
+            "link": 7,
+            "owner": null
+          }
+        }
+      ],
+      "participating_links": [
+        4,
+        5,
+        6,
+        7,
+        9,
+        10,
+        12
+      ],
+      "participating_links_at_consequence": [
+        {
+          "exists": true,
+          "from": 2,
+          "life": 18446744069414584320,
+          "link": 4,
+          "live": true,
+          "modulatory": false,
+          "participation": 8589934592,
+          "return_origins": [],
+          "to": 3
+        },
+        {
+          "exists": true,
+          "from": 0,
+          "life": 18446744069414584320,
+          "link": 5,
+          "live": true,
+          "modulatory": false,
+          "participation": 6177583560,
+          "return_origins": [],
+          "to": 6
+        },
+        {
+          "exists": true,
+          "from": 6,
+          "life": 18446744069414584320,
+          "link": 6,
+          "live": true,
+          "modulatory": false,
+          "participation": 7028717296,
+          "return_origins": [],
+          "to": 2
+        },
+        {
+          "exists": true,
+          "from": 0,
+          "life": 429496730,
+          "link": 7,
+          "live": true,
+          "modulatory": false,
+          "participation": 6177583560,
+          "return_origins": [],
+          "to": 7
+        },
+        {
+          "exists": true,
+          "from": 4,
+          "life": 9878424781,
+          "link": 9,
+          "live": true,
+          "modulatory": true,
+          "participation": 3538944000,
+          "return_origins": [
+            75001
+          ],
+          "to": 6
+        },
+        {
+          "exists": true,
+          "from": 1,
+          "life": 1717986919,
+          "link": 10,
+          "live": true,
+          "modulatory": false,
+          "participation": 2916000000,
+          "return_origins": [],
+          "to": 8
+        },
+        {
+          "exists": true,
+          "from": 1,
+          "life": 1717986919,
+          "link": 12,
+          "live": true,
+          "modulatory": false,
+          "participation": 2916000000,
+          "return_origins": [],
+          "to": 9
+        }
+      ],
+      "reverse_consolidations": [
+        {
+          "link": 11,
+          "output": 2,
+          "source": 1
+        }
+      ],
+      "scheduled_links_at_consequence": [
+        {
+          "exists": true,
+          "from": 4,
+          "life": 9878424781,
+          "link": 9,
+          "live": true,
+          "modulatory": true,
+          "participation": 3538944000,
+          "return_origins": [
+            75001
+          ],
+          "to": 6
+        }
+      ],
+      "scheduled_returns": [
+        {
+          "admitted": false,
+          "phase": "action",
+          "token": {
+            "generation": 1,
+            "link": 9,
+            "owner": null
+          }
+        }
+      ],
+      "strengthened_links": [
+        10,
+        11
+      ]
+    },
+    "skipped_attempts": [
+      {
+        "direction": 0,
+        "naturally_quiescent": true,
+        "output_physical": [
+          90007,
+          20001,
+          40000,
+          90017,
+          20000,
+          40000,
+          40000
+        ],
+        "position_after": 1,
+        "position_before": 1,
+        "scheduled_returns": 1,
+        "step": 1
+      },
+      {
+        "direction": 0,
+        "naturally_quiescent": true,
+        "output_physical": [
+          90066,
+          20001,
+          40000,
+          40000,
+          20000
+        ],
+        "position_after": 1,
+        "position_before": 1,
+        "scheduled_returns": 2,
+        "step": 2
+      }
+    ]
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

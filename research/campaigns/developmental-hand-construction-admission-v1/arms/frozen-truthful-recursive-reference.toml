@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "frozen-truthful-recursive-reference"
+campaign = "developmental-hand-construction-admission-v1"
+kind = "control"
+parents = ["inherited-integrity-control"]
+imports = ["prior truthful-recursive hand topology", "direct directional outcome delivery", "RecursiveLearnerConstruction"]
+mechanism = "Run the absent-path direct-outcome factorial cell as the exact semantic reference."
+prediction = "The cell completes sixteen steps with fifteen movements, both signs, upper reach and release, no lower reach, and zero learners."
+falsifiers = ["Any frozen trajectory or event predicate changes.", "Capacity, replay, quiescence, geometry, timing, or reflection changes."]
+source_revision = "plan:6c21af4d0ef39d52e87d71c64a4260b71e68cb915cc5d03ad5af3f47e60bf232"
+protocol_sha256 = "1cf5d5ae65fd1ea9671332829060e23972027ce53016c3a3caa85cd129264ec2"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml frozen_truthful_recursive_reference_is_exact"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml -- --arm frozen-truthful-recursive-reference"

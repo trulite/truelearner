@@ -1,0 +1,46 @@
+schema = "research-convergence/v1"
+campaign = "hand-construction-outcome-composition-v1"
+round = 1
+survived = []
+falsified = ["same-tick-construction-composition", "temporal-and-lineage-selectivity"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "both arms used the same opt-in law: after learner formation, only live exact construction-lineage links whose physical consequence tick equaled the construction tick were recorded in existing owner-local consequence memory",
+  "the local construction square commuted: learner two received tick sixteen on links thirty-six, forty-four, and forty-five, and target eleven changed from Missing to Stale at tick twenty-three",
+  "the original tick was preserved, target ten still won under FreshAlternative, external hand behavior stayed at twelve changes and four opposing steps with final minus two, and replay, quiescence, and propagation controls passed",
+  "the candidate produced ten completed-cycle admissions rather than the frozen parent's nine, so neither complete arm survived its exact-behavior control",
+]
+strongest_counterexamples = [
+  "same-tick-construction-composition: repairing the exact tick-twenty-three projection gap is not globally inert; the same run gained one later completed-cycle admission even though the target choice and external trajectory at the localized failure stayed unchanged",
+  "temporal-and-lineage-selectivity: every retained construction projection preserved its original same tick, so timestamp refresh did not explain the added admission",
+  "both arms: the reduced evidence artifact retained the total admission count but not the ordered event identifying the tenth admission, so its cause cannot be safely assigned to a particular later learner, link, or choice",
+]
+retired_families = [
+  "adding a new held-path, outcome, or memory object to repair the tick-twenty-three Missing state",
+  "refreshing the construction consequence to the later choice tick",
+  "claiming clean adoption from unchanged external hand movement while an internal completed-cycle admission changed",
+  "proposing a longer recency window before localizing the unexpected downstream admission",
+]
+next_discriminators = [
+  "retain the already-existing ordered construction, learner consequence, candidate consequence, completed-cycle evaluation, and output-choice events for every projection and locate the first candidate-versus-parent admission-count divergence",
+  "at that first divergence classify whether the added admission descends from learner-two link thirty-six, forty-four, or forty-five, or from a later construction at ticks forty-four, ninety-two, or one hundred",
+  "only after localization test whether exact downstream path participation narrows the construction projection further; do not change recency, selection, or memory lifetime in the diagnostic successor",
+]
+
+[[new_arm]]
+id = "construction-projection-admission-retention"
+kind = "diagnostic"
+parents = ["same-tick-construction-composition", "temporal-and-lineage-selectivity"]
+imports = [
+  "same-tick-construction-composition: exact Missing-to-Stale repair with unchanged tick-twenty-three choice",
+  "temporal-and-lineage-selectivity: every retained projection preserved its original physical tick",
+  "both parents: one unexpected additional completed-cycle admission with unchanged external trajectory",
+]
+interaction_prediction = "Lossless retention of existing events will expose one first extra admission after a specific construction projection; all earlier choices will match the completed-cycle parent exactly."
+falsifiers = [
+  "The first extra admission cannot be identified from fully retained existing events.",
+  "The divergence occurs before any construction projection.",
+  "The diagnostic changes organism physics, choice, adapter composition, or recency.",
+  "Localization requires semantic motor, direction, pose, hand, or expected-action identity.",
+]

@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-completed-cycle-naturality-v1"
+program = "learner-physics"
+kind = "diagnostic"
+mode = "discovery"
+hypothesis = "The completed-cycle hand loses cumulative travel where local admission first ceases to be a single anonymous physical arrow or later fails to preserve that arrow across learner ownership reconstruction."
+first_divergence = "The earliest multi-target local admission, or if all earlier admissions are functional, the earliest consecutive single-target choices whose selected owner view and physical target both change."
+missing_transition = "A representation-independent preservation law for one physical output-transition-return arrow across learner reconstruction."
+prediction = "Group-level choice evidence identifies one earliest multi-target or non-commuting ownership failure and classifies it using the already existing admission basis and completed-cycle resolution state."
+falsifiers = ["Neither a multi-target admission nor a unique earliest non-commuting single-target ownership change exists.", "The failure cannot be classified from existing local physical facts.", "Observation changes the prior frozen trajectory or integrity controls."]
+positive_reference = "hand-completed-cycle-composition-v1 completed-cycle-successor artifact sha256:31eb2abfa3c02cb5c7765bed9125b0e0b7f1c21190ac88c8f4bcd13798d2f38a"
+negative_controls = ["hand-completed-cycle-composition-v1 exact candidate summary", "trace-off equality", "semantic-firewall audit", "replay", "natural quiescence", "zero propagation exhaustion"]
+included_mechanisms = ["physical-transition-only consequence admission", "open-return coherence", "completed-cycle unique-recent continuation", "official batched fixed force", "typed observational trace"]
+inherited_constraints = ["benchmark blind", "no semantic action identity", "no external pose or direction in learner state", "no new learner memory", "exact replay", "natural quiescence", "warm runtime below ten seconds"]
+excluded_proposals = ["new choice law", "new recency window", "direction or motor memory", "adapter force change", "evaluator-selected continuation", "default adoption", "authority promotion"]
+arm_paths = ["arms/choice-trace-inertness.toml", "arms/completed-cycle-first-arrow-change.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = false
+
+[budget]
+total_sandbox_minutes = 8
+max_minutes_per_arm = 8
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

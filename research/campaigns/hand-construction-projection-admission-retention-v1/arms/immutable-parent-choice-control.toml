@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "immutable-parent-choice-control"
+campaign = "hand-construction-projection-admission-retention-v1"
+kind = "control"
+parents = ["hand-construction-outcome-composition-v1:same-tick-construction-composition", "hand-construction-outcome-composition-v1:temporal-and-lineage-selectivity"]
+imports = ["immutable completed-cycle parent hash", "twenty-three ordered parent choices", "prior candidate external summary"]
+mechanism = "Verify the immutable parent bytes and choice sequence before comparing any candidate admission."
+prediction = "The parent hash, twenty-three ordered choices, nine Unique states, and exact external summary match the frozen reference without rerunning it."
+falsifiers = ["The source hash differs.", "Choice count or Unique count differs.", "The parent source lacks ordinal tick phase owner target basis or completed-cycle state."]
+source_revision = "plan:eb863923676f29513430f944ca355004c2bbf6fe717c5cd4102bee6e68d68d1c"
+protocol_sha256 = "4b0c85f915ce8c1fd990e34c4c755320dbfc259ed48895e7bb79dc0d3f8f0969"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-construction-projection-admission-retention/Cargo.toml"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-construction-projection-admission-retention/Cargo.toml -- --parent research/campaigns/hand-completed-cycle-naturality-v1/artifacts/completed-cycle-first-arrow-change.json --output-dir research/campaigns/hand-construction-projection-admission-retention-v1/artifacts"

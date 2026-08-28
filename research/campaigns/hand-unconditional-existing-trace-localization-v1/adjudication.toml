@@ -1,0 +1,36 @@
+schema = "research-adjudication/v1"
+protocol_path = "protocol.toml"
+protocol_sha256 = "42d4d1ad59421af4a5e0b38751f8d644c673c40919572bb7a7543f8c0ee316ac"
+evidence_path = "evidence.json"
+evidence_sha256 = "887e917cbd4a8693d19677c6b12a5bbb5dbc01cb01ecf8a32f8012dcd35fad36"
+verdict = "positive"
+predicate_results = [
+  "unconditional snapshot retention=passed: both artifacts contain all sixteen hand steps and 2,109 existing witness events",
+  "tick-forty-seven choice=passed: learner-three target ten was Unique and admitted under CompletedCycle",
+  "tick-forty-four construction projections=passed: links thirty-three generation three, thirty-four generation three, and forty-one generation two retained consequence tick forty-four",
+  "same-link same-generation physical completion=passed: link thirty-four generation three completed target ten at tick forty-seven and appeared in its causal lineage",
+]
+control_results = [
+  "no learner-core or adapter behavior change=passed: the successor added evidence-only snapshot and fold code",
+  "no new state or trace event=passed: all 2,109 events came from the existing public hand evidence",
+  "semantic leakage exclusion=passed: localization used tick phase learner target link generation and completion only",
+  "external trajectory=passed: twelve physical changes, four opposing-output steps, final position minus two, and neither boundary",
+  "integrity=passed: exact replay, natural quiescence, zero propagation exhaustion, ten completed-cycle admissions, and twenty-four choices",
+  "one-run policy=passed: the frozen candidate executed once",
+]
+scientific_findings = [
+  "The tenth completed-cycle admission is localized to learner-three link thirty-four generation three, whose tick-forty-four construction consequence composes into target ten at tick forty-seven.",
+  "The added admission is not explained by an unrelated projected link: links thirty-three and forty-one did not satisfy the same-link same-generation lineage intersection for the admitted target-ten arrow.",
+  "The candidate target-ten choice preserves the arrow seen immediately before learner-three construction, whereas the old parent lost the witness and selected target eleven; the downstream admission is therefore evidence of the construction-naturality repair recurring, not evidence that it must be suppressed.",
+  "Unconditional full-snapshot retention converted all remaining analysis into immutable offline reads and removes the need for further hand reruns for this divergence.",
+]
+residual_uncertainty = [
+  "The diagnostic establishes the cause of the tenth admission but does not by itself establish that same-tick construction composition is sufficient across every construction boundary and negative control.",
+  "The prior nine-admission exact-behavior contract conflicts with the physically composed learner-three witness and requires a separate frozen successor decision rather than an acceptance edit.",
+  "No production adoption or organism authority follows from this diagnostic."
+]
+sufficiency = "established"
+integration = "not-attempted"
+adoption = "not-adopted"
+authority = "not-promoted"
+authorized_by = "none"

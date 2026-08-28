@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-construction-outcome-composition-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "An outcome already written to a live construction-lineage link in the construction tick can use the existing learner consequence memory to preserve that physical fact across the new learner view."
+first_divergence = "At tick sixteen the physical consequence is written before learner two exists, so the existing owner-local write has no learner-two recipient even though construction follows in the same physical moment."
+missing_transition = "Composition of the same-tick physical consequence write with exact learner formation."
+prediction = "The successor records tick sixteen for learner two on its exact consequential construction link; at tick twenty-three target eleven changes from Missing to Stale, target ten remains selected, and the hand summary remains twelve changes, four opposing steps, final minus two, neither boundary."
+falsifiers = ["The exact construction fixture cannot project the same-tick consequence.", "Older, unrelated, dead, or replaced link history enters the learner.", "The original tick is refreshed.", "Target eleven remains Missing or becomes Unique at tick twenty-three.", "The target choice or exact hand summary changes.", "Replay, quiescence, protocol isolation, or zero propagation exhaustion fails."]
+positive_reference = "hand-compositional-existing-trace-witness-v1 OwnerProjectionGap artifact sha256:928f133827ab912fdf084e32f4b5e168942cb49bc907112f1993610d75f01841"
+negative_controls = ["unchanged RecursiveLearnerCompletedCycle parent", "older construction-lineage consequence", "same-tick unrelated consequence", "fresh parent and sibling private memory", "official batched adapter", "no semantic world facts"]
+included_mechanisms = ["completed-cycle composition", "existing physical link last-consequence tick", "existing learner consequence memory", "exact construction lineage", "same-tick construction boundary"]
+inherited_constraints = ["benchmark blind", "physical-transition-only consequence", "bounded four-tick recency", "fresh learner-private history", "exact replay", "natural quiescence"]
+excluded_proposals = ["held path", "new outcome state", "new memory type", "new trace event", "parent-memory copying", "older global history", "recency extension", "selection change", "adapter change", "default adoption"]
+arm_paths = ["arms/same-tick-construction-composition.toml", "arms/temporal-and-lineage-selectivity.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = false
+
+[budget]
+total_sandbox_minutes = 10
+max_minutes_per_arm = 5
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

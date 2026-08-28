@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "predecessor-and-replay-control"
+campaign = "hand-prefix-and-activity-work-localization-v1"
+kind = "control"
+parents = ["hand-bounded-first-use-construction-continuation-v1:parent-and-lifetime-controls"]
+imports = ["immutable predecessor digests", "exact live parent and candidate summaries", "replay quiescence exhaustion and default controls"]
+mechanism = "Project existing topology counts while hash-checking every predecessor decision and reproducing both unchanged live executions."
+prediction = "All six predecessor files match their frozen digests and both live executions reproduce exact totals trajectories replay quiescence and zero exhaustion."
+falsifiers = ["Any predecessor digest changes.", "Either live summary changes.", "Topology projection perturbs work behavior replay quiescence or exhaustion."]
+source_revision = "plan:e42ca08c3d1a2e16a7c1ad47c8005fa6fa505c6e25341496a57629d432096258"
+protocol_sha256 = "07cb8621ebe1ec68dbc352ce1c690376372ffda96313a0974b8184486d7e011d"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml reflected_hand_step_evidence_retains_topology"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-prefix-and-activity-work-localization/Cargo.toml -- --predecessor-dir research/campaigns/hand-bounded-first-use-construction-continuation-v1 --output-dir research/campaigns/hand-prefix-and-activity-work-localization-v1/artifacts"

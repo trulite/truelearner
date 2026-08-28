@@ -1,0 +1,76 @@
+{
+  "schema": "developmental-hand-proprioception-decomposition/v1",
+  "arm": "inherited-integrity-control",
+  "outcome": "survived",
+  "observations": {
+    "old_reference_exact": true,
+    "recursive": [
+      [
+        "current-proprioceptive-owner-gating",
+        "survived"
+      ],
+      [
+        "global-consequence-reference",
+        "falsified"
+      ],
+      [
+        "owner-local-recent-consequence",
+        "survived"
+      ],
+      [
+        "recursive-proprioceptive-control-composition",
+        "survived"
+      ]
+    ],
+    "survived": true,
+    "synthesis": [
+      [
+        "complete-candidate-reference",
+        "survived"
+      ],
+      [
+        "physical-continuity",
+        "survived"
+      ],
+      [
+        "reverse-surface-execution",
+        "survived"
+      ],
+      [
+        "first-motor-output",
+        "survived"
+      ],
+      [
+        "one-joint-control",
+        "falsified"
+      ],
+      [
+        "repeated-axis-control",
+        "inconclusive"
+      ],
+      [
+        "digit-separation",
+        "inconclusive"
+      ],
+      [
+        "binocular-depth",
+        "inconclusive"
+      ],
+      [
+        "vocal-auditory-control",
+        "inconclusive"
+      ],
+      [
+        "full-body-composition",
+        "inconclusive"
+      ],
+      [
+        "downward-ablations",
+        "inconclusive"
+      ]
+    ]
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

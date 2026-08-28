@@ -1,0 +1,40 @@
+schema = "research-adjudication/v1"
+protocol_path = "protocol.toml"
+protocol_sha256 = "6fe08a4a258c2c57700f9bbcbc744c593af263eda2030989394d19aa975c886f"
+evidence_path = "evidence.json"
+evidence_sha256 = "65d8e225e042c20a87eb0d8df2cac2584838bea09d0f035ad83ba7a27ddeba84"
+verdict = "negative"
+predicate_results = [
+  "first matching held eligibility=passed: learner-two target eleven used consequence tick sixteen through link thirty-six generation one at tick twenty-three",
+  "first-wall arrow=passed: CompletedCycle uniquely selected target eleven and hand step three moved from plus three to plus four",
+  "upper-boundary transition=passed: the candidate reached and later escaped the upper boundary",
+  "one-use lifetime=passed in frozen hand: two exact memories were consumed with zero duplicates and zero later stale reuse",
+  "bounded work=failed: comparisons rose from five-thousand-three-hundred-seventy to seven-thousand-three-hundred-twenty, exceeding the frozen plus-two-hundred-fifty-six bound",
+  "scan bound=passed narrowly: scans rose from four-thousand-four-hundred-twenty-six to four-thousand-six-hundred-eighty-one, a delta of two-hundred-fifty-five",
+]
+control_results = [
+  "immutable parent=passed: complete-construction-naturality artifact hash matched",
+  "live parent=passed: all sixteen positions, twelve physical changes, final minus two, boundary predicates, replay, quiescence, and zero exhaustion matched",
+  "ordinary lifetime controls=passed: focused stale, ambiguity, exact-generation, and same-tick construction tests passed",
+  "replay and quiescence=passed for the changed candidate",
+  "propagation exhaustion=passed with zero events",
+  "software verification=passed: sixty-five non-ignored core tests passed, two existing tests remained ignored, and the warm suite took zero-point-eight-three seconds",
+  "authority boundary=passed: the new law is opt-in and accepted defaults did not change",
+]
+scientific_findings = [
+  "Bounded first-use eligibility causally repairs the localized upper-side transition without refreshing time or retaining a path: the exact transported outcome selects the same physical arrow and is then consumed.",
+  "The one-use boundary held in the frozen hand even for a later learner: link forty generation five was also consumed once, and neither consumed stale consequence was later admitted again.",
+  "Repairing the first arrow changed the downstream hand trajectory enough to reach and escape the upper boundary, but it did not establish complete reflected-joint control or lower contact.",
+  "The declared complete candidate is negative because its comparison cost exceeded the frozen bound; local transition truth does not establish clean integration.",
+  "The evidence does not distinguish direct overhead of the lifetime law from extra comparisons caused by the changed downstream topology, so the cost failure must be localized from retained evidence before another behavior solve or adoption decision.",
+]
+residual_uncertainty = [
+  "Parent per-step comparison counts were reduced to a total in this artifact, so the exact first comparison-cost divergence cannot be aligned offline without a separately preregistered diagnostic successor.",
+  "The candidate still never reaches the lower boundary; later upper-release and lower-side priority walls remain outside this failed integration decision.",
+  "The declared fixtures do not establish transfer to unrelated embodied worlds or accepted-default authority.",
+]
+sufficiency = "not-established"
+integration = "failed"
+adoption = "not-adopted"
+authority = "not-promoted"
+authorized_by = "user authorized implementation and the frozen proposed-solve test; no authority promotion was requested"

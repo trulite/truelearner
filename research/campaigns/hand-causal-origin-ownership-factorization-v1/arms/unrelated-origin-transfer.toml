@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "unrelated-origin-transfer"
+campaign = "hand-causal-origin-ownership-factorization-v1"
+kind = "solve"
+parents = ["unrelated-mixed-owner-transfer", "unowned-origin-discriminator"]
+imports = ["two carried physical origins", "one exact-owned origin factor", "one organism-scope origin factor"]
+mechanism = "Partition a mixed incidence by carried origin, resolve each factor independently, and admit at most one unique executable factor."
+prediction = "The candidate produces exactly one output while the boundary reference rejects the ambiguity, and reversed input order preserves behavior."
+falsifiers = ["No output or multiple outputs occur.", "Order changes behavior.", "Replay or quiescence fails."]
+source_revision = "plan:3c7e8448041bb54f605b22677aba4cee0836c7dd39e003b53eded39fb59a8565"
+protocol_sha256 = "2838266b52b7e706554a7f006ffaa5a759bd3c88dc2c535cab3e4600bf25c45f"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary causal_origin_ownership_factorization_selects_one_origin_and_replays"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-causal-origin-ownership-factorization/Cargo.toml -- --arm unrelated-origin-transfer"

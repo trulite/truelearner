@@ -1,0 +1,38 @@
+{
+  "schema": "research-evidence/v1",
+  "experiment": "hand-construction-outcome-composition-v1",
+  "protocol_sha256": "b109ef53774c183df633c1d23dc3b39bb2eb86502364b046ae3a6f088c1af432",
+  "subject_digest": "278327f62dcd92d21a0c2c5c2b4104585b9e1b91ffa1f1da6cbf94582f51ce3a",
+  "producer": "hand-construction-outcome-composition",
+  "environment": {
+    "kind": "bb-worktree",
+    "identity": "env_kav9wr8vdt",
+    "run_policy": "one valid frozen candidate execution"
+  },
+  "observations": {
+    "same_tick_projection": "learner two recorded tick sixteen on construction links thirty-six, forty-four, and forty-five",
+    "tick_twenty_three_target_eleven": "owner two consequence tick sixteen; completed-cycle state Stale; not admitted",
+    "tick_twenty_three_choice": "target ten admitted under FreshAlternative",
+    "hand_behavior": "twelve physical changes; four opposing-output steps; final position minus two; neither boundary reached",
+    "completed_cycle_admissions": {
+      "frozen_parent": 9,
+      "candidate": 10
+    },
+    "integrity": "exact replay; natural quiescence; zero propagation budget exhaustion",
+    "reported_arm_outcomes": [
+      "same-tick-construction-composition=falsified",
+      "temporal-and-lineage-selectivity=falsified"
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/same-tick-construction-composition.json",
+      "sha256": "c1e6a2e4aef69d56f151884700b24bafce6e1be3ab1e004c4ad8450b3f6a9cf7"
+    },
+    {
+      "path": "artifacts/temporal-and-lineage-selectivity.json",
+      "sha256": "7c36530ec8484ac9029f125b4817ffbddde178ad0344a35e2db414f6f7e709aa"
+    }
+  ],
+  "completed": true
+}

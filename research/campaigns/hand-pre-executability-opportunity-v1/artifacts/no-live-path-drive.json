@@ -1,0 +1,61 @@
+{
+  "schema": "hand-pre-executability-opportunity/v1",
+  "arm": "no-live-path-drive",
+  "outcome": "falsified",
+  "observations": {
+    "actual_position_changes": 4,
+    "escaped_upper": false,
+    "propagation_budget_exhaustions": 0,
+    "snapshot": {
+      "consequence_writes": 0,
+      "emitted_outputs": [
+        20001
+      ],
+      "executable_incumbents": [
+        {
+          "admitted_drive": 25311078588,
+          "consequence_tick": 32,
+          "distinct_path_origins": 1,
+          "distinct_path_owners": 0,
+          "executable": true,
+          "is_motor": true,
+          "negative_path_strength": 0,
+          "opportunity": 0,
+          "ownership": "Organism",
+          "path_inputs": 1,
+          "positive_path_strength": 25311078588,
+          "projected_drive": 25311078588,
+          "target": 11,
+          "threshold": 8589934592,
+          "unanswered_returns": 1
+        }
+      ],
+      "position": 4,
+      "silent_candidates": [
+        {
+          "admitted_drive": 0,
+          "consequence_tick": null,
+          "distinct_path_origins": 1,
+          "distinct_path_owners": 1,
+          "executable": false,
+          "is_motor": true,
+          "negative_path_strength": 4294967296,
+          "opportunity": 0,
+          "ownership": {
+            "Owned": 2
+          },
+          "path_inputs": 2,
+          "positive_path_strength": 4294967296,
+          "projected_drive": 0,
+          "target": 10,
+          "threshold": 8589934592,
+          "unanswered_returns": 0
+        }
+      ],
+      "step": 5
+    }
+  },
+  "falsifier": "at least one live signed path strength reached the silent candidate",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

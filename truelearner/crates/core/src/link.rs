@@ -44,6 +44,7 @@ pub(crate) struct LinkState {
     pub(crate) source_generation: Generation,
     pub(crate) target_generation: Generation,
     pub(crate) generation: Generation,
+    pub(crate) opened_tick: i64,
     pub(crate) resistance: u32,
     pub(crate) live: bool,
     pub(crate) participation_level: u64,
@@ -69,7 +70,7 @@ impl LinkState {
 }
 
 impl Arena {
-    pub(crate) fn add_link(&mut self, spec: Link) -> LinkId {
+    pub(crate) fn add_link(&mut self, spec: Link, opened_tick: i64) -> LinkId {
         self.require_junction(spec.from);
         self.require_junction(spec.to);
         assert!(spec.delay >= 0, "delay must not run backward in time");
@@ -111,6 +112,7 @@ impl Arena {
             source_generation,
             target_generation,
             generation,
+            opened_tick,
             resistance: spec.resistance,
             live: spec.resistance > 0,
             participation_level: 0,
@@ -137,7 +139,9 @@ impl Arena {
             self.aging_links.insert(id);
         }
         self.outgoing_index[spec.from.0 as usize].push(id);
+        self.outgoing_index[spec.from.0 as usize].sort_unstable();
         self.incoming_index[spec.to.0 as usize].push(id);
+        self.incoming_index[spec.to.0 as usize].sort_unstable();
         if self.junctions[source_slot.0].region != self.junctions[target_slot.0].region {
             let newly_output = !self.output_junctions[spec.from.0 as usize];
             self.output_junctions[spec.from.0 as usize] = true;

@@ -1,0 +1,13 @@
+{
+  "schema": "recursive-learner-reentry/v1",
+  "arm": "recursive-depth-reentry",
+  "outcome": "inconclusive",
+  "observations": {
+    "constructed_depth": 1,
+    "depth_arm_run": false,
+    "prerequisite_outcome": "falsified"
+  },
+  "falsifier": "the composition arm was correctly not run because child-owned closure genesis failed",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

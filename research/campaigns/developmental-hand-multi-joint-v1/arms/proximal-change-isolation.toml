@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "proximal-change-isolation"
+campaign = "developmental-hand-multi-joint-v1"
+kind = "control"
+parents = ["developmental-hand-multi-joint-v1:two-joint-serial-composition"]
+imports = ["shared development prefix", "external proximal perturbation", "distal local loop"]
+mechanism = "After eight shared steps, impose the upper position on only the proximal component and continue unchanged physical input."
+prediction = "The proximal component recovers and the distal component retains complete control while cumulative downstream pose changes."
+falsifiers = ["The proximal component cannot leave the imposed limit.", "Distal control is lost.", "Serial pose does not reflect the proximal change."]
+source_revision = "plan:79a5f132f8caa09dfa5524762127b022c768e391a50941bc84771ac826f91d7d"
+protocol_sha256 = "b834e1e04e3a41cf4c772444312d7ed2427978f3d90c5099e916f7e93f36ebe3"
+budget_minutes = 2
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml proximal_change_preserves_distal_control"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml -- --predecessor-dir research/campaigns/hand-activity-normalized-build-v1 --output-dir research/campaigns/developmental-hand-multi-joint-v1/artifacts"

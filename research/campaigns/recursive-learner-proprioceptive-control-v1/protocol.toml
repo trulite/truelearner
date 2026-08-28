@@ -1,0 +1,58 @@
+schema = "research-protocol/v1"
+id = "recursive-learner-proprioceptive-control-v1"
+program = "learner-physics"
+claim = "CAUSAL-LEARNER-CONSTRUCTION"
+status = "preregistered"
+parent_authority = "recursive-learner-fresh-memory-v1/convergence.toml@ff9925fd267a6e7d80c02a19e06047ed25859f16e19dd8536a40a3160de3cf76"
+question = "Can a recursively constructed learner combine current anonymous proprioception with private recent consequence memory to control its own physical alternatives without inheriting or mutating parent or sibling preference?"
+observables = [
+  "frozen fresh-memory construction, depth-three ancestry, exact replay, natural quiescence, and local cost",
+  "current, absent, shifted, stale, and unrelated proprioceptive incidence at motor threshold",
+  "actual participating return, owner-local consequence write, later selection read, output, and release",
+  "owner, live path link and generation, consequence tick, current causal origin, and admitted candidate",
+  "empty control memory at construction and unchanged parent or sibling preference",
+  "child and grandchild control under reflection and reversed training order",
+]
+frozen_variables = [
+  "CORE1 authority and every accepted protocol",
+  "recursive-learner-fresh-memory-v1 convergence and supported candidate tree b970cd48b76c61ea6413b15510896ef639e9869dba67848ab429d95366177f3c",
+  "public Harness send, read, save, restore, replay, and natural-quiescence boundary",
+  "anonymous physical topology without semantic learner, root, depth, action, direction, anatomy, target, score, episode, answer, or evaluator identity",
+  "existing current-opportunity motor integration, finite return lifetime, reverse execution, closure threshold, and recursive construction law",
+]
+permitted_changes = [
+  "experimental private recent-consequence records owned by each constructed learner and born empty",
+  "experimental selection that resolves ownership from current causal membership and reads only that owner's recent consequence records",
+  "experimental filtering that lets only current proprioceptive incidence from the same physical owner complete an owned motor opportunity",
+  "checkpoint validation, memory accounting, and physical tracing for owner-local consequence write and selection read",
+  "research-only public Harness fixtures, artifacts, results, and convergence",
+]
+positive_predicates = [
+  "a child and grandchild each start with no inherited consequence preference while retaining the same learning and construction law",
+  "a current anonymous proprioceptive incidence from the owned causal boundary composes with executable drive to cross motor threshold",
+  "absent, one-tick-shifted, stale, disconnected, and unrelated proprioception cannot complete the owned opportunity",
+  "only an actual accepted return records recent consequence for the deepest owner and exact participating live path generation",
+  "the owner's recent consequence selects that physical alternative on later matching current proprioception and releases after the bounded recent window",
+  "child learning leaves parent-global, parent-local, and sibling-local preference unchanged",
+  "reflection, reversed learning order, checkpoint replay, natural quiescence, and local work remain exact",
+]
+negative_controls = [
+  "freshly constructed child before any child-owned consequence",
+  "global-link consequence preference without owner-local memory",
+  "proprioception absent, one tick early, one tick late, stale, disconnected, or from an unrelated causal origin",
+  "blocked output, withheld consequence, duplicate return, unrelated return, and consequence on the unchosen alternative",
+  "parent preference before and after child learning and two siblings trained in opposite orders",
+  "depths one through three, reflection, reversed discovery, and four, sixty-four, and one-thousand-twenty-four dormant surfaces",
+]
+stop_conditions = [
+  "any accepted protocol, fresh-memory classification, replay, quiescence, or warm runtime bound changes",
+  "proprioception is copied into learner memory rather than remaining a current physical incidence",
+  "selection reads parent-global or another learner's consequence preference after an owner is resolved",
+  "consequence writes without actual participation or uses semantic learner, depth, action, direction, anatomy, target, score, episode, or evaluator identity",
+  "child learning mutates parent or sibling private preference, or stale preference remains locked",
+  "stop dependent depth or sibling composition at the first failed proprioception, write, read, or release prerequisite",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

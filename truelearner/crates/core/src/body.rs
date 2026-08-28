@@ -185,7 +185,7 @@ impl Body {
     }
 
     pub(crate) fn add_link(&mut self, spec: Link) -> LinkId {
-        self.arena.add_link(spec)
+        self.arena.add_link(spec, self.tick)
     }
 
     pub(crate) fn set_link_trigger(&mut self, id: LinkId, trigger: TransmissionTrigger) {
@@ -196,6 +196,21 @@ impl Body {
     pub(crate) fn arrive(&mut self, inputs: &[Input], outward_region: i16) -> RunResult {
         for input in inputs {
             self.enter(*input);
+        }
+        let mut result = self.propagate();
+        result
+            .outputs
+            .retain(|output| output.to_region == outward_region);
+        result
+    }
+
+    pub(crate) fn arrive_physical(
+        &mut self,
+        inputs: &[PhysicalInput],
+        outward_region: i16,
+    ) -> RunResult {
+        for input in inputs {
+            self.enter_physical(*input);
         }
         let mut result = self.propagate();
         result

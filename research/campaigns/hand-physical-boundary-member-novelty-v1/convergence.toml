@@ -1,0 +1,102 @@
+schema = "research-convergence/v1"
+campaign = "hand-physical-boundary-member-novelty-v1"
+round = 1
+survived = [
+  "inherited-temporal-reference",
+  "exact-boundary-repetition",
+  "sibling-breadth-and-locality",
+  "adjacent-expansion-transfer",
+  "complete-boundary-composition",
+  "hand-transition-localization",
+]
+falsified = [
+  "conditional-reflected-hand",
+]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "a proposed causal boundary is a sorted unique set of stable physical junctions derived from the actual closure surface, output, and participating live-link endpoints",
+  "root evidence remains admissible, while a proposed child earns closure evidence only when its stable junction set contains a member outside its proposed parent's owned junction set",
+  "temporary link identities and generations do not count as physical novelty: twelve exact repetitions retained one learner and produced twelve explicit novelty rejections",
+  "two distinct co-located local surfaces constructed independent root siblings in either order, while the inherited distance-three return remained rejected nonlocal",
+  "an owned surface constructed one adjacent child when its causal boundary added a genuinely new physical output and path junction",
+  "the complete boundary composition survived with exact replay and natural quiescence, but the unchanged hand moved on only three of sixteen steps and reached neither reflected limit",
+  "the boundary candidate and temporal reference had identical movement trajectories, so boundary novelty did not cause or repair the remaining hand failure",
+  "after the last movement at step five, step six admitted and consolidated real surface returns and wrote owner consequence memory but performed no owner read or motor output; step seven began a persistent autonomous no-motor stall",
+]
+strongest_counterexamples = [
+  "conditional-reflected-hand: the complete boundary survivor constructed three real learners and used both directions, yet changed position only three times, ended at -1, reached neither limit, and therefore never unlocked perturbation",
+  "hand-transition-localization: `first_behavior_difference` was null between the temporal reference and boundary candidate; both stalled after step five, proving that removal of false recursive depth is not sufficient for embodied control",
+  "terminal transition: surface consequence at step six produced two admissions, two reverse consolidations, ten owner writes, and one valid closure, but zero owner reads, zero return scheduling, and zero physical motor direction",
+]
+retired_families = [
+  "using learner depth or regenerated temporary link identity as evidence of physical boundary novelty",
+  "treating physical boundary-member novelty as sufficient for the reflected hand",
+  "blaming the new novelty gate for the terminal hand stall when the matched temporal reference has the same trajectory",
+  "adopting the boundary law before it improves the original embodied frontier and passes transfer and clean integration",
+  "adding another boundary, timing, proprioceptive-memory, or benchmark-specific rule before separating reverse-path execution from owner-selection reentry",
+]
+next_discriminators = [
+  "at the first post-stall active surface incidence, trace retained reverse surface-to-motor path formation, lifetime, traversal, output incidence, owner resolution, candidate ranking, and private consequence read as separate transitions",
+  "compare a local reverse-path lifetime solve with an owner-selection reentry solve only after the diagnostic identifies which transition occurs first; preserve the complete boundary survivor as a prerequisite and the temporal reference as a matched control",
+  "require any successor to restore an actual motor output in an unrelated constructed world and improve the unchanged hand while preserving exact repetition, siblings, adjacent expansion, locality, temporal controls, replay, quiescence, and cost",
+]
+
+[[new_arm]]
+id = "post-construction-autonomous-reuse-localization"
+kind = "diagnostic"
+parents = [
+  "conditional-reflected-hand",
+  "hand-transition-localization",
+]
+imports = [
+  "frozen terminal step-six owner write without read",
+  "matched temporal and boundary trajectories",
+  "existing path, candidate-selection, and owner-memory diagnostics",
+]
+interaction_prediction = "The first active surface after the terminal consequence distinguishes whether the consolidated reverse path expired or failed to traverse, whether no owned motor candidate formed, or whether a formed candidate failed owner resolution and private consequence read."
+falsifiers = [
+  "The diagnostic cannot order reverse path, output candidate, owner resolution, and private read.",
+  "An earlier surface incidence, consequence write, or reverse consolidation disappears.",
+  "The diagnostic changes path lifetime, choice, motor output, learner state, or hand behavior.",
+]
+
+[[new_arm]]
+id = "retained-reverse-surface-execution"
+kind = "solve"
+parents = [
+  "conditional-reflected-hand",
+  "hand-transition-localization",
+]
+imports = [
+  "actual step-six reverse consolidation",
+  "old distinction between action-to-surface association and reverse surface-to-action execution",
+  "existing physical path lifetime boundaries",
+]
+interaction_prediction = "If the first missing transition is reverse-path lifetime or traversal, retaining only the actually consolidated surface-to-motor structure through the next ordinary owned surface incidence produces a real motor candidate without global history, multiplied effects, or semantic addressing."
+falsifiers = [
+  "The reverse path is already live and traversed at the first stalled incidence.",
+  "Retention produces no actual motor output or broadens unrelated activation.",
+  "The solve depends on learner depth, hand stage, direction, desired pose, or evaluator identity.",
+  "Boundary, temporal, locality, duplicate, replay, quiescence, or cost controls regress.",
+]
+
+[[new_arm]]
+id = "owned-surface-selection-reentry"
+kind = "solve"
+parents = [
+  "conditional-reflected-hand",
+  "hand-transition-localization",
+]
+imports = [
+  "fresh owner-local return and consequence memory",
+  "current same-owner proprioceptive gating",
+  "terminal private write without later private read",
+]
+interaction_prediction = "If an executable owned motor candidate exists but selection reentry is missing, ordinary causal activity from an owned surface resolves its deepest owner and invokes that owner's existing private consequence ranking once, yielding a motor output without inheriting sibling or parent preference."
+falsifiers = [
+  "No executable owned motor candidate exists before the proposed read.",
+  "The read occurs but no motor output follows, or a sibling/parent preference leaks across ownership.",
+  "The solve uses semantic learner addressing, depth, anatomy, direction, score, or evaluator stage.",
+  "Boundary, temporal, locality, held/shifted opportunity, replay, quiescence, or cost controls regress.",
+]

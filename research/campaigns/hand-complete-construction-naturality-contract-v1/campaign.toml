@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-complete-construction-naturality-contract-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Same-tick exact-lineage construction composition is a natural transport law: every construction-born completed-cycle admission in the revised complete candidate factors through an actual projected live link generation, including a candidate that does not win final output choice."
+first_divergence = "The prior nine-admission parent contract omitted physically witnessed construction-born admissions at later learner formations."
+missing_transition = "Lossless exact-link evidence for every completed-cycle consequence read, including nonwinning candidates."
+prediction = "The unchanged candidate produces ten completed-cycle admissions and twenty-four choices; construction-born admissions at ticks forty-seven, ninety-five, and one-hundred-three each intersect their owner's same-tick construction projection on at least one exact live generation, while all selectivity controls survive."
+falsifiers = ["Any construction-born admission lacks a projected exact-generation witness.", "The nonwinning tick-one-hundred-three completed-cycle candidate has no witness.", "Any negative selectivity control admits history.", "Behavior, replay, quiescence, external summary, or accepted defaults change."]
+positive_reference = "hand-unconditional-existing-trace-localization-v1 positive evidence sha256:887e917cbd4a8693d19677c6b12a5bbb5dbc01cb01ecf8a32f8012dcd35fad36"
+negative_controls = ["immutable nine-admission parent as stale-contract comparison only", "existing construction selectivity fixtures", "fresh-memory and sibling-isolation fixtures", "trace-disabled behavioral equality", "accepted protocol matrix"]
+included_mechanisms = ["completed-cycle composition", "same-tick exact-lineage construction outcome composition", "owner-local consequence memory", "original tick preservation", "exact witness diagnostics"]
+inherited_constraints = ["benchmark blind", "fresh child memory", "live exact generation", "bounded local work", "exact replay", "natural quiescence", "one frozen hand run"]
+excluded_proposals = ["held path", "parent-memory copy", "longer recency", "selection bias", "semantic direction", "adapter change", "default authority promotion"]
+arm_paths = ["arms/exact-witness-inertness.toml", "arms/complete-construction-naturality.toml", "arms/selectivity-integration-control.toml"]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 9
+max_minutes_per_arm = 3
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

@@ -1,0 +1,17 @@
+schema = "research-arm/v1"
+id = "temporal-coactivity-selectivity"
+campaign = "hand-lineage-construction-selectivity-v1"
+kind = "diagnostic"
+parents = ["hand-causal-lineage-preservation", "frozen-causal-contract-audit"]
+imports = ["unchanged causal-lineage construction law", "post-movement versus current-state contract distinction"]
+mechanism = "Compare two delayed action-then-surface rounds with two same-run action-plus-surface rounds under matched anonymous topology, while retaining disconnected and duplicate controls."
+prediction = "Delayed consequence constructs exactly once, but current-state coactivity, disconnected activity, and duplicate same-moment lineage construct none."
+falsifiers = ["Same-run coactivity constructs.", "Disconnected or duplicate activity constructs.", "Delayed consequence cannot construct, replay diverges, or a run fails to settle naturally."]
+source_revision = "plan:884512cbc64d2b7193e3aa1d74b66899084bc8583ba4d6ef2f3c1d5d96849153"
+protocol_sha256 = "15dc3572a87c55d78417d227c54aaac32572162a924e5b7f402dfabefb804260"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-lineage-construction-selectivity/Cargo.toml temporal_controls_classify_coactivity_without_weakening_negatives"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-lineage-construction-selectivity/Cargo.toml -- --arm temporal-coactivity-selectivity"
+

@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-causal-topology-product-ablation-v1"
+program = "learner-physics"
+claim = "ANONYMOUS-SERIAL-ARTICULATION"
+status = "preregistered"
+parent_authority = "hand-causal-topology-product-output-composition-v1 convergence sha256:49cd9772df41373336a2c5bb8f76211c46727bcf9a62c6ae351e0060386be93a"
+question = "Are connected-topology output choice and connected-topology fresh-opportunity allocation each necessary for the successful anonymous serial articulation result?"
+observables = ["exact one-module identity", "two-joint first failed joint step and stage", "conditional five-joint execution", "forward and reverse registration", "proximal perturbation", "candidate opportunity and output competition trace", "replay quiescence exhaustion and work"]
+frozen_variables = ["unchanged complete topology protocol", "one shared harness", "sixteen-step primary run", "two-joint prerequisite before five", "unchanged one-joint reference and predecessor digests"]
+permitted_changes = ["two opt-in diagnostic protocol values that independently retain output or opportunity topology factorization", "protocol-selecting CLI names", "exact ablation assertions"]
+positive_predicates = ["both removals preserve exact one-module identity", "removing output factorization first fails two joints at step zero in output choice", "removing opportunity factorization first fails the distal joint at step five in the continued arrow", "both failed arms stop five", "the unchanged complete protocol still closes two then five under all inherited controls"]
+negative_controls = ["immediate-origin and causal-path-origin protocols remain falsified by one-module identity", "the return-bearing parent remains unchanged", "no semantic module joint direction target score or evaluator-selected action", "one shared harness rather than independent learners"]
+stop_conditions = ["one-module identity changes in either ablation", "either ablation closes two joints", "a predicted step or stage does not recur", "complete reference drift", "five executes after a failed prerequisite", "replay quiescence exhaustion or hidden-authority control fails"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

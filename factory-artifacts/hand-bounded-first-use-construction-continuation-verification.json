@@ -1,0 +1,71 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/hand-bounded-first-use-construction-continuation-candidate.json",
+    "sha256": "3e3bc64c6f6602a2c650bccab18a640e051c784ab6c136a8fd9bd3fd7ec46f32"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "bounded-first-use-state",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core bounded_construction_continuation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "construction-parent-control",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core construction_outcome_composition",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "evidence-evaluator-controls",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-bounded-first-use-construction-continuation/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.3
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.83
+    }
+  ],
+  "findings": [
+    "The opt-in state transition preserves the original consequence tick, grants stale eligibility only while held for the first matching choice, and then becomes ordinary.",
+    "Consumption is derived from exact live completing owner-local link generations for every candidate in the local competition, independent of the final winner.",
+    "The predecessor construction-composition protocol and the complete core regression suite remain unchanged; 65 tests passed and two preexisting adversarial tests remained ignored.",
+    "Engineering verification supports the implementation, while the frozen scientific campaign separately failed its declared work gate and therefore does not support clean integration or adoption."
+  ],
+  "residual_uncertainty": [
+    "The frozen hand changed its physical trajectory and raised comparisons from 5370 to 7320; the existing evidence does not localize how much is intrinsic transition cost versus downstream topology induced by the new trajectory.",
+    "Cross-version migration of binary checkpoints predating the added lifetime field is outside this candidate."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/hand-bounded-first-use-construction-continuation.md",
+      "sha256": "67ea112440f81275f9c9a9cea2b1694ca9b88d468e3f6e2da37585c77928889a"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/core/src/learner.rs",
+      "sha256": "8a14cc9b7ca76c09ae7f96308fe83fd39ede2d2e33899da86b2b6cca1dcc9987"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/core/src/choose.rs",
+      "sha256": "8943b353f1cc37de48499fab32fc8b38d5849f64dcfefa724af7dec150726a2a"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/research/experiments/hand-bounded-first-use-construction-continuation/src/lib.rs",
+      "sha256": "d0e115f54aae654fd1cc680feeff478b0d6fdbcd15268c0a295db206dc95a2fb"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/research/campaigns/hand-bounded-first-use-construction-continuation-v1/protocol.toml",
+      "sha256": "6fe08a4a258c2c57700f9bbcbc744c593af263eda2030989394d19aa975c886f"
+    }
+  ]
+}

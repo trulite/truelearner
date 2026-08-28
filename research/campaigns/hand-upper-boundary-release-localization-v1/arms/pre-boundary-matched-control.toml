@@ -1,0 +1,17 @@
+schema = "research-arm/v1"
+id = "pre-boundary-matched-control"
+campaign = "hand-upper-boundary-release-localization-v1"
+kind = "control"
+parents = ["conditional-reflected-hand"]
+imports = ["last successful movement", "first clamped step", "same physical motor endpoints"]
+mechanism = "Compare the last moving and first clamped steps under identical instrumentation and endpoint identities."
+prediction = "The endpoints and diagnostic completeness stay fixed while actual movement changes from positive displacement to clamped effort."
+falsifiers = ["Endpoint identity or trace completeness changes.", "The control step does not move.", "The clamped step changes position or exhausts propagation."]
+source_revision = "plan:be7c741738384406981d758fb6ad9514e854c7938fc45fcf781ca63a6b80e42a"
+protocol_sha256 = "7d2cac6c6d313cb1a9771c695b04414a2940200edd076ba4e2e0e5b9bf3e0f9e"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-upper-boundary-release-localization/Cargo.toml last_moving_step_is_a_matched_control"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-upper-boundary-release-localization/Cargo.toml -- --arm pre-boundary-matched-control"
+

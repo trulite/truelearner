@@ -117,6 +117,11 @@ impl Body {
                 || learner.links.is_empty()
                 || !strictly_sorted(&learner.junctions)
                 || !strictly_sorted(&learner.links)
+                || !strictly_sorted(&learner.return_memory)
+                || !strictly_sorted(&learner.consequence_memory)
+                || learner.consequence_memory.windows(2).any(|pair| {
+                    pair[0].link == pair[1].link && pair[0].generation == pair[1].generation
+                })
                 || learner
                     .junctions
                     .iter()
@@ -127,6 +132,23 @@ impl Body {
                     .any(|link| body.arena.link_slot(*link).is_none())
                 || learner.junctions.binary_search(&learner.surface).is_err()
                 || learner.junctions.binary_search(&learner.output).is_err()
+                || learner.return_memory.iter().any(|memory| {
+                    memory.generation.0 == 0
+                        || body.arena.link_slot(memory.link).is_none()
+                        || body
+                            .arena
+                            .link_by_id(memory.link)
+                            .is_none_or(|link| memory.generation > link.generation)
+                })
+                || learner.consequence_memory.iter().any(|memory| {
+                    memory.generation.0 == 0
+                        || memory.last_consequence_tick > snapshot.clock.tick
+                        || body.arena.link_slot(memory.link).is_none()
+                        || body
+                            .arena
+                            .link_by_id(memory.link)
+                            .is_none_or(|link| memory.generation > link.generation)
+                })
             {
                 return Err(CheckpointError::InvalidCheckpoint);
             }
@@ -134,16 +156,26 @@ impl Body {
         }
         let mut closure_keys = HashSet::new();
         for closure in &snapshot.causal_closures {
-            if !closure_keys.insert((closure.surface, closure.output))
+            let parent_is_valid = closure.parent.is_none_or(|parent| {
+                snapshot.learners.iter().any(|learner| {
+                    learner.id == parent
+                        && learner.junctions.binary_search(&closure.surface).is_ok()
+                })
+            });
+            let constructed_is_valid = closure.constructed.is_none_or(|constructed| {
+                snapshot.learners.iter().any(|learner| {
+                    learner.id == constructed
+                        && learner.parent == closure.parent
+                        && learner.surface == closure.surface
+                        && learner.output == closure.output
+                })
+            });
+            if !closure_keys.insert((closure.parent, closure.surface, closure.output))
                 || closure.evidence == 0
                 || body.arena.junction_slot(closure.surface).is_none()
                 || body.arena.junction_slot(closure.output).is_none()
-                || closure
-                    .parent
-                    .is_some_and(|parent| !learner_ids.contains(&parent))
-                || closure
-                    .constructed
-                    .is_some_and(|learner| !learner_ids.contains(&learner))
+                || !parent_is_valid
+                || !constructed_is_valid
             {
                 return Err(CheckpointError::InvalidCheckpoint);
             }

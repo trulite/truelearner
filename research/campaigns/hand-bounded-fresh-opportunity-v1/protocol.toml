@@ -1,0 +1,42 @@
+schema = "research-protocol/v1"
+id = "hand-bounded-fresh-opportunity-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-pre-executability-opportunity-v1 convergence sha256:72a4d2dcf42964d9ab22608b8fd27d713c3814a57fef67c4cd524d857ea0270f"
+question = "Can one live unanswered incumbent return safely supply one local fresh candidate opportunity before cancellation, and does that transition release the unchanged reflected hand?"
+observables = [
+  "donor output, exact unanswered return, return owner, consequence recency, recipient output, ordinary and supplied opportunity, raw signed drive, threshold, executability, selection, and supersession",
+  "constructed output identity under reflection, answered/recent/nonlocal/owner/no-alternative/repeated controls, path strengths, replay, quiescence, and work",
+  "both hand motors, upper escape, both directions, truthful position changes, lower reach and escape, perturbation recovery, propagation exhaustion, and complete closure",
+]
+frozen_variables = [
+  "the diagnostic candidate and its step-five +UNIT/-UNIT silent drive, zero opportunity, and one incumbent unanswered return",
+  "the reflected hand world, capacities, propagation bound, physical-transition admission, and inherited candidate stack",
+]
+permitted_changes = [
+  "add one opt-in cumulative protocol",
+  "supply exactly one transient UNIT opportunity from one owner-compatible local live unanswered return before cancellation",
+  "reuse existing candidate ranking, replacement, and exact-return supersession",
+  "add transfer diagnostics and evaluator-side evidence",
+]
+positive_predicates = [
+  "the tiny fixture exposes the balanced fresh candidate exactly once without changing its path strengths",
+  "answered, recent, missing, nonlocal, owner-incompatible, and repeated same-return controls remain negative under reflection and reordering",
+  "the unchanged hand executes both motor outputs and leaves the upper boundary while preserving replay, quiescence, and bounded work",
+]
+negative_controls = [
+  "no semantic motor, direction, position, contact, hand, desired-action, or evaluator fact in core",
+  "no new route, strength reset, persistent opportunity state, random selection, or default adoption",
+  "the localization and physical-transition parent campaigns remain unchanged",
+]
+stop_conditions = [
+  "the tiny fixture or any control fails",
+  "the same donor return transfers more than once or a transfer fails exact supersession",
+  "the hand does not execute the second motor and escape upper contact",
+  "replay, natural quiescence, propagation bounds, inherited behavior, or warm runtime fails",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

@@ -1,0 +1,17 @@
+{
+  "schema": "hand-causal-origin-ownership-factorization/v1",
+  "arm": "unrelated-origin-transfer",
+  "outcome": "survived",
+  "observations": {
+    "candidate_motor_outputs": 1,
+    "exact_replay": true,
+    "input_order_behavior_equal": true,
+    "naturally_quiescent": true,
+    "reference_motor_outputs": 0,
+    "selected_origin": true,
+    "survived": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

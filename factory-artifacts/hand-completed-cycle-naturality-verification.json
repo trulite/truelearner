@@ -1,0 +1,58 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/hand-completed-cycle-naturality-candidate.json",
+    "sha256": "23bcb6b76fde99aa899b272bb738550ff4e86452fd8d76f128ac540c8eeb6024"
+  },
+  "verdict": "supported",
+  "independent_test_count": 81,
+  "checks": [
+    {
+      "name": "held-out",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.40
+    },
+    {
+      "name": "categorical-laws",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-completed-cycle-naturality/Cargo.toml pure_fold",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.10
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml output_choice_resolution",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.08
+    }
+  ],
+  "findings": [
+    "The group-level event records the actual admitted target set after recent-cohort handling and agrees with existing per-candidate admission without changing learner physics.",
+    "Completed-cycle evidence is now classified exhaustively as not applicable, missing, stale, ambiguous latest, or unique by the same pure resolution used for behavior and trace.",
+    "The frozen hand retained its exact prior summary and all twenty-three local admissions were functional single-target arrows.",
+    "The first non-commuting ownership change was localized at hand step three and tick twenty-three: organism target eleven changed to learner-two target ten under FreshAlternative because completed-cycle evidence was Missing.",
+    "Two other ownership changes preserved their physical target, so reconstruction alone is not the missing law."
+  ],
+  "residual_uncertainty": [
+    "The current evidence does not yet show whether the accepted physical consequence survives construction but is hidden by owner-local lookup, or whether the witness itself has already closed or disappeared.",
+    "Eight later target changes occurred without ownership changes and remain outside this first-failure diagnosis.",
+    "No parent memory may be copied into the fresh learner; any construction-boundary handoff remains a future candidate requiring separate controls and frozen evidence."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/hand-completed-cycle-naturality-v1/artifacts/choice-trace-inertness.json",
+      "sha256": "1c082c9bd6f686c27f43c7268eb8c01cc485896b5cdaa7bc4fba22ada2249b6f"
+    },
+    {
+      "path": "research/campaigns/hand-completed-cycle-naturality-v1/artifacts/completed-cycle-first-arrow-change.json",
+      "sha256": "e4c38011cc9ff198474f553f72b6e4e7b366f3201a83fc114acd7c38a20e04d3"
+    },
+    {
+      "path": "research/campaigns/hand-completed-cycle-naturality-v1/convergence.toml",
+      "sha256": "d7117c56480f0e2a6f4205eecb554a661eb210d6dd854a3ac97ca625472141cd"
+    }
+  ]
+}

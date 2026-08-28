@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-post-release-continuation-localization-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-organism-root-fresh-opportunity-v1 convergence"
+question = "What is the earliest missing physical transition after the candidate first leaves upper contact?"
+observables = ["complete per-step causal diagnostics", "world change, motor output, path, owner read/write, return, drive, threshold, and executability"]
+frozen_variables = ["organism-to-root candidate", "strict parent", "unchanged reflected hand"]
+permitted_changes = ["evidence projection only"]
+positive_predicates = ["upper escape reproduces", "one first post-release non-continuing step is identifiable", "its earliest missing transition is observable"]
+negative_controls = ["strict parent", "exact replay", "natural quiescence", "zero propagation exhaustion"]
+stop_conditions = ["candidate no longer releases upper contact", "trajectory lacks required causal diagnostics", "integrity fails"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

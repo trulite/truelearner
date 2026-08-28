@@ -1,0 +1,24 @@
+schema = "research-arm/v1"
+id = "construction-scoped-return-reopening"
+campaign = "recursive-learner-fresh-memory-v1"
+kind = "solve"
+parents = ["recursive-learner-reentry-v1:post-construction-causal-opportunity", "recursive-learner-reentry-v1:child-owned-closure-genesis"]
+imports = [
+  "owner-aware closure identity",
+  "existing global finite-return memory",
+  "construction event as a lifetime boundary",
+]
+mechanism = "At construction, reopen only the participating return eligibility for the new owner while retaining the parent's accepted-origin history; use no persistent private learner memory beyond the reopened state."
+prediction = "The child admits its first fresh return without changing parent history, but either repeated child evidence remains unavailable or the mechanism must reveal an owner-local lifetime state."
+falsifiers = [
+  "Parent return history is cleared or copied into the child.",
+  "An unrelated or duplicate return reopens.",
+  "No fresh child return is admitted, or repeated evidence succeeds only through implicit global reset.",
+]
+source_revision = "rust-candidate-tree:72e3c1560e68330450321e96db5039159c7959506164c7dd798104e654f72477"
+protocol_sha256 = "623e4b3c57c862a7d8df6b21023c42841a75901f724e0e1d680007aa95b6732a"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml probe_construction_scoped_return_reopening"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml -- --arm construction-scoped-return-reopening"

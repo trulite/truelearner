@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-localization"
+campaign = "hand-origin-feedback-cycle-localization-v1"
+kind = "composition"
+parents = ["origin-path-provenance-disagreement", "step-eight-feedback-cycle", "matched-boundary-control"]
+imports = ["ownership disagreement", "closed feedback cycle", "matched behavior control"]
+mechanism = "Require both provenance and cycle localization while preserving the frozen candidate and matched reference exactly."
+prediction = "The diagnostic identifies one physical re-entry boundary precise enough to admit a new unrelated-world discriminator, without implementing a solve."
+falsifiers = ["Any component arm fails.", "The next discriminator is semantic or hand-specific.", "The frozen failure is repaired or reclassified."]
+source_revision = "plan:c41ff1ee710aed2eb01c8336c5d4baad0568bc6754dc2cfa04f6d07a7d0a99ae"
+protocol_sha256 = "3d79dae04c3ceeecb74148969bb85f2dd6817066e5733beaee8277d8f80d0d14"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-origin-feedback-cycle-localization/Cargo.toml complete_localization_is_compact_and_deterministic"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-origin-feedback-cycle-localization/Cargo.toml -- --arm complete-localization"

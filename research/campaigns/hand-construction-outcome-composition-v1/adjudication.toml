@@ -1,0 +1,37 @@
+schema = "research-adjudication/v1"
+protocol_path = "protocol.toml"
+protocol_sha256 = "b109ef53774c183df633c1d23dc3b39bb2eb86502364b046ae3a6f088c1af432"
+evidence_path = "evidence.json"
+evidence_sha256 = "d75d52d84f9003aa31c852d9047140b5c8d25c02770f70b33b651761132887e7"
+verdict = "negative"
+predicate_results = [
+  "same-tick exact-lineage projection=passed: learner two recorded tick sixteen on links thirty-six, forty-four, and forty-five",
+  "original physical tick preservation=passed: every retained construction projection used its construction tick",
+  "tick-twenty-three Missing-to-Stale prediction=passed: learner-two target eleven carried consequence tick sixteen and was classified Stale",
+  "unchanged tick-twenty-three choice=passed: target ten remained admitted under FreshAlternative",
+  "explicit hand trajectory metrics=passed: twelve changes, four opposing steps, final minus two, neither boundary",
+  "exact completed-cycle parent behavior=failed: completed-cycle admissions increased from nine to ten",
+]
+control_results = [
+  "older unrelated and dead link preflight=passed in the frozen candidate receipt but is software evidence, not independent hand evidence",
+  "old completed-cycle protocol isolation=passed in focused core controls",
+  "semantic leakage audit=passed: no position, direction, hand, expected-target, or evaluator fact entered the learner law",
+  "new state exclusion=passed: existing link tick, learner memory, and trace event were reused",
+  "integrity=passed: exact replay, natural quiescence, zero propagation exhaustion, and unchanged external hand trajectory",
+]
+scientific_findings = [
+  "The proposed composition repairs the localized owner-projection gap exactly as predicted: an existing same-moment outcome remains visible after learner formation without a new path, outcome, or memory type.",
+  "Preserving the original tick correctly exposes expiry at tick twenty-three; the result is Stale rather than Missing or Unique.",
+  "The candidate also creates one additional completed-cycle admission later in the hand, so the complete frozen candidate is not behaviorally identical to its parent and the campaign is negative.",
+  "The added admission does not change external movement in this run, but its physical location and cause were reduced out of the frozen artifact and cannot be inferred safely.",
+]
+residual_uncertainty = [
+  "The retained artifact does not identify the tick, owner, target, or construction projection responsible for the tenth completed-cycle admission.",
+  "It is unknown whether the extra admission is a legitimate downstream consequence of the repaired projection, an over-broad construction-lineage projection, or an interaction at a later learner construction.",
+  "No longer consequence lifetime, held path, renewal, or selection change is justified until the first extra admission is localized from losslessly retained existing events.",
+]
+sufficiency = "not-established"
+integration = "failed"
+adoption = "not-adopted"
+authority = "not-promoted"
+authorized_by = "none"

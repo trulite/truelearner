@@ -1,0 +1,47 @@
+schema = "research-campaign/v1"
+id = "hand-consequence-born-return-admission-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Strict consequence-born admission makes repeated pre-opening context unable to renew success, allowing existing unanswered-return replacement to release the incumbent without new memory or ranking."
+first_divergence = "Temporally ineligible returns are observed but admitted before consequence write."
+missing_transition = "A return origin born at or before opening must remain non-consequential and leave the return unanswered."
+prediction = "The timing gate survives valid-return controls and composes with existing release to make the unchanged hand leave its upper boundary safely."
+falsifiers = [
+  "The gate rejects valid later consequence.",
+  "The incumbent remains selected after false returns are rejected.",
+  "The hand remains clamped or reintroduces feedback exhaustion.",
+]
+positive_reference = "hand-upper-boundary-release-localization-v1 complete-localization"
+negative_controls = ["boundary-effect-terminal parent", "later local return", "typed early rejection", "exact replay and natural quiescence"]
+included_mechanisms = ["boundary-effect terminality", "causal lineage birth", "live return opening", "consequence-born closure timing", "unanswered-return replacement"]
+inherited_constraints = ["no new persistent state or ranking", "unchanged hand and semantic firewall", "warm runtime below ten seconds"]
+excluded_proposals = ["context memory", "surface novelty memory", "strength reset", "hand-specific release", "default adoption"]
+arm_paths = [
+  "arms/consequence-born-return-admission.toml",
+  "arms/truthful-no-consequence-release.toml",
+  "arms/conditional-reflected-hand-release.toml",
+  "arms/complete-composition.toml",
+]
+max_parallel_arms = 4
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 32
+max_minutes_per_arm = 8
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

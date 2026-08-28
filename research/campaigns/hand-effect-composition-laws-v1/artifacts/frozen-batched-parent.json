@@ -1,0 +1,104 @@
+{
+  "schema": "hand-effect-composition-laws/v1",
+  "arm": "frozen-batched-parent",
+  "outcome": "survived",
+  "observations": {
+    "candidate": {
+      "actual_position_changes": 9,
+      "coherent_admissions": 0,
+      "coherent_effects": [],
+      "coherent_rejections": 0,
+      "directions": [
+        -1,
+        1
+      ],
+      "effect_composition": "batched",
+      "emitted_physical": [
+        20000,
+        20001
+      ],
+      "escaped_lower": false,
+      "escaped_upper": true,
+      "exact_replay": true,
+      "final_position": 3,
+      "naturally_quiescent": true,
+      "net_changed_steps": 9,
+      "opposing_output_steps": 6,
+      "perturbation_recovered": false,
+      "phase_directions": [
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        -1,
+        0,
+        1,
+        0,
+        -1,
+        0,
+        -1,
+        1,
+        0
+      ],
+      "primary_closed": false,
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerRootFreshOpportunity",
+      "reached_lower": false,
+      "reached_upper": true,
+      "stopped": false
+    },
+    "frozen_batched_parent": {
+      "actual_position_changes": 9,
+      "coherent_admissions": 0,
+      "coherent_effects": [],
+      "coherent_rejections": 0,
+      "directions": [
+        -1,
+        1
+      ],
+      "effect_composition": "batched",
+      "emitted_physical": [
+        20000,
+        20001
+      ],
+      "escaped_lower": false,
+      "escaped_upper": true,
+      "exact_replay": true,
+      "final_position": 3,
+      "naturally_quiescent": true,
+      "net_changed_steps": 9,
+      "opposing_output_steps": 6,
+      "perturbation_recovered": false,
+      "phase_directions": [
+        1,
+        1,
+        1,
+        0,
+        1,
+        0,
+        1,
+        -1,
+        0,
+        1,
+        0,
+        -1,
+        0,
+        -1,
+        1,
+        0
+      ],
+      "primary_closed": false,
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerRootFreshOpportunity",
+      "reached_lower": false,
+      "reached_upper": true,
+      "stopped": false
+    }
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

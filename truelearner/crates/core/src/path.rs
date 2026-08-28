@@ -169,10 +169,36 @@ impl Body {
                     junction: fired.junction,
                 },
             });
+            if self.protocol.constructs_learners() {
+                let owner = self.deepest_learner_owning(fired.junction);
+                let paths = self.arena.paths_from(fired.junction);
+                let consequential_paths = owner.map_or(0, |owner| {
+                    paths
+                        .iter()
+                        .filter(|path| {
+                            self.arena.link_by_id(path.second).is_some_and(|link| {
+                                self.learner_consequence_tick(owner, link.id, link.generation)
+                                    .is_some()
+                            })
+                        })
+                        .count()
+                });
+                run.trace.push(PhysicalTransition {
+                    tick: self.tick,
+                    phase: moment.phase,
+                    event: PhysicalEvent::SurfacePathStateObserved {
+                        surface: fired.junction,
+                        owner,
+                        complete_paths: u32::try_from(paths.len()).unwrap_or(u32::MAX),
+                        consequential_paths: u32::try_from(consequential_paths).unwrap_or(u32::MAX),
+                    },
+                });
+            }
         }
         run.work.total = run.work.total.saturating_add(1);
         let learned_intermediate = self.arena.is_path_junction(fired.junction);
         if (fired.external || fired.state.resistance == u32::MAX)
+            && !(self.protocol.terminates_boundary_effect_formation() && fired.boundary_effect)
             && !self.arena.is_output_junction(fired.junction)
             && !learned_intermediate
         {
@@ -215,6 +241,8 @@ impl Body {
                 (target.live
                     && target.id != source
                     && self.arena.is_output_junction(target.id)
+                    && (!self.protocol.requires_regional_path_closure()
+                        || source_state.region == target.region)
                     && (1..=LOCAL_VARIATION_RADIUS).contains(&distance))
                 .then_some((distance, target.position, target.id))
             })

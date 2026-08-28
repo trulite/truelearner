@@ -1,0 +1,25 @@
+schema = "research-arm/v1"
+id = "one-joint-transition-localization"
+campaign = "developmental-hand-one-joint-v1"
+kind = "diagnostic"
+parents = ["monolithic-one-joint-reference", "recursive-one-joint-closure"]
+imports = [
+  "per-step matched monolithic and recursive trajectories",
+  "public physical and experimental owner-local transition trace",
+  "developmental-hand-v1 first-failure descent and conditional hypothesis-fit map",
+]
+mechanism = "Compare both frozen trajectories and report the earliest physical transition at which the recursive candidate either repairs or reproduces the monolithic loss of cumulative travel."
+prediction = "The first meaningful difference appears at owner-local accepted-consequence write, later read, continuation, reversal, or release—not before executable motor output—and uniquely routes the next campaign without changing this run."
+falsifiers = [
+  "The earliest divergence occurs before a shared primitive that was claimed frozen and reproduced.",
+  "The trace omits an earlier physical transition, relies on reconstructed history, or injects semantic or evaluator identity.",
+  "More than one unmatched transition changes simultaneously so the improvement or failure cannot be localized.",
+  "A successor mechanism is selected despite not predicting the observed first break.",
+]
+source_revision = "candidate-tree:cf8f2b971d70fafff1873536b05e82f35413b20b0911e462c5eaf50f85a89178"
+protocol_sha256 = "b63f7b6ade50820d4141e66281cfcdfab07884a1774d52e7f713334038044470"
+budget_minutes = 40
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/developmental-hand-one-joint/Cargo.toml one_joint_transition_localization"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/developmental-hand-one-joint/Cargo.toml -- --arm one-joint-transition-localization"

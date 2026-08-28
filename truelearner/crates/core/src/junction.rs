@@ -90,10 +90,49 @@ impl Body {
         let impulse = incidence.impulse();
         let strength = incidence.strength();
         let external = incidence.external();
+        let boundary_effect = incidence.inputs.iter().any(|firing| {
+            firing.link.is_some_and(|(link, _)| {
+                self.arena.link_by_id(link).is_some_and(|link| {
+                    self.arena
+                        .junction_by_id(link.from)
+                        .zip(self.arena.junction_by_id(link.to))
+                        .is_some_and(|(source, target)| source.region != target.region)
+                })
+            })
+        });
         let count = u64::try_from(incidence.inputs.len()).unwrap_or(u64::MAX);
         run.work.total = run.work.total.saturating_add(count.saturating_mul(5));
         run.work.drive_deliveries = run.work.drive_deliveries.saturating_add(count);
         if self.trace_physics {
+            for firing in &incidence.inputs {
+                if let Some(lineage) = &firing.causal_lineage {
+                    for origin_physical in lineage.origins() {
+                        run.trace.push(PhysicalTransition {
+                            tick: self.tick,
+                            phase: moment.phase,
+                            event: PhysicalEvent::CausalLineageMemberObserved {
+                                target: incidence.junction,
+                                origin_physical: *origin_physical,
+                                mode: TransmissionMode::Drive,
+                                link: firing.link.map(|(link, _)| link),
+                                generation: firing.link.map(|(_, generation)| generation.0),
+                                causal_wave: moment.causal,
+                            },
+                        });
+                    }
+                }
+                run.trace.push(PhysicalTransition {
+                    tick: self.tick,
+                    phase: moment.phase,
+                    event: PhysicalEvent::DriveOriginObserved {
+                        target: incidence.junction,
+                        origin_physical: firing.origin_physical,
+                        link: firing.link.map(|(link, _)| link),
+                        generation: firing.link.map(|(_, generation)| generation.0),
+                        causal_wave: moment.causal,
+                    },
+                });
+            }
             run.trace.push(PhysicalTransition {
                 tick: self.tick,
                 phase: moment.phase,
@@ -114,16 +153,37 @@ impl Body {
                 .collect::<Vec<_>>();
             origins.sort_unstable();
             origins.dedup();
-            if origins.len() == 1 {
-                origins[0]
+            let (resolved, resolution) = if origins.len() == 1 {
+                (origins[0], CausalOriginResolution::Preserved)
             } else {
-                self.arena
-                    .junction_snapshot(self.arena.junction_slot(incidence.junction).unwrap().0)
-                    .physical_id
+                (
+                    self.arena
+                        .junction_snapshot(self.arena.junction_slot(incidence.junction).unwrap().0)
+                        .physical_id,
+                    CausalOriginResolution::JunctionFallback,
+                )
+            };
+            if self.trace_physics {
+                run.trace.push(PhysicalTransition {
+                    tick: self.tick,
+                    phase: moment.phase,
+                    event: PhysicalEvent::CausalOriginResolved {
+                        target: incidence.junction,
+                        distinct_origins: u32::try_from(origins.len()).unwrap_or(u32::MAX),
+                        resolved_origin: resolved,
+                        resolution,
+                        causal_wave: moment.causal,
+                    },
+                });
             }
+            resolved
         } else {
             0
         };
+        let causal_lineage = self
+            .protocol
+            .preserves_causal_lineage()
+            .then(|| CausalLineage::from_firings(&incidence.inputs));
         let (state, held) = self.hold_input(incidence.junction, strength);
         if self.trace_physics {
             run.trace.push(PhysicalTransition {
@@ -146,7 +206,9 @@ impl Body {
             junction: incidence.junction,
             state,
             external,
+            boundary_effect,
             causal_origin,
+            causal_lineage,
         })
     }
 

@@ -1,0 +1,51 @@
+schema = "research-convergence/v1"
+campaign = "recursive-learner-proprioceptive-control-v1"
+round = 1
+survived = [
+  "current-proprioceptive-owner-gating",
+  "owner-local-recent-consequence",
+  "recursive-proprioceptive-control-composition",
+]
+falsified = ["global-consequence-reference"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "proprioception remains current physical incidence and only positive same-moment non-path incidence from the executable path's deepest causal owner can complete an owned motor threshold",
+  "held, absent, one-tick-shifted, and unrelated incidence contributes no owned opportunity",
+  "an actual accepted return records only participating live link generations in the deepest owner's sorted private consequence memory",
+  "owned selection reads only that owner's recent consequence ticks and uses deterministic preference-neutral rotation when no recent private tick exists",
+  "private preference releases after the existing four-tick window while its historical checkpoint entry remains inert",
+  "the same owner-local write and read law composes through exact adjacent ancestry at depth three with replay equality and natural quiescence",
+]
+strongest_counterexamples = [
+  "global-consequence-reference: global link consequence history existed at learner birth, yet the fresh owner selected with no private tick and only changed preference after its own accepted participating return",
+]
+retired_families = [
+  "global LinkState consequence recency as preference authority after a causal owner resolves",
+  "learned drive magnitude or inherited participation as an owned learner's neutral preference tie-break",
+  "held or unrelated physical activation as a substitute for current same-owner proprioceptive opportunity",
+]
+next_discriminators = [
+  "construct two independently owned sibling surfaces in one body, train reflected alternatives in opposite orders, and require no cross-sibling write or read",
+  "separate parent-before-after behavior from deepest-child learning with matched physical opportunity and no direct learner addressing",
+  "extend owner-local consequence across an ordinary nested parent-child return while preserving duplicate, stale, and nonparticipating controls",
+  "run independent factory verification before any adoption, authority, benchmark, or unrestricted control claim",
+]
+
+[[new_arm]]
+id = "sibling-local-proprioceptive-control"
+kind = "composition"
+parents = [
+  "owner-local-recent-consequence",
+  "recursive-proprioceptive-control-composition",
+]
+imports = [
+  "owner-local-recent-consequence: private bounded consequence write, read, and release",
+  "recursive-proprioceptive-control-composition: deepest-owner resolution and depth-three symmetry",
+]
+interaction_prediction = "Two sibling learners trained on reflected alternatives will write and read only their own participating path generations while their parent and opposite sibling retain matched neutral behavior."
+falsifiers = [
+  "One sibling's accepted return changes the other's later preference or the parent's matched behavior.",
+  "Opposite training order changes ownership, causes cross-credit, or requires semantic sibling or surface identity.",
+  "Sibling composition loses exact replay, natural quiescence, current-opportunity controls, or local work.",
+]

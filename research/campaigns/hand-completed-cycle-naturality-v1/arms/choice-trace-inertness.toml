@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "choice-trace-inertness"
+campaign = "hand-completed-cycle-naturality-v1"
+kind = "control"
+parents = ["hand-completed-cycle-composition-v1:completed-cycle-successor"]
+imports = ["exact frozen completed-cycle candidate summary", "existing per-candidate admission trace", "replay and natural-quiescence controls"]
+mechanism = "Require every group-level admitted target set to agree with the existing admitted candidates while the prior physical trajectory remains exact."
+prediction = "The added event observes existing arbitration without changing movement, outputs, limits, completed-cycle counts, replay, quiescence, or propagation."
+falsifiers = ["Any group-level admitted target set disagrees with existing candidate admissions.", "Any prior frozen summary field changes.", "Replay, quiescence, or propagation integrity fails."]
+source_revision = "plan:32d3d2ce1f3cfbd8d91613c20337eb9481314c580c2601daa3dbda54ac09f6c7"
+protocol_sha256 = "445b504fa160e4eea21393a93d40482f63f97c96f36a8587a61e7d441586b291"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml output_choice_resolution"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-completed-cycle-naturality/Cargo.toml -- --arm choice-trace-inertness"

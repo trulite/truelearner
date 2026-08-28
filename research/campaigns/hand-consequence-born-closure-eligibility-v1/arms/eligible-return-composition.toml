@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "eligible-return-composition"
+campaign = "hand-consequence-born-closure-eligibility-v1"
+kind = "composition"
+parents = ["temporal-only-counterexample", "temporal-cohort-counterexample"]
+imports = ["strict temporal eligibility", "output-cohort retirement", "per-origin admission and one-effect conservation"]
+mechanism = "Stable-partition immutable outcome firings so those carrying a consequence-born origin are processed before ineligible firings, then apply existing admission and retire answered cohorts after the moment."
+prediction = "Two delayed rounds yield two closures and one construction; coactivity and equality stay at zero; duplicates, disconnected and stale activity remain negative; simultaneous surfaces preserve one effect and stable order; replay and quiescence hold."
+falsifiers = ["An ineligible firing wins over an eligible firing.", "A delayed consequence is lost or pre-output activity constructs.", "Strengthening multiplies, same-class order changes, or any inherited control fails."]
+source_revision = "plan:dace59b4bfec08ef5399c0f160a38f9662692cd217d44f3d538a16d527a469ea"
+protocol_sha256 = "9a5a5bd95822d2105690b3027f846f9d26042380f7c2715e794e1a442b7fcef1"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-consequence-born-closure-eligibility/Cargo.toml complete_composition_passes_positive_negative_and_replay_controls"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-consequence-born-closure-eligibility/Cargo.toml -- --arm eligible-return-composition"

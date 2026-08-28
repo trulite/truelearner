@@ -1,0 +1,42 @@
+schema = "research-convergence/v1"
+campaign = "hand-bounded-fresh-opportunity-v1"
+round = 1
+survived = ["lifetime-locality-ownership-controls"]
+falsified = ["constructed-bounded-fresh-opportunity", "conditional-reflected-hand-release", "complete-composition"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "the tiny two-output fixture admitted exactly one transient UNIT opportunity, fired the balanced fresh output, and superseded the exact donor return without changing path strength",
+  "answered return, parent protocol, reflection, and repeated same-return controls passed; the same return did not transfer twice",
+  "the unchanged hand produced five typed opportunity evaluations: one recent donor rejection and four owner-mismatch rejections, with no transfer",
+  "every non-recent hand donor return was organism-owned while the balanced local recipient was Owned(2); strict return-owner equality therefore stopped the law before threshold",
+  "the rejected hand candidate remained exactly equal to the parent at four position changes, one direction, motor 20001 only, upper clamp, exact replay, natural quiescence, and zero propagation exhaustion",
+]
+strongest_counterexamples = [
+  "constructed-bounded-fresh-opportunity: local transfer in an all-organism fixture did not transfer to an owner-scoped hand candidate because the donor return was unowned and the recipient was owned",
+  "conditional-reflected-hand-release: a safe owner-equality gate can preserve every control while making the proposed mechanism irrelevant to the benchmark transition",
+  "complete-composition: no higher hand claim is interpretable because the second motor never participated",
+  "the earlier origin-factorization runaway remains the strongest warning against simply ignoring ownership across the organism/learner boundary",
+]
+retired_families = [
+  "strict return-owner equality as a sufficient fresh-opportunity boundary for the hand",
+  "generalizing an all-organism local variation fixture directly into recursive learner ownership",
+  "dropping ownership checks to force upper-boundary release",
+]
+next_discriminators = [
+  "classify the failed donor/recipient ownership relation as same owner, organism-to-root, parent-to-child, sibling, ancestor, or unrelated using actual learner ancestry and owned physical structure",
+  "test whether the hand mismatch is exactly organism-to-root adjacent recruitment, an already forecast but unestablished recursive-construction boundary, rather than arbitrary cross-owner transfer",
+  "preserve unrelated owner, sibling, nonlocal, same-origin mixed-owner, answered, recent, repeated-return, reflection, replay, quiescence, and cost controls before authoring any cross-boundary solve",
+]
+
+[[new_arm]]
+id = "organism-to-root-opportunity-boundary"
+kind = "diagnostic"
+parents = ["lifetime-locality-ownership-controls"]
+imports = ["typed owner-mismatch rejection", "recursive learner ancestry", "owned physical junction and link membership"]
+interaction_prediction = "Every non-recent failed hand pair crosses exactly one adjacent boundary from an organism-owned return into a root learner-owned local candidate; unrelated and sibling-owner fixtures produce distinct relations."
+falsifiers = [
+  "The recipient is not a root learner or the donor is owned by an unrelated learner.",
+  "The donor and recipient are not physically local under the existing output group.",
+  "The same relation also labels unrelated or sibling-owner negative controls.",
+]

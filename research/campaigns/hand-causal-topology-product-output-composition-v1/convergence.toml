@@ -1,0 +1,49 @@
+schema = "research-convergence/v1"
+campaign = "hand-causal-topology-product-output-composition-v1"
+round = 1
+survived = ["one-module-identity", "two-joint-serial-composition", "registration-order-invariance", "proximal-change-isolation", "conditional-five-joint"]
+falsified = ["immediate-origin-preflight", "causal-path-origin-preflight"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "the exact one-joint return-bearing arrow remains unchanged",
+  "each output is projected through its existing physical outcome source into a live connected-topology component",
+  "ordinary local output competition remains unchanged inside one component and composes across disconnected components",
+  "bounded fresh-opportunity selection uses the same component boundary",
+  "candidate and competition evidence is retained on every instrumented run",
+  "component keys use stable physical identity and remain invariant to resident registration order",
+]
+strongest_counterexamples = [
+  "immediate-origin factorization split the two opposing outputs of one unchanged joint at upper contact; both emitted at step five, cancelled, and broke exact one-joint identity",
+  "completed-path-origin factorization produced the same one-joint cancellation because current path labels are not the equivalence relation of physical alternatives",
+  "topology-factorized output alone exposed a second global choice wall: at the shared reversal both joints had balanced return evidence, but only the proximal component received fresh opportunity; applying the same component boundary to opportunity allocation closed the missing distal arrow",
+]
+retired_families = [
+  "candidate-origin equality as the physical product boundary",
+  "completed-path-origin equality as the physical product boundary",
+  "learner ownership as the initial product boundary because the first parent divergence occurs before learner formation",
+  "adapter spacing or separate harnesses as a way to hide shared choice",
+  "longer observation after a missing component-local reversal",
+]
+next_discriminators = [
+  "freeze a clean integration checkpoint before any authority or accepted-default promotion",
+  "ablate topology-factorized output and topology-factorized opportunity separately to measure their individual necessity without changing the successful complete candidate",
+  "advance to the next articulated-hand morphology only under the same anonymous topology law and stop at its first new physical divergence",
+]
+
+[[new_arm]]
+id = "topology-product-downward-ablation"
+kind = "composition"
+parents = ["one-module-identity", "two-joint-serial-composition", "registration-order-invariance", "proximal-change-isolation", "conditional-five-joint", "immediate-origin-preflight", "causal-path-origin-preflight"]
+imports = [
+  "complete connected-topology product survivor",
+  "one-joint exact identity",
+  "two origin-based counterexamples",
+  "two-joint and five-joint controls",
+]
+interaction_prediction = "Removing component-local output choice restores step-zero suppression, while removing component-local opportunity restores the asymmetric shared-boundary reversal; neither removal preserves the complete two-joint result."
+falsifiers = [
+  "Either removal preserves the complete two-joint result unchanged.",
+  "An ablation changes the one-joint identity before testing the intended multi-component interaction.",
+  "The measured failure does not recur at the predicted output or reversal stage.",
+]

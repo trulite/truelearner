@@ -1,0 +1,16 @@
+{
+  "schema": "recursive-learner-proprioceptive-control/v1",
+  "arm": "current-proprioceptive-owner-gating",
+  "outcome": "survived",
+  "observations": {
+    "absent_rejected": true,
+    "current_same_owner_admitted": true,
+    "one_tick_shifted_rejected": true,
+    "owner_bearing_opportunity_trace": true,
+    "root_constructed": true,
+    "unrelated_owner_rejected": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

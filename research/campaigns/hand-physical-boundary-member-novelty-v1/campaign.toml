@@ -1,0 +1,67 @@
+schema = "research-campaign/v1"
+id = "hand-physical-boundary-member-novelty-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Recursive construction represents physical development only when a proposed child recruits at least one stable participating junction outside its proposed parent's already owned boundary."
+first_divergence = "After temporal closure is repaired, repeated evidence for one identical surface/output boundary creates deeper learner copies while no new stable physical member has joined."
+missing_transition = "A local set-difference gate between the proposed causal boundary and the proposed parent's stable physical junction membership."
+prediction = "Stable junction novelty stops exact-boundary depth, preserves two local siblings and adjacent expansion, leaves locality and timing intact, and then lets the unchanged hand expose its next independent physical failure."
+falsifiers = [
+  "Exact owned repetition still creates depth or temporary links count as novelty.",
+  "A distinct local sibling or adjacent expansion cannot construct.",
+  "Distance-three locality, temporal closure, replay, quiescence, or old behavior changes.",
+  "The hand runs before the complete primitive gate or its failure is hidden by benchmark scoring.",
+]
+positive_reference = "hand-consequence-born-closure-eligibility-v1 complete temporal composition"
+negative_controls = [
+  "immutable parent digest and exact-boundary depth-four counterexample",
+  "regenerated links, distance-three return rejection, sibling order, temporal controls, replay, and quiescence",
+  "unchanged eligible-return hand reference and conditional benchmark gate",
+]
+included_mechanisms = [
+  "surviving consequence-born temporal composition",
+  "stable physical junction set derived from actual closure lineage",
+  "parent boundary set difference before closure-state mutation",
+  "unchanged hand adapter with per-step physical diagnostics",
+]
+inherited_constraints = [
+  "actual participation only, stable members not temporary identity, one effect, local return radius, and private owner memory",
+  "no anatomy, direction, desired pose, learner depth limit, benchmark stage, or evaluator answer inside learner physics",
+  "conditional climb, replay, natural quiescence, and frozen failures",
+]
+excluded_proposals = [
+  "link-generation novelty, semantic boundary labels, maximum-depth caps, threshold changes, global search, or hand-specific policy",
+  "locality widening, hand-world changes, default adoption, and authority promotion",
+]
+arm_paths = [
+  "arms/inherited-temporal-reference.toml",
+  "arms/exact-boundary-repetition.toml",
+  "arms/sibling-breadth-and-locality.toml",
+  "arms/adjacent-expansion-transfer.toml",
+  "arms/complete-boundary-composition.toml",
+  "arms/conditional-reflected-hand.toml",
+  "arms/hand-transition-localization.toml",
+]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 60
+max_minutes_per_arm = 12
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

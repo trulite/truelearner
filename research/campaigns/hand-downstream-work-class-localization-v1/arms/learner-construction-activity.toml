@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "learner-construction-activity"
+campaign = "hand-downstream-work-class-localization-v1"
+kind = "diagnostic"
+parents = ["hand-prefix-and-activity-work-localization-v1:post-choice-activity", "boundary-input-activity"]
+imports = ["step-eleven plus-eight-hundred-thirty-four spike", "candidate learner increase", "complete phase work"]
+mechanism = "Attribute step eleven by phase while retaining actual learner-construction, closure, structural, delivery, scheduling, and comparison work."
+prediction = "The candidate receives more boundary-derived inputs, performs more physical work and learner construction, and exactly attributes the complete step-eleven comparison spike."
+falsifiers = ["No learner construction occurs in step eleven.", "The spike remains after matching actual inputs and physical work.", "Comparison sources fail to reconcile.", "The execution loses quiescence."]
+source_revision = "plan:c78aae74fd1544c2ebe79a615eff1300f56e055873ef1b8c75323a6d37b444a9"
+protocol_sha256 = "512c65c4832bade394647376039f58ada031134dd5b5b288c7ae89fe4dfbb1e0"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-downstream-work-class-localization/Cargo.toml signed_comparison_sources_must_reconcile"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-downstream-work-class-localization/Cargo.toml -- --predecessor-dir research/campaigns/hand-prefix-and-activity-work-localization-v1 --output-dir research/campaigns/hand-downstream-work-class-localization-v1/artifacts"

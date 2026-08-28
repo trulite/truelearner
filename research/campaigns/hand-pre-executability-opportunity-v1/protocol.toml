@@ -1,0 +1,40 @@
+schema = "research-protocol/v1"
+id = "hand-pre-executability-opportunity-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-physical-change-resampling-v1 convergence"
+question = "Does the first silent-motor failure arise from balanced live path drive without a pre-executability opportunity, ownership rejection, or path inputs without live strength?"
+observables = [
+  "per-output positive and negative complete-path strength before cancellation",
+  "candidate ownership, current opportunity, admitted and projected drive, threshold, executability, and live unanswered returns",
+  "consequence writes, motor output, reflected position changes, replay, quiescence, and work",
+]
+frozen_variables = [
+  "RecursiveLearnerPhysicalTransitionReturn behavior and the unchanged reflected-hand world",
+  "parent candidate replay, quiescence, capacities, propagation bound, and four truthful position changes",
+]
+permitted_changes = [
+  "add scalar observations to the existing core output-candidate diagnostic",
+  "reuse the existing executable candidate return-resolution result in both trace and selection",
+  "project the new observations through the evaluator-side hand evidence adapter",
+]
+positive_predicates = [
+  "one and only one frozen explanation survives its preregistered predicate",
+  "the first clamped no-write moment can be classified without rerunning a new diagnostic",
+  "trace/no-trace behavior, replay, quiescence, and parent hand behavior remain equal",
+]
+negative_controls = [
+  "no learner-visible motor identity, position, direction, contact, hand state, or evaluator answer",
+  "no opportunity, route, strength, ownership, selection, learning, or lifetime change",
+  "the physical-transition parent campaign remains unchanged",
+]
+stop_conditions = [
+  "the observations change behavior or resolve returns twice",
+  "the measurements cannot distinguish balanced nonzero drive from absent live drive",
+  "multiple explanations survive without a further discriminating observation",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

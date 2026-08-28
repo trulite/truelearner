@@ -1,0 +1,17 @@
+{
+  "schema": "recursive-learner-reentry/v1",
+  "arm": "post-construction-causal-opportunity",
+  "outcome": "falsified",
+  "observations": {
+    "child_owned_closure": false,
+    "earliest_absent": "fresh finite return admission before owner resolution",
+    "post_construction_modulatory_incidence": true,
+    "post_construction_output": true,
+    "post_construction_reverse_consolidation": false,
+    "root_constructed": true,
+    "surface_owned": true
+  },
+  "falsifier": "the return incidence was rejected before reverse consolidation and owner-local closure lookup",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

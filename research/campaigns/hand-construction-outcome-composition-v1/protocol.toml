@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-construction-outcome-composition-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-compositional-existing-trace-witness-v1 convergence sha256:4a6c44b1280ab30541fbd93aa0e9ca81f414e5f5ca761f6fe1425eb9b8cfb164"
+question = "Does composing an already-recorded same-tick consequence through exact learner construction change the tick-twenty-three owner-local state from Missing to Stale while preserving the original tick, target choice, and hand behavior?"
+observables = ["same-tick physical and learner consequence writes", "learner construction tick and exact owner", "tick-twenty-three target-eleven consequence tick and completed-cycle state", "admitted target and hand summary", "replay, quiescence, propagation, and protocol-scope controls"]
+frozen_variables = ["completed-cycle parent protocol", "official batched hand adapter", "four-tick completed-cycle recency window", "existing learner consequence memory and trace event", "prior immutable artifacts"]
+permitted_changes = ["one opt-in successor protocol", "same-tick exact-lineage projection into existing learner consequence memory", "one successor evidence runner"]
+positive_predicates = ["same-tick exact-lineage consequence is recorded for the newly constructed learner with the original tick", "older and unrelated consequence marks remain excluded", "target eleven is Stale rather than Missing at tick twenty-three", "target ten remains admitted and the exact parent hand summary is unchanged"]
+negative_controls = ["old completed-cycle protocol remains unchanged", "no parent or sibling private-memory copy", "no semantic position, direction, hand, action, or expected-target fact", "no new path, outcome, memory, trace, adapter, or recency mechanism"]
+stop_conditions = ["tiny fixture imports older or unrelated history", "original tick is refreshed", "old protocol changes", "tick-twenty-three target eleven is Missing or Unique", "candidate changes target choice before the projection law is isolated", "replay, quiescence, or propagation integrity fails"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

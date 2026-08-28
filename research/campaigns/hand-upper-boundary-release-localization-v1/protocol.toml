@@ -1,0 +1,43 @@
+schema = "research-protocol/v1"
+id = "hand-upper-boundary-release-localization-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-boundary-effect-reentry-v1 convergence sha256:259f1ef07aba8ae48c3f14f259297d8440b595e4f35abb4586fbd8c2b26d5ea2"
+question = "At the first quiet upper-boundary stall, where does the non-emitted motor stop, and does the incumbent retain preference through a physically ineligible consequence renewal?"
+observables = [
+  "both motor endpoints' live paths, drive, threshold, executability, origin grouping, local selection, emitted output, and physical movement",
+  "return origin, birth versus opening eligibility, consequence write tick, and selected candidate consequence tick",
+  "last moving step, first clamped step, later clamped steps, replay, quiescence, and propagation exhaustion",
+]
+frozen_variables = [
+  "the boundary-effect-terminal protocol, reflected hand, inputs, topology, timing, learning, selection, output interpretation, and 256-moment bound",
+  "the known four-step positive travel, upper clamp, one direction, zero exhaustion, exact replay, and natural quiescence",
+]
+permitted_changes = [
+  "export complete existing candidate-selection, return-origin, consequence-write, and closure-eligibility trace events through the research adapter",
+  "fold existing events into per-physical-endpoint transition stages without changing core behavior",
+  "serialize compact diagnostic evidence",
+]
+positive_predicates = [
+  "the first clamped step contains two live executable motor candidates, exactly one selected endpoint, and exactly one emitted endpoint",
+  "the silent endpoint is rejected by local output competition rather than missing a path, threshold, or executable candidate",
+  "later clamped steps admit temporally ineligible surface origins, write a new consequence tick, and retain the same incumbent",
+  "the trace preserves the frozen trajectory, exact replay, natural quiescence, and zero propagation exhaustion",
+]
+negative_controls = [
+  "the last moving step uses the same two physical motor endpoints",
+  "all evidence is read from existing events and outputs; no expected direction or correct action is supplied",
+  "the diagnostic does not change learner state, work semantics, or the frozen boundary-effect result",
+]
+stop_conditions = [
+  "either motor endpoint lacks complete path, candidate, selection, or output evidence",
+  "the silent motor is not executable before local competition",
+  "repeated clamped consequence is temporally eligible or does not refresh the incumbent",
+  "trajectory, replay, quiescence, exhaustion, or warm runtime changes",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true
+

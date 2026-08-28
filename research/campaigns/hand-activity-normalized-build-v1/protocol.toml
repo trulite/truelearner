@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-activity-normalized-build-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-downstream-work-class-localization-v1 convergence sha256:6e97b6268a4ca45f0992454377f31ef6ac0d57f2c174ac566afe7a2013a5dc77"
+question = "Does activity-normalized scheduling and the smallest physical continuation/release composition close and recover one anonymous reflected joint under the unchanged official batched adapter?"
+observables = ["fanout and batched causal items", "timing-wheel comparisons and scans", "exact parent trajectory", "per-phase emitted physical outputs", "step-six and step-nine movement", "both reflected limits and escapes", "perturbation recovery", "replay quiescence exhaustion comparisons and scans", "predecessor content digests"]
+frozen_variables = ["sixteen-step reflected joint", "official batched force law", "junction and link capacities", "maximum moments per send", "opt-in bounded-construction parent", "immutable predecessor evidence", "accepted default"]
+permitted_changes = ["behavior-preserving stable causal-wave extraction", "one opt-in protocol composing current-transition opportunity and choice", "multi-origin sample-only fresh-alternative release", "phase output identity projection"]
+positive_predicates = ["all seven predecessor digests match", "fanout four through sixty-four uses at most two comparisons and twenty-four scans per batched item with stable normalized growth", "every scaling point replays exactly and quiesces", "the parent trajectory remains exact", "candidate step six and step nine emit only one motor direction and move", "candidate reaches and leaves both limits", "candidate recovers from perturbation", "candidate replay is exact naturally quiescent unexhausted and unstopped"]
+negative_controls = ["old protocol cannot directly promote the balanced transition path", "sample cannot receive direct continuation opportunity", "unbalanced path cannot receive direct continuation opportunity", "single path origin cannot trigger no-change release", "held construction outcome keeps priority", "parent behavior remains exact", "no adapter or evaluator fact enters the learner"]
+stop_conditions = ["a predecessor hash changes", "scaling exceeds either frozen activity bound", "scheduler ordering or replay changes", "parent behavior changes", "either cancellation remains", "either limit or escape is absent", "perturbation recovery fails", "execution exhausts or does not quiesce"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

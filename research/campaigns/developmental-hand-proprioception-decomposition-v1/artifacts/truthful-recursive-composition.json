@@ -1,0 +1,679 @@
+{
+  "schema": "developmental-hand-proprioception-decomposition/v1",
+  "arm": "truthful-recursive-composition",
+  "outcome": "falsified",
+  "observations": {
+    "perturbation": null,
+    "perturbation_recovered": false,
+    "primary": {
+      "aggregate": {
+        "changed_steps": 15,
+        "comparisons": 1162708,
+        "directions": [
+          -1,
+          1
+        ],
+        "escaped_lower": false,
+        "escaped_upper": true,
+        "events": {
+          "choices": 2711,
+          "closure_observations": 0,
+          "consequential_owner_reads": 0,
+          "constructions": 0,
+          "drive_incidence": 297,
+          "outputs": 48,
+          "owner_reads": 0,
+          "owner_writes": 0,
+          "proposals": 2069,
+          "return_admissions": 9,
+          "return_scheduling": 44,
+          "traversals": 0
+        },
+        "final_position": 3,
+        "junctions": 1147,
+        "learners": 0,
+        "links": 2143,
+        "maximum_same_direction_run": 5,
+        "reached_lower": false,
+        "reached_upper": true,
+        "scans": 54344,
+        "steps": 16
+      },
+      "elapsed_millis": 214,
+      "exact_replay": true,
+      "history": [
+        {
+          "comparisons": 43,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 5,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 9,
+            "outputs": 2,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 6,
+            "return_admissions": 0,
+            "return_scheduling": 0,
+            "traversals": 0
+          },
+          "index": 0,
+          "junctions": 22,
+          "learners": 0,
+          "links": 27,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 1,
+          "position_before": 0,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 63
+        },
+        {
+          "comparisons": 313,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            90012,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 12,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 16,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 14,
+            "return_admissions": 1,
+            "return_scheduling": 1,
+            "traversals": 0
+          },
+          "index": 1,
+          "junctions": 36,
+          "learners": 0,
+          "links": 55,
+          "local_return_updates": 2,
+          "naturally_quiescent": true,
+          "position_after": 2,
+          "position_before": 1,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 421
+        },
+        {
+          "comparisons": 365,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            90012,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 11,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 16,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 3,
+            "return_admissions": 1,
+            "return_scheduling": 2,
+            "traversals": 0
+          },
+          "index": 2,
+          "junctions": 36,
+          "learners": 0,
+          "links": 55,
+          "local_return_updates": 2,
+          "naturally_quiescent": true,
+          "position_after": 3,
+          "position_before": 2,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 413
+        },
+        {
+          "comparisons": 203,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            90026,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 9,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 15,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 9,
+            "return_admissions": 2,
+            "return_scheduling": 2,
+            "traversals": 0
+          },
+          "index": 3,
+          "junctions": 36,
+          "learners": 0,
+          "links": 55,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 3,
+          "reached_lower": false,
+          "reached_upper": true,
+          "scans": 358
+        },
+        {
+          "comparisons": 531,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            90026,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 10,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 21,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 9,
+            "return_admissions": 1,
+            "return_scheduling": 1,
+            "traversals": 0
+          },
+          "index": 4,
+          "junctions": 39,
+          "learners": 0,
+          "links": 57,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 574
+        },
+        {
+          "comparisons": 1495,
+          "direction": -1,
+          "effort": [
+            1,
+            0
+          ],
+          "emitted_outputs": [
+            90042,
+            20000,
+            90032
+          ],
+          "escaped_lower": false,
+          "escaped_upper": true,
+          "events": {
+            "choices": 41,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 23,
+            "outputs": 4,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 39,
+            "return_admissions": 0,
+            "return_scheduling": 2,
+            "traversals": 0
+          },
+          "index": 5,
+          "junctions": 75,
+          "learners": 0,
+          "links": 127,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 3,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 775
+        },
+        {
+          "comparisons": 17537,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            40000,
+            90129,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 127,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 17,
+            "outputs": 4,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 122,
+            "return_admissions": 1,
+            "return_scheduling": 2,
+            "traversals": 0
+          },
+          "index": 6,
+          "junctions": 193,
+          "learners": 0,
+          "links": 362,
+          "local_return_updates": 2,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 3,
+          "reached_lower": false,
+          "reached_upper": true,
+          "scans": 2924
+        },
+        {
+          "comparisons": 39340,
+          "direction": 0,
+          "effort": [
+            0,
+            0
+          ],
+          "emitted_outputs": [
+            90266
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 70,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 17,
+            "outputs": 1,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 73,
+            "return_admissions": 1,
+            "return_scheduling": 4,
+            "traversals": 0
+          },
+          "index": 7,
+          "junctions": 263,
+          "learners": 0,
+          "links": 436,
+          "local_return_updates": 2,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 2655
+        },
+        {
+          "comparisons": 39409,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            90336,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 189,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 21,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 123,
+            "return_admissions": 0,
+            "return_scheduling": 3,
+            "traversals": 0
+          },
+          "index": 8,
+          "junctions": 263,
+          "learners": 0,
+          "links": 437,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 2947
+        },
+        {
+          "comparisons": 39313,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            90346,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 125,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 16,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 0,
+            "return_admissions": 0,
+            "return_scheduling": 5,
+            "traversals": 0
+          },
+          "index": 9,
+          "junctions": 263,
+          "learners": 0,
+          "links": 437,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 3068
+        },
+        {
+          "comparisons": 3556,
+          "direction": -1,
+          "effort": [
+            1,
+            0
+          ],
+          "emitted_outputs": [
+            90402,
+            20000
+          ],
+          "escaped_lower": false,
+          "escaped_upper": true,
+          "events": {
+            "choices": 64,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 23,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 69,
+            "return_admissions": 0,
+            "return_scheduling": 3,
+            "traversals": 0
+          },
+          "index": 10,
+          "junctions": 263,
+          "learners": 0,
+          "links": 437,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 3,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 1488
+        },
+        {
+          "comparisons": 52097,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            40000,
+            90546,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 224,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 16,
+            "outputs": 4,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 216,
+            "return_admissions": 1,
+            "return_scheduling": 2,
+            "traversals": 0
+          },
+          "index": 11,
+          "junctions": 328,
+          "learners": 0,
+          "links": 620,
+          "local_return_updates": 2,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 3,
+          "reached_lower": false,
+          "reached_upper": true,
+          "scans": 6092
+        },
+        {
+          "comparisons": 117148,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            90780,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 118,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 23,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 123,
+            "return_admissions": 1,
+            "return_scheduling": 4,
+            "traversals": 0
+          },
+          "index": 12,
+          "junctions": 445,
+          "learners": 0,
+          "links": 738,
+          "local_return_updates": 2,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 5411
+        },
+        {
+          "comparisons": 117169,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            90900,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 333,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 21,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 217,
+            "return_admissions": 0,
+            "return_scheduling": 5,
+            "traversals": 0
+          },
+          "index": 13,
+          "junctions": 445,
+          "learners": 0,
+          "links": 739,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 5745
+        },
+        {
+          "comparisons": 117169,
+          "direction": 1,
+          "effort": [
+            0,
+            1
+          ],
+          "emitted_outputs": [
+            90906,
+            20001
+          ],
+          "escaped_lower": false,
+          "escaped_upper": false,
+          "events": {
+            "choices": 333,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 20,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 120,
+            "return_admissions": 0,
+            "return_scheduling": 5,
+            "traversals": 0
+          },
+          "index": 14,
+          "junctions": 449,
+          "learners": 0,
+          "links": 741,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 4,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 5969
+        },
+        {
+          "comparisons": 617020,
+          "direction": -1,
+          "effort": [
+            1,
+            0
+          ],
+          "emitted_outputs": [
+            91249,
+            20000
+          ],
+          "escaped_lower": false,
+          "escaped_upper": true,
+          "events": {
+            "choices": 1040,
+            "closure_observations": 0,
+            "consequential_owner_reads": 0,
+            "constructions": 0,
+            "drive_incidence": 23,
+            "outputs": 3,
+            "owner_reads": 0,
+            "owner_writes": 0,
+            "proposals": 926,
+            "return_admissions": 0,
+            "return_scheduling": 3,
+            "traversals": 0
+          },
+          "index": 15,
+          "junctions": 1147,
+          "learners": 0,
+          "links": 2143,
+          "local_return_updates": 0,
+          "naturally_quiescent": true,
+          "position_after": 3,
+          "position_before": 4,
+          "reached_lower": false,
+          "reached_upper": false,
+          "scans": 15441
+        }
+      ],
+      "naturally_quiescent": true,
+      "status": "completed"
+    },
+    "primary_closed": false
+  },
+  "falsifier": "the complete candidate did not reach and leave both limits in sixteen steps",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

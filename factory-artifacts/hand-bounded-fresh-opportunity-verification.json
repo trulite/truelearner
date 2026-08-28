@@ -1,0 +1,64 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "hand-bounded-fresh-opportunity-candidate.json",
+    "sha256": "5ae650500c89b9c54719e01620b3632a37825a5c9cea93eca07bd2be608ec1c2"
+  },
+  "verdict": "refuted",
+  "independent_test_count": 3,
+  "checks": [
+    {
+      "name": "held-out-core-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.07
+    },
+    {
+      "name": "parent-campaigns",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-physical-change-resampling/Cargo.toml && cargo test --locked --manifest-path research/experiments/hand-pre-executability-opportunity/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 6.26
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-bounded-fresh-opportunity/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.27
+    }
+  ],
+  "findings": [
+    "The local mechanism is implemented and controlled: one all-organism fixture transferred one unit, fired the balanced neighbor, superseded the exact donor, reflected, and never reused that donor return.",
+    "The unchanged hand refuted sufficiency before transfer: four non-recent opportunities were rejected because an organism-owned donor return faced an Owned(2) recipient; one additional donor was correctly rejected as recent.",
+    "The candidate remained equal to its parent at four physical changes, motor 20001 only, upper clamp, exact replay, natural quiescence, and zero propagation exhaustion.",
+    "All 58 active core boundary tests passed; two declared adversarial tests remained ignored."
+  ],
+  "residual_uncertainty": [
+    "It is not yet established whether the mismatch is the forecast organism-to-root adjacent-recruitment boundary or an unsafe unrelated cross-owner relation.",
+    "The opt-in law is retained as falsified research code and is not adopted into default organism physics."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/hand-bounded-fresh-opportunity-v1/results/constructed-bounded-fresh-opportunity.json",
+      "sha256": "b97a8f40ada1d620795d836307fd21f5b001b4adff2e3dbf11ecf45be5a76c10"
+    },
+    {
+      "path": "research/campaigns/hand-bounded-fresh-opportunity-v1/results/lifetime-locality-ownership-controls.json",
+      "sha256": "310d02d9ee6ac1b6640c45cd58b7a34bf47137eafc2bf5043196ce480bacb592"
+    },
+    {
+      "path": "research/campaigns/hand-bounded-fresh-opportunity-v1/results/conditional-reflected-hand-release.json",
+      "sha256": "3980023897427fd51c921c280d55b93556b4db39e459e1a8afeb80eede25fd5d"
+    },
+    {
+      "path": "research/campaigns/hand-bounded-fresh-opportunity-v1/results/complete-composition.json",
+      "sha256": "5158e64505b94e55e29f549d2e7968f6a84620b674b09add41d52e596e5952df"
+    },
+    {
+      "path": "research/campaigns/hand-bounded-fresh-opportunity-v1/convergence.toml",
+      "sha256": "e53b6b40f897d2ecdf6b757331cefb8a35e7d3acae726d1e97224f3b4e40263c"
+    }
+  ]
+}

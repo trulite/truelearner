@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-downstream-work-class-localization-v1"
+program = "learner-physics"
+kind = "diagnostic"
+mode = "discovery"
+hypothesis = "The failed positive comparison excess is finite useful activity caused by reaching upper contact and constructing downstream learner structure, not direct lifetime-law overhead, unexplained scheduler waste, or runaway feedback."
+first_divergence = "The first positive excess is step four after the repaired arrow reaches plus four; the largest excess is step eleven when the candidate again begins at upper contact and ends with two additional learners."
+missing_transition = "Exact attribution from changed physical phase inputs through timing-wheel comparison sources and structured work to a finite-activity waste-or-runaway decision."
+prediction = "All comparison totals partition exactly; steps four and eleven receive more inputs and physical work, step eleven constructs learners, every major spike is fully attributed, and both runs remain quiet so the decision is finite useful activity."
+falsifiers = ["Comparison attribution or phase conservation fails.", "A major spike has no extra physical input or structured work.", "Step eleven has no additional learner construction.", "Any major spike remains unexplained.", "The candidate is non-quiescent exhausted or behaviorally changed."]
+positive_reference = "hand-prefix-and-activity-work-localization-v1 immutable negative evidence and convergence sha256:78cdbd2a8e769a5fcd3bc978f943d860636409073c2f43271b274fbfcb6ef34e"
+negative_controls = ["unchanged live parent and bounded-continuation candidate", "immutable predecessor artifacts evidence adjudication and convergence", "existing total comparison and scan counters", "synthetic unexplained-waste classifier", "synthetic runaway classifier", "accepted default protocol"]
+included_mechanisms = ["existing structured core Work", "existing complete ExecutionCost", "exhaustive timing-wheel comparison partition", "existing physical phase inputs outputs and trace", "pure finite-activity decision"]
+inherited_constraints = ["benchmark-blind learner", "official batched adapter", "no physics or total-cost changes", "frozen negative predecessor", "one valid frozen run"]
+excluded_proposals = ["learner optimization", "cost-gate loosening", "lower-side behavior solve", "semantic position direction or contact memory", "new physical trace events", "default adoption or authority promotion"]
+arm_paths = ["arms/attribution-conservation.toml", "arms/boundary-input-activity.toml", "arms/learner-construction-activity.toml", "arms/finite-activity-decision.toml"]
+max_parallel_arms = 4
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 12
+max_minutes_per_arm = 3
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

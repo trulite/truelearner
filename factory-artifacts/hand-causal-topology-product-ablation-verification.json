@@ -1,0 +1,47 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "hand-causal-topology-product-ablation-candidate.json",
+    "sha256": "c66d5e276f4ee0e50696285ba4739f2c4c32f744b57febcf189bed52fa40468b"
+  },
+  "verdict": "supported",
+  "independent_test_count": 2,
+  "checks": [
+    {
+      "name": "held-out",
+      "command": "cargo test --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.82
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.20
+    }
+  ],
+  "findings": [
+    "Both single-removal protocols preserve exact one-module identity and fail only at their preregistered multi-component breakpoint.",
+    "The unchanged complete protocol closes two and then five components while the old origin controls remain falsified and replay and quiescence remain intact.",
+    "The core topology fixture and the hand experiment agree that connected alternatives compete while disconnected outcome components compose."
+  ],
+  "residual_uncertainty": [
+    "The evidence supports the declared one two and five anonymous serial chains; it does not establish fingers opposing digits grasping workstation interaction or arbitrary morphology."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/hand-causal-topology-product-ablation-v1/artifacts/complete-reference/two-joint-serial-composition.json",
+      "sha256": "3bc63091cc8395392c3b6b59ef43ac62cb8ea367e5f582cd24c79233f4ea525f"
+    },
+    {
+      "path": "research/campaigns/hand-causal-topology-product-ablation-v1/artifacts/remove-output-factorization/two-joint-serial-composition.json",
+      "sha256": "067be16eef977c4126fa97e33b14335d0db25fa6f59c64de72f8ef7aa3e85f3a"
+    },
+    {
+      "path": "research/campaigns/hand-causal-topology-product-ablation-v1/artifacts/remove-opportunity-factorization/two-joint-serial-composition.json",
+      "sha256": "97ab23a10c870334a5f0572381925fa574c6688424e41974947699f4d12849d9"
+    }
+  ]
+}

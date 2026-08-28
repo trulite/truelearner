@@ -1,0 +1,23 @@
+{
+  "schema": "hand-origin-feedback-cycle-localization/v1",
+  "arm": "matched-boundary-control",
+  "outcome": "survived",
+  "observations": {
+    "candidate_changed_steps": 8,
+    "candidate_exact_replay": true,
+    "candidate_exhaustions": 2,
+    "candidate_final_position": 4,
+    "candidate_naturally_quiescent": false,
+    "frozen_candidate_behavior": true,
+    "reference_changed_steps": 3,
+    "reference_exact_replay": true,
+    "reference_exhaustions": 0,
+    "reference_final_position": -1,
+    "reference_naturally_quiescent": true,
+    "reference_repeated_cycles": 0,
+    "survived": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

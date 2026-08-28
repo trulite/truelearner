@@ -1,7 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 use truelearner_core::{
-    Checkpoint, CheckpointError, Harness, HarnessBuilder, Input, Junction, JunctionId, Link,
-    LinkId, PhysicalEvent, Protocol, Run, TransmissionMode, TransmissionTrigger,
+    classify_learner_ownership_relation, CandidateOwnership, CausalOriginResolution, Checkpoint,
+    CheckpointError, CompletedCycleState, Harness, HarnessBuilder, Input, Junction, JunctionId,
+    LearnerId, LearnerObservation, LearnerOwnershipRelation, Link, LinkId, OutputChoiceBasis,
+    PhysicalEvent, PhysicalIncidence, PhysicalInput, Protocol, ReturnOriginDecision,
+    ReversePathDecision, Run, TransmissionMode, TransmissionTrigger,
 };
 
 const OUTWARD_REGION: i16 = 1;
@@ -419,6 +422,28 @@ impl LocalOutcomePairWorld {
         self.harness.send(&[input(self.outcomes[index], tick)])
     }
 
+    fn transition_outcome_for(&mut self, output: u64, delay: i64) -> Run {
+        let index = self
+            .physical_outputs
+            .iter()
+            .position(|physical| *physical == output)
+            .expect("output belongs to the local pair");
+        let tick = self.harness.read().clock.tick.saturating_add(delay);
+        self.harness.advance_to(tick);
+        self.harness.send_physical(&[PhysicalInput {
+            input: Input {
+                origin_physical: 28_000,
+                ..input(self.outcomes[index], tick)
+            },
+            incidence: PhysicalIncidence::Transition,
+        }])
+    }
+
+    fn recall(&mut self) -> Run {
+        let tick = self.harness.read().clock.tick.saturating_add(1);
+        self.harness.send(&[input(self.input, tick)])
+    }
+
     fn used_strength(&self, output: u64) -> i64 {
         let index = self
             .physical_outputs
@@ -834,6 +859,409 @@ fn unanswered_local_return_replacement_does_not_suppress_a_far_output() {
         .outputs
         .iter()
         .any(|output| output.from_physical == 28_108));
+}
+
+#[test]
+fn bounded_fresh_opportunity_exposes_one_balanced_local_candidate() {
+    let mut candidate = LocalOutcomePairWorld::new(Protocol::RecursiveLearnerFreshOpportunity);
+    let first = candidate.stimulate().outputs[0].from_physical;
+    let returned = candidate.transition_outcome_for(first, 1);
+    assert!(returned.work.local_return_updates > 0, "{returned:#?}");
+    assert_eq!(candidate.stimulate().outputs[0].from_physical, first);
+    candidate
+        .harness
+        .advance_to(candidate.harness.read().clock.tick.saturating_add(10));
+    let alternative = candidate.recall();
+
+    assert_eq!(alternative.outputs.len(), 1, "{alternative:#?}");
+    assert_ne!(alternative.outputs[0].from_physical, first);
+    let transfer =
+        alternative
+            .physical_trace
+            .iter()
+            .find_map(|transition| match transition.event {
+                PhysicalEvent::FreshOpportunityTransferred {
+                    donor,
+                    recipient,
+                    return_link,
+                    owner,
+                    opportunity,
+                } => Some((donor, recipient, return_link, owner, opportunity)),
+                _ => None,
+            });
+    let (donor, recipient, return_link, owner, opportunity) =
+        transfer.expect("one fresh opportunity transfers");
+    assert_ne!(donor, recipient);
+    assert!(owner.is_none());
+    assert_eq!(opportunity, i64::try_from(UNIT_U64).unwrap());
+    assert!(alternative.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnSuperseded { link } if link == return_link
+    )));
+    assert!(alternative.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::OutputCandidateEvaluated {
+            target,
+            positive_path_strength: UNIT_U64,
+            negative_path_strength: UNIT_U64,
+            supplied_opportunity,
+            executable: true,
+            ..
+        } if target == recipient && supplied_opportunity == i64::try_from(UNIT_U64).unwrap()
+    )));
+    assert!(alternative.naturally_quiescent);
+    candidate
+        .harness
+        .advance_to(candidate.harness.read().clock.tick.saturating_add(10));
+    let repeated = candidate.recall();
+    assert!(!repeated.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::FreshOpportunityTransferred { return_link: observed, .. }
+            if observed == return_link
+    )));
+}
+
+#[test]
+fn opportunity_owner_relation_partitions_actual_ancestry() {
+    let learner = |id: u64, parent: Option<u64>| LearnerObservation {
+        id: LearnerId(id),
+        parent: parent.map(LearnerId),
+        surface: JunctionId(0),
+        output: JunctionId(0),
+        junctions: Vec::new(),
+        links: Vec::new(),
+    };
+    let learners = [
+        learner(1, None),
+        learner(2, None),
+        learner(3, Some(1)),
+        learner(4, Some(1)),
+        learner(5, Some(3)),
+    ];
+    let classify = |donor: Option<u64>, recipient: Option<u64>| {
+        classify_learner_ownership_relation(
+            donor.map(LearnerId),
+            recipient.map(LearnerId),
+            &learners,
+        )
+    };
+
+    assert_eq!(classify(None, None), LearnerOwnershipRelation::SameOwner);
+    assert_eq!(
+        classify(Some(1), Some(1)),
+        LearnerOwnershipRelation::SameOwner
+    );
+    assert_eq!(
+        classify(None, Some(1)),
+        LearnerOwnershipRelation::OrganismToRoot
+    );
+    assert_eq!(
+        classify(Some(1), None),
+        LearnerOwnershipRelation::RootToOrganism
+    );
+    assert_eq!(
+        classify(Some(1), Some(3)),
+        LearnerOwnershipRelation::ParentToChild
+    );
+    assert_eq!(
+        classify(Some(3), Some(1)),
+        LearnerOwnershipRelation::ChildToParent
+    );
+    assert_eq!(
+        classify(Some(3), Some(4)),
+        LearnerOwnershipRelation::Siblings
+    );
+    assert_eq!(
+        classify(Some(1), Some(2)),
+        LearnerOwnershipRelation::Unrelated
+    );
+    assert_eq!(classify(None, Some(5)), LearnerOwnershipRelation::Unrelated);
+    assert_eq!(
+        classify(Some(9), Some(9)),
+        LearnerOwnershipRelation::Unrelated
+    );
+}
+
+#[test]
+fn organism_root_fresh_opportunity_is_protocol_scoped() {
+    let strict = Protocol::RecursiveLearnerFreshOpportunity;
+    let root = Protocol::RecursiveLearnerRootFreshOpportunity;
+    let parent = Protocol::RecursiveLearnerPhysicalTransitionReturn;
+
+    for relation in [
+        LearnerOwnershipRelation::SameOwner,
+        LearnerOwnershipRelation::OrganismToRoot,
+        LearnerOwnershipRelation::RootToOrganism,
+        LearnerOwnershipRelation::ParentToChild,
+        LearnerOwnershipRelation::ChildToParent,
+        LearnerOwnershipRelation::Siblings,
+        LearnerOwnershipRelation::Unrelated,
+    ] {
+        assert_eq!(
+            strict.admits_fresh_opportunity_relation(relation),
+            relation == LearnerOwnershipRelation::SameOwner
+        );
+        assert_eq!(
+            root.admits_fresh_opportunity_relation(relation),
+            matches!(
+                relation,
+                LearnerOwnershipRelation::SameOwner | LearnerOwnershipRelation::OrganismToRoot
+            )
+        );
+        assert!(!parent.admits_fresh_opportunity_relation(relation));
+    }
+
+    let mut candidate = LocalOutcomePairWorld::new(root);
+    let first = candidate.stimulate().outputs[0].from_physical;
+    candidate.transition_outcome_for(first, 1);
+    candidate.stimulate();
+    candidate
+        .harness
+        .advance_to(candidate.harness.read().clock.tick.saturating_add(10));
+    let alternative = candidate.recall();
+    assert_ne!(alternative.outputs[0].from_physical, first);
+    assert!(alternative.naturally_quiescent);
+}
+
+#[test]
+fn physical_transition_continuation_is_cumulative_and_protocol_scoped() {
+    let protocol = Protocol::RecursiveLearnerTransitionContinuation;
+    assert!(protocol.admits_fresh_opportunity_relation(LearnerOwnershipRelation::SameOwner));
+    assert!(protocol.admits_fresh_opportunity_relation(LearnerOwnershipRelation::OrganismToRoot));
+    assert!(!protocol.admits_fresh_opportunity_relation(LearnerOwnershipRelation::Siblings));
+
+    let mut world = LocalOutcomePairWorld::new(protocol);
+    let first = world.stimulate().outputs[0].from_physical;
+    world.transition_outcome_for(first, 1);
+    world.stimulate();
+    world
+        .harness
+        .advance_to(world.harness.read().clock.tick.saturating_add(10));
+    let alternative = world.recall();
+    assert_ne!(alternative.outputs[0].from_physical, first);
+    assert!(alternative.naturally_quiescent);
+}
+
+#[test]
+fn coherent_unresolved_effect_holds_once_then_releases() {
+    let mut coherent = LocalOutcomePairWorld::new(Protocol::RecursiveLearnerCoherentEffect);
+    let first = coherent.stimulate().outputs[0].from_physical;
+    coherent.transition_outcome_for(first, 1);
+    assert_eq!(coherent.stimulate().outputs[0].from_physical, first);
+    let held = coherent.stimulate();
+    assert_eq!(held.outputs[0].from_physical, first, "{held:#?}");
+    assert!(held.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::CoherentEffectEvaluated {
+            latest_unanswered_opened_tick: Some(_),
+            unanswered_returns: 1,
+            admitted: true,
+            ..
+        }
+    )));
+
+    coherent
+        .harness
+        .advance_to(coherent.harness.read().clock.tick.saturating_add(10));
+    let released = coherent.stimulate();
+    assert_ne!(released.outputs[0].from_physical, first, "{released:#?}");
+
+    let mut parent = LocalOutcomePairWorld::new(Protocol::RecursiveLearnerRootFreshOpportunity);
+    let parent_first = parent.stimulate().outputs[0].from_physical;
+    parent.transition_outcome_for(parent_first, 1);
+    assert_eq!(parent.stimulate().outputs[0].from_physical, parent_first);
+    assert_ne!(parent.stimulate().outputs[0].from_physical, parent_first);
+    assert!(!parent
+        .stimulate()
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::CoherentEffectEvaluated { .. }
+        )));
+    assert!(held.naturally_quiescent && released.naturally_quiescent);
+}
+
+#[test]
+fn completed_cycle_composes_truthful_returns_but_not_samples() {
+    let mut world = LocalOutcomePairWorld::new(Protocol::RecursiveLearnerCompletedCycle);
+    let first = world.stimulate().outputs[0].from_physical;
+
+    let first_return = world.transition_outcome_for(first, 1);
+    assert!(first_return.naturally_quiescent);
+    assert!(first_return
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::PhysicalTransitionEligibilityEvaluated { eligible: true, .. }
+        )));
+    let first_successor = world.stimulate();
+    assert_eq!(
+        first_successor.outputs[0].from_physical, first,
+        "{:#?}",
+        first_successor.physical_trace
+    );
+
+    world.transition_outcome_for(first, 1);
+    let second_successor = world.stimulate();
+    assert_eq!(second_successor.outputs[0].from_physical, first);
+
+    let rejected_sample = world.outcome_for(first, 1);
+    assert!(rejected_sample
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::PhysicalTransitionEligibilityEvaluated {
+                eligible: false,
+                ..
+            }
+        )));
+    world
+        .harness
+        .advance_to(world.harness.read().clock.tick.saturating_add(10));
+    let released = world.stimulate();
+    assert_ne!(released.outputs[0].from_physical, first, "{released:#?}");
+
+    let mut parent = LocalOutcomePairWorld::new(Protocol::RecursiveLearnerCoherentEffect);
+    let parent_first = parent.stimulate().outputs[0].from_physical;
+    parent.transition_outcome_for(parent_first, 1);
+    assert!(!parent
+        .stimulate()
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::CompletedCycleContinuationEvaluated { .. }
+        )));
+    assert!(first_successor.naturally_quiescent);
+    assert!(second_successor.naturally_quiescent);
+    assert!(released.naturally_quiescent);
+}
+
+#[test]
+fn output_choice_resolution_matches_existing_admissions() {
+    let mut world = LocalOutcomePairWorld::new(Protocol::RecursiveLearnerCompletedCycle);
+    let first = world.stimulate().outputs[0].from_physical;
+    world.transition_outcome_for(first, 1);
+    world.stimulate();
+    let observed = world.stimulate();
+
+    let resolutions = observed
+        .physical_trace
+        .iter()
+        .filter_map(|transition| match &transition.event {
+            PhysicalEvent::OutputChoiceResolved {
+                admitted,
+                admission_basis,
+                completed_cycle_state,
+                ..
+            } => Some((
+                transition.tick,
+                transition.phase,
+                admitted,
+                *admission_basis,
+                *completed_cycle_state,
+            )),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(!resolutions.is_empty());
+    for (tick, phase, admitted, basis, completed_state) in resolutions {
+        let existing = observed
+            .physical_trace
+            .iter()
+            .filter(|transition| transition.tick == tick && transition.phase == phase)
+            .filter_map(|transition| match transition.event {
+                PhysicalEvent::CandidateSelection {
+                    target,
+                    admitted: true,
+                    ..
+                } => Some(target),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>();
+        let grouped = admitted
+            .iter()
+            .map(|admission| admission.target)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(grouped, existing);
+        assert!(matches!(
+            basis,
+            OutputChoiceBasis::CoherentEffect
+                | OutputChoiceBasis::CompletedCycle
+                | OutputChoiceBasis::RecentCohort
+                | OutputChoiceBasis::Ordinary
+        ));
+        assert!(matches!(
+            completed_state,
+            CompletedCycleState::Missing
+                | CompletedCycleState::Unique
+                | CompletedCycleState::AmbiguousLatest
+                | CompletedCycleState::Stale
+        ));
+    }
+}
+
+#[test]
+fn bounded_fresh_opportunity_controls_answered_old_protocol_and_reflection() {
+    let prepare = |protocol| {
+        let mut world = LocalOutcomePairWorld::new(protocol);
+        let first = world.stimulate().outputs[0].from_physical;
+        world.transition_outcome_for(first, 1);
+        assert_eq!(world.stimulate().outputs[0].from_physical, first);
+        (world, first)
+    };
+
+    let (mut answered, answered_first) = prepare(Protocol::RecursiveLearnerFreshOpportunity);
+    let (mut answered_parent, _) = prepare(Protocol::RecursiveLearnerPhysicalTransitionReturn);
+    answered.transition_outcome_for(answered_first, 1);
+    answered_parent.transition_outcome_for(answered_first, 1);
+    answered
+        .harness
+        .advance_to(answered.harness.read().clock.tick.saturating_add(10));
+    answered_parent
+        .harness
+        .advance_to(answered_parent.harness.read().clock.tick.saturating_add(10));
+    let answered_run = answered.recall();
+    let answered_parent_run = answered_parent.recall();
+    assert_eq!(answered_run.outputs, answered_parent_run.outputs);
+    assert!(!answered_run
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::FreshOpportunityTransferred { .. }
+        )));
+
+    let (mut parent, parent_first) = prepare(Protocol::RecursiveLearnerPhysicalTransitionReturn);
+    parent
+        .harness
+        .advance_to(parent.harness.read().clock.tick.saturating_add(10));
+    let parent_run = parent.recall();
+    assert_eq!(parent_run.outputs[0].from_physical, parent_first);
+    assert!(!parent_run.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::FreshOpportunityTransferred { .. }
+    )));
+
+    let (mut reflected, reflected_first) = {
+        let mut world = LocalOutcomePairWorld::with_positions(
+            Protocol::RecursiveLearnerFreshOpportunity,
+            [1, -1],
+        );
+        let first = world.stimulate().outputs[0].from_physical;
+        world.transition_outcome_for(first, 1);
+        world.stimulate();
+        (world, first)
+    };
+    reflected
+        .harness
+        .advance_to(reflected.harness.read().clock.tick.saturating_add(10));
+    let reflected_run = reflected.recall();
+    assert_ne!(reflected_run.outputs[0].from_physical, reflected_first);
+    assert!(reflected_run.naturally_quiescent);
 }
 
 #[test]
@@ -1275,6 +1703,204 @@ fn recursive_learner_world(
     (builder.build(), action, surface, unrelated, motor)
 }
 
+fn boundary_novelty_sibling_world(
+    second_position: i32,
+) -> (Harness, JunctionId, [JunctionId; 2], JunctionId) {
+    boundary_novelty_sibling_world_with_protocol(
+        second_position,
+        Protocol::RecursiveLearnerBoundaryNovelty,
+    )
+}
+
+fn boundary_novelty_sibling_world_with_protocol(
+    second_position: i32,
+    protocol: Protocol,
+) -> (Harness, JunctionId, [JunctionId; 2], JunctionId) {
+    let mut builder = HarnessBuilder::with_capacity(96, 256, OUTWARD_REGION);
+    builder.set_protocol(protocol);
+    builder.set_physical_tracing(true);
+    let action = junction(&mut builder, 39_000, 0, 0, 1);
+    let surfaces = [
+        junction(&mut builder, 39_001, 2, 0, 1),
+        junction(&mut builder, 39_002, second_position, 0, 1),
+    ];
+    let motor = junction(&mut builder, 39_010, 1, 0, 2);
+    let sink = junction(&mut builder, 39_011, 1, OUTWARD_REGION, 1);
+    let outcome = junction(&mut builder, 39_012, 50, 0, 1);
+    let anchor = junction(&mut builder, 39_013, 100, 0, 99);
+    for target in [action, surfaces[0], surfaces[1], outcome] {
+        link(
+            &mut builder,
+            anchor,
+            target,
+            0,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    for surface in surfaces {
+        link(
+            &mut builder,
+            surface,
+            outcome,
+            3,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    link(
+        &mut builder,
+        motor,
+        sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    builder.set_outcome_source_for_output(motor, outcome);
+    (builder.build(), action, surfaces, motor)
+}
+
+fn observe_boundary_sibling_closure(
+    harness: &mut Harness,
+    action: JunctionId,
+    surface: JunctionId,
+    surface_physical: u64,
+    motor: JunctionId,
+) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 39_000,
+            target: action,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(2),
+            phase: 0,
+            origin_physical: 39_010,
+            target: motor,
+            impulse: 1,
+        },
+    ]);
+    send_physical(harness, surface, surface_physical)
+}
+
+fn recursive_control_world() -> (
+    Harness,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+) {
+    recursive_control_world_with_protocol(Protocol::RecursiveLearnerConstruction)
+}
+
+fn recursive_control_world_with_protocol(
+    protocol: Protocol,
+) -> (
+    Harness,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+    JunctionId,
+) {
+    let mut builder = HarnessBuilder::with_capacity(64, 128, OUTWARD_REGION);
+    builder.set_protocol(protocol);
+    builder.set_physical_tracing(true);
+    let action = junction(&mut builder, 36_000, 0, 0, 1);
+    let surface = junction(&mut builder, 36_001, 2, 0, 1);
+    let unrelated = junction(&mut builder, 36_002, 20, 0, 1);
+    let motor = junction(&mut builder, 36_010, 1, 0, 3);
+    let sink = junction(&mut builder, 36_011, 1, OUTWARD_REGION, 1);
+    let outcome = junction(&mut builder, 36_012, 50, 0, 1);
+    let anchor = junction(&mut builder, 36_013, 100, 0, 99);
+    let controlled = junction(&mut builder, 36_020, 30, 0, 2);
+    let controlled_sink = junction(&mut builder, 36_021, 30, OUTWARD_REGION, 1);
+    let controlled_path = junction(&mut builder, 36_022, 2, 0, 1);
+    let controlled_outcome = junction(&mut builder, 36_023, 60, 0, 1);
+    for target in [action, surface, unrelated, outcome, controlled_outcome] {
+        link(
+            &mut builder,
+            anchor,
+            target,
+            0,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    for source in [surface, unrelated] {
+        link(
+            &mut builder,
+            source,
+            outcome,
+            3,
+            1,
+            u32::MAX,
+            TransmissionMode::Drive,
+        );
+    }
+    link(
+        &mut builder,
+        motor,
+        sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    link(
+        &mut builder,
+        surface,
+        controlled_path,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    link(
+        &mut builder,
+        controlled_path,
+        controlled,
+        2,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    link(
+        &mut builder,
+        controlled,
+        controlled_sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    builder.set_outcome_source_for_output(motor, outcome);
+    builder.set_outcome_source_for_output(controlled, controlled_outcome);
+    (
+        builder.build(),
+        action,
+        surface,
+        unrelated,
+        motor,
+        outcome,
+        controlled,
+        controlled_outcome,
+    )
+}
+
 fn send_physical(harness: &mut Harness, target: JunctionId, physical: u64) -> Run {
     let tick = harness.read().clock.tick.saturating_add(1);
     harness.send(&[Input {
@@ -1284,6 +1910,163 @@ fn send_physical(harness: &mut Harness, target: JunctionId, physical: u64) -> Ru
         target,
         impulse: 1,
     }])
+}
+
+fn observe_recursive_closure(
+    harness: &mut Harness,
+    action: JunctionId,
+    surface: JunctionId,
+    motor: JunctionId,
+) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_000,
+            target: action,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(2),
+            phase: 0,
+            origin_physical: 35_010,
+            target: motor,
+            impulse: 1,
+        },
+    ]);
+    send_physical(harness, surface, 35_001)
+}
+
+fn observe_recursive_transition_closure(
+    harness: &mut Harness,
+    action: JunctionId,
+    surface: JunctionId,
+    motor: JunctionId,
+) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_000,
+            target: action,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(2),
+            phase: 0,
+            origin_physical: 35_010,
+            target: motor,
+            impulse: 1,
+        },
+    ]);
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send_physical(&[PhysicalInput {
+        input: Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_001,
+            target: surface,
+            impulse: 1,
+        },
+        incidence: PhysicalIncidence::Transition,
+    }])
+}
+
+fn observe_control_closure(
+    harness: &mut Harness,
+    action: JunctionId,
+    surface: JunctionId,
+    motor: JunctionId,
+) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 36_000,
+            target: action,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(2),
+            phase: 0,
+            origin_physical: 36_010,
+            target: motor,
+            impulse: 2,
+        },
+    ]);
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 36_001,
+        target: surface,
+        impulse: 1,
+    }])
+}
+
+fn stimulate_recursive_control(
+    harness: &mut Harness,
+    surface: JunctionId,
+    controlled: JunctionId,
+) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 36_001,
+            target: surface,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(2),
+            phase: 0,
+            origin_physical: 36_001,
+            target: controlled,
+            impulse: 1,
+        },
+    ])
+}
+
+fn return_recursive_control(harness: &mut Harness, outcome: JunctionId) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 36_001,
+        target: outcome,
+        impulse: 1,
+    }])
+}
+
+fn expire_recursive_returns(harness: &mut Harness, unrelated: JunctionId) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(64);
+    harness.send(&[Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 35_002,
+        target: unrelated,
+        impulse: 1,
+    }])
+}
+
+fn owned_return_admission(run: &Run, admitted: bool) -> (LearnerId, LinkId, u32) {
+    run.physical_trace
+        .iter()
+        .find_map(|transition| match transition.event {
+            PhysicalEvent::ReturnOriginAdmission {
+                owner: Some(owner),
+                link,
+                generation,
+                admitted: observed,
+                ..
+            } if observed == admitted => Some((owner, link, generation)),
+            _ => None,
+        })
+        .expect("run contains the expected owner-local return admission")
 }
 
 #[test]
@@ -1337,10 +2120,121 @@ fn recursive_learner_constructs_once_from_repeated_actual_closure_and_replays() 
     );
 
     let duplicate = send_physical(&mut harness, surface, 35_001);
-    assert_eq!(duplicate.work.causal_closure_observations, 0);
+    assert_eq!(duplicate.work.causal_closure_observations, 1);
     assert_eq!(duplicate.work.learner_constructions, 0);
+    assert!(duplicate.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::CausalClosureObserved {
+            parent: Some(parent),
+            evidence: 1,
+            ..
+        } if parent == observed.learners[0].id
+    )));
     assert_eq!(harness.read().learners.len(), 1);
     assert!(duplicate.naturally_quiescent);
+}
+
+#[test]
+fn construction_outcome_composition_preserves_the_same_tick_exact_lineage() {
+    let protocol = Protocol::RecursiveLearnerConstructionOutcomeComposition;
+    let (mut candidate, action, surface, _, motor) = recursive_learner_world(protocol);
+
+    let first = observe_recursive_transition_closure(&mut candidate, action, surface, motor);
+    assert_eq!(first.work.learner_constructions, 0);
+    let checkpoint = candidate.save().expect("composition checkpoint saves");
+    let mut replay = Harness::restore(checkpoint).expect("composition checkpoint restores");
+
+    let constructed = observe_recursive_transition_closure(&mut candidate, action, surface, motor);
+    let replayed = observe_recursive_transition_closure(&mut replay, action, surface, motor);
+    assert_eq!(constructed, replayed);
+    let (construction_index, construction_tick, learner) = constructed
+        .physical_trace
+        .iter()
+        .enumerate()
+        .find_map(|(index, transition)| match transition.event {
+            PhysicalEvent::LearnerConstructed { learner, .. } => {
+                Some((index, transition.tick, learner))
+            }
+            _ => None,
+        })
+        .expect("the second closure constructs a learner");
+    let learner_links = candidate
+        .read()
+        .learners
+        .into_iter()
+        .find(|state| state.id == learner)
+        .expect("constructed learner is observable")
+        .links;
+    let projected = constructed
+        .physical_trace
+        .iter()
+        .skip(construction_index.saturating_add(1))
+        .take_while(|transition| {
+            matches!(
+                transition.event,
+                PhysicalEvent::LearnerConsequenceRecorded { owner, .. } if owner == learner
+            )
+        })
+        .filter_map(|transition| match transition.event {
+            PhysicalEvent::LearnerConsequenceRecorded {
+                owner,
+                link,
+                generation,
+                tick,
+            } if owner == learner => Some((transition.tick, link, generation, tick)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert!(!projected.is_empty(), "{:#?}", constructed.physical_trace);
+    assert!(
+        projected
+            .iter()
+            .all(|(event_tick, link, _, remembered_tick)| {
+                *event_tick == construction_tick
+                    && *remembered_tick == construction_tick
+                    && learner_links.contains(link)
+                    && constructed.physical_trace.iter().any(|transition| {
+                        transition.tick == construction_tick
+                            && (matches!(
+                                transition.event,
+                                PhysicalEvent::ConsequenceRecorded { link: written, .. }
+                                    if written == *link
+                            ) || matches!(
+                                transition.event,
+                                PhysicalEvent::ReversePathConsolidated { link: written, .. }
+                                    if written == *link
+                            ))
+                    })
+            }),
+        "projected {projected:?}, construction tick {construction_tick}, learner links {learner_links:?}"
+    );
+    assert_eq!(
+        candidate.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+    assert!(constructed.naturally_quiescent);
+
+    let (mut parent, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerCompletedCycle);
+    observe_recursive_transition_closure(&mut parent, action, surface, motor);
+    let parent_constructed =
+        observe_recursive_transition_closure(&mut parent, action, surface, motor);
+    let parent_learner = parent_constructed
+        .physical_trace
+        .iter()
+        .find_map(|transition| match transition.event {
+            PhysicalEvent::LearnerConstructed { learner, .. } => Some(learner),
+            _ => None,
+        })
+        .expect("the parent protocol constructs the same boundary");
+    assert!(!parent_constructed.physical_trace.iter().any(|transition| {
+        matches!(
+            transition.event,
+            PhysicalEvent::LearnerConsequenceRecorded { owner, .. }
+                if owner == parent_learner
+        )
+    }));
 }
 
 #[test]
@@ -1360,6 +2254,325 @@ fn recursive_learner_rejects_noncausal_and_single_closure_controls() {
     send_physical(&mut accepted, surface, 35_001);
     send_physical(&mut accepted, surface, 35_001);
     assert!(accepted.read().learners.is_empty());
+}
+
+#[test]
+fn recursive_learner_children_start_with_fresh_return_memory() {
+    let (mut harness, action, surface, unrelated, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConstruction);
+
+    let root_first = observe_recursive_closure(&mut harness, action, surface, motor);
+    assert_eq!(root_first.work.causal_closure_observations, 1);
+    let root_second = observe_recursive_closure(&mut harness, action, surface, motor);
+    assert_eq!(root_second.work.learner_constructions, 1);
+    let root = harness.read().learners[0].id;
+    let parent_return_history = harness
+        .read()
+        .links
+        .iter()
+        .map(|link| (link.id, link.return_origins.clone()))
+        .collect::<Vec<_>>();
+
+    let child_first = observe_recursive_closure(&mut harness, action, surface, motor);
+    assert_eq!(child_first.work.causal_closure_observations, 1);
+    assert_eq!(child_first.work.learner_constructions, 0);
+    assert!(child_first.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::CausalClosureObserved {
+            parent: Some(parent),
+            evidence: 1,
+            ..
+        } if parent == root
+    )));
+    assert!(child_first.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnScheduling {
+            owner: Some(owner),
+            admitted: true,
+            ..
+        } if owner == root
+    )));
+    let (first_owner, return_link, first_generation) = owned_return_admission(&child_first, true);
+    assert_eq!(first_owner, root);
+    let after_child = harness.read();
+    for (link, return_origins) in &parent_return_history {
+        assert_eq!(
+            after_child
+                .links
+                .iter()
+                .find(|state| state.id == *link)
+                .map(|state| &state.return_origins),
+            Some(return_origins),
+            "child-local return admission changed parent history for {link:?}"
+        );
+    }
+
+    let checkpoint = harness.save().expect("child return memory saves");
+    let mut replay = Harness::restore(checkpoint).expect("child return memory restores");
+    let duplicate = observe_recursive_closure(&mut harness, action, surface, motor);
+    let duplicate_replayed = observe_recursive_closure(&mut replay, action, surface, motor);
+    assert_eq!(duplicate, duplicate_replayed);
+    assert_eq!(duplicate.work.causal_closure_observations, 1);
+    assert_eq!(duplicate.work.learner_constructions, 1);
+    assert_eq!(
+        owned_return_admission(&duplicate, false),
+        (root, return_link, first_generation)
+    );
+    let (second_owner, second_link, second_generation) = owned_return_admission(&duplicate, true);
+    assert_eq!(second_owner, root);
+    assert_ne!(
+        (second_link, second_generation),
+        (return_link, first_generation)
+    );
+    assert_eq!(harness.read().learners.len(), 2);
+    assert_eq!(
+        harness.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+
+    let grandchild_first = observe_recursive_closure(&mut harness, action, surface, motor);
+    assert_eq!(grandchild_first.work.causal_closure_observations, 1);
+    assert_eq!(grandchild_first.work.learner_constructions, 0);
+    let (grandchild_owner, grandchild_link, grandchild_generation) =
+        owned_return_admission(&grandchild_first, true);
+    assert_eq!(grandchild_owner, harness.read().learners[1].id);
+    let grandchild_duplicate = observe_recursive_closure(&mut harness, action, surface, motor);
+    assert_eq!(grandchild_duplicate.work.causal_closure_observations, 1);
+    assert_eq!(grandchild_duplicate.work.learner_constructions, 1);
+    assert_eq!(
+        owned_return_admission(&grandchild_duplicate, false),
+        (grandchild_owner, grandchild_link, grandchild_generation)
+    );
+    let unrelated_return = send_physical(&mut harness, unrelated, 35_002);
+    assert_eq!(unrelated_return.work.causal_closure_observations, 0);
+
+    let renewal = expire_recursive_returns(&mut harness, unrelated);
+    assert_eq!(renewal.work.causal_closure_observations, 0);
+    let renewed = observe_recursive_closure(&mut harness, action, surface, motor);
+    assert_eq!(renewed.work.causal_closure_observations, 1);
+    assert_eq!(renewed.work.learner_constructions, 0);
+    let (renewed_owner, _, renewed_generation) = owned_return_admission(&renewed, true);
+    assert_eq!(renewed_owner, harness.read().learners[2].id);
+    assert!(renewed_generation > 1);
+
+    let learners = harness.read().learners;
+    assert_eq!(learners.len(), 3);
+    assert_eq!(learners[0].parent, None);
+    assert_eq!(learners[1].parent, Some(learners[0].id));
+    assert_eq!(learners[2].parent, Some(learners[1].id));
+    assert!(learners
+        .iter()
+        .all(|learner| learner.junctions.contains(&surface)));
+    assert!(duplicate.naturally_quiescent);
+    assert!(grandchild_duplicate.naturally_quiescent);
+    assert!(unrelated_return.naturally_quiescent);
+}
+
+#[test]
+fn recursive_learner_proprioceptive_opportunity_is_current_and_owner_local() {
+    let (mut harness, action, surface, unrelated, motor, _, controlled, _) =
+        recursive_control_world();
+    assert_eq!(
+        observe_control_closure(&mut harness, action, surface, motor)
+            .work
+            .causal_closure_observations,
+        1
+    );
+    assert_eq!(
+        observe_control_closure(&mut harness, action, surface, motor)
+            .work
+            .learner_constructions,
+        1
+    );
+    let root = harness.read().learners[0].id;
+    let checkpoint = harness.save().expect("proprioceptive checkpoint saves");
+
+    let tick = harness.read().clock.tick.saturating_add(1);
+    let current = harness.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 36_001,
+            target: surface,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(2),
+            phase: 0,
+            origin_physical: 36_001,
+            target: controlled,
+            impulse: 1,
+        },
+    ]);
+    assert!(current
+        .outputs
+        .iter()
+        .any(|output| output.from_physical == 36_020));
+
+    let mut absent = Harness::restore(checkpoint.clone()).expect("checkpoint restores");
+    let tick = absent.read().clock.tick.saturating_add(1);
+    let without = absent.send(&[Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 36_001,
+        target: surface,
+        impulse: 1,
+    }]);
+    assert!(without
+        .outputs
+        .iter()
+        .all(|output| output.from_physical != 36_020));
+
+    let mut shifted = Harness::restore(checkpoint.clone()).expect("checkpoint restores");
+    let tick = shifted.read().clock.tick.saturating_add(1);
+    let early = shifted.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 36_001,
+            target: controlled,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(1),
+            phase: 0,
+            origin_physical: 36_001,
+            target: surface,
+            impulse: 1,
+        },
+    ]);
+    assert!(early
+        .outputs
+        .iter()
+        .all(|output| output.from_physical != 36_020));
+
+    let mut other = Harness::restore(checkpoint).expect("checkpoint restores");
+    let tick = other.read().clock.tick.saturating_add(1);
+    let unrelated_run = other.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 36_001,
+            target: surface,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(2),
+            phase: 0,
+            origin_physical: 36_002,
+            target: controlled,
+            impulse: 1,
+        },
+    ]);
+    assert!(
+        unrelated_run
+            .outputs
+            .iter()
+            .all(|output| output.from_physical != 36_020),
+        "{:#?}",
+        unrelated_run.physical_trace
+    );
+    assert!(current.naturally_quiescent);
+    assert!(without.naturally_quiescent);
+    assert!(early.naturally_quiescent);
+    assert!(unrelated_run.naturally_quiescent);
+    assert_eq!(harness.read().learners[0].id, root);
+    assert_eq!(other.read().learners[0].id, root);
+    assert_ne!(unrelated, surface);
+}
+
+#[test]
+fn recursive_learner_proprioceptive_consequence_is_private_recent_and_replayable() {
+    let (mut harness, action, surface, _, motor, motor_outcome, controlled, controlled_outcome) =
+        recursive_control_world();
+    observe_control_closure(&mut harness, action, surface, motor);
+    assert_eq!(
+        observe_control_closure(&mut harness, action, surface, motor)
+            .work
+            .learner_constructions,
+        1
+    );
+    let root = harness.read().learners[0].id;
+
+    let trained_run = stimulate_recursive_control(&mut harness, surface, controlled);
+    assert_eq!(trained_run.outputs.len(), 1);
+    let trained = trained_run.outputs[0].from_physical;
+    let trained_outcome = if trained == 36_010 {
+        motor_outcome
+    } else {
+        assert_eq!(trained, 36_020);
+        controlled_outcome
+    };
+    let consequence = return_recursive_control(&mut harness, trained_outcome);
+    let consequence_tick = consequence
+        .physical_trace
+        .iter()
+        .find_map(|transition| match transition.event {
+            PhysicalEvent::LearnerConsequenceRecorded { owner, tick, .. } if owner == root => {
+                Some(tick)
+            }
+            _ => None,
+        })
+        .expect("accepted root return records private consequence");
+    let checkpoint = harness.save().expect("private consequence saves");
+    let checkpoint_bytes = checkpoint.canonical_bytes().expect("checkpoint encodes");
+
+    let physical_outputs = [36_010, 36_020];
+    let predicted_tick = harness.read().clock.tick.saturating_add(2);
+    let neutral = physical_outputs[predicted_tick.rem_euclid(2) as usize];
+    if neutral == trained {
+        harness.advance_to(harness.read().clock.tick.saturating_add(1));
+    }
+    let preferred = stimulate_recursive_control(&mut harness, surface, controlled);
+    assert_eq!(preferred.outputs[0].from_physical, trained);
+    assert!(preferred.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::LearnerCandidatePreference {
+            owner,
+            consequence_tick: Some(tick),
+            admitted: true,
+            ..
+        } if owner == root && tick == consequence_tick
+    )));
+
+    let mut replay = Harness::restore(checkpoint.clone()).expect("private consequence restores");
+    assert_eq!(
+        replay.save().unwrap().canonical_bytes().unwrap(),
+        checkpoint_bytes
+    );
+    let mut direct = Harness::restore(checkpoint.clone()).expect("comparison restores");
+    assert_eq!(
+        stimulate_recursive_control(&mut replay, surface, controlled),
+        stimulate_recursive_control(&mut direct, surface, controlled)
+    );
+
+    let mut released_runs = Vec::new();
+    for offset in 6..10 {
+        let mut released =
+            Harness::restore(checkpoint.clone()).expect("release checkpoint restores");
+        released.advance_to(released.read().clock.tick.saturating_add(offset));
+        released_runs.push(stimulate_recursive_control(
+            &mut released,
+            surface,
+            controlled,
+        ));
+    }
+    assert!(released_runs
+        .iter()
+        .any(|run| run.outputs[0].from_physical != trained));
+    assert!(released_runs
+        .iter()
+        .all(|run| run.physical_trace.iter().any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::LearnerCandidatePreference {
+                owner,
+                consequence_tick: Some(tick),
+                ..
+            } if owner == root
+                && transition.tick.saturating_sub(tick) > 4
+        ))));
+    assert!(preferred.naturally_quiescent);
+    assert!(released_runs.iter().all(|run| run.naturally_quiescent));
 }
 
 fn candidate_structural_run(dormant_outputs: usize) -> Run {
@@ -1451,4 +2664,1412 @@ fn outcome_does_not_form_a_missing_return() {
     let second = world.return_outcome(1);
     assert_eq!(second.work.modulatory_deliveries, 0);
     assert_eq!(second.work.local_return_updates, 0);
+}
+
+#[test]
+fn physical_diagnostics_explain_origin_resolution_and_return_decisions() {
+    let (mut merged, _, surface, _, _) =
+        recursive_learner_world(Protocol::RecursiveLearnerConstruction);
+    let merged_tick = merged.read().clock.tick.saturating_add(1);
+    let merged_run = merged.send(&[
+        Input {
+            arrival_tick: merged_tick,
+            phase: 0,
+            origin_physical: 35_001,
+            target: surface,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: merged_tick,
+            phase: 0,
+            origin_physical: 35_002,
+            target: surface,
+            impulse: 1,
+        },
+    ]);
+    let observed_origins = merged_run
+        .physical_diagnostics()
+        .filter_map(|transition| match transition.event {
+            PhysicalEvent::DriveOriginObserved {
+                target,
+                origin_physical,
+                ..
+            } if target == surface => Some(origin_physical),
+            _ => None,
+        })
+        .collect::<HashSet<_>>();
+    assert_eq!(observed_origins, HashSet::from([35_001, 35_002]));
+    assert!(merged_run.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::CausalOriginResolved {
+            target,
+            distinct_origins: 2,
+            resolved_origin: 35_001,
+            resolution: CausalOriginResolution::JunctionFallback,
+            ..
+        } if target == surface
+    )));
+
+    let (mut admitted, action, admitted_surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConstruction);
+    admitted.send(&[input(action, 0), input(motor, 2)]);
+    let admitted_run = send_physical(&mut admitted, admitted_surface, 35_001);
+    assert!(admitted_run
+        .physical_diagnostics()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::ModulatoryOriginObserved {
+                origin_physical: 35_001,
+                ..
+            }
+        )));
+    assert!(admitted_run
+        .physical_diagnostics()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::ReturnOriginEvaluated {
+                origin_physical: 35_001,
+                decision: ReturnOriginDecision::AdmittedLocal,
+                ..
+            }
+        )));
+
+    let (mut rejected, action, _, unrelated, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConstruction);
+    rejected.send(&[input(action, 0), input(motor, 2)]);
+    let rejected_run = send_physical(&mut rejected, unrelated, 35_002);
+    assert!(rejected_run
+        .physical_diagnostics()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::ReturnOriginEvaluated {
+                origin_physical: 35_002,
+                decision: ReturnOriginDecision::RejectedNonLocal,
+                distance: Some(distance),
+                ..
+            } if distance > LOCAL_VARIATION_RADIUS
+        )));
+}
+
+#[test]
+fn physical_diagnostics_explain_reverse_path_failures() {
+    let (mut harness, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConstruction);
+    harness.send(&[input(action, 0), input(motor, 2)]);
+
+    let run = send_physical(&mut harness, surface, 35_012);
+    assert!(run.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnOriginEvaluated {
+            origin_physical: 35_012,
+            decision: ReturnOriginDecision::AdmittedDirect,
+            ..
+        }
+    )));
+    assert!(run.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReversePathEvaluated {
+            origin_physical: 35_012,
+            decision: ReversePathDecision::OriginIsReturnSource,
+            ..
+        }
+    )));
+    assert!(!run.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReversePathConsolidated { .. }
+    )));
+}
+
+#[test]
+fn consequence_born_return_rejects_preopening_origin_without_writing() {
+    let protocol = Protocol::RecursiveLearnerConsequenceBornReturn;
+    let (mut harness, action, surface, _, motor) = recursive_learner_world(protocol);
+    let run = harness.send(&[
+        Input {
+            arrival_tick: 0,
+            phase: 0,
+            origin_physical: 35_001,
+            target: surface,
+            impulse: 1,
+        },
+        input(action, 0),
+        input(motor, 2),
+    ]);
+
+    assert!(run.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnOriginEvaluated {
+            origin_physical: 35_001,
+            decision: ReturnOriginDecision::RejectedBeforeReturnOpened,
+            ..
+        }
+    )));
+    assert!(run.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ClosureEligibilityEvaluated {
+            origin_physical: 35_001,
+            eligible: false,
+            ..
+        }
+    )));
+    assert!(!run
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(transition.event, PhysicalEvent::ConsequenceRecorded { .. })));
+    assert_eq!(run.work.local_return_updates, 0);
+    assert!(run.naturally_quiescent);
+}
+
+#[test]
+fn consequence_born_return_preserves_genuinely_later_local_return() {
+    let protocol = Protocol::RecursiveLearnerConsequenceBornReturn;
+    let (mut harness, action, surface, _, motor) = recursive_learner_world(protocol);
+    let used = harness.send(&[input(action, 0), input(motor, 2)]);
+    let checkpoint = harness.save().expect("consequence-born return saves");
+    let mut replay = Harness::restore(checkpoint).expect("consequence-born return restores");
+    let tick = harness.read().clock.tick.saturating_add(1);
+    let input = Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 35_001,
+        target: surface,
+        impulse: 1,
+    };
+    let returned = harness.send(&[input]);
+    let replayed = replay.send(&[input]);
+
+    assert_eq!(returned, replayed);
+    assert!(returned.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnOriginEvaluated {
+            origin_physical: 35_001,
+            decision: ReturnOriginDecision::AdmittedLocal,
+            ..
+        }
+    )));
+    assert!(returned
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(transition.event, PhysicalEvent::ConsequenceRecorded { .. })));
+    assert!(returned.work.local_return_updates > 0);
+    assert!(used.naturally_quiescent && returned.naturally_quiescent);
+}
+
+#[test]
+fn physical_transition_return_rejects_later_sample_but_admits_matched_transition() {
+    let protocol = Protocol::RecursiveLearnerPhysicalTransitionReturn;
+    let (mut sample, action, surface, _, motor) = recursive_learner_world(protocol);
+    sample.send(&[input(action, 0), input(motor, 2)]);
+    let checkpoint = sample.save().expect("transition return fixture saves");
+    let mut transitioned = Harness::restore(checkpoint).expect("transition fixture restores");
+    let tick = sample.read().clock.tick.saturating_add(1);
+    let later = Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 35_001,
+        target: surface,
+        impulse: 1,
+    };
+
+    let sampled = sample.send_physical(&[PhysicalInput {
+        input: later,
+        incidence: PhysicalIncidence::Sample,
+    }]);
+    let changed = transitioned.send_physical(&[PhysicalInput {
+        input: later,
+        incidence: PhysicalIncidence::Transition,
+    }]);
+
+    assert!(sampled.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnOriginEvaluated {
+            origin_physical: 35_001,
+            decision: ReturnOriginDecision::RejectedUnchangedSample,
+            ..
+        }
+    )));
+    assert!(!sampled
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(transition.event, PhysicalEvent::ConsequenceRecorded { .. })));
+    assert_eq!(sampled.work.local_return_updates, 0);
+
+    assert!(changed.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnOriginEvaluated {
+            origin_physical: 35_001,
+            decision: ReturnOriginDecision::AdmittedLocal,
+            ..
+        }
+    )));
+    assert!(changed
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(transition.event, PhysicalEvent::ConsequenceRecorded { .. })));
+    assert!(changed.work.local_return_updates > 0);
+    assert!(sampled.naturally_quiescent && changed.naturally_quiescent);
+}
+
+#[test]
+fn physical_transition_return_preserves_sampling_for_old_protocols_and_replay() {
+    let (mut ordinary, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConsequenceBornReturn);
+    ordinary.send(&[input(action, 0), input(motor, 2)]);
+    let checkpoint = ordinary.save().expect("old protocol fixture saves");
+    let mut marked = Harness::restore(checkpoint).expect("old protocol fixture restores");
+    let tick = ordinary.read().clock.tick.saturating_add(1);
+    let later = Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 35_001,
+        target: surface,
+        impulse: 1,
+    };
+
+    let sampled = ordinary.send(&[later]);
+    let transitioned = marked.send_physical(&[PhysicalInput {
+        input: later,
+        incidence: PhysicalIncidence::Transition,
+    }]);
+
+    assert_eq!(sampled.outputs, transitioned.outputs);
+    assert_eq!(sampled.work, transitioned.work);
+    assert_eq!(ordinary.read(), marked.read());
+    assert!(transitioned
+        .physical_diagnostics()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::PhysicalIncidenceObserved {
+                origin_physical: 35_001,
+                incidence: PhysicalIncidence::Transition,
+                ..
+            }
+        )));
+
+    let checkpoint = marked.save().expect("transition lineage saves");
+    let restored = Harness::restore(checkpoint).expect("transition lineage restores");
+    assert_eq!(
+        marked.save().unwrap().canonical_bytes().unwrap(),
+        restored.save().unwrap().canonical_bytes().unwrap()
+    );
+}
+
+#[test]
+fn physical_diagnostics_are_opt_in_pure_and_replayable() {
+    let mut traced = PathWorld::with_protocol(1, true, Protocol::SensorimotorSynthesis);
+    let mut untraced = PathWorld::with_protocol(1, false, Protocol::SensorimotorSynthesis);
+    let traced_run = traced.use_path();
+    let untraced_run = untraced.use_path();
+
+    assert_eq!(traced_run.outputs, untraced_run.outputs);
+    assert_eq!(traced_run.work, untraced_run.work);
+    assert_eq!(traced_run.execution_cost, untraced_run.execution_cost);
+    assert_eq!(
+        traced_run.naturally_quiescent,
+        untraced_run.naturally_quiescent
+    );
+    assert_eq!(traced.harness.read(), untraced.harness.read());
+    assert!(untraced_run.physical_trace.is_empty());
+    assert!(traced_run.physical_diagnostics().next().is_some());
+    assert!(traced_run
+        .physical_diagnostics()
+        .all(|transition| transition.event.is_diagnostic()));
+
+    let checkpoint = traced.harness.save().expect("diagnostic checkpoint saves");
+    let mut replay = Harness::restore(checkpoint).expect("diagnostic checkpoint restores");
+    let tick = traced.harness.read().clock.tick.saturating_add(1);
+    let consequence = [Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 25_003,
+        target: traced.outcome,
+        impulse: 1,
+    }];
+    assert_eq!(traced.harness.send(&consequence), replay.send(&consequence));
+}
+
+fn lineage_merge_run(protocol: Protocol, origins: [u64; 2]) -> (Harness, Run, JunctionId) {
+    let mut builder = HarnessBuilder::with_capacity(16, 16, OUTWARD_REGION);
+    builder.set_protocol(protocol);
+    builder.set_physical_tracing(true);
+    let merge = junction(&mut builder, 38_000, 0, 0, 2);
+    let sink = junction(&mut builder, 38_010, 0, OUTWARD_REGION, 1);
+    link(
+        &mut builder,
+        merge,
+        sink,
+        0,
+        1,
+        u32::MAX,
+        TransmissionMode::Drive,
+    );
+    let mut harness = builder.build();
+    let run = harness.send(&[
+        Input {
+            arrival_tick: 0,
+            phase: 0,
+            origin_physical: origins[0],
+            target: merge,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: 0,
+            phase: 0,
+            origin_physical: origins[1],
+            target: merge,
+            impulse: 1,
+        },
+    ]);
+    (harness, run, sink)
+}
+
+fn lineage_return_run(
+    origins_reversed: bool,
+) -> (Harness, Run, JunctionId, JunctionId, JunctionId) {
+    let (mut harness, action, surface, unrelated, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerCausalLineage);
+    harness.send(&[input(action, 0), input(motor, 2)]);
+    let tick = harness.read().clock.tick.saturating_add(1);
+    let mut inputs = [
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_001,
+            target: surface,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_002,
+            target: unrelated,
+            impulse: 1,
+        },
+    ];
+    if origins_reversed {
+        inputs.reverse();
+    }
+    let run = harness.send(&inputs);
+    (harness, run, surface, unrelated, motor)
+}
+
+#[test]
+fn causal_lineage_candidate_preserves_actual_origins_without_changing_impulse() {
+    let (_, scalar, _) =
+        lineage_merge_run(Protocol::RecursiveLearnerConstruction, [38_001, 38_002]);
+    let (_, lineage, sink) =
+        lineage_merge_run(Protocol::RecursiveLearnerCausalLineage, [38_001, 38_002]);
+    assert_eq!(lineage.outputs, scalar.outputs);
+    assert_eq!(lineage.outputs.len(), 1);
+    assert_eq!(lineage.outputs[0].impulse, 1);
+    let members = lineage
+        .physical_diagnostics()
+        .filter_map(|transition| match transition.event {
+            PhysicalEvent::CausalLineageMemberObserved {
+                target,
+                origin_physical,
+                mode: TransmissionMode::Drive,
+                ..
+            } if target == sink => Some(origin_physical),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>();
+    assert_eq!(members, BTreeSet::from([38_001, 38_002]));
+
+    let (_, returned, _, _, _) = lineage_return_run(false);
+    assert!(returned.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnOriginEvaluated {
+            origin_physical: 35_001,
+            decision: ReturnOriginDecision::AdmittedLocal,
+            ..
+        }
+    )));
+    assert!(returned.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnOriginEvaluated {
+            origin_physical: 35_002,
+            decision: ReturnOriginDecision::RejectedNonLocal,
+            ..
+        }
+    )));
+}
+
+#[test]
+fn causal_lineage_candidate_is_order_independent_and_duplicate_free() {
+    let (forward, forward_run, _, _, _) = lineage_return_run(false);
+    let (reverse, reverse_run, _, _, _) = lineage_return_run(true);
+    let decisions = |run: &Run| {
+        run.physical_diagnostics()
+            .filter_map(|transition| match transition.event {
+                PhysicalEvent::ReturnOriginEvaluated {
+                    origin_physical,
+                    decision,
+                    ..
+                } => Some((origin_physical, decision)),
+                _ => None,
+            })
+            .collect::<BTreeSet<_>>()
+    };
+    assert_eq!(decisions(&forward_run), decisions(&reverse_run));
+    assert_eq!(forward_run.outputs, reverse_run.outputs);
+    assert_eq!(forward.read(), reverse.read());
+
+    let (mut duplicate, action, surface, unrelated, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerCausalLineage);
+    duplicate.send(&[input(action, 0), input(motor, 2)]);
+    let tick = duplicate.read().clock.tick.saturating_add(1);
+    let duplicate_run = duplicate.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_001,
+            target: surface,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_001,
+            target: unrelated,
+            impulse: 1,
+        },
+    ]);
+    let admitted = duplicate_run
+        .physical_trace
+        .iter()
+        .filter(|transition| {
+            matches!(
+                transition.event,
+                PhysicalEvent::ReturnOriginAdmission {
+                    origin_physical: 35_001,
+                    admitted: true,
+                    ..
+                }
+            )
+        })
+        .count();
+    assert_eq!(admitted, 1);
+}
+
+#[test]
+fn causal_lineage_candidate_preserves_replay_and_old_protocol() {
+    let (mut candidate, action, surface, unrelated, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerCausalLineage);
+    candidate.send(&[input(action, 0), input(motor, 2)]);
+    let checkpoint = candidate.save().expect("lineage checkpoint saves");
+    let mut replay = Harness::restore(checkpoint).expect("lineage checkpoint restores");
+    let tick = candidate.read().clock.tick.saturating_add(1);
+    let consequence = [
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_001,
+            target: surface,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_002,
+            target: unrelated,
+            impulse: 1,
+        },
+    ];
+    assert_eq!(candidate.send(&consequence), replay.send(&consequence));
+    assert_eq!(
+        candidate.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+
+    let (_, scalar, sink) =
+        lineage_merge_run(Protocol::RecursiveLearnerConstruction, [38_001, 38_002]);
+    assert!(scalar.physical_diagnostics().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::CausalOriginResolved {
+            target,
+            resolved_origin: 38_000,
+            resolution: CausalOriginResolution::JunctionFallback,
+            ..
+        } if target != sink
+    )));
+    assert!(!scalar.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::CausalLineageMemberObserved { .. }
+    )));
+}
+
+fn consequence_born_coactive_round(
+    harness: &mut Harness,
+    action: JunctionId,
+    surface: JunctionId,
+    motor: JunctionId,
+    surface_offset: i64,
+) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_000,
+            target: action,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(surface_offset),
+            phase: 0,
+            origin_physical: 35_001,
+            target: surface,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick.saturating_add(2),
+            phase: 0,
+            origin_physical: 35_010,
+            target: motor,
+            impulse: 1,
+        },
+    ])
+}
+
+#[test]
+fn consequence_born_temporal_only_rejects_first_coactivity_but_reuses_old_sibling() {
+    let (mut old, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerCausalLineage);
+    let old_first = consequence_born_coactive_round(&mut old, action, surface, motor, 0);
+    let old_second = consequence_born_coactive_round(&mut old, action, surface, motor, 0);
+    assert_eq!(old_first.work.causal_closure_observations, 1);
+    assert_eq!(old_second.work.learner_constructions, 1);
+
+    let (mut candidate, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConsequenceBornClosure);
+    let coactive_first = consequence_born_coactive_round(&mut candidate, action, surface, motor, 0);
+    let coactive_second =
+        consequence_born_coactive_round(&mut candidate, action, surface, motor, 0);
+    assert_eq!(coactive_first.work.causal_closure_observations, 0);
+    assert_eq!(coactive_second.work.causal_closure_observations, 1);
+    assert_eq!(coactive_second.work.learner_constructions, 0);
+    assert!(coactive_first
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::ClosureEligibilityEvaluated {
+                origin_physical: 35_001,
+                eligible: false,
+                ..
+            }
+        )));
+    assert!(coactive_second
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::ClosureEligibilityEvaluated {
+                origin_physical: 35_001,
+                eligible: true,
+                ..
+            }
+        )));
+    assert!(coactive_first
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::ReversePathConsolidated { source, .. } if source == surface
+        )));
+
+    let (mut delayed, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConsequenceBornClosure);
+    delayed.send(&[input(action, 0), input(motor, 2)]);
+    let first = send_physical(&mut delayed, surface, 35_001);
+    let tick = delayed.read().clock.tick.saturating_add(1);
+    delayed.send(&[input(action, tick), input(motor, tick.saturating_add(2))]);
+    let second = send_physical(&mut delayed, surface, 35_001);
+    assert_eq!(first.work.causal_closure_observations, 1);
+    assert_eq!(first.work.learner_constructions, 0);
+    assert_eq!(second.work.causal_closure_observations, 0);
+    assert_eq!(second.work.learner_constructions, 0);
+    assert!(second.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ClosureEligibilityEvaluated {
+            origin_physical: 35_001,
+            eligible: false,
+            ..
+        }
+    )));
+    assert!(coactive_first.naturally_quiescent);
+    assert!(coactive_second.naturally_quiescent);
+    assert!(first.naturally_quiescent);
+    assert!(second.naturally_quiescent);
+}
+
+#[test]
+fn consequence_born_cohort_rejects_repeated_coactivity_and_keeps_delayed_consequence() {
+    let (mut candidate, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConsequenceCohortClosure);
+    let first = consequence_born_coactive_round(&mut candidate, action, surface, motor, 0);
+    let second = consequence_born_coactive_round(&mut candidate, action, surface, motor, 0);
+    assert_eq!(first.work.causal_closure_observations, 0);
+    assert_eq!(second.work.causal_closure_observations, 0);
+    assert_eq!(second.work.learner_constructions, 0);
+    assert!(first.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnCohortClosed { link_count, .. } if link_count > 0
+    )));
+
+    let (mut delayed, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConsequenceCohortClosure);
+    let first_action = delayed.send(&[input(action, 0), input(motor, 2)]);
+    let first_return = send_physical(&mut delayed, surface, 35_001);
+    let tick = delayed.read().clock.tick.saturating_add(1);
+    let second_action = delayed.send(&[input(action, tick), input(motor, tick.saturating_add(2))]);
+    let second_return = send_physical(&mut delayed, surface, 35_001);
+    assert_eq!(first_return.work.causal_closure_observations, 1);
+    assert_eq!(first_return.work.learner_constructions, 0);
+    assert_eq!(second_return.work.causal_closure_observations, 0);
+    assert_eq!(second_return.work.learner_constructions, 0);
+    assert!([first_action, first_return, second_action, second_return]
+        .iter()
+        .all(|run| run.naturally_quiescent));
+}
+
+#[test]
+fn consequence_born_eligible_return_priority_completes_temporal_cohort_composition() {
+    let (mut coactive, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerEligibleReturnClosure);
+    let first = consequence_born_coactive_round(&mut coactive, action, surface, motor, 0);
+    let second = consequence_born_coactive_round(&mut coactive, action, surface, motor, 0);
+    assert_eq!(first.work.causal_closure_observations, 0);
+    assert_eq!(second.work.causal_closure_observations, 0);
+    assert_eq!(second.work.learner_constructions, 0);
+
+    let (mut delayed, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerEligibleReturnClosure);
+    delayed.send(&[input(action, 0), input(motor, 2)]);
+    let first = send_physical(&mut delayed, surface, 35_001);
+    let tick = delayed.read().clock.tick.saturating_add(1);
+    delayed.send(&[input(action, tick), input(motor, tick.saturating_add(2))]);
+    let checkpoint = delayed.save().expect("eligible-return checkpoint saves");
+    let mut replay = Harness::restore(checkpoint).expect("eligible-return checkpoint restores");
+    let second = send_physical(&mut delayed, surface, 35_001);
+    let replayed = send_physical(&mut replay, surface, 35_001);
+    assert_eq!(second, replayed);
+    assert_eq!(first.work.causal_closure_observations, 1);
+    assert_eq!(second.work.causal_closure_observations, 1);
+    assert_eq!(second.work.learner_constructions, 1);
+    assert!(second.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ClosureEligibilityEvaluated {
+            origin_physical: 35_001,
+            eligible: true,
+            ..
+        }
+    )));
+    assert_eq!(
+        delayed.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+    assert!(first.naturally_quiescent);
+    assert!(second.naturally_quiescent);
+}
+
+#[test]
+fn consequence_born_closure_is_strict_duplicate_free_and_replays() {
+    let (mut candidate, action, surface, unrelated, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerConsequenceBornClosure);
+    let equal = consequence_born_coactive_round(&mut candidate, action, surface, motor, 2);
+    assert_eq!(equal.work.causal_closure_observations, 0);
+    assert!(equal.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ClosureEligibilityEvaluated {
+            origin_physical: 35_001,
+            origin_birth_tick,
+            return_opened_tick,
+            eligible: false,
+            ..
+        } if origin_birth_tick <= return_opened_tick
+    )));
+
+    let checkpoint = candidate.save().expect("temporal checkpoint saves");
+    let mut replay = Harness::restore(checkpoint).expect("temporal checkpoint restores");
+    let tick = candidate.read().clock.tick.saturating_add(1);
+    let duplicate = [
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_001,
+            target: surface,
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 35_001,
+            target: unrelated,
+            impulse: 1,
+        },
+    ];
+    let run = candidate.send(&duplicate);
+    let replayed = replay.send(&duplicate);
+    assert_eq!(run, replayed);
+    assert!(run.work.causal_closure_observations <= 1);
+    assert_eq!(run.work.learner_constructions, 0);
+    assert_eq!(
+        candidate.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+    assert!(run.naturally_quiescent);
+}
+
+#[test]
+fn boundary_novelty_rejects_exact_owned_repetition_and_replays() {
+    let (mut candidate, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerBoundaryNovelty);
+    let first = observe_recursive_closure(&mut candidate, action, surface, motor);
+    let second = observe_recursive_closure(&mut candidate, action, surface, motor);
+    assert_eq!(first.work.causal_closure_observations, 1);
+    assert_eq!(second.work.learner_constructions, 1);
+    assert_eq!(candidate.read().learners.len(), 1);
+
+    let checkpoint = candidate.save().expect("boundary checkpoint saves");
+    let mut replay = Harness::restore(checkpoint).expect("boundary checkpoint restores");
+    for _ in 0..10 {
+        let rejected = observe_recursive_closure(&mut candidate, action, surface, motor);
+        let replayed = observe_recursive_closure(&mut replay, action, surface, motor);
+        assert_eq!(rejected, replayed);
+        assert_eq!(rejected.work.causal_closure_observations, 0);
+        assert_eq!(rejected.work.learner_constructions, 0);
+        assert!(rejected.physical_trace.iter().any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::BoundaryNoveltyEvaluated {
+                parent: Some(_),
+                novel_members: 0,
+                eligible: false,
+                ..
+            }
+        )));
+    }
+    assert_eq!(candidate.read().learners.len(), 1);
+    assert_eq!(
+        candidate.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+}
+
+#[test]
+fn boundary_novelty_allows_adjacent_expansion_with_a_new_physical_member() {
+    let (mut candidate, action, surface, _, motor, _, controlled, controlled_outcome) =
+        recursive_control_world_with_protocol(Protocol::RecursiveLearnerBoundaryNovelty);
+    observe_control_closure(&mut candidate, action, surface, motor);
+    let root = observe_control_closure(&mut candidate, action, surface, motor);
+    assert_eq!(root.work.learner_constructions, 1);
+    let root_id = candidate.read().learners[0].id;
+
+    for expected in [0, 1] {
+        let action_run = stimulate_recursive_control(&mut candidate, surface, controlled);
+        let consequence = return_recursive_control(&mut candidate, controlled_outcome);
+        assert!(action_run.naturally_quiescent);
+        assert_eq!(consequence.work.learner_constructions, expected);
+    }
+    let observed = candidate.read();
+    assert_eq!(observed.learners.len(), 2);
+    assert_eq!(observed.learners[1].parent, Some(root_id));
+    assert_eq!(observed.learners[1].output, controlled);
+}
+
+#[test]
+fn boundary_novelty_constructs_distinct_root_siblings_in_either_order() {
+    let mut observed_sets = Vec::new();
+    for order in [[0usize, 1usize], [1usize, 0usize]] {
+        let (world, action, surfaces, motor) = boundary_novelty_sibling_world(2);
+        let checkpoint = world.save().expect("sibling checkpoint saves");
+        let mut candidate = Harness::restore(checkpoint.clone()).expect("candidate restores");
+        let mut replay = Harness::restore(checkpoint).expect("replay restores");
+        for index in order {
+            let physical = 39_001 + u64::try_from(index).unwrap();
+            for _ in 0..2 {
+                let run = observe_boundary_sibling_closure(
+                    &mut candidate,
+                    action,
+                    surfaces[index],
+                    physical,
+                    motor,
+                );
+                let replayed = observe_boundary_sibling_closure(
+                    &mut replay,
+                    action,
+                    surfaces[index],
+                    physical,
+                    motor,
+                );
+                assert_eq!(run, replayed);
+            }
+        }
+        let observed = candidate.read();
+        assert_eq!(observed.learners.len(), 2);
+        assert!(observed
+            .learners
+            .iter()
+            .all(|learner| learner.parent.is_none()));
+        let learned_surfaces = observed
+            .learners
+            .iter()
+            .map(|learner| learner.surface)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(learned_surfaces, surfaces.into_iter().collect());
+        assert_eq!(
+            candidate.save().unwrap().canonical_bytes().unwrap(),
+            replay.save().unwrap().canonical_bytes().unwrap()
+        );
+        observed_sets.push(learned_surfaces);
+    }
+    assert_eq!(observed_sets[0], observed_sets[1]);
+}
+
+#[test]
+fn boundary_novelty_preserves_inherited_distance_three_return_rejection() {
+    let (mut candidate, action, surfaces, motor) = boundary_novelty_sibling_world(3);
+    for _ in 0..2 {
+        observe_boundary_sibling_closure(&mut candidate, action, surfaces[0], 39_001, motor);
+    }
+    assert_eq!(candidate.read().learners.len(), 1);
+
+    let first =
+        observe_boundary_sibling_closure(&mut candidate, action, surfaces[1], 39_002, motor);
+    let second =
+        observe_boundary_sibling_closure(&mut candidate, action, surfaces[1], 39_002, motor);
+    assert_eq!(first.work.causal_closure_observations, 1);
+    assert_eq!(second.work.causal_closure_observations, 0);
+    assert_eq!(second.work.learner_constructions, 0);
+    assert!(second.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::ReturnOriginEvaluated {
+            distance: Some(3),
+            decision: ReturnOriginDecision::RejectedNonLocal,
+            ..
+        }
+    )));
+    assert_eq!(candidate.read().learners.len(), 1);
+}
+
+#[test]
+fn autonomous_reuse_diagnostics_are_observational_only() {
+    let mut traced = PathWorld::with_protocol(1, true, Protocol::SensorimotorCandidate);
+    let mut untraced = PathWorld::with_protocol(1, false, Protocol::SensorimotorCandidate);
+    let traced_run = traced.use_path();
+    let untraced_run = untraced.use_path();
+
+    assert_eq!(traced_run.outputs, untraced_run.outputs);
+    assert_eq!(traced_run.work, untraced_run.work);
+    assert_eq!(traced_run.execution_cost, untraced_run.execution_cost);
+    assert_eq!(
+        traced_run.naturally_quiescent,
+        untraced_run.naturally_quiescent
+    );
+    assert_eq!(traced.harness.read(), untraced.harness.read());
+    assert!(traced_run.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::OutputCandidateEvaluated {
+            ownership: CandidateOwnership::Organism,
+            executable: true,
+            ..
+        }
+    )));
+    assert!(traced_run
+        .physical_trace
+        .iter()
+        .filter(|transition| matches!(
+            transition.event,
+            PhysicalEvent::OutputCandidateEvaluated { .. }
+        ))
+        .all(|transition| transition.event.is_diagnostic()));
+}
+
+#[test]
+fn pre_executability_diagnostics_report_signed_drive_and_live_returns_observationally() {
+    let mut traced = PathWorld::with_protocol(1, true, Protocol::SensorimotorCandidate);
+    let mut untraced = PathWorld::with_protocol(1, false, Protocol::SensorimotorCandidate);
+    let traced_run = traced.use_path();
+    let untraced_run = untraced.use_path();
+
+    assert_eq!(traced_run.outputs, untraced_run.outputs);
+    assert_eq!(traced_run.work, untraced_run.work);
+    assert_eq!(traced_run.execution_cost, untraced_run.execution_cost);
+    assert_eq!(traced.harness.read(), untraced.harness.read());
+    assert!(traced_run.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::OutputCandidateEvaluated {
+            positive_path_strength: UNIT_U64,
+            negative_path_strength: UNIT_U64,
+            opportunity,
+            unanswered_returns: 0,
+            executable: true,
+            ..
+        } if opportunity > 0
+    )));
+
+    let mut returned = LocalOutcomePairWorld::new(Protocol::SensorimotorCandidate);
+    let first = returned.stimulate().outputs[0].from_physical;
+    returned.outcome_for(first, 1);
+    returned.stimulate();
+    let pending = returned.stimulate();
+    assert!(
+        pending.physical_trace.iter().any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::OutputCandidateEvaluated {
+                positive_path_strength,
+                negative_path_strength,
+                unanswered_returns,
+                executable: true,
+                ..
+            } if positive_path_strength > 0
+                && negative_path_strength > 0
+                && unanswered_returns > 0
+        )),
+        "{:#?}",
+        pending.physical_trace
+    );
+    assert!(pending.naturally_quiescent);
+}
+
+#[test]
+fn autonomous_reuse_diagnostics_order_owned_surface_path_and_candidate() {
+    let (mut candidate, action, surface, _, motor) =
+        recursive_learner_world(Protocol::RecursiveLearnerBoundaryNovelty);
+    observe_recursive_closure(&mut candidate, action, surface, motor);
+    observe_recursive_closure(&mut candidate, action, surface, motor);
+    assert_eq!(candidate.read().learners.len(), 1);
+
+    let run = send_physical(&mut candidate, surface, 35_001);
+    let surface_index = run
+        .physical_trace
+        .iter()
+        .position(|transition| {
+            matches!(
+                transition.event,
+                PhysicalEvent::SurfacePathStateObserved {
+                    surface: observed,
+                    owner: Some(_),
+                    complete_paths,
+                    ..
+                } if observed == surface && complete_paths > 0
+            )
+        })
+        .expect("owned surface path state is observed");
+    let candidate_index = run
+        .physical_trace
+        .iter()
+        .position(|transition| {
+            matches!(
+                transition.event,
+                PhysicalEvent::OutputCandidateEvaluated {
+                    ownership: CandidateOwnership::Owned(_),
+                    path_inputs,
+                    ..
+                } if path_inputs > 0
+            )
+        })
+        .expect("owned output candidate is evaluated");
+    assert!(surface_index < candidate_index);
+    assert!(run.naturally_quiescent);
+}
+
+#[test]
+fn drive_provenance_reports_path_owner_separately_from_carried_origin_owner() {
+    let protocol = Protocol::RecursiveLearnerCausalOriginFactorization;
+    let (mut candidate, surfaces) = prepared_mixed_owner_world(protocol);
+    let owner = candidate
+        .read()
+        .learners
+        .into_iter()
+        .find(|learner| learner.surface == surfaces[0])
+        .expect("first surface has an owner")
+        .id;
+    let checkpoint = candidate.save().expect("provenance checkpoint saves");
+    let mut replay = Harness::restore(checkpoint).expect("provenance replay restores");
+    let tick = candidate.read().clock.tick.saturating_add(1);
+    let inputs = [Input {
+        arrival_tick: tick,
+        phase: 0,
+        origin_physical: 39_099,
+        target: surfaces[0],
+        impulse: 1,
+    }];
+    let run = candidate.send(&inputs);
+    let replayed = replay.send(&inputs);
+
+    assert_eq!(run, replayed);
+    let provenance = run
+        .physical_trace
+        .iter()
+        .filter(|transition| {
+            matches!(
+                transition.event,
+                PhysicalEvent::DriveProvenanceObserved { .. }
+            )
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        run.physical_trace.iter().any(|transition| matches!(
+            transition.event,
+        PhysicalEvent::DriveProvenanceObserved {
+            source: Some(_),
+                link: Some(_),
+                completes_path: true,
+                carried_origin: 39_099,
+                origin_owner: None,
+            path_owner: Some(observed),
+            ..
+        } if observed == owner
+        )),
+        "{provenance:#?}"
+    );
+    assert!(run.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::DriveProvenanceObserved {
+            source: None,
+            link: None,
+            completes_path: false,
+            carried_origin: 39_099,
+            origin_owner: None,
+            path_owner: None,
+            ..
+        }
+    )));
+    assert_eq!(
+        candidate.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+    assert!(run.naturally_quiescent);
+}
+
+fn prepared_mixed_owner_world(protocol: Protocol) -> (Harness, [JunctionId; 2]) {
+    let (mut harness, action, surfaces, motor) =
+        boundary_novelty_sibling_world_with_protocol(2, protocol);
+    for (index, surface) in surfaces.iter().enumerate() {
+        for _ in 0..2 {
+            observe_boundary_sibling_closure(
+                &mut harness,
+                action,
+                *surface,
+                39_001 + u64::try_from(index).unwrap(),
+                motor,
+            );
+        }
+    }
+    assert_eq!(harness.read().learners.len(), 2);
+    for _ in 0..2 {
+        observe_boundary_sibling_closure(&mut harness, action, surfaces[0], 39_001, motor);
+    }
+    (harness, surfaces)
+}
+
+fn send_mixed_owner_surfaces(harness: &mut Harness, surfaces: [JunctionId; 2]) -> Run {
+    let tick = harness.read().clock.tick.saturating_add(1);
+    harness.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 39_001,
+            target: surfaces[0],
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 39_002,
+            target: surfaces[1],
+            impulse: 1,
+        },
+    ])
+}
+
+#[test]
+fn owner_local_factorization_turns_one_unique_private_group_into_one_effect() {
+    let (mut reference, surfaces) =
+        prepared_mixed_owner_world(Protocol::RecursiveLearnerBoundaryNovelty);
+    let rejected = send_mixed_owner_surfaces(&mut reference, surfaces);
+    assert!(!rejected
+        .outputs
+        .iter()
+        .any(|output| output.from_physical == 39_010));
+    assert!(rejected.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::OutputCandidateEvaluated {
+            ownership: CandidateOwnership::Ambiguous,
+            executable: false,
+            ..
+        }
+    )));
+
+    let (mut candidate, surfaces) =
+        prepared_mixed_owner_world(Protocol::RecursiveLearnerOwnerFactorization);
+    let checkpoint = candidate.save().expect("factorization checkpoint saves");
+    let mut replay = Harness::restore(checkpoint.clone()).expect("factorization replay restores");
+    let mut reordered = Harness::restore(checkpoint).expect("factorization checkpoint restores");
+    let selected = send_mixed_owner_surfaces(&mut candidate, surfaces);
+    let replayed = send_mixed_owner_surfaces(&mut replay, surfaces);
+    let tick = reordered.read().clock.tick.saturating_add(1);
+    let reversed = reordered.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 39_002,
+            target: surfaces[1],
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 39_001,
+            target: surfaces[0],
+            impulse: 1,
+        },
+    ]);
+    let motor_outputs = |run: &Run| {
+        run.outputs
+            .iter()
+            .filter(|output| output.from_physical == 39_010)
+            .count()
+    };
+    assert_eq!(motor_outputs(&selected), 1);
+    assert_eq!(selected, replayed);
+    assert_eq!(motor_outputs(&reversed), 1);
+    assert_eq!(selected.outputs, reversed.outputs);
+    assert!(selected.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::MixedOwnerCandidateResolved {
+            owner_count: 2,
+            executable_groups,
+            selected_owner: Some(_),
+            selected_path_inputs,
+            ..
+        } if executable_groups > 0 && selected_path_inputs > 0
+    )));
+    assert_eq!(
+        candidate.read().learners.len(),
+        reordered.read().learners.len()
+    );
+    assert_eq!(candidate.read().links.len(), reordered.read().links.len());
+    assert_eq!(
+        candidate.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+    assert!(selected.naturally_quiescent);
+    assert!(reversed.naturally_quiescent);
+}
+
+#[test]
+fn causal_origin_ownership_factorization_selects_one_origin_and_replays() {
+    let protocol = Protocol::RecursiveLearnerCausalOriginFactorization;
+    let (mut candidate, surfaces) = prepared_mixed_owner_world(protocol);
+    let checkpoint = candidate.save().expect("origin checkpoint saves");
+    let mut replay = Harness::restore(checkpoint.clone()).expect("origin replay restores");
+    let mut reordered = Harness::restore(checkpoint).expect("origin reorder restores");
+    let selected = send_mixed_owner_surfaces(&mut candidate, surfaces);
+    let replayed = send_mixed_owner_surfaces(&mut replay, surfaces);
+    let tick = reordered.read().clock.tick.saturating_add(1);
+    let reversed = reordered.send(&[
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 39_002,
+            target: surfaces[1],
+            impulse: 1,
+        },
+        Input {
+            arrival_tick: tick,
+            phase: 0,
+            origin_physical: 39_001,
+            target: surfaces[0],
+            impulse: 1,
+        },
+    ]);
+    let motor_outputs = |run: &Run| {
+        run.outputs
+            .iter()
+            .filter(|output| output.from_physical == 39_010)
+            .count()
+    };
+    assert_eq!(motor_outputs(&selected), 1);
+    assert_eq!(motor_outputs(&reversed), 1);
+    assert_eq!(selected.outputs, reversed.outputs);
+    assert_eq!(selected, replayed);
+    assert!(selected.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::CausalOriginCandidateResolved {
+            origin_count: 2,
+            selected_origin: Some(_),
+            selected_path_inputs,
+            ..
+        } if selected_path_inputs > 0
+    )));
+    assert_eq!(
+        candidate.save().unwrap().canonical_bytes().unwrap(),
+        replay.save().unwrap().canonical_bytes().unwrap()
+    );
+    assert!(selected.naturally_quiescent);
+    assert!(reversed.naturally_quiescent);
+}
+
+#[test]
+fn causal_origin_ownership_factorization_bounded_send_reports_non_quiescence() {
+    let protocol = Protocol::RecursiveLearnerCausalOriginFactorization;
+    let world = PathWorld::with_protocol(1, true, protocol);
+    let path_input = world.input;
+    let checkpoint = world.harness.save().expect("path world saves");
+    let mut ordinary = Harness::restore(checkpoint.clone()).expect("ordinary world restores");
+    let mut bounded = Harness::restore(checkpoint.clone()).expect("bounded world restores");
+    let mut exhausted = Harness::restore(checkpoint).expect("exhausted world restores");
+    let inputs = [input(path_input, 0)];
+
+    let ordinary_run = ordinary.send(&inputs);
+    let bounded_run = bounded.send_bounded(&inputs, 100);
+    let exhausted_run = exhausted.send_bounded(&inputs, 0);
+
+    assert_eq!(ordinary_run, bounded_run);
+    assert_eq!(
+        ordinary.save().unwrap().canonical_bytes().unwrap(),
+        bounded.save().unwrap().canonical_bytes().unwrap()
+    );
+    assert!(!exhausted_run.naturally_quiescent);
+    assert!(exhausted_run
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::PropagationBudgetExhausted { moments: 0 }
+        )));
+}
+
+struct BoundaryFeedbackWorld {
+    harness: Harness,
+    motors: [JunctionId; 2],
+    effects: [JunctionId; 2],
+}
+
+impl BoundaryFeedbackWorld {
+    fn new(protocol: Protocol) -> Self {
+        let mut builder = HarnessBuilder::with_capacity(32, 96, OUTWARD_REGION);
+        builder.set_protocol(protocol);
+        builder.set_physical_tracing(true);
+        let motors = [
+            junction(&mut builder, 70_000, 0, 0, 1),
+            junction(&mut builder, 70_001, 1, 0, 1),
+        ];
+        let effects = [
+            junction(&mut builder, 70_010, 0, OUTWARD_REGION, 1),
+            junction(&mut builder, 70_011, 1, OUTWARD_REGION, 1),
+        ];
+        for index in 0..2 {
+            link(
+                &mut builder,
+                motors[index],
+                effects[index],
+                0,
+                1,
+                u32::MAX,
+                TransmissionMode::Drive,
+            );
+        }
+        Self {
+            harness: builder.build(),
+            motors,
+            effects,
+        }
+    }
+
+    fn stimulate_motor(&mut self, max_moments: u64) -> Run {
+        let tick = self.harness.read().clock.tick.saturating_add(1);
+        self.harness
+            .send_bounded(&[input(self.motors[0], tick)], max_moments)
+    }
+
+    fn stimulate_effect(&mut self, max_moments: u64) -> Run {
+        let tick = self.harness.read().clock.tick.saturating_add(1);
+        self.harness
+            .send_bounded(&[input(self.effects[0], tick)], max_moments)
+    }
+}
+
+#[test]
+fn boundary_effect_reentry_reference_exposes_cross_region_path_genesis() {
+    let mut reference =
+        BoundaryFeedbackWorld::new(Protocol::RecursiveLearnerCausalOriginFactorization);
+    let run = reference.stimulate_motor(64);
+    assert!(run.naturally_quiescent);
+    assert_eq!(run.outputs.len(), 3);
+    assert!(run.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::JunctionProposal { source, target, .. }
+            if source == reference.effects[0] && target == reference.motors[1]
+    )));
+}
+
+#[test]
+fn boundary_effect_reentry_terminal_preserves_effect_but_blocks_effect_born_genesis() {
+    let protocol = Protocol::RecursiveLearnerBoundaryEffectTerminal;
+    let mut candidate = BoundaryFeedbackWorld::new(protocol);
+    let checkpoint = candidate.harness.save().expect("terminal world saves");
+    let mut replay = BoundaryFeedbackWorld {
+        harness: Harness::restore(checkpoint).expect("terminal world restores"),
+        motors: candidate.motors,
+        effects: candidate.effects,
+    };
+    let run = candidate.stimulate_motor(64);
+    let replayed = replay.stimulate_motor(64);
+
+    assert_eq!(run, replayed);
+    assert!(run.naturally_quiescent);
+    assert_eq!(run.outputs.len(), 1);
+    assert!(!run.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::JunctionProposal { source, target, .. }
+            if source == candidate.effects[0] && target == candidate.motors[1]
+    )));
+    assert_eq!(
+        candidate.harness.save().unwrap().canonical_bytes().unwrap(),
+        replay.harness.save().unwrap().canonical_bytes().unwrap()
+    );
+}
+
+#[test]
+fn boundary_effect_reentry_external_surface_discriminates_terminal_from_regional_law() {
+    let mut terminal = BoundaryFeedbackWorld::new(Protocol::RecursiveLearnerBoundaryEffectTerminal);
+    let terminal_run = terminal.stimulate_effect(64);
+    assert!(terminal_run.naturally_quiescent);
+    assert!(terminal_run
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::JunctionProposal { source, target, .. }
+                if source == terminal.effects[0] && target == terminal.motors[1]
+        )));
+
+    let mut regional = BoundaryFeedbackWorld::new(Protocol::RecursiveLearnerRegionalPathClosure);
+    let regional_run = regional.stimulate_effect(64);
+    assert!(regional_run.naturally_quiescent);
+    assert!(!regional_run
+        .physical_trace
+        .iter()
+        .any(|transition| matches!(
+            transition.event,
+            PhysicalEvent::JunctionProposal { source, target, .. }
+                if source == regional.effects[0] && target == regional.motors[1]
+        )));
+}
+
+#[test]
+fn boundary_effect_reentry_candidates_preserve_same_region_path_formation() {
+    for protocol in [
+        Protocol::RecursiveLearnerRegionalPathClosure,
+        Protocol::RecursiveLearnerBoundaryEffectTerminal,
+    ] {
+        let mut world = PathWorld::with_protocol(1, true, protocol);
+        let run = world.use_path();
+        assert_eq!(run.outputs.len(), 1);
+        assert!(run.naturally_quiescent);
+    }
 }

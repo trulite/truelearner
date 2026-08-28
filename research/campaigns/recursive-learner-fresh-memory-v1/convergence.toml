@@ -1,0 +1,51 @@
+schema = "research-convergence/v1"
+campaign = "recursive-learner-fresh-memory-v1"
+round = 1
+survived = [
+  "return-eligibility-lifetime-localization",
+  "owner-participation-return-eligibility",
+  "return-reentry-composition",
+]
+falsified = ["construction-scoped-return-reopening"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "owner-bearing scheduling and physical-origin admission isolate the missing transition between modulatory incidence and reverse consolidation",
+  "a constructed learner starts with empty private return memory while organism-global parent history remains unchanged",
+  "truthful causal-origin membership resolves post-construction return links that were absent from the fixed construction lineage",
+  "one causal moment admits at most one return for one physical origin, while later distinct link lifetimes remain independently eligible",
+  "sorted owner-local `(link, generation, origin)` memory rejects exact duplicates, survives checkpoint replay, and admits physically renewed generations",
+  "owner-local return memory composes with owner-aware closure identity to exact adjacent ancestry through depth three",
+]
+strongest_counterexamples = [
+  "construction-scoped-return-reopening: a one-time construction boundary cannot explain persistent rejection of an exact owner-link-generation-origin tuple together with acceptance of a distinct later participation",
+]
+retired_families = [
+  "construction-event reopening without persistent owner-local return memory",
+  "construction-lineage link membership alone as sufficient ownership for return links formed after construction",
+  "crediting multiple return links from one physical origin in the same causal moment as independent closure evidence",
+]
+next_discriminators = [
+  "test whether a constructed learner can independently alter consequence selection without inheriting parent action, preference, credit, or confidence state",
+  "separate sibling-local return memories under one parent and require no cross-sibling duplicate suppression or learned-action transfer",
+  "extend anonymous composition beyond depth three while holding reflection, reordered discovery, checkpoint replay, quiescence, and dormant-surface cost fixed",
+  "run an independent candidate verification before any adoption or authority claim",
+]
+
+[[new_arm]]
+id = "learner-local-consequence-control"
+kind = "hybrid"
+parents = [
+  "owner-participation-return-eligibility",
+  "return-reentry-composition",
+]
+imports = [
+  "owner-participation-return-eligibility: private finite-return memory",
+  "return-reentry-composition: adjacent anonymous recursive construction",
+]
+interaction_prediction = "A child with fresh return memory can acquire and express a consequence preference locally without changing the parent's learned action or another sibling's choice."
+falsifiers = [
+  "The child copies or mutates parent action, preference, credit, confidence, or return history.",
+  "A sibling suppresses or inherits the child's learned consequence without its own physical participation.",
+  "Control requires semantic learner, depth, anatomy, target, score, episode, or evaluator identity.",
+]

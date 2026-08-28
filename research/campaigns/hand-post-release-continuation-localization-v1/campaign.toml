@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-post-release-continuation-localization-v1"
+program = "learner-physics"
+kind = "diagnostic"
+mode = "discovery"
+hypothesis = "The complete per-step diagnostics can localize the first lost continuation after organism-to-root upper release without changing learner behavior."
+first_divergence = "The candidate releases upper contact but finishes at position 3 without reaching lower contact."
+missing_transition = "Unknown among path survival, candidate admission, owner consequence read, competition, output, and subsequent return."
+prediction = "The first non-continuing post-release step will preserve a prefix of the last moving step and expose one earliest missing transition."
+falsifiers = ["Upper release does not replay.", "No unique first non-continuing step exists.", "Required diagnostics are absent.", "Integrity fails."]
+positive_reference = "hand-organism-root-fresh-opportunity-v1 conditional-reflected-hand-release"
+negative_controls = ["strict owner parent", "exact replay", "natural quiescence", "bounded propagation"]
+included_mechanisms = ["typed organism-to-root opportunity", "whole-decision causal diagnostics"]
+inherited_constraints = ["benchmark blind", "no behavior change", "warm runtime below ten seconds"]
+excluded_proposals = ["new learner physics", "semantic direction or boundary input", "post-hoc score repair"]
+arm_paths = ["arms/trajectory-integrity.toml", "arms/first-continuation-failure.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = false
+
+[budget]
+total_sandbox_minutes = 20
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

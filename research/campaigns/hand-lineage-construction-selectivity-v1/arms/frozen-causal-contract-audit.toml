@@ -1,0 +1,17 @@
+schema = "research-arm/v1"
+id = "frozen-causal-contract-audit"
+campaign = "hand-lineage-construction-selectivity-v1"
+kind = "diagnostic"
+parents = ["hand-causal-lineage-preservation"]
+imports = ["immutable sixteen-step trace, closure identities, construction identities, and movements"]
+mechanism = "Classify every frozen closure observation after execution as output-caused delivery, delivery-output mismatch, current-state coactivity, or missing context; accept a construction only when both exact-key observations are output-caused deliveries."
+prediction = "The chronological first closure is current-state coactivity and none of the fourteen reported constructions contains two exact output-caused post-movement observations, so chronology is retired without relabeling the parent arm."
+falsifiers = ["The parent digest changes.", "Any construction has two exact output-caused delivery observations.", "The classifier changes or reruns learner physics, or feeds movement identity back into the learner."]
+source_revision = "plan:884512cbc64d2b7193e3aa1d74b66899084bc8583ba4d6ef2f3c1d5d96849153"
+protocol_sha256 = "15dc3572a87c55d78417d227c54aaac32572162a924e5b7f402dfabefb804260"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-lineage-construction-selectivity/Cargo.toml frozen_trace_rejects_chronology_and_unearned_owner_claims"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-lineage-construction-selectivity/Cargo.toml -- --arm frozen-causal-contract-audit"
+

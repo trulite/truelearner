@@ -1,0 +1,15 @@
+{
+  "schema": "developmental-hand-construction-admission/v1",
+  "arm": "inherited-integrity-control",
+  "outcome": "survived",
+  "observations": {
+    "frozen_reference_exact": true,
+    "return_reentry_outcome": "survived",
+    "return_reentry_quiescent": true,
+    "return_reentry_replay": true,
+    "survived": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

@@ -1,0 +1,58 @@
+schema = "research-protocol/v1"
+id = "developmental-hand-one-joint-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "recursive-learner-proprioceptive-control-v1/convergence.toml@0d528de6c2315e1a96f0aae6f09b41a93d0ed78578ed8c4fed73a5d64150ffc3"
+question = "Can the complete recursively constructed learner close one anonymous reflected joint by using current same-owner proprioception and private consequence memory to reach and leave both limits and recover from a fixed perturbation, without semantic action or anatomy identity?"
+observables = [
+  "frozen CORE1, sensorimotor synthesis, recursive construction, fresh-memory, reentry, and proprioceptive-control classifications",
+  "per-step joint position, signed effort, emitted output, reflection, limit arrival, limit escape, and fixed perturbation recovery",
+  "external incidence, path proposal, traversal, candidate admission, motor integration, output, physical change, return opening, accepted consequence, deepest owner, private write, later read, and release",
+  "owner and exact live path generation for every private consequence record, with parent and sibling before-after state",
+  "exact checkpoint replay, natural quiescence, formed topology, active work, execution cost, and warm representative runtime",
+]
+frozen_variables = [
+  "unchanged CORE1 authority and all accepted protocols",
+  "complete recursive candidate tree cf8f2b971d70fafff1873536b05e82f35413b20b0911e462c5eaf50f85a89178",
+  "sensorimotor-synthesis-ladder-v1 reflected one-joint topology, initial position, signed motor integration, reflection law, sixteen-step primary horizon, and old monolithic result",
+  "one separately declared fixed perturbation schedule and bounded recovery horizon, identical across candidate and controls",
+  "public Harness send, read, save, restore, replay, and natural-quiescence boundary",
+  "anonymous physical topology without semantic learner, root, depth, action, direction, joint, digit, hand, target, score, curriculum stage, episode, answer, or evaluator identity",
+  "no two-joint finger, opposing-digit, hand-composition, or downward-ablation rung before one-joint convergence",
+]
+permitted_changes = [
+  "research-only composition of the frozen reflected one-joint world with the complete recursive candidate",
+  "research-only fixed perturbation adapter that changes physical joint position without naming a desired response",
+  "research-only transition tracing and evidence artifacts that observe public or explicitly experimental state without selecting behavior",
+  "bounded fixture plumbing required to compare the recursive candidate against the exact old monolithic reference",
+]
+positive_predicates = [
+  "all frozen parent classifications reproduce before interpreting the one-joint result",
+  "the exact old monolithic reference reproduces twelve changed steps in sixteen, both signed directions, neither reflected limit reached, exact replay, and natural quiescence",
+  "the complete recursive candidate reaches and leaves both reflected limits within the same sixteen-step primary horizon without evaluator termination",
+  "after the frozen physical perturbation, the complete candidate resumes movement, revisits both signs, and reaches and leaves the required reflected boundary within the declared recovery horizon",
+  "only current same-owner proprioceptive incidence can complete an owned motor opportunity and only an accepted participating return can write the deepest owner's exact live generation",
+  "preference reads remain owner-local, release after the bounded window, and do not alter matched parent or sibling state",
+  "reflection, checkpoint replay, natural quiescence, inherited controls, local work, and the representative warm runtime bound remain intact",
+]
+negative_controls = [
+  "exact sensorimotor-synthesis-ladder-v1 monolithic one-joint reference",
+  "fresh recursive owner before its own accepted consequence and a global-link consequence reference",
+  "proprioception absent, one tick early, one tick late, stale, disconnected, or from an unrelated causal owner",
+  "blocked output, withheld consequence, duplicate return, unrelated return, and dead path-generation return",
+  "reflected motor geometry, reversed construction and training order, and matched parent or sibling before-after state",
+  "four, sixty-four, and one-thousand-twenty-four dormant anonymous surfaces for local-work comparison",
+]
+stop_conditions = [
+  "any frozen classification, exact old reference observation, replay, quiescence, default behavior, or warm runtime bound changes",
+  "the world or trace supplies a desired direction, detects success for the learner, terminates on success, or exposes semantic anatomy, target, score, or curriculum identity",
+  "the primary horizon, perturbation schedule, recovery horizon, or control schedule changes after observing candidate behavior",
+  "a failure label is promoted without localizing the earliest incomplete physical transition",
+  "an arm is repaired in place, a mechanism is chosen solely for score improvement, or a dependent hand rung advances before convergence",
+  "discovery survival is presented as adoption, authority, necessity, a developed finger, or a developed hand",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

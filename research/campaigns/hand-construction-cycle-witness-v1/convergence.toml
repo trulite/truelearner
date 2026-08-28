@@ -1,0 +1,44 @@
+schema = "research-convergence/v1"
+campaign = "hand-construction-cycle-witness-v1"
+round = 1
+survived = ["existing-trace-retention"]
+falsified = ["construction-boundary-cycle-witness"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "lossless adapter retention preserved 2,032 already-emitted events in tick and phase order while reproducing the exact parent hand: twelve actual changes, four opposing-output steps, final position minus two, nine completed-cycle admissions, two cross-view admissions, exact replay, natural quiescence, and zero propagation exhaustion",
+  "the retained slice reproduced the first non-commuting choice exactly: organism target eleven at tick eleven became learner-two target ten at tick twenty-three under FreshAlternative with completed-cycle state Missing",
+  "the decisive slice contains the physical facts needed for a compositional follow-up: tick-eight consequence writes on links thirty-five and thirty-six at internal junction eighteen, construction of learners one and two at tick sixteen, and missing learner-two consequence preferences for targets ten and eleven at tick twenty-three",
+]
+strongest_counterexamples = [
+  "construction-boundary-cycle-witness: direct equality between the chosen output target and ConsequenceRecorded.junction is false; the completed target was eleven while both tick-eight consequence writes named internal junction eighteen, so the preregistered direct join returned an empty witness set",
+  "construction-boundary-cycle-witness: the preserved counterexample suggests a composed rather than identical endpoint—link thirty-six later carries junction eighteen to target eleven and completes that path at ticks eleven, fifteen, nineteen, and twenty-three without a recorded deallocation—but this post-run observation cannot repair the frozen arm",
+  "construction-boundary-cycle-witness: learner two reports no consequence for both executable targets at tick twenty-three and the decisive slice contains no learner-private consequence write, but owner-projection-gap remains a hypothesis until the internal consequence arrow and downstream output arrow are joined by a preregistered pure fold",
+]
+retired_families = [
+  "joining a physical consequence to a completed output by requiring ConsequenceRecorded.junction to equal the motor target",
+  "adding a new core trace event before composing the already-retained consequence, lineage, drive, deallocation, construction, learner-write, and candidate events",
+  "repairing or rerunning the single frozen construction-boundary-cycle-witness arm after seeing its failed join",
+]
+next_discriminators = [
+  "run a pure immutable-artifact fold that starts from every tick-eight ConsequenceRecorded link, composes it through later DriveProvenanceObserved source and target endpoints, and requires uninterrupted link identity through tick twenty-three",
+  "for each composed witness, prove or reject deallocation, generation replacement, failure-time participation, matching learner-two private consequence write, and learner-two missing candidate preference without another organism run",
+  "only if the compositional fold proves a live participating witness with absent owner-local projection should a separate construction-handoff law be proposed; otherwise descend to the first missing physical arrow",
+]
+
+[[new_arm]]
+id = "compositional-existing-trace-witness"
+kind = "diagnostic"
+parents = ["existing-trace-retention", "construction-boundary-cycle-witness"]
+imports = [
+  "existing-trace-retention: immutable 286-event decisive slice with exact parent controls",
+  "construction-boundary-cycle-witness: failed direct target-equality join and empty formal witness set",
+  "construction-boundary-cycle-witness: tick-eight links thirty-five and thirty-six at junction eighteen plus downstream link-thirty-six participation to target eleven",
+]
+interaction_prediction = "A pure composition over the existing artifact identifies whether one uninterrupted consequence-bearing link reaches target eleven and still participates at tick twenty-three while fresh learner two has no matching private consequence write."
+falsifiers = [
+  "The tick-eight write cannot be composed to target eleven without guessing an unrecorded endpoint or semantic action identity.",
+  "The candidate link is deallocated, generation-replaced, or absent from failure-time participation before tick twenty-three.",
+  "Learner two has a matching private consequence write for the same uninterrupted link identity.",
+  "The analysis mutates or reruns the organism instead of consuming the immutable frozen artifact.",
+]

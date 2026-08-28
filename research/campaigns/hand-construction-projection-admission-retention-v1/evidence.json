@@ -1,0 +1,63 @@
+{
+  "schema": "research-evidence/v1",
+  "experiment": "hand-construction-projection-admission-retention-v1",
+  "protocol_sha256": "4b0c85f915ce8c1fd990e34c4c755320dbfc259ed48895e7bb79dc0d3f8f0969",
+  "subject_digest": "eb6a5e1e8502587adb504d9634f9be7cf0bc886e90506c87676c6dfb036588ef",
+  "producer": "hand-construction-projection-admission-retention",
+  "environment": {
+    "identity": "bb-worktree:b94482267e96baffecc9576ddb6878918d9a4974",
+    "rustc": "1.97.1",
+    "run_policy": "one valid frozen candidate execution"
+  },
+  "observations": {
+    "reported_arm_outcomes": [
+      "immutable-parent-choice-control=falsified",
+      "first-added-admission-localization=falsified"
+    ],
+    "immutable_parent": {
+      "sha256": "e4c38011cc9ff198474f553f72b6e4e7b366f3201a83fc114acd7c38a20e04d3",
+      "choice_count": 23,
+      "unique_count": 9,
+      "matched": true
+    },
+    "candidate": {
+      "choice_count": 24,
+      "unique_count": 10,
+      "completed_cycle_admissions": 10,
+      "exact_replay": true,
+      "naturally_quiescent": true,
+      "propagation_budget_exhaustions": 0
+    },
+    "first_same_tick_divergence": {
+      "ordinal": 7,
+      "hand_step": 6,
+      "tick": 47,
+      "parent_target": 11,
+      "parent_owner": 3,
+      "parent_completed_cycle_state": "Missing",
+      "parent_admission_basis": "Ordinary",
+      "candidate_target": 10,
+      "candidate_owner": 3,
+      "candidate_completed_cycle_state": "Unique",
+      "candidate_admission_basis": "CompletedCycle"
+    },
+    "tick_forty_four_projections": [
+      {"learner": 3, "link": 33, "generation": 3, "consequence_tick": 44},
+      {"learner": 3, "link": 34, "generation": 3, "consequence_tick": 44},
+      {"learner": 3, "link": 41, "generation": 2, "consequence_tick": 44}
+    ],
+    "localization_verdict": "choice-identity-mismatch",
+    "retention_limit": "The artifact retained all parent and candidate choices and all construction projections, but no decisive physical trace slice after the typed identity mismatch."
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/immutable-parent-choice-control.json",
+      "sha256": "e58afe069f20108fe2da4f9ef27d4c526bc614758baf70b2ac323ab5af70a09a"
+    },
+    {
+      "path": "artifacts/first-added-admission-localization.json",
+      "sha256": "b79bf3f532df872afed959e978378e207c7b249631e586700841aec28553d2e2"
+    }
+  ],
+  "completed": true
+}

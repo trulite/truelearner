@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-composition"
+campaign = "hand-bounded-fresh-opportunity-v1"
+kind = "composition"
+parents = ["conditional-reflected-hand-release"]
+imports = ["two-direction boundary release", "recursive hand candidate", "perturbation"]
+mechanism = "Run the complete unchanged one-joint capstone after local boundary release."
+prediction = "The hand reaches and leaves both limits, closes the primary loop, and recovers from perturbation with exact replay and natural quiescence."
+falsifiers = ["Either limit or escape is absent.", "Primary closure or perturbation recovery fails.", "Replay, quiescence, propagation, or cost fails."]
+source_revision = "plan:642066938bc7aa7b9c9b5ade199c9505fc13b6b902895326d18893e643dc58dc"
+protocol_sha256 = "d2f123cd1f6b45bbe382f2bc9f8001f6d7fb981d3b86f1d2697ef0f17f3b1d9b"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary bounded_fresh_opportunity_controls"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-bounded-fresh-opportunity/Cargo.toml -- --arm complete-composition"

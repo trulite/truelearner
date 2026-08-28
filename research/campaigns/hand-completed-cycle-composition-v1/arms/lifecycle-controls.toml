@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "lifecycle-controls"
+campaign = "hand-completed-cycle-composition-v1"
+kind = "control"
+parents = ["completed-cycle-successor"]
+imports = ["sample rejection", "recent lifetime", "unique selection", "protocol scope", "reflection"]
+mechanism = "Hold sample, equal-latest ambiguity, stale, unrelated ownership, reflection, and old-protocol fixtures unchanged."
+prediction = "Only one recent accepted physical-transition cycle continues; every control falls back and all runs replay and quiesce."
+falsifiers = ["Any negative control continues.", "Reflection changes the law.", "Replay or quiescence fails."]
+source_revision = "plan:988d445bbee667a49a9d5c0810461a1f9c0dfae1d74c976c284f7ce040b9b312"
+protocol_sha256 = "4095fb8843681c0e1f47ccaf05ab099de287e57e708c217f8487e0f2b1e03f55"
+budget_minutes = 6
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary completed_cycle"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-completed-cycle-composition/Cargo.toml -- --arm lifecycle-controls"

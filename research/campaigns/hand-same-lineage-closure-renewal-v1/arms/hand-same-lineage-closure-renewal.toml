@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "hand-same-lineage-closure-renewal"
+campaign = "hand-same-lineage-closure-renewal-v1"
+kind = "hybrid"
+parents = ["truthful-hand-construction-admission", "scripted-two-cycle-reference"]
+imports = ["truthful hand first closure", "established second actual action-and-surface round trip"]
+mechanism = "Without changing physics, continue from the first hand closure to the first later actual movement and deliver only that movement's pending anonymous surfaces."
+prediction = "The later movement retains a live return, admits one of its actually delivered surface origins, reverse-consolidates the same closure key at evidence two, and constructs."
+falsifiers = ["No later actual output round occurs within sixteen steps.", "Its live return admits no delivered surface origin or produces no reverse consolidation.", "The later closure changes parent, surface, or output identity or fails to reach evidence two and construction.", "Renewal requires reset, semantic identity, evaluator-selected movement, altered threshold, replay loss, or non-quiescence."]
+source_revision = "plan:8236ac197588eda4800b68f8f1435c3a59d3f77066a123909f3f7850651ee58d"
+protocol_sha256 = "250b49ee91a8ca9b2b496fa6671bf15c4dd47be2c54791c9eebb4bedb8870dce"
+budget_minutes = 20
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-same-lineage-closure-renewal/Cargo.toml hand_round_uses_only_actual_movement_and_surface"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-same-lineage-closure-renewal/Cargo.toml -- --arm hand-same-lineage-closure-renewal"

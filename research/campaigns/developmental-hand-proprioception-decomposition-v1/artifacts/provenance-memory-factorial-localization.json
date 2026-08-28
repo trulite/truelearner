@@ -1,0 +1,159 @@
+{
+  "schema": "developmental-hand-proprioception-decomposition/v1",
+  "arm": "provenance-memory-factorial-localization",
+  "outcome": "survived",
+  "observations": {
+    "localization": {
+      "earliest_incomplete_transition": "causal-closure",
+      "explanation": "no causal owner formed",
+      "first_synthetic_provenance_difference": null,
+      "first_truthful_provenance_difference": 6,
+      "interaction_observed": true,
+      "provenance_effect_monolithic": true,
+      "provenance_effect_recursive": true,
+      "recursion_effect_synthetic": false,
+      "recursion_effect_truthful": true
+    },
+    "stops": {
+      "synthetic_monolithic": null,
+      "synthetic_recursive": null,
+      "truthful_monolithic": "junction-capacity",
+      "truthful_recursive": null
+    },
+    "synthetic_monolithic": {
+      "changed_steps": 12,
+      "comparisons": 3452001,
+      "directions": [
+        -1,
+        1
+      ],
+      "escaped_lower": false,
+      "escaped_upper": false,
+      "events": {
+        "choices": 2959,
+        "closure_observations": 0,
+        "consequential_owner_reads": 0,
+        "constructions": 0,
+        "drive_incidence": 534,
+        "outputs": 40,
+        "owner_reads": 0,
+        "owner_writes": 0,
+        "proposals": 2884,
+        "return_admissions": 19,
+        "return_scheduling": 0,
+        "traversals": 0
+      },
+      "final_position": 2,
+      "junctions": 2579,
+      "learners": 0,
+      "links": 4989,
+      "maximum_same_direction_run": 2,
+      "reached_lower": false,
+      "reached_upper": false,
+      "scans": 47838,
+      "steps": 16
+    },
+    "synthetic_recursive": {
+      "changed_steps": 12,
+      "comparisons": 3452001,
+      "directions": [
+        -1,
+        1
+      ],
+      "escaped_lower": false,
+      "escaped_upper": false,
+      "events": {
+        "choices": 2959,
+        "closure_observations": 0,
+        "consequential_owner_reads": 0,
+        "constructions": 0,
+        "drive_incidence": 534,
+        "outputs": 40,
+        "owner_reads": 0,
+        "owner_writes": 0,
+        "proposals": 2884,
+        "return_admissions": 19,
+        "return_scheduling": 30,
+        "traversals": 0
+      },
+      "final_position": 2,
+      "junctions": 2579,
+      "learners": 0,
+      "links": 4989,
+      "maximum_same_direction_run": 2,
+      "reached_lower": false,
+      "reached_upper": false,
+      "scans": 47838,
+      "steps": 16
+    },
+    "truthful_monolithic": {
+      "changed_steps": 11,
+      "comparisons": 10747701,
+      "directions": [
+        -1,
+        1
+      ],
+      "escaped_lower": false,
+      "escaped_upper": true,
+      "events": {
+        "choices": 6397,
+        "closure_observations": 0,
+        "consequential_owner_reads": 0,
+        "constructions": 0,
+        "drive_incidence": 206,
+        "outputs": 40,
+        "owner_reads": 0,
+        "owner_writes": 0,
+        "proposals": 4984,
+        "return_admissions": 21,
+        "return_scheduling": 0,
+        "traversals": 0
+      },
+      "final_position": -2,
+      "junctions": 4597,
+      "learners": 0,
+      "links": 8477,
+      "maximum_same_direction_run": 6,
+      "reached_lower": false,
+      "reached_upper": true,
+      "scans": 91288,
+      "steps": 12
+    },
+    "truthful_recursive": {
+      "changed_steps": 15,
+      "comparisons": 1162708,
+      "directions": [
+        -1,
+        1
+      ],
+      "escaped_lower": false,
+      "escaped_upper": true,
+      "events": {
+        "choices": 2711,
+        "closure_observations": 0,
+        "consequential_owner_reads": 0,
+        "constructions": 0,
+        "drive_incidence": 297,
+        "outputs": 48,
+        "owner_reads": 0,
+        "owner_writes": 0,
+        "proposals": 2069,
+        "return_admissions": 9,
+        "return_scheduling": 44,
+        "traversals": 0
+      },
+      "final_position": 3,
+      "junctions": 1147,
+      "learners": 0,
+      "links": 2143,
+      "maximum_same_direction_run": 5,
+      "reached_lower": false,
+      "reached_upper": true,
+      "scans": 54344,
+      "steps": 16
+    }
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

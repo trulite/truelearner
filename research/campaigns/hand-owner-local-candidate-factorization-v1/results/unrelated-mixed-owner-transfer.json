@@ -1,0 +1,18 @@
+{
+  "schema": "hand-owner-local-candidate-factorization/v1",
+  "arm": "unrelated-mixed-owner-transfer",
+  "outcome": "survived",
+  "observations": {
+    "candidate_motor_outputs": 1,
+    "exact_replay": true,
+    "input_order_behavior_equal": true,
+    "naturally_quiescent": true,
+    "one_effect": true,
+    "reference_motor_outputs": 0,
+    "selected_owner_group": true,
+    "survived": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

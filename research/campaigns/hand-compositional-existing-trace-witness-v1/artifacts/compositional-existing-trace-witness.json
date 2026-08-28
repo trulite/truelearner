@@ -1,0 +1,606 @@
+{
+  "schema": "hand-compositional-existing-trace-witness/v1",
+  "arm": "compositional-existing-trace-witness",
+  "outcome": "survived",
+  "source_sha256": "2baf097b176ee40ec9004529cb590db6365b5c1d887357e7fca9ac82ca9aebb2",
+  "source_hash_matches": true,
+  "exact_first_failure_matches": true,
+  "verdict": "owner-projection-gap",
+  "reason": "an uninterrupted consequence-bearing link still completes the target path at failure while the fresh owner has no matching private write and reports no consequence",
+  "evidence": {
+    "consequence_tick": 8,
+    "failure_tick": 23,
+    "witness_target": 11,
+    "fresh_owner": 2,
+    "consequence_links": [
+      35,
+      36
+    ],
+    "missing_owner_preferences": [
+      {
+        "hand_step": 3,
+        "tick": 23,
+        "phase": 0,
+        "event": {
+          "event": "LearnerCandidatePreference",
+          "evidence": {
+            "admitted": false,
+            "consequence_tick": null,
+            "owner": 2,
+            "target": 11
+          }
+        }
+      }
+    ],
+    "composed_links": [
+      {
+        "link": 35,
+        "generations": [
+          1
+        ],
+        "downstream_target_events": [],
+        "deallocations": [],
+        "failure_participation": [],
+        "matching_owner_writes": [],
+        "uninterrupted": true
+      },
+      {
+        "link": 36,
+        "generations": [
+          1
+        ],
+        "downstream_target_events": [
+          {
+            "hand_step": 1,
+            "tick": 11,
+            "phase": 0,
+            "event": {
+              "event": "DriveProvenanceObserved",
+              "evidence": {
+                "carried_origin": 10002,
+                "causal_wave": 0,
+                "completes_path": true,
+                "is_motor": true,
+                "link": 36,
+                "ordinal": 0,
+                "origin_owner": null,
+                "path_owner": null,
+                "phase": 0,
+                "source": 18,
+                "source_physical": 90003,
+                "source_region": 0,
+                "strength": 8589934592,
+                "target": 11,
+                "target_physical": 20001,
+                "target_region": 0,
+                "tick": 0
+              }
+            }
+          },
+          {
+            "hand_step": 2,
+            "tick": 15,
+            "phase": 0,
+            "event": {
+              "event": "DriveProvenanceObserved",
+              "evidence": {
+                "carried_origin": 10002,
+                "causal_wave": 0,
+                "completes_path": true,
+                "is_motor": true,
+                "link": 36,
+                "ordinal": 0,
+                "origin_owner": null,
+                "path_owner": null,
+                "phase": 0,
+                "source": 18,
+                "source_physical": 90003,
+                "source_region": 0,
+                "strength": 8589934592,
+                "target": 11,
+                "target_physical": 20001,
+                "target_region": 0,
+                "tick": 0
+              }
+            }
+          },
+          {
+            "hand_step": 2,
+            "tick": 19,
+            "phase": 0,
+            "event": {
+              "event": "DriveProvenanceObserved",
+              "evidence": {
+                "carried_origin": 10002,
+                "causal_wave": 0,
+                "completes_path": true,
+                "is_motor": true,
+                "link": 36,
+                "ordinal": 0,
+                "origin_owner": 2,
+                "path_owner": 2,
+                "phase": 0,
+                "source": 18,
+                "source_physical": 90003,
+                "source_region": 0,
+                "strength": 11700334592,
+                "target": 11,
+                "target_physical": 20001,
+                "target_region": 0,
+                "tick": 0
+              }
+            }
+          },
+          {
+            "hand_step": 3,
+            "tick": 23,
+            "phase": 0,
+            "event": {
+              "event": "DriveProvenanceObserved",
+              "evidence": {
+                "carried_origin": 10002,
+                "causal_wave": 0,
+                "completes_path": true,
+                "is_motor": true,
+                "link": 36,
+                "ordinal": 0,
+                "origin_owner": 2,
+                "path_owner": 2,
+                "phase": 0,
+                "source": 18,
+                "source_physical": 90003,
+                "source_region": 0,
+                "strength": 11700334592,
+                "target": 11,
+                "target_physical": 20001,
+                "target_region": 0,
+                "tick": 0
+              }
+            }
+          }
+        ],
+        "deallocations": [],
+        "failure_participation": [
+          {
+            "hand_step": 3,
+            "tick": 23,
+            "phase": 0,
+            "event": {
+              "event": "DriveProvenanceObserved",
+              "evidence": {
+                "carried_origin": 10002,
+                "causal_wave": 0,
+                "completes_path": true,
+                "is_motor": true,
+                "link": 36,
+                "ordinal": 0,
+                "origin_owner": 2,
+                "path_owner": 2,
+                "phase": 0,
+                "source": 18,
+                "source_physical": 90003,
+                "source_region": 0,
+                "strength": 11700334592,
+                "target": 11,
+                "target_physical": 20001,
+                "target_region": 0,
+                "tick": 0
+              }
+            }
+          }
+        ],
+        "matching_owner_writes": [],
+        "uninterrupted": true
+      }
+    ],
+    "exact_supporting_slice": [
+      {
+        "hand_step": 1,
+        "tick": 8,
+        "phase": 0,
+        "event": {
+          "event": "ConsequenceRecorded",
+          "evidence": {
+            "junction": 18,
+            "link": 35
+          }
+        }
+      },
+      {
+        "hand_step": 1,
+        "tick": 8,
+        "phase": 0,
+        "event": {
+          "event": "ConsequenceRecorded",
+          "evidence": {
+            "junction": 18,
+            "link": 36
+          }
+        }
+      },
+      {
+        "hand_step": 1,
+        "tick": 10,
+        "phase": 0,
+        "event": {
+          "event": "DriveProvenanceObserved",
+          "evidence": {
+            "carried_origin": 10002,
+            "causal_wave": 0,
+            "completes_path": false,
+            "is_motor": false,
+            "link": 35,
+            "ordinal": 0,
+            "origin_owner": null,
+            "path_owner": null,
+            "phase": 0,
+            "source": 3,
+            "source_physical": 10002,
+            "source_region": 0,
+            "strength": 10567661296,
+            "target": 18,
+            "target_physical": 90003,
+            "target_region": 0,
+            "tick": 0
+          }
+        }
+      },
+      {
+        "hand_step": 1,
+        "tick": 10,
+        "phase": 0,
+        "event": {
+          "event": "CausalLineageMemberObserved",
+          "evidence": {
+            "causal_wave": 0,
+            "generation": 1,
+            "link": 35,
+            "mode": "Drive",
+            "origin_physical": 10002,
+            "target": 18
+          }
+        }
+      },
+      {
+        "hand_step": 1,
+        "tick": 11,
+        "phase": 0,
+        "event": {
+          "event": "DriveProvenanceObserved",
+          "evidence": {
+            "carried_origin": 10002,
+            "causal_wave": 0,
+            "completes_path": true,
+            "is_motor": true,
+            "link": 36,
+            "ordinal": 0,
+            "origin_owner": null,
+            "path_owner": null,
+            "phase": 0,
+            "source": 18,
+            "source_physical": 90003,
+            "source_region": 0,
+            "strength": 8589934592,
+            "target": 11,
+            "target_physical": 20001,
+            "target_region": 0,
+            "tick": 0
+          }
+        }
+      },
+      {
+        "hand_step": 2,
+        "tick": 14,
+        "phase": 0,
+        "event": {
+          "event": "DriveProvenanceObserved",
+          "evidence": {
+            "carried_origin": 10002,
+            "causal_wave": 0,
+            "completes_path": false,
+            "is_motor": false,
+            "link": 35,
+            "ordinal": 0,
+            "origin_owner": null,
+            "path_owner": null,
+            "phase": 0,
+            "source": 3,
+            "source_physical": 10002,
+            "source_region": 0,
+            "strength": 10567661296,
+            "target": 18,
+            "target_physical": 90003,
+            "target_region": 0,
+            "tick": 0
+          }
+        }
+      },
+      {
+        "hand_step": 2,
+        "tick": 14,
+        "phase": 0,
+        "event": {
+          "event": "CausalLineageMemberObserved",
+          "evidence": {
+            "causal_wave": 0,
+            "generation": 1,
+            "link": 35,
+            "mode": "Drive",
+            "origin_physical": 10002,
+            "target": 18
+          }
+        }
+      },
+      {
+        "hand_step": 2,
+        "tick": 15,
+        "phase": 0,
+        "event": {
+          "event": "DriveProvenanceObserved",
+          "evidence": {
+            "carried_origin": 10002,
+            "causal_wave": 0,
+            "completes_path": true,
+            "is_motor": true,
+            "link": 36,
+            "ordinal": 0,
+            "origin_owner": null,
+            "path_owner": null,
+            "phase": 0,
+            "source": 18,
+            "source_physical": 90003,
+            "source_region": 0,
+            "strength": 8589934592,
+            "target": 11,
+            "target_physical": 20001,
+            "target_region": 0,
+            "tick": 0
+          }
+        }
+      },
+      {
+        "hand_step": 2,
+        "tick": 15,
+        "phase": 0,
+        "event": {
+          "event": "CausalLineageMemberObserved",
+          "evidence": {
+            "causal_wave": 0,
+            "generation": 1,
+            "link": 36,
+            "mode": "Drive",
+            "origin_physical": 10002,
+            "target": 11
+          }
+        }
+      },
+      {
+        "hand_step": 2,
+        "tick": 16,
+        "phase": 0,
+        "event": {
+          "event": "LearnerConstructed",
+          "evidence": {
+            "junction_count": 4,
+            "learner": 1,
+            "link_count": 3,
+            "output": 11,
+            "parent": null,
+            "surface": 2
+          }
+        }
+      },
+      {
+        "hand_step": 2,
+        "tick": 16,
+        "phase": 0,
+        "event": {
+          "event": "LearnerConstructed",
+          "evidence": {
+            "junction_count": 6,
+            "learner": 2,
+            "link_count": 5,
+            "output": 11,
+            "parent": null,
+            "surface": 3
+          }
+        }
+      },
+      {
+        "hand_step": 2,
+        "tick": 18,
+        "phase": 0,
+        "event": {
+          "event": "DriveProvenanceObserved",
+          "evidence": {
+            "carried_origin": 10002,
+            "causal_wave": 0,
+            "completes_path": false,
+            "is_motor": false,
+            "link": 35,
+            "ordinal": 0,
+            "origin_owner": 2,
+            "path_owner": 2,
+            "phase": 0,
+            "source": 3,
+            "source_physical": 10002,
+            "source_region": 0,
+            "strength": 10567661296,
+            "target": 18,
+            "target_physical": 90003,
+            "target_region": 0,
+            "tick": 0
+          }
+        }
+      },
+      {
+        "hand_step": 2,
+        "tick": 18,
+        "phase": 0,
+        "event": {
+          "event": "CausalLineageMemberObserved",
+          "evidence": {
+            "causal_wave": 0,
+            "generation": 1,
+            "link": 35,
+            "mode": "Drive",
+            "origin_physical": 10002,
+            "target": 18
+          }
+        }
+      },
+      {
+        "hand_step": 2,
+        "tick": 19,
+        "phase": 0,
+        "event": {
+          "event": "DriveProvenanceObserved",
+          "evidence": {
+            "carried_origin": 10002,
+            "causal_wave": 0,
+            "completes_path": true,
+            "is_motor": true,
+            "link": 36,
+            "ordinal": 0,
+            "origin_owner": 2,
+            "path_owner": 2,
+            "phase": 0,
+            "source": 18,
+            "source_physical": 90003,
+            "source_region": 0,
+            "strength": 11700334592,
+            "target": 11,
+            "target_physical": 20001,
+            "target_region": 0,
+            "tick": 0
+          }
+        }
+      },
+      {
+        "hand_step": 3,
+        "tick": 22,
+        "phase": 0,
+        "event": {
+          "event": "DriveProvenanceObserved",
+          "evidence": {
+            "carried_origin": 10002,
+            "causal_wave": 0,
+            "completes_path": false,
+            "is_motor": false,
+            "link": 35,
+            "ordinal": 0,
+            "origin_owner": 2,
+            "path_owner": 2,
+            "phase": 0,
+            "source": 3,
+            "source_physical": 10002,
+            "source_region": 0,
+            "strength": 10567661296,
+            "target": 18,
+            "target_physical": 90003,
+            "target_region": 0,
+            "tick": 0
+          }
+        }
+      },
+      {
+        "hand_step": 3,
+        "tick": 22,
+        "phase": 0,
+        "event": {
+          "event": "CausalLineageMemberObserved",
+          "evidence": {
+            "causal_wave": 0,
+            "generation": 1,
+            "link": 35,
+            "mode": "Drive",
+            "origin_physical": 10002,
+            "target": 18
+          }
+        }
+      },
+      {
+        "hand_step": 3,
+        "tick": 23,
+        "phase": 0,
+        "event": {
+          "event": "DriveProvenanceObserved",
+          "evidence": {
+            "carried_origin": 10002,
+            "causal_wave": 0,
+            "completes_path": true,
+            "is_motor": true,
+            "link": 36,
+            "ordinal": 0,
+            "origin_owner": 2,
+            "path_owner": 2,
+            "phase": 0,
+            "source": 18,
+            "source_physical": 90003,
+            "source_region": 0,
+            "strength": 11700334592,
+            "target": 11,
+            "target_physical": 20001,
+            "target_region": 0,
+            "tick": 0
+          }
+        }
+      },
+      {
+        "hand_step": 3,
+        "tick": 23,
+        "phase": 0,
+        "event": {
+          "event": "OutputChoiceResolved",
+          "evidence": {
+            "admission_basis": "FreshAlternative",
+            "admitted": [
+              {
+                "owner": 2,
+                "target": 10
+              }
+            ],
+            "coherent_effect_target": null,
+            "completed_cycle_state": "Missing",
+            "completed_cycle_target": null,
+            "computed_winner_basis": "FreshAlternative",
+            "computed_winner_target": 10,
+            "crosses_ownership_view": false,
+            "current_transition_target": null,
+            "ordinary_target": 11,
+            "phase": 0,
+            "tick": 0
+          }
+        }
+      },
+      {
+        "hand_step": 3,
+        "tick": 23,
+        "phase": 0,
+        "event": {
+          "event": "LearnerCandidatePreference",
+          "evidence": {
+            "admitted": true,
+            "consequence_tick": null,
+            "owner": 2,
+            "target": 10
+          }
+        }
+      },
+      {
+        "hand_step": 3,
+        "tick": 23,
+        "phase": 0,
+        "event": {
+          "event": "LearnerCandidatePreference",
+          "evidence": {
+            "admitted": false,
+            "consequence_tick": null,
+            "owner": 2,
+            "target": 11
+          }
+        }
+      }
+    ]
+  }
+}

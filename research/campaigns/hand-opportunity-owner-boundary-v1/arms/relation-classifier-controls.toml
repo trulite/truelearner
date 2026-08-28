@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "relation-classifier-controls"
+campaign = "hand-opportunity-owner-boundary-v1"
+kind = "control"
+parents = ["lifetime-locality-ownership-controls"]
+imports = ["actual learner IDs", "actual parent links"]
+mechanism = "Classify same, organism-root, root-organism, parent-child, child-parent, sibling, unrelated, and unknown owner pairs without affecting behavior."
+prediction = "Every synthetic ancestry case maps to one distinct expected relation and unknown IDs remain unrelated."
+falsifiers = ["Any relation aliases a sibling or unrelated pair.", "Missing IDs are treated as adjacency."]
+source_revision = "plan:759ffd285b5bbbfc48e255deb204f75de882679247a42d663648c19a5b648359"
+protocol_sha256 = "93e95d8ebda8adc405bd3266757bed6220936a9e4528cf69b7e205e558c9c1b4"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary opportunity_owner_relation"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-opportunity-owner-boundary/Cargo.toml -- --arm relation-classifier-controls"

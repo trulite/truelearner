@@ -1,0 +1,17 @@
+{
+  "schema": "hand-physical-boundary-member-novelty/v1",
+  "arm": "adjacent-expansion-transfer",
+  "outcome": "survived",
+  "observations": {
+    "child_output_is_new": true,
+    "child_parented": true,
+    "exact_replay": true,
+    "learners": 2,
+    "naturally_quiescent": true,
+    "novel_members_observed": true,
+    "survived": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

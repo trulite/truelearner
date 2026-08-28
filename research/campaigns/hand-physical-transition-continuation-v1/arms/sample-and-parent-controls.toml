@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "sample-and-parent-controls"
+campaign = "hand-physical-transition-continuation-v1"
+kind = "control"
+parents = ["physical-transition-continuation"]
+imports = ["sample/transition distinction", "frozen root-fresh parent"]
+mechanism = "Reject continuation without a unique current owner-local transition and preserve parent release."
+prediction = "Samples are rejected and parent behavior, exact return lifetime, replay, and quiescence remain intact."
+falsifiers = ["A sample continues.", "Parent or lifetime behavior changes."]
+source_revision = "plan:d97c914f007a54607bb76e484eb5bc948d367c107f500054072016cbc0d096af"
+protocol_sha256 = "92b3546a178f938849cbe51ae341b927e68f5baf33d0348d314a98db44647e8e"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary physical_transition_continuation"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-physical-transition-continuation/Cargo.toml -- --arm sample-and-parent-controls"

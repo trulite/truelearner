@@ -1,0 +1,57 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/hand-completed-cycle-composition-candidate.json",
+    "sha256": "e9cf753ec8e595ad2d43f4c8bc8ee0b5823671adb2b42389b5dd0447ed8a4605"
+  },
+  "verdict": "supported",
+  "independent_test_count": 78,
+  "checks": [
+    {
+      "name": "held-out",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.59
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml completed_cycle",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.44
+    }
+  ],
+  "findings": [
+    "A real accepted physical transition can supply exactly one recent completed-cycle successor across changed ownership views; unchanged samples, equal-latest ambiguity, and stale evidence cannot.",
+    "The new protocol is opt-in, preserves the coherent open-return priority and inherited protocol predicates, and adds no durable learner state or semantic hand information.",
+    "The frozen official batched run preserved exact coherent and root-fresh parents, replay, natural quiescence, and zero propagation exhaustion.",
+    "The local completed-cycle law survived, but official one-joint control and complete composition were falsified: twelve real movements reached neither reflected limit."
+  ],
+  "residual_uncertainty": [
+    "The first physical motor-arrow change after a completed-cycle admission still needs observational localization; the present evidence does not distinguish missing or tied cycle evidence, expiry, open-return priority, and ownership reconstruction at that exact divergence.",
+    "This is discovery-only candidate physics and does not establish default adoption, Academy hand capability, perturbation recovery, or a general controller."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/hand-completed-cycle-composition-v1/artifacts/completed-cycle-successor.json",
+      "sha256": "31eb2abfa3c02cb5c7765bed9125b0e0b7f1c21190ac88c8f4bcd13798d2f38a"
+    },
+    {
+      "path": "research/campaigns/hand-completed-cycle-composition-v1/artifacts/lifecycle-controls.json",
+      "sha256": "6040d828be698692a55c6d19982a80d83836dba0f10ce55de87b938d77af9165"
+    },
+    {
+      "path": "research/campaigns/hand-completed-cycle-composition-v1/artifacts/official-batched-hand.json",
+      "sha256": "2c231c0433c4f7bef10b1dcc46c9a1203160586a0c79a6eb5bfdc6e48a0290b5"
+    },
+    {
+      "path": "research/campaigns/hand-completed-cycle-composition-v1/artifacts/complete-composition.json",
+      "sha256": "8f092bb0ae49e3a2297854be23041dbedf9da8dafc6038bb4ac6bc322d32e47a"
+    },
+    {
+      "path": "research/campaigns/hand-completed-cycle-composition-v1/convergence.toml",
+      "sha256": "6c3548b7555f3af252bad7ff6087fd8fb2347777dcd75fbff26ba86d44b5729a"
+    }
+  ]
+}

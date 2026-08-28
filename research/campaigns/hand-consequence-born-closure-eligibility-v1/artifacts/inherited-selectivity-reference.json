@@ -1,0 +1,14 @@
+{
+  "schema": "hand-consequence-born-closure-eligibility/v1",
+  "arm": "inherited-selectivity-reference",
+  "outcome": "survived",
+  "observations": {
+    "dependent_failure": "physical boundary novelty",
+    "inherited_first_failure": "causal-closure observation eligibility",
+    "parent_intact": true,
+    "parent_sha256": "9d1eb1461931fa6159e3955d39edd814e43531f266c2be66c184b2f0df2a8915"
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

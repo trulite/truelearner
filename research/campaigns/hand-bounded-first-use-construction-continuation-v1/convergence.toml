@@ -1,0 +1,49 @@
+schema = "research-convergence/v1"
+campaign = "hand-bounded-first-use-construction-continuation-v1"
+round = 1
+survived = ["parent-and-lifetime-controls"]
+falsified = ["bounded-first-use-fixtures", "reflected-hand-first-wall"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "all arms used one opt-in lifetime state on exact owner-local construction-projected consequence memory and preserved the original consequence tick",
+  "the first matching tick-twenty-three competition uniquely admitted learner-two target eleven through link thirty-six generation one and then consumed that held state",
+  "the changed hand moved from plus three to plus four, reached and later escaped the upper boundary, retained exact replay and natural quiescence, and produced zero propagation exhaustion",
+  "two construction continuations were consumed with no duplicate consumption and no later stale reuse",
+  "the immutable and live RecursiveLearnerConstructionOutcomeComposition parent remained exact",
+]
+strongest_counterexamples = [
+  "the local physical prediction succeeded but the declared complete arms were falsified because comparisons rose from five-thousand-three-hundred-seventy to seven-thousand-three-hundred-twenty, beyond the frozen plus-two-hundred-fifty-six bound",
+  "scan work rose by two-hundred-fifty-five and narrowly satisfied that same bound, showing that the failure is specific to comparisons rather than a general runaway or loss of quiescence",
+  "the candidate reached the upper boundary but still did not reach the lower boundary, so first-wall repair is not complete reflected-joint control",
+  "the retained candidate trajectory contains high-comparison upper-contact steps, but the evidence reduced the live parent to total work and cannot yet distinguish direct law overhead from downstream trajectory-induced topology",
+]
+retired_families = [
+  "global recency extension or timestamp refresh for the tick-twenty-three construction consequence",
+  "held paths, parent-memory copying, semantic direction, or winner-only lifetime consumption",
+  "calling a locally repaired physical transition cleanly integrated when its declared cost gate fails",
+  "loosening the frozen work bound after observing the candidate",
+]
+next_discriminators = [
+  "freeze a diagnostic successor that retains parent and candidate per-step comparisons, scans, positions, learners, live links, choices, and exact construction-consumption events in one artifact",
+  "compare the shared prefix through tick twenty-three separately from the divergent post-repair trajectory; direct mechanism overhead predicts excess work before or at first use, while trajectory-induced work predicts divergence only after the hand reaches upper contact",
+  "normalize downstream work by observed physical moments and touched topology only as an additional diagnostic, without revising this campaign's failed absolute bound",
+  "do not test the later lower-side behavior solve or promote bounded first-use continuation until the comparison-cost source is localized and a successor integration contract is frozen",
+]
+
+[[new_arm]]
+id = "prefix-and-activity-work-localization"
+kind = "diagnostic"
+parents = ["bounded-first-use-fixtures", "reflected-hand-first-wall", "parent-and-lifetime-controls"]
+imports = [
+  "bounded-first-use-fixtures: exact one-use construction continuation and zero stale reuse",
+  "reflected-hand-first-wall: tick-twenty-three target-eleven arrow and upper-boundary trajectory",
+  "parent-and-lifetime-controls: exact integrated parent and ordinary lifetime controls",
+]
+interaction_prediction = "Parent and candidate work stay matched through the shared pre-choice prefix apart from bounded exact read-and-consume work; the large comparison delta begins only after target eleven changes the hand to upper contact, indicating downstream physical trajectory cost rather than an unbounded memory lookup."
+falsifiers = [
+  "Comparison work diverges materially before the held memory participates.",
+  "One held read or consume scans learner-global memory or dormant topology rather than actual candidate firings.",
+  "Per-step retention changes either parent or candidate behavior, replay, quiescence, or work totals.",
+  "The absolute comparison excess cannot be assigned to a first physical step and touched topology from the retained evidence.",
+]

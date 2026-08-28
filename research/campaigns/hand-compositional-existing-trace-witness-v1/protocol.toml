@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-compositional-existing-trace-witness-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-construction-cycle-witness-v1 convergence sha256:d42c62636c007b2bff6a766088d8abacdccf73ec1f1d17a91bba0b76bbbfa095"
+question = "Does composition of the immutable existing trace prove that a consequence-bearing physical link survives construction and participates at tick twenty-three while fresh learner two has no matching private consequence?"
+observables = ["source artifact SHA-256", "ordered consequence, drive, lineage, deallocation, construction, learner consequence, candidate preference, and choice entries", "typed witness verdict and exact supporting slice"]
+frozen_variables = ["source artifact bytes", "completed-cycle hand behavior", "core and adapter code", "first-failure identity", "child fresh-memory law"]
+permitted_changes = ["one pure JSON artifact fold", "one independent offline evidence artifact"]
+positive_predicates = ["the source hash and exact first failure match", "at least one tick-eight consequence link composes to target eleven", "the link lifecycle, failure participation, learner-two private write, and learner-two preference are classified"]
+negative_controls = ["no organism run", "no source artifact mutation", "no new core event", "no semantic position, direction, hand, or expected-action fact"]
+stop_conditions = ["source hash mismatch", "choice identity mismatch", "composition requires an unrecorded endpoint", "link lifetime is ambiguous", "classification requires semantic world knowledge"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

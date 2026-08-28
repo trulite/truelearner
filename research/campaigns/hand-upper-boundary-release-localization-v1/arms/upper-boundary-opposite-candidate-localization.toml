@@ -1,0 +1,17 @@
+schema = "research-arm/v1"
+id = "upper-boundary-opposite-candidate-localization"
+campaign = "hand-upper-boundary-release-localization-v1"
+kind = "diagnostic"
+parents = ["conditional-reflected-hand"]
+imports = ["quiet boundary-effect-terminal hand", "exhaustive candidate, selection, and provenance trace"]
+mechanism = "Fold the first clamped step into path, threshold, executable-candidate, local-selection, output, and movement stages for both physical motor endpoints."
+prediction = "Both motor endpoints have live executable candidates, but one is rejected by local output competition and emits nothing while the incumbent is admitted and emitted."
+falsifiers = ["Either endpoint lacks a live path or executable candidate.", "Both or neither endpoints are locally admitted.", "The selected endpoint and emitted endpoint disagree."]
+source_revision = "plan:be7c741738384406981d758fb6ad9514e854c7938fc45fcf781ca63a6b80e42a"
+protocol_sha256 = "7d2cac6c6d313cb1a9771c695b04414a2940200edd076ba4e2e0e5b9bf3e0f9e"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-upper-boundary-release-localization/Cargo.toml existing_diagnostic_distinguishes_both_motor_endpoints"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-upper-boundary-release-localization/Cargo.toml -- --arm upper-boundary-opposite-candidate-localization"
+

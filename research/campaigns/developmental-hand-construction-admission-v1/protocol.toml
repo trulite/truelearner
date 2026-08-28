@@ -1,0 +1,56 @@
+schema = "research-protocol/v1"
+id = "developmental-hand-construction-admission-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "developmental-hand-proprioception-decomposition-v1/convergence.toml@d14bd14ab06db6bc5c93d8861c15f0d199c57ede4d2aa8ee92e583f79b738e99"
+question = "Do symmetric anonymous proprioceptive-surface paths and later delivery through the actual post-movement surfaces compose to admit a bounded causal child in the truthful reflected one-joint world?"
+observables = [
+  "the exact frozen truthful-recursive fifteen-of-sixteen hand trace",
+  "external incidence, surface-to-outcome traversal, return scheduling, physical-origin admission, reverse consolidation, closure evidence, construction, and owner-local write/read events",
+  "formed junctions and links, learner ancestry, work, scans, comparisons, resident memory, completed prefix, first physical stop, replay, and natural quiescence",
+  "surface-path and physical-delivery main effects, interaction, first trace divergence, and earliest incomplete transition",
+  "conditional fresh-owner admission, sixteen-step reflected-joint closure, and fixed perturbation recovery",
+]
+frozen_variables = [
+  "CORE1 authority, RecursiveLearnerConstruction protocol, and all prior campaign evidence",
+  "the prior truthful-recursive hand geometry, motor opportunity, signed integration, reflection, initial position, sixteen-step horizon, capacities, replay, quiescence, and evaluator",
+  "nine anonymous position sensors, two anonymous motors, two outcome surfaces, and truthful physical ids",
+  "two accepted causal closures per construction and existing fresh owner-local return and consequence memory",
+  "public Harness and HarnessBuilder boundary with no learner allocation, addressing, routing, or memory-writing operation",
+  "fixed 8 -> +4 -> 16 perturbation conditional on primary closure and mirrored held-out verification",
+]
+permitted_changes = [
+  "one typed surface-path axis: absent or equal delay-three drive links from every sensor to both outcome surfaces",
+  "one typed return-delivery axis: prior direct outcome incidence or later incidence through only the actual post-movement sensors and their physical origins",
+  "research-only trace aggregation, typed physical stops, factorial evaluation, and conditional gates",
+]
+positive_predicates = [
+  "the absent-path direct-outcome cell exactly reproduces the frozen truthful-recursive trace",
+  "the complete symmetric-path physical-surface cell observes two accepted closures on one live anonymous lineage and constructs at least one bounded child without a physical stop",
+  "each factorial contrast changes only one typed axis and localizes surface-path, delivery, and interaction effects without semantic fields",
+  "a constructed child admits its first own physically participating return before any consequential owner read and does not inherit a parent or sibling preference signal",
+  "a child construction is reported separately from hand closure; only a primary hand survivor runs the fixed perturbation",
+  "all interpreted runs replay exactly, quiesce naturally, preserve fixed capacity, and finish under the strictly-under-ten-second warm bound",
+]
+negative_controls = [
+  "frozen absent-path direct-outcome hand trace with zero construction",
+  "symmetric surface paths with direct outcome delivery only",
+  "physical surface delivery with surface paths absent",
+  "one accepted closure only, exact duplicate return, disconnected surface, and shuffled physical origin",
+  "immutable return-reentry composition artifact 08fe6a67c04a9aa5d35d348f3ba5b3ff4b547ada3d1837a2203eadca6c3f3e34",
+  "fixed capacity, reflected geometry, checkpoint replay, natural quiescence, hidden-authority audit, and warm runtime",
+]
+stop_conditions = [
+  "any prior artifact, classification, frozen hand trace, core regression, replay, or quiescence changes",
+  "a factorial contrast changes any variable other than its declared path or delivery axis",
+  "surface topology is asymmetric or chosen using direction, limit, target, score, evaluator, or anatomy identity",
+  "delivery uses an inactive surface or supplies semantic consequence, action, answer, or evaluator information",
+  "a disconnected, shuffled, duplicate, or single-closure control constructs a learner",
+  "a cell reaches fixed capacity, exceeds the warm bound, or loses replay or natural quiescence; freeze its completed prefix and stop dependent gates",
+  "stop child freshness, hand retry, and perturbation if bounded construction admission fails",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

@@ -1,0 +1,497 @@
+{
+  "schema": "hand-activity-normalized-build/v1",
+  "arm": "parent-behavior-preservation",
+  "outcome": "survived",
+  "observations": {
+    "candidate": {
+      "comparisons": 1079,
+      "escaped_lower": true,
+      "escaped_upper": true,
+      "exact_replay": true,
+      "naturally_quiescent": true,
+      "perturbation_recovered": true,
+      "phase_outputs": [
+        [
+          [
+            20001
+          ]
+        ],
+        [
+          [],
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ],
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ],
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ],
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20001
+          ]
+        ]
+      ],
+      "positions": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          -1
+        ],
+        [
+          -1,
+          -2
+        ],
+        [
+          -2,
+          -3
+        ],
+        [
+          -3,
+          -4
+        ],
+        [
+          -4,
+          -4
+        ],
+        [
+          -4,
+          -4
+        ],
+        [
+          -4,
+          -3
+        ]
+      ],
+      "primary_closed": true,
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerReturnBearingContinuation",
+      "reached_lower": true,
+      "reached_upper": true,
+      "scans": 5328,
+      "stopped": false
+    },
+    "complete_one_joint": true,
+    "parent": {
+      "comparisons": 1076,
+      "escaped_lower": false,
+      "escaped_upper": true,
+      "exact_replay": true,
+      "naturally_quiescent": true,
+      "perturbation_recovered": false,
+      "phase_outputs": [
+        [
+          [
+            20001
+          ]
+        ],
+        [
+          [],
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ],
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ],
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ],
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20001
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20000
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20001
+          ],
+          [
+            20000
+          ]
+        ],
+        [
+          [
+            20001
+          ]
+        ],
+        [
+          [
+            20001
+          ],
+          [
+            20000
+          ]
+        ]
+      ],
+      "positions": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "primary_closed": false,
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerBoundedConstructionContinuation",
+      "reached_lower": false,
+      "reached_upper": true,
+      "scans": 5279,
+      "stopped": false
+    },
+    "parent_behavior_preserved": true,
+    "predecessor_controls": [
+      {
+        "expected_sha256": "0931453840810efb426703cacc365c65adef4ea6d1aaff7b29d1f5e4b62dd3f1",
+        "matched": true,
+        "name": "attribution-conservation.json",
+        "observed_sha256": "0931453840810efb426703cacc365c65adef4ea6d1aaff7b29d1f5e4b62dd3f1"
+      },
+      {
+        "expected_sha256": "036d0102636dc863e137a86954dc1d87a9918c850ce0b065f810fb30fad084b1",
+        "matched": true,
+        "name": "boundary-input-activity.json",
+        "observed_sha256": "036d0102636dc863e137a86954dc1d87a9918c850ce0b065f810fb30fad084b1"
+      },
+      {
+        "expected_sha256": "bb36dfc38f090ccb986f7f83e808400b13a8ce7b439c0ed426f8b0f01b5b2b1f",
+        "matched": true,
+        "name": "finite-activity-decision.json",
+        "observed_sha256": "bb36dfc38f090ccb986f7f83e808400b13a8ce7b439c0ed426f8b0f01b5b2b1f"
+      },
+      {
+        "expected_sha256": "f1584a924db8269f1d0fe24198d33a8eb2a148e9cbb14106c0343dd707d3d5fa",
+        "matched": true,
+        "name": "learner-construction-activity.json",
+        "observed_sha256": "f1584a924db8269f1d0fe24198d33a8eb2a148e9cbb14106c0343dd707d3d5fa"
+      },
+      {
+        "expected_sha256": "641c939772ce19bec962d71f80638493e9cfdde81889a665d0fc8b01fc3584c0",
+        "matched": true,
+        "name": "evidence.json",
+        "observed_sha256": "641c939772ce19bec962d71f80638493e9cfdde81889a665d0fc8b01fc3584c0"
+      },
+      {
+        "expected_sha256": "91670c66a6d899be93a062a5c96b388f08381e29226bcc646e26d5792b61c0e7",
+        "matched": true,
+        "name": "adjudication.toml",
+        "observed_sha256": "91670c66a6d899be93a062a5c96b388f08381e29226bcc646e26d5792b61c0e7"
+      },
+      {
+        "expected_sha256": "6e97b6268a4ca45f0992454377f31ef6ac0d57f2c174ac566afe7a2013a5dc77",
+        "matched": true,
+        "name": "convergence.toml",
+        "observed_sha256": "6e97b6268a4ca45f0992454377f31ef6ac0d57f2c174ac566afe7a2013a5dc77"
+      }
+    ],
+    "predecessor_controls_survived": true,
+    "scaling": [
+      {
+        "batch_max": 4,
+        "batched_items": 5,
+        "comparisons": 5,
+        "comparisons_per_item_milli": 1000,
+        "exact_replay": true,
+        "fanout": 4,
+        "naturally_quiescent": true,
+        "scans": 23
+      },
+      {
+        "batch_max": 8,
+        "batched_items": 9,
+        "comparisons": 13,
+        "comparisons_per_item_milli": 1444,
+        "exact_replay": true,
+        "fanout": 8,
+        "naturally_quiescent": true,
+        "scans": 47
+      },
+      {
+        "batch_max": 16,
+        "batched_items": 17,
+        "comparisons": 29,
+        "comparisons_per_item_milli": 1705,
+        "exact_replay": true,
+        "fanout": 16,
+        "naturally_quiescent": true,
+        "scans": 95
+      },
+      {
+        "batch_max": 32,
+        "batched_items": 33,
+        "comparisons": 61,
+        "comparisons_per_item_milli": 1848,
+        "exact_replay": true,
+        "fanout": 32,
+        "naturally_quiescent": true,
+        "scans": 191
+      },
+      {
+        "batch_max": 64,
+        "batched_items": 65,
+        "comparisons": 125,
+        "comparisons_per_item_milli": 1923,
+        "exact_replay": true,
+        "fanout": 64,
+        "naturally_quiescent": true,
+        "scans": 383
+      }
+    ],
+    "scaling_survived": true,
+    "step_nine_composed": true,
+    "step_six_composed": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

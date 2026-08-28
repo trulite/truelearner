@@ -1,0 +1,19 @@
+{
+  "schema": "hand-physical-boundary-member-novelty/v1",
+  "arm": "sibling-breadth-and-locality",
+  "outcome": "survived",
+  "observations": {
+    "distance_three_first_closure": 1,
+    "distance_three_rejected_nonlocal": true,
+    "distance_three_second_closure": 0,
+    "exact_replay": true,
+    "forward_surfaces": 2,
+    "naturally_quiescent": true,
+    "order_independent": true,
+    "reversed_surfaces": 2,
+    "survived": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

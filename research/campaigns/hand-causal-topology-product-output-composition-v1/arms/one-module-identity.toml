@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "one-module-identity"
+campaign = "hand-causal-topology-product-output-composition-v1"
+kind = "control"
+parents = ["hand-activity-normalized-build-v1:complete-one-joint"]
+imports = ["exact source-mapped one-joint trajectory", "connected outcome-source topology"]
+mechanism = "Apply topology-product choice to one unchanged anonymous reflected joint."
+prediction = "All sixteen physical arrows and normalized motor outputs remain exactly equal to the established one-joint hand."
+falsifiers = ["Any position or motor arrow changes.", "Replay quiescence or exhaustion changes."]
+source_revision = "plan:b2b768986e94c95bfd073c110e15ae5a23aa50bbed5e66d1cd4d5c2d77ed2c0c"
+protocol_sha256 = "628a6ba39fc8d82be016837070230e7dd77fa284cd31e8dc9898ce7310176a5a"
+budget_minutes = 2
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml product_output_preserves_the_one_joint_identity"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml -- --predecessor-dir research/campaigns/hand-activity-normalized-build-v1 --output-dir research/campaigns/hand-causal-topology-product-output-composition-v1/artifacts/topology-product --protocol causal-topology-product"

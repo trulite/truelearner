@@ -1,0 +1,43 @@
+schema = "research-convergence/v1"
+campaign = "hand-completed-cycle-composition-v1"
+round = 1
+survived = ["completed-cycle-successor", "lifecycle-controls"]
+falsified = ["official-batched-hand", "complete-composition"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "a uniquely latest recent accepted physical-transition consequence composed one completed cycle into its successor nine times, including two admissions across changed ownership views",
+  "sample rejection, equal-latest ambiguity, stale expiry, protocol isolation, exact replay, natural quiescence, zero propagation exhaustion, and the exact coherent and root-fresh parents remained intact",
+  "the completed-cycle candidate produced twelve actual position changes versus eleven for the coherent parent and nine for the root-fresh parent under the unchanged official batched force law",
+  "both physical motors and both movement signs remained observable, but the candidate reached neither reflected limit and therefore did not close the primary or perturbation loop",
+]
+strongest_counterexamples = [
+  "official-batched-hand: more truthful composable cycles and one additional real movement did not yield cumulative travel; the trajectory ended at position -2 without either boundary contact",
+  "complete-composition: nine completed-cycle admissions, including two across ownership changes, were insufficient to reach or escape either limit or unlock perturbation recovery",
+  "completed-cycle-successor: a latest consequence tick can preserve a locally justified successor, but the scalar recency witness alone does not make successive chosen motor arrows form one globally coherent trajectory",
+]
+retired_families = [
+  "completed-cycle recency as a sufficient one-joint controller",
+  "actual transition count or reduced opposing-output count as a proxy for cumulative control",
+  "repairing the remaining hand failure with direction, motor identity, pose, target, or evaluator-selected persistence",
+]
+next_discriminators = [
+  "align the first admitted completed-cycle target change with the full physical transition and candidate trace, distinguishing open-return priority, missing or tied completed evidence, expiry, and learner-boundary reconstruction",
+  "test whether the output-transition-return arrow has a benchmark-blind causal identity preserved naturally across learner ownership refactor, rather than being represented only by a latest timestamp",
+  "require any successor law to predict a longer same-arrow physical chain before testing the hand, then retain both contacts, both escapes, perturbation, exact parents, replay, quiescence, and zero propagation exhaustion as full controls",
+]
+
+[[new_arm]]
+id = "completed-cycle-first-arrow-change"
+kind = "diagnostic"
+parents = ["completed-cycle-successor", "official-batched-hand"]
+imports = [
+  "completed-cycle-successor: unique recent accepted-transition continuation across ownership views",
+  "official-batched-hand: unchanged batched trajectory and whole-decision trace",
+]
+interaction_prediction = "The trace identifies one earliest change in the physically continued motor arrow and classifies it as open-return priority, absent or tied completed-cycle evidence, expiry, or ownership reconstruction without consulting direction, position, motor identity, or hand state."
+falsifiers = [
+  "No single earliest candidate-decision divergence can be reconstructed from the public physical trace.",
+  "The diagnostic needs semantic motor, direction, position, limit, score, or expected-action identity inside the learner.",
+  "Observation changes the official batched trajectory, parent references, replay, quiescence, or propagation.",
+]

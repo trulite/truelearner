@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "first-added-admission-localization"
+campaign = "hand-construction-projection-admission-retention-v1"
+kind = "diagnostic"
+parents = ["hand-construction-outcome-composition-v1:same-tick-construction-composition", "hand-construction-outcome-composition-v1:temporal-and-lineage-selectivity"]
+imports = ["one unexpected additional completed-cycle admission", "same-tick construction projections", "existing ordered choice and physical trace"]
+mechanism = "Compare parent and candidate choices by ordinal, then compose the first added Unique state backward through existing construction consequence and same-generation path-participation events."
+prediction = "The first added admission is ordinal seven at tick forty-seven for learner-three target eleven with consequence tick forty-four and at least one physically completing projected link."
+falsifiers = ["The first added admission occurs elsewhere.", "An earlier choice identity changes.", "No preceding learner-three tick-forty-four projection exists.", "No projected same-generation link completes target eleven.", "The selected target changes."]
+source_revision = "plan:eb863923676f29513430f944ca355004c2bbf6fe717c5cd4102bee6e68d68d1c"
+protocol_sha256 = "4b0c85f915ce8c1fd990e34c4c755320dbfc259ed48895e7bb79dc0d3f8f0969"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-construction-projection-admission-retention/Cargo.toml"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-construction-projection-admission-retention/Cargo.toml -- --parent research/campaigns/hand-completed-cycle-naturality-v1/artifacts/completed-cycle-first-arrow-change.json --output-dir research/campaigns/hand-construction-projection-admission-retention-v1/artifacts"

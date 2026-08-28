@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "temporal-and-lineage-selectivity"
+campaign = "hand-construction-outcome-composition-v1"
+kind = "control"
+parents = ["hand-compositional-existing-trace-witness-v1:immutable-source-control"]
+imports = ["fresh learner-private memory constraint", "exact physical link identity and generation", "immutable completed-cycle parent behavior"]
+mechanism = "Hold construction fixed while testing that older, unrelated, dead, replaced, parent-private, and sibling-private consequence history is not projected."
+prediction = "Only a current-generation consequence on the exact construction lineage in the construction tick is visible to the new learner; every other history remains absent and the parent protocol remains exact."
+falsifiers = ["Older history enters the learner.", "A link outside the construction lineage enters the learner.", "A dead or replacement generation enters the learner.", "Parent or sibling private memory is copied.", "RecursiveLearnerCompletedCycle changes."]
+source_revision = "plan:334eefe0532430060d3cca76da8394cebe48adde3101f0f2fdb9097984f70b6a"
+protocol_sha256 = "b109ef53774c183df633c1d23dc3b39bb2eb86502364b046ae3a6f088c1af432"
+budget_minutes = 5
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary construction_outcome_composition"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-construction-outcome-composition/Cargo.toml -- --output-dir research/campaigns/hand-construction-outcome-composition-v1/artifacts"

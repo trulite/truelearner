@@ -1,0 +1,29 @@
+schema = "research-convergence/v1"
+campaign = "hand-physical-transition-continuation-v1"
+round = 1
+survived = ["physical-transition-continuation", "conditional-reflected-hand-release"]
+falsified = ["sample-and-parent-controls", "complete-composition"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "three unique candidates carrying a current owner-local transition and an unanswered return were admitted for continuation",
+  "twenty-six candidates without current transition lineage were rejected, exact replay held, every send quiesced naturally, and no propagation budget was exhausted",
+  "opposing-output external cycles decreased from six under the root-fresh parent to four under transition continuation",
+  "the candidate still made nine actual physical changes, ended at position 3, never reached lower contact, and never entered perturbation recovery",
+  "one transferred fresh-opportunity return was answered normally rather than superseded, falsifying the preregistered exact-supersession control while preserving unique transfer identity",
+]
+strongest_counterexamples = [
+  "sample-and-parent-controls: a cumulative continuation law changes a transferred return's valid terminal path from supersession to ordinary answering, so exact supersession did not remain universal",
+  "complete-composition: reducing opposing coactivation by one third produced no additional real movement and no lower contact",
+  "physical-transition-continuation: correct local admission is not evidence that the mechanism is sufficient for cumulative embodied control",
+]
+retired_families = [
+  "unique pre-write physical-transition continuation as sufficient for the one-joint capstone",
+  "requiring every fresh-opportunity return to end by supersession after a later law legitimately permits ordinary answering",
+  "adding more path formation, ownership memory, or candidate executability at the localized coactivation wall",
+]
+next_discriminators = [
+  "separate outputs emitted during physical-transition delivery from outputs emitted after its consequence write and identify which remaining opposing cycles lack a unique causal incumbent",
+  "compare one-output-per-external-transition composition with learner-side competition without exposing evaluator step, position, direction, or hand state",
+  "test whether the remaining wall is owner turnover across newly constructed descendants, ambiguous simultaneous incumbents, or external effect batching before proposing another solve",
+]

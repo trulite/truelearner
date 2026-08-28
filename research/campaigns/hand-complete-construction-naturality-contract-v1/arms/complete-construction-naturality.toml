@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-construction-naturality"
+campaign = "hand-complete-construction-naturality-contract-v1"
+kind = "composition"
+parents = ["hand-unconditional-existing-trace-localization-v1:full-snapshot-control", "hand-unconditional-existing-trace-localization-v1:tick-forty-seven-link-composition"]
+imports = ["ten-admission twenty-four-choice candidate", "same-tick construction projections", "exact completed-cycle witness links", "link-thirty-four generation-three reference"]
+mechanism = "For every admitted completed cycle whose consequence tick equals its owner's construction tick, intersect its witness links with that exact construction projection."
+prediction = "Exactly ticks forty-seven, ninety-five, and one-hundred-three are construction-born; each composes through at least one same-generation projected link, including link thirty-four generation three at forty-seven and link forty-six generation seven at ninety-five."
+falsifiers = ["The construction-born set differs.", "Any member lacks a projected witness.", "A witness generation or original tick changes.", "The tick-one-hundred-three nonwinning completed-cycle candidate is reduced away."]
+source_revision = "plan:4e959b882fd96f890998e00be2ce81d1160d62cef86050737685a13a246af6b4"
+protocol_sha256 = "f8d32fafe3a951075dbea5606a37659010cb16a9f54403c7e0c36f3309d49d9d"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-complete-construction-naturality-contract/Cargo.toml"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-complete-construction-naturality-contract/Cargo.toml -- --parent research/campaigns/hand-completed-cycle-naturality-v1/artifacts/completed-cycle-first-arrow-change.json --output-dir research/campaigns/hand-complete-construction-naturality-contract-v1/artifacts"

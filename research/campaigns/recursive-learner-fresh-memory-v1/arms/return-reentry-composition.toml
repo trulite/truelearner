@@ -1,0 +1,24 @@
+schema = "research-arm/v1"
+id = "return-reentry-composition"
+campaign = "recursive-learner-fresh-memory-v1"
+kind = "composition"
+parents = ["recursive-learner-reentry-v1:post-construction-causal-opportunity", "recursive-learner-reentry-v1:child-owned-closure-genesis", "recursive-learner-reentry-v1:recursive-depth-reentry"]
+imports = [
+  "owner-aware closure identity",
+  "owner-local finite-return memory",
+  "unchanged repeated-closure construction threshold",
+]
+mechanism = "Compose private fresh return memory with owner-aware closure identity so each constructed learner receives two actual local returns, constructs one adjacent descendant, and exposes the same empty memory boundary again through depth three."
+prediction = "One anonymous physical loop constructs exact ancestry through depth three with no copied memory, duplicate construction, false closure, depth branch, replay inequality, quiescence loss, or dormant-surface cost growth."
+falsifiers = [
+  "Fresh returns survive but no child-owned closure or adjacent descendant forms.",
+  "Construction skips an owner, duplicates at one owner, stops at a physical depth, or copies accepted-return entries.",
+  "Reflection, reordered discovery, checkpoint replay, quiescence, false-return rejection, or local cost changes.",
+]
+source_revision = "rust-candidate-tree:72e3c1560e68330450321e96db5039159c7959506164c7dd798104e654f72477"
+protocol_sha256 = "623e4b3c57c862a7d8df6b21023c42841a75901f724e0e1d680007aa95b6732a"
+budget_minutes = 40
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml probe_return_reentry_composition"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml -- --arm return-reentry-composition"

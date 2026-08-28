@@ -1,0 +1,43 @@
+schema = "research-convergence/v1"
+campaign = "hand-owner-local-candidate-factorization-v1"
+round = 1
+survived = ["unrelated-mixed-owner-transfer", "unowned-origin-discriminator"]
+falsified = ["conditional-reflected-hand", "complete-composition"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "strict owner-only factorization produced exactly one private output in the unrelated two-owner fixture while the boundary reference produced none",
+  "reversed input order preserved observable output behavior, exact replay preserved canonical state, and every run quiesced naturally",
+  "the unchanged hand did not improve: both boundary reference and candidate changed three steps, ended at position minus one, failed primary closure, and did not unlock perturbation",
+  "at the first stalled candidate, both motors contained two distinct carried physical origins but only one known learner owner, so strict owner-only factorization correctly remained inactive",
+]
+strongest_counterexamples = [
+  "unrelated transfer is not sufficient for adoption: the exact same local owner law passed its fixture and failed the original hand",
+  "the hand ambiguity is not two learner owners; it is one owned physical origin plus one unowned physical origin",
+  "deepest-common-boundary attribution lacks a prerequisite because the unowned origin has no learner ancestor or private consequence memory",
+]
+retired_families = [
+  "strict owner-only factorization as a sufficient hand solve",
+  "treating every ambiguous motor candidate as cross-sibling owner interference",
+  "common learner ancestor fallback at this frontier",
+  "absorbing an unowned path into a known owner's private group",
+]
+next_discriminators = [
+  "factor completing-path inputs by carried physical causal origin before resolving each factor as exact-owned or organism scope",
+  "require each origin factor to be independently executable, select at most one unique factor by existing physical evidence, and preserve ties as rejection",
+  "test a same-origin mixed-owner negative control to prove origin labels do not launder cross-owner credit",
+  "require unrelated transfer and unchanged-hand improvement before any adoption",
+]
+
+[[new_arm]]
+id = "causal-origin-first-ownership-domain-factorization"
+kind = "solve"
+parents = ["unowned-origin-discriminator", "unrelated-mixed-owner-transfer"]
+imports = ["two carried physical origins", "one exact-owned origin factor", "one organism-scope origin factor", "unique one-effect owner-group law"]
+interaction_prediction = "Factoring by carried physical origin first separates the stalled owned and unowned contributions; each factor is then evaluated without cross-domain credit, and at most one unique executable factor enters the ordinary output pipeline."
+falsifiers = [
+  "The hand origin factors still have ambiguous ownership or no factor is independently executable.",
+  "A same-origin mixed-owner control acts, an exact tie is broken arbitrarily, or effects multiply.",
+  "The unrelated fixture passes but the unchanged hand does not improve.",
+  "Replay, quiescence, locality, boundary, temporal, or cost controls regress.",
+]

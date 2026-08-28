@@ -1,0 +1,17 @@
+{
+  "schema": "hand-consequence-born-closure-eligibility/v1",
+  "arm": "temporal-only-counterexample",
+  "outcome": "falsified",
+  "observations": {
+    "coactive_closures": 1,
+    "coactive_constructions": 0,
+    "delayed_closures": 1,
+    "delayed_constructions": 0,
+    "quiescent": true,
+    "replay": true,
+    "survived": false
+  },
+  "falsifier": "an unanswered sibling return crosses output cohorts, while a new ineligible return can suppress an older eligible return",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

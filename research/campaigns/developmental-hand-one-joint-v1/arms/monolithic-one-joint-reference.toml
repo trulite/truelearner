@@ -1,0 +1,24 @@
+schema = "research-arm/v1"
+id = "monolithic-one-joint-reference"
+campaign = "developmental-hand-one-joint-v1"
+kind = "control"
+parents = ["inherited-integrity-control"]
+imports = [
+  "sensorimotor-synthesis-ladder-v1 reflected one-joint world",
+  "exact sixteen-step schedule and monolithic candidate",
+  "frozen result and artifact digest",
+]
+mechanism = "Reproduce the exact old monolithic trajectory as the unchanged negative reference for cumulative one-joint control."
+prediction = "The joint changes on twelve of sixteen steps, emits both signed directions, reaches neither reflected limit, replays exactly, and quiesces naturally."
+falsifiers = [
+  "Changed-step count, signed directions, limit observations, replay, or quiescence differs from the frozen result.",
+  "The comparison changes topology, schedule, integration, reflection, starting position, or development horizon.",
+  "The reference is repaired, extended, or reinterpreted as a positive control.",
+]
+source_revision = "sensorimotor-synthesis-ladder-v1:one-joint-control@72fb1c61e54cf71151d8fbf7f998cf9d05aba6c4ab176ccbe59342f169d89ae2"
+protocol_sha256 = "b63f7b6ade50820d4141e66281cfcdfab07884a1774d52e7f713334038044470"
+budget_minutes = 20
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml probe_one_joint_control"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/sensorimotor-synthesis-ladder/Cargo.toml -- --arm one-joint-control"

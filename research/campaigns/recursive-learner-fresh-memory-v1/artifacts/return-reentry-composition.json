@@ -1,0 +1,15 @@
+{
+  "schema": "recursive-learner-fresh-memory/v1",
+  "arm": "return-reentry-composition",
+  "outcome": "survived",
+  "observations": {
+    "adjacent_ancestry": true,
+    "constructed_depth": 3,
+    "exact_replay": true,
+    "naturally_quiescent": true,
+    "unrelated_return_rejected": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-completed-cycle-composition-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Cumulative control fails because an accepted output-caused transition closes one return transaction but does not remain the unique successor across the changed physical ownership view."
+first_divergence = "After four negative effects, the negative candidate loses its open return and appears under a different ownership view; ordinary mixed-view ranking selects the positive candidate."
+missing_transition = "Composition from one closed output-transition-return cycle into one successor choice on the same consequential participating path."
+prediction = "Unique recent transition consequence crosses the changed ownership view, refreshes after each actual movement, stops refreshing at a clamp, and yields longer cumulative travel under official batching."
+falsifiers = ["No cross-view completed-cycle selection occurs.", "A sample or equal-latest ambiguity continues.", "The output fails to release without a new transition.", "The batched reference, replay, quiescence, propagation, or cost fails.", "The official hand trajectory does not improve."]
+positive_reference = "hand-effect-composition-laws-v1 coherent-unresolved-effect"
+negative_controls = ["frozen coherent-effect batched trajectory", "frozen root-fresh batched trajectory", "sample, ambiguity, stale, reflection, unrelated ownership, and protocol-scope fixtures"]
+included_mechanisms = ["physical-transition-only consequence admission", "typed organism-to-root fresh opportunity", "open-return coherence", "existing owner-local and physical consequence ticks", "official batched fixed force"]
+inherited_constraints = ["benchmark blind", "no semantic action", "no external step or world pose in learner state", "no new durable memory", "exact replay", "natural quiescence", "warm runtime below ten seconds"]
+excluded_proposals = ["sequential world adapter", "direction or motor identity memory", "persistent action token", "evaluator-selected continuation", "default adoption", "authority promotion"]
+arm_paths = ["arms/completed-cycle-successor.toml", "arms/lifecycle-controls.toml", "arms/official-batched-hand.toml", "arms/complete-composition.toml"]
+max_parallel_arms = 4
+max_rounds = 1
+interaction_expected = false
+
+[budget]
+total_sandbox_minutes = 30
+max_minutes_per_arm = 8
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

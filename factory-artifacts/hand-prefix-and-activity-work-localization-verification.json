@@ -1,0 +1,50 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/hand-prefix-and-activity-work-localization-candidate.json",
+    "sha256": "69618fcfb2e061e67ed97038c3e82a23478fe027fff3ec36a3195ef17ea9c516"
+  },
+  "verdict": "supported",
+  "independent_test_count": 2,
+  "checks": [
+    {
+      "name": "held-out-topology-projection",
+      "command": "cargo test --locked --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml reflected_hand_step_evidence_retains_topology",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.11
+    },
+    {
+      "name": "held-out-direct-overhead-falsifier",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-prefix-and-activity-work-localization/Cargo.toml fold_exposes_direct_overhead_at_first_use",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.44
+    }
+  ],
+  "findings": [
+    "The adapter projects topology from the observation already read at each step; no core state, learner behavior, or work counter changed.",
+    "The pure fold distinguishes direct first-use overhead from later trajectory-induced work and retains the direct-overhead case as a killing falsifier.",
+    "All sixty-five non-ignored core tests passed, two preexisting tests remained ignored, and the representative warm suite stayed strictly under ten seconds."
+  ],
+  "residual_uncertainty": [
+    "Software verification establishes observational inertness and fold correctness; the frozen research run must still determine where the real hand costs first diverge."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/hand-prefix-and-activity-work-localization.md",
+      "sha256": "e42ca08c3d1a2e16a7c1ad47c8005fa6fa505c6e25341496a57629d432096258"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/research/campaigns/hand-prefix-and-activity-work-localization-v1/protocol.toml",
+      "sha256": "07cb8621ebe1ec68dbc352ce1c690376372ffda96313a0974b8184486d7e011d"
+    }
+  ]
+}

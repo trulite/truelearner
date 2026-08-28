@@ -1,0 +1,17 @@
+schema = "research-arm/v1"
+id = "stable-surface-activation-edge"
+campaign = "hand-physical-change-resampling-v1"
+kind = "solve"
+parents = ["existing-lineage-discriminator"]
+imports = ["stable physical origin membership", "active surface set"]
+mechanism = "Treat change in the stable active-origin set as the only physical transition."
+prediction = "Every actual joint movement changes stable active membership while clamped resampling does not."
+falsifiers = ["Actual movement between aliased interior states repeats the same active-origin set."]
+source_revision = "plan:a621cf270f0a2012601784a30208f6c33a3b47d7d9987dda5f72b64d6d3bbdc1"
+protocol_sha256 = "6bbf587590a79e51869a7933aaa5bf13733ba7c837a5ae7d213180b796c249c3"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-physical-change-resampling/Cargo.toml existing_lineage_and_stable_surface_arms_preserve_counterexamples"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-physical-change-resampling/Cargo.toml -- --arm stable-surface-activation-edge"
+

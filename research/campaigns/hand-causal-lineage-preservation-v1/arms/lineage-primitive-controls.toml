@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "lineage-primitive-controls"
+campaign = "hand-causal-lineage-preservation-v1"
+kind = "control"
+parents = ["inherited-negative-reference"]
+imports = ["actual participation provenance", "unchanged scalar impulse reference"]
+mechanism = "Carry a temporary sorted unique physical-origin lineage beside the unchanged scalar competition origin."
+prediction = "Two merged origins remain observable after the merge, reversed order is equal, duplicate origin is idempotent, and output count and impulse equal the scalar reference."
+falsifiers = ["A non-arriving origin enters lineage.", "Order or duplication changes membership.", "Lineage changes output multiplicity, impulse, replay, or quiescence."]
+source_revision = "plan:c687edaf8df1a06e4cde45e154cbbf77a585eb623d019f487f9244d3496c4f96"
+protocol_sha256 = "ebd4b4d8e7b4aedf2e44f6f28f5d60057b03f924588e0968c7bad720dfbafc12"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-causal-lineage-preservation/Cargo.toml lineage_primitive_survives_controls"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-causal-lineage-preservation/Cargo.toml -- --arm lineage-primitive-controls"

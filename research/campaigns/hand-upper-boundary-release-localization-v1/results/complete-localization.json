@@ -1,0 +1,1575 @@
+{
+  "schema": "hand-upper-boundary-release-localization/v1",
+  "arm": "complete-localization",
+  "outcome": "survived",
+  "observations": {
+    "clamped_steps": [
+      {
+        "admitted_return_count": 6,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          22,
+          38
+        ],
+        "consequence_write_ticks": [
+          32,
+          36
+        ],
+        "delivered_surface_count": 3,
+        "direction": 1,
+        "index": 4,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 2,
+            "candidates_with_paths": 2,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40000
+            ],
+            "complete_path_firings": 10,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 8589934592,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 12884901888,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 10,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 2,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 2,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 2,
+            "target": 10
+          },
+          {
+            "admitted_selections": 2,
+            "candidate_evaluations": 2,
+            "candidates_with_paths": 2,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 11,
+            "consequential_candidates": 2,
+            "emitted_outputs": 2,
+            "executable_candidates": 2,
+            "maximum_admitted_drive": 59854756299,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 59854756299,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 11,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10001,
+              10004
+            ],
+            "selected_path_inputs": 2,
+            "selection_checks": 2,
+            "selection_consequence_ticks": [
+              28,
+              32
+            ],
+            "selection_evaluations": 2,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          38
+        ],
+        "consequence_write_ticks": [
+          40
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 5,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10002,
+              40000
+            ],
+            "complete_path_firings": 2,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 4294967296,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 8589934592,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 2,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 0,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 4,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 63881288139,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 63881288139,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 4,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10004
+            ],
+            "selected_path_inputs": 1,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              36
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          18
+        ],
+        "consequence_write_ticks": [
+          44
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 6,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40000
+            ],
+            "complete_path_firings": 6,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 12884901888,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 17179869184,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 6,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 6,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 71018219979,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 71018219979,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 6,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10002
+            ],
+            "selected_path_inputs": 2,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              40
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          22
+        ],
+        "consequence_write_ticks": [
+          48
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 7,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10004,
+              40000
+            ],
+            "complete_path_firings": 4,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 8589934592,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 12884901888,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 4,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 5,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 78033039017,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 78033039017,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 5,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10001
+            ],
+            "selected_path_inputs": 2,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              44
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          38
+        ],
+        "consequence_write_ticks": [
+          52
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 8,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10002,
+              40000
+            ],
+            "complete_path_firings": 2,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 4294967296,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 8589934592,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 2,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 0,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 4,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 85253740461,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 85253740461,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 4,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10004
+            ],
+            "selected_path_inputs": 1,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              48
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          18
+        ],
+        "consequence_write_ticks": [
+          56
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 9,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40000
+            ],
+            "complete_path_firings": 6,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 12884901888,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 17179869184,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 6,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 6,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 92570052372,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 92570052372,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 6,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10002
+            ],
+            "selected_path_inputs": 2,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              52
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          22
+        ],
+        "consequence_write_ticks": [
+          60
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 10,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10004,
+              40000
+            ],
+            "complete_path_firings": 4,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 8589934592,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 12884901888,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 4,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 5,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 99830076192,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 99830076192,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 5,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10001
+            ],
+            "selected_path_inputs": 2,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              56
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          38
+        ],
+        "consequence_write_ticks": [
+          64
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 11,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10002,
+              40000
+            ],
+            "complete_path_firings": 2,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 4294967296,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 8589934592,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 2,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 0,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 4,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 107185001836,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 107185001836,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 4,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10004
+            ],
+            "selected_path_inputs": 1,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              60
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          18
+        ],
+        "consequence_write_ticks": [
+          68
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 12,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40000
+            ],
+            "complete_path_firings": 6,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 12884901888,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 17179869184,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 6,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 6,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 114583999276,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 114583999276,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 6,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10002
+            ],
+            "selected_path_inputs": 2,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              64
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          22
+        ],
+        "consequence_write_ticks": [
+          72
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 13,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10004,
+              40000
+            ],
+            "complete_path_firings": 4,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 8589934592,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 12884901888,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 4,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 5,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 121957050631,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 121957050631,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 5,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10001
+            ],
+            "selected_path_inputs": 2,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              68
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          38
+        ],
+        "consequence_write_ticks": [
+          76
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 14,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10002,
+              40000
+            ],
+            "complete_path_firings": 2,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 4294967296,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 8589934592,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 2,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 0,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 4,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 129373847133,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 129373847133,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 4,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10004
+            ],
+            "selected_path_inputs": 1,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              72
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      },
+      {
+        "admitted_return_count": 3,
+        "admitted_return_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_born_eligible_origins": [],
+        "consequence_born_ineligible_origins": [
+          10001,
+          10002,
+          10004
+        ],
+        "consequence_write_junctions": [
+          18
+        ],
+        "consequence_write_ticks": [
+          80
+        ],
+        "delivered_surface_count": 0,
+        "direction": 1,
+        "index": 15,
+        "motors": [
+          {
+            "admitted_selections": 0,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40000
+            ],
+            "complete_path_firings": 6,
+            "consequential_candidates": 0,
+            "emitted_outputs": 0,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 12884901888,
+            "maximum_executable_origin_groups": 0,
+            "maximum_projected_drive": 17179869184,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 6,
+            "path_owners": [
+              null
+            ],
+            "physical": 20000,
+            "rejected_selections": 1,
+            "selected_origins": [],
+            "selected_path_inputs": 0,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [],
+            "selection_evaluations": 1,
+            "target": 10
+          },
+          {
+            "admitted_selections": 1,
+            "candidate_evaluations": 1,
+            "candidates_with_paths": 1,
+            "carried_origins": [
+              10001,
+              10002,
+              10004,
+              40001
+            ],
+            "complete_path_firings": 6,
+            "consequential_candidates": 1,
+            "emitted_outputs": 1,
+            "executable_candidates": 1,
+            "maximum_admitted_drive": 136810958599,
+            "maximum_executable_origin_groups": 3,
+            "maximum_projected_drive": 136810958599,
+            "minimum_threshold": 8589934592,
+            "origin_owners": [
+              null
+            ],
+            "path_firings": 6,
+            "path_owners": [
+              null
+            ],
+            "physical": 20001,
+            "rejected_selections": 0,
+            "selected_origins": [
+              10002
+            ],
+            "selected_path_inputs": 2,
+            "selection_checks": 1,
+            "selection_consequence_ticks": [
+              76
+            ],
+            "selection_evaluations": 1,
+            "target": 11
+          }
+        ],
+        "position_after": 4,
+        "position_before": 4,
+        "propagation_budget_exhaustions": 0,
+        "stage_by_physical": {
+          "20000": "rejected-by-output-competition",
+          "20001": "emitted"
+        }
+      }
+    ],
+    "consequence_expired_while_clamped": false,
+    "core_diagnostic_sufficient": true,
+    "failure_stage_survives_consequence_expiry": true,
+    "first_clamped": {
+      "admitted_return_count": 6,
+      "admitted_return_origins": [
+        10001,
+        10002,
+        10004
+      ],
+      "consequence_born_eligible_origins": [],
+      "consequence_born_ineligible_origins": [
+        10001,
+        10002,
+        10004
+      ],
+      "consequence_write_junctions": [
+        22,
+        38
+      ],
+      "consequence_write_ticks": [
+        32,
+        36
+      ],
+      "delivered_surface_count": 3,
+      "direction": 1,
+      "index": 4,
+      "motors": [
+        {
+          "admitted_selections": 0,
+          "candidate_evaluations": 2,
+          "candidates_with_paths": 2,
+          "carried_origins": [
+            10001,
+            10002,
+            10004,
+            40000
+          ],
+          "complete_path_firings": 10,
+          "consequential_candidates": 0,
+          "emitted_outputs": 0,
+          "executable_candidates": 1,
+          "maximum_admitted_drive": 8589934592,
+          "maximum_executable_origin_groups": 0,
+          "maximum_projected_drive": 12884901888,
+          "minimum_threshold": 8589934592,
+          "origin_owners": [
+            null
+          ],
+          "path_firings": 10,
+          "path_owners": [
+            null
+          ],
+          "physical": 20000,
+          "rejected_selections": 2,
+          "selected_origins": [],
+          "selected_path_inputs": 0,
+          "selection_checks": 2,
+          "selection_consequence_ticks": [],
+          "selection_evaluations": 2,
+          "target": 10
+        },
+        {
+          "admitted_selections": 2,
+          "candidate_evaluations": 2,
+          "candidates_with_paths": 2,
+          "carried_origins": [
+            10001,
+            10002,
+            10004,
+            40001
+          ],
+          "complete_path_firings": 11,
+          "consequential_candidates": 2,
+          "emitted_outputs": 2,
+          "executable_candidates": 2,
+          "maximum_admitted_drive": 59854756299,
+          "maximum_executable_origin_groups": 3,
+          "maximum_projected_drive": 59854756299,
+          "minimum_threshold": 8589934592,
+          "origin_owners": [
+            null
+          ],
+          "path_firings": 11,
+          "path_owners": [
+            null
+          ],
+          "physical": 20001,
+          "rejected_selections": 0,
+          "selected_origins": [
+            10001,
+            10004
+          ],
+          "selected_path_inputs": 2,
+          "selection_checks": 2,
+          "selection_consequence_ticks": [
+            28,
+            32
+          ],
+          "selection_evaluations": 2,
+          "target": 11
+        }
+      ],
+      "position_after": 4,
+      "position_before": 4,
+      "propagation_budget_exhaustions": 0,
+      "stage_by_physical": {
+        "20000": "rejected-by-output-competition",
+        "20001": "emitted"
+      }
+    },
+    "first_missing_transition": "consequence-born eligibility is observed for closure but not enforced for consequence admission",
+    "first_no_consequence_clamp": null,
+    "ineligible_returns_still_write_consequence": true,
+    "last_moving": {
+      "admitted_return_count": 4,
+      "admitted_return_origins": [
+        10001,
+        10002
+      ],
+      "consequence_born_eligible_origins": [],
+      "consequence_born_ineligible_origins": [
+        10001,
+        10002
+      ],
+      "consequence_write_junctions": [
+        18,
+        22
+      ],
+      "consequence_write_ticks": [
+        24,
+        28
+      ],
+      "delivered_surface_count": 2,
+      "direction": 1,
+      "index": 3,
+      "motors": [
+        {
+          "admitted_selections": 0,
+          "candidate_evaluations": 2,
+          "candidates_with_paths": 2,
+          "carried_origins": [
+            10001,
+            10002,
+            40000
+          ],
+          "complete_path_firings": 4,
+          "consequential_candidates": 0,
+          "emitted_outputs": 0,
+          "executable_candidates": 1,
+          "maximum_admitted_drive": 4294967296,
+          "maximum_executable_origin_groups": 0,
+          "maximum_projected_drive": 8589934592,
+          "minimum_threshold": 8589934592,
+          "origin_owners": [
+            null
+          ],
+          "path_firings": 4,
+          "path_owners": [
+            null
+          ],
+          "physical": 20000,
+          "rejected_selections": 2,
+          "selected_origins": [],
+          "selected_path_inputs": 0,
+          "selection_checks": 0,
+          "selection_consequence_ticks": [],
+          "selection_evaluations": 2,
+          "target": 10
+        },
+        {
+          "admitted_selections": 2,
+          "candidate_evaluations": 2,
+          "candidates_with_paths": 2,
+          "carried_origins": [
+            10001,
+            10002,
+            40001
+          ],
+          "complete_path_firings": 6,
+          "consequential_candidates": 2,
+          "emitted_outputs": 2,
+          "executable_candidates": 2,
+          "maximum_admitted_drive": 42491920073,
+          "maximum_executable_origin_groups": 2,
+          "maximum_projected_drive": 42491920073,
+          "minimum_threshold": 8589934592,
+          "origin_owners": [
+            null
+          ],
+          "path_firings": 6,
+          "path_owners": [
+            null
+          ],
+          "physical": 20001,
+          "rejected_selections": 0,
+          "selected_origins": [
+            10001,
+            10002
+          ],
+          "selected_path_inputs": 2,
+          "selection_checks": 2,
+          "selection_consequence_ticks": [
+            20,
+            24
+          ],
+          "selection_evaluations": 2,
+          "target": 11
+        }
+      ],
+      "position_after": 4,
+      "position_before": 3,
+      "propagation_budget_exhaustions": 0,
+      "stage_by_physical": {
+        "20000": "rejected-by-output-competition",
+        "20001": "emitted"
+      }
+    },
+    "new_core_event_required": false,
+    "post_clamp": {
+      "admitted_return_count": 3,
+      "admitted_return_origins": [
+        10001,
+        10002,
+        10004
+      ],
+      "consequence_born_eligible_origins": [],
+      "consequence_born_ineligible_origins": [
+        10001,
+        10002,
+        10004
+      ],
+      "consequence_write_junctions": [
+        38
+      ],
+      "consequence_write_ticks": [
+        40
+      ],
+      "delivered_surface_count": 0,
+      "direction": 1,
+      "index": 5,
+      "motors": [
+        {
+          "admitted_selections": 0,
+          "candidate_evaluations": 1,
+          "candidates_with_paths": 1,
+          "carried_origins": [
+            10002,
+            40000
+          ],
+          "complete_path_firings": 2,
+          "consequential_candidates": 0,
+          "emitted_outputs": 0,
+          "executable_candidates": 1,
+          "maximum_admitted_drive": 4294967296,
+          "maximum_executable_origin_groups": 0,
+          "maximum_projected_drive": 8589934592,
+          "minimum_threshold": 8589934592,
+          "origin_owners": [
+            null
+          ],
+          "path_firings": 2,
+          "path_owners": [
+            null
+          ],
+          "physical": 20000,
+          "rejected_selections": 1,
+          "selected_origins": [],
+          "selected_path_inputs": 0,
+          "selection_checks": 0,
+          "selection_consequence_ticks": [],
+          "selection_evaluations": 1,
+          "target": 10
+        },
+        {
+          "admitted_selections": 1,
+          "candidate_evaluations": 1,
+          "candidates_with_paths": 1,
+          "carried_origins": [
+            10001,
+            10002,
+            10004,
+            40001
+          ],
+          "complete_path_firings": 4,
+          "consequential_candidates": 1,
+          "emitted_outputs": 1,
+          "executable_candidates": 1,
+          "maximum_admitted_drive": 63881288139,
+          "maximum_executable_origin_groups": 3,
+          "maximum_projected_drive": 63881288139,
+          "minimum_threshold": 8589934592,
+          "origin_owners": [
+            null
+          ],
+          "path_firings": 4,
+          "path_owners": [
+            null
+          ],
+          "physical": 20001,
+          "rejected_selections": 0,
+          "selected_origins": [
+            10004
+          ],
+          "selected_path_inputs": 1,
+          "selection_checks": 1,
+          "selection_consequence_ticks": [
+            36
+          ],
+          "selection_evaluations": 1,
+          "target": 11
+        }
+      ],
+      "position_after": 4,
+      "position_before": 4,
+      "propagation_budget_exhaustions": 0,
+      "stage_by_physical": {
+        "20000": "rejected-by-output-competition",
+        "20001": "emitted"
+      }
+    },
+    "silent_motor_first_failed_stage": "rejected-by-output-competition"
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

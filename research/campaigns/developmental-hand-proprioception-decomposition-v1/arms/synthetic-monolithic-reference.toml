@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "synthetic-monolithic-reference"
+campaign = "developmental-hand-proprioception-decomposition-v1"
+kind = "control"
+parents = ["inherited-integrity-control"]
+imports = ["exact frozen one-joint topology and schedule", "synthetic sequence-unique origins", "Protocol::SensorimotorSynthesis"]
+mechanism = "Run the lower-left factorial cell and the immutable old arm under synthetic provenance and monolithic learner physics."
+prediction = "Both references show twelve changed steps, both signs, neither limit or escape, exact replay, and natural quiescence."
+falsifiers = ["Either reference differs from the frozen twelve-of-sixteen result.", "The common bounded fixture changes topology, timing, integration, reflection, or capacity across factorial cells."]
+source_revision = "sensorimotor-synthesis-ladder-v1:one-joint-control@72fb1c61e54cf71151d8fbf7f998cf9d05aba6c4ab176ccbe59342f169d89ae2"
+protocol_sha256 = "9ab7a51253c03f1dc1f4f9d1dabfcc5574e174bf9d77d5978467f16b2892bb61"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/developmental-hand-one-joint/Cargo.toml synthetic_monolithic_reference"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/developmental-hand-one-joint/Cargo.toml -- --arm synthetic-monolithic-reference"

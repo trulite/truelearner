@@ -1,0 +1,61 @@
+schema = "research-protocol/v1"
+id = "developmental-hand-proprioception-decomposition-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "recursive-learner-proprioceptive-control-v1/convergence.toml@0d528de6c2315e1a96f0aae6f09b41a93d0ed78578ed8c4fed73a5d64150ffc3"
+question = "Which contribution to one-joint travel comes from truthful anonymous proprioceptive provenance, which comes from recursive owner-local memory, and does their composition close both reflected limits without unbounded physical growth?"
+observables = [
+  "frozen inherited classifications and exact twelve-of-sixteen synthetic monolithic result",
+  "per-step position, signed effort, emitted output, direction-run length, both limits, both escapes, and fixed perturbation recovery",
+  "external origin provenance, return admission, causal closure, learner construction, owner-private write, later owner-private read, reversal, and release",
+  "formed junctions and links, constructions, active work, scans, comparisons, peak memory, per-step wall time, total warm runtime, replay, and natural quiescence",
+  "main effects and interaction across the two-by-two provenance-by-recursion matrix",
+]
+frozen_variables = [
+  "unchanged CORE1 authority, accepted protocols, prior evidence, and complete recursive candidate tree cf8f2b971d70fafff1873536b05e82f35413b20b0911e462c5eaf50f85a89178",
+  "one anonymous reflected axis, initial position zero, limits minus four and plus four, two signed motors, local directional consequence, signed integration, and sixteen-step primary horizon",
+  "synthetic provenance means the original sequence-unique origin tags; truthful provenance means the actual anonymous physical junction that supplied the incidence or directional consequence",
+  "monolithic means Protocol::SensorimotorSynthesis; recursive means Protocol::RecursiveLearnerConstruction; no other physics differs inside the factorial fixture",
+  "all factorial arms use capacities sixteen-thousand-three-hundred-eighty-four junctions and sixty-five-thousand-five-hundred-thirty-six links",
+  "fixed perturbation schedule, if unlocked by primary closure: eight ordinary steps, external position set to plus four without consequence, then sixteen recovery steps",
+  "exact step counts, input timings, capacities, cost predicates, controls, and arm classification remain fixed after execution begins",
+  "public Harness boundary and anonymous topology without semantic learner, action, direction, joint, digit, hand, target, score, curriculum, episode, answer, or evaluator identity",
+]
+permitted_changes = [
+  "switch only physical origin provenance between the frozen synthetic tags and truthful anonymous junction identity",
+  "switch only learner protocol between the frozen monolithic synthesis and the complete recursive construction candidate",
+  "research-only fixed perturbation, transition trace, cost accounting, artifacts, and result envelopes",
+  "bounded experimental error handling that reports physical capacity or runtime exhaustion without repairing or extending the arm",
+]
+positive_predicates = [
+  "all inherited classifications and the exact old monolithic result reproduce before factorial interpretation",
+  "the synthetic-monolithic factorial cell matches the old trajectory under the common bounded fixture",
+  "the truthful-monolithic cell isolates the main effect of physically truthful proprioception without recursive learners",
+  "the synthetic-recursive cell isolates recursive physics when physical origins cannot establish same-owner provenance",
+  "the truthful-recursive complete candidate reaches and leaves both limits within sixteen steps, then recovers under the frozen perturbation schedule",
+  "the factorial trace attributes each first trajectory difference to provenance, recursion, or their interaction without changing more than one declared variable per contrast",
+  "all interpreted arms replay exactly, quiesce naturally, remain inside fixed capacity and the strictly-under-ten-second warm bound, and preserve inherited controls",
+]
+negative_controls = [
+  "exact old synthetic monolithic artifact 72fb1c61e54cf71151d8fbf7f998cf9d05aba6c4ab176ccbe59342f169d89ae2",
+  "synthetic versus truthful provenance under each fixed learner protocol",
+  "monolithic versus recursive protocol under each fixed provenance mode",
+  "fresh owner before consequence, global consequence reference, and parent or sibling before-after state",
+  "absent, shifted, stale, disconnected, and unrelated physical provenance",
+  "blocked output, withheld consequence, duplicate return, unrelated return, and dead-generation return",
+  "reflected motor geometry, mirrored perturbation, replay, quiescence, fixed capacities, and warm runtime",
+]
+stop_conditions = [
+  "any inherited classification, exact old reference, replay, quiescence, or default behavior changes",
+  "a factorial cell changes topology, schedule, capacity, motor integration, reflection, or any variable other than its declared provenance or learner protocol",
+  "an arm reaches fixed physical capacity, exceeds the strictly-under-ten-second warm bound, or grows work with no bounded interpretation; record this as a falsifying physical-cost result and stop dependent gates",
+  "the world supplies semantic identity, desired direction, success, target, score, evaluator-selected action, adaptive curriculum, or success-triggered termination",
+  "a primary or perturbation horizon changes after observing behavior, a failed arm is repaired in place, or an unregistered fifth treatment is introduced",
+  "a trajectory effect is attributed to recursion without the truthful-monolithic contrast or to provenance without the synthetic-recursive contrast",
+  "a later finger, hand, downward-ablation, adoption, authority, or unrestricted capability claim advances before factorial convergence",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

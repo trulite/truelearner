@@ -1,0 +1,16 @@
+{
+  "schema": "hand-owner-local-candidate-factorization/v1",
+  "arm": "conditional-reflected-hand",
+  "outcome": "falsified",
+  "observations": {
+    "baseline_changed_steps": 3,
+    "baseline_final_position": -1,
+    "candidate_changed_steps": 3,
+    "candidate_final_position": -1,
+    "perturbation_recovered": false,
+    "primary_closed": false
+  },
+  "falsifier": "the candidate passed its fixture but did not improve the unchanged hand",
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

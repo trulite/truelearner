@@ -1,0 +1,90 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "hand-same-lineage-closure-renewal-candidate.json",
+    "sha256": "fe203a8febf05d9250c3450945bccae1445fb05b6ec6d4d1d330e6f81e1edfb9"
+  },
+  "verdict": "supported",
+  "independent_test_count": 7,
+  "checks": [
+    {
+      "name": "delivered-origin-held-out-control",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-same-lineage-closure-renewal/Cargo.toml admission_requires_an_actually_delivered_surface_origin",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.22
+    },
+    {
+      "name": "actual-movement-held-out-control",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-same-lineage-closure-renewal/Cargo.toml hand_round_uses_only_actual_movement_and_surface",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.31
+    },
+    {
+      "name": "public-boundary-core-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "campaign-lineage",
+      "command": "uv run research/validators/validate_campaign.py --file research/campaigns/hand-same-lineage-closure-renewal-v1/campaign.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "convergence-lineage",
+      "command": "uv run research/validators/validate_convergence.py --file research/campaigns/hand-same-lineage-closure-renewal-v1/convergence.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "frozen-artifact-semantics-and-digests",
+      "command": "independently assert scripted construction, hand delivered-origin failure, first-transition ordering, and recompute frozen SHA-256 digests",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-same-lineage-closure-renewal/Cargo.toml --lib -- --test-threads=1",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.35
+    }
+  ],
+  "findings": [
+    "The implementation is isolated to a new research crate, plan, campaign, evidence, convergence, and receipts; it changes no learner physics, prior experiment, prior evidence, construction threshold, default, benchmark, or authority state.",
+    "The scripted positive reference admits its actually delivered surface origin 75001, reverse-consolidates the same closure, advances evidence from one to two, and constructs with exact replay and natural quiescence.",
+    "The hand preserves its frozen first closure, then retains two zero-displacement attempts before the first later actual movement from position one to two at step three.",
+    "That hand round has fresh outputs, physical participation deltas, return-scheduling decisions, and live modulatory returns when surfaces 10002 and 10001 arrive.",
+    "Neither delivered hand surface origin is admitted. The sole admitted origin is outcome origin 40001, after which there are zero reverse consolidations, closures, or constructions.",
+    "The first scripted-positive hand-negative transition is therefore delivered-surface-origin admission; all earlier declared transitions are positive in both fixtures.",
+    "Core source inspection confirms ReturnScheduling and ReturnOriginAdmission identify distinct return-edge roles, and the diagnostic does not falsely join their link and generation fields.",
+    "All seven experiment tests and 27 active core tests pass; two pre-existing adversarial core tests remain ignored. The independent warm regression completed in 0.35 seconds, strictly under 10 seconds."
+  ],
+  "residual_uncertainty": [
+    "The evidence does not yet distinguish whether each hand surface fails before modulatory incidence, at local/direct eligibility, through duplicate-origin memory, or because its causal-wave origin changes before admission.",
+    "No solve was implemented, so the result does not establish second closure, construction, child-local control, full reflected-joint control, or perturbation recovery.",
+    "The new hand fixture is a frozen source-level reproduction guarded by parent outcomes and prefix predicates; a future shared neutral trace boundary could reduce duplication without changing this evidence.",
+    "This is discovery evidence only and does not authorize integration, adoption, or authority promotion."
+  ],
+  "artifacts": [
+    {
+      "path": "research/campaigns/hand-same-lineage-closure-renewal-v1/convergence.toml",
+      "sha256": "d07822a401fdcdf91e108a0cb46686706d9d4bea26c2bc519510d618d79c7287"
+    },
+    {
+      "path": "research/campaigns/hand-same-lineage-closure-renewal-v1/artifacts/first-transition-localization.json",
+      "sha256": "050736d5ac4388d109e056388da37c04260bea845ddb95f9c1052f248a31a7f4"
+    },
+    {
+      "path": "research/campaigns/hand-same-lineage-closure-renewal-v1/artifacts/hand-same-lineage-closure-renewal.json",
+      "sha256": "a3e0320d81b7ad02412d9bbee2194619999bb05dcd4f4b6567dedb1a8bc99e7b"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "organism-to-root-hand-boundary"
+campaign = "hand-opportunity-owner-boundary-v1"
+kind = "diagnostic"
+parents = ["relation-classifier-controls"]
+imports = ["failed hand owner mismatch", "typed ancestry relation"]
+mechanism = "Record the actual ancestry relation for every frozen hand fresh-opportunity evaluation."
+prediction = "All four non-recent owner mismatches are organism-to-root; the one recent rejection has the same relation but remains rejected by lifetime first."
+falsifiers = ["Any relevant mismatch is sibling, unrelated, or non-adjacent.", "The hand behavior differs from the frozen failed candidate."]
+source_revision = "plan:759ffd285b5bbbfc48e255deb204f75de882679247a42d663648c19a5b648359"
+protocol_sha256 = "93e95d8ebda8adc405bd3266757bed6220936a9e4528cf69b7e205e558c9c1b4"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary opportunity_owner_relation"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-opportunity-owner-boundary/Cargo.toml -- --arm organism-to-root-hand-boundary"

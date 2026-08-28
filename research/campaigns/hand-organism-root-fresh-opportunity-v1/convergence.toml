@@ -1,0 +1,40 @@
+schema = "research-convergence/v1"
+campaign = "hand-organism-root-fresh-opportunity-v1"
+round = 1
+survived = ["organism-to-root-transfer", "conditional-reflected-hand-release"]
+falsified = ["cross-boundary-controls", "complete-composition"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "the new protocol admitted exactly one typed OrganismToRoot opportunity at tick 23, supplied one transient UNIT to root-owned motor candidate 10, and superseded donor return 40",
+  "the strict owner-equality parent admitted no opportunity and remained at four real changes with motor 20001 only",
+  "the candidate executed both motors, made nine real position changes, reached and escaped the upper boundary, and ended at position 3",
+  "candidate replay was exact, every send naturally quiesced, no propagation budget was exhausted, and the transferred return was not reused",
+  "the candidate did not reach or leave the lower boundary, close the primary trial, or enter perturbation recovery",
+]
+strongest_counterexamples = [
+  "cross-boundary-controls: the preregistered hand run contained no RejectedRecentDonor event under the candidate, so that control predicate failed even though the typed protocol matrix and inherited lifetime tests passed independently",
+  "complete-composition: one successful fresh alternative released the upper clamp but was insufficient for cumulative travel to the lower boundary",
+  "conditional-reflected-hand-release: both motor signs and one boundary escape are strictly weaker than closed one-joint control",
+]
+retired_families = [
+  "strict owner equality as sufficient for upper-boundary release",
+  "one organism-to-root transfer as sufficient for the complete reflected one-joint capstone",
+  "repairing a frozen control predicate after observing that the candidate trajectory did not exercise it",
+]
+next_discriminators = [
+  "exercise recent, answered, repeated, nonlocal, sibling, parent-child, unrelated-root, grandchild, and missing-owner cases in constructed fixtures under the new protocol before any adoption decision",
+  "preserve the complete step trajectory at and after upper escape and locate the first failed continuation transition: candidate formation, recent owner consequence read, route lifetime, competition, or output",
+  "if travel reverses before a limit, test the forecast owner-local recent-consequence continuation family; if action simply disappears, test the earliest missing path or candidate transition instead",
+]
+
+[[new_arm]]
+id = "post-release-continuation-localization"
+kind = "diagnostic"
+parents = ["conditional-reflected-hand-release"]
+imports = ["typed organism-to-root release", "complete per-step causal diagnostics", "developmental-hand first-failure descent"]
+interaction_prediction = "After upper escape, the first non-progressing step will distinguish repeated reversal under a live recent owner consequence from disappearance of an executable route or candidate."
+falsifiers = [
+  "The preserved trajectory does not contain enough candidate, owner-read, path, return, and output evidence to identify the earliest broken transition.",
+  "The first wall precedes the admitted organism-to-root transfer or upper escape.",
+]

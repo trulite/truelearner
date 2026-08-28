@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "inherited-negative-reference"
+campaign = "hand-causal-lineage-preservation-v1"
+kind = "control"
+parents = ["hand-same-lineage-closure-renewal"]
+imports = ["immutable scalar hand artifact and first-divergence classification"]
+mechanism = "Load the frozen predecessor artifact without rerunning or changing the failed scalar hand."
+prediction = "The artifact remains falsified at delivered-surface-origin admission with delivered origins 10002 and 10001, sole admitted origin 40001, exact replay, and natural quiescence."
+falsifiers = ["The immutable artifact cannot be parsed or its exact counterexample changes.", "The control reruns, repairs, or reinterprets the failed scalar protocol."]
+source_revision = "plan:c687edaf8df1a06e4cde45e154cbbf77a585eb623d019f487f9244d3496c4f96"
+protocol_sha256 = "ebd4b4d8e7b4aedf2e44f6f28f5d60057b03f924588e0968c7bad720dfbafc12"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-causal-lineage-preservation/Cargo.toml inherited_negative_reference_is_unchanged"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-causal-lineage-preservation/Cargo.toml -- --arm inherited-negative-reference"

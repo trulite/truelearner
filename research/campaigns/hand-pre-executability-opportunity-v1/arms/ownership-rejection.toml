@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "ownership-rejection"
+campaign = "hand-pre-executability-opportunity-v1"
+kind = "diagnostic"
+parents = ["physical-transition-return"]
+imports = ["silent motor path inputs", "candidate ownership", "zero projected drive"]
+mechanism = "Observe whether nonzero path drive reaches the silent motor but ambiguous ownership, rather than cancellation, is the first rejecting gate."
+prediction = "The earliest silent candidate has unequal nonzero signed strength that would admit one sign, but ambiguous ownership alone zeros projected drive."
+falsifiers = ["The signed strengths are equal.", "The candidate is owner-resolved.", "Both signed magnitudes are zero."]
+source_revision = "plan:a8945933275ff8cfe347738355597e4a8caab5e557350f4c4b4fc7f2021da7b8"
+protocol_sha256 = "136becfb537bd5b7abe06491665f6113cebecfa97bb5670ab16e691cb3cd8890"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary pre_executability_diagnostics"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-pre-executability-opportunity/Cargo.toml -- --arm ownership-rejection"

@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-localization"
+campaign = "hand-autonomous-reuse-localization-v1"
+kind = "composition"
+parents = ["boundary-candidate-localization", "temporal-matched-control"]
+imports = ["candidate transition order", "matched-reference equality", "trace observational control"]
+mechanism = "Compose both protocol localizations into one compact verdict and preserve falsified solve prerequisites."
+prediction = "Exactly one first missing transition survives, while incompatible path-retention or exact-owned-reentry explanations are retired."
+falsifiers = ["More than one transition remains plausible.", "The artifact omits a failed alternative.", "The diagnostic changes behavior or exceeds the warm budget."]
+source_revision = "plan:fefdd86eb3918f4f5a8f9358345f63e9f9fe6186c1c6e4c74a8ba0bb4af759d8"
+protocol_sha256 = "1cb79566f7267e13455962d26a1f773c48e2ffbb57a4cc9d9d097fa1a89a16f5"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-autonomous-reuse-localization/Cargo.toml complete_localization_is_compact_and_deterministic"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-autonomous-reuse-localization/Cargo.toml -- --arm complete-localization"

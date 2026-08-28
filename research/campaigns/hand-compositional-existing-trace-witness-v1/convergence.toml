@@ -1,0 +1,47 @@
+schema = "research-convergence/v1"
+campaign = "hand-compositional-existing-trace-witness-v1"
+round = 1
+survived = ["immutable-source-control", "compositional-existing-trace-witness"]
+falsified = []
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "the source control matched immutable artifact sha256 2baf097b176ee40ec9004529cb590db6365b5c1d887357e7fca9ac82ca9aebb2 and reproduced the exact tick-eleven organism target-eleven to tick-twenty-three learner-two target-ten failure",
+  "tick-eight consequence writes named physical links thirty-five and thirty-six; only link thirty-six composed through internal junction eighteen into completed target eleven",
+  "link thirty-six retained generation one with no deallocation and completed the target-eleven path at ticks eleven, fifteen, nineteen, and twenty-three",
+  "at tick twenty-three link thirty-six still participated in target eleven under learner-two origin and path ownership, while learner two had no matching private consequence write and reported consequence None for target eleven",
+  "the typed verdict is OwnerProjectionGap: the physical completed-cycle witness survives construction and remains active, but the fresh owner-local projection cannot see it",
+]
+strongest_counterexamples = [
+  "compositional-existing-trace-witness: link thirty-five also received a tick-eight consequence and remained live, but never completed target eleven, so consequence time alone is insufficient without downstream physical composition",
+  "compositional-existing-trace-witness: physical survival and current participation do not automatically populate learner-private memory; the exact link remained active under learner two while its owner-local consequence lookup stayed empty",
+  "immutable-source-control: the positive diagnosis required no new organism run or trace event, confirming that reduced evidence interpretation—not missing instrumentation—caused the prior inconclusive verdict",
+]
+retired_families = [
+  "physical deallocation as the cause of the first construction-boundary arrow change",
+  "failure-time non-participation as the cause of the first construction-boundary arrow change",
+  "adding semantic direction, pose, motor identity, or another recency window before repairing the proven projection boundary",
+  "copying the parent's private memory wholesale into the fresh child",
+]
+next_discriminators = [
+  "test a one-time construction-boundary adoption law that transports only a currently participating, uninterrupted physical link consequence into the new ownership view without copying parent-private memory",
+  "kill the law with disconnected, deallocated, generation-replaced, nonparticipating, ambiguous-latest, stale, unrelated-owner, sibling, and post-construction fresh-memory controls",
+  "rerun the exact completed-cycle hand only after the isolated handoff law survives, requiring target eleven to remain natural at tick twenty-three before evaluating later trajectory changes",
+]
+
+[[new_arm]]
+id = "participating-link-construction-handoff"
+kind = "solve"
+parents = ["immutable-source-control", "compositional-existing-trace-witness"]
+imports = [
+  "compositional-existing-trace-witness: uninterrupted generation-one link thirty-six remains consequential and participating across construction",
+  "compositional-existing-trace-witness: learner-two owner-local projection is empty without a matching private write",
+  "immutable-source-control: exact first-failure and source identity",
+]
+interaction_prediction = "A fresh owner may adopt one completed-cycle witness only when the exact consequence-bearing link generation is currently participating inside its new physical view; unrelated global or parent-private history remains invisible."
+falsifiers = [
+  "The law admits a disconnected, deallocated, replaced, inactive, stale, ambiguous, unrelated, or sibling witness.",
+  "The law changes child fresh-memory behavior outside the exact physical adoption transition.",
+  "The tick-twenty-three square still fails to commute in the unchanged completed-cycle hand.",
+  "The result requires semantic output, direction, pose, hand, expected action, or evaluator identity.",
+]

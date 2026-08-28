@@ -1,0 +1,1739 @@
+{
+  "schema": "hand-prefix-and-activity-work-localization/v1",
+  "arm": "predecessor-and-replay-control",
+  "outcome": "survived",
+  "observations": {
+    "candidate": {
+      "comparisons": 7320,
+      "exact_replay": true,
+      "learners": 4,
+      "naturally_quiescent": true,
+      "positions": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerBoundedConstructionContinuation",
+      "scans": 4681,
+      "stopped": false
+    },
+    "live_candidate_reproduced": true,
+    "live_parent_reproduced": true,
+    "localization": {
+      "aligned_steps": [
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": null,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Missing",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 3
+              }
+            ],
+            "comparisons": 63,
+            "comparisons_per_live_link_milli": 1575,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 0,
+            "junctions": 20,
+            "learners": 0,
+            "live_links": 40,
+            "position_after": 1,
+            "position_before": 0,
+            "scans": 55,
+            "scans_per_live_link_milli": 1375
+          },
+          "comparison_delta": 0,
+          "index": 0,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": null,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Missing",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 3
+              }
+            ],
+            "comparisons": 63,
+            "comparisons_per_live_link_milli": 1575,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 0,
+            "junctions": 20,
+            "learners": 0,
+            "live_links": 40,
+            "position_after": 1,
+            "position_before": 0,
+            "scans": 55,
+            "scans_per_live_link_milli": 1375
+          },
+          "region": "shared_prefix",
+          "same_input_position": true,
+          "same_output_position": true,
+          "scan_delta": 0
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": null,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 11,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 11
+              }
+            ],
+            "comparisons": 402,
+            "comparisons_per_live_link_milli": 8375,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 1,
+            "junctions": 24,
+            "learners": 0,
+            "live_links": 48,
+            "position_after": 2,
+            "position_before": 1,
+            "scans": 254,
+            "scans_per_live_link_milli": 5291
+          },
+          "comparison_delta": 0,
+          "index": 1,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": null,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 11,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 11
+              }
+            ],
+            "comparisons": 402,
+            "comparisons_per_live_link_milli": 8375,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 1,
+            "junctions": 24,
+            "learners": 0,
+            "live_links": 48,
+            "position_after": 2,
+            "position_before": 1,
+            "scans": 254,
+            "scans_per_live_link_milli": 5291
+          },
+          "region": "shared_prefix",
+          "same_input_position": true,
+          "same_output_position": true,
+          "scan_delta": 0
+        },
+        {
+          "candidate": {
+            "choices": [],
+            "comparisons": 407,
+            "comparisons_per_live_link_milli": 8306,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20001
+            ],
+            "index": 2,
+            "junctions": 24,
+            "learners": 2,
+            "live_links": 49,
+            "position_after": 3,
+            "position_before": 2,
+            "scans": 278,
+            "scans_per_live_link_milli": 5673
+          },
+          "comparison_delta": 0,
+          "index": 2,
+          "parent": {
+            "choices": [],
+            "comparisons": 407,
+            "comparisons_per_live_link_milli": 8306,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20001
+            ],
+            "index": 2,
+            "junctions": 24,
+            "learners": 2,
+            "live_links": 49,
+            "position_after": 3,
+            "position_before": 2,
+            "scans": 278,
+            "scans_per_live_link_milli": 5673
+          },
+          "region": "shared_prefix",
+          "same_input_position": true,
+          "same_output_position": true,
+          "scan_delta": 0
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 11,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 23
+              }
+            ],
+            "comparisons": 406,
+            "comparisons_per_live_link_milli": 8285,
+            "consumptions": [
+              {
+                "consequence_tick": 16,
+                "generation": 1,
+                "link": 36,
+                "owner": 2,
+                "target": 11,
+                "tick": 23
+              }
+            ],
+            "emitted_outputs": [
+              20001,
+              20001
+            ],
+            "index": 3,
+            "junctions": 24,
+            "learners": 2,
+            "live_links": 49,
+            "position_after": 4,
+            "position_before": 3,
+            "scans": 316,
+            "scans_per_live_link_milli": 6448
+          },
+          "comparison_delta": -1,
+          "index": 3,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "FreshAlternative",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "FreshAlternative",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 23
+              },
+              {
+                "admission_basis": "CoherentEffect",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": 10,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 11,
+                "computed_winner_basis": "CoherentEffect",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 27
+              }
+            ],
+            "comparisons": 407,
+            "comparisons_per_live_link_milli": 8306,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000,
+              20000
+            ],
+            "index": 3,
+            "junctions": 24,
+            "learners": 2,
+            "live_links": 49,
+            "position_after": 2,
+            "position_before": 3,
+            "scans": 327,
+            "scans_per_live_link_milli": 6673
+          },
+          "region": "first_repaired_choice",
+          "same_input_position": true,
+          "same_output_position": false,
+          "scan_delta": -11
+        },
+        {
+          "candidate": {
+            "choices": [],
+            "comparisons": 927,
+            "comparisons_per_live_link_milli": 16263,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20001
+            ],
+            "index": 4,
+            "junctions": 28,
+            "learners": 2,
+            "live_links": 57,
+            "position_after": 4,
+            "position_before": 4,
+            "scans": 402,
+            "scans_per_live_link_milli": 7052
+          },
+          "comparison_delta": 517,
+          "index": 4,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 35
+              }
+            ],
+            "comparisons": 410,
+            "comparisons_per_live_link_milli": 8200,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20000
+            ],
+            "index": 4,
+            "junctions": 24,
+            "learners": 2,
+            "live_links": 50,
+            "position_after": 2,
+            "position_before": 2,
+            "scans": 305,
+            "scans_per_live_link_milli": 6100
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": 97
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "CoherentEffect",
+                "admitted": [
+                  {
+                    "owner": null,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": 11,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "CoherentEffect",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": true,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 39
+              }
+            ],
+            "comparisons": 508,
+            "comparisons_per_live_link_milli": 8912,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 5,
+            "junctions": 28,
+            "learners": 2,
+            "live_links": 57,
+            "position_after": 4,
+            "position_before": 4,
+            "scans": 204,
+            "scans_per_live_link_milli": 3578
+          },
+          "comparison_delta": 272,
+          "index": 5,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 39
+              }
+            ],
+            "comparisons": 236,
+            "comparisons_per_live_link_milli": 4720,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 5,
+            "junctions": 24,
+            "learners": 2,
+            "live_links": 50,
+            "position_after": 3,
+            "position_before": 2,
+            "scans": 169,
+            "scans_per_live_link_milli": 3380
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": 35
+        },
+        {
+          "candidate": {
+            "choices": [],
+            "comparisons": 511,
+            "comparisons_per_live_link_milli": 8810,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 6,
+            "junctions": 28,
+            "learners": 2,
+            "live_links": 58,
+            "position_after": 4,
+            "position_before": 4,
+            "scans": 181,
+            "scans_per_live_link_milli": 3120
+          },
+          "comparison_delta": 98,
+          "index": 6,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "FreshAlternative",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "FreshAlternative",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 43
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 47
+              }
+            ],
+            "comparisons": 413,
+            "comparisons_per_live_link_milli": 8260,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000,
+              20000
+            ],
+            "index": 6,
+            "junctions": 24,
+            "learners": 3,
+            "live_links": 50,
+            "position_after": 2,
+            "position_before": 3,
+            "scans": 312,
+            "scans_per_live_link_milli": 6240
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": -131
+        },
+        {
+          "candidate": {
+            "choices": [],
+            "comparisons": 511,
+            "comparisons_per_live_link_milli": 8810,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 7,
+            "junctions": 28,
+            "learners": 2,
+            "live_links": 58,
+            "position_after": 4,
+            "position_before": 4,
+            "scans": 236,
+            "scans_per_live_link_milli": 4068
+          },
+          "comparison_delta": 93,
+          "index": 7,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 51
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 55
+              }
+            ],
+            "comparisons": 418,
+            "comparisons_per_live_link_milli": 8360,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20000
+            ],
+            "index": 7,
+            "junctions": 24,
+            "learners": 3,
+            "live_links": 50,
+            "position_after": 2,
+            "position_before": 2,
+            "scans": 314,
+            "scans_per_live_link_milli": 6280
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": -78
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "FreshAlternative",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "FreshAlternative",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": true,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 51
+              }
+            ],
+            "comparisons": 511,
+            "comparisons_per_live_link_milli": 8810,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000
+            ],
+            "index": 8,
+            "junctions": 28,
+            "learners": 2,
+            "live_links": 58,
+            "position_after": 3,
+            "position_before": 4,
+            "scans": 213,
+            "scans_per_live_link_milli": 3672
+          },
+          "comparison_delta": 275,
+          "index": 8,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "FreshAlternative",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "FreshAlternative",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 59
+              }
+            ],
+            "comparisons": 236,
+            "comparisons_per_live_link_milli": 4720,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000
+            ],
+            "index": 8,
+            "junctions": 24,
+            "learners": 3,
+            "live_links": 50,
+            "position_after": 1,
+            "position_before": 2,
+            "scans": 177,
+            "scans_per_live_link_milli": 3540
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": 36
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 59
+              }
+            ],
+            "comparisons": 413,
+            "comparisons_per_live_link_milli": 7120,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20000
+            ],
+            "index": 9,
+            "junctions": 28,
+            "learners": 2,
+            "live_links": 58,
+            "position_after": 3,
+            "position_before": 3,
+            "scans": 390,
+            "scans_per_live_link_milli": 6724
+          },
+          "comparison_delta": -5,
+          "index": 9,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 63
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 67
+              }
+            ],
+            "comparisons": 418,
+            "comparisons_per_live_link_milli": 8360,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20000
+            ],
+            "index": 9,
+            "junctions": 24,
+            "learners": 3,
+            "live_links": 50,
+            "position_after": 1,
+            "position_before": 1,
+            "scans": 314,
+            "scans_per_live_link_milli": 6280
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": 76
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 63
+              }
+            ],
+            "comparisons": 236,
+            "comparisons_per_live_link_milli": 4068,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 10,
+            "junctions": 28,
+            "learners": 2,
+            "live_links": 58,
+            "position_after": 4,
+            "position_before": 3,
+            "scans": 243,
+            "scans_per_live_link_milli": 4189
+          },
+          "comparison_delta": 0,
+          "index": 10,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "FreshAlternative",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "FreshAlternative",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 71
+              }
+            ],
+            "comparisons": 236,
+            "comparisons_per_live_link_milli": 4720,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000
+            ],
+            "index": 10,
+            "junctions": 24,
+            "learners": 3,
+            "live_links": 50,
+            "position_after": 0,
+            "position_before": 1,
+            "scans": 177,
+            "scans_per_live_link_milli": 3540
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": 66
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "FreshAlternative",
+                "admitted": [
+                  {
+                    "owner": 2,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "FreshAlternative",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 67
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": null,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": true,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 71
+              }
+            ],
+            "comparisons": 933,
+            "comparisons_per_live_link_milli": 15813,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000,
+              20000
+            ],
+            "index": 11,
+            "junctions": 29,
+            "learners": 4,
+            "live_links": 59,
+            "position_after": 3,
+            "position_before": 4,
+            "scans": 440,
+            "scans_per_live_link_milli": 7457
+          },
+          "comparison_delta": 834,
+          "index": 11,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "CoherentEffect",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": 10,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "CoherentEffect",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 75
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 79
+              }
+            ],
+            "comparisons": 99,
+            "comparisons_per_live_link_milli": 1980,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000,
+              20000
+            ],
+            "index": 11,
+            "junctions": 24,
+            "learners": 3,
+            "live_links": 50,
+            "position_after": -1,
+            "position_before": 0,
+            "scans": 307,
+            "scans_per_live_link_milli": 6140
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": 133
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 4,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 75
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 4,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 79
+              }
+            ],
+            "comparisons": 418,
+            "comparisons_per_live_link_milli": 7084,
+            "consumptions": [
+              {
+                "consequence_tick": 68,
+                "generation": 5,
+                "link": 40,
+                "owner": 4,
+                "target": 10,
+                "tick": 75
+              }
+            ],
+            "emitted_outputs": [
+              20000,
+              20000
+            ],
+            "index": 12,
+            "junctions": 29,
+            "learners": 4,
+            "live_links": 59,
+            "position_after": 2,
+            "position_before": 3,
+            "scans": 377,
+            "scans_per_live_link_milli": 6389
+          },
+          "comparison_delta": 11,
+          "index": 12,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "CoherentEffect",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": 10,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "CoherentEffect",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 83
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": null,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": true,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 87
+              }
+            ],
+            "comparisons": 407,
+            "comparisons_per_live_link_milli": 7679,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000,
+              20000
+            ],
+            "index": 12,
+            "junctions": 26,
+            "learners": 3,
+            "live_links": 53,
+            "position_after": -2,
+            "position_before": -1,
+            "scans": 340,
+            "scans_per_live_link_milli": 6415
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": 37
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": 4,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 83
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 4,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 87
+              }
+            ],
+            "comparisons": 423,
+            "comparisons_per_live_link_milli": 7169,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20000
+            ],
+            "index": 13,
+            "junctions": 29,
+            "learners": 4,
+            "live_links": 59,
+            "position_after": 2,
+            "position_before": 2,
+            "scans": 414,
+            "scans_per_live_link_milli": 7016
+          },
+          "comparison_delta": 17,
+          "index": 13,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "CoherentEffect",
+                "admitted": [
+                  {
+                    "owner": null,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": 10,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "CoherentEffect",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": true,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 91
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 4,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": true,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 95
+              }
+            ],
+            "comparisons": 406,
+            "comparisons_per_live_link_milli": 7660,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000,
+              20000
+            ],
+            "index": 13,
+            "junctions": 26,
+            "learners": 4,
+            "live_links": 53,
+            "position_after": -3,
+            "position_before": -2,
+            "scans": 429,
+            "scans_per_live_link_milli": 8094
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": -15
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": 4,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 91
+              }
+            ],
+            "comparisons": 241,
+            "comparisons_per_live_link_milli": 4084,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001
+            ],
+            "index": 14,
+            "junctions": 29,
+            "learners": 4,
+            "live_links": 59,
+            "position_after": 3,
+            "position_before": 2,
+            "scans": 159,
+            "scans_per_live_link_milli": 2694
+          },
+          "comparison_delta": -165,
+          "index": 14,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": 3,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 99
+              },
+              {
+                "admission_basis": "CoherentEffect",
+                "admitted": [
+                  {
+                    "owner": 5,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": 11,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CoherentEffect",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 103
+              }
+            ],
+            "comparisons": 406,
+            "comparisons_per_live_link_milli": 7660,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20001
+            ],
+            "index": 14,
+            "junctions": 26,
+            "learners": 5,
+            "live_links": 53,
+            "position_after": -2,
+            "position_before": -3,
+            "scans": 336,
+            "scans_per_live_link_milli": 6339
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": -177
+        },
+        {
+          "candidate": {
+            "choices": [
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": 4,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 95
+              },
+              {
+                "admission_basis": "CompletedCycle",
+                "admitted": [
+                  {
+                    "owner": 4,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Unique",
+                "completed_cycle_target": 10,
+                "computed_winner_basis": "CompletedCycle",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 10,
+                "phase": 0,
+                "tick": 99
+              }
+            ],
+            "comparisons": 410,
+            "comparisons_per_live_link_milli": 6949,
+            "consumptions": [],
+            "emitted_outputs": [
+              20001,
+              20000
+            ],
+            "index": 15,
+            "junctions": 29,
+            "learners": 4,
+            "live_links": 59,
+            "position_after": 3,
+            "position_before": 3,
+            "scans": 519,
+            "scans_per_live_link_milli": 8796
+          },
+          "comparison_delta": 4,
+          "index": 15,
+          "parent": {
+            "choices": [
+              {
+                "admission_basis": "FreshAlternative",
+                "admitted": [
+                  {
+                    "owner": 5,
+                    "target": 10
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "FreshAlternative",
+                "computed_winner_target": 10,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 107
+              },
+              {
+                "admission_basis": "Ordinary",
+                "admitted": [
+                  {
+                    "owner": 5,
+                    "target": 11
+                  }
+                ],
+                "coherent_effect_target": null,
+                "completed_cycle_state": "Stale",
+                "completed_cycle_target": null,
+                "computed_winner_basis": "Ordinary",
+                "computed_winner_target": 11,
+                "crosses_ownership_view": false,
+                "current_transition_target": null,
+                "ordinary_target": 11,
+                "phase": 0,
+                "tick": 111
+              }
+            ],
+            "comparisons": 406,
+            "comparisons_per_live_link_milli": 7660,
+            "consumptions": [],
+            "emitted_outputs": [
+              20000,
+              20001
+            ],
+            "index": 15,
+            "junctions": 26,
+            "learners": 5,
+            "live_links": 53,
+            "position_after": -2,
+            "position_before": -2,
+            "scans": 332,
+            "scans_per_live_link_milli": 6264
+          },
+          "region": "divergent_trajectory",
+          "same_input_position": false,
+          "same_output_position": false,
+          "scan_delta": 187
+        }
+      ],
+      "candidate_step_sums_match": true,
+      "direct_law_overhead_supported": true,
+      "divergent_trajectory": {
+        "candidate_comparisons": 6042,
+        "candidate_scans": 3778,
+        "comparison_delta": 1951,
+        "parent_comparisons": 4091,
+        "parent_scans": 3512,
+        "scan_delta": 266
+      },
+      "first_comparison_delta_has_divergent_input": false,
+      "first_comparison_divergence_step": 3,
+      "first_input_position_divergence_step": 4,
+      "first_output_position_divergence_step": 3,
+      "first_repaired_choice": {
+        "candidate_comparisons": 406,
+        "candidate_scans": 316,
+        "comparison_delta": -1,
+        "parent_comparisons": 407,
+        "parent_scans": 327,
+        "scan_delta": -11
+      },
+      "first_repaired_step": 3,
+      "first_scan_divergence_step": 3,
+      "parent_step_sums_match": true,
+      "repaired_step_work_matches": false,
+      "shared_prefix": {
+        "candidate_comparisons": 872,
+        "candidate_scans": 587,
+        "comparison_delta": 0,
+        "parent_comparisons": 872,
+        "parent_scans": 587,
+        "scan_delta": 0
+      },
+      "shared_prefix_physics_and_work_match": true,
+      "trajectory_induced_work_supported": false
+    },
+    "parent": {
+      "comparisons": 5370,
+      "exact_replay": true,
+      "learners": 5,
+      "naturally_quiescent": true,
+      "positions": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          -1
+        ],
+        [
+          -1,
+          -2
+        ],
+        [
+          -2,
+          -3
+        ],
+        [
+          -3,
+          -2
+        ],
+        [
+          -2,
+          -2
+        ]
+      ],
+      "propagation_budget_exhaustions": 0,
+      "protocol": "RecursiveLearnerConstructionOutcomeComposition",
+      "scans": 4426,
+      "stopped": false
+    },
+    "predecessor_controls": [
+      {
+        "expected_sha256": "c2143100494b7b2839e14dc600faf1d79f76350ad03967fc4de9b82a125cfe0a",
+        "matched": true,
+        "name": "bounded-first-use-fixtures",
+        "observed_sha256": "c2143100494b7b2839e14dc600faf1d79f76350ad03967fc4de9b82a125cfe0a"
+      },
+      {
+        "expected_sha256": "20dbcb67da31289cc053e5a0f6e44ece3f6a1fb921a2441d5e445c7430478c7d",
+        "matched": true,
+        "name": "reflected-hand-first-wall",
+        "observed_sha256": "20dbcb67da31289cc053e5a0f6e44ece3f6a1fb921a2441d5e445c7430478c7d"
+      },
+      {
+        "expected_sha256": "32d6b8f657b271b2fbbd1227eab6978418671d27ea4ddfbbcd487f49b2293cfc",
+        "matched": true,
+        "name": "parent-and-lifetime-controls",
+        "observed_sha256": "32d6b8f657b271b2fbbd1227eab6978418671d27ea4ddfbbcd487f49b2293cfc"
+      },
+      {
+        "expected_sha256": "65d8e225e042c20a87eb0d8df2cac2584838bea09d0f035ad83ba7a27ddeba84",
+        "matched": true,
+        "name": "evidence",
+        "observed_sha256": "65d8e225e042c20a87eb0d8df2cac2584838bea09d0f035ad83ba7a27ddeba84"
+      },
+      {
+        "expected_sha256": "1d38b2caf45a5d6062cd5090d25b6ac7738984c31093ae004c52315610c1e2bf",
+        "matched": true,
+        "name": "adjudication",
+        "observed_sha256": "1d38b2caf45a5d6062cd5090d25b6ac7738984c31093ae004c52315610c1e2bf"
+      },
+      {
+        "expected_sha256": "a2bf55a62aa9e6d06165bc118d6f1983b6d70c4c74e4b7c62a2c054fee489989",
+        "matched": true,
+        "name": "convergence",
+        "observed_sha256": "a2bf55a62aa9e6d06165bc118d6f1983b6d70c4c74e4b7c62a2c054fee489989"
+      }
+    ],
+    "predecessor_controls_survived": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

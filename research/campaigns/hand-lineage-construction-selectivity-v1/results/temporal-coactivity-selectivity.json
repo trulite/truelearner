@@ -1,0 +1,25 @@
+{
+  "schema": "research-arm-result/v1",
+  "arm": "temporal-coactivity-selectivity",
+  "outcome": "falsified",
+  "falsifier": "Same-run current-state coactivity produced two closure observations and one learner construction, exactly matching delayed consequence.",
+  "observations": {
+    "delayed_closures": 2,
+    "delayed_constructions": 1,
+    "coactive_closures": 2,
+    "coactive_constructions": 1,
+    "disconnected_closures": 0,
+    "disconnected_constructions": 0,
+    "duplicate_closures": 1,
+    "duplicate_constructions": 0,
+    "exact_replay": true,
+    "naturally_quiescent": true
+  },
+  "artifacts": [
+    {
+      "path": "research/campaigns/hand-lineage-construction-selectivity-v1/artifacts/temporal-coactivity-selectivity.json",
+      "sha256": "8548c6f38b9905b2b413b8e125efb16d09ef0bdd1b7a47e076856a753db72512"
+    }
+  ]
+}
+

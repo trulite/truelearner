@@ -1,0 +1,54 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory-artifacts/hand-construction-outcome-composition-candidate.json",
+    "sha256": "f6bf0b524535ca73062bf7694a672e4aac18bc00673dc3c6a293407cf281f708"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "same-tick-lineage-selectivity",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml learner::tests::construction_outcome_composition_selects_only_live_same_tick_lineage",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.37
+    },
+    {
+      "name": "fresh-child-control",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary recursive_learner_children_start_with_fresh_return_memory",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.09
+    },
+    {
+      "name": "original-tick-classifier",
+      "command": "cargo test --locked --manifest-path research/experiments/hand-construction-outcome-composition/Cargo.toml construction_projection_requires_the_original_tick",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.14
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary construction_outcome_composition",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.08
+    }
+  ],
+  "findings": [
+    "The successor protocol reuses the existing link consequence tick, learner consequence memory, and trace event; it adds no path, outcome, memory, or trace type.",
+    "The construction projection is total over exact lineage and selects only live links whose physical consequence tick equals the construction tick.",
+    "Older, unrelated, and dead link controls remain excluded; the existing completed-cycle protocol and fresh-child behavior remain unchanged.",
+    "Checkpoint replay is exact and the representative warm regression is strictly under 10 seconds."
+  ],
+  "residual_uncertainty": [
+    "The isolated Rust law is supported, but its preregistered tick-twenty-three Missing-to-Stale hand prediction requires the separate one-run research evidence."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/hand-construction-outcome-composition.md",
+      "sha256": "334eefe0532430060d3cca76da8394cebe48adde3101f0f2fdb9097984f70b6a"
+    }
+  ]
+}

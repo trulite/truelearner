@@ -1,0 +1,23 @@
+{
+  "schema": "hand-causal-origin-ownership-factorization/v1",
+  "arm": "bounded-reflected-hand",
+  "outcome": "falsified",
+  "observations": {
+    "baseline_changed_steps": 3,
+    "baseline_final_position": -1,
+    "candidate_changed_steps": 8,
+    "candidate_final_position": 4,
+    "exact_replay": true,
+    "first_exhaustion_motor_candidates": 88,
+    "first_exhaustion_step": 8,
+    "movement_improved": true,
+    "naturally_quiescent": false,
+    "perturbation_recovered": false,
+    "primary_closed": false,
+    "propagation_budget_exhaustions": 2,
+    "survived": false
+  },
+  "falsifier": "the hand gained movement but exhausted the propagation budget and failed natural quiescence",
+  "exact_replay": true,
+  "naturally_quiescent": false
+}

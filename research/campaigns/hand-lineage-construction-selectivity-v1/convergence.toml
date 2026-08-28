@@ -1,0 +1,76 @@
+schema = "research-convergence/v1"
+campaign = "hand-lineage-construction-selectivity-v1"
+round = 1
+survived = [
+  "frozen-causal-contract-audit",
+  "first-transition-localization",
+]
+falsified = [
+  "temporal-coactivity-selectivity",
+  "boundary-novelty-selectivity",
+]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "the immutable causal-lineage hand still preserves, admits, and reverse-consolidates actual physical surfaces with exact replay and natural quiescence",
+  "the chronological first closure is current-state coactivity rather than post-movement output-caused consequence, so chronological-first identity is not a valid developmental contract",
+  "none of fourteen reported constructions has two observations that are both post-movement deliveries tied to the output that caused the movement",
+  "disconnected matched activity and duplicate same-moment lineage remain negative, localizing the false admission more narrowly than generic provenance or duplicate handling",
+  "one unchanged physical surface/output boundary can generate four nested learner copies over eight repetitions while a second connected surface remains undiscovered in either order",
+]
+strongest_counterexamples = [
+  "temporal-coactivity-selectivity: two same-run pre-movement surface observations produced two closures and one construction, exactly matching two delayed action-then-surface consequences",
+  "frozen-causal-contract-audit: all fourteen parent constructions contain current-state coactivity or delivery-output mismatch in at least one of their two exact-key observations",
+  "boundary-novelty-selectivity: learner depth reached four while distinct physical boundary count remained one; adding the second connected surface still yielded only the original boundary",
+]
+retired_families = [
+  "requiring renewal of the chronologically first closure as the hand-development contract",
+  "counting any construction or new learner identifier as evidence of a new causal physical owner",
+  "narrowing truthful causal lineage as the next solve after lineage passed provenance, impulse, order, duplicate, admission, and reverse-consolidation controls",
+  "treating recursive depth on one identical surface/output pair as physical boundary novelty",
+  "advancing the reflected-hand ladder before closure eligibility and boundary breadth are repaired in that order",
+]
+next_discriminators = [
+  "test the smallest local consequence-born temporal eligibility law that admits an origin only when its physical incidence begins after the exact participating output opened the return; retain valid delayed, same-run pre-output, duplicate, disconnected, stale, replay, and quiescence controls",
+  "only after temporal eligibility survives, test whether construction requires a physical boundary member not already wholly owned by the parent, while preserving legitimate adjacent recursion and sibling discovery",
+  "only after both selectivity gates survive, rerun the unchanged causal-lineage hand and then resume the reflected-limit ladder at its first actual failure",
+]
+
+[[new_arm]]
+id = "consequence-born-closure-eligibility"
+kind = "solve"
+parents = [
+  "temporal-coactivity-selectivity",
+  "frozen-causal-contract-audit",
+  "first-transition-localization",
+]
+imports = [
+  "causal-lineage preservation and per-origin return admission",
+  "same-run coactivity counterexample",
+  "post-movement output-caused closure contract",
+]
+interaction_prediction = "Carrying the physical birth tick of actual lineage and comparing it with the exact participating return-opening tick rejects pre-output/current-state coactivity while preserving a later valid consequence, one physical impulse, duplicate rejection, replay, and quiescence."
+falsifiers = [
+  "Same-run surface incidence born before the output still supplies closure evidence.",
+  "A valid surface incidence born after the participating output no longer reaches closure evidence.",
+  "The rule selects by semantic action, movement direction, evaluator phase, or hand identity rather than local physical time and return participation.",
+  "Lineage membership, impulse, duplicate, disconnected, stale, replay, quiescence, or old-protocol controls change.",
+]
+
+[[new_arm]]
+id = "physical-boundary-novelty-after-temporal-gate"
+kind = "diagnostic"
+parents = [
+  "boundary-novelty-selectivity",
+  "first-transition-localization",
+]
+imports = [
+  "frozen repeated-boundary depth counterexample",
+  "ordering constraint that a future consequence-born temporal gate must survive first",
+]
+interaction_prediction = "After false temporal evidence is removed, the trace can distinguish legitimate adjacent new-boundary recruitment from repeated ownership of the exact same physical surface/output members without using semantic anatomy."
+falsifiers = [
+  "The diagnostic runs before temporal eligibility survives.",
+  "A new learner ID or parent depth is treated as boundary novelty without a new participating physical member.",
+  "A distinct causally participating adjacent surface cannot be separated from exact-boundary repetition.",
+]

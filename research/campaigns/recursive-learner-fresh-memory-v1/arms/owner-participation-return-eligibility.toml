@@ -1,0 +1,24 @@
+schema = "research-arm/v1"
+id = "owner-participation-return-eligibility"
+campaign = "recursive-learner-fresh-memory-v1"
+kind = "solve"
+parents = ["recursive-learner-reentry-v1:post-construction-causal-opportunity", "recursive-learner-reentry-v1:child-owned-closure-genesis"]
+imports = [
+  "owner-aware closure identity",
+  "live finite return-link identity and generation",
+  "physical-origin admission and unchanged global organism memory",
+]
+mechanism = "Each constructed learner owns an initially empty private set of accepted `(return link, generation, physical origin)` observations. Scheduling and admission use the deepest learner containing the live return link; the organism continues to use unchanged global link memory."
+prediction = "A child admits fresh returns rejected by parent history, rejects a repeated origin for the same live generation, treats a physically renewed generation as fresh, checkpoints exactly, and copies no learned entry at construction."
+falsifiers = [
+  "The child begins with any parent accepted-origin entry or construction mutates parent memory.",
+  "The same owner, link generation, and origin is admitted twice, or a fresh renewed generation is rejected.",
+  "Eligibility requires semantic learner or depth identity, loses replay, or grows with dormant surfaces.",
+]
+source_revision = "rust-candidate-tree:72e3c1560e68330450321e96db5039159c7959506164c7dd798104e654f72477"
+protocol_sha256 = "623e4b3c57c862a7d8df6b21023c42841a75901f724e0e1d680007aa95b6732a"
+budget_minutes = 35
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml probe_owner_participation_return_eligibility"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/recursive-learner-fresh-memory/Cargo.toml -- --arm owner-participation-return-eligibility"

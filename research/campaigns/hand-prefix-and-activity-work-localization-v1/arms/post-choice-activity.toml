@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "post-choice-activity"
+campaign = "hand-prefix-and-activity-work-localization-v1"
+kind = "diagnostic"
+parents = ["hand-bounded-first-use-construction-continuation-v1:reflected-hand-first-wall", "shared-prefix-work"]
+imports = ["repaired target-eleven arrow", "three-region work fold", "per-step live topology"]
+mechanism = "Retain every later step as a divergent trajectory and locate the first absolute comparison delta beside its physical input and live topology."
+prediction = "The first comparison delta is at or after the first later step beginning from a different hand state, and the full comparison excess lies in the divergent downstream region rather than the law's read-and-consume step."
+falsifiers = ["The first comparison delta precedes physical input divergence.", "The comparison excess cannot be reconstructed from retained steps.", "The direct read-and-consume step contains the excess.", "Post-choice steps are incorrectly treated as equivalent executions."]
+source_revision = "plan:e42ca08c3d1a2e16a7c1ad47c8005fa6fa505c6e25341496a57629d432096258"
+protocol_sha256 = "07cb8621ebe1ec68dbc352ce1c690376372ffda96313a0974b8184486d7e011d"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-prefix-and-activity-work-localization/Cargo.toml fold_exposes_direct_overhead_at_first_use"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-prefix-and-activity-work-localization/Cargo.toml -- --predecessor-dir research/campaigns/hand-bounded-first-use-construction-continuation-v1 --output-dir research/campaigns/hand-prefix-and-activity-work-localization-v1/artifacts"

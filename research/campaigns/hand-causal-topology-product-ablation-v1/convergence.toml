@@ -1,0 +1,48 @@
+schema = "research-convergence/v1"
+campaign = "hand-causal-topology-product-ablation-v1"
+round = 1
+survived = ["complete-reference"]
+falsified = ["remove-output-factorization", "remove-opportunity-factorization"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "all three protocols preserve the exact one-module physical history",
+  "all three use the same connected physical outcome-source topology and unchanged return-bearing learner law",
+  "the complete protocol alone applies that component boundary to both output choice and fresh-opportunity allocation",
+  "all runs replay exactly naturally quiesce and stop five after any two-joint failure",
+]
+strongest_counterexamples = [
+  "removing only output factorization restores global suppression immediately: the proximal joint emits no output at two-joint step zero",
+  "removing only opportunity factorization preserves initial independent outputs but restores global allocation at reversal: the distal joint loses its continued arrow at step five",
+  "the unchanged complete reference closes one two and five joints with registration perturbation replay quiescence exhaustion and activity-bound controls intact",
+]
+retired_families = [
+  "connected-topology output choice without connected-topology opportunity allocation as a sufficient serial-articulation law",
+  "connected-topology opportunity allocation without connected-topology output choice as a sufficient serial-articulation law",
+  "treating the two successful changes as interchangeable rather than causally distinct",
+]
+next_discriminators = [
+  "freeze the complete jointly necessary survivor at an exact clean candidate commit",
+  "run one fresh authority protocol against that immutable subject without repair or rerun",
+  "promote only the bounded connected-outcome-component law and anonymous one two five serial-articulation claim if adjudication is positive",
+]
+
+[[new_arm]]
+id = "connected-topology-product-authority"
+kind = "composition"
+parents = ["complete-reference", "remove-output-factorization", "remove-opportunity-factorization"]
+imports = [
+  "unchanged complete survivor",
+  "separate necessity counterexamples",
+  "one-module exact identity",
+  "two and five joint capability controls",
+  "generic core topology component fixtures",
+]
+interaction_prediction = "A clean one-shot run reproduces the complete one two five result and every negative control, establishing a bounded local law for the next hand ladder without implying keyboard or general morphology capability."
+falsifiers = [
+  "The frozen subject or protocol lineage is invalid or dirty.",
+  "Either ablation fails to reproduce its exact first breakpoint.",
+  "The complete protocol loses one two or five joint closure or any inherited control.",
+  "Generic connected/disconnected topology fixtures disagree with the hand evidence.",
+  "The run is repeated repaired non-quiescent exhausted or not cleanly integrated.",
+]

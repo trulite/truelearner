@@ -1,0 +1,17 @@
+schema = "research-arm/v1"
+id = "physical-transition-return"
+campaign = "hand-physical-change-resampling-v1"
+kind = "solve"
+parents = ["existing-lineage-discriminator", "stable-surface-activation-edge"]
+imports = ["external physical incidence", "causal lineage", "consequence-born admission"]
+mechanism = "Carry an anonymous external transition tick and require it after return opening before consequence admission."
+prediction = "The same origin is consequential after transition and non-consequential after sampling, without changing ordinary drive, replay, or quiescence."
+falsifiers = ["A sample writes consequence.", "A valid transition is lost.", "Ordinary firing changes.", "Transition lineage is not replayable."]
+source_revision = "plan:a621cf270f0a2012601784a30208f6c33a3b47d7d9987dda5f72b64d6d3bbdc1"
+protocol_sha256 = "6bbf587590a79e51869a7933aaa5bf13733ba7c837a5ae7d213180b796c249c3"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml --test harness_boundary physical_transition_return"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-physical-change-resampling/Cargo.toml -- --arm physical-transition-return"
+

@@ -127,16 +127,24 @@ impl Body {
             } else {
                 0
             };
+            let origin_physical = if self.protocol.is_sensorimotor() {
+                fired.causal_origin
+            } else {
+                fired.state.physical_id
+            };
             self.pending.push(
                 Firing {
                     arrival_tick: next_tick,
                     phase: link.phase,
                     causal_wave: next_wave,
-                    origin_physical: if self.protocol.is_sensorimotor() {
-                        fired.causal_origin
-                    } else {
-                        fired.state.physical_id
-                    },
+                    origin_physical,
+                    causal_lineage: self.protocol.preserves_causal_lineage().then(|| {
+                        fired
+                            .causal_lineage
+                            .clone()
+                            .unwrap_or_else(|| CausalLineage::singleton(origin_physical, self.tick))
+                    }),
+                    physical_incidence: PhysicalIncidence::Sample,
                     target_physical: to.physical_id,
                     target: link.to,
                     target_generation: to.generation,

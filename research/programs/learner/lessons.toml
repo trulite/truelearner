@@ -2,6 +2,22 @@ schema = "research-lessons/v1"
 program = "learner-physics"
 
 [[lesson]]
+id = "RM-000A"
+kind = "research-method"
+statement = "The observed ambiguity was that an ownership change was named as a failure before establishing the categorical shape of local choice. The solve was to test the laws in order: first require each candidate view to admit one physical arrow, then test composition of completed arrows, then test whether representation changes preserve that arrow. This ruled out multi-target admission and localized the first non-commuting square to a missing completed-cycle witness."
+evidence = ["hand-completed-cycle-composition-v1:completed-cycle-successor", "hand-completed-cycle-naturality-v1:choice-trace-inertness", "hand-completed-cycle-naturality-v1:completed-cycle-first-arrow-change"]
+applies_when = ["composition claim", "ownership reconstruction", "naturality", "multi-target admission", "category-theory model"]
+research_action = "State the objects and physical arrows, prove admission is functional, test adjacent composition, and only then test whether representation changes make the corresponding square commute."
+
+[[lesson]]
+id = "RM-000B"
+kind = "research-method"
+statement = "The observed mistake was that existing runtime trace already contained path participation, consequence writes, learner construction, ownership, candidate decisions, and return lifetime, while a reduced frozen artifact discarded the context needed for the next diagnosis. The solve is to audit and preserve the existing decisive trace slice before adding instrumentation; add an event only for a specifically named physical fact that is truly absent."
+evidence = ["hand-completed-cycle-naturality-v1:choice-trace-inertness", "hand-completed-cycle-naturality-v1:completed-cycle-first-arrow-change"]
+applies_when = ["diagnostic request", "existing physical trace", "reduced evidence artifact", "instrumentation proposal"]
+research_action = "Inventory existing trace fields, map each diagnostic question to recorded evidence, and retain the full decisive before/after slice in immutable artifacts before proposing another event or run."
+
+[[lesson]]
 id = "LP-001"
 kind = "learner-physics"
 statement = "Decompose high-level cognitive labels into lower-level physical failures before proposing a primitive."
@@ -304,6 +320,254 @@ statement = "Repeated survival of local sensorimotor laws alongside failure of t
 evidence = ["sensorimotor-dependency-sweep-v1:one-joint-composition", "sensorimotor-participation-continuity-v1:one-joint-recomposition", "sensorimotor-synthesis-ladder-v1:one-joint-control"]
 applies_when = ["isolated local survival", "monolithic composition failure", "recursive learner construction"]
 research_action = "Compare recursively constructed learners with the matched monolithic candidate under anonymous, reflected, noncausal, nested, sibling, and multiple-surface controls."
+
+[[lesson]]
+id = "LP-039"
+kind = "learner-physics"
+statement = "Consequence-born closure requires three local orderings together: incidence after return opening, answer lifetime shared by one output cohort, and eligible returns before ineligible competitors in the same moment."
+evidence = ["hand-consequence-born-closure-eligibility-v1:eligible-return-composition", "hand-consequence-born-closure-eligibility-v1:temporal-only-counterexample", "hand-consequence-born-closure-eligibility-v1:temporal-cohort-counterexample"]
+applies_when = ["causal closure", "delayed consequence", "same-moment return competition", "recursive learner construction"]
+research_action = "Carry physical incidence birth and exact return opening locally, retire answered sibling returns as a cohort after the moment, and preserve stable eligible-first evaluation without multiplying effects."
+
+[[lesson]]
+id = "LP-040"
+kind = "learner-physics"
+statement = "Correct temporal closure does not imply physical boundary novelty; repeated evidence for one already owned surface/output boundary can still create false recursive depth and suppress a distinct sibling surface."
+evidence = ["hand-consequence-born-closure-eligibility-v1:boundary-novelty-after-temporal-gate"]
+applies_when = ["recursive learner construction", "boundary ownership", "nested depth", "sibling discovery"]
+research_action = "Require a new causally participating physical boundary member outside the proposed parent's owned boundary, then test exact repetition, adjacent recursion, and sibling order independently before resuming embodiment."
+
+[[lesson]]
+id = "LP-041"
+kind = "learner-physics"
+statement = "Physical boundary novelty is stable junction membership, not learner depth or regenerated temporary link identity; an owned child proposal must add a participating junction outside its parent's boundary."
+evidence = ["hand-physical-boundary-member-novelty-v1:exact-boundary-repetition", "hand-physical-boundary-member-novelty-v1:sibling-breadth-and-locality", "hand-physical-boundary-member-novelty-v1:adjacent-expansion-transfer"]
+applies_when = ["recursive construction", "boundary ownership", "sibling breadth", "temporary topology"]
+research_action = "Compute stable proposed junction membership before closure evidence, reject owned subsets, and retain root, local sibling, adjacent expansion, locality, replay, and quiescence controls."
+
+[[lesson]]
+id = "LP-042"
+kind = "learner-physics"
+statement = "Removing false boundary depth does not restore autonomous embodied reuse when a real surface consequence writes owner memory but the next surface activity produces neither an owner read nor a motor output."
+evidence = ["hand-physical-boundary-member-novelty-v1:conditional-reflected-hand", "hand-physical-boundary-member-novelty-v1:hand-transition-localization"]
+applies_when = ["embodied stall", "reverse surface execution", "owner-local consequence", "autonomous reuse"]
+research_action = "At the first post-stall surface incidence, order reverse-path lifetime and traversal, motor-candidate formation, owner resolution, and private consequence read before choosing a solve."
+
+[[lesson]]
+id = "LP-043"
+kind = "learner-physics"
+statement = "A post-construction reuse stall can occur after complete and consequential surface paths survive and strong motor candidates form; exhaustive candidate observation localized this hand failure to ownership resolution before executability, not path lifetime or traversal."
+evidence = ["hand-autonomous-reuse-localization-v1:boundary-candidate-localization", "hand-autonomous-reuse-localization-v1:temporal-matched-control", "hand-autonomous-reuse-localization-v1:complete-localization"]
+applies_when = ["autonomous reuse", "path lifetime", "motor candidate", "ownership ambiguity"]
+research_action = "Observe every candidate, including single and rejected candidates, and compare path presence, carried origins, owners, drive, threshold, and executability in one pass before changing memory or lifetime."
+
+[[lesson]]
+id = "LP-044"
+kind = "learner-physics"
+statement = "Strict owner-local factorization can preserve one private effect in an unrelated two-owner fixture yet remain irrelevant to a hand candidate containing two carried origins but only one known learner owner."
+evidence = ["hand-owner-local-candidate-factorization-v1:unrelated-mixed-owner-transfer", "hand-owner-local-candidate-factorization-v1:unowned-origin-discriminator", "hand-owner-local-candidate-factorization-v1:conditional-reflected-hand"]
+applies_when = ["mixed output incidence", "private owner", "unowned origin", "transfer"]
+research_action = "Count carried origins and actual known owners separately; do not infer a cross-owner conflict from ambiguous candidate ownership or promote a fixture-only transfer."
+
+[[lesson]]
+id = "LP-045"
+kind = "learner-physics"
+statement = "Carried physical origin alone is not a safe ownership boundary: a shared unowned label can combine two private paths, while origin-first selection can increase hand movement by creating a self-sustaining wave that fails natural quiescence."
+evidence = ["hand-causal-origin-ownership-factorization-v1:same-origin-mixed-owner-control", "hand-causal-origin-ownership-factorization-v1:bounded-reflected-hand", "hand-causal-origin-ownership-factorization-v1:unrelated-origin-transfer"]
+applies_when = ["causal-origin factorization", "private ownership", "feedback", "natural quiescence", "embodied movement"]
+research_action = "Trace carried origin and actual path owner together, then localize the first repeated feedback cycle before testing another solve; never count bounded termination or extra movement as capability."
+
+[[lesson]]
+id = "LP-046"
+kind = "learner-physics"
+statement = "A non-quiescent embodied wave can be localized as a finite repeated physical graph when every drive firing records both carried-origin ownership and actual path ownership; the hand runaway was a six-edge unowned cycle alternating two motor effects across the organism boundary."
+evidence = ["hand-origin-feedback-cycle-localization-v1:origin-path-provenance-disagreement", "hand-origin-feedback-cycle-localization-v1:step-eight-feedback-cycle", "hand-origin-feedback-cycle-localization-v1:matched-boundary-control"]
+applies_when = ["non-quiescence", "feedback cycle", "origin provenance", "path ownership", "boundary crossing"]
+research_action = "Record live edge, physical regions, carried origin, origin owner, path owner, and order before selection; find a graph-contiguous repeated cycle and compare a matched quiet reference before proposing suppression."
+
+[[lesson]]
+id = "LP-047"
+kind = "learner-physics"
+statement = "Outward effect delivery and path genesis are distinct physical operations: suppressing new paths only on the firing caused across a region boundary preserves the effect, external and same-region learning, replay, and quiescence while removing the hand's runaway re-entry."
+evidence = ["hand-boundary-effect-reentry-v1:effect-born-genesis-isolation", "hand-boundary-effect-reentry-v1:external-surface-discriminator", "hand-boundary-effect-reentry-v1:conditional-reflected-hand"]
+applies_when = ["motor effect", "cross-region delivery", "path genesis", "feedback re-entry", "natural quiescence"]
+research_action = "Carry a transient boundary-effect fact from actual incidence to structural genesis; do not treat an entire region as terminal, and measure complete capability separately from the repaired safety transition."
+
+[[lesson]]
+id = "LP-048"
+kind = "learner-physics"
+statement = "A consequence-born timing fact must govern consequence admission as well as later closure: at the clamped hand boundary, pre-opening repeated surfaces were correctly ineligible for closure but still wrote a fresh consequence every step, permanently suppressing an executable alternative."
+evidence = ["hand-upper-boundary-release-localization-v1:upper-boundary-opposite-candidate-localization", "hand-upper-boundary-release-localization-v1:pre-boundary-matched-control", "hand-upper-boundary-release-localization-v1:complete-localization"]
+applies_when = ["consequence renewal", "output competition", "boundary release", "repeated physical context", "return eligibility"]
+research_action = "Apply the existing birth-after-opening predicate before consequence write and return answering, preserve genuinely later returns, then test the existing no-consequence replacement path before adding ranking or memory."
+
+[[lesson]]
+id = "LP-049"
+kind = "learner-physics"
+statement = "The observed failure was that a genuinely later unchanged sample and a movement-caused return carried the same origin and both passed birth-after-opening admission. The solve was to classify external incidence as sample or physical transition, carry the transition tick through causal lineage, and admit consequence only when that transition occurred after the return opened; the same three anonymous origins were then admitted on transition and seventy-six unchanged samples were rejected without hidden position, direction, or hand knowledge."
+evidence = ["hand-consequence-born-return-admission-v1:consequence-born-return-admission", "hand-consequence-born-return-admission-v1:conditional-reflected-hand-release", "hand-physical-change-resampling-v1:physical-transition-return"]
+applies_when = ["consequence renewal", "physical resampling", "state change", "temporal eligibility", "causal lineage"]
+research_action = "Carry the physical transition from the external incidence boundary through actual causal participation; never infer change from a later timestamp, stable origin identity, or reconstructed world history."
+
+[[lesson]]
+id = "LP-050"
+kind = "learner-physics"
+statement = "The observed failure was that strict return-owner equality rejected a physically local organism-owned donor and root-learner-owned balanced recipient. The solve was to classify actual learner ancestry and admit only OrganismToRoot; one exact transfer then fired the silent motor and released upper contact without arbitrary cross-owner admission."
+evidence = ["hand-bounded-fresh-opportunity-v1:complete-composition", "hand-opportunity-owner-boundary-v1:organism-to-root-hand-boundary", "hand-organism-root-fresh-opportunity-v1:conditional-reflected-hand-release"]
+applies_when = ["fresh opportunity", "organism boundary", "root learner", "ownership mismatch"]
+research_action = "Classify actual ancestry before relaxing owner equality; admit only a typed boundary that survives unrelated, sibling, lifetime, replay, and quiescence controls."
+
+[[lesson]]
+id = "LP-051"
+kind = "learner-physics"
+statement = "The observed result was that one safe fresh alternative produced both directions and upper escape but still did not reach the lower limit. The solve was to preserve the complete post-release trajectory and descend to the first lost physical continuation instead of treating one boundary release as closed-loop control."
+evidence = ["hand-organism-root-fresh-opportunity-v1:conditional-reflected-hand-release", "hand-organism-root-fresh-opportunity-v1:complete-composition", "hand-post-release-continuation-localization-v1:first-continuation-failure"]
+applies_when = ["boundary release", "cumulative travel", "one-joint control", "first-failure descent"]
+research_action = "Keep release and complete control as separate claims; after release, compare the last continuing step with the first stalled or reversed step using the whole-decision trace."
+
+[[lesson]]
+id = "LP-052"
+kind = "learner-physics"
+statement = "The observed first post-release stall retained complete paths, executable owner-local candidates, consequence reads, and both outputs, but opposing effects canceled within one external cycle. The attempted solve was unique owner-local physical-transition continuation; it reduced opposing cycles from six to four while leaving nine real changes and no lower contact, proving pre-write continuation alone insufficient."
+evidence = ["hand-post-release-continuation-localization-v1:first-continuation-failure", "hand-physical-transition-continuation-v1:physical-transition-continuation", "hand-physical-transition-continuation-v1:complete-composition"]
+applies_when = ["opposing output coactivation", "physical continuation", "complete candidates", "cumulative control"]
+research_action = "Do not add more path, memory, or executability at this wall; discriminate the remaining competition timing and effect-composition cases while preserving sample release and exact return lifetime."
+
+[[lesson]]
+id = "LP-053"
+kind = "learner-physics"
+statement = "The observed mismatch was that outputs from separate naturally quiescent Harness runs were combined into one batched force update, erasing the first phase's world effect before the next input was sampled. The counterfactual solve was explicit sequential composition at the adapter boundary; actual transitions rose from nine to twenty-one while replay, quiescence, and learner blindness held, but this cannot replace the official batched Academy force law."
+evidence = ["hand-effect-composition-laws-v1:sequential-world-composition", "hand-effect-composition-laws-v1:frozen-batched-parent"]
+applies_when = ["effect composition", "external adapter", "quiescent phase", "world resampling", "Academy control"]
+research_action = "Make composition order explicit and preserve the official adapter as an exact control; use counterfactual adapter evidence to localize physics, never to claim the official capability."
+
+[[lesson]]
+id = "LP-054"
+kind = "learner-physics"
+statement = "The observed result was that recent unresolved-effect coherence improved the official batched hand from nine to eleven actual transitions and reduced opposing-output steps from six to four, while its composition with sequential world updates produced twenty transitions and only three opposing steps but still no lower contact. The solve was to preserve ordered phase directions and both-boundary predicates, which showed nineteen positive versus eight negative effects and localized the remaining wall to sustained sign coherence rather than missing motion."
+evidence = ["hand-effect-composition-laws-v1:coherent-unresolved-effect", "hand-effect-composition-laws-v1:combined-composition", "hand-effect-composition-laws-v1:frozen-batched-parent"]
+applies_when = ["unresolved effect", "cumulative travel", "opposing output", "directional coherence", "boundary control"]
+research_action = "Distinguish activity from cumulative travel; next localize whether answer, expiry, ambiguity, or descendant-owner turnover ends the same output-return transaction before it can carry one sign to the opposite boundary."
+
+[[lesson]]
+id = "LP-055"
+kind = "learner-physics"
+statement = "The observed failure was that an accepted output-transition-return cycle lost its successor when the return closed or the learner ownership view changed. The solve was to admit exactly one candidate carrying the uniquely latest recent accepted physical-transition consequence after open-return coherence; this composed nine completed cycles, including two across ownership changes, preserved sample rejection and expiry, and increased official batched movement from eleven to twelve. The same run reached neither limit, proving that truthful cycle composition is a local transport law rather than a sufficient directional controller."
+evidence = ["hand-completed-cycle-composition-v1:completed-cycle-successor", "hand-completed-cycle-composition-v1:lifecycle-controls", "hand-completed-cycle-composition-v1:official-batched-hand", "hand-completed-cycle-composition-v1:complete-composition"]
+applies_when = ["completed sensorimotor cycle", "ownership reconstruction", "successor composition", "cumulative travel", "directional coherence"]
+research_action = "Preserve completed-cycle composition as an opt-in solved sub-law, but do not adopt it as hand control; localize the first change of physical motor arrow and test whether causal cycle identity is natural across ownership refactor without adding semantic direction or pose memory."
+
+[[lesson]]
+id = "LP-056"
+kind = "learner-physics"
+statement = "The observed uncertainty was whether completed-cycle control failed because local choice admitted several targets or because one physical arrow changed under learner reconstruction. The solve was one group-level admission trace plus a pure categorical fold: all twenty-three admissions were single-target, two ownership changes preserved their target, and the first non-commuting change was organism target eleven to learner-two target ten at tick twenty-three under FreshAlternative with completed-cycle state Missing. This localizes the wall to a missing cycle witness at construction handoff, not ambiguous choice or reconstruction in general."
+evidence = ["hand-completed-cycle-naturality-v1:choice-trace-inertness", "hand-completed-cycle-naturality-v1:completed-cycle-first-arrow-change"]
+applies_when = ["completed sensorimotor cycle", "learner construction boundary", "naturality", "fresh private memory", "local output admission"]
+research_action = "Inspect the same participating physical path and consequence immediately before and after organism-to-learner construction; test a physical one-time handoff only if the witness survives, while preserving fresh learner-private memory and rejecting parent-memory copying."
+
+[[lesson]]
+id = "LP-057"
+kind = "learner-physics"
+statement = "The observed diagnostic failure was that the tick-eight consequence writes named links thirty-five and thirty-six at internal junction eighteen while the later completed output target was eleven, so direct endpoint equality erased the witness. The solve was to retain the complete immutable slice, preserve the falsified arm, and require the next pure fold to compose the consequence-bearing internal arrow through uninterrupted downstream drive to target eleven before classifying physical survival or owner-local invisibility."
+evidence = ["hand-construction-cycle-witness-v1:existing-trace-retention", "hand-construction-cycle-witness-v1:construction-boundary-cycle-witness"]
+applies_when = ["trace join", "composed physical path", "consequence witness", "learner construction boundary", "owner projection"]
+research_action = "Join consequence and choice by physical composition over link identity, source, target, generation, and deallocation; do not require internal and external endpoints to be identical, add a redundant event, or repair a frozen negative arm."
+
+[[lesson]]
+id = "LP-058"
+kind = "learner-physics"
+statement = "The observed first construction-boundary failure retained the same generation-one physical link thirty-six without deallocation and that link completed target eleven at ticks eleven, fifteen, nineteen, and twenty-three, including under learner-two ownership at failure. Learner two nevertheless had no matching private consequence write and read no target-eleven consequence. The solve was an immutable compositional trace fold that proved an OwnerProjectionGap and ruled out physical disappearance or non-participation without rerunning the organism."
+evidence = ["hand-compositional-existing-trace-witness-v1:immutable-source-control", "hand-compositional-existing-trace-witness-v1:compositional-existing-trace-witness"]
+applies_when = ["learner construction", "owner-local consequence", "physical witness", "completed cycle", "naturality"]
+research_action = "Test the smallest one-time adoption law for the same live participating link generation across construction; preserve fresh private memory by rejecting disconnected, deallocated, replaced, inactive, ambiguous, stale, unrelated, and sibling history rather than copying parent memory."
+
+[[lesson]]
+id = "LP-059"
+kind = "learner-physics"
+statement = "The observed ordering was that links thirty-six, forty-four, and forty-five already carried tick-sixteen consequence before learner two formed later in the same physical moment, so the ordinary owner-local write had no learner-two recipient. The solve was to compose that existing fact through formation only for live exact construction-lineage links whose consequence tick equaled the construction tick, reusing current learner memory and preserving tick sixteen. Learner-two target eleven consequently changed from Missing to Stale at tick twenty-three without a held path, new outcome, new memory type, timestamp refresh, or target-choice change."
+evidence = ["hand-construction-outcome-composition-v1:same-tick-construction-composition", "hand-construction-outcome-composition-v1:temporal-and-lineage-selectivity"]
+applies_when = ["same-moment outcome", "learner formation", "owner-local consequence", "construction lineage", "naturality"]
+research_action = "Keep same-tick construction composition as the supported local sub-law, but do not adopt the complete candidate until its unexpected downstream completed-cycle admission is localized and controlled."
+
+[[lesson]]
+id = "LP-060"
+kind = "learner-physics"
+statement = "The observed complete candidate repaired the tick-twenty-three projection and preserved target ten, twelve physical changes, four opposing steps, final position minus two, replay, quiescence, and zero exhaustion, but completed-cycle admissions increased from the frozen parent's nine to ten. The solve was to adjudicate both arms negative, preserve their immutable counterexample, and require lossless retention of every existing construction projection and completed-cycle decision until the first extra admission is identified rather than changing recency, selection, or lifetime."
+evidence = ["hand-construction-outcome-composition-v1:same-tick-construction-composition", "hand-construction-outcome-composition-v1:temporal-and-lineage-selectivity", "hand-construction-outcome-composition-v1:adjudication"]
+applies_when = ["local naturality repair", "downstream composition", "completed-cycle admission", "clean integration", "evidence retention"]
+research_action = "Run a diagnostic successor with unchanged physics that retains the ordered existing trace and classifies the first tenth-admission divergence by construction, owner, link generation, candidate consequence, and choice."
+
+[[lesson]]
+id = "LP-061"
+kind = "learner-physics"
+statement = "The observed first extra admission occurred at the predicted ordinal seven, hand step six, and tick forty-seven after learner-three construction at tick forty-four, but it changed the arrow itself: parent target eleven was Missing under Ordinary while candidate target ten was Unique under CompletedCycle, and the candidate later contained twenty-four choices rather than twenty-three. The solve was typed refusal to align unequal choice identities plus lossless ordered-choice retention, which exposed the behavioral divergence without a rerun. Because physical trace retention was conditional on comparator success, the exact completing link was still reduced away."
+evidence = ["hand-construction-projection-admission-retention-v1:immutable-parent-choice-control", "hand-construction-projection-admission-retention-v1:first-added-admission-localization", "hand-construction-projection-admission-retention-v1:adjudication"]
+applies_when = ["trace alignment", "added admission", "changed physical arrow", "diagnostic retention", "construction projection"]
+research_action = "Retain the full existing physical trace before comparison, align the first shared divergence by tick and phase rather than final sequence length or equal target, and compose learner-three links thirty-three, thirty-four, and forty-one into target ten without changing organism physics."
+
+[[lesson]]
+id = "LP-062"
+kind = "learner-physics"
+statement = "The observed tick-forty-seven target-ten admission followed learner-three tick-forty-four projections on links thirty-three, thirty-four, and forty-one, but only link thirty-four generation three both completed target ten and appeared in the admitted arrow's same-generation causal lineage. The solve was an intersection of construction projection, completing drive, and exact lineage over an unconditionally retained 2,109-event snapshot. This proves the tenth admission is the construction-naturality repair recurring on a real physical witness rather than unrelated projection leakage."
+evidence = ["hand-unconditional-existing-trace-localization-v1:full-snapshot-control", "hand-unconditional-existing-trace-localization-v1:tick-forty-seven-link-composition", "hand-unconditional-existing-trace-localization-v1:adjudication"]
+applies_when = ["construction outcome projection", "completed-cycle admission", "causal lineage", "naturality", "stale exact-behavior contract"]
+research_action = "Freeze a complete construction-naturality successor whose expected candidate has ten admissions and twenty-four choices only when every added admission factors through an exact physical witness; rerun all selectivity controls before clean integration, and do not suppress link thirty-four to recover stale parent equality."
+
+[[lesson]]
+id = "LP-063"
+kind = "learner-physics"
+statement = "The observed complete candidate had three construction-born completed cycles: link thirty-four generation three carried tick forty-four into learner-three target ten at tick forty-seven, link forty-six generation seven carried tick ninety-two into learner-four target ten at tick ninety-five, and link thirty-four generation three carried tick one hundred into learner-five target ten at tick one-hundred-three. The last candidate did not win final output because coherent-effect priority selected target eleven, so winner-only trace would have erased a valid cause. The solve was diagnostic retention of the exact live completing link generations supplying every candidate consequence tick; ranking and state stayed unchanged, all three arrows factored, and the ten-admission twenty-four-choice contract survived all declared controls."
+evidence = ["hand-complete-construction-naturality-contract-v1:exact-witness-inertness", "hand-complete-construction-naturality-contract-v1:complete-construction-naturality", "hand-complete-construction-naturality-contract-v1:selectivity-integration-control", "hand-complete-construction-naturality-contract-v1:adjudication"]
+applies_when = ["candidate diagnostics", "construction naturality", "nonwinning physical cause", "stale parent contract", "clean opt-in integration"]
+research_action = "Use the integrated opt-in construction law as the next hand-ladder parent. Localize the first remaining physical break at the plus-three pre-boundary reversal; test bounded first-use eligibility for an exact transported construction consequence rather than extending global recency or letting the later lower-side priority wall shape the first solve."
+
+[[lesson]]
+id = "LP-064"
+kind = "learner-physics"
+statement = "The observed bounded first-use law repaired the exact first hand wall: learner-two link thirty-six generation one carried the original tick-sixteen outcome into a Unique target-eleven completed cycle at tick twenty-three, moved the hand from plus three to plus four, reached and escaped upper contact, and was consumed without duplicate or stale reuse. The complete campaign was nevertheless negative because comparisons rose from 5,370 to 7,320 beyond the frozen bound. The solve was to preserve that negative integration verdict and separate local transition truth from complete cost acceptance."
+evidence = ["hand-bounded-first-use-construction-continuation-v1:bounded-first-use-fixtures", "hand-bounded-first-use-construction-continuation-v1:reflected-hand-first-wall", "hand-bounded-first-use-construction-continuation-v1:parent-and-lifetime-controls", "hand-bounded-first-use-construction-continuation-v1:adjudication"]
+applies_when = ["repaired local transition", "construction consequence lifetime", "comparison cost", "integration gate", "changed downstream trajectory"]
+research_action = "Keep bounded first-use continuation opt-in and do not advance to the lower-side behavior wall. Freeze a diagnostic successor that retains parent and candidate per-step work on the shared prefix and localizes whether excess comparisons come from the exact read-and-consume law or from topology induced after the repaired arrow changes the world."
+
+[[lesson]]
+id = "LP-065"
+kind = "learner-physics"
+statement = "The observed parent and bounded-continuation candidate matched exactly through steps zero to two, while repaired step three used one fewer comparison and eleven fewer scans on identical live topology. A frozen exact-match classifier treated that negative delta as direct overhead and falsified two arms. The solve was to preserve those outcomes and compose signed regions: minus one at repair plus one-thousand-nine-hundred-fifty-one after the physical trajectory diverged equals the frozen net plus one-thousand-nine-hundred-fifty comparisons. This localizes all positive excess downstream rather than to the bounded read and consume."
+evidence = ["hand-prefix-and-activity-work-localization-v1:predecessor-and-replay-control", "hand-prefix-and-activity-work-localization-v1:shared-prefix-work", "hand-prefix-and-activity-work-localization-v1:post-choice-activity", "hand-prefix-and-activity-work-localization-v1:adjudication"]
+applies_when = ["signed work delta", "cost localization", "repaired physical arrow", "divergent trajectory", "stale exact-match contract"]
+research_action = "Keep the predecessor cost failure and this campaign's negative exact-match verdict unchanged. Next retain existing structured core Work counters and lossless physical trace by phase at downstream steps four and eleven, and identify the first positive activity-class delta before attempting optimization or another hand behavior solve."
+
+[[lesson]]
+id = "LP-066"
+kind = "learner-physics"
+statement = "The observed repaired hand reached upper contact and received more actual physical inputs than its parent, producing four major but finite comparison spikes. Step four added two inputs fourteen drive deliveries ten structural proposals and five-hundred-seventeen comparisons; step eleven added four inputs twenty-seven drive deliveries eight structural proposals two learner constructions and eight-hundred-thirty-four comparisons. The solve was behavior-inert phase retention plus an exhaustive timing-wheel partition: downstream plus one-thousand-nine-hundred-fifty-one comparisons equals plus one-thousand-two-hundred-seventy-four minimum-key searches plus six-hundred-seventy-seven equal-time bucket selections. Natural quiet and zero exhaustion ruled out hidden memory overhead dormant scanning and runaway."
+evidence = ["hand-downstream-work-class-localization-v1:attribution-conservation", "hand-downstream-work-class-localization-v1:boundary-input-activity", "hand-downstream-work-class-localization-v1:learner-construction-activity", "hand-downstream-work-class-localization-v1:finite-activity-decision", "hand-downstream-work-class-localization-v1:adjudication"]
+applies_when = ["changed physical workload", "timing-wheel comparisons", "boundary interaction", "learner construction", "cost integration"]
+research_action = "Replace unequal parent-total comparison with a separately frozen physical activity-normalized scaling contract. In the same successor campaign, pass the bounded continuation candidate back to the complete hand ladder if scaling survives, or test one behavior-preserving scheduler-local batching solve if it does not."
+
+[[lesson]]
+id = "LP-067"
+kind = "learner-physics"
+statement = "We saw repeated minimum-key search inside an already identified causal wave, while the reflected hand's real movement return let an older motor path answer before the new consequence guided reuse. The solve was one stable whole-wave extraction plus an opt-in composition that admits only the balanced path carrying the current owner-local physical transition, prefers one uniquely promoted return or uniquely latest actual outcome, preserves the held construction witness, and permits multi-origin unchanged contact to release an unanswered path only through an executable alternative. Measured scheduling scaled linearly and the unchanged anonymous joint reached and left both limits, recovered from perturbation, replayed exactly, quiesced naturally, and exhausted no propagation budget. This remains development evidence rather than frozen or adopted authority."
+evidence = ["hand-activity-normalized-build-v1:activity-normalized-scaling", "hand-activity-normalized-build-v1:parent-behavior-preservation", "hand-activity-normalized-build-v1:return-bearing-composition", "hand-activity-normalized-build-v1:complete-one-joint"]
+applies_when = ["causal-wave scheduling", "current physical transition", "return-bearing path", "unchanged boundary contact", "complete reflected joint"]
+research_action = "Obtain a clean integration checkpoint before authority or default promotion. If that gate is authorized and survives, advance to the two-joint finger and localize its first failed physical transition before adding any further mechanism."
+
+[[lesson]]
+id = "LP-068"
+kind = "learner-physics"
+statement = "We saw two anonymous reflected joints each preserve the complete controller alone, yet one suppressed the other when both occupied one harness. Immediate-origin and completed-path-origin product proposals then split genuine opposing alternatives inside one joint and caused cancellation at upper contact. Connected physical outcome topology preserved the one-joint arrow and separated the two modules, after which the retained candidate trace exposed a second global wall: only one component received fresh opportunity at the shared reversal. The solve was one categorical factorization over existing connected outcome-source components, applied to both output competition and bounded opportunity allocation. Two joints then closed before five executed; all five reached and left both limits, recovered after proximal perturbation, were invariant to registration order, replayed exactly, quiesced naturally, exhausted no propagation budget, and remained activity bounded. This remains development evidence rather than frozen or adopted authority."
+evidence = ["hand-causal-topology-product-output-composition-v1:immediate-origin-preflight", "hand-causal-topology-product-output-composition-v1:causal-path-origin-preflight", "hand-causal-topology-product-output-composition-v1:one-module-identity", "hand-causal-topology-product-output-composition-v1:two-joint-serial-composition", "hand-causal-topology-product-output-composition-v1:proximal-change-isolation", "hand-causal-topology-product-output-composition-v1:conditional-five-joint"]
+applies_when = ["shared physical output competition", "independent causal components", "fresh opportunity", "serial articulation", "categorical product"]
+research_action = "Keep the connected-topology factorization opt-in. Obtain a clean integration checkpoint before authority, then ablate output and opportunity factorization separately and use the same anonymous law at the next articulated-hand rung."
+
+[[lesson]]
+id = "LP-069"
+kind = "learner-physics"
+statement = "We saw the two halves of the connected-topology product fail at different physical walls when removed independently. Retaining component-local opportunity but restoring global output choice suppressed the proximal joint at two-joint step zero. Retaining component-local output choice but restoring global opportunity allocation preserved initial motion and then made the distal joint lose its continued arrow at the shared reversal on step five. Both ablations preserved exact one-module identity and stopped five, while the unchanged complete law closed two and five under every inherited control. The solve is therefore the joint product: output selection and bounded opportunity allocation must both act independently across disconnected outcome components and ordinarily inside each connected component."
+evidence = ["hand-causal-topology-product-ablation-v1:complete-reference", "hand-causal-topology-product-ablation-v1:remove-output-factorization", "hand-causal-topology-product-ablation-v1:remove-opportunity-factorization"]
+applies_when = ["downward ablation", "categorical product", "output competition", "fresh opportunity", "anonymous serial articulation"]
+research_action = "Freeze the unchanged complete survivor at a clean commit and run one authority protocol. Promote only the bounded connected-outcome-component law and observed anonymous one two five serial-articulation scope if every predicate and control survives."
 
 [[lesson]]
 id = "RM-001"

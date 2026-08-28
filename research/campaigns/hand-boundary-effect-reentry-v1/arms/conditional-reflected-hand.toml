@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "conditional-reflected-hand"
+campaign = "hand-boundary-effect-reentry-v1"
+kind = "hybrid"
+parents = ["effect-born-genesis-isolation", "external-surface-discriminator"]
+imports = ["selected causal terminal law", "unchanged reflected hand", "frozen origin reference"]
+mechanism = "After the unrelated controls select the narrow law, compare it with the frozen causal-origin hand under the same bound and capacities."
+prediction = "The hand reaches a physical boundary, exhausts zero sends, replays exactly, and quiesces naturally; direction and release remain separately observed."
+falsifiers = ["Any send exhausts.", "No physical boundary is reached.", "Replay or natural quiescence fails.", "Fixture prerequisites fail."]
+source_revision = "plan:d9085ff0fd05a4d349e9f5d8bbf8801724d69e8d64443e046e375ba2ff1d76a3"
+protocol_sha256 = "1acfe10451a4c664091ddf9d70aac173055409d5da9528224c237749b71369c3"
+budget_minutes = 9
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/hand-boundary-effect-reentry/Cargo.toml selected_law_removes_hand_exhaustion_and_preserves_progress"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/hand-boundary-effect-reentry/Cargo.toml -- --arm conditional-reflected-hand"

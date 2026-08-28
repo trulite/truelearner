@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-completed-cycle-naturality-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-completed-cycle-composition-v1 convergence sha256:6c3548b7555f3af252bad7ff6087fd8fb2347777dcd75fbff26ba86d44b5729a"
+question = "Where does local output admission first cease to be one anonymous physical arrow or fail to preserve that arrow across successive learner ownership views?"
+observables = ["ordered computed winners, actual admitted target sets, admitted owners, admission bases, and completed-cycle resolution states", "first multi-target relation or ownership change preserving or changing one target, tick, phase, hand step, and unchanged frozen hand summary"]
+frozen_variables = ["completed-cycle learner physics", "official batched hand adapter", "anonymous topology, inputs, schedule, reflection, and limits", "prior frozen candidate summary"]
+permitted_changes = ["one causally inert typed group-level choice event", "one experiment-side pure first-failure fold"]
+positive_predicates = ["one earliest categorical failure is identified as either multi-target admission or an ownership-view change that changes one physical target", "the failure is classified by existing admission basis and completed-cycle state", "earlier functional ownership changes preserving target are retained"]
+negative_controls = ["exact prior completed-cycle hand summary", "trace-off physical equality", "no semantic action or world state in core", "replay", "natural quiescence", "zero propagation exhaustion"]
+stop_conditions = ["the diagnostic changes any choice or physical result", "neither a first multi-target admission nor a unique first non-commuting single-target change is observable", "classification requires position, direction, motor meaning, limit, target, score, or expected action", "integrity fails"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

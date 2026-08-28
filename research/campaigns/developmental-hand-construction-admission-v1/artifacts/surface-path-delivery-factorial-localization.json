@@ -1,0 +1,177 @@
+{
+  "schema": "developmental-hand-construction-admission/v1",
+  "arm": "surface-path-delivery-factorial-localization",
+  "outcome": "survived",
+  "observations": {
+    "complete": {
+      "changed_steps": 12,
+      "comparisons": 36390,
+      "delivered_surface_origins": [
+        10001,
+        10002,
+        10004
+      ],
+      "directions": [
+        1
+      ],
+      "escaped_lower": false,
+      "escaped_upper": false,
+      "events": {
+        "closure_evidence": [
+          1
+        ],
+        "closure_observations": 1,
+        "consequential_owner_reads": 0,
+        "constructed_learners": [],
+        "constructions": 0,
+        "drive_incidence": 403,
+        "owner_events": [],
+        "owner_reads": 0,
+        "owner_writes": 0,
+        "rejected_returns": 9,
+        "return_admissions": 18,
+        "return_scheduling": 67,
+        "reverse_consolidations": 1
+      },
+      "final_position": 4,
+      "junctions": 138,
+      "learners": 0,
+      "links": 273,
+      "maximum_same_direction_run": 12,
+      "reached_lower": false,
+      "reached_upper": true,
+      "scans": 30725,
+      "steps": 16
+    },
+    "delivery_only": {
+      "changed_steps": 8,
+      "comparisons": 27656,
+      "delivered_surface_origins": [
+        10001,
+        10002
+      ],
+      "directions": [
+        -1,
+        1
+      ],
+      "escaped_lower": false,
+      "escaped_upper": false,
+      "events": {
+        "closure_evidence": [],
+        "closure_observations": 0,
+        "consequential_owner_reads": 0,
+        "constructed_learners": [],
+        "constructions": 0,
+        "drive_incidence": 228,
+        "owner_events": [],
+        "owner_reads": 0,
+        "owner_writes": 0,
+        "rejected_returns": 0,
+        "return_admissions": 0,
+        "return_scheduling": 21,
+        "reverse_consolidations": 0
+      },
+      "final_position": 2,
+      "junctions": 118,
+      "learners": 0,
+      "links": 205,
+      "maximum_same_direction_run": 2,
+      "reached_lower": false,
+      "reached_upper": false,
+      "scans": 13852,
+      "steps": 16
+    },
+    "frozen": {
+      "changed_steps": 15,
+      "comparisons": 1162708,
+      "delivered_surface_origins": [],
+      "directions": [
+        -1,
+        1
+      ],
+      "escaped_lower": false,
+      "escaped_upper": true,
+      "events": {
+        "closure_evidence": [],
+        "closure_observations": 0,
+        "consequential_owner_reads": 0,
+        "constructed_learners": [],
+        "constructions": 0,
+        "drive_incidence": 297,
+        "owner_events": [],
+        "owner_reads": 0,
+        "owner_writes": 0,
+        "rejected_returns": 3,
+        "return_admissions": 6,
+        "return_scheduling": 44,
+        "reverse_consolidations": 0
+      },
+      "final_position": 3,
+      "junctions": 1147,
+      "learners": 0,
+      "links": 2143,
+      "maximum_same_direction_run": 5,
+      "reached_lower": false,
+      "reached_upper": true,
+      "scans": 54344,
+      "steps": 16
+    },
+    "localization": {
+      "delivery_effect_absent": true,
+      "delivery_effect_symmetric": true,
+      "earliest_incomplete_transition": "construction",
+      "explanation": "closure evidence did not construct a child",
+      "first_delivery_difference_symmetric": 1,
+      "first_path_difference_direct": 0,
+      "interaction_observed": false,
+      "path_effect_direct": true,
+      "path_effect_physical": true
+    },
+    "path_only": {
+      "changed_steps": 3,
+      "comparisons": 394632,
+      "delivered_surface_origins": [],
+      "directions": [
+        -1,
+        1
+      ],
+      "escaped_lower": false,
+      "escaped_upper": false,
+      "events": {
+        "closure_evidence": [
+          1
+        ],
+        "closure_observations": 1,
+        "consequential_owner_reads": 0,
+        "constructed_learners": [],
+        "constructions": 0,
+        "drive_incidence": 311,
+        "owner_events": [],
+        "owner_reads": 0,
+        "owner_writes": 0,
+        "rejected_returns": 28,
+        "return_admissions": 14,
+        "return_scheduling": 33,
+        "reverse_consolidations": 1
+      },
+      "final_position": 1,
+      "junctions": 361,
+      "learners": 0,
+      "links": 684,
+      "maximum_same_direction_run": 2,
+      "reached_lower": false,
+      "reached_upper": false,
+      "scans": 57730,
+      "steps": 16
+    },
+    "stops": {
+      "complete": null,
+      "delivery_only": null,
+      "frozen": null,
+      "path_only": null
+    }
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

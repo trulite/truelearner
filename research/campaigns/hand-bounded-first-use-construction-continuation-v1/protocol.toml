@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "hand-bounded-first-use-construction-continuation-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-complete-construction-naturality-contract-v1 convergence sha256:16582b6023366d642d6346c29e7594abd1746868edb9a96603da5c1c191784b8"
+question = "Does holding an exact construction-projected consequence only through its first matching local output competition preserve ordinary lifetime boundaries and continue the reflected hand's physical arrow from plus three to the upper boundary?"
+observables = ["exact construction-held owner link generation and original consequence tick", "first matching executable multi-candidate output competition", "held consequence eligibility and unique completed-cycle target", "exact consumption event even for a losing candidate", "second-match ordinary stale release", "ordered reflected-hand trajectory and tick-twenty-three choice", "replay quiescence exhaustion and work"]
+frozen_variables = ["RecursiveLearnerConstructionOutcomeComposition parent physics", "same-tick exact-lineage construction projection", "official batched hand adapter", "four-tick ordinary completed-cycle recency", "choice priority outside held eligibility", "learner boundary construction", "immutable predecessor evidence"]
+permitted_changes = ["one owner-local consequence lifetime state distinguishing ordinary from held for first matching choice", "one opt-in successor protocol", "held consequence eligibility in completed-cycle resolution", "one exact post-competition consume transition and trace event", "one successor evidence experiment"]
+positive_predicates = ["a delayed exact construction-held consequence is uniquely eligible at its first matching choice", "the same memory is ordinary and stale at a second match without a new consequence", "all matching held candidates are consumed even when ambiguous or when another priority wins", "the integrated parent hand and ordinary stale control remain exact", "at hand tick twenty-three target eleven is uniquely admitted by completed-cycle evidence carried by the exact construction witness", "hand step three moves from plus three to plus four and reaches the upper boundary", "candidate retains exact replay natural quiescence zero propagation exhaustion and bounded work"]
+negative_controls = ["wrong-generation dead replaced unrelated non-completing and sibling evidence is neither eligible nor consumed", "a single candidate and an inexecutible path do not consume held state", "ordinary consequence never receives construction-only lifetime", "no global recency extension", "no position direction hand score target answer or evaluator authority", "accepted default and predecessor protocol behavior remain unchanged"]
+stop_conditions = ["the tiny first-use fixture does not consume exactly once", "ordinary stale evidence becomes eligible", "a nonmatching link is consumed", "the integrated parent changes", "target eleven is not uniquely admitted at tick twenty-three", "the hand does not move from plus three to plus four", "replay quiescence exhaustion or bounded-work control fails"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

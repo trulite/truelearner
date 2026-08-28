@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-organism-root-fresh-opportunity-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Organism-to-root is the minimal safe adjacent recruitment relation needed for one unanswered return to expose the hand's root-owned balanced motor candidate."
+first_divergence = "Strict owner equality rejects four non-recent organism-to-root hand opportunities."
+missing_transition = "Admit only the typed organism-to-root relation into the established one-return/one-opportunity law."
+prediction = "Root fixture and hand release survive while every other relation and lifetime control remains negative."
+falsifiers = ["A forbidden relation transfers.", "The hand remains upper-clamped.", "Replay, quiescence, propagation, or cost fails."]
+positive_reference = "hand-opportunity-owner-boundary-v1 organism-to-root-hand-boundary"
+negative_controls = ["strict owner parent", "unrelated roots", "grandchild", "siblings", "answered/recent/repeated/nonlocal", "reflection and replay"]
+included_mechanisms = ["physical-transition return", "bounded fresh opportunity", "typed learner ancestry", "organism-to-root recruitment", "exact supersession"]
+inherited_constraints = ["one transient unit", "no new memory/path/strength", "benchmark blind", "warm runtime below ten seconds"]
+excluded_proposals = ["arbitrary cross-owner transfer", "origin grouping", "parent-child recruitment", "semantic hand logic", "default adoption"]
+arm_paths = ["arms/organism-to-root-transfer.toml", "arms/cross-boundary-controls.toml", "arms/conditional-reflected-hand-release.toml", "arms/complete-composition.toml"]
+max_parallel_arms = 4
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 40
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

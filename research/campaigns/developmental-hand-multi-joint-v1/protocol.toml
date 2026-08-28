@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "developmental-hand-multi-joint-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-activity-normalized-build-v1 development convergence sha256:a83340005269f22cefea49bb0985551c6597a69175aec25ccf2a0da0df34396a"
+question = "Does the complete opt-in one-joint law compose through two and then five anonymous serial joints inside one harness?"
+observables = ["source-mapped per-joint position arrows", "cumulative serial pose", "per-phase physical outputs", "physical inputs motor drive outputs returns writes reads and choices", "forward and reverse registration", "proximal perturbation", "comparisons scans batched items work topology replay quiescence and exhaustion"]
+frozen_variables = ["one shared harness", "unchanged reflected force and contact law", "sixteen-step primary run", "eight-step development and sixteen-step recovery", "two-joint prerequisite before five", "RecursiveLearnerReturnBearingContinuation", "predecessor digests"]
+permitted_changes = ["new external product-world adapter", "disjoint anonymous physical source ranges", "lossless multi-joint evidence projection"]
+positive_predicates = ["one module matches the exact one-joint source-mapped trajectory", "both two-joint components close", "registration order is inert", "proximal change preserves distal control", "five joints run only after two and every component closes", "replay is exact execution quiesces and work remains activity bounded"]
+negative_controls = ["no semantic joint direction pose target score or capability input", "one harness rather than independent learners", "sample and transition incidence remain distinct", "unchanged core suite", "five-joint stop after two-joint failure"]
+stop_conditions = ["predecessor digest changes", "one-module identity drifts", "two-joint component loses a sign limit or escape", "registration order changes behavior", "proximal change destroys distal control", "work exceeds the declared activity bound", "replay differs or execution exhausts or fails to quiesce"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

@@ -1,0 +1,14 @@
+{
+  "schema": "recursive-learner-proprioceptive-control/v1",
+  "arm": "owner-local-recent-consequence",
+  "outcome": "survived",
+  "observations": {
+    "accepted_participating_return_wrote_private_generation": true,
+    "checkpoint_replay_exact": true,
+    "later_owned_selection_read_private_tick": true,
+    "preference_released_after_recent_window": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

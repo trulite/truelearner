@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "physical-surface-delivery-only"
+campaign = "developmental-hand-construction-admission-v1"
+kind = "diagnostic"
+parents = ["frozen-truthful-recursive-reference"]
+imports = ["actual post-movement anonymous surface incidence", "surface paths absent"]
+mechanism = "Change only delivery from direct outcome injection to the physical ids and targets of surfaces actually active after movement."
+prediction = "With no path to an outcome, truthful delivery alone cannot close a return; its trace isolates delivery incidence and cost without false construction."
+falsifiers = ["Delivery contains an inactive or semantic origin.", "A disconnected surface constructs a learner.", "Any variable other than delivery changes, or replay/quiescence fails."]
+source_revision = "plan:6c21af4d0ef39d52e87d71c64a4260b71e68cb915cc5d03ad5af3f47e60bf232"
+protocol_sha256 = "1cf5d5ae65fd1ea9671332829060e23972027ce53016c3a3caa85cd129264ec2"
+budget_minutes = 30
+
+[gates]
+tiny_fixture = "cargo test --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml physical_delivery_uses_only_active_surface_origins"
+full_evidence = "cargo run --quiet --manifest-path research/experiments/developmental-hand-construction-admission/Cargo.toml -- --arm physical-surface-delivery-only"

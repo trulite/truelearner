@@ -1,0 +1,19 @@
+{
+  "schema": "hand-owner-local-candidate-factorization/v1",
+  "arm": "unowned-origin-discriminator",
+  "outcome": "survived",
+  "observations": {
+    "ambiguous_candidates": 2,
+    "candidates_with_one_known_owner": 2,
+    "candidates_with_two_origins": 2,
+    "causal_origin_prerequisite_present": true,
+    "common_boundary_prerequisite_present": false,
+    "motor_candidates": 2,
+    "owner_only_prerequisite_present": false,
+    "step": 6,
+    "survived": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

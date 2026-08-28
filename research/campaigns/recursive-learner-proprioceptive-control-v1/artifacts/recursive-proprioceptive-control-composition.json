@@ -1,0 +1,16 @@
+{
+  "schema": "recursive-learner-proprioceptive-control/v1",
+  "arm": "recursive-proprioceptive-control-composition",
+  "outcome": "survived",
+  "observations": {
+    "adjacent_ancestry": true,
+    "bounded_local_control_preserved": true,
+    "constructed_depth": 3,
+    "deepest_owner_consequence_write": true,
+    "deepest_owner_preference_read": true,
+    "primitive_gating_preserved": true
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

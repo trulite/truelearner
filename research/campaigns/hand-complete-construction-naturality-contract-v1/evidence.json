@@ -1,0 +1,90 @@
+{
+  "schema": "research-evidence/v1",
+  "experiment": "hand-complete-construction-naturality-contract-v1",
+  "protocol_sha256": "f8d32fafe3a951075dbea5606a37659010cb16a9f54403c7e0c36f3309d49d9d",
+  "subject_digest": "a35417a0936581fe6024718afbf86805a337cd1714b0590282592e3c84959def",
+  "producer": "hand-complete-construction-naturality-contract",
+  "environment": {
+    "identity": "bb-worktree:b94482267e96baffecc9576ddb6878918d9a4974",
+    "rustc": "1.97.1",
+    "run_policy": "one valid frozen complete-candidate execution"
+  },
+  "observations": {
+    "reported_arm_outcomes": [
+      "exact-witness-inertness=survived",
+      "complete-construction-naturality=survived",
+      "selectivity-integration-control=survived"
+    ],
+    "immutable_parent": {
+      "sha256": "e4c38011cc9ff198474f553f72b6e4e7b366f3201a83fc114acd7c38a20e04d3",
+      "choice_count": 23,
+      "unique_count": 9,
+      "matched": true
+    },
+    "revised_candidate": {
+      "hand_steps": 16,
+      "existing_witness_events": 2109,
+      "completed_cycle_admissions": 10,
+      "output_choice_resolutions": 24,
+      "cross_view_admissions": 2,
+      "actual_position_changes": 12,
+      "opposing_output_steps": 4,
+      "final_position": -2,
+      "exact_replay": true,
+      "naturally_quiescent": true,
+      "propagation_budget_exhaustions": 0
+    },
+    "construction_born_admissions": [
+      {
+        "tick": 47,
+        "target": 10,
+        "owner": 3,
+        "consequence_tick": 44,
+        "composed_link": 34,
+        "generation": 3,
+        "verdict": "composed"
+      },
+      {
+        "tick": 95,
+        "target": 10,
+        "owner": 4,
+        "consequence_tick": 92,
+        "composed_link": 46,
+        "generation": 7,
+        "verdict": "composed"
+      },
+      {
+        "tick": 103,
+        "target": 10,
+        "owner": 5,
+        "consequence_tick": 100,
+        "composed_link": 34,
+        "generation": 3,
+        "verdict": "composed",
+        "final_output_choice": "coherent effect selected target eleven; completed-cycle witness retained independently"
+      }
+    ],
+    "selectivity": {
+      "all_projection_ticks_preserved": true,
+      "all_composed_links_in_exact_projected_sets": true,
+      "wrong_generation_stale_unrelated_dead_and_non_completing_fixture": "passed",
+      "same_tick_exact_lineage_fixture": "passed",
+      "core_regression": "65 passed, 2 unchanged ignored"
+    }
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/exact-witness-inertness.json",
+      "sha256": "28a59fbb8b46519cd0aa38dfab631ea97e22dcd846bdfa0c975dd917a46ba103"
+    },
+    {
+      "path": "artifacts/complete-construction-naturality.json",
+      "sha256": "7d1d9d51d3291a03d59df16948cd8313b3324eb30c91b058d438dbda6b3aaf26"
+    },
+    {
+      "path": "artifacts/selectivity-integration-control.json",
+      "sha256": "a7dfb5c3363ecde6df2a1884634ec85c650cda31e3b7f5d75870fefb3859b79b"
+    }
+  ],
+  "completed": true
+}

@@ -1,0 +1,53 @@
+schema = "research-protocol/v1"
+id = "hand-physical-boundary-member-novelty-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "hand-consequence-born-closure-eligibility-v1 convergence sha256:b8e0518d323c576923bdb2c677f0db1dff2c3452fb0a51beae9451f5c3fae5c6"
+question = "Does requiring a proposed child boundary to add a causally participating physical junction outside its parent's owned junction set prevent false recursive depth while preserving local siblings, adjacent expansion, temporal closure, replay, and the unchanged reflected-hand climb?"
+observables = [
+  "proposed parent, stable proposed junction count, novel junction count, and boundary eligibility",
+  "learner count and depth after twelve exact-boundary repetitions",
+  "distinct local sibling surfaces in both orders and inherited distance-three return rejection",
+  "adjacent child parentage and genuinely new physical output membership",
+  "per-step reflected-hand movement, motor outputs, delivered surfaces, returns, reverse consolidation, closure, construction, owner writes and reads, novelty rejection, replay, and quiescence",
+]
+frozen_variables = [
+  "surviving consequence-born timing, output-cohort retirement, and eligible-return-first ordering",
+  "causal lineage, per-origin admission, reverse consolidation, owner memory, construction threshold, impulse, strength, and return locality",
+  "unchanged reflected-joint topology, sensors, motors, reflection, delivery, timing, active channels, step budget, and perturbation",
+  "immutable parent convergence and evaluator isolation",
+]
+permitted_changes = [
+  "derive the proposed boundary from stable junction endpoints of actual participating closure lineage",
+  "compare the proposed junction set with the proposed parent's sorted owned junction set",
+  "reject child closure evidence when that set difference is empty",
+  "add an opt-in core boundary-novelty diagnostic event",
+  "add a neutral protocol adapter and per-step diagnostic view over the unchanged hand world",
+  "run the unchanged hand only after all boundary-member primitives survive",
+]
+positive_predicates = [
+  "a root still constructs after two valid closure observations",
+  "twelve exact repetitions add no closure evidence or learners despite regenerated temporary links",
+  "two distinct co-located local surfaces construct root siblings in both orders",
+  "an owned surface constructs one adjacent child when its causal boundary adds a new physical output",
+  "the inherited distance-three surface remains rejected by unchanged locality",
+  "the complete gate replays exactly and settles naturally before the hand is attempted",
+]
+negative_controls = [
+  "immutable temporal parent digest b8e0518d323c576923bdb2c677f0db1dff2c3452fb0a51beae9451f5c3fae5c6",
+  "exact owned subset with regenerated link generations",
+  "distance-three nonlocal sibling, temporal coactivity/equality/duplicate/disconnected/stale controls, and old protocols",
+  "hand execution before a failed primitive gate",
+]
+stop_conditions = [
+  "an exact owned boundary creates closure evidence or a deeper learner",
+  "a distinct local sibling or legitimate adjacent expansion is lost",
+  "temporary link identity is treated as novelty or inherited locality changes",
+  "the temporal survivor, replay, quiescence, one-effect law, or evaluator isolation regresses",
+  "the hand is advanced after its first localized physical failure",
+]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true
