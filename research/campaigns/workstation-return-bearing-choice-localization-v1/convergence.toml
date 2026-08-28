@@ -1,0 +1,49 @@
+schema = "research-convergence/v1"
+campaign = "workstation-return-bearing-choice-localization-v1"
+round = 1
+survived = ["return-bearing-choice-localization", "diagnostic-purity-control"]
+falsified = []
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "both arms preserve the falsified transition-local workstation candidate and add no learner-facing state semantic direction target reward or evaluator action",
+  "the choice arm only projects already enabled core physical events onto observer-side body controls and stops observation after the first relevant direction break",
+  "the core purity production firewall and focused projection checks all passed in the same fresh clean subject used by the one valid replay",
+]
+strongest_counterexamples = [
+  "the first contact-relevant break occurred at sequence thirteen after ring-finger decrease: the returned step moved the same finger in the opposite direction",
+  "the exact prior decrease candidate was present but non-executable with zero path inputs zero supplied opportunity zero admitted drive and no consequence tick",
+  "neither direction was a current owner transition; the opposite increase candidate won on the ordinary choice basis, so ranking did not reject an executable return-bearing incumbent",
+  "the focused fourteen-step history replayed exactly and every completed run naturally quiesced, ruling out observer mutation and incomplete execution",
+]
+retired_families = [
+  "component-local opportunity delivered to both named component alternatives as a sufficient exact-arrow continuation solve",
+  "ordinary candidate ranking as the first cause of the observed direction reversal",
+  "adding durable direction memory semantic depth preference contact reward or a hand-specific selector",
+  "testing contact sensing placement or a longer end-to-end horizon before restoring exact returned-path executability",
+]
+next_discriminators = [
+  "compose the actual returned PhysicalTransition and the bounded next opportunity in one live causal wave so the existing return-bearing path rather than adapter direction knowledge identifies the candidate",
+  "require the exact prior-direction candidate to carry nonzero participating path input become executable and appear as the unique current-transition choice at the previously localized break",
+  "require unchanged samples ambiguity unrelated components generic-only parent behavior replay natural quiescence work and semantic-firewall controls before another bounded contact run",
+  "only if the local exact arrow survives should a complete successor ask whether depth approaches the real surface",
+]
+
+[[new_arm]]
+id = "return-bearing-opportunity-composition"
+kind = "solve"
+parents = ["return-bearing-choice-localization", "diagnostic-purity-control"]
+imports = [
+  "return-bearing-choice-localization:present but non-executable exact prior candidate",
+  "diagnostic-purity-control:causally inert existing choice trace",
+  "LP-067:current physical-transition continuation and bounded release",
+  "authoritative shared generic workstation opportunity",
+]
+interaction_prediction = "Keeping the actual returned transition and the next bounded opportunity in one causal computation lets the existing physical path identify and execute one unique current-transition continuation without storing or naming its direction; stable samples and ambiguous returns still release to ordinary choice."
+falsifiers = [
+  "The prior-direction candidate still has zero live path input or remains non-executable at the localized break.",
+  "Both directions become admitted or opposing effects cancel in one external step.",
+  "A sample or unrelated returned component receives continuation.",
+  "The solve requires adapter knowledge of desired direction contact target anatomy or evaluator state.",
+  "Parent identity replay natural quiescence propagation or bounded-work controls regress.",
+]

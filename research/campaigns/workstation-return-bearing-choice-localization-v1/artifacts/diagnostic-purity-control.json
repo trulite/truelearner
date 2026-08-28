@@ -1,0 +1,18 @@
+{
+  "schema": "workstation-choice-diagnostic-control/v1",
+  "arm": "diagnostic-purity-control",
+  "outcome": "passed",
+  "subject_revision": "59cb1926fe3f75cd12cea6b8b2543879cb8b7cf7",
+  "observations": {
+    "core_traced_and_untraced_histories_equal": true,
+    "core_diagnostic_replay_exact": true,
+    "production_organism_sample_semantic_firewall": true,
+    "research_projection_fixture_passed": true,
+    "fresh_worktree_clean_after_checks": true
+  },
+  "commands": [
+    "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core physical_diagnostics_are_opt_in_pure_and_replayable",
+    "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields",
+    "cargo test --locked --manifest-path research/experiments/workstation-return-bearing-choice-localization/Cargo.toml --lib"
+  ]
+}

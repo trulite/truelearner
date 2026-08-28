@@ -1,0 +1,122 @@
+{
+  "schema": "workstation-return-bearing-choice-localization/v1",
+  "outcome": "localized",
+  "seed": 82001,
+  "observed_steps": 14,
+  "observer_stopped_after_break": true,
+  "exact_replay": true,
+  "naturally_quiescent": true,
+  "first_break": {
+    "sequence": 13,
+    "returned_axis": {
+      "axis": "finger_flexion",
+      "digit": "ring"
+    },
+    "prior_control": {
+      "control": "finger_flexion",
+      "digit": "ring",
+      "direction": "decrease"
+    },
+    "prior_movement": {
+      "axis": {
+        "axis": "finger_flexion",
+        "digit": "ring"
+      },
+      "decrease_effort": 1,
+      "increase_effort": 0,
+      "net_impulse": -1,
+      "velocity": -64,
+      "changed": true
+    },
+    "current_movement": {
+      "axis": {
+        "axis": "finger_flexion",
+        "digit": "ring"
+      },
+      "decrease_effort": 0,
+      "increase_effort": 1,
+      "net_impulse": 1,
+      "velocity": 64,
+      "changed": true
+    },
+    "classification": "prior-direction-candidate-non-executable",
+    "prior_candidate": {
+      "diagnostic": "candidate",
+      "tick": 54,
+      "phase": 20000,
+      "control": {
+        "control": "finger_flexion",
+        "digit": "ring",
+        "direction": "decrease"
+      },
+      "ownership": "Organism",
+      "path_inputs": 0,
+      "positive_path_strength": 0,
+      "negative_path_strength": 0,
+      "opportunity": 4294967296,
+      "supplied_opportunity": 0,
+      "admitted_drive": 0,
+      "projected_drive": 4294967296,
+      "threshold": 8589934592,
+      "consequence_tick": null,
+      "unanswered_returns": 0,
+      "executable": false
+    },
+    "continuation_evaluations": [
+      {
+        "diagnostic": "transition_continuation",
+        "tick": 55,
+        "phase": 0,
+        "control": {
+          "control": "finger_flexion",
+          "digit": "ring",
+          "direction": "decrease"
+        },
+        "current_owner_transition": false,
+        "unanswered_returns": 3,
+        "admitted": false
+      },
+      {
+        "diagnostic": "transition_continuation",
+        "tick": 55,
+        "phase": 0,
+        "control": {
+          "control": "finger_flexion",
+          "digit": "ring",
+          "direction": "increase"
+        },
+        "current_owner_transition": false,
+        "unanswered_returns": 0,
+        "admitted": false
+      }
+    ],
+    "relevant_choices": [
+      {
+        "diagnostic": "choice",
+        "tick": 55,
+        "phase": 0,
+        "ordinary_control": {
+          "control": "finger_flexion",
+          "digit": "ring",
+          "direction": "increase"
+        },
+        "current_transition_control": null,
+        "computed_winner_control": {
+          "control": "finger_flexion",
+          "digit": "ring",
+          "direction": "increase"
+        },
+        "admitted_controls": [
+          {
+            "control": "finger_flexion",
+            "digit": "ring",
+            "direction": "increase"
+          }
+        ],
+        "computed_winner_basis": "Ordinary",
+        "admission_basis": "Ordinary"
+      }
+    ],
+    "all_step_diagnostic_count": 87
+  }
+}
