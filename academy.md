@@ -139,9 +139,10 @@ quiescence, unchanged negative controls, and bounded physical work.
 The headless `academy-workstation` world now supplies the next external surface:
 a standard ANSI 104-key keyboard, continuous touchpad, monitor photograph,
 visible cursor and text, binocular scene rendering, and physical collision. It
-does not change the current capability frontier: digit separation remains the
-first failed prerequisite, and no pointing, clicking, typing, or image-use
-claim follows from constructing the world.
+now has accepted unguided movement separation across all five digits. The next
+capability frontier is local surface-contact contingency and then
+contact-directed control; no pointing, clicking, typing, or image-use claim
+follows from separate movement alone.
 
 ## First curriculum
 

@@ -1,0 +1,36 @@
+schema = "research-adjudication/v1"
+protocol_path = "protocol.toml"
+protocol_sha256 = "130ab0ea3605c7e65c389fadae1b21cd77386df8f50c29042eec521cdc84bbca"
+evidence_path = "evidence.json"
+evidence_sha256 = "5f1714002aa307369e01aaec21f3b76a82e00ca5f3f8c2b5a2273b5e6c23bd66"
+verdict = "positive"
+predicate_results = [
+  "frozen authority=passed: the unchanged positive one-shot evidence established shared physical incidence as sufficient for unguided full-morphology digit separation",
+  "default adoption=passed: commit db65bb0 makes shared incidence the ordinary workstation constructor and restore behavior without changing core learner physics or checkpoint schema",
+  "production identity=passed: the default and explicit authorized shared construction had identical initial checkpoints all forty-eight observations and final checkpoints",
+  "adopted full morphology=passed: ten isolated-finger steps included thumb index middle ring and little with zero five-finger steps and zero device events",
+  "adopted integrity=passed: exact replay natural quiescence and maximum step work eight-hundred-twelve reproduced the frozen authority result byte for byte",
+]
+control_results = [
+  "historical negative control=passed: the research-only independent mode retained zero isolated-finger steps and forty-six five-finger steps",
+  "distinct-cause control=passed: separate physical origins still compose across disconnected topology",
+  "production-state control=passed: the incidence selector is compiled only with the research feature and is absent from the ordinary harness and checkpoint payload",
+  "semantic firewall=passed: four public workstation world checkpoint geometry and learner-input audits passed",
+  "engineering verification=passed: validated candidate and independent verification receipts support the exact adopted tree",
+  "development loop=passed: the independently timed warm workstation regression completed in one-half second below the ten-second limit",
+]
+scientific_findings = [
+  "One generic motor opportunity at the workstation boundary is one physical cause shared across distinct motor targets rather than one independent cause per target.",
+  "The accepted learner already supplies bounded choice within that shared cause and product composition across genuinely distinct causes, so adoption requires no new learner law or selector.",
+  "The adopted boundary exposes separate unguided physical movement from every digit while preserving exact replay natural quiescence and lower observed work.",
+  "This promoted result establishes incidence representation and unguided digit separation only; intentional selection contact pointing clicking typing grasping transfer and arbitrary morphology remain unestablished.",
+]
+residual_uncertainty = [
+  "The authority covers one fixed real workstation morphology seed and forty-eight-step horizon.",
+  "The next contact ladder must separately establish that movement can cause and later be directed by local surface-contact consequences.",
+]
+sufficiency = "established"
+integration = "passed"
+adoption = "adopted"
+authority = "promoted"
+authorized_by = "User explicitly instructed on 2026-08-28: okay do it, after reviewing the positive authority result and proposed default adoption followed by the contact ladder."
