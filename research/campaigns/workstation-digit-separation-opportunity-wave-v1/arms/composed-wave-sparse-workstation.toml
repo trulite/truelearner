@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "composed-wave-sparse-workstation"
+campaign = "workstation-digit-separation-opportunity-wave-v1"
+kind = "composition"
+parents = ["workstation-digit-separation-opportunity-wave-v1:shared-opportunity-incidence", "workstation-digit-separation-opportunity-wave-v1:wave-sparse-neutral-fixture"]
+imports = ["shared generic-opportunity incidence", "outer wave-scoped sparse component allocation", "unchanged inner connected-topology product", "actual participation"]
+mechanism = "Compose shared incidence with wave-scoped least-participating component allocation before the authoritative topology-local output and fresh-opportunity product."
+prediction = "A 48-step real workstation run contains isolated movement from at least two anonymous finger components and no generic five-finger coactivation, while one two and five serial controls replay exactly and quiesce."
+falsifiers = ["Fewer than two components move in isolated steps.", "All five fingers still coactivate from generic opportunity.", "Any accepted serial arrow changes.", "Contact or a semantic label is needed to pass.", "Replay quiescence exhaustion leakage or work bounds fail."]
+source_revision = "00ef061f34b6e8a5e14bdce25a14a39f85f787f3"
+protocol_sha256 = "39d10a0a9578f98d2555b789b00aa8dfd1cf411a38788f3a017b315c39a91e22"
+budget_minutes = 6
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml composed_candidate_preserves_one_and_two_component_controls"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml -- --arm composed-workstation --output research/campaigns/workstation-digit-separation-opportunity-wave-v1/artifacts/composed-workstation.json"

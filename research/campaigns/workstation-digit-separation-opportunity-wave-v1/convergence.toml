@@ -1,0 +1,49 @@
+schema = "research-convergence/v1"
+campaign = "workstation-digit-separation-opportunity-wave-v1"
+round = 1
+survived = ["parent-broad-coactivation-reference", "shared-opportunity-incidence"]
+falsified = []
+inconclusive = ["wave-sparse-neutral-fixture", "composed-wave-sparse-workstation"]
+infrastructure_failed = []
+shared_mechanisms = [
+  "both executed arms use the unchanged authoritative connected-topology product learner",
+  "both use the same five-finger binocular workstation morphology world assets force law and forty-eight-step horizon",
+  "both replay exactly naturally quiesce emit no device events and expose no semantic anatomy to learner choice",
+  "only the phase and physical origin of the generic motor opportunity differ",
+]
+strongest_counterexamples = [
+  "the parent represented one generic opportunity as thirty independent causes and reproduced forty-six five-finger steps zero isolated-finger steps six-hundred-eighty-eight crossings and maximum step work one-thousand-three-hundred-eighty-eight",
+  "the shared-incidence arm represented that same opportunity once and produced ten isolated-finger steps spanning thumb index middle ring and little with zero five-finger steps eighty crossings and maximum step work eight-hundred-twelve",
+  "the neutral fixture showed the existing causal-origin candidate selection already bounds one shared origin while distinct origins still compose under the accepted topology product",
+]
+retired_families = [
+  "a new wave-scoped component-allocation protocol as necessary for digit separation",
+  "a new participation allocator trace event or persistent scheduler state",
+  "the preregistered prediction that shared incidence alone remains broadly coactive",
+  "treating one generic opportunity as one independently caused input per motor",
+]
+next_discriminators = [
+  "freeze the shared-incidence workstation subject at a clean candidate commit without generated video",
+  "run a fresh one-shot authority protocol covering parent reproduction shared-incidence full morphology neutral shared-versus-distinct origin controls exact replay natural quiet work and semantic leakage",
+  "if authority is positive adopt shared incidence as the default workstation representation before beginning contact-directed hand development",
+]
+
+[[new_arm]]
+id = "shared-opportunity-incidence-authority"
+kind = "composition"
+parents = ["parent-broad-coactivation-reference", "shared-opportunity-incidence"]
+imports = [
+  "unchanged authoritative connected-topology product",
+  "exact parent broad-coactivation reference",
+  "shared-incidence full-workstation survivor",
+  "neutral shared-origin bounded-choice and distinct-origin composition controls",
+  "exact replay natural quiescence semantic firewall and activity work bounds",
+]
+interaction_prediction = "A clean one-shot run reproduces the parent wall and the shared-incidence isolated movements across all five fingers without a new learner law, proving only that one generic workstation opportunity must be represented as one physical cause."
+falsifiers = [
+  "The clean subject or frozen evidence lineage is invalid.",
+  "The parent no longer reproduces forty-six five-finger and zero isolated-finger steps.",
+  "The shared subject loses any finger, emits a five-finger step, diverges on replay, fails to quiesce, or exceeds the parent work bound.",
+  "Distinct physical opportunity origins fail to compose or one shared origin ceases to be bounded.",
+  "The result depends on anatomy labels evaluator state contact success or device events.",
+]

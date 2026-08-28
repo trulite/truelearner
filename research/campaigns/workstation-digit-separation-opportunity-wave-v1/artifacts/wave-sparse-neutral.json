@@ -1,0 +1,14 @@
+{
+  "schema": "workstation-digit-separation/v1",
+  "arm": "wave-sparse-neutral",
+  "outcome": "superseded",
+  "parent_revision": "00ef061f34b6e8a5e14bdce25a14a39f85f787f3",
+  "protocol_sha256": "39d10a0a9578f98d2555b789b00aa8dfd1cf411a38788f3a017b315c39a91e22",
+  "observations": {
+    "new_core_law_added": false,
+    "reason": "stopped after the smaller shared-incidence arm satisfied the frozen full-morphology predicate"
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

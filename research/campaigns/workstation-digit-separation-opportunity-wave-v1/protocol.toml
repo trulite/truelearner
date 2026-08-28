@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "workstation-digit-separation-opportunity-wave-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "Connected Outcome Product V1 commit 7be8bbc3009fe3131622a6ee21e9aa260d649aa1; clean workstation parent 00ef061f34b6e8a5e14bdce25a14a39f85f787f3"
+question = "Can one generic physical opportunity wave expose bounded alternatives across disconnected components while the authoritative topology product still composes genuinely independent causal waves?"
+observables = ["per-step opportunity phase origin and causal wave", "candidate path participation drive threshold and executability", "outer wave admission and inner topology component choice", "per-axis motor firing and actual body movement", "isolated versus coactive finger changes", "physical transition return and later reuse", "serial one two and five identity", "work replay quiescence exhaustion and semantic leakage"]
+frozen_variables = ["authoritative connected-topology output and opportunity product", "standard five-finger workstation morphology and force law", "workstation geometry monitor and body sensors", "48-step primary development run", "frozen parent recording and exact checkpoint replay", "unchanged one two and five serial controls"]
+permitted_changes = ["opt-in shared generic-opportunity incidence using one phase and origin", "opt-in outer wave-scoped component allocation using existing participation", "lossless trace projection and research-only protocol selection"]
+positive_predicates = ["shared-wave tiny fixture admits exactly one disconnected component", "two independently originated waves both survive", "one-component and accepted serial histories remain exact", "real morphology records isolated finger movement from at least two components and no generic five-finger coactivation", "replay is exact execution naturally quiesces no propagation budget exhausts and work remains bounded"]
+negative_controls = ["unchanged parent reproduces 46 five-finger and zero isolated-finger steps", "shared incidence without sparse allocation does not count as a solve", "distinct physical causes are never merged", "no semantic axis digit hand direction pose target score or evaluator-selected input", "no contact click or typing predicate shapes the digit-separation law"]
+stop_conditions = ["parent recording or authority digest drift", "one-component or serial identity changes", "a shared wave still emits every component", "one component permanently monopolizes fresh opportunity", "isolation depends on semantic identity or scheduled rotation", "replay quiescence exhaustion leakage or work bound fails"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

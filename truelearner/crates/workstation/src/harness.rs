@@ -128,18 +128,66 @@ pub struct WorkstationHarness {
     sites: Sites,
     sequence: u64,
     pending_transitions: [bool; AXIS_COUNT],
+    opportunity_incidence: OpportunityIncidence,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum OpportunityIncidence {
+    #[default]
+    Independent,
+    #[cfg(feature = "research")]
+    SharedWave,
+}
+
+#[cfg(feature = "research")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResearchOpportunityIncidence {
+    Independent,
+    SharedWave,
+}
+
+#[cfg(feature = "research")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ResearchHarnessConfig {
+    pub protocol: Protocol,
+    pub opportunity_incidence: ResearchOpportunityIncidence,
 }
 
 impl WorkstationHarness {
     pub fn new(_seed: u64) -> Result<Self, WorkstationError> {
-        let (boundary, sites) = build_harness();
+        Self::new_with(
+            Protocol::RecursiveLearnerCausalTopologyProductComposition,
+            OpportunityIncidence::Independent,
+        )
+    }
+
+    fn new_with(
+        protocol: Protocol,
+        opportunity_incidence: OpportunityIncidence,
+    ) -> Result<Self, WorkstationError> {
+        let (boundary, sites) = build_harness(protocol);
         Ok(Self {
             boundary,
             state: WorkstationState::default(),
             sites,
             sequence: 0,
             pending_transitions: [false; AXIS_COUNT],
+            opportunity_incidence,
         })
+    }
+
+    #[cfg(feature = "research")]
+    pub fn new_research(
+        _seed: u64,
+        config: ResearchHarnessConfig,
+    ) -> Result<Self, WorkstationError> {
+        Self::new_with(
+            config.protocol,
+            match config.opportunity_incidence {
+                ResearchOpportunityIncidence::Independent => OpportunityIncidence::Independent,
+                ResearchOpportunityIncidence::SharedWave => OpportunityIncidence::SharedWave,
+            },
+        )
     }
 
     pub fn step(
@@ -202,13 +250,20 @@ impl WorkstationHarness {
             .collect::<Vec<_>>();
         let opportunity_tick = tick.saturating_add(1);
         inputs.extend(next.sites.motors.iter().enumerate().map(|(index, target)| {
+            let (phase, origin_offset) = match next.opportunity_incidence {
+                OpportunityIncidence::Independent => (
+                    20_000_i32.saturating_add(i32::try_from(index).unwrap_or(0)),
+                    5_000_u64.saturating_add(u64::try_from(index).unwrap_or(0)),
+                ),
+                #[cfg(feature = "research")]
+                OpportunityIncidence::SharedWave => (20_000, 5_000),
+            };
             Input {
                 arrival_tick: opportunity_tick,
-                phase: 20_000_i32.saturating_add(i32::try_from(index).unwrap_or(0)),
+                phase,
                 origin_physical: EXTERNAL_PHYSICAL_BASE
                     .saturating_add(next.sequence.saturating_mul(10_000))
-                    .saturating_add(5_000)
-                    .saturating_add(u64::try_from(index).unwrap_or(0)),
+                    .saturating_add(origin_offset),
                 target: *target,
                 impulse: 1,
             }
@@ -313,7 +368,21 @@ impl WorkstationHarness {
             sites: payload.sites,
             sequence: payload.sequence,
             pending_transitions: payload.pending_transitions,
+            opportunity_incidence: OpportunityIncidence::Independent,
         })
+    }
+
+    #[cfg(feature = "research")]
+    pub fn restore_research(
+        checkpoint: WorkstationCheckpoint,
+        opportunity_incidence: ResearchOpportunityIncidence,
+    ) -> Result<Self, WorkstationError> {
+        let mut restored = Self::restore(checkpoint)?;
+        restored.opportunity_incidence = match opportunity_incidence {
+            ResearchOpportunityIncidence::Independent => OpportunityIncidence::Independent,
+            ResearchOpportunityIncidence::SharedWave => OpportunityIncidence::SharedWave,
+        };
+        Ok(restored)
     }
 
     fn pending_axes(&self) -> Vec<BodyAxis> {
@@ -329,9 +398,9 @@ impl WorkstationHarness {
     }
 }
 
-fn build_harness() -> (Harness, Sites) {
+fn build_harness(protocol: Protocol) -> (Harness, Sites) {
     let mut builder = HarnessBuilder::with_capacity(8_192, 16_384, OUTWARD_REGION);
-    builder.set_protocol(Protocol::RecursiveLearnerCausalTopologyProductComposition);
+    builder.set_protocol(protocol);
     builder.set_physical_tracing(true);
 
     let motors = (0..CONTROL_COUNT)
@@ -581,7 +650,8 @@ mod tests {
 
     #[test]
     fn each_axis_has_one_distinct_local_outcome_component() {
-        let (boundary, sites) = build_harness();
+        let (boundary, sites) =
+            build_harness(Protocol::RecursiveLearnerCausalTopologyProductComposition);
         assert_eq!(
             boundary.read().protocol,
             Protocol::RecursiveLearnerCausalTopologyProductComposition

@@ -5,6 +5,9 @@ edition = "2021"
 publish = false
 description = "Development visual-touch workstation Harness for TrueLearner"
 
+[features]
+research = []
+
 [dependencies]
 bincode = "1"
 serde = { version = "1", features = ["derive"] }

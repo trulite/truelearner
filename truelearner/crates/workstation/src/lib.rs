@@ -6,12 +6,16 @@ mod harness;
 mod state;
 
 pub use checkpoint::WorkstationCheckpoint;
+#[cfg(feature = "research")]
+pub use harness::{ResearchHarnessConfig, ResearchOpportunityIncidence};
 pub use harness::{StepMetrics, WorkstationHarness, WorkstationRead, WorkstationStepObservation};
 pub use state::{
     AxisProprioception, BodyAxis, BodyControl, BodyMovement, ContactSample, Digit, DigitState,
     Direction, Eye, EyeState, HandPoint, HandState, LightField, Point, WorkstationState,
     WorldSample, AXIS_COUNT, BODY_MAX, DIGIT_COUNT, TOUCH_SITES,
 };
+#[cfg(feature = "research")]
+pub use truelearner_core::Protocol;
 
 use std::fmt;
 

@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "wave-sparse-neutral-fixture"
+campaign = "workstation-digit-separation-opportunity-wave-v1"
+kind = "solve"
+parents = ["sensorimotor-physical-boundaries-v1:wave-alternative-sparsity", "hand-causal-topology-product-authority-v1:generic-topology-transfer"]
+imports = ["shared causal wave", "two distinct causal waves", "connected outcome components", "existing participation"]
+mechanism = "Choose one disconnected component for candidates sharing one generic opportunity wave, then apply ordinary topology-local choice; leave distinct waves independent."
+prediction = "One shared wave admits exactly one neutral component, successive waves expose a least-participating component, and two distinct waves both fire."
+falsifiers = ["A shared wave emits more than one component.", "A distinct wave is suppressed.", "One component monopolizes all successive fresh waves.", "The rule requires semantic component identity."]
+source_revision = "00ef061f34b6e8a5e14bdce25a14a39f85f787f3"
+protocol_sha256 = "39d10a0a9578f98d2555b789b00aa8dfd1cf411a38788f3a017b315c39a91e22"
+budget_minutes = 4
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml wave_sparse_choice_separates_shared_and_independent_causes"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml -- --arm wave-sparse-fixture --output research/campaigns/workstation-digit-separation-opportunity-wave-v1/artifacts/wave-sparse-fixture.json"

@@ -1,6 +1,8 @@
 use crate::{DeviceEvent, DeviceState, SessionCheckpoint, WorkstationWorld, WorldError};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+#[cfg(feature = "research")]
+use truelearner_workstation::{ResearchHarnessConfig, ResearchOpportunityIncidence};
 use truelearner_workstation::{
     WorkstationHarness, WorkstationRead, WorkstationStepObservation, WorldSample,
 };
@@ -36,6 +38,15 @@ impl WorkstationSession {
     pub fn new(seed: u64) -> Result<Self, WorldError> {
         Ok(Self {
             harness: WorkstationHarness::new(seed)?,
+            world: WorkstationWorld::new()?,
+            sequence: 0,
+        })
+    }
+
+    #[cfg(feature = "research")]
+    pub fn new_research(seed: u64, config: ResearchHarnessConfig) -> Result<Self, WorldError> {
+        Ok(Self {
+            harness: WorkstationHarness::new_research(seed, config)?,
             world: WorkstationWorld::new()?,
             sequence: 0,
         })
@@ -87,6 +98,24 @@ impl WorkstationSession {
             truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
         Ok(Self {
             harness: WorkstationHarness::restore(harness_checkpoint)?,
+            world: WorkstationWorld::from_parts(payload.device, payload.asset_digest)?,
+            sequence: payload.sequence,
+        })
+    }
+
+    #[cfg(feature = "research")]
+    pub fn restore_research(
+        checkpoint: SessionCheckpoint,
+        opportunity_incidence: ResearchOpportunityIncidence,
+    ) -> Result<Self, WorldError> {
+        let payload = checkpoint.open()?;
+        let harness_checkpoint =
+            truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
+        Ok(Self {
+            harness: WorkstationHarness::restore_research(
+                harness_checkpoint,
+                opportunity_incidence,
+            )?,
             world: WorkstationWorld::from_parts(payload.device, payload.asset_digest)?,
             sequence: payload.sequence,
         })

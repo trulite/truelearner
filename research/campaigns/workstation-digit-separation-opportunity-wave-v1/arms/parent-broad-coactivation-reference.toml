@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "parent-broad-coactivation-reference"
+campaign = "workstation-digit-separation-opportunity-wave-v1"
+kind = "control"
+parents = ["hand-causal-topology-product-authority-v1:complete-serial-authority"]
+imports = ["unchanged workstation harness", "authoritative topology product", "48-step frozen trace predicates"]
+mechanism = "Run the exact clean workstation parent without changing opportunity incidence or learner physics."
+prediction = "The parent reproduces 48 pose-changing steps, 46 five-finger steps, zero isolated-finger steps, zero contact, and zero device events with exact replay and quiescence."
+falsifiers = ["Any frozen count or fingerprint differs.", "The run diverges fails to quiesce or exhausts."]
+source_revision = "00ef061f34b6e8a5e14bdce25a14a39f85f787f3"
+protocol_sha256 = "39d10a0a9578f98d2555b789b00aa8dfd1cf411a38788f3a017b315c39a91e22"
+budget_minutes = 4
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml parent_reference_reproduces_frozen_counts"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml -- --arm parent-reference --output research/campaigns/workstation-digit-separation-opportunity-wave-v1/artifacts/parent-reference.json"

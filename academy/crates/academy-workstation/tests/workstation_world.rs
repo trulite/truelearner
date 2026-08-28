@@ -1,5 +1,9 @@
 use academy_workstation::{SessionCheckpoint, WorkstationSession, KEY_COUNT};
 use truelearner_workstation::Eye;
+#[cfg(feature = "research")]
+use truelearner_workstation::{
+    BodyAxis, Protocol, ResearchHarnessConfig, ResearchOpportunityIncidence,
+};
 
 #[test]
 fn public_session_uses_real_monitor_pixels_and_proper_keyboard_geometry() {
@@ -66,4 +70,42 @@ fn corrupt_session_checkpoint_fails_closed() {
     bytes[31] ^= 1;
     assert!(SessionCheckpoint::decode(&bytes).is_err());
     assert_eq!(session.read().unwrap(), before);
+}
+
+#[cfg(feature = "research")]
+#[test]
+fn shared_opportunity_wave_exposes_separate_full_morphology_movements() {
+    let config = ResearchHarnessConfig {
+        protocol: Protocol::RecursiveLearnerCausalTopologyProductComposition,
+        opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
+    };
+    let mut session = WorkstationSession::new_research(82_001, config).unwrap();
+    let mut isolated_finger_steps = 0_u64;
+    let mut five_finger_steps = 0_u64;
+    let mut moved_digits = Vec::new();
+    for _ in 0..48 {
+        let observation = session.step().unwrap();
+        let changed_fingers = observation
+            .body
+            .movements
+            .iter()
+            .filter_map(|movement| match movement.axis {
+                BodyAxis::FingerFlexion { digit } if movement.changed => Some(digit),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if changed_fingers.len() == 1 {
+            isolated_finger_steps += 1;
+            if !moved_digits.contains(&changed_fingers[0]) {
+                moved_digits.push(changed_fingers[0]);
+            }
+        }
+        if changed_fingers.len() == 5 {
+            five_finger_steps += 1;
+        }
+        assert!(observation.body.naturally_quiescent);
+    }
+    assert!(isolated_finger_steps > 0);
+    assert!(moved_digits.len() >= 2, "moved digits: {moved_digits:?}");
+    assert_eq!(five_finger_steps, 0);
 }

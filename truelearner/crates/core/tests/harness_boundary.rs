@@ -3785,6 +3785,154 @@ fn send_mixed_owner_surfaces(harness: &mut Harness, surfaces: [JunctionId; 2]) -
     ])
 }
 
+struct OpportunityOriginWorld {
+    harness: Harness,
+    inputs: [JunctionId; 2],
+    opportunities: [JunctionId; 2],
+}
+
+impl OpportunityOriginWorld {
+    fn new(protocol: Protocol) -> Self {
+        let positions = [0, 10];
+        let mut builder = HarnessBuilder::with_capacity(64, 128, OUTWARD_REGION);
+        builder.set_protocol(protocol);
+        builder.set_physical_tracing(true);
+        let inputs = std::array::from_fn(|index| {
+            junction(
+                &mut builder,
+                40_000 + u64::try_from(index).unwrap(),
+                positions[index],
+                0,
+                1,
+            )
+        });
+        let opportunities = std::array::from_fn(|index| {
+            junction(
+                &mut builder,
+                40_010 + u64::try_from(index).unwrap(),
+                positions[index] + 1,
+                0,
+                2,
+            )
+        });
+        let sinks: [JunctionId; 2] = std::array::from_fn(|index| {
+            junction(
+                &mut builder,
+                40_020 + u64::try_from(index).unwrap(),
+                positions[index] + 1,
+                OUTWARD_REGION,
+                1,
+            )
+        });
+        let outcomes: [JunctionId; 2] = std::array::from_fn(|index| {
+            junction(
+                &mut builder,
+                40_030 + u64::try_from(index).unwrap(),
+                100 + i32::try_from(index).unwrap() * 10,
+                0,
+                1,
+            )
+        });
+        for index in 0..2 {
+            let anchor = junction(
+                &mut builder,
+                40_040 + u64::try_from(index).unwrap(),
+                1_000 + i32::try_from(index).unwrap(),
+                0,
+                99,
+            );
+            for target in [inputs[index], outcomes[index]] {
+                link(
+                    &mut builder,
+                    anchor,
+                    target,
+                    0,
+                    1,
+                    u32::MAX,
+                    TransmissionMode::Drive,
+                );
+            }
+            link(
+                &mut builder,
+                opportunities[index],
+                sinks[index],
+                0,
+                1,
+                u32::MAX,
+                TransmissionMode::Drive,
+            );
+            builder.set_outcome_source_for_output(opportunities[index], outcomes[index]);
+        }
+        Self {
+            harness: builder.build(),
+            inputs,
+            opportunities,
+        }
+    }
+
+    fn stimulate(&mut self, opportunity_origins: [u64; 2]) -> Run {
+        let tick = self.harness.read().clock.tick.saturating_add(1);
+        self.harness.send(&[
+            Input {
+                arrival_tick: tick,
+                phase: 0,
+                origin_physical: 40_100,
+                target: self.inputs[0],
+                impulse: 1,
+            },
+            Input {
+                arrival_tick: tick,
+                phase: 0,
+                origin_physical: 40_101,
+                target: self.inputs[1],
+                impulse: 1,
+            },
+            Input {
+                arrival_tick: tick + 1,
+                phase: 1,
+                origin_physical: opportunity_origins[0],
+                target: self.opportunities[0],
+                impulse: 1,
+            },
+            Input {
+                arrival_tick: tick + 1,
+                phase: 1,
+                origin_physical: opportunity_origins[1],
+                target: self.opportunities[1],
+                impulse: 1,
+            },
+        ])
+    }
+}
+
+#[test]
+fn shared_opportunity_origin_is_already_a_bounded_choice() {
+    let protocol = Protocol::RecursiveLearnerCausalTopologyProductComposition;
+    let mut world = OpportunityOriginWorld::new(protocol);
+    let run = world.stimulate([40_200, 40_200]);
+
+    assert_eq!(run.outputs.len(), 1, "{:#?}", run.physical_trace);
+    assert!(run.physical_trace.iter().any(|transition| matches!(
+        transition.event,
+        PhysicalEvent::CandidateSelection {
+            origin_scope: Some(40_200),
+            admitted: false,
+            ..
+        }
+    )));
+    assert!(run.naturally_quiescent);
+}
+
+#[test]
+fn distinct_opportunity_origins_still_compose_across_topology() {
+    let protocol = Protocol::RecursiveLearnerCausalTopologyProductComposition;
+    let mut world = OpportunityOriginWorld::new(protocol);
+    let run = world.stimulate([40_200, 40_201]);
+
+    assert_eq!(run.outputs.len(), 2, "{:#?}", run.physical_trace);
+    assert!(run.naturally_quiescent);
+}
+
 #[test]
 fn owner_local_factorization_turns_one_unique_private_group_into_one_effect() {
     let (mut reference, surfaces) =
