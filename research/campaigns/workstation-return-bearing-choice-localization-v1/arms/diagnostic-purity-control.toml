@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "diagnostic-purity-control"
+campaign = "workstation-return-bearing-choice-localization-v1"
+kind = "control"
+parents = ["core-causal-diagnostics-v1", "return-bearing-choice-localization"]
+imports = ["opt-in core physical trace", "traced versus untraced equality", "checkpoint replay"]
+mechanism = "Require physical diagnostics to preserve outputs work execution cost state replay and natural quiescence and keep their workstation projection behind the research feature."
+prediction = "Traced and untraced histories remain equal and production workstation observations expose no diagnostic payload."
+falsifiers = ["Any physical result differs.", "Checkpoint replay differs.", "Production schema gains diagnostic events."]
+source_revision = "e116ac51843d6847f2c967f20a827bd48bbca550"
+protocol_sha256 = "b297bb5d8a0dfd5aaa1d08fc995ae722bd414a46a46f2f27cbd317e47ecbbd0d"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core physical_diagnostics_are_opt_in_pure_and_replayable"
+full_evidence = "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields"

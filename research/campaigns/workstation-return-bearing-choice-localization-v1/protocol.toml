@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "workstation-return-bearing-choice-localization-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "falsified transition-local candidate at e116ac51843d6847f2c967f20a827bd48bbca550; artifact sha256 0423e95241ede15e45a91ab72c8a830ba71a883b8b6de5d30bf5b936589186b1"
+question = "At the first returned contact-relevant transition that does not continue its exact prior direction, is the corresponding return-bearing motor candidate absent, non-executable, admitted but not selected, selected but canceled, or present under the wrong continuation basis?"
+observables = ["returned physical axis and prior direction", "candidate target control path inputs drive opportunity threshold consequence unanswered returns and executability", "physical-transition continuation admission", "ordinary current-transition computed and admitted choice targets and bases", "outward crossings net movement and cancellation", "trace purity replay quiescence and work"]
+frozen_variables = ["falsified transition-local candidate", "seed 82001", "generic and transition-local opportunity incidence", "learner protocol body world and contact physics", "first direction-breaking contact-relevant return within at most 48 steps"]
+permitted_changes = ["research-only serialization of already enabled causally inert physical choice diagnostics", "observer-only early stop after the first classified direction break"]
+positive_predicates = ["diagnostic projection changes no output work state replay or quiescence", "the first direction break maps returned component prior movement candidate evaluation continuation evaluation choice resolution crossing and net movement", "the result selects exactly one first failed branch or reports explicit ambiguity", "no semantic anatomy target desired direction contact reward or evaluator action enters learner behavior"]
+negative_controls = ["physical diagnostics remain opt-in pure and replayable", "production observation schema and behavior remain unchanged", "a same-direction continuation is not classified as a break", "observer cutoff is not treated as natural completion or capability evidence"]
+stop_conditions = ["diagnostics alter candidate history", "the first break cannot be mapped to its physical motor alternatives", "classification requires a new organism run beyond the bounded focused replay", "semantic identity or evaluator action is required", "replay quiescence or work changes"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true
