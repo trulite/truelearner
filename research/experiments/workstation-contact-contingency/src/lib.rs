@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
-use academy_workstation::{CONTACT_DEPTH, WorkstationRecording, WorkstationWorld, WorldError};
+use academy_workstation::{
+    CONTACT_DEPTH, SessionObservation, WorkstationRecording, WorkstationWorld, WorldError,
+};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -88,17 +90,47 @@ pub fn capture(
     steps: usize,
 ) -> Result<(ContactContingencyEvidence, WorkstationRecording), WorldError> {
     let recording = WorkstationRecording::capture(seed, steps)?;
-    let evidence = project(seed, &recording)?;
+    let bytes = recording.canonical_bytes()?;
+    let evidence = project_with(
+        seed,
+        recording.steps().len(),
+        hex_digest(&bytes),
+        true,
+        |index| &recording.steps()[index].observation,
+    )?;
     Ok((evidence, recording))
 }
 
-fn project(
+pub fn project_observations(
     seed: u64,
-    recording: &WorkstationRecording,
+    trace_sha256: String,
+    observations: &[SessionObservation],
+    exact_replay: bool,
 ) -> Result<ContactContingencyEvidence, WorldError> {
+    project_with(
+        seed,
+        observations.len(),
+        trace_sha256,
+        exact_replay,
+        |index| &observations[index],
+    )
+}
+
+fn project_with<'a, F>(
+    seed: u64,
+    steps: usize,
+    trace_sha256: String,
+    exact_replay: bool,
+    observation_at: F,
+) -> Result<ContactContingencyEvidence, WorldError>
+where
+    F: Fn(usize) -> &'a SessionObservation,
+{
+    if steps == 0 {
+        return Err(WorldError::InvalidRecording);
+    }
     let geometry = WorkstationWorld::new()?.geometry().clone();
-    let bytes = recording.canonical_bytes()?;
-    let mut sites = site_points(&recording.steps()[0].observation.body.state_before)
+    let mut sites = site_points(&observation_at(0).body.state_before)
         .into_iter()
         .map(|(site, point)| SiteReachSummary {
             site,
@@ -121,8 +153,8 @@ fn project(
     let mut max_step_work = 0_u64;
     let mut naturally_quiescent = true;
 
-    for (step_index, recorded) in recording.steps().iter().enumerate() {
-        let observation = &recorded.observation;
+    for step_index in 0..steps {
+        let observation = observation_at(step_index);
         naturally_quiescent &= observation.body.naturally_quiescent;
         max_step_work = max_step_work.max(observation.body.metrics.physical_work);
         output_crossings =
@@ -178,15 +210,15 @@ fn project(
 
             if !on_surface(&geometry, before_point) && on_surface(&geometry, after_point) {
                 summary.surface_entries = summary.surface_entries.saturating_add(1);
-                let next = recording.steps().get(step_index + 1);
+                let next = (step_index + 1 < steps).then(|| observation_at(step_index + 1));
                 let next_pressure =
-                    next.map(|step| step.observation.sample.contacts()[site_index].pressure());
+                    next.map(|observation| observation.sample.contacts()[site_index].pressure());
                 surface_entries.push(SurfaceEntryEvidence {
                     sequence: observation.sequence,
                     site,
                     before: before_point.into(),
                     after: after_point.into(),
-                    next_sample_sequence: next.map(|step| step.observation.sequence),
+                    next_sample_sequence: next.map(|observation| observation.sequence),
                     next_pressure,
                     matched_local_contact: next_pressure.is_some_and(|pressure| pressure > 0),
                 });
@@ -215,10 +247,10 @@ fn project(
         outcome,
         first_failure,
         seed,
-        steps: recording.steps().len(),
+        steps,
         contact_depth: CONTACT_DEPTH,
-        recording_sha256: hex_digest(&bytes),
-        exact_replay: true,
+        recording_sha256: trace_sha256,
+        exact_replay,
         naturally_quiescent,
         max_step_work,
         output_crossings,

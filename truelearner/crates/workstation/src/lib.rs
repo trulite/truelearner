@@ -7,7 +7,9 @@ mod state;
 
 pub use checkpoint::WorkstationCheckpoint;
 #[cfg(feature = "research")]
-pub use harness::{ResearchHarnessConfig, ResearchOpportunityIncidence};
+pub use harness::{
+    ResearchHarnessConfig, ResearchOpportunityIncidence, ResearchTransitionOpportunity,
+};
 pub use harness::{StepMetrics, WorkstationHarness, WorkstationRead, WorkstationStepObservation};
 pub use state::{
     AxisProprioception, BodyAxis, BodyControl, BodyMovement, ContactSample, Digit, DigitState,

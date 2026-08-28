@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 use truelearner_workstation::{
     BodyAxis, Protocol, ResearchHarnessConfig, ResearchOpportunityIncidence,
+    ResearchTransitionOpportunity,
 };
 
 const STEPS: usize = 48;
@@ -116,6 +117,7 @@ fn run_workstation(arm: Arm, mode: SessionMode) -> ProbeResult {
                 ResearchOpportunityIncidence::SharedWave
             }
         },
+        transition_opportunity: ResearchTransitionOpportunity::GenericOnly,
     };
     let mut session = match mode {
         SessionMode::Default => WorkstationSession::new(seed).expect("default session builds"),

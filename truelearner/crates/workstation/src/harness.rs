@@ -130,6 +130,8 @@ pub struct WorkstationHarness {
     pending_transitions: [bool; AXIS_COUNT],
     #[cfg(feature = "research")]
     opportunity_incidence: ResearchOpportunityIncidence,
+    #[cfg(feature = "research")]
+    transition_opportunity: ResearchTransitionOpportunity,
 }
 
 #[cfg(feature = "research")]
@@ -141,9 +143,17 @@ pub enum ResearchOpportunityIncidence {
 
 #[cfg(feature = "research")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ResearchTransitionOpportunity {
+    GenericOnly,
+    LocalAfterTransition,
+}
+
+#[cfg(feature = "research")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ResearchHarnessConfig {
     pub protocol: Protocol,
     pub opportunity_incidence: ResearchOpportunityIncidence,
+    pub transition_opportunity: ResearchTransitionOpportunity,
 }
 
 impl WorkstationHarness {
@@ -158,6 +168,8 @@ impl WorkstationHarness {
             pending_transitions: [false; AXIS_COUNT],
             #[cfg(feature = "research")]
             opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
+            #[cfg(feature = "research")]
+            transition_opportunity: ResearchTransitionOpportunity::GenericOnly,
         })
     }
 
@@ -165,6 +177,7 @@ impl WorkstationHarness {
     fn new_with(
         protocol: Protocol,
         opportunity_incidence: ResearchOpportunityIncidence,
+        transition_opportunity: ResearchTransitionOpportunity,
     ) -> Result<Self, WorkstationError> {
         let (boundary, sites) = build_harness(protocol);
         Ok(Self {
@@ -174,6 +187,7 @@ impl WorkstationHarness {
             sequence: 0,
             pending_transitions: [false; AXIS_COUNT],
             opportunity_incidence,
+            transition_opportunity,
         })
     }
 
@@ -182,7 +196,11 @@ impl WorkstationHarness {
         _seed: u64,
         config: ResearchHarnessConfig,
     ) -> Result<Self, WorkstationError> {
-        Self::new_with(config.protocol, config.opportunity_incidence)
+        Self::new_with(
+            config.protocol,
+            config.opportunity_incidence,
+            config.transition_opportunity,
+        )
     }
 
     pub fn step(
@@ -207,10 +225,7 @@ impl WorkstationHarness {
                     input: Input {
                         arrival_tick: tick,
                         phase: 30_000_i32.saturating_add(i32::try_from(order).unwrap_or(0)),
-                        origin_physical: EXTERNAL_PHYSICAL_BASE
-                            .saturating_add(next.sequence.saturating_mul(10_000))
-                            .saturating_add(9_000)
-                            .saturating_add(u64::try_from(axis.index()).unwrap_or(0)),
+                        origin_physical: transition_origin(next.sequence, *axis),
                         target: next.sites.outcomes[axis.index()],
                         impulse: 1,
                     },
@@ -256,6 +271,23 @@ impl WorkstationHarness {
                 impulse: 1,
             }
         }));
+        #[cfg(feature = "research")]
+        if next.transition_opportunity == ResearchTransitionOpportunity::LocalAfterTransition {
+            for (order, axis) in returned_transitions.iter().enumerate() {
+                let first_motor = axis.index() * 2;
+                let phase = 30_000_i32.saturating_add(i32::try_from(order).unwrap_or(0));
+                let origin_physical = transition_origin(next.sequence, *axis);
+                for target in &next.sites.motors[first_motor..first_motor + 2] {
+                    inputs.push(Input {
+                        arrival_tick: opportunity_tick,
+                        phase,
+                        origin_physical,
+                        target: *target,
+                        impulse: 1,
+                    });
+                }
+            }
+        }
         admitted_inputs += inputs.len();
         let run = next.boundary.send(&inputs);
         metrics.add_run(&run);
@@ -358,6 +390,8 @@ impl WorkstationHarness {
             pending_transitions: payload.pending_transitions,
             #[cfg(feature = "research")]
             opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
+            #[cfg(feature = "research")]
+            transition_opportunity: ResearchTransitionOpportunity::GenericOnly,
         })
     }
 
@@ -368,6 +402,17 @@ impl WorkstationHarness {
     ) -> Result<Self, WorkstationError> {
         let mut restored = Self::restore(checkpoint)?;
         restored.opportunity_incidence = opportunity_incidence;
+        Ok(restored)
+    }
+
+    #[cfg(feature = "research")]
+    pub fn restore_research_config(
+        checkpoint: WorkstationCheckpoint,
+        config: ResearchHarnessConfig,
+    ) -> Result<Self, WorkstationError> {
+        let mut restored = Self::restore(checkpoint)?;
+        restored.opportunity_incidence = config.opportunity_incidence;
+        restored.transition_opportunity = config.transition_opportunity;
         Ok(restored)
     }
 
@@ -394,6 +439,13 @@ impl WorkstationHarness {
         let digest = Sha256::digest(self.save()?.canonical_bytes()?);
         Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
     }
+}
+
+fn transition_origin(sequence: u64, axis: BodyAxis) -> u64 {
+    EXTERNAL_PHYSICAL_BASE
+        .saturating_add(sequence.saturating_mul(10_000))
+        .saturating_add(9_000)
+        .saturating_add(u64::try_from(axis.index()).unwrap_or(0))
 }
 
 fn build_harness(protocol: Protocol) -> (Harness, Sites) {

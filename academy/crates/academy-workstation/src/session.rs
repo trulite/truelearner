@@ -121,6 +121,21 @@ impl WorkstationSession {
         })
     }
 
+    #[cfg(feature = "research")]
+    pub fn restore_research_config(
+        checkpoint: SessionCheckpoint,
+        config: ResearchHarnessConfig,
+    ) -> Result<Self, WorldError> {
+        let payload = checkpoint.open()?;
+        let harness_checkpoint =
+            truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
+        Ok(Self {
+            harness: WorkstationHarness::restore_research_config(harness_checkpoint, config)?,
+            world: WorkstationWorld::from_parts(payload.device, payload.asset_digest)?,
+            sequence: payload.sequence,
+        })
+    }
+
     fn fingerprint(&self) -> Result<String, WorldError> {
         let digest = Sha256::digest(self.save()?.canonical_bytes()?);
         Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())

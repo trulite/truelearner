@@ -1,0 +1,94 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-28T16:27:22.397396+00:00",
+  "started_at": "2026-08-28T16:26:59.890425+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/workstation-transition-local-opportunity.md",
+    "sha256": "70f2820d68adc4cb3341be035205e7e04d969ee42cf8cd26cb272664b5948ead"
+  },
+  "candidate": {
+    "revision": "bf0c556d59b5ba87de2ad932b5427fdfea6b494d",
+    "tree_sha256": "5c401adb1c0135e6c6330e0b4a672ed420066492bfe2e3485f412d659d61cf2f"
+  },
+  "scope": [
+    "plans/workstation-transition-local-opportunity.md",
+    "truelearner/crates/workstation",
+    "academy/crates/academy-workstation",
+    "research/experiments/workstation-contact-contingency",
+    "research/experiments/workstation-digit-separation",
+    "research/experiments/workstation-transition-local-opportunity",
+    "factory/receipts"
+  ],
+  "changed_paths": [
+    "academy/crates/academy-workstation/src/session.rs",
+    "academy/crates/academy-workstation/tests/workstation_world.rs",
+    "factory/receipts/workstation-transition-local-opportunity-candidate.json",
+    "plans/workstation-transition-local-opportunity.md",
+    "research/experiments/workstation-contact-contingency/src/lib.rs",
+    "research/experiments/workstation-digit-separation/src/lib.rs",
+    "research/experiments/workstation-transition-local-opportunity/Cargo.lock",
+    "research/experiments/workstation-transition-local-opportunity/Cargo.toml",
+    "research/experiments/workstation-transition-local-opportunity/src/lib.rs",
+    "research/experiments/workstation-transition-local-opportunity/src/main.rs",
+    "truelearner/crates/workstation/src/harness.rs",
+    "truelearner/crates/workstation/src/lib.rs"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path truelearner/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.153625,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --all-targets --all-features --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.087419,
+      "output_sha256": "23ece6e8b6143673048de356927a80cf86648bd5a0db875102cecda04bdb23bc"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --all-targets --locked --manifest-path research/experiments/workstation-transition-local-opportunity/Cargo.toml -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.592967,
+      "output_sha256": "f30d55feec70ede6590d937157fd62bf6a611d0e08b9b2b1bd736e525ae0d59f"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path research/experiments/workstation-transition-local-opportunity/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.545276,
+      "output_sha256": "ba1aa28cadc4852c766f5841a79673030782a70263477c2615ba0429fd3c6990"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.191066,
+      "output_sha256": "4122ccbe9bb9ac2c821596c8f36c00505e8e955e28946567996e79e1c5c86bdc"
+    },
+    {
+      "name": "academy-research",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --features research --test workstation_world",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 18.825387,
+      "output_sha256": "fc0ad99401a78c1d971cd54e7316c3bbc286a11bb2b2781c9a9b937aaa78df41"
+    },
+    {
+      "name": "historical-research",
+      "command": "cargo test --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.106056,
+      "output_sha256": "5fd24accd262a3ab5066254d84e3458904acf15f63f31353594876e951f2991f"
+    }
+  ]
+}

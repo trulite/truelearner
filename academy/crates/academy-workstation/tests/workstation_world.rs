@@ -3,6 +3,7 @@ use truelearner_workstation::Eye;
 #[cfg(feature = "research")]
 use truelearner_workstation::{
     BodyAxis, Protocol, ResearchHarnessConfig, ResearchOpportunityIncidence,
+    ResearchTransitionOpportunity,
 };
 
 #[test]
@@ -78,6 +79,7 @@ fn shared_opportunity_wave_exposes_separate_full_morphology_movements() {
     let config = ResearchHarnessConfig {
         protocol: Protocol::RecursiveLearnerCausalTopologyProductComposition,
         opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
+        transition_opportunity: ResearchTransitionOpportunity::GenericOnly,
     };
     let mut default_session = WorkstationSession::new(82_001).unwrap();
     let mut session = WorkstationSession::new_research(82_001, config).unwrap();

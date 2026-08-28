@@ -1,0 +1,65 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-transition-local-opportunity-candidate.json",
+    "sha256": "8a23b40d173f1aeeed26143300d62911cb15103c990e06ac9205b405114c0f25"
+  },
+  "verdict": "supported",
+  "independent_test_count": 5,
+  "checks": [
+    {
+      "name": "academy-production",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 10.51
+    },
+    {
+      "name": "transition-local-gating-and-restore",
+      "command": "cargo test --locked --manifest-path research/experiments/workstation-transition-local-opportunity/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.46
+    },
+    {
+      "name": "sample-versus-transition-control",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core physical_transition_return_rejects_later_sample_but_admits_matched_transition",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.07
+    },
+    {
+      "name": "core-production-diff",
+      "command": "git diff --quiet bf0c556 -- truelearner/crates/core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.25
+    }
+  ],
+  "findings": [
+    "The candidate and ordinary parent are exactly equal before any actual physical transition return.",
+    "Each returned changed component adds exactly two local alternatives and no preselected direction.",
+    "The complete research configuration restores the exact next observation and checkpoint.",
+    "Production workstation and Academy behavior remain unchanged and the learner core has no diff."
+  ],
+  "residual_uncertainty": [
+    "Engineering verification establishes faithful feature isolation only; the one full frozen discovery run must still test continuation and real contact."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/workstation-transition-local-opportunity.md",
+      "sha256": "70f2820d68adc4cb3341be035205e7e04d969ee42cf8cd26cb272664b5948ead"
+    },
+    {
+      "path": "research/campaigns/workstation-transition-local-opportunity-v1/protocol.toml",
+      "sha256": "de8c3f9140ea2f3512693e236f41218a0440d2fac01a48c1d6cf15fc6d2b2071"
+    }
+  ]
+}
