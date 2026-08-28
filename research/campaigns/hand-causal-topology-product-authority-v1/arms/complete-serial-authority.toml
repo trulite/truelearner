@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-serial-authority"
+campaign = "hand-causal-topology-product-authority-v1"
+kind = "composition"
+parents = ["hand-causal-topology-product-ablation-v1:complete-reference"]
+imports = ["clean exact candidate", "one-module identity", "two and five serial controls"]
+mechanism = "Run the unchanged complete connected-topology protocol on the declared one two and conditional five anonymous serial chains."
+prediction = "Every complete capability integrity replay quiescence exhaustion and work predicate passes."
+falsifiers = ["One-module identity changes.", "Two or five loses closure or any inherited control."]
+source_revision = "commit:7be8bbc3009fe3131622a6ee21e9aa260d649aa1"
+protocol_sha256 = "f6dc9aa6ffd67bb7526d0f0ab92cc988bd26523887233b2d27326980bd2865be"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml product_output_preserves_the_one_joint_identity"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml -- --predecessor-dir research/campaigns/hand-activity-normalized-build-v1 --output-dir AUTHORITY_OUTPUT/complete --protocol causal-topology-product"

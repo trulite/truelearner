@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "hand-causal-topology-product-authority-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "authority"
+hypothesis = "The clean complete connected-topology product is a bounded local organism law, with both output and opportunity factors necessary in the declared anonymous serial-articulation worlds."
+first_divergence = "The two downward removals recur at step-zero output suppression and step-five distal reversal respectively, while the complete product has no divergence through five joints."
+missing_transition = "Disconnected physical outcome components must independently retain both their output arrow and their bounded fresh opportunity."
+prediction = "One fresh one-shot batch reproduces the generic topology fixture, the complete one two five result, both exact ablation walls, old origin failures, and all inherited integrity controls from the exact clean subject."
+falsifiers = ["Subject or protocol lineage is invalid.", "Any complete capability or control fails.", "Either ablation breakpoint changes or survives.", "The generic core topology fixture fails.", "The evidence requires repair or a second valid run."]
+positive_reference = "hand-causal-topology-product-candidate-v1 commit:7be8bbc3009fe3131622a6ee21e9aa260d649aa1 tree:d161e4c7821e3f0f1573976d4ada077b8223a40c"
+negative_controls = ["remove output factorization", "remove opportunity factorization", "immediate-origin product", "causal-path-origin product", "unchanged return-bearing parent"]
+included_mechanisms = ["connected outcome-source topology", "component-local output choice", "component-local bounded fresh opportunity", "return-bearing continuation", "permanent causal diagnostics"]
+inherited_constraints = ["one shared harness", "anonymous physical input", "no semantic anatomy or evaluator answer", "fresh child memory", "replay", "natural quiescence", "zero exhaustion", "bounded work"]
+excluded_proposals = ["global-default change", "keyboard touchpad monitor or image world", "finger opposing digit grasp or morphology claim", "repair or rerun"]
+arm_paths = ["arms/complete-serial-authority.toml", "arms/downward-ablation-authority.toml", "arms/generic-topology-transfer.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 30
+max_minutes_per_arm = 15
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

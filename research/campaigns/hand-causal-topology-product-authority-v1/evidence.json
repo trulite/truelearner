@@ -1,0 +1,101 @@
+{
+  "schema": "research-evidence/v1",
+  "experiment": "hand-causal-topology-product-authority-v1",
+  "protocol_sha256": "f6dc9aa6ffd67bb7526d0f0ab92cc988bd26523887233b2d27326980bd2865be",
+  "subject_digest": "b6dc3abe868a2b7f4d2e53298e756bca6cf475eb3ee58d22ca8b52cd93122de9",
+  "producer": "developmental-hand-multi-joint at frozen commit 7be8bbc3009fe3131622a6ee21e9aa260d649aa1",
+  "environment": {
+    "identity": "fresh detached git worktree /tmp/truelearner-authority-valid.4zI0cY",
+    "subject_commit": "7be8bbc3009fe3131622a6ee21e9aa260d649aa1",
+    "subject_tree": "d161e4c7821e3f0f1573976d4ada077b8223a40c",
+    "subject_status_lines_before_and_after": 0,
+    "cargo_target": "fresh /tmp/truelearner-authority-valid-target.YaKnXd",
+    "rustc": "1.97.1 (8bab26f4f 2026-07-14)",
+    "host": "aarch64-apple-darwin; Darwin 25.5.0 arm64",
+    "valid_runs": 1,
+    "invalid_infrastructure_attempts_without_scientific_artifacts": 1,
+    "run_policy": "one valid frozen batch; no scientific repair or rerun"
+  },
+  "observations": {
+    "subject": {
+      "commit_matched": true,
+      "tree_matched": true,
+      "clean_before": true,
+      "clean_after": true
+    },
+    "generic_core_transfer": {
+      "topology_fixture": "passed",
+      "core_unit_tests": "16 passed",
+      "core_boundary_tests": "65 passed, 2 declared adversarial tests ignored",
+      "core_doc_tests": "passed",
+      "cold_bootstrap_seconds": 20.49
+    },
+    "experiment_integrity": {
+      "tests": "11 passed",
+      "immediate_origin_control": "one-module identity falsified",
+      "causal_path_origin_control": "one-module identity falsified",
+      "predecessor_digests_matched": true,
+      "all_twenty_five_protocol_arm_artifacts_exact_replay_and_naturally_quiescent": true
+    },
+    "complete_product": {
+      "one_module_identity": true,
+      "two_joint_survived": true,
+      "two_closed_joints": 2,
+      "two_registration_order_invariant": true,
+      "two_perturbation_recovered": true,
+      "two_propagation_budget_exhaustions": 0,
+      "five_rung_executed_after_two": true,
+      "five_joint_survived": true,
+      "five_closed_joints": 5,
+      "five_registration_order_invariant": true,
+      "five_perturbation_recovered": true,
+      "five_propagation_budget_exhaustions": 0,
+      "one_work": 23909,
+      "two_work": 47818,
+      "five_work": 119542
+    },
+    "remove_output_factorization": {
+      "one_module_identity": true,
+      "two_joint_survived": false,
+      "first_failure": "joint 0, step 0, output-choice",
+      "five_rung_executed": false,
+      "exact_replay": true,
+      "naturally_quiescent": true
+    },
+    "remove_opportunity_factorization": {
+      "one_module_identity": true,
+      "two_joint_survived": false,
+      "first_failure": "joint 1, step 5, continued-arrow",
+      "five_rung_executed": false,
+      "exact_replay": true,
+      "naturally_quiescent": true
+    }
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/complete/two-joint-serial-composition.json",
+      "sha256": "3bc63091cc8395392c3b6b59ef43ac62cb8ea367e5f582cd24c79233f4ea525f"
+    },
+    {
+      "path": "artifacts/complete/conditional-five-joint.json",
+      "sha256": "0751a11615a1a2103483064aa9f9e238e60a3f4ab4bf8109c715b93b9e6f9d4f"
+    },
+    {
+      "path": "artifacts/remove-output/two-joint-serial-composition.json",
+      "sha256": "067be16eef977c4126fa97e33b14335d0db25fa6f59c64de72f8ef7aa3e85f3a"
+    },
+    {
+      "path": "artifacts/remove-opportunity/two-joint-serial-composition.json",
+      "sha256": "97ab23a10c870334a5f0572381925fa574c6688424e41974947699f4d12849d9"
+    },
+    {
+      "path": "artifacts/immediate-origin/one-module-identity.json",
+      "sha256": "a70b52d01e36e5be58f6bb857e23211956719c2975b8662ab59e0eb0bc2308a2"
+    },
+    {
+      "path": "artifacts/causal-path-origin/one-module-identity.json",
+      "sha256": "2fc719b4f6a022288420c7a7b38907f8cc81d6233bb33ba67dabb6d6f0b2ea53"
+    }
+  ],
+  "completed": true
+}

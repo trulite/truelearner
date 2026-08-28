@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "generic-topology-transfer"
+campaign = "hand-causal-topology-product-authority-v1"
+kind = "control"
+parents = ["hand-causal-topology-product-authority-v1:complete-serial-authority"]
+imports = ["generic connected outcome fixture", "generic disconnected outcome fixture", "full core regression"]
+mechanism = "Test the same connected-component law in core fixtures that contain no hand modules or hand evaluator."
+prediction = "Connected output sources share ordinary competition and disconnected output sources compose, with all inherited core controls unchanged."
+falsifiers = ["Connected alternatives split.", "Disconnected components suppress each other.", "Any inherited core control changes."]
+source_revision = "commit:7be8bbc3009fe3131622a6ee21e9aa260d649aa1"
+protocol_sha256 = "f6dc9aa6ffd67bb7526d0f0ab92cc988bd26523887233b2d27326980bd2865be"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core causal_topology_product_groups_connected_outcomes_and_splits_disconnected_ones"
+full_evidence = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core"

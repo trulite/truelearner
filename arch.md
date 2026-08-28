@@ -21,8 +21,10 @@ outcome returns on the used path -> used links strengthen
 This is the architectural oracle for the physical organism runtime.
 
 PXR0/PX-C, Physical Body V1, and Boundary Buffers V1 are accepted as of
-2026-08-24. Boundary Buffers V1 is the current oracle parent. R1-R6 are
-development or engineering evidence unless named otherwise below.
+2026-08-24. Boundary Buffers V1 remains the global oracle parent. Connected
+Outcome Product V1 is accepted as of 2026-08-28 as the scoped parent for the
+next developmental-hand ladder. R1-R6 are development or engineering evidence
+unless named otherwise below.
 
 Do not infer a new law, mechanism, or authority from this document's forward
 design. Start every successor from an explicit protocol and frozen parent.
@@ -37,6 +39,7 @@ design. Start every successor from an explicit protocol and frozen parent.
 | Body V1 audit | `90e0328d5ca38ad6fa90ac5dc0b3eb215d819a79` | positive | accepted audit |
 | Boundary Buffers V1 | `a712850` | 548/548 | current parent |
 | Buffer audit | `4b5a85c411655f3f8866cbf5107e40ad6ad1231f` | positive | accepted audit |
+| Connected Outcome Product V1 | `7be8bbc3009fe3131622a6ee21e9aa260d649aa1`, `hand-causal-topology-product-candidate-v1` | positive authority; one, two, and five closed; both removals failed at their frozen walls | accepted hand-ladder parent (scoped) |
 | R1-R5 mechanics | `3411aba95485a309d0d4f74ec8824c5029681c82`, `r1-r5-mechanical-optimization-development-v1` | 80/80 pairs, 536/536 clauses | development only |
 | R6 partitioning | `r6-partition-invariance-development-v1` | 36/36 comparisons, 2/2 controls | development only |
 
@@ -70,6 +73,13 @@ public.
 - Treat `Work` and `resident_bytes` as causally inert observers.
 - Preserve the accepted pressure phase: epoch zero, period ten.
 - Preserve junction liveness. Keep generation private as resident safety state.
+- For the developmental-hand parent, let connected physical outcome sources
+  define one ordinary field of alternatives. Keep output competition and
+  bounded fresh-opportunity allocation ordinary inside that component, and
+  compose both independently across disconnected components.
+- This scoped law is `RecursiveLearnerCausalTopologyProductComposition`. It
+  authorizes the next hand ladder; it does not change the global default or
+  assert fingers, grasping, workstation use, or arbitrary morphology.
 
 Use the small words in [LANGUAGE.md](LANGUAGE.md) when explaining this law.
 Use longer names only for exact Rust symbols or frozen evidence.

@@ -1,7 +1,7 @@
 schema = "research-program/v1"
 id = "learner-physics"
 thesis = "Small local physical laws can produce increasingly general learner capabilities without high-level cognitive primitives or hidden evaluator authority."
-pre_frontier_checkpoint = "core1-adoption-code-consolidated-v1@5a57b6acfe26d294e39e7790c85676a2b2badbc9"
+pre_frontier_checkpoint = "hand-causal-topology-product-authority-v1@7be8bbc3009fe3131622a6ee21e9aa260d649aa1"
 active_frontier = ["DEVELOPMENTAL-HAND-LADDER"]
 
 [[claim]]
@@ -192,10 +192,29 @@ limitations = [
 ]
 
 [[claim]]
+id = "ANONYMOUS-SERIAL-ARTICULATION"
+statement = "In the declared one two and five component worlds, an anonymous organism preserves ordinary competition inside each connected physical outcome-source component while composing both output choice and bounded fresh opportunity across disconnected components."
+status = "authoritative"
+depends_on = ["CORE1-LOCAL-LAWS", "SENSORIMOTOR-SYNTHESIS-LADDER", "CAUSAL-LEARNER-CONSTRUCTION"]
+falsifiers = [
+  "The frozen complete protocol changes exact one-module behavior or loses closure in either the two- or five-component world.",
+  "Removing either component-local output choice or component-local opportunity allocation preserves the complete two-component result.",
+  "Connected alternatives do not compete ordinarily or disconnected outcome components suppress one another in the generic fixture.",
+  "The result requires semantic joint module direction pose target score curriculum answer or evaluator-selected action identity.",
+  "Registration perturbation replay natural quiescence zero exhaustion or activity-bounded work fails.",
+]
+limitations = [
+  "Authority is pinned to commit 7be8bbc3009fe3131622a6ee21e9aa260d649aa1, protocol sha256 f6dc9aa6ffd67bb7526d0f0ab92cc988bd26523887233b2d27326980bd2865be, evidence sha256 09ae41fafaa5c1188d6fb3007002fbad99654cd2d7c67007ce1ba1197c7715c3, and positive adjudication sha256 bd3f138c37e6be13b76de41547546143b2f49ad740dc58377cc242e969812b5a.",
+  "The supported capability is bounded to the generic topology fixture and declared anonymous one two and five serial chains.",
+  "The serial modules are not fingers and do not establish opposition contact grasping pointing clicking keyboards touchpads monitors workstation interaction or arbitrary morphology.",
+  "The adopted standing is the parent law for subsequent hand research; the global default protocol remains unchanged.",
+]
+
+[[claim]]
 id = "DEVELOPMENTAL-HAND-LADDER"
 statement = "An organism can develop an anonymous articulated hand by closing progressively harder physical control loops, while each failed rung exposes the earliest missing transition and admits only previously justified mechanisms that specifically predict that break."
 status = "preregistered"
-depends_on = ["CORE1-LOCAL-LAWS", "SENSORIMOTOR-SYNTHESIS-LADDER", "CAUSAL-LEARNER-CONSTRUCTION"]
+depends_on = ["ANONYMOUS-SERIAL-ARTICULATION"]
 falsifiers = [
   "The first anonymous reflected joint cannot reach and leave both limits under the complete recursive candidate.",
   "A later finger, opposing-digit, or hand rung advances after an earlier physical prerequisite fails.",
@@ -235,4 +254,5 @@ limitations = [
   "Development evidence now closes the first anonymous reflected joint under the unchanged official batched adapter. Stable whole-wave extraction scales linearly; the exact opt-in parent remains unchanged; the return-bearing candidate reaches and leaves both limits, recovers from perturbation, replays exactly, quiesces naturally, and exhausts no propagation budget. Because the worktree lacked a clean named pre-frontier checkpoint, this is not frozen authority and the accepted default remains unchanged. After an authorized clean integration gate, the next hand rung is serial composition in one anonymous two-joint finger.",
   "Development evidence now composes the complete anonymous joint through two and then conditionally five serial components in one shared harness. Immediate-origin and completed-path-origin partitions were falsified by the exact one-joint control; factoring both output choice and fresh opportunity over existing connected physical outcome-source components preserved one-joint behavior and closed every two- and five-joint component under registration, perturbation, replay, quiescence, exhaustion, and activity-bounded work controls. This remains opt-in development evidence from a dirty worktree, not accepted-default or frozen authority. The next research action is clean integration plus downward ablation before a new hand morphology.",
   "Downward ablation now establishes separate necessity inside the declared serial-articulation world. Removing connected-component output choice preserved exact one-module identity but restored proximal suppression at two-joint step zero; removing connected-component opportunity allocation preserved one-module identity and initial motion but restored the distal step-five reversal failure. Both stopped five, while the unchanged complete product again closed two and five with inherited controls. The next action is one clean frozen authority run of that unchanged complete survivor; no new morphology may begin first.",
+  "Connected Outcome Product V1 is now authoritative for the next hand ladder. One valid fresh batch at clean commit 7be8bbc3009fe3131622a6ee21e9aa260d649aa1 reproduced the generic topology fixture, exact one-module identity, complete two- and five-joint closure, both distinct removal walls, both origin controls, registration, perturbation, replay, natural quiescence, zero exhaustion, and bounded work. This promotes only the connected-component output-and-opportunity law and bounded anonymous serial-articulation claim; the next morphology remains untested.",
 ]

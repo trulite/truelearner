@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "downward-ablation-authority"
+campaign = "hand-causal-topology-product-authority-v1"
+kind = "diagnostic"
+parents = ["hand-causal-topology-product-ablation-v1:remove-output-factorization", "hand-causal-topology-product-ablation-v1:remove-opportunity-factorization"]
+imports = ["output-only removal", "opportunity-only removal", "exact first-failure trace"]
+mechanism = "Reproduce both single removals from the exact candidate in the same frozen authority batch."
+prediction = "Output removal first fails proximal step zero output choice; opportunity removal first fails distal step five continued arrow; both preserve one and stop five."
+falsifiers = ["Either one-module control changes.", "Either removal survives two.", "Either breakpoint changes.", "Either executes five."]
+source_revision = "commit:7be8bbc3009fe3131622a6ee21e9aa260d649aa1"
+protocol_sha256 = "f6dc9aa6ffd67bb7526d0f0ab92cc988bd26523887233b2d27326980bd2865be"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml topology_ablation"
+full_evidence = "cargo test --locked --manifest-path research/experiments/developmental-hand-multi-joint/Cargo.toml"
