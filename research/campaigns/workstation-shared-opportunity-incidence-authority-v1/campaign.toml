@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "workstation-shared-opportunity-incidence-authority-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "authority"
+hypothesis = "One generic workstation opportunity is one physical cause; the accepted learner already supplies bounded choice within that cause and product composition across distinct causes."
+first_divergence = "The parent gives every motor a different phase and origin and moves all five fingers together on forty-six of forty-eight steps; shared incidence removes that false causal multiplication."
+missing_transition = "The workstation boundary must present one generic chance to move as one physical incidence rather than one independent cause per motor."
+prediction = "One fresh one-shot batch reproduces the parent wall, the full shared-incidence result, neutral shared-versus-distinct-origin controls, and every inherited replay quiescence work and firewall control from the exact clean subject."
+falsifiers = ["Subject or protocol lineage is invalid.", "The parent reference changes.", "The shared subject loses any finger emits five-finger coactivation or fails an integrity control.", "Distinct origins fail to compose.", "The evidence requires repair or a second valid run."]
+positive_reference = "subject commit:d18f8700b9e09b6d9fb65dfdace640868bcb149d tree:2222dfa57a5cae5ad62f35f867250149d5d02447"
+negative_controls = ["independent-incidence parent", "two distinct opportunity origins", "default checkpoint and public world", "semantic firewall"]
+included_mechanisms = ["unchanged accepted connected-topology product", "existing causal-origin choice", "shared generic-opportunity phase and origin", "existing movement and work diagnostics"]
+inherited_constraints = ["one public Harness-owned body", "real workstation assets and geometry", "no semantic anatomy or evaluator action", "exact replay", "natural quiescence", "bounded work"]
+excluded_proposals = ["new learner protocol", "component scheduler state", "round robin or random action identity", "contact click type grasp or transfer claim", "repair or rerun"]
+arm_paths = ["arms/full-workstation-authority.toml", "arms/origin-composition-control.toml", "arms/integration-firewall-control.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = false
+
+[budget]
+total_sandbox_minutes = 30
+max_minutes_per_arm = 15
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true
