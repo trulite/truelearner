@@ -2,9 +2,9 @@ use crate::world::FlatWorld;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
-use truelearner_human::{
-    BodyAxis, BodyMovement, HumanError, HumanHarness, HumanStepObservation, LightField, Point,
-    Side, WorldSample,
+use truelearner_workstation::{
+    BodyAxis, BodyMovement, Eye, LightField, Point, WorkstationError, WorkstationHarness,
+    WorkstationStepObservation, WorldSample,
 };
 
 const STEPS_PER_EXPERIENCE: usize = 12;
@@ -22,12 +22,11 @@ pub enum BodyCapability {
     Contact,
     VisualReach,
     TapHoldRelease,
-    DragPinch,
-    Bimanual,
+    DragOpposition,
 }
 
 impl BodyCapability {
-    pub const ORDER: [Self; 11] = [
+    pub const ORDER: [Self; 10] = [
         Self::GazeContingency,
         Self::GazeControl,
         Self::BinocularDepth,
@@ -37,8 +36,7 @@ impl BodyCapability {
         Self::Contact,
         Self::VisualReach,
         Self::TapHoldRelease,
-        Self::DragPinch,
-        Self::Bimanual,
+        Self::DragOpposition,
     ];
 
     pub fn prerequisites(self) -> &'static [Self] {
@@ -51,8 +49,7 @@ impl BodyCapability {
             Self::Contact => &[Self::SelfWorld],
             Self::VisualReach => &[Self::Contact],
             Self::TapHoldRelease => &[Self::VisualReach],
-            Self::DragPinch => &[Self::TapHoldRelease],
-            Self::Bimanual => &[Self::DragPinch],
+            Self::DragOpposition => &[Self::TapHoldRelease],
         }
     }
 }
@@ -63,17 +60,15 @@ pub enum BodyCourseKind {
     EyeControl,
     HandAndFingerControl,
     EyeHandCoordination,
-    TouchGuidedManipulation,
-    TwoHandCoordination,
+    WorkstationContact,
 }
 
 impl BodyCourseKind {
-    pub const ORDER: [Self; 5] = [
+    pub const ORDER: [Self; 4] = [
         Self::EyeControl,
         Self::HandAndFingerControl,
         Self::EyeHandCoordination,
-        Self::TouchGuidedManipulation,
-        Self::TwoHandCoordination,
+        Self::WorkstationContact,
     ];
 
     pub const fn capabilities(self) -> &'static [BodyCapability] {
@@ -88,13 +83,12 @@ impl BodyCourseKind {
                 BodyCapability::DigitSeparation,
             ],
             Self::EyeHandCoordination => &[BodyCapability::SelfWorld],
-            Self::TouchGuidedManipulation => &[
+            Self::WorkstationContact => &[
                 BodyCapability::Contact,
                 BodyCapability::VisualReach,
                 BodyCapability::TapHoldRelease,
-                BodyCapability::DragPinch,
+                BodyCapability::DragOpposition,
             ],
-            Self::TwoHandCoordination => &[BodyCapability::Bimanual],
         }
     }
 }
@@ -141,7 +135,7 @@ pub struct BodyExperience {
     pub mode: BodyExperienceMode,
     pub seed: u64,
     pub samples: Vec<WorldSample>,
-    pub observations: Vec<HumanStepObservation>,
+    pub observations: Vec<WorkstationStepObservation>,
     pub checkpoint_before: Vec<u8>,
     pub checkpoint_after: Vec<u8>,
     pub durable_unchanged: bool,
@@ -165,7 +159,7 @@ pub struct CourseRun {
 
 pub struct BodyCourse {
     seed: u64,
-    harness: HumanHarness,
+    harness: WorkstationHarness,
     acquired: BTreeSet<BodyCapability>,
     experiences: Vec<BodyExperience>,
 }
@@ -174,7 +168,7 @@ impl BodyCourse {
     pub fn new(seed: u64) -> Result<Self, BodyCourseError> {
         Ok(Self {
             seed,
-            harness: HumanHarness::new(seed)?,
+            harness: WorkstationHarness::new(seed)?,
             acquired: BTreeSet::new(),
             experiences: Vec::new(),
         })
@@ -202,8 +196,8 @@ impl BodyCourse {
             return Err(BodyCourseError::Prerequisite(capability));
         }
         let durable_before = self.checkpoint_bytes()?;
-        let checkpoint = truelearner_human::HumanCheckpoint::decode(&durable_before)?;
-        let mut working = HumanHarness::restore(checkpoint)?;
+        let checkpoint = truelearner_workstation::WorkstationCheckpoint::decode(&durable_before)?;
+        let mut working = WorkstationHarness::restore(checkpoint)?;
         let mut world = FlatWorld::generated(seed, capability);
         let mut samples = Vec::with_capacity(STEPS_PER_EXPERIENCE);
         let mut observations = Vec::with_capacity(STEPS_PER_EXPERIENCE);
@@ -335,7 +329,7 @@ impl BodyCourse {
             });
         }
         Ok(CourseRun {
-            schema_version: 2,
+            schema_version: 3,
             seed: self.seed,
             courses,
             acquired: self.acquired.iter().copied().collect(),
@@ -349,8 +343,8 @@ impl BodyCourse {
     }
 
     fn restore_checkpoint(&mut self, bytes: &[u8]) -> Result<(), BodyCourseError> {
-        let checkpoint = truelearner_human::HumanCheckpoint::decode(bytes)?;
-        self.harness = HumanHarness::restore(checkpoint)?;
+        let checkpoint = truelearner_workstation::WorkstationCheckpoint::decode(bytes)?;
+        self.harness = WorkstationHarness::restore(checkpoint)?;
         Ok(())
     }
 }
@@ -358,11 +352,11 @@ impl BodyCourse {
 fn replay(
     checkpoint_before: &[u8],
     samples: &[WorldSample],
-    expected: &[HumanStepObservation],
+    expected: &[WorkstationStepObservation],
     checkpoint_after: &[u8],
 ) -> Result<bool, BodyCourseError> {
-    let checkpoint = truelearner_human::HumanCheckpoint::decode(checkpoint_before)?;
-    let mut harness = HumanHarness::restore(checkpoint)?;
+    let checkpoint = truelearner_workstation::WorkstationCheckpoint::decode(checkpoint_before)?;
+    let mut harness = WorkstationHarness::restore(checkpoint)?;
     let mut observed = Vec::with_capacity(samples.len());
     for sample in samples {
         observed.push(harness.step(sample.clone())?);
@@ -373,7 +367,7 @@ fn replay(
 fn evaluate(
     capability: BodyCapability,
     samples: &[WorldSample],
-    observations: &[HumanStepObservation],
+    observations: &[WorkstationStepObservation],
 ) -> BodyVerdict {
     if capability == BodyCapability::DigitSeparation {
         let any_movement = observations
@@ -394,10 +388,9 @@ fn evaluate(
         };
     }
     if capability == BodyCapability::BinocularDepth {
-        let vergence_movements = observations
+        let opposing_eye_movements = observations
             .iter()
-            .flat_map(|observation| &observation.movements)
-            .filter(|movement| movement.changed && movement.axis == BodyAxis::Vergence)
+            .filter(|observation| opposing_horizontal_eye_movement(&observation.movements))
             .count();
         if !observations
             .iter()
@@ -407,7 +400,7 @@ fn evaluate(
             return BodyVerdict::MissingExploration;
         }
         return binocular_depth_verdict(
-            vergence_movements,
+            opposing_eye_movements,
             binocular_visual_consequences(samples, observations),
         );
     }
@@ -443,39 +436,32 @@ fn evaluate_physical(
         .count();
     let hand = movements
         .iter()
-        .filter(|movement| side_of(movement.axis).is_some())
+        .filter(|movement| !is_gaze(movement.axis))
         .count();
     let fingers = movements
         .iter()
         .filter(|movement| matches!(movement.axis, BodyAxis::FingerFlexion { .. }))
         .count();
-    let force = movements
+    let depth = movements
         .iter()
-        .filter(|movement| matches!(movement.axis, BodyAxis::ContactForce { .. }))
+        .filter(|movement| matches!(movement.axis, BodyAxis::PalmDepth))
         .count();
     let palm = movements
         .iter()
         .filter(|movement| {
             matches!(
                 movement.axis,
-                BodyAxis::PalmHorizontal { .. } | BodyAxis::PalmVertical { .. }
+                BodyAxis::PalmHorizontal | BodyAxis::PalmVertical
             )
         })
         .count();
-    let contact = samples.iter().any(|sample| {
-        [Side::Left, Side::Right].into_iter().any(|side| {
-            sample
-                .contacts(side)
-                .iter()
-                .any(|value| value.pressure() > 0)
-        })
-    });
-    let left = movements
+    let opposition = movements
         .iter()
-        .any(|movement| side_of(movement.axis) == Some(Side::Left));
-    let right = movements
+        .filter(|movement| matches!(movement.axis, BodyAxis::ThumbOpposition))
+        .count();
+    let contact = samples
         .iter()
-        .any(|movement| side_of(movement.axis) == Some(Side::Right));
+        .any(|sample| sample.contacts().iter().any(|value| value.pressure() > 0));
     if capability == BodyCapability::GazeContingency {
         return gaze_contingency_verdict(gaze, gaze_visual_consequences);
     }
@@ -488,9 +474,8 @@ fn evaluate_physical(
         BodyCapability::SelfWorld => gaze >= 1 && hand >= 1,
         BodyCapability::Contact => contact,
         BodyCapability::VisualReach => contact && gaze >= 1 && palm >= 1,
-        BodyCapability::TapHoldRelease => contact && force >= 1,
-        BodyCapability::DragPinch => contact && palm >= 1 && fingers >= 1,
-        BodyCapability::Bimanual => contact && left && right,
+        BodyCapability::TapHoldRelease => contact && (depth >= 1 || fingers >= 1),
+        BodyCapability::DragOpposition => contact && palm >= 1 && fingers >= 1 && opposition >= 1,
     };
     if passed {
         BodyVerdict::Passed
@@ -501,24 +486,19 @@ fn evaluate_physical(
 
 fn binocular_visual_consequences(
     samples: &[WorldSample],
-    observations: &[HumanStepObservation],
+    observations: &[WorkstationStepObservation],
 ) -> usize {
     samples
         .iter()
         .zip(observations)
-        .filter(|(_, observation)| {
-            observation
-                .movements
-                .iter()
-                .any(|movement| movement.changed && movement.axis == BodyAxis::Vergence)
-        })
+        .filter(|(_, observation)| opposing_horizontal_eye_movement(&observation.movements))
         .filter(|(sample, _)| has_stereo_target(sample))
         .filter(|(sample, observation)| {
-            [Side::Left, Side::Right].into_iter().all(|side| {
+            Eye::ALL.into_iter().all(|eye| {
                 focus_changes_light(
-                    sample.eye(side),
-                    observation.state_before.eyes().focus(side),
-                    observation.state_after.eyes().focus(side),
+                    sample.eye(eye),
+                    observation.state_before.eye(eye).gaze(),
+                    observation.state_after.eye(eye).gaze(),
                 )
             })
         })
@@ -526,10 +506,10 @@ fn binocular_visual_consequences(
 }
 
 fn binocular_depth_verdict(
-    vergence_movements: usize,
+    opposing_eye_movements: usize,
     binocular_visual_consequences: usize,
 ) -> BodyVerdict {
-    if vergence_movements >= 2 && binocular_visual_consequences >= 2 {
+    if opposing_eye_movements >= 2 && binocular_visual_consequences >= 2 {
         BodyVerdict::Passed
     } else {
         BodyVerdict::Failed
@@ -537,8 +517,8 @@ fn binocular_depth_verdict(
 }
 
 fn has_stereo_target(sample: &WorldSample) -> bool {
-    let target_column = |side| {
-        let field = sample.eye(side);
+    let target_column = |eye| {
+        let field = sample.eye(eye);
         field
             .pixels()
             .iter()
@@ -546,7 +526,7 @@ fn has_stereo_target(sample: &WorldSample) -> bool {
             .map(|index| index % usize::from(field.width()))
     };
     matches!(
-        (target_column(Side::Left), target_column(Side::Right)),
+        (target_column(Eye::Left), target_column(Eye::Right)),
         (Some(left), Some(right)) if left != right
     )
 }
@@ -573,7 +553,7 @@ fn has_digit_separation<'a>(steps: impl IntoIterator<Item = &'a [BodyMovement]>)
 
 fn gaze_visual_consequences(
     samples: &[WorldSample],
-    observations: &[HumanStepObservation],
+    observations: &[WorkstationStepObservation],
 ) -> usize {
     samples
         .iter()
@@ -585,11 +565,11 @@ fn gaze_visual_consequences(
                 .any(|movement| movement.changed && is_gaze(movement.axis))
         })
         .filter(|(sample, observation)| {
-            [Side::Left, Side::Right].into_iter().any(|side| {
+            Eye::ALL.into_iter().any(|eye| {
                 focus_changes_light(
-                    sample.eye(side),
-                    observation.state_before.eyes().focus(side),
-                    observation.state_after.eyes().focus(side),
+                    sample.eye(eye),
+                    observation.state_before.eye(eye).gaze(),
+                    observation.state_after.eye(eye).gaze(),
                 )
             })
         })
@@ -611,26 +591,26 @@ fn focus_changes_light(field: &LightField, before: Point, after: Point) -> bool 
 fn is_gaze(axis: BodyAxis) -> bool {
     matches!(
         axis,
-        BodyAxis::GazeHorizontal | BodyAxis::GazeVertical | BodyAxis::Vergence
+        BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. }
     )
 }
 
-fn side_of(axis: BodyAxis) -> Option<Side> {
-    match axis {
-        BodyAxis::PalmHorizontal { side }
-        | BodyAxis::PalmVertical { side }
-        | BodyAxis::Wrist { side }
-        | BodyAxis::ContactForce { side }
-        | BodyAxis::Spread { side }
-        | BodyAxis::ThumbOpposition { side }
-        | BodyAxis::FingerFlexion { side, .. } => Some(side),
-        BodyAxis::GazeHorizontal | BodyAxis::GazeVertical | BodyAxis::Vergence => None,
-    }
+fn opposing_horizontal_eye_movement(movements: &[BodyMovement]) -> bool {
+    let velocity = |eye| {
+        movements
+            .iter()
+            .find(|movement| movement.changed && movement.axis == BodyAxis::EyeHorizontal { eye })
+            .map(|movement| movement.velocity)
+    };
+    matches!(
+        (velocity(Eye::Left), velocity(Eye::Right)),
+        (Some(left), Some(right)) if left.signum() == -right.signum()
+    )
 }
 
 #[derive(Debug)]
 pub enum BodyCourseError {
-    Human(HumanError),
+    Workstation(WorkstationError),
     Prerequisite(BodyCapability),
     Io(String),
     Serialization(String),
@@ -640,7 +620,7 @@ pub enum BodyCourseError {
 impl fmt::Display for BodyCourseError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Human(error) => write!(formatter, "human Harness failed: {error}"),
+            Self::Workstation(error) => write!(formatter, "workstation Harness failed: {error}"),
             Self::Prerequisite(capability) => {
                 write!(
                     formatter,
@@ -660,9 +640,9 @@ impl fmt::Display for BodyCourseError {
 
 impl std::error::Error for BodyCourseError {}
 
-impl From<HumanError> for BodyCourseError {
-    fn from(value: HumanError) -> Self {
-        Self::Human(value)
+impl From<WorkstationError> for BodyCourseError {
+    fn from(value: WorkstationError) -> Self {
+        Self::Workstation(value)
     }
 }
 
@@ -695,7 +675,7 @@ mod tests {
 
     #[test]
     fn passive_world_change_is_not_self_movement() {
-        let harness = HumanHarness::new(11).unwrap();
+        let harness = WorkstationHarness::new(11).unwrap();
         let mut world = FlatWorld::passive(12);
         let first = world.sample(&harness.read().unwrap()).unwrap();
         let second = world.sample(&harness.read().unwrap()).unwrap();
@@ -709,15 +689,15 @@ mod tests {
     #[test]
     fn direction_is_not_an_evaluator_verdict() {
         assert_ne!(
-            truelearner_human::Direction::Decrease,
-            truelearner_human::Direction::Increase
+            truelearner_workstation::Direction::Decrease,
+            truelearner_workstation::Direction::Increase
         );
     }
 
     #[test]
     fn equal_opposing_effort_is_not_credited_as_movement() {
         let canceled = BodyMovement {
-            axis: BodyAxis::GazeHorizontal,
+            axis: BodyAxis::EyeHorizontal { eye: Eye::Left },
             decrease_effort: 2,
             increase_effort: 2,
             net_impulse: 0,
@@ -742,7 +722,7 @@ mod tests {
     }
 
     #[test]
-    fn binocular_depth_requires_repeated_two_eye_vergence_consequences() {
+    fn binocular_depth_requires_repeated_opposing_eye_consequences() {
         assert_eq!(binocular_depth_verdict(0, 0), BodyVerdict::Failed);
         assert_eq!(binocular_depth_verdict(2, 0), BodyVerdict::Failed);
         assert_eq!(binocular_depth_verdict(1, 1), BodyVerdict::Failed);
@@ -752,7 +732,7 @@ mod tests {
 
     #[test]
     fn focus_change_must_change_actual_light() {
-        use truelearner_human::BODY_MAX;
+        use truelearner_workstation::BODY_MAX;
 
         let uniform = LightField::filled(2, 1, 7).unwrap();
         assert!(!focus_changes_light(
@@ -781,29 +761,37 @@ mod tests {
 
     #[test]
     fn digit_separation_requires_two_distinct_isolated_fingers() {
-        let all_together = [Side::Left, Side::Right]
+        let all_together = truelearner_workstation::Digit::ALL
             .into_iter()
-            .flat_map(|side| {
-                truelearner_human::Digit::ALL
-                    .into_iter()
-                    .map(move |digit| changed(BodyAxis::FingerFlexion { side, digit }))
-            })
+            .map(|digit| changed(BodyAxis::FingerFlexion { digit }))
             .collect::<Vec<_>>();
         assert!(!has_digit_separation([all_together.as_slice()]));
 
         let thumb = changed(BodyAxis::FingerFlexion {
-            side: Side::Left,
-            digit: truelearner_human::Digit::Thumb,
+            digit: truelearner_workstation::Digit::Thumb,
         });
         assert!(!has_digit_separation([&[thumb][..], &[thumb][..]]));
 
         let index = changed(BodyAxis::FingerFlexion {
-            side: Side::Left,
-            digit: truelearner_human::Digit::Index,
+            digit: truelearner_workstation::Digit::Index,
         });
         assert!(has_digit_separation([&[thumb][..], &[index][..]]));
 
         let two_together = [thumb, index];
         assert!(!has_digit_separation([two_together.as_slice()]));
+    }
+
+    #[test]
+    fn binocular_coordination_requires_both_eyes_in_opposite_directions() {
+        let left = changed(BodyAxis::EyeHorizontal { eye: Eye::Left });
+        let mut right = changed(BodyAxis::EyeHorizontal { eye: Eye::Right });
+        right.net_impulse = -1;
+        right.velocity = -1;
+        assert!(opposing_horizontal_eye_movement(&[left, right]));
+        assert!(!opposing_horizontal_eye_movement(&[left]));
+        assert!(!opposing_horizontal_eye_movement(&[
+            left,
+            changed(BodyAxis::EyeHorizontal { eye: Eye::Right })
+        ]));
     }
 }

@@ -1,0 +1,63 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "binocular-workstation-harness-candidate.json",
+    "sha256": "fa3feb70f4f99e508536f8b84d599a5a2dc2111745be3e48b896a63eb29a5561"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "checkpoint-held-out",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation --test workstation_harness reads_are_inert_and_checkpoint_restores_the_exact_next_step -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.10
+    },
+    {
+      "name": "accepted-topology-law",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core causal_topology_product_groups_connected_outcomes_and_splits_disconnected_ones",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "semantic-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-body --test body_course serialized_organism_samples_contain_no_course_or_evaluator_fields -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 4.70
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    }
+  ],
+  "findings": [
+    "The unused HumanHarness crate and all current non-historical references were removed; both Rust workspaces now resolve the development body through truelearner-workstation.",
+    "The new body has two independent eye states and one five-digit hand over fifteen bounded axes; it exposes no fused depth or semantic vergence control.",
+    "Opposing outputs on one axis share one outcome source, distinct axes have distinct disconnected sources, and only actual changed axes return PhysicalIncidence::Transition on the next step.",
+    "Opaque checkpoint restore preserves pending axis-local transitions and the exact next observation, while reads and invalid external samples remain inert.",
+    "Academy retains separate pixels, proprioception, and touch behind the semantic firewall. Its complete generated course replays exactly and now preserves DigitSeparation as the first failure after BinocularDepth is acquired in the declared fixture.",
+    "All candidate checks passed; the independently timed representative warm regression completed in 0.04 seconds."
+  ],
+  "residual_uncertainty": [
+    "The external realistic keyboard, continuous touchpad, monitor raster, images, collision, and device state are intentionally not implemented in this body replacement.",
+    "The Academy binocular result is development evidence for its current generated disparity fixture, not authority for distance estimation, depth-directed reaching, or general 3-D vision.",
+    "The complete generated Body Discovery course takes about 49 seconds; it is a full evidence run rather than the representative warm regression and should not be used as the edit loop.",
+    "The development-only harness replacement does not change accepted-body authority or the global default learner protocol."
+  ],
+  "artifacts": [
+    {
+      "path": "factory-artifacts/binocular-workstation-harness-candidate.json",
+      "sha256": "fa3feb70f4f99e508536f8b84d599a5a2dc2111745be3e48b896a63eb29a5561"
+    },
+    {
+      "path": "plans/binocular-workstation-harness.md",
+      "sha256": "55ac94be381f16849b4f996d98566820a4c55dcbc0c2ae737c8f31c1215b1eaf"
+    }
+  ]
+}

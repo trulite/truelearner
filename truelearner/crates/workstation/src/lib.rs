@@ -1,22 +1,22 @@
 #![forbid(unsafe_code)]
-//! A bounded visual-touch human body around the public TrueLearner Harness.
+//! A bounded visual-touch workstation body around the public TrueLearner Harness.
 
 mod checkpoint;
 mod harness;
 mod state;
 
-pub use checkpoint::HumanCheckpoint;
-pub use harness::{HumanHarness, HumanRead, HumanStepObservation, StepMetrics};
+pub use checkpoint::WorkstationCheckpoint;
+pub use harness::{StepMetrics, WorkstationHarness, WorkstationRead, WorkstationStepObservation};
 pub use state::{
     AxisProprioception, BodyAxis, BodyControl, BodyMovement, ContactSample, Digit, DigitState,
-    Direction, EyeState, HandState, HumanState, LightField, Point, Side, WorldSample, AXIS_COUNT,
-    BODY_MAX, DIGIT_COUNT, TOUCH_SITES,
+    Direction, Eye, EyeState, HandPoint, HandState, LightField, Point, WorkstationState,
+    WorldSample, AXIS_COUNT, BODY_MAX, DIGIT_COUNT, TOUCH_SITES,
 };
 
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum HumanError {
+pub enum WorkstationError {
     EmptyLightField,
     LightFieldTooLarge,
     LightLength,
@@ -32,7 +32,7 @@ pub enum HumanError {
     CoreCheckpoint(String),
 }
 
-impl fmt::Display for HumanError {
+impl fmt::Display for WorkstationError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::EmptyLightField => formatter.write_str("light field dimensions must be positive"),
@@ -45,18 +45,23 @@ impl fmt::Display for HumanError {
             Self::ContactOutsideRange => {
                 formatter.write_str("contact sample is outside the physical range")
             }
-            Self::InvalidState => formatter.write_str("human body state is invalid"),
-            Self::TruncatedCheckpoint => formatter.write_str("human checkpoint is truncated"),
+            Self::InvalidState => formatter.write_str("workstation body state is invalid"),
+            Self::TruncatedCheckpoint => formatter.write_str("workstation checkpoint is truncated"),
             Self::WrongCheckpointMagic => {
-                formatter.write_str("human checkpoint has the wrong magic")
+                formatter.write_str("workstation checkpoint has the wrong magic")
             }
             Self::UnsupportedCheckpointVersion(version) => {
-                write!(formatter, "unsupported human checkpoint version {version}")
+                write!(
+                    formatter,
+                    "unsupported workstation checkpoint version {version}"
+                )
             }
-            Self::InvalidCheckpoint => formatter.write_str("human checkpoint is invalid"),
-            Self::CheckpointChecksum => formatter.write_str("human checkpoint checksum differs"),
+            Self::InvalidCheckpoint => formatter.write_str("workstation checkpoint is invalid"),
+            Self::CheckpointChecksum => {
+                formatter.write_str("workstation checkpoint checksum differs")
+            }
             Self::TrailingCheckpointBytes => {
-                formatter.write_str("human checkpoint has trailing bytes")
+                formatter.write_str("workstation checkpoint has trailing bytes")
             }
             Self::UnknownOutput(physical) => {
                 write!(formatter, "unknown outward physical output {physical}")
@@ -66,4 +71,4 @@ impl fmt::Display for HumanError {
     }
 }
 
-impl std::error::Error for HumanError {}
+impl std::error::Error for WorkstationError {}

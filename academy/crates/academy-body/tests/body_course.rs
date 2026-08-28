@@ -34,15 +34,13 @@ fn generated_course_preserves_first_failure_instead_of_teaching_around_it() {
     let run = BodyCourse::new(31_001).unwrap().run().unwrap();
     assert!(run.exact_replay);
     assert!(!run.experiences.is_empty());
+    assert!(run.acquired.contains(&BodyCapability::BinocularDepth));
     assert!(run.acquired.contains(&BodyCapability::HandContingency));
     assert!(!run.acquired.contains(&BodyCapability::DigitSeparation));
-    assert_eq!(run.first_failure, Some(BodyCapability::BinocularDepth));
+    assert_eq!(run.first_failure, Some(BodyCapability::DigitSeparation));
     assert_eq!(run.courses.len(), BodyCourseKind::ORDER.len());
     assert_eq!(run.courses[0].course, BodyCourseKind::EyeControl);
-    assert_eq!(
-        run.courses[0].outcome,
-        BodyCourseOutcome::Failed(BodyCapability::BinocularDepth)
-    );
+    assert_eq!(run.courses[0].outcome, BodyCourseOutcome::Acquired);
     assert_eq!(
         run.courses[1].outcome,
         BodyCourseOutcome::Failed(BodyCapability::DigitSeparation)

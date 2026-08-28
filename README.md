@@ -6,8 +6,9 @@ This branch contains the authoritative Physical Body V1 production organism
 and separates it from its research history.
 
 - `truelearner/` is the complete production Rust workspace.
-- `truelearner/crates/human/` is a development-only visual-touch
-  `HumanHarness`; it is not accepted-body authority.
+- `truelearner/crates/workstation/` is a development-only binocular,
+  one-hand `WorkstationHarness`; it is not accepted-body authority and contains
+  no device meaning.
 - `experiments/` contains archived research code, protocols, evaluators,
   generated evidence, and audit tooling.
 - `arch.md` is the accepted PXR0/PX-C + Physical Body V1 architectural oracle.

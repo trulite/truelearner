@@ -1,9 +1,9 @@
 [package]
-name = "truelearner-human"
+name = "truelearner-workstation"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "Development visual-touch human Harness for TrueLearner"
+description = "Development visual-touch workstation Harness for TrueLearner"
 
 [dependencies]
 bincode = "1"

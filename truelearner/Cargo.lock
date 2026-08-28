@@ -176,7 +176,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "truelearner-human"
+name = "truelearner-workstation"
 version = "0.1.0"
 dependencies = [
  "bincode",

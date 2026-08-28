@@ -1,9 +1,11 @@
 use crate::course::{BodyCapability, BodyCourseError};
-use truelearner_human::{
-    ContactSample, Digit, HumanRead, LightField, Point, Side, WorldSample, BODY_MAX, TOUCH_SITES,
+use truelearner_workstation::{
+    ContactSample, Digit, Eye, HandPoint, LightField, Point, WorkstationRead, WorldSample,
+    BODY_MAX, TOUCH_SITES,
 };
 
 const SIDE: u16 = 33;
+const CONTACT_DEPTH: i16 = 600;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum StereoDepth {
@@ -71,7 +73,10 @@ impl FlatWorld {
         world
     }
 
-    pub(crate) fn sample(&mut self, body: &HumanRead) -> Result<WorldSample, BodyCourseError> {
+    pub(crate) fn sample(
+        &mut self,
+        body: &WorkstationRead,
+    ) -> Result<WorldSample, BodyCourseError> {
         let target = if self.passive_motion {
             self.target
                 .offset_public(i16::try_from(self.step % 7).unwrap_or(0) * 64, 0)
@@ -79,8 +84,8 @@ impl FlatWorld {
             self.target
         };
         let [left_target, right_target] = eye_targets(self.capability, self.seed, target);
-        let left = render_eye(self.seed, left_target, body, Side::Left)?;
-        let right = render_eye(self.seed.rotate_left(11), right_target, body, Side::Right)?;
+        let left = render_eye(self.seed, left_target, body, Eye::Left)?;
+        let right = render_eye(self.seed.rotate_left(11), right_target, body, Eye::Right)?;
         let contacts = contacts(self.capability, body)?;
         self.step = self.step.saturating_add(1);
         Ok(WorldSample::new([left, right], contacts)?)
@@ -101,8 +106,8 @@ fn eye_targets(capability: BodyCapability, seed: u64, center: Point) -> [Point; 
 fn render_eye(
     seed: u64,
     target: Point,
-    body: &HumanRead,
-    side: Side,
+    body: &WorkstationRead,
+    eye: Eye,
 ) -> Result<LightField, BodyCourseError> {
     let mut pixels = (0..SIDE)
         .flat_map(|y| (0..SIDE).map(move |x| background_light(seed, x, y)))
@@ -113,12 +118,29 @@ fn render_eye(
         let y = i16::try_from((seed.rotate_right(index as u32) + index * 53) % 1_024).unwrap_or(0);
         set_body_pixel(&mut pixels, Point::new(x, y)?, 48);
     }
-    let hand = body.state.hand(side);
-    set_body_pixel(&mut pixels, hand.palm(), 96);
+    let hand = body.state.hand();
+    set_body_pixel(&mut pixels, project_hand_point(hand.palm(), eye), 96);
     for digit in Digit::ALL {
-        set_body_pixel(&mut pixels, hand.fingertip(digit), 128);
+        set_body_pixel(
+            &mut pixels,
+            project_hand_point(hand.fingertip(digit), eye),
+            128,
+        );
     }
     Ok(LightField::new(SIDE, SIDE, pixels)?)
+}
+
+fn project_hand_point(point: HandPoint, eye: Eye) -> Point {
+    let half_disparity = point.depth() / 16;
+    let signed = match eye {
+        Eye::Left => -half_disparity,
+        Eye::Right => half_disparity,
+    };
+    Point::new(
+        point.x().saturating_add(signed).clamp(0, BODY_MAX),
+        point.y(),
+    )
+    .expect("projected hand point is bounded")
 }
 
 fn background_light(seed: u64, x: u16, y: u16) -> u8 {
@@ -140,33 +162,28 @@ fn set_body_pixel(pixels: &mut [u8], point: Point, value: u8) {
 
 fn contacts(
     capability: BodyCapability,
-    body: &HumanRead,
-) -> Result<[[ContactSample; TOUCH_SITES]; 2], BodyCourseError> {
-    let mut result = [[ContactSample::default(); TOUCH_SITES]; 2];
+    body: &WorkstationRead,
+) -> Result<[ContactSample; TOUCH_SITES], BodyCourseError> {
+    let mut result = [ContactSample::default(); TOUCH_SITES];
     if capability < BodyCapability::Contact {
         return Ok(result);
     }
-    for side in [Side::Left, Side::Right] {
-        let hand = body.state.hand(side);
-        if hand.palm().y() >= 640 {
-            result[side_index(side)][0] = ContactSample::new(96 + hand.force() / 4, 0)?;
-        }
-        for digit in Digit::ALL {
-            let tip = hand.fingertip(digit);
-            if tip.y() >= 600 {
-                result[side_index(side)][digit_index(digit) + 1] =
-                    ContactSample::new(128 + hand.force() / 4, 0)?;
-            }
+    let hand = body.state.hand();
+    if hand.palm().depth() >= CONTACT_DEPTH {
+        result[0] = ContactSample::new(contact_pressure(hand.palm().depth()), 0)?;
+    }
+    for digit in Digit::ALL {
+        let tip = hand.fingertip(digit);
+        if tip.depth() >= CONTACT_DEPTH {
+            result[digit_index(digit) + 1] = ContactSample::new(contact_pressure(tip.depth()), 0)?;
         }
     }
     Ok(result)
 }
 
-const fn side_index(side: Side) -> usize {
-    match side {
-        Side::Left => 0,
-        Side::Right => 1,
-    }
+fn contact_pressure(depth: i16) -> u16 {
+    let excess = depth.saturating_sub(CONTACT_DEPTH).unsigned_abs();
+    96_u16.saturating_add(excess / 4).min(BODY_MAX as u16)
 }
 
 const fn digit_index(digit: Digit) -> usize {
@@ -196,7 +213,7 @@ impl PointOffset for Point {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use truelearner_human::HumanHarness;
+    use truelearner_workstation::WorkstationHarness;
 
     #[test]
     fn background_distinguishes_every_adjacent_cell_without_high_contrast() {
@@ -221,7 +238,7 @@ mod tests {
 
     #[test]
     fn generated_world_is_static_for_an_unchanged_body() {
-        let body = HumanHarness::new(72).unwrap().read().unwrap();
+        let body = WorkstationHarness::new(72).unwrap().read().unwrap();
         let mut world = FlatWorld::generated(73, BodyCapability::GazeContingency);
         assert_eq!(world.sample(&body).unwrap(), world.sample(&body).unwrap());
     }
@@ -250,12 +267,12 @@ mod tests {
 
     #[test]
     fn binocular_world_exposes_displaced_targets_without_depth_metadata() {
-        let body = HumanHarness::new(74).unwrap().read().unwrap();
+        let body = WorkstationHarness::new(74).unwrap().read().unwrap();
         let sample = FlatWorld::generated(75, BodyCapability::BinocularDepth)
             .sample(&body)
             .unwrap();
-        let target_column = |side| {
-            let field = sample.eye(side);
+        let target_column = |eye| {
+            let field = sample.eye(eye);
             field
                 .pixels()
                 .iter()
@@ -263,7 +280,7 @@ mod tests {
                 .unwrap()
                 % usize::from(field.width())
         };
-        assert_ne!(target_column(Side::Left), target_column(Side::Right));
+        assert_ne!(target_column(Eye::Left), target_column(Eye::Right));
 
         let wire = serde_json::to_string(&sample).unwrap();
         for forbidden in ["depth", "disparity", "target", "course", "capability"] {

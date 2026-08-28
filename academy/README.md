@@ -20,17 +20,18 @@ canonical JSON record, frame evidence, poster, and derived MP4.
 
 ## Run Body Discovery
 
-The development-only visual-touch body has two foveated eyes and two
-five-finger hands. Body Discovery is reported as five courses: Eye Control,
-Hand and Finger Control, Eye-Hand Coordination, Touch-Guided Manipulation, and
-Two-Hand Coordination. Eye and hand foundations can advance independently;
-dependent courses remain not reached when their prerequisites fail.
+The development-only visual-touch body has two independently movable foveated
+eyes and one five-finger hand. Body Discovery is reported as four courses: Eye
+Control, Hand and Finger Control, Eye-Hand Coordination, and Workstation
+Contact. Eye and hand foundations can advance independently; dependent courses
+remain not reached when their prerequisites fail.
 
 Eye Control includes a bounded binocular-depth lesson. A target is projected
 with equal-and-opposite horizontal disparity, and the probe requires repeated
-vergence with actual light consequences in both eyes. This tests a stereo
-sensorimotor contingency, not general 3D understanding or depth-directed
-reaching.
+opposing horizontal movements of the independent eyes with actual light
+consequences in both eyes. No vergence motor or fused depth enters the learner.
+This tests a stereo sensorimotor contingency, not general 3D understanding or
+depth-directed reaching.
 
 Opposing motor effort is integrated per physical axis, then
 signed position, actual velocity, effort, joint limits, and touch return as
@@ -67,7 +68,7 @@ The application opens a native window titled `Academy Episodes` at
   deterministic raster surfaces, checkpoints/replay, and the bounded body
   worker.
 - `academy-body`: generated Body Discovery development, probes, controls,
-  replay, and evidence through the public `HumanHarness`.
+  replay, and evidence through the public `WorkstationHarness`.
 - `academy-review`: portable catalog and episode descriptions for causally
   inert review tools.
 - `academy-episodes`: canonical episode catalog plus deterministic review-frame
@@ -82,7 +83,7 @@ playground -> academy-review
 academy-runner -> academy-episodes -> academy-core -> truelearner-core
 academy-episodes -> academy-review
 academy-body -> academy-core -> truelearner-core
-academy-body -> truelearner-human -> truelearner-core
+academy-body -> truelearner-workstation -> truelearner-core
 ```
 
 The Playground reads `catalog.json` at startup. Its native webview requests

@@ -30,7 +30,7 @@ academy-arc3 = { path = "crates/academy-arc3" }
 academy-review = { path = "crates/academy-review" }
 academy-episodes = { path = "crates/academy-episodes" }
 truelearner-core = { path = "../truelearner/crates/core" }
-truelearner-human = { path = "../truelearner/crates/human" }
+truelearner-workstation = { path = "../truelearner/crates/workstation" }
 dioxus = { version = "0.7.10", default-features = false }
 futures-timer = "3.0.3"
 font8x8 = "0.3.1"
