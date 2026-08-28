@@ -13,4 +13,4 @@ budget_minutes = 12
 
 [gates]
 tiny_fixture = "cargo test --locked --manifest-path research/experiments/workstation-transition-local-opportunity/Cargo.toml --lib"
-full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/workstation-transition-local-opportunity/Cargo.toml -- --output research/campaigns/workstation-transition-local-opportunity-v1/artifacts/transition-local-candidate.json --recording output/workstation-transition-local-opportunity-v1/recording.tlwr"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/workstation-transition-local-opportunity/Cargo.toml -- --output research/campaigns/workstation-transition-local-opportunity-v1/artifacts/transition-local-candidate.json"
