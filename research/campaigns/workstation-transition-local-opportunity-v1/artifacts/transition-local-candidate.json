@@ -1,0 +1,92 @@
+{
+  "schema": "workstation-transition-local-opportunity/v1",
+  "outcome": "falsified",
+  "seed": 82001,
+  "steps": 120,
+  "exact_replay": true,
+  "trace_sha256": "bf1dd92a6f476793bdeaf0ba773b1e56b00f2d2fc1fa86d5b0c4ee2f2681868c",
+  "continuation": {
+    "returned_components": 620,
+    "emitted_local_inputs": 1240,
+    "return_steps_with_same_component_movement": 115,
+    "contact_relevant_returns": 162,
+    "contact_relevant_same_component_movements": 131,
+    "contact_relevant_same_direction_movements": 63
+  },
+  "contact": {
+    "contact_depth": 600,
+    "device_event_count": 0,
+    "exact_replay": true,
+    "first_contact": null,
+    "first_failure": "unguided-surface-entry",
+    "five_finger_steps": 1,
+    "isolated_finger_steps": 27,
+    "max_step_work": 1104,
+    "moved_fingers": [
+      "thumb",
+      "index",
+      "middle",
+      "ring",
+      "little"
+    ],
+    "naturally_quiescent": true,
+    "outcome": "surface-entry-wall",
+    "output_crossings": 764,
+    "recording_sha256": "bf1dd92a6f476793bdeaf0ba773b1e56b00f2d2fc1fa86d5b0c4ee2f2681868c",
+    "returned_transition_count": 620,
+    "schema": "workstation-contact-contingency/v1",
+    "seed": 82001,
+    "sites": [
+      {
+        "max_depth": 256,
+        "max_pressure": 0,
+        "min_signed_depth_gap_while_over_surface": 344,
+        "positive_contact_samples": 0,
+        "site": "palm",
+        "surface_entries": 0
+      },
+      {
+        "max_depth": 258,
+        "max_pressure": 0,
+        "min_signed_depth_gap_while_over_surface": 342,
+        "positive_contact_samples": 0,
+        "site": "thumb",
+        "surface_entries": 0
+      },
+      {
+        "max_depth": 256,
+        "max_pressure": 0,
+        "min_signed_depth_gap_while_over_surface": 344,
+        "positive_contact_samples": 0,
+        "site": "index",
+        "surface_entries": 0
+      },
+      {
+        "max_depth": 256,
+        "max_pressure": 0,
+        "min_signed_depth_gap_while_over_surface": 344,
+        "positive_contact_samples": 0,
+        "site": "middle",
+        "surface_entries": 0
+      },
+      {
+        "max_depth": 256,
+        "max_pressure": 0,
+        "min_signed_depth_gap_while_over_surface": 344,
+        "positive_contact_samples": 0,
+        "site": "ring",
+        "surface_entries": 0
+      },
+      {
+        "max_depth": 256,
+        "max_pressure": 0,
+        "min_signed_depth_gap_while_over_surface": 344,
+        "positive_contact_samples": 0,
+        "site": "little",
+        "surface_entries": 0
+      }
+    ],
+    "steps": 120,
+    "surface_entries": []
+  }
+}

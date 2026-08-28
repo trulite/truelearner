@@ -1,0 +1,42 @@
+schema = "research-convergence/v1"
+campaign = "workstation-transition-local-opportunity-v1"
+round = 1
+survived = ["immutable-parent-reference", "unchanged-sample-control"]
+falsified = ["transition-local-candidate"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "parent and candidate preserve the authoritative topology-product learner shared generic opportunity real workstation body and surface physics",
+  "candidate differs only after an actual returned changed component and adds two unchosen local alternatives for that event",
+  "both traces replay exactly naturally quiesce and remain below the frozen work bound",
+]
+strongest_counterexamples = [
+  "transition-local-candidate converted 131 of 162 contact-relevant returns into same-component movement and 115 return steps into some same-component movement, proving that the added local cause was admitted and executable",
+  "only 63 of those 131 contact-relevant movements continued the prior direction, so the added component opportunity mostly alternated rather than preserving the returned physical arrow",
+  "the candidate reached no surface and worsened the best gap from parent 312 to 342 while one five-finger step returned, falsifying both contact and coactivation predicates",
+  "unchanged samples opened no local opportunity and initial parent identity remained exact, so false resampling or unconditional extra drive did not cause the failure",
+]
+retired_families = [
+  "component-local opportunity alone as a contact solve",
+  "more frequent anonymous joint movement without exact used-path continuity",
+  "contact sensing world physics or observation horizon as the current first failure",
+  "global or persistent extra motor opportunity",
+]
+next_discriminators = [
+  "project the already enabled physical choice diagnostics for the earliest returned depth transitions",
+  "classify whether the exact return-bearing directional candidate is absent non-executable admitted but not selected or selected and canceled",
+  "test an existing exact-path continuation approach only if its predicted diagnostic branch occurs; do not add semantic direction memory",
+]
+
+[[new_arm]]
+id = "return-bearing-choice-localization"
+kind = "diagnostic"
+parents = ["transition-local-candidate", "unchanged-sample-control"]
+imports = ["transition-local-candidate:actual return and admitted component opportunity", "core physical diagnostics:output candidate evaluation and choice basis", "unchanged-sample-control:transition-only gating"]
+interaction_prediction = "At the first direction-breaking depth return, the core trace will distinguish missing return-bearing path executability from ordinary ranking loss or cancellation, selecting an existing path-continuation solve without another broad contact diagnostic."
+falsifiers = [
+  "The causally inert diagnostic trace changes outputs work state replay or quiescence.",
+  "The trace cannot map the chosen motor crossing and returned physical component to the corresponding candidate decision.",
+  "The first breaking step already selects and executes the exact prior directional path without cancellation.",
+  "Localization requires named anatomy desired direction contact target or evaluator action.",
+]
