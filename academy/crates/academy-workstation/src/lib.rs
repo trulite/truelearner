@@ -3,12 +3,14 @@
 
 mod checkpoint;
 mod geometry;
+mod recording;
 mod render;
 mod session;
 mod world;
 
 pub use checkpoint::SessionCheckpoint;
 pub use geometry::{Key, KeyId, Rect, WorldGeometry, KEY_COUNT};
+pub use recording::{RecordedStep, WorkstationRecording, MAX_RECORDING_STEPS};
 pub use session::{SessionObservation, SessionRead, WorkstationSession};
 pub use world::{DeviceEvent, DeviceState, ScreenPoint, WorkstationWorld};
 
@@ -26,6 +28,14 @@ pub enum WorldError {
     UnsupportedCheckpointVersion(u16),
     CheckpointChecksum,
     TrailingCheckpointBytes,
+    InvalidRecording,
+    RecordingTooLong,
+    TruncatedRecording,
+    WrongRecordingMagic,
+    UnsupportedRecordingVersion(u16),
+    RecordingChecksum,
+    TrailingRecordingBytes,
+    RecordingReplayDiverged(u64),
     Body(String),
 }
 
@@ -52,6 +62,30 @@ impl fmt::Display for WorldError {
             }
             Self::TrailingCheckpointBytes => {
                 formatter.write_str("workstation checkpoint has trailing bytes")
+            }
+            Self::InvalidRecording => formatter.write_str("workstation recording is invalid"),
+            Self::RecordingTooLong => formatter.write_str("workstation recording is too long"),
+            Self::TruncatedRecording => formatter.write_str("workstation recording is truncated"),
+            Self::WrongRecordingMagic => {
+                formatter.write_str("workstation recording has the wrong magic")
+            }
+            Self::UnsupportedRecordingVersion(version) => {
+                write!(
+                    formatter,
+                    "unsupported workstation recording version {version}"
+                )
+            }
+            Self::RecordingChecksum => {
+                formatter.write_str("workstation recording checksum differs")
+            }
+            Self::TrailingRecordingBytes => {
+                formatter.write_str("workstation recording has trailing bytes")
+            }
+            Self::RecordingReplayDiverged(sequence) => {
+                write!(
+                    formatter,
+                    "workstation recording diverged at sequence {sequence}"
+                )
             }
             Self::Body(message) => write!(formatter, "workstation body failed: {message}"),
         }

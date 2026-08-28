@@ -77,6 +77,20 @@ name = "academy-workstation"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "flate2",
+ "font8x8",
+ "image",
+ "serde",
+ "serde_json",
+ "sha2",
+ "truelearner-workstation",
+]
+
+[[package]]
+name = "academy-workstation-review"
+version = "0.1.0"
+dependencies = [
+ "academy-workstation",
  "font8x8",
  "image",
  "serde",

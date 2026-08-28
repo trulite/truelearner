@@ -3,6 +3,7 @@ members = [
     "crates/academy-core",
     "crates/academy-body",
     "crates/academy-workstation",
+    "crates/academy-workstation-review",
     "crates/academy-arc3",
     "crates/academy-review",
     "crates/academy-episodes",
@@ -29,6 +30,7 @@ publish = false
 academy-core = { path = "crates/academy-core" }
 academy-body = { path = "crates/academy-body" }
 academy-workstation = { path = "crates/academy-workstation" }
+academy-workstation-review = { path = "crates/academy-workstation-review" }
 academy-arc3 = { path = "crates/academy-arc3" }
 academy-review = { path = "crates/academy-review" }
 academy-episodes = { path = "crates/academy-episodes" }
@@ -37,6 +39,7 @@ truelearner-workstation = { path = "../truelearner/crates/workstation" }
 dioxus = { version = "0.7.10", default-features = false }
 futures-timer = "3.0.3"
 font8x8 = "0.3.1"
+flate2 = "1"
 image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
 percent-encoding = "2.3.2"
 serde = { version = "1.0.219", features = ["derive"] }

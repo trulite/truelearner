@@ -61,6 +61,20 @@ physical external-world mechanics. The learner still receives only pixels,
 touch, and proprioception; key, cursor, click, character, image identity, and
 evaluator state remain outside it.
 
+To record an actual headless workstation run and derive an observer MP4:
+
+```sh
+cargo run --release --locked --manifest-path academy/Cargo.toml \
+  -p academy-workstation-review --bin academy-workstation-record -- \
+  output/workstation-run --steps 48 --seed 82001
+```
+
+The command freezes a checksummed `recording.tlwr`, decodes and exactly replays
+that file, then writes `episode.mp4`, deterministic source frames, and a review
+manifest. The video shows both organism eye fields plus external movement,
+contact, device-event, work, quiescence, and fingerprint annotations. Review
+labels and video timing never return to the learner.
+
 ## Run on macOS
 
 From the repository root:
@@ -81,6 +95,8 @@ The application opens a native window titled `Academy Episodes` at
   replay, and evidence through the public `WorkstationHarness`.
 - `academy-workstation`: headless keyboard, touchpad, monitor, collision,
   binocular rendering, and joint world/body replay.
+- `academy-workstation-review`: optional frozen workstation recording review,
+  deterministic observer frames, and MP4 encoding.
 - `academy-review`: portable catalog and episode descriptions for causally
   inert review tools.
 - `academy-episodes`: canonical episode catalog plus deterministic review-frame
@@ -97,6 +113,7 @@ academy-episodes -> academy-review
 academy-body -> academy-core -> truelearner-core
 academy-body -> truelearner-workstation -> truelearner-core
 academy-workstation -> truelearner-workstation -> truelearner-core
+academy-workstation-review -> academy-workstation
 ```
 
 The Playground reads `catalog.json` at startup. Its native webview requests

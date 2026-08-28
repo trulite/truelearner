@@ -26,3 +26,10 @@ and device consequences become visible on the following physical step.
 This crate provides the workstation surface. It is not evidence that the
 organism can separate its digits, reach, point, click, type, or understand
 images.
+
+`WorkstationRecording` preserves complete before/after session observations in
+a bounded, checksummed envelope and verifies them by restoring the opaque
+initial checkpoint and replaying the ordinary session. Recording adds no new
+learner event or diagnostic branch. The optional sibling crate
+`academy-workstation-review` consumes only this frozen record to create human
+review frames and video.

@@ -1,14 +1,13 @@
 [package]
-name = "academy-workstation"
+name = "academy-workstation-review"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
-description = "Headless physical workstation world for TrueLearner Academy"
+description = "Causally inert MP4 review for frozen Academy workstation recordings"
 
 [dependencies]
-bincode = "1"
+academy-workstation.workspace = true
 font8x8.workspace = true
-flate2.workspace = true
 image.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -17,3 +16,7 @@ truelearner-workstation.workspace = true
 
 [lib]
 path = "src/lib.rs"
+
+[[bin]]
+name = "academy-workstation-record"
+path = "src/main.rs"
