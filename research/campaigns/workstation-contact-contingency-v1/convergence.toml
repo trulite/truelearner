@@ -1,0 +1,44 @@
+schema = "research-convergence/v1"
+campaign = "workstation-contact-contingency-v1"
+round = 1
+survived = ["complete-parent-contact", "observer-replay-control", "surface-physics-control"]
+falsified = []
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "all three arms preserve the adopted shared-opportunity workstation parent and add no learner-facing state or evaluator-selected action",
+  "the complete arm and observer control use the ordinary bounded recording path with exact replay",
+  "the complete arm and surface control use the same fixed contact depth and real keyboard and touchpad geometry",
+  "every executed arm ran at clean detached subject 7c1bd80ef240e00170cce5aadf91e57ffe42f899 in one fresh batch",
+]
+strongest_counterexamples = [
+  "complete-parent-contact retained eleven isolated-finger steps spanning all five digits and zero five-finger steps but produced zero surface entries zero contact samples and zero device events in one-hundred-twenty steps",
+  "the closest fingertip reached depth two-hundred-eighty-eight while contact begins at six-hundred leaving a minimum signed gap of three-hundred-twelve; palm depth never exceeded its initial two-hundred-fifty-six",
+  "surface-physics-control rejected hover and correctly produced thresholded contact key and maintained-touch behavior, so missing world contact mechanics cannot explain the complete failure",
+  "observer-replay-control and the complete artifact replayed exactly and naturally quiesced, so the wall is not an observer or cutoff artifact",
+]
+retired_families = [
+  "contact sensor or device mechanics as the first current failure",
+  "broad digit coactivation as the first current failure",
+  "extending the same unguided run beyond the complete bounded recorder horizon as a proposed solve",
+  "moving the surface or initial hand pose to manufacture contact",
+  "using a device event contact reward named finger or desired direction to teach the reach",
+]
+next_discriminators = [
+  "project the immutable recording into per-axis signed movement and position extrema without rerunning the organism",
+  "distinguish absence of palm-depth opportunity from repeated selection of the non-contact direction and from failure to continue a useful depth transition",
+  "only after that immutable localization test competing benchmark-blind solves drawn from existing bounded opportunity physical-transition continuation and visual-consequence approaches",
+]
+
+[[new_arm]]
+id = "immutable-depth-arrow-localization"
+kind = "diagnostic"
+parents = ["complete-parent-contact", "observer-replay-control"]
+imports = ["complete-parent-contact:immutable 120-step recording", "observer-replay-control:exact inert decode", "surface-physics-control:fixed physical contact threshold"]
+interaction_prediction = "The retained trace will show whether palm-depth and finger-depth contact approaches were never offered never selected selected only away from the surface or selected briefly without continued reuse; the first differing case chooses the next solve without another organism run."
+falsifiers = [
+  "The recording digest differs from 6403bd01744a3a5a80039e8b6119a82c36bce382194da44e5657ce2df7afc371.",
+  "The public recording lacks enough before after movement and return evidence to classify the signed depth arrow.",
+  "The trace shows a real surface entry that the frozen complete projection missed.",
+  "Localization requires a surface target desired direction named anatomy or learner-facing diagnostic change.",
+]

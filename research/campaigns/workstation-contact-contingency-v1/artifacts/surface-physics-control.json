@@ -1,0 +1,13 @@
+{
+  "schema": "workstation-contact-control/v1",
+  "arm": "surface-physics-control",
+  "outcome": "passed",
+  "subject_revision": "7c1bd80ef240e00170cce5aadf91e57ffe42f899",
+  "observations": {
+    "hover_rejected": true,
+    "surface_crossing_detected": true,
+    "key_press_threshold_preserved": true,
+    "maintained_touch_motion_required": true
+  },
+  "raw_output_sha256": "79d48fda7a0e58ccdcb872a0770dbdc9931d4947227b41714185b8c2f54df173"
+}
