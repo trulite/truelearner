@@ -1,0 +1,84 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-shared-opportunity-candidate.json",
+    "sha256": "79b24e9ba51018e3949f6ee65d6dc89b0855362dc8f0a801e2dc81e0fffd31cc"
+  },
+  "verdict": "supported",
+  "independent_test_count": 6,
+  "checks": [
+    {
+      "name": "public-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 4.77
+    },
+    {
+      "name": "default-authority-identity",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --features research shared_opportunity_wave_exposes_separate_full_morphology_movements",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 19.82
+    },
+    {
+      "name": "adopted-default-full-evidence",
+      "command": "cargo run --quiet --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml -- --arm adopted-default --output /tmp/workstation-verify-adopted.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 20.07
+    },
+    {
+      "name": "independent-parent-full-control",
+      "command": "cargo run --quiet --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml -- --arm parent-reference --output /tmp/workstation-verify-parent.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 33.3
+    },
+    {
+      "name": "core-production-diff",
+      "command": "git diff --quiet f922494 -- truelearner/crates/core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.5
+    }
+  ],
+  "findings": [
+    "The production default and the authorized shared research construction produced identical initial checkpoints, all 48 observations, and final checkpoints.",
+    "The adopted default regenerated the frozen scientific result: 10 isolated-finger steps spanning all five digits, zero five-finger steps, exact replay, natural quiescence, zero device events, and maximum step work 812.",
+    "The research-only independent control preserved the prior wall: zero isolated-finger steps and 46 five-finger steps.",
+    "No core learner source changed; this is a workstation-boundary incidence adoption."
+  ],
+  "residual_uncertainty": [
+    "Separate unguided digit movement does not establish intentional finger selection, contact, pointing, clicking, typing, grasping, or transfer to another morphology."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/adopt-workstation-shared-opportunity.md",
+      "sha256": "41f85af9328993eb0c57a7f06755fc4f92526a53a3d9eedbf8edf6261832d3e9"
+    },
+    {
+      "path": "factory/receipts/workstation-shared-opportunity-adopted-default.json",
+      "sha256": "64a733632177633c924e457363bb03be1cb523cf6cd3a30e9b5e129d0b2b18db"
+    },
+    {
+      "path": "factory/receipts/workstation-shared-opportunity-independent-control.json",
+      "sha256": "379f5ace018d5dbfd25337d7040b55297b6a202f972bf2f89172e4027406be61"
+    },
+    {
+      "path": "research/campaigns/workstation-shared-opportunity-incidence-authority-v1/evidence.json",
+      "sha256": "5f1714002aa307369e01aaec21f3b76a82e00ca5f3f8c2b5a2273b5e6c23bd66"
+    },
+    {
+      "path": "research/campaigns/workstation-shared-opportunity-incidence-authority-v1/artifacts/shared-incidence.json",
+      "sha256": "9228a9fc91b6870258d09e00ec0671796e579aee9ec715e86d3fe43a5274b937"
+    }
+  ]
+}

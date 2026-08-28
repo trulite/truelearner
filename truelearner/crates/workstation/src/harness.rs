@@ -128,15 +128,8 @@ pub struct WorkstationHarness {
     sites: Sites,
     sequence: u64,
     pending_transitions: [bool; AXIS_COUNT],
-    opportunity_incidence: OpportunityIncidence,
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-enum OpportunityIncidence {
-    #[default]
-    Independent,
     #[cfg(feature = "research")]
-    SharedWave,
+    opportunity_incidence: ResearchOpportunityIncidence,
 }
 
 #[cfg(feature = "research")]
@@ -155,15 +148,23 @@ pub struct ResearchHarnessConfig {
 
 impl WorkstationHarness {
     pub fn new(_seed: u64) -> Result<Self, WorkstationError> {
-        Self::new_with(
-            Protocol::RecursiveLearnerCausalTopologyProductComposition,
-            OpportunityIncidence::Independent,
-        )
+        let (boundary, sites) =
+            build_harness(Protocol::RecursiveLearnerCausalTopologyProductComposition);
+        Ok(Self {
+            boundary,
+            state: WorkstationState::default(),
+            sites,
+            sequence: 0,
+            pending_transitions: [false; AXIS_COUNT],
+            #[cfg(feature = "research")]
+            opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
+        })
     }
 
+    #[cfg(feature = "research")]
     fn new_with(
         protocol: Protocol,
-        opportunity_incidence: OpportunityIncidence,
+        opportunity_incidence: ResearchOpportunityIncidence,
     ) -> Result<Self, WorkstationError> {
         let (boundary, sites) = build_harness(protocol);
         Ok(Self {
@@ -181,13 +182,7 @@ impl WorkstationHarness {
         _seed: u64,
         config: ResearchHarnessConfig,
     ) -> Result<Self, WorkstationError> {
-        Self::new_with(
-            config.protocol,
-            match config.opportunity_incidence {
-                ResearchOpportunityIncidence::Independent => OpportunityIncidence::Independent,
-                ResearchOpportunityIncidence::SharedWave => OpportunityIncidence::SharedWave,
-            },
-        )
+        Self::new_with(config.protocol, config.opportunity_incidence)
     }
 
     pub fn step(
@@ -250,14 +245,7 @@ impl WorkstationHarness {
             .collect::<Vec<_>>();
         let opportunity_tick = tick.saturating_add(1);
         inputs.extend(next.sites.motors.iter().enumerate().map(|(index, target)| {
-            let (phase, origin_offset) = match next.opportunity_incidence {
-                OpportunityIncidence::Independent => (
-                    20_000_i32.saturating_add(i32::try_from(index).unwrap_or(0)),
-                    5_000_u64.saturating_add(u64::try_from(index).unwrap_or(0)),
-                ),
-                #[cfg(feature = "research")]
-                OpportunityIncidence::SharedWave => (20_000, 5_000),
-            };
+            let (phase, origin_offset) = next.opportunity_coordinates(index);
             Input {
                 arrival_tick: opportunity_tick,
                 phase,
@@ -368,7 +356,8 @@ impl WorkstationHarness {
             sites: payload.sites,
             sequence: payload.sequence,
             pending_transitions: payload.pending_transitions,
-            opportunity_incidence: OpportunityIncidence::Independent,
+            #[cfg(feature = "research")]
+            opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
         })
     }
 
@@ -378,11 +367,20 @@ impl WorkstationHarness {
         opportunity_incidence: ResearchOpportunityIncidence,
     ) -> Result<Self, WorkstationError> {
         let mut restored = Self::restore(checkpoint)?;
-        restored.opportunity_incidence = match opportunity_incidence {
-            ResearchOpportunityIncidence::Independent => OpportunityIncidence::Independent,
-            ResearchOpportunityIncidence::SharedWave => OpportunityIncidence::SharedWave,
-        };
+        restored.opportunity_incidence = opportunity_incidence;
         Ok(restored)
+    }
+
+    fn opportunity_coordinates(&self, _index: usize) -> (i32, u64) {
+        #[cfg(feature = "research")]
+        if self.opportunity_incidence == ResearchOpportunityIncidence::Independent {
+            return (
+                20_000_i32.saturating_add(i32::try_from(_index).unwrap_or(0)),
+                5_000_u64.saturating_add(u64::try_from(_index).unwrap_or(0)),
+            );
+        }
+
+        (20_000, 5_000)
     }
 
     fn pending_axes(&self) -> Vec<BodyAxis> {

@@ -79,12 +79,23 @@ fn shared_opportunity_wave_exposes_separate_full_morphology_movements() {
         protocol: Protocol::RecursiveLearnerCausalTopologyProductComposition,
         opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
     };
+    let mut default_session = WorkstationSession::new(82_001).unwrap();
     let mut session = WorkstationSession::new_research(82_001, config).unwrap();
+    assert_eq!(
+        default_session.save().unwrap().canonical_bytes().unwrap(),
+        session.save().unwrap().canonical_bytes().unwrap()
+    );
     let mut isolated_finger_steps = 0_u64;
     let mut five_finger_steps = 0_u64;
     let mut moved_digits = Vec::new();
     for _ in 0..48 {
+        let default_observation = default_session.step().unwrap();
         let observation = session.step().unwrap();
+        assert!(
+            default_observation == observation,
+            "default behavior diverged from the authorized shared behavior at sequence {}",
+            observation.sequence
+        );
         let changed_fingers = observation
             .body
             .movements
@@ -108,4 +119,5 @@ fn shared_opportunity_wave_exposes_separate_full_morphology_movements() {
     assert!(isolated_finger_steps > 0);
     assert!(moved_digits.len() >= 2, "moved digits: {moved_digits:?}");
     assert_eq!(five_finger_steps, 0);
+    assert_eq!(default_session.save().unwrap(), session.save().unwrap());
 }

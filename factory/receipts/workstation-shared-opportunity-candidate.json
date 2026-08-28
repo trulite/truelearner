@@ -1,0 +1,86 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-28T16:00:59.191847+00:00",
+  "started_at": "2026-08-28T16:00:31.180862+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/adopt-workstation-shared-opportunity.md",
+    "sha256": "41f85af9328993eb0c57a7f06755fc4f92526a53a3d9eedbf8edf6261832d3e9"
+  },
+  "candidate": {
+    "revision": "f92249471fbcc35a7d5099972d32b201972a45e4",
+    "tree_sha256": "9d066a741ea05ce3030e74c7971dca5254a401d44f9e1aeaf057aacccde09873"
+  },
+  "scope": [
+    "plans/adopt-workstation-shared-opportunity.md",
+    "truelearner/crates/workstation",
+    "academy/crates/academy-workstation",
+    "research/experiments/workstation-digit-separation",
+    "factory/receipts"
+  ],
+  "changed_paths": [
+    "academy/crates/academy-workstation/tests/workstation_world.rs",
+    "factory/receipts/workstation-shared-opportunity-adopted-default.json",
+    "factory/receipts/workstation-shared-opportunity-independent-control.json",
+    "plans/adopt-workstation-shared-opportunity.md",
+    "research/experiments/workstation-digit-separation/src/lib.rs",
+    "truelearner/crates/workstation/src/harness.rs"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path truelearner/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.378666,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --workspace --locked --manifest-path truelearner/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.90652,
+      "output_sha256": "af86ff9f180d66b0908279e26eb1a16e3f4466d2eebf3edbf167c4f8000a3c77"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --workspace --all-targets --locked --manifest-path truelearner/Cargo.toml -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.595525,
+      "output_sha256": "6a1e299d87d746a5b6d9ee749553ee04c6c47c5000ee4223b4f77c1bb30635ef"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core opportunity_origin",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.120696,
+      "output_sha256": "2d1eae62b91568e422cb9c81aca8bbf4e894088e4226a6e742de113b48fdf616"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.952979,
+      "output_sha256": "2ebf4248d9830b5914e44fc8cba7515f3d982ed7c41e90128ffcb3de42e0fb65"
+    },
+    {
+      "name": "academy-identity",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --features research shared_opportunity_wave_exposes_separate_full_morphology_movements",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 21.384663,
+      "output_sha256": "42c696f6b5407795ee038290cd63dd7b32261856e2c968bc8b5a5bce35a26f61"
+    },
+    {
+      "name": "experiment-clippy",
+      "command": "cargo clippy --all-targets --locked --manifest-path research/experiments/workstation-digit-separation/Cargo.toml -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.671996,
+      "output_sha256": "46baf26062ad1e9c284a214cfba4c757ab0f80b1aacee3e8227d47d593feb094"
+    }
+  ]
+}

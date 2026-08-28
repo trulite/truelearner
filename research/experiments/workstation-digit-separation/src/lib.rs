@@ -14,14 +14,16 @@ const STEPS: usize = 48;
 pub enum Arm {
     ParentReference,
     SharedIncidence,
+    AdoptedDefault,
     WaveSparseNeutral,
     ComposedWaveSparse,
 }
 
 impl Arm {
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::ParentReference,
         Self::SharedIncidence,
+        Self::AdoptedDefault,
         Self::WaveSparseNeutral,
         Self::ComposedWaveSparse,
     ];
@@ -30,6 +32,7 @@ impl Arm {
         match self {
             Self::ParentReference => "parent-reference",
             Self::SharedIncidence => "shared-incidence",
+            Self::AdoptedDefault => "adopted-default",
             Self::WaveSparseNeutral => "wave-sparse-neutral",
             Self::ComposedWaveSparse => "composed-wave-sparse",
         }
@@ -76,8 +79,9 @@ pub struct ProbeResult {
 
 pub fn run(arm: Arm) -> ProbeResult {
     match arm {
-        Arm::ParentReference => run_workstation(arm, false),
-        Arm::SharedIncidence => run_workstation(arm, true),
+        Arm::ParentReference => run_workstation(arm, SessionMode::IndependentResearch),
+        Arm::SharedIncidence => run_workstation(arm, SessionMode::SharedResearch),
+        Arm::AdoptedDefault => run_workstation(arm, SessionMode::Default),
         Arm::WaveSparseNeutral | Arm::ComposedWaveSparse => ProbeResult {
             schema: "workstation-digit-separation/v1",
             arm: arm.id(),
@@ -95,28 +99,46 @@ pub fn run(arm: Arm) -> ProbeResult {
     }
 }
 
-fn run_workstation(arm: Arm, shared: bool) -> ProbeResult {
+#[derive(Clone, Copy)]
+enum SessionMode {
+    Default,
+    IndependentResearch,
+    SharedResearch,
+}
+
+fn run_workstation(arm: Arm, mode: SessionMode) -> ProbeResult {
     let seed = 82_001;
     let config = ResearchHarnessConfig {
         protocol: Protocol::RecursiveLearnerCausalTopologyProductComposition,
-        opportunity_incidence: if shared {
-            ResearchOpportunityIncidence::SharedWave
-        } else {
-            ResearchOpportunityIncidence::Independent
+        opportunity_incidence: match mode {
+            SessionMode::IndependentResearch => ResearchOpportunityIncidence::Independent,
+            SessionMode::Default | SessionMode::SharedResearch => {
+                ResearchOpportunityIncidence::SharedWave
+            }
         },
     };
-    let mut session = if shared {
-        WorkstationSession::new_research(seed, config).expect("research session builds")
-    } else {
-        WorkstationSession::new(seed).expect("parent session builds")
+    let mut session = match mode {
+        SessionMode::Default => WorkstationSession::new(seed).expect("default session builds"),
+        SessionMode::IndependentResearch | SessionMode::SharedResearch => {
+            WorkstationSession::new_research(seed, config).expect("research session builds")
+        }
     };
     let checkpoint = session.save().expect("initial checkpoint saves");
     let observations = run_steps(&mut session);
-    let mut replay = if shared {
-        WorkstationSession::restore_research(checkpoint, ResearchOpportunityIncidence::SharedWave)
-            .expect("research replay restores")
-    } else {
-        WorkstationSession::restore(checkpoint).expect("parent replay restores")
+    let mut replay = match mode {
+        SessionMode::Default => {
+            WorkstationSession::restore(checkpoint).expect("default replay restores")
+        }
+        SessionMode::IndependentResearch => WorkstationSession::restore_research(
+            checkpoint,
+            ResearchOpportunityIncidence::Independent,
+        )
+        .expect("independent replay restores"),
+        SessionMode::SharedResearch => WorkstationSession::restore_research(
+            checkpoint,
+            ResearchOpportunityIncidence::SharedWave,
+        )
+        .expect("shared replay restores"),
     };
     let replayed = run_steps(&mut replay);
     let exact_replay = observations == replayed && session.save().ok() == replay.save().ok();
@@ -125,6 +147,7 @@ fn run_workstation(arm: Arm, shared: bool) -> ProbeResult {
         .all(|observation| observation.body.naturally_quiescent);
     let summary = summarize(&observations, &session);
     let reference_intact = summary.isolated_finger_steps == 0 && summary.five_finger_steps == 46;
+    let shared = matches!(mode, SessionMode::Default | SessionMode::SharedResearch);
     let shared_passed = summary.isolated_finger_steps > 0
         && summary.moved_fingers.len() >= 2
         && summary.five_finger_steps == 0;
@@ -244,6 +267,15 @@ mod tests {
     #[ignore = "full 48-step evidence run"]
     fn shared_incidence_is_the_smallest_complete_solve() {
         let result = run(Arm::SharedIncidence);
+        assert_eq!(result.outcome, "passed", "{:#?}", result.observations);
+        assert!(result.exact_replay);
+        assert!(result.naturally_quiescent);
+    }
+
+    #[test]
+    #[ignore = "full 48-step adoption evidence run"]
+    fn adopted_default_reproduces_the_authorized_shared_result() {
+        let result = run(Arm::AdoptedDefault);
         assert_eq!(result.outcome, "passed", "{:#?}", result.observations);
         assert!(result.exact_replay);
         assert!(result.naturally_quiescent);
