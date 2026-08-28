@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "workstation-contact-contingency-v1"
+program = "learner-physics"
+claim = "DEVELOPMENTAL-HAND-LADDER"
+status = "preregistered"
+parent_authority = "Generic Workstation Opportunity V1 adoption commit 119e7293de1aca925e07d0b2deedb2d3e2fc62cd; adoption adjudication sha256 534d12cb20b7537feca8646c4a917f9751be781873f10ecf070e9c1867bbf9b7"
+question = "Does the adopted ordinary five-digit workstation organism carry at least one unguided physical hand point across a real keyboard or touchpad surface and receive the corresponding local contact sample within one bounded complete recording?"
+observables = ["per-step palm and fingertip x y and depth before and after movement", "nearest signed depth gap while x y overlaps a real key or touchpad", "actual below-to-surface crossing and anatomical touch-site index", "next-sample pressure and slip at every local touch site", "motor outputs body movements physical transition returns and later path reuse", "device events separated from first contact", "exact recording replay natural quiescence work exhaustion and semantic leakage"]
+frozen_variables = ["adopted shared workstation opportunity incidence", "authoritative connected outcome-topology product learner", "standard five-digit hand initial pose force law and geometry", "standard ANSI 104-key keyboard continuous touchpad monitor asset and binocular render", "seed 82001 and full 120-step recording horizon", "ordinary session and observer-only recording path"]
+permitted_changes = ["research-only post-hoc projection of already recorded public body world movement contact and work observations", "research experiment and immutable discovery artifacts"]
+positive_predicates = ["the adopted parent retains isolated movement from all five digits with no broad generic five-finger coactivation", "at least one palm or fingertip actually crosses depth 600 while its x y lies on a real key or touchpad", "the next organism sample contains positive pressure at the same physically crossing touch site", "the complete causal episode is exactly replayable naturally quiescent unexhausted and bounded", "neutral surface fixtures still reject hover and produce contact and press only at their physical thresholds"]
+negative_controls = ["observer capture and exact replay do not change the ordinary session", "hovering below surface depth produces no pressure or device event", "contact without a matching prior crossing does not establish end-to-end contingency", "device events are neither required nor accepted as first-contact evidence", "no surface target named finger desired pose direction score reward or evaluator-selected action enters organism input or choice"]
+stop_conditions = ["adopted digit separation or frozen authority lineage drifts", "recording replay diverges or execution fails to quiesce", "surface fixture fails before end-to-end interpretation", "a contact claim lacks a matching actual physical crossing and next-sample local pressure", "the complete trace reaches no contact and therefore blocks contact-directed reuse", "any result depends on semantic anatomy target reward device verdict or evaluator intervention"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

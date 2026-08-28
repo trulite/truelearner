@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "observer-replay-control"
+campaign = "workstation-contact-contingency-v1"
+kind = "control"
+parents = ["workstation-observer-recording-v1"]
+imports = ["ordinary session checkpoint", "bounded checksummed recording", "exact replay verifier"]
+mechanism = "Verify that recording is an inert view of the ordinary session and that decoding and replay reproduce every complete step."
+prediction = "Recorded and unrecorded ordinary sessions remain exactly equal, and the 120-step evidence recording replays without divergence."
+falsifiers = ["Capture changes any ordinary observation.", "Decode or replay diverges.", "The contact projection requires a learner-facing diagnostic field."]
+source_revision = "119e7293de1aca925e07d0b2deedb2d3e2fc62cd"
+protocol_sha256 = "480d668bf727f3935b9e044ca7c45f78db1f9a06b74c723fb616b8f094c44eed"
+budget_minutes = 4
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation recording_is_an_inert_view_of_the_ordinary_session"
+full_evidence = "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation recording_round_trip_preserves_complete_steps_and_exact_replay"

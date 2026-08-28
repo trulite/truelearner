@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "surface-physics-control"
+campaign = "workstation-contact-contingency-v1"
+kind = "control"
+parents = ["physical-workstation-world-v1"]
+imports = ["standard ANSI keyboard geometry", "continuous touchpad geometry", "fixed depth thresholds", "local pressure and slip samples"]
+mechanism = "Supply neutral hand-point frames only to the external world fixture to distinguish hover surface crossing key press maintained touch and release without changing or training the organism."
+prediction = "Hover produces nothing, crossing depth 600 produces local contact, key press waits for depth 720, and touchpad movement requires maintained physical contact."
+falsifiers = ["Hover produces contact or a device event.", "A physical crossing produces no local pressure.", "Key or touchpad consequences occur without their physical thresholds."]
+source_revision = "119e7293de1aca925e07d0b2deedb2d3e2fc62cd"
+protocol_sha256 = "480d668bf727f3935b9e044ca7c45f78db1f9a06b74c723fb616b8f094c44eed"
+budget_minutes = 4
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation hovering_does_not_press_but_crossing_depth_does"
+full_evidence = "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation touchpad_requires_contact_and_actual_motion"

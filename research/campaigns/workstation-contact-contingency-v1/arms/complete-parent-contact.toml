@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-parent-contact"
+campaign = "workstation-contact-contingency-v1"
+kind = "diagnostic"
+parents = ["workstation-shared-opportunity-incidence-authority-v1:adoption-adjudication"]
+imports = ["ordinary adopted workstation session", "real five-digit body and keyboard touchpad geometry", "complete observer-only recording", "post-hoc physical contact projection"]
+mechanism = "Run the unchanged complete parent once for the recorder's bounded 120-step horizon and retain every movement hand-point depth gap crossing next-sample contact return device event and work observation."
+prediction = "Separate movement persists, but no hand point crosses depth 600 on a real surface; the earliest failed arrow is geometric approach or depth continuation before contact sensation."
+falsifiers = ["A matching real surface crossing and local next-sample pressure occur.", "Digit separation drifts from the adopted parent.", "Replay quiescence exhaustion work or semantic-firewall controls fail."]
+source_revision = "119e7293de1aca925e07d0b2deedb2d3e2fc62cd"
+protocol_sha256 = "480d668bf727f3935b9e044ca7c45f78db1f9a06b74c723fb616b8f094c44eed"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path research/experiments/workstation-contact-contingency/Cargo.toml --lib"
+full_evidence = "cargo run --quiet --locked --manifest-path research/experiments/workstation-contact-contingency/Cargo.toml -- --output research/campaigns/workstation-contact-contingency-v1/artifacts/complete-parent-contact.json --recording output/workstation-contact-contingency-v1/recording.tlwr"

@@ -1,0 +1,37 @@
+schema = "research-campaign/v1"
+id = "workstation-contact-contingency-v1"
+program = "learner-physics"
+kind = "diagnostic"
+mode = "discovery"
+hypothesis = "The complete adopted workstation parent either already closes the physical arrow from separate unguided movement through real surface crossing to local next-sample contact, or one complete retained trace localizes the earliest missing transition without adding learner physics."
+first_divergence = "unknown"
+prediction = "The complete 120-step parent retains separate digit movement but never crosses the real surface depth, while observer replay and neutral hover crossing contact and press fixtures pass; this would localize the first contact wall to unguided geometric reach rather than sensing or device mechanics."
+falsifiers = ["The adopted parent loses its established digit-separation result.", "The complete trace reaches a real surface and receives correct local next-sample pressure, falsifying the predicted reach wall.", "The neutral surface fixture cannot distinguish hover contact and press thresholds.", "The recorder changes the ordinary trace or fails exact replay.", "A claimed crossing depends on named anatomy desired pose target reward device success or evaluator action."]
+positive_reference = "Generic Workstation Opportunity V1@119e7293de1aca925e07d0b2deedb2d3e2fc62cd; adoption adjudication sha256:534d12cb20b7537feca8646c4a917f9751be781873f10ecf070e9c1867bbf9b7"
+negative_controls = ["observer-only recording exact ordinary-session identity", "hover below depth 600", "key press below depth 720", "contact without a matching caused crossing", "device event excluded from first-contact predicate", "semantic firewall exact replay natural quiescence and bounded work"]
+included_mechanisms = ["authoritative connected outcome-topology product", "adopted shared workstation opportunity incidence", "actual physical transition return", "real five-digit hand geometry", "real keyboard and touchpad contact physics", "complete observer-only recording"]
+inherited_constraints = ["no semantic body or surface identity inside learner physics", "no evaluator-selected movement or contact reward", "no altered initial pose geometry or training schedule", "stop before contact-directed reuse if contact fails"]
+excluded_proposals = ["moving the surface toward the hand", "placing the hand at contact", "named finger schedules", "desired depth or target injection", "device success as learning input", "longer unbounded waiting as a solve", "new learner physics before first-divergence localization"]
+arm_paths = ["arms/complete-parent-contact.toml", "arms/observer-replay-control.toml", "arms/surface-physics-control.toml"]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = false
+
+[budget]
+total_sandbox_minutes = 18
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true
