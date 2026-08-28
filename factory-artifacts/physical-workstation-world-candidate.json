@@ -1,0 +1,81 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-28T15:07:24.469364+00:00",
+  "started_at": "2026-08-28T15:07:18.908800+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/physical-workstation-world.md",
+    "sha256": "d46176adfcc0ac577e272063ec3a60e8e6b0197632f8f2444ebd0a50e2f22ff2"
+  },
+  "candidate": {
+    "revision": "528ab0e0cbeab3f854ba87e008d32ae5b199bf48",
+    "tree_sha256": "5ecbc939e0abeb5f7bcd115550344400ceb0b145bf550d17da5aba6a2c483f0c"
+  },
+  "scope": [
+    "academy.md",
+    "academy/Cargo.toml",
+    "academy/Cargo.lock",
+    "academy/README.md",
+    "academy/crates/academy-workstation",
+    "plans/physical-workstation-world.md"
+  ],
+  "changed_paths": [
+    "academy.md",
+    "academy/Cargo.lock",
+    "academy/Cargo.toml",
+    "academy/README.md",
+    "academy/crates/academy-workstation/Cargo.toml",
+    "academy/crates/academy-workstation/README.md",
+    "academy/crates/academy-workstation/assets/README.md",
+    "academy/crates/academy-workstation/assets/coastal-monitor.png",
+    "academy/crates/academy-workstation/src/checkpoint.rs",
+    "academy/crates/academy-workstation/src/geometry.rs",
+    "academy/crates/academy-workstation/src/lib.rs",
+    "academy/crates/academy-workstation/src/render.rs",
+    "academy/crates/academy-workstation/src/session.rs",
+    "academy/crates/academy-workstation/src/world.rs",
+    "academy/crates/academy-workstation/tests/workstation_world.rs",
+    "plans/physical-workstation-world.md"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path academy/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.483969,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --workspace --all-targets --locked --manifest-path academy/Cargo.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.418622,
+      "output_sha256": "d69c9733d43361b0113c6099a1c29b19f98c700d4160814edc199c025bff3138"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --workspace --all-targets --locked --manifest-path academy/Cargo.toml -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.311436,
+      "output_sha256": "f0e7c6253db0a26e2de32e01ff60ecb631f075be465572b4dd5e1c134a52ecea"
+    },
+    {
+      "name": "focused-tests",
+      "command": "sh -c 'cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world && cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation && cargo test --locked --manifest-path academy/Cargo.toml -p academy-body --lib'",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.996733,
+      "output_sha256": "940fe5a26e8f11de5959cd71d2a6d8178c5e2afd2def702dc4369ea533257b93"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.348606,
+      "output_sha256": "0f83097e370e0d23102fbe442fc1511e98d5e1b5a6777762d727b321c0a5a4a2"
+    }
+  ]
+}

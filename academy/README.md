@@ -51,6 +51,16 @@ The output contains an immutable receipt and a content-addressed transcript.
 Development commits learning; probes use cloned checkpoints and cannot teach
 the durable learner. A preserved first failure is an honest course result.
 
+## Physical workstation world
+
+`academy-workstation` composes the binocular one-hand body with a headless
+standard ANSI 104-key keyboard, continuous touchpad, and monitor containing a
+fixed photographic image. Key travel, touch pressure, cursor motion, tap
+release, visible text, and exact world-plus-organism checkpoint replay are
+physical external-world mechanics. The learner still receives only pixels,
+touch, and proprioception; key, cursor, click, character, image identity, and
+evaluator state remain outside it.
+
 ## Run on macOS
 
 From the repository root:
@@ -69,6 +79,8 @@ The application opens a native window titled `Academy Episodes` at
   worker.
 - `academy-body`: generated Body Discovery development, probes, controls,
   replay, and evidence through the public `WorkstationHarness`.
+- `academy-workstation`: headless keyboard, touchpad, monitor, collision,
+  binocular rendering, and joint world/body replay.
 - `academy-review`: portable catalog and episode descriptions for causally
   inert review tools.
 - `academy-episodes`: canonical episode catalog plus deterministic review-frame
@@ -84,6 +96,7 @@ academy-runner -> academy-episodes -> academy-core -> truelearner-core
 academy-episodes -> academy-review
 academy-body -> academy-core -> truelearner-core
 academy-body -> truelearner-workstation -> truelearner-core
+academy-workstation -> truelearner-workstation -> truelearner-core
 ```
 
 The Playground reads `catalog.json` at startup. Its native webview requests

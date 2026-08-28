@@ -1,0 +1,62 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "physical-workstation-world-candidate.json",
+    "sha256": "4280c8810499a49ea3a82163b6fb465afc10df88fa32ea7ccd3d9ae49c597a26"
+  },
+  "verdict": "supported",
+  "independent_test_count": 3,
+  "checks": [
+    {
+      "name": "held-out-checkpoint-replay",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation checkpoint_restores_the_exact_next_world_and_body_step -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 3.05
+    },
+    {
+      "name": "held-out-semantic-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation organism_sample_contains_no_device_or_evaluator_fields -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.68
+    },
+    {
+      "name": "held-out-keyboard-geometry",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --lib geometry::tests::standard_keyboard_has_all_104_non_overlapping_keys -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.15
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.40
+    }
+  ],
+  "findings": [
+    "The exact candidate independently preserves the combined body-and-world next step across checkpoint restore.",
+    "The organism-facing sample contains local contact and binocular light only, with no device semantics or evaluator fields.",
+    "The external keyboard geometry contains exactly 104 bounded, non-overlapping ANSI keys, and the representative warm suite passes in 1.40 seconds."
+  ],
+  "residual_uncertainty": [
+    "These checks establish workstation-world mechanics, not learned pointing, clicking, typing, grasping, or digit separation.",
+    "The checked-in monitor photograph is fixed; transfer across images, device layouts, and morphologies remains untested."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/physical-workstation-world.md",
+      "sha256": "d46176adfcc0ac577e272063ec3a60e8e6b0197632f8f2444ebd0a50e2f22ff2"
+    },
+    {
+      "path": "academy/crates/academy-workstation/assets/coastal-monitor.png",
+      "sha256": "a25049d016cd28d70b464040c57997fe9aa69db1502a1ff25e071b95b6768a47"
+    },
+    {
+      "path": "academy/crates/academy-workstation/tests/workstation_world.rs",
+      "sha256": "d2ed6d0fabcfc1901d3b5077b6b12010340f0eafa052672fde9441fb2cadba7b"
+    }
+  ]
+}

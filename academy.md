@@ -136,6 +136,13 @@ distance estimation, depth-directed reaching, or general 3D understanding.
 Every claim requires fresh generated evidence, exact replay, natural
 quiescence, unchanged negative controls, and bounded physical work.
 
+The headless `academy-workstation` world now supplies the next external surface:
+a standard ANSI 104-key keyboard, continuous touchpad, monitor photograph,
+visible cursor and text, binocular scene rendering, and physical collision. It
+does not change the current capability frontier: digit separation remains the
+first failed prerequisite, and no pointing, clicking, typing, or image-use
+claim follows from constructing the world.
+
 ## First curriculum
 
 Start with a small set that can be inspected completely:

@@ -2,6 +2,7 @@
 members = [
     "crates/academy-core",
     "crates/academy-body",
+    "crates/academy-workstation",
     "crates/academy-arc3",
     "crates/academy-review",
     "crates/academy-episodes",
@@ -11,6 +12,7 @@ members = [
 default-members = [
     "crates/academy-core",
     "crates/academy-body",
+    "crates/academy-workstation",
     "crates/academy-arc3",
     "crates/academy-review",
     "crates/academy-episodes",
@@ -26,6 +28,7 @@ publish = false
 [workspace.dependencies]
 academy-core = { path = "crates/academy-core" }
 academy-body = { path = "crates/academy-body" }
+academy-workstation = { path = "crates/academy-workstation" }
 academy-arc3 = { path = "crates/academy-arc3" }
 academy-review = { path = "crates/academy-review" }
 academy-episodes = { path = "crates/academy-episodes" }
