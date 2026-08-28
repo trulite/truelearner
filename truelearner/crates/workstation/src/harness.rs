@@ -10,6 +10,8 @@ use truelearner_core::{
     Harness, HarnessBuilder, Input, Junction, JunctionId, Link, Output, PhysicalIncidence,
     PhysicalInput, Protocol, TransmissionMode,
 };
+#[cfg(feature = "research")]
+use truelearner_core::{PhysicalEvent, PhysicalTransition};
 
 const OUTWARD_REGION: i16 = 1;
 const RETINA_FEATURES: usize = 24;
@@ -109,6 +111,8 @@ pub struct WorkstationStepObservation {
     pub naturally_quiescent: bool,
     pub body_fingerprint: String,
     pub physical_tick: i64,
+    #[cfg(feature = "research")]
+    pub choice_diagnostics: Vec<ResearchChoiceDiagnostic>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -154,6 +158,47 @@ pub struct ResearchHarnessConfig {
     pub protocol: Protocol,
     pub opportunity_incidence: ResearchOpportunityIncidence,
     pub transition_opportunity: ResearchTransitionOpportunity,
+}
+
+#[cfg(feature = "research")]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "diagnostic", rename_all = "snake_case")]
+pub enum ResearchChoiceDiagnostic {
+    Candidate {
+        tick: i64,
+        phase: i32,
+        control: BodyControl,
+        ownership: String,
+        path_inputs: u32,
+        positive_path_strength: u64,
+        negative_path_strength: u64,
+        opportunity: i64,
+        supplied_opportunity: i64,
+        admitted_drive: i64,
+        projected_drive: i64,
+        threshold: i64,
+        consequence_tick: Option<i64>,
+        unanswered_returns: u32,
+        executable: bool,
+    },
+    TransitionContinuation {
+        tick: i64,
+        phase: i32,
+        control: BodyControl,
+        current_owner_transition: bool,
+        unanswered_returns: u32,
+        admitted: bool,
+    },
+    Choice {
+        tick: i64,
+        phase: i32,
+        ordinary_control: Option<BodyControl>,
+        current_transition_control: Option<BodyControl>,
+        computed_winner_control: Option<BodyControl>,
+        admitted_controls: Vec<BodyControl>,
+        computed_winner_basis: String,
+        admission_basis: String,
+    },
 }
 
 impl WorkstationHarness {
@@ -215,6 +260,8 @@ impl WorkstationHarness {
         let mut naturally_quiescent = true;
         let mut crossings = Vec::new();
         let mut admitted_inputs = 0;
+        #[cfg(feature = "research")]
+        let mut choice_diagnostics = Vec::new();
 
         if !returned_transitions.is_empty() {
             let tick = next.boundary.read().clock.tick.saturating_add(1);
@@ -236,6 +283,11 @@ impl WorkstationHarness {
             let returned = next.boundary.send_physical(&returns);
             metrics.add_run(&returned);
             naturally_quiescent &= returned.naturally_quiescent;
+            #[cfg(feature = "research")]
+            choice_diagnostics.extend(project_choice_diagnostics(
+                &returned.physical_trace,
+                &next.sites,
+            ));
             crossings.extend(returned.outputs);
         }
 
@@ -292,6 +344,8 @@ impl WorkstationHarness {
         let run = next.boundary.send(&inputs);
         metrics.add_run(&run);
         naturally_quiescent &= run.naturally_quiescent;
+        #[cfg(feature = "research")]
+        choice_diagnostics.extend(project_choice_diagnostics(&run.physical_trace, &next.sites));
         crossings.extend(run.outputs);
 
         let mut frame = ActuatorFrame::default();
@@ -331,6 +385,8 @@ impl WorkstationHarness {
             naturally_quiescent,
             body_fingerprint: next.fingerprint()?,
             physical_tick: next.boundary.read().clock.tick,
+            #[cfg(feature = "research")]
+            choice_diagnostics,
         };
         *self = next;
         Ok(observation)
@@ -446,6 +502,96 @@ fn transition_origin(sequence: u64, axis: BodyAxis) -> u64 {
         .saturating_add(sequence.saturating_mul(10_000))
         .saturating_add(9_000)
         .saturating_add(u64::try_from(axis.index()).unwrap_or(0))
+}
+
+#[cfg(feature = "research")]
+fn project_choice_diagnostics(
+    trace: &[PhysicalTransition],
+    sites: &Sites,
+) -> Vec<ResearchChoiceDiagnostic> {
+    trace
+        .iter()
+        .filter_map(|transition| match &transition.event {
+            PhysicalEvent::OutputCandidateEvaluated {
+                target,
+                ownership,
+                path_inputs,
+                positive_path_strength,
+                negative_path_strength,
+                opportunity,
+                supplied_opportunity,
+                admitted_drive,
+                projected_drive,
+                threshold,
+                consequence_tick,
+                unanswered_returns,
+                executable,
+                ..
+            } => Some(ResearchChoiceDiagnostic::Candidate {
+                tick: transition.tick,
+                phase: transition.phase,
+                control: control_for_target(sites, *target)?,
+                ownership: format!("{ownership:?}"),
+                path_inputs: *path_inputs,
+                positive_path_strength: *positive_path_strength,
+                negative_path_strength: *negative_path_strength,
+                opportunity: *opportunity,
+                supplied_opportunity: *supplied_opportunity,
+                admitted_drive: *admitted_drive,
+                projected_drive: *projected_drive,
+                threshold: *threshold,
+                consequence_tick: *consequence_tick,
+                unanswered_returns: *unanswered_returns,
+                executable: *executable,
+            }),
+            PhysicalEvent::PhysicalTransitionContinuationEvaluated {
+                target,
+                current_owner_transition,
+                unanswered_returns,
+                admitted,
+                ..
+            } => Some(ResearchChoiceDiagnostic::TransitionContinuation {
+                tick: transition.tick,
+                phase: transition.phase,
+                control: control_for_target(sites, *target)?,
+                current_owner_transition: *current_owner_transition,
+                unanswered_returns: *unanswered_returns,
+                admitted: *admitted,
+            }),
+            PhysicalEvent::OutputChoiceResolved {
+                ordinary_target,
+                current_transition_target,
+                computed_winner_target,
+                admitted,
+                computed_winner_basis,
+                admission_basis,
+                ..
+            } => Some(ResearchChoiceDiagnostic::Choice {
+                tick: transition.tick,
+                phase: transition.phase,
+                ordinary_control: control_for_target(sites, *ordinary_target),
+                current_transition_control: current_transition_target
+                    .and_then(|target| control_for_target(sites, target)),
+                computed_winner_control: control_for_target(sites, *computed_winner_target),
+                admitted_controls: admitted
+                    .iter()
+                    .filter_map(|admission| control_for_target(sites, admission.target))
+                    .collect(),
+                computed_winner_basis: format!("{computed_winner_basis:?}"),
+                admission_basis: format!("{admission_basis:?}"),
+            }),
+            _ => None,
+        })
+        .collect()
+}
+
+#[cfg(feature = "research")]
+fn control_for_target(sites: &Sites, target: JunctionId) -> Option<BodyControl> {
+    sites
+        .motors
+        .iter()
+        .position(|candidate| *candidate == target)
+        .map(control)
 }
 
 fn build_harness(protocol: Protocol) -> (Harness, Sites) {

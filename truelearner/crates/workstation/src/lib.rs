@@ -8,7 +8,8 @@ mod state;
 pub use checkpoint::WorkstationCheckpoint;
 #[cfg(feature = "research")]
 pub use harness::{
-    ResearchHarnessConfig, ResearchOpportunityIncidence, ResearchTransitionOpportunity,
+    ResearchChoiceDiagnostic, ResearchHarnessConfig, ResearchOpportunityIncidence,
+    ResearchTransitionOpportunity,
 };
 pub use harness::{StepMetrics, WorkstationHarness, WorkstationRead, WorkstationStepObservation};
 pub use state::{

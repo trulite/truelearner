@@ -1,0 +1,58 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-choice-diagnostic-projection-candidate.json",
+    "sha256": "22b58e5346661475d413db6b52f212e2cc649f2eac06bf0a311f39bec945ef11"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "production-workstation",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.53
+    },
+    {
+      "name": "mapped-choice-projection",
+      "command": "cargo test --locked --manifest-path research/experiments/workstation-return-bearing-choice-localization/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.77
+    },
+    {
+      "name": "core-diagnostic-purity",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core physical_diagnostics_are_opt_in_pure_and_replayable",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.15
+    }
+  ],
+  "findings": [
+    "The research projection maps existing motor junction targets to observer-side body controls without changing core trace generation.",
+    "Candidate evaluation continuation evaluation and resolved choice facts retain their original tick and phase.",
+    "Production workstation observations compile without the research diagnostic field and retain all tests.",
+    "Core traced and untraced histories remain equal and replayable."
+  ],
+  "residual_uncertainty": [
+    "The focused frozen replay must still determine which choice branch explains the first contact-relevant direction break."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/workstation-choice-diagnostic-projection.md",
+      "sha256": "6808b4a997a46b430fe8d6d8df772ddfd6d6ae1a922fa8b3d3a629e0eccfe191"
+    },
+    {
+      "path": "research/campaigns/workstation-return-bearing-choice-localization-v1/protocol.toml",
+      "sha256": "b297bb5d8a0dfd5aaa1d08fc995ae722bd414a46a46f2f27cbd317e47ecbbd0d"
+    }
+  ]
+}
