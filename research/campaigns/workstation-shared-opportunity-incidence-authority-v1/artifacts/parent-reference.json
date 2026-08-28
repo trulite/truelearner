@@ -1,0 +1,38 @@
+{
+  "schema": "workstation-digit-separation/v1",
+  "arm": "parent-reference",
+  "outcome": "reference-reproduced",
+  "parent_revision": "00ef061f34b6e8a5e14bdce25a14a39f85f787f3",
+  "protocol_sha256": "39d10a0a9578f98d2555b789b00aa8dfd1cf411a38788f3a017b315c39a91e22",
+  "observations": {
+    "changed_axis_steps": {
+      "EyeHorizontal { eye: Left }": 40,
+      "EyeHorizontal { eye: Right }": 40,
+      "EyeVertical { eye: Left }": 45,
+      "EyeVertical { eye: Right }": 45,
+      "FingerFlexion { digit: Index }": 46,
+      "FingerFlexion { digit: Little }": 46,
+      "FingerFlexion { digit: Middle }": 46,
+      "FingerFlexion { digit: Ring }": 46,
+      "FingerFlexion { digit: Thumb }": 46,
+      "PalmDepth": 48,
+      "PalmHorizontal": 48,
+      "PalmVertical": 48,
+      "Spread": 48,
+      "ThumbOpposition": 48,
+      "Wrist": 48
+    },
+    "device_events": 0,
+    "final_body_fingerprint": "e7ce4bb69e2f2417b18d0e9de6dac0a59507e281328af1025699eb8accd1d253",
+    "five_finger_steps": 46,
+    "isolated_finger_steps": 0,
+    "max_step_work": 1388,
+    "moved_fingers": [],
+    "output_crossings": 688,
+    "pose_changed_steps": 48,
+    "steps": 48
+  },
+  "falsifier": null,
+  "exact_replay": true,
+  "naturally_quiescent": true
+}

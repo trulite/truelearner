@@ -1,0 +1,40 @@
+schema = "research-adjudication/v1"
+protocol_path = "protocol.toml"
+protocol_sha256 = "130ab0ea3605c7e65c389fadae1b21cd77386df8f50c29042eec521cdc84bbca"
+evidence_path = "evidence.json"
+evidence_sha256 = "5f1714002aa307369e01aaec21f3b76a82e00ca5f3f8c2b5a2273b5e6c23bd66"
+verdict = "positive"
+predicate_results = [
+  "subject identity=passed: clean detached commit d18f8700b9e09b6d9fb65dfdace640868bcb149d and tree 2222dfa57a5cae5ad62f35f867250149d5d02447 matched before and after",
+  "parent reference=passed: forty-six five-finger steps zero isolated-finger steps six-hundred-eighty-eight crossings and maximum step work one-thousand-three-hundred-eighty-eight reproduced exactly",
+  "shared full morphology=passed: ten isolated-finger steps included thumb index middle ring and little with zero five-finger steps and zero device events",
+  "shared integrity=passed: exact checkpoint replay natural quiescence and maximum step work eight-hundred-twelve below the parent bound",
+  "origin composition=passed: one shared origin emitted one output and two distinct origins emitted both outputs",
+  "default integration=passed: all core workstation checkpoint and public-world controls remained unchanged",
+  "semantic firewall=passed: public sample and source boundary exposed no capability target score contact result device result or evaluator-selected action to learner choice",
+]
+control_results = [
+  "independent-incidence negative control=passed: broad coactivation remained the exact parent failure rather than being reclassified",
+  "distinct-cause control=passed: separate physical origins still composed across disconnected topology",
+  "shared-cause control=passed: one physical origin did not emit every disconnected component",
+  "frozen artifact integrity=passed: discovery parent and shared artifact digests matched the preregistered values",
+  "core regression=passed: sixteen unit tests sixty-seven boundary tests nine workstation unit tests and four workstation integration tests passed; the same two declared adversarial tests remained ignored",
+  "Academy integration=passed: four real-world firewall and checkpoint tests passed",
+  "run policy=passed: one valid frozen batch completed in one fresh detached checkout and fresh Cargo target with no repair rerun or infrastructure failure",
+]
+scientific_findings = [
+  "In the declared workstation morphology one generic motor opportunity is correctly represented as one phase and physical origin rather than one independent cause per motor.",
+  "The accepted learner already provides bounded choice within one shared origin and product composition across genuinely distinct origins; no new learner protocol state or selector is needed.",
+  "The shared representation removes broad five-finger coactivation and exposes separate physical movement from every finger with lower observed work while preserving replay and natural quiet.",
+  "This authority concerns physical incidence representation and unguided movement separation only; it does not establish contact-directed control pointing clicking typing grasping transfer or general morphology.",
+]
+residual_uncertainty = [
+  "The authority run covers one fixed real workstation morphology seed and forty-eight-step horizon; later contact and transfer claims require fresh protocols.",
+  "Separate movement is not evidence that the learner can intentionally select a named finger or direct it toward a surface.",
+  "Default adoption still requires removing production dependence on independent incidence and independently verifying the exact adopted candidate.",
+]
+sufficiency = "established"
+integration = "passed"
+adoption = "not-adopted"
+authority = "not-promoted"
+authorized_by = "User explicitly instructed on 2026-08-28: okay do it, after being told the next action was the formal one-shot authority verification followed by default adoption if positive."

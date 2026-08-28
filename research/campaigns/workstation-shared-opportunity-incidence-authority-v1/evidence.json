@@ -1,0 +1,87 @@
+{
+  "schema": "research-evidence/v1",
+  "experiment": "workstation-shared-opportunity-incidence-authority-v1",
+  "protocol_sha256": "130ab0ea3605c7e65c389fadae1b21cd77386df8f50c29042eec521cdc84bbca",
+  "subject_digest": "7fe5a87d5d8eda12a7373359cf8f937595b7a6424bac11dcc7f183e28481eb75",
+  "producer": "workstation-digit-separation at frozen commit d18f8700b9e09b6d9fb65dfdace640868bcb149d",
+  "environment": {
+    "identity": "fresh detached git worktree /tmp/truelearner-workstation-authority.SxVV3r",
+    "subject_commit": "d18f8700b9e09b6d9fb65dfdace640868bcb149d",
+    "subject_tree": "2222dfa57a5cae5ad62f35f867250149d5d02447",
+    "subject_status_lines_before_and_after": 0,
+    "cargo_target": "fresh /tmp/truelearner-workstation-authority-target.Bij4R9",
+    "rustc": "1.97.1 (8bab26f4f 2026-07-14)",
+    "host": "aarch64-apple-darwin; Darwin 25.5.0 arm64",
+    "valid_runs": 1,
+    "invalid_infrastructure_attempts_without_scientific_artifacts": 0,
+    "run_policy": "one valid frozen batch; no scientific repair or rerun"
+  },
+  "observations": {
+    "subject": {
+      "commit_matched": true,
+      "tree_matched": true,
+      "clean_before": true,
+      "clean_after": true,
+      "frozen_parent_artifact_digest_matched": true,
+      "frozen_shared_artifact_digest_matched": true
+    },
+    "origin_composition": {
+      "shared_origin_outputs": 1,
+      "distinct_origin_outputs": 2,
+      "tests": "2 passed"
+    },
+    "core_and_default_integration": {
+      "core_unit_tests": "16 passed",
+      "core_boundary_tests": "67 passed, 2 declared adversarial tests ignored",
+      "workstation_unit_tests": "9 passed",
+      "workstation_integration_tests": "4 passed",
+      "doc_tests": "passed"
+    },
+    "academy_firewall": {
+      "tests": "4 passed",
+      "real_monitor_and_keyboard_geometry": true,
+      "checkpoint_exact_next_step": true,
+      "organism_sample_semantic_audit": true,
+      "corrupt_checkpoint_rejected": true
+    },
+    "parent_reference": {
+      "outcome": "reference-reproduced",
+      "isolated_finger_steps": 0,
+      "five_finger_steps": 46,
+      "output_crossings": 688,
+      "max_step_work": 1388,
+      "exact_replay": true,
+      "naturally_quiescent": true,
+      "fresh_output_sha256_without_trailing_newline": "379f5ace018d5dbfd25337d7040b55297b6a202f972bf2f89172e4027406be61"
+    },
+    "shared_incidence": {
+      "outcome": "passed",
+      "isolated_finger_steps": 10,
+      "moved_fingers": ["Index", "Little", "Middle", "Ring", "Thumb"],
+      "five_finger_steps": 0,
+      "output_crossings": 80,
+      "device_events": 0,
+      "max_step_work": 812,
+      "exact_replay": true,
+      "naturally_quiescent": true,
+      "fresh_output_sha256_without_trailing_newline": "fa0d9c5250204335acc14a7e6dd102ed84df8e24d6bcdb5f58e390bb5a8ed730"
+    }
+  },
+  "run_artifact_digests": {
+    "origin_control_log": "4ad2732b9e0190bcf1fdf28a84121b09a33ff08e9ffbd78db33ec1f345cdd88e",
+    "core_workspace_log": "9bd0297342681652766fc8019d38a3a59bba64c4dfd9a1dbeca3ea6f78b09535",
+    "academy_firewall_log": "a152bda5fd7a8bc8aa23e33e7c0965d5db03db70356b756cffdcc0db64b77b7b",
+    "experiment_integrity_log": "c9db840b022b42020897f1901ce342e5927204b39c7ae90f85106c3a433c777c"
+  },
+  "artifacts": [
+    {
+      "path": "artifacts/parent-reference.json",
+      "sha256": "9d6e9df78173446165551c75a1b4b811ce44cff59558aa66c7ed9ebf957245cd"
+    },
+    {
+      "path": "artifacts/shared-incidence.json",
+      "sha256": "9228a9fc91b6870258d09e00ec0671796e579aee9ec715e86d3fe43a5274b937"
+    }
+  ],
+  "completed": true
+}
