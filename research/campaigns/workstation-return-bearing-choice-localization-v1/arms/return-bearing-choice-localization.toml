@@ -7,7 +7,7 @@ imports = ["falsified transition-local configuration", "core output-candidate an
 mechanism = "Project already generated physical choice events onto anonymous body controls and stop observation after the first returned palm-depth or finger-depth transition that does not continue its exact prior sign."
 prediction = "The exact prior-direction candidate is non-executable or loses because current-transition continuation is not the admitted choice basis."
 falsifiers = ["No direction break occurs within 48 steps.", "The event join is ambiguous.", "The prior-direction path is selected and executes uncanceled.", "Projection changes physical history."]
-source_revision = "e116ac51843d6847f2c967f20a827bd48bbca550"
+source_revision = "0df0e39af15dc3ca61a42f98309f342a82d18183"
 protocol_sha256 = "b297bb5d8a0dfd5aaa1d08fc995ae722bd414a46a46f2f27cbd317e47ecbbd0d"
 budget_minutes = 5
 

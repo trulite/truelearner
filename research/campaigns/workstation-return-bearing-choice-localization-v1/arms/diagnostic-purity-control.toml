@@ -7,7 +7,7 @@ imports = ["opt-in core physical trace", "traced versus untraced equality", "che
 mechanism = "Require physical diagnostics to preserve outputs work execution cost state replay and natural quiescence and keep their workstation projection behind the research feature."
 prediction = "Traced and untraced histories remain equal and production workstation observations expose no diagnostic payload."
 falsifiers = ["Any physical result differs.", "Checkpoint replay differs.", "Production schema gains diagnostic events."]
-source_revision = "e116ac51843d6847f2c967f20a827bd48bbca550"
+source_revision = "0df0e39af15dc3ca61a42f98309f342a82d18183"
 protocol_sha256 = "b297bb5d8a0dfd5aaa1d08fc995ae722bd414a46a46f2f27cbd317e47ecbbd0d"
 budget_minutes = 3
 
