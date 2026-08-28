@@ -150,6 +150,7 @@ pub enum ResearchOpportunityIncidence {
 pub enum ResearchTransitionOpportunity {
     GenericOnly,
     LocalAfterTransition,
+    ComposedWithReturn,
 }
 
 #[cfg(feature = "research")]
@@ -279,6 +280,33 @@ impl WorkstationHarness {
                     incidence: PhysicalIncidence::Transition,
                 })
                 .collect::<Vec<_>>();
+            #[cfg(feature = "research")]
+            let returns = if next.transition_opportunity
+                == ResearchTransitionOpportunity::ComposedWithReturn
+            {
+                let mut returns = returns;
+                let opportunity_tick = tick.saturating_add(1);
+                for (order, axis) in returned_transitions.iter().enumerate() {
+                    let first_motor = axis.index() * 2;
+                    let phase = 30_000_i32.saturating_add(i32::try_from(order).unwrap_or(0));
+                    let origin_physical = transition_opportunity_origin(next.sequence, *axis);
+                    for target in &next.sites.motors[first_motor..first_motor + 2] {
+                        returns.push(PhysicalInput {
+                            input: Input {
+                                arrival_tick: opportunity_tick,
+                                phase,
+                                origin_physical,
+                                target: *target,
+                                impulse: 1,
+                            },
+                            incidence: PhysicalIncidence::Sample,
+                        });
+                    }
+                }
+                returns
+            } else {
+                returns
+            };
             admitted_inputs += returns.len();
             let returned = next.boundary.send_physical(&returns);
             metrics.add_run(&returned);
@@ -501,6 +529,14 @@ fn transition_origin(sequence: u64, axis: BodyAxis) -> u64 {
     EXTERNAL_PHYSICAL_BASE
         .saturating_add(sequence.saturating_mul(10_000))
         .saturating_add(9_000)
+        .saturating_add(u64::try_from(axis.index()).unwrap_or(0))
+}
+
+#[cfg(feature = "research")]
+fn transition_opportunity_origin(sequence: u64, axis: BodyAxis) -> u64 {
+    EXTERNAL_PHYSICAL_BASE
+        .saturating_add(sequence.saturating_mul(10_000))
+        .saturating_add(9_500)
         .saturating_add(u64::try_from(axis.index()).unwrap_or(0))
 }
 

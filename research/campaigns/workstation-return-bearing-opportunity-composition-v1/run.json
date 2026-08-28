@@ -1,0 +1,9 @@
+{
+  "schema": "workstation-return-bearing-opportunity-composition-run/v1",
+  "protocol_sha256": "34a337ad9af774a7e45705e6fc6c98596482e79cd26b3aea7c01e4deb359bb81",
+  "valid_runs": 0,
+  "full_run_started": false,
+  "repaired_or_rerun": false,
+  "preflight_steps": 48,
+  "stop_condition_triggered": "targeted exact-path fixture failed"
+}

@@ -1,0 +1,38 @@
+schema = "research-convergence/v1"
+campaign = "workstation-return-bearing-opportunity-composition-v1"
+round = 1
+survived = ["production-and-sample-controls"]
+falsified = ["return-bearing-opportunity-composition"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "the failed candidate preserved the existing learner and submitted actual transition incidence plus equal anonymous opportunities without direction target or evaluator knowledge",
+  "the production and diagnostic-purity controls remained unchanged",
+]
+strongest_counterexamples = [
+  "forty-seven actual returned components and ninety-four co-scheduled local inputs produced zero same-component movement at twenty-three contact-relevant returns",
+  "no current-transition candidate was admitted in forty-eight focused steps, so scheduler coexistence alone did not restore the exact used path",
+  "the candidate produced no opposing effort; its failure precedes ranking cancellation and physical integration",
+]
+retired_families = [
+  "scheduler co-presence of a component-level return and equal motor opportunity as a sufficient causal composition",
+  "timing-only repair without preserving which physical output produced the changed state",
+]
+next_discriminators = [
+  "inspect the workstation outcome-source map: opposing physical outputs currently share one axis-level outcome junction, which may coequalize two distinct arrows before return",
+  "test output-specific outcome sources that remain connected in one component while returning the actual changed output source derived from existing physical effort",
+  "retain the smallest temporary causal source already present in body effort; do not add desired direction or target memory",
+]
+
+[[new_arm]]
+id = "output-specific-return-source"
+kind = "solve"
+parents = ["return-bearing-opportunity-composition", "production-and-sample-controls"]
+imports = ["actual output crossing", "existing body effort", "output-specific outcome source", "connected component product"]
+interaction_prediction = "Keeping the two opposing outputs as distinct outcome sources while connecting both inside the same axis component lets an actual changed effort return along the one output path that caused it; equal opportunity can then compose with that path without adapter direction choice."
+falsifiers = [
+  "The exact prior output source cannot be derived from existing physical effort.",
+  "Separating outcome sources splits the opposing alternatives into different competition components.",
+  "The return still carries no live completing path or current-transition candidate.",
+  "Production identity replay quiet work or semantic controls regress.",
+]
