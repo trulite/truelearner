@@ -12,7 +12,7 @@ pub use checkpoint::SessionCheckpoint;
 pub use geometry::{Key, KeyId, Rect, WorldGeometry, KEY_COUNT};
 pub use recording::{RecordedStep, WorkstationRecording, MAX_RECORDING_STEPS};
 pub use session::{SessionObservation, SessionRead, WorkstationSession};
-pub use world::{DeviceEvent, DeviceState, ScreenPoint, WorkstationWorld};
+pub use world::{DeviceEvent, DeviceState, ScreenPoint, WorkstationWorld, CONTACT_DEPTH};
 
 use std::fmt;
 

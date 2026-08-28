@@ -1,0 +1,58 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-contact-contingency-candidate.json",
+    "sha256": "253508ccc89ab296d2a6f5a1ab8c8d7dd5726cc583d54dbe24fd4731ad7d6f01"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "academy-world-and-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 6.74
+    },
+    {
+      "name": "contact-projection",
+      "command": "cargo test --locked --manifest-path research/experiments/workstation-contact-contingency/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 3.57
+    },
+    {
+      "name": "learner-production-diff",
+      "command": "git diff --quiet cf38d8a -- truelearner/crates",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation recording_",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 4.36
+    }
+  ],
+  "findings": [
+    "The observer projects only already public recording state and has no arrow back into the organism.",
+    "All fourteen Academy workstation unit tests and four public world firewall and checkpoint tests pass.",
+    "The public contact depth and experiment use the same fixed world constant, avoiding a second definition of contact.",
+    "No learner core workstation body state checkpoint opportunity incidence geometry initial pose force law or session order changed."
+  ],
+  "residual_uncertainty": [
+    "Engineering verification establishes faithful observation only; the preregistered complete run must still determine whether the organism actually reaches contact."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/workstation-contact-contingency-probe.md",
+      "sha256": "24bcacf411be60445d16c2c9d55db9f04c0377e829396df475760cdf6ea05d76"
+    },
+    {
+      "path": "research/campaigns/workstation-contact-contingency-v1/protocol.toml",
+      "sha256": "480d668bf727f3935b9e044ca7c45f78db1f9a06b74c723fb616b8f094c44eed"
+    }
+  ]
+}

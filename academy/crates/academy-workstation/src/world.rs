@@ -8,7 +8,7 @@ use truelearner_workstation::{
     ContactSample, Digit, Eye, HandPoint, WorkstationState, WorldSample, BODY_MAX, TOUCH_SITES,
 };
 
-const SURFACE_DEPTH: i16 = 600;
+pub const CONTACT_DEPTH: i16 = 600;
 const PRESS_DEPTH: i16 = 720;
 const RELEASE_DEPTH: i16 = 660;
 const MAX_TEXT: usize = 64;
@@ -242,7 +242,7 @@ impl WorkstationWorld {
     }
 
     fn on_surface(&self, point: SurfacePoint) -> bool {
-        point.depth >= SURFACE_DEPTH
+        point.depth >= CONTACT_DEPTH
             && (self.geometry.touchpad.contains_xy(point.x, point.y)
                 || self
                     .geometry
@@ -287,7 +287,7 @@ impl WorkstationWorld {
             .tips
             .into_iter()
             .find(|tip| {
-                tip.depth >= SURFACE_DEPTH && self.geometry.touchpad.contains_xy(tip.x, tip.y)
+                tip.depth >= CONTACT_DEPTH && self.geometry.touchpad.contains_xy(tip.x, tip.y)
             })
             .map(|tip| ScreenPoint { x: tip.x, y: tip.y });
         match (self.device.touch, touch) {
@@ -364,7 +364,7 @@ impl WorkstationWorld {
 
 fn contact_sample(depth: i16, slip: i16) -> Result<ContactSample, WorldError> {
     let pressure = depth
-        .saturating_sub(SURFACE_DEPTH)
+        .saturating_sub(CONTACT_DEPTH)
         .unsigned_abs()
         .saturating_add(1)
         .min(BODY_MAX as u16);
@@ -526,7 +526,7 @@ mod tests {
         contact.tips[1] = SurfacePoint {
             x: pad.x + 20,
             y: pad.y + 20,
-            depth: SURFACE_DEPTH,
+            depth: CONTACT_DEPTH,
         };
         assert!(world
             .advance_surface_for_test(empty_frame(), contact)
@@ -547,7 +547,7 @@ mod tests {
         contact.tips[0] = SurfacePoint {
             x: pad.x + 10,
             y: pad.y + 10,
-            depth: SURFACE_DEPTH,
+            depth: CONTACT_DEPTH,
         };
         let mut tap = WorkstationWorld::new().unwrap();
         tap.advance_surface_for_test(empty_frame(), contact);
