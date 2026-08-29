@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-regulation-and-necessity"
+campaign = "body-curried-component-calibration-authority-v3"
+kind = "composition"
+parents = ["body-curried-component-calibration-authority-v2:complete-regulation-and-necessity"]
+imports = ["unchanged six complete regulation cases", "unchanged four single-factor removals", "historical context-oracle counterexample", "terminal context projection"]
+mechanism = "Reproduce the unchanged complete scalar regulator and every removal in the exact publishable subject."
+prediction = "Complete regulation holds all six relations while every removal reaches its exact V2 wall and the historical any-window oracle remains falsified."
+falsifiers = ["Any complete case changes from V2.", "Any removal survives or changes its wall.", "The historical oracle passes.", "Terminal context does not discriminate the curried body relation."]
+source_revision = "commit:9679c4e2115ce904a5bf52295f7351f6fa6e4f33"
+protocol_sha256 = "e9ccf685a6cf7415383b18a5c8fcc7138f1b7afbd7862ad7642d9b4b9270ffef"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment regulation_body_curried_calibration -- --exact"
+full_evidence = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_persistent_drive -- --ignored --exact; cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_directional_change -- --ignored --exact; cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_zero_identity -- --ignored --exact; cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_terminal_shifted_context_reference -- --ignored --exact; cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_fixed_context_terminal_residence -- --ignored --exact; ! cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_fixed_context -- --ignored --exact"

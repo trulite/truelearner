@@ -1,0 +1,8 @@
+worktree=/tmp/truelearner-calibration-authority-v3.1olTF9/subject
+cargo_target=/tmp/truelearner-calibration-authority-v3-target.u4iMtQ
+subject_commit=9679c4e2115ce904a5bf52295f7351f6fa6e4f33
+subject_tree=c29793653bb725ac273d1465c67e4010adf738dc
+clean_status_lines_before=0
+rustc 1.97.1 (8bab26f4f 2026-07-14)
+Darwin arm64
+clean_status_lines_after=0

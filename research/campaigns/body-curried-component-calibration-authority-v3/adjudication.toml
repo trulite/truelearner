@@ -1,0 +1,48 @@
+schema = "research-adjudication/v1"
+protocol_path = "protocol.toml"
+protocol_sha256 = "e9ccf685a6cf7415383b18a5c8fcc7138f1b7afbd7862ad7642d9b4b9270ffef"
+evidence_path = "evidence.json"
+evidence_sha256 = "3d6a8106d2176048a3bea2645dbc0886e8be656dbec23acda05216ff4e3c72ff"
+verdict = "positive"
+predicate_results = [
+  "subject identity=passed: clean detached commit 9679c4e2115ce904a5bf52295f7351f6fa6e4f33 and tree c29793653bb725ac273d1465c67e4010adf738dc matched before and after",
+  "publishability boundary=passed: the subject tracks only compact preflight-failure.json in the workstation diagnostic directory, tracks zero generated recordings, and contains zero blobs over one hundred million bytes",
+  "calibration laws and transfer=passed: five law preflight tests twelve full law and cross-type tests and the physical calibration trace passed",
+  "complete scalar regulation=passed: centered positive centered negative reflected positive reflected negative shifted positive and shifted negative cases all held their body relation with exact replay returned-origin integrity and natural quiescence",
+  "persistent-drive necessity=passed: its removal moved three to two once then remained at unresolved position two",
+  "directional-change necessity=passed: its removal falsely recorded outcome while residual worsened from two to three on minus-three to minus-four movement",
+  "zero-identity necessity=passed: its removal produced action from residual zero while the complete subject remained inert",
+  "body-context necessity=passed: complete calibration terminally held shifted two-through-three while fixed centered context finished exactly [1, 1, 1, 1]",
+  "historical oracle integrity=passed: the unchanged any-window test remained falsified by transient [3, 3, 2, 2] rather than being repaired",
+  "workspace integration=passed: cold bootstrap completed in 9.03 seconds and the second exact warm regression completed in 0.73 seconds",
+  "identifier semantic firewall=passed: positive forbidden-component controls matched, TRACE_CLEAR_PHASE and truelearner_core remained nonmatches, production calibration exposed zero forbidden components and no CalibrationAblation wiring",
+]
+control_results = [
+  "unavailable controls=passed: unavailable body context constructs no normalizer and unavailable observation is not evaluated",
+  "signal honesty=passed: origin incidence availability mapping and parallel composition remained unchanged",
+  "reflected-effect control=passed without a semantic direction map",
+  "worsening-versus-improving control=passed through the complete and directional-removal contrast",
+  "zero identity control=passed through the complete and zero-removal contrast",
+  "terminal-versus-transient control=passed while preserving the falsified predecessor oracle",
+  "core and workspace regression=passed with the same declared adversarial tests ignored and all runtime attachment embodiment and workstation tests green",
+  "run policy=passed: one valid V3 batch completed in one fresh detached checkout and fresh target with no repair rerun or infrastructure failure",
+  "V2 lineage control=passed: V2 remains an immutable parent record and contributed no verdict to V3",
+]
+scientific_findings = [
+  "The exact publishable subject independently reproduces the bounded Body-Curried Component Calibration V2 result, so authority can be repinned without treating source equality as scientific evidence.",
+  "In the declared bounded worlds a body-supplied context can be curried into one value-generic calibration transformation while preserving physical cause and honest absence.",
+  "Persistent nonzero Sample drive improving-only outcome worsening-change separation and zero identity are jointly sufficient and separately necessary for the declared scalar regulation result.",
+  "Raw generated workstation recordings are not authority-bearing source artifacts; compact manifests logs and digests are sufficient for the publishable record while the originals remain local and ignored.",
+  "The promoted law remains only the accepted parent for the first real runtime-attached morphology and does not establish learned norms arbitrary residuals collective multisensor competence pointing grasping clicking typing speech or workstation use.",
+]
+residual_uncertainty = [
+  "Authority is bounded to the exact publishable subject, frozen transformation laws, declared cross-type values, and one-dimensional thirty-two-observation scalar regulation fixtures.",
+  "The largest remaining subject-tree blob is 34,631,346 bytes; this authority establishes the declared generated-trace exclusion and GitHub size boundary, not a repository-wide compact-artifact standard for all older campaigns.",
+  "The body relation is supplied locally; autonomous development or revision of that relation has not been tested.",
+  "A real morphology may expose new coupling geometry contact occlusion delay or actuation walls and must localize them without changing this accepted calibration law first.",
+]
+sufficiency = "established"
+integration = "passed"
+adoption = "adopted"
+authority = "promoted"
+authorized_by = "User explicitly authorized making the calibration authority publishable and pushing the clean history on 2026-08-29."

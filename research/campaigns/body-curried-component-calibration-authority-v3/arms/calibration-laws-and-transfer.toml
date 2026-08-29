@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "calibration-laws-and-transfer"
+campaign = "body-curried-component-calibration-authority-v3"
+kind = "composition"
+parents = ["body-curried-component-calibration-authority-v2:calibration-laws-and-transfer"]
+imports = ["unchanged Residual laws", "unchanged body-curried Normalizer", "signal preservation", "cross-type and held-out transfer"]
+mechanism = "Reproduce the unchanged pure calibration transformation in the exact publishable subject."
+prediction = "Every law and declared transfer passes without modality knowledge while honest absence origin and incidence remain unchanged."
+falsifiers = ["Any algebraic or signal law changes from V2.", "Any declared or held-out value type requires a special calibration implementation."]
+source_revision = "commit:9679c4e2115ce904a5bf52295f7351f6fa6e4f33"
+protocol_sha256 = "e9ccf685a6cf7415383b18a5c8fcc7138f1b7afbd7862ad7642d9b4b9270ffef"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test calibration calibration_laws"
+full_evidence = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test calibration; cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_trace_materializes_drive_fall_return_and_zero_identity -- --exact"

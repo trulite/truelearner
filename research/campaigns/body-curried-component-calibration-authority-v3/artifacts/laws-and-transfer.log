@@ -1,0 +1,19 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.02s
+     Running tests/calibration.rs (/tmp/truelearner-calibration-authority-v3-target.u4iMtQ/debug/deps/calibration-b6fe03ffdd41329e)
+
+running 12 tests
+test calibration_ladder_binocular_eye_composes_available_and_missing_views ... ok
+test calibration_ladder_ear_does_not_turn_silence_or_dropout_into_a_measurement ... ok
+test calibration_ladder_finger_pressure_uses_body_supplied_normal ... ok
+test calibration_ladder_hand_keeps_five_fingers_independent ... ok
+test calibration_ladder_held_out_spatial_field_uses_the_same_transformation ... ok
+test calibration_ladder_mixed_modalities_compose_without_a_shared_value_type ... ok
+test calibration_ladder_voice_accepts_structured_delayed_feedback ... ok
+test calibration_laws_curries_body_context_and_preserves_signal ... ok
+test calibration_laws_residual_identity_association_and_effect ... ok
+test calibration_laws_parallel_composition_preserves_local_factors ... ok
+test calibration_laws_unavailable_body_context_does_not_construct_a_normalizer ... ok
+test calibration_laws_unavailable_never_evaluates_relation ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

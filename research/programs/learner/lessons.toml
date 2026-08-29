@@ -610,6 +610,14 @@ applies_when = ["authority promotion", "stale audit contract", "semantic firewal
 research_action = "Use the authoritative four-factor calibration unchanged at the first real attached morphology. Let that morphology provide only its local body relation and ordinary effect boundary, and localize any new failure before changing calibration or inferring competence from a type-transfer fixture."
 
 [[lesson]]
+id = "LP-075"
+kind = "research-method"
+statement = "We saw twenty-one raw workstation diagnostic recordings occupy 3.3 gigabytes, including six blobs above GitHub's one-hundred-megabyte limit, because a broad staging operation treated generated event-by-event traces like source evidence. The solve was to remove those recordings from the unpushed candidate tree, retain them locally under an explicit ignore boundary, and publish only compact manifests logs and digests. Because that cleanup changed the exact candidate tree, the accepted calibration result was not inferred from unchanged source: one frozen fresh V3 batch independently reproduced every law removal integration and firewall predicate against the publishable commit before authority was repinned."
+evidence = ["body-curried-component-calibration-authority-v3:publishability-firewall-and-integration", "body-curried-component-calibration-authority-v3:evidence", "body-curried-component-calibration-authority-v3:adjudication"]
+applies_when = ["generated diagnostic trace", "repository publication", "oversized artifact", "authority lineage", "compact evidence"]
+research_action = "Keep raw diagnostic recordings local and ignored by default, retain compact causal projections manifests and content digests in Git, and rerun frozen authority whenever cleanup changes the exact promoted commit or tree."
+
+[[lesson]]
 id = "RM-001"
 kind = "research-method"
 statement = "A negative benchmark result does not identify the missing capability."

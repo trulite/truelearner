@@ -1,0 +1,32 @@
+   Compiling version_check v0.9.5
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling typenum v1.20.1
+   Compiling libc v0.2.189
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling cfg-if v1.0.4
+   Compiling generic-array v0.14.7
+   Compiling syn v3.0.4
+   Compiling cpufeatures v0.2.17
+   Compiling serde_derive v1.0.229
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling bincode v1.3.3
+   Compiling truelearner-core v0.1.0 (/private/tmp/truelearner-calibration-authority-v3.1olTF9/subject/truelearner/crates/core)
+   Compiling truelearner-embodiment v0.1.0 (/private/tmp/truelearner-calibration-authority-v3.1olTF9/subject/truelearner/crates/embodiment)
+    Finished `test` profile [optimized + debuginfo] target(s) in 8.63s
+     Running tests/calibration.rs (/tmp/truelearner-calibration-authority-v3-target.u4iMtQ/debug/deps/calibration-b6fe03ffdd41329e)
+
+running 5 tests
+test calibration_laws_curries_body_context_and_preserves_signal ... ok
+test calibration_laws_parallel_composition_preserves_local_factors ... ok
+test calibration_laws_residual_identity_association_and_effect ... ok
+test calibration_laws_unavailable_body_context_does_not_construct_a_normalizer ... ok
+test calibration_laws_unavailable_never_evaluates_relation ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
