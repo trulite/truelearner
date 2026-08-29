@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "split-parent-control"
+campaign = "runtime-attached-factored-regulation-v1"
+kind = "control"
+parents = ["runtime-attached-return-composition-v1:frozen-parent-control"]
+imports = ["unchanged split trace", "retained first reversal"]
+mechanism = "Repeat the exact split-trace parent from positive disturbance."
+prediction = "It emits motor 20000 then motor 20001 with no consequence and remains an exact replayable negative control."
+falsifiers = ["Its first two outputs change.", "It gains central regulation.", "Replay or quiescence fails."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "21cf1ba6c199d69806763fc28f7c072cbe474438ddec165e4f232ef53d43cf93"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment regulation_parent_reproduces_first_reversal"
+full_evidence = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment regulation_parent_reproduces_first_reversal"

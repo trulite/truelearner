@@ -1,0 +1,13 @@
+arm: remove-persistent-drive
+verdict: survived
+command: cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_persistent_drive -- --ignored --exact
+result: 1 passed; 0 failed; 26 filtered out
+
+observations:
+- The initial nonzero drive selected motor 20000 and moved the positive disturbance from 3 to 2.
+- The real smaller-residual return closed at the next observation.
+- With later phase-seven samples removed, every remaining position was 2 and residual 1 remained unresolved.
+- The run replayed exactly and naturally quiesced.
+
+necessity_scope:
+- Persistent containing-body drive is necessary after a completed child action-return cycle in this bounded fixture.

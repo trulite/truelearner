@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "cross-modality-calibration-ladder"
+campaign = "body-curried-component-calibration-v1"
+kind = "composition"
+parents = ["curried-calibration-laws"]
+imports = ["one curried Normalizer", "local products", "Availability", "effect identity"]
+mechanism = "Apply the exact same Normalizer implementation to scalar finger pressure, five local finger factors, binocular offsets, unavailable bilateral sound, delayed vocal spectrum, mixed body state, and a held-out structured value."
+prediction = "Every rung produces the body-defined residual and local identity without modality branches; independent hand and eye factors do not suppress neighbors."
+falsifiers = ["A modality needs a library branch or special trait.", "A global hand residual erases the local effect boundary.", "Occlusion fabricates acoustic state.", "Delayed voice origin is lost.", "The held-out type cannot use the same transformation."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "bebc2bc03a2a53261631ed9c4ed376ba409882ac08edcc232149584a1729e37f"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test calibration calibration_ladder_finger"
+full_evidence = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test calibration calibration_ladder_"

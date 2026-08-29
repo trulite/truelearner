@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "focused-field"
+campaign = "workstation-focused-sensor-field-v1"
+kind = "solve"
+parents = ["complete-spatial-field-parent", "composable-active-sensing-effects"]
+imports = ["generic complete SpatialField", "actual post-effect physical focus", "ordinary finite products and associative transduction"]
+mechanism = "Recursively and symmetrically split only regions containing a validated physical focus, retain an exact consuming partition, then explicitly transduce every complete region without allowing values to affect geometry."
+prediction = "Both eye fields reconstruct exactly, require at most 57 regions, preserve same-cue equality blank difference and learned cue-pair difference, and transfer under the registered algebraic and dimensional controls."
+falsifiers = ["Exact reconstruction fails.", "A region bound is exceeded.", "Same cue differs or either learned cue pair becomes equal.", "Geometry observes sensor values or semantic task state.", "Focus algebra mapping mirror completeness physical-state or dimensional transfer tests fail."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "5fb4ce170f42439d19809dc2a6bf27246c3d8909de2ae7fde8123b256f75c9c4"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test focused_sensor_fields"
+full_evidence = "cargo run --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --bin focused_sensor_field_projection -- research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json research/campaigns/workstation-focused-sensor-field-v1/artifacts/focused-field-projection.json"

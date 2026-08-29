@@ -1,0 +1,18 @@
+arm: remove-body-context
+verdict: falsified
+command: cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_fixed_context -- --ignored --exact
+result: failed its frozen oracle; 1 failed; 26 filtered out
+
+observed_trajectory:
+- positions began [3, 3, 2, 2, 1, 1] and then remained at 1.
+- The external body norm was the disjoint band [2, 3], while calibration used fixed [-1, 1].
+- The removal therefore ultimately settled outside the body's actual norm and inside the fixed calibration norm.
+
+first_contract_failure:
+- The frozen `held_in_band` predicate accepted any four consecutive in-band positions.
+- The transit prefix [3, 3, 2, 2] satisfied that predicate before the organism continued to 1.
+- The arm predicted failure of any four-position residence, so its exact prediction was false even though its terminal physical state selected a sharper discriminator.
+
+next_discriminator:
+- Preserve this failed arm unchanged.
+- In a successor, distinguish transient crossing from terminal residence by requiring the final four observations to remain in the body norm.

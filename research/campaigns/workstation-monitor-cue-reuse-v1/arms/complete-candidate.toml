@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-candidate"
+campaign = "workstation-monitor-cue-reuse-v1"
+kind = "composition"
+parents = ["link-outcome-first-choice-lifetime", "threshold-retinotopic-visual-transition", "workstation-binocular-stable-fixation"]
+imports = ["proper real-key press release", "wide signed retinal distinction", "cue-dependent visual motor choice", "learner-only fingerprint", "lossless choice and outcome diagnostics"]
+mechanism = "Compose the unchanged strongest compatible hand and visual stack with one replayable pixels-only monitor cue, develop on ordinary proper-key effects, then run paired learned cues from one identical checkpoint and classify the first absent physical arrow."
+prediction = "Two printable key effects develop and release; their later monitor glyphs differ through retina learner candidate choice and outward movement while replay quiet firewall and work remain intact."
+falsifiers = ["Two proper printable development outcomes do not complete.", "The key-caused monitor change lacks retinal learner or consequence return.", "Paired learned cues do not reach different executable effects.", "Replay quiet work reference or firewall integrity fails."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "f1f3c33b9ebae68933648fede2e2d7ccf274d67e4f53530c6076cb04ba374a21"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib monitor_cue_action_outcome_reuse"
+full_evidence = "cargo run --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --bin monitor_cue_reuse -- research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json 120 24"

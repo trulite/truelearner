@@ -2,6 +2,10 @@ use truelearner_workstation::{
     BodyAxis, ContactSample, Digit, Eye, LightField, WorkstationCheckpoint, WorkstationHarness,
     WorldSample, AXIS_COUNT, BODY_MAX, TOUCH_SITES,
 };
+#[cfg(feature = "research")]
+use truelearner_workstation::{
+    Protocol, ResearchHarnessConfig, ResearchOpportunityIncidence, ResearchTransitionOpportunity,
+};
 
 fn centered_light(value: u8) -> LightField {
     let width = 33_u16;
@@ -17,6 +21,22 @@ fn sample() -> WorldSample {
         [ContactSample::default(); TOUCH_SITES],
     )
     .unwrap()
+}
+
+#[cfg(feature = "research")]
+fn alternating_light() -> LightField {
+    let width = 65_u16;
+    let height = 65_u16;
+    let pixels = (0..usize::from(width) * usize::from(height))
+        .map(|index| {
+            if index % usize::from(width) % 2 == 0 {
+                64
+            } else {
+                192
+            }
+        })
+        .collect();
+    LightField::new(width, height, pixels).unwrap()
 }
 
 #[test]
@@ -104,4 +124,43 @@ fn two_eyes_one_hand_and_five_fingertips_have_stable_positions() {
     assert!(proprioception
         .iter()
         .all(|sense| sense.position == 0 && sense.velocity == 0));
+}
+
+#[cfg(feature = "research")]
+#[test]
+fn visual_receptor_state_restores_the_exact_next_step() {
+    let config = ResearchHarnessConfig {
+        protocol: Protocol::RecursiveLearnerCausalTopologyProductCompositionOutcomeLifetime,
+        opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
+        transition_opportunity: ResearchTransitionOpportunity::OutputSpecificProprioceptiveSequentialAlignedCausalDeltaPalmComponentWideRetinaVisualTransition,
+    };
+    let stable = WorldSample::new(
+        [alternating_light(), alternating_light()],
+        [ContactSample::default(); TOUCH_SITES],
+    )
+    .unwrap();
+    let passive_change = WorldSample::new(
+        [
+            LightField::filled(65, 65, 192).unwrap(),
+            LightField::filled(65, 65, 192).unwrap(),
+        ],
+        [ContactSample::default(); TOUCH_SITES],
+    )
+    .unwrap();
+    let mut body = WorkstationHarness::new_research(95, config).unwrap();
+    body.step(stable.clone()).unwrap();
+    let checkpoint = body.save().unwrap();
+    let expected = body.step(stable.clone()).unwrap();
+    assert!(!expected.retinal_transitions.is_empty());
+
+    let mut restored =
+        WorkstationHarness::restore_research_config(checkpoint.clone(), config).unwrap();
+    assert_eq!(restored.step(stable).unwrap(), expected);
+
+    let mut passive = WorkstationHarness::restore_research_config(checkpoint, config).unwrap();
+    assert!(passive
+        .step(passive_change)
+        .unwrap()
+        .retinal_transitions
+        .is_empty());
 }

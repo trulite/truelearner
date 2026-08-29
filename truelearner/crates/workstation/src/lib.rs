@@ -8,8 +8,13 @@ mod state;
 pub use checkpoint::WorkstationCheckpoint;
 #[cfg(feature = "research")]
 pub use harness::{
-    ResearchChoiceDiagnostic, ResearchHarnessConfig, ResearchOpportunityIncidence,
-    ResearchTransitionOpportunity,
+    research_focused_feature_for_origin, research_foveal_reach_retinal_features,
+    research_retinal_features, research_retinotopic_retinal_features,
+    research_wide_retinal_features, ResearchChoiceDiagnostic, ResearchFocusedActionProjection,
+    ResearchFocusedVisionObservation, ResearchHarnessConfig, ResearchOpportunityIncidence,
+    ResearchRetinalLayout, ResearchRetinalSnapshot, ResearchRetinalTransition,
+    ResearchTransitionOpportunity, ResearchVisualComposition, FOCUSED_RECEPTOR_FEATURE_COUNT,
+    RESEARCH_RETINA_FEATURE_COUNT,
 };
 pub use harness::{StepMetrics, WorkstationHarness, WorkstationRead, WorkstationStepObservation};
 pub use state::{

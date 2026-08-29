@@ -1,0 +1,14 @@
+arm: exact-attached-cycle-closure
+verdict: survived
+command: cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test runtime_attachment physical_cycle_closure_
+result: 3 passed; 0 failed; 6 filtered out
+
+observations:
+- A transition whose physical origin was the output of the live participating path wrote consequence to that exact path and was consumed before it could emit another action.
+- An unchanged Sample and an unrelated transition origin wrote no consequence and continued through ordinary body dynamics.
+- A return with more than one participating path was diagnosed as ambiguous, wrote no consequence, and was not consumed.
+- The accepted closure replayed byte-for-byte from checkpoint and naturally quiesced.
+
+semantic_firewall:
+- No sensor kind, position, direction, expected output, motor label, rest region, or evaluator answer entered the closure decision.
+- The decision used only physical transition lineage, live path participation, path opening time, and physical output origin.

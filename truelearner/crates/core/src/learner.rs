@@ -2,18 +2,18 @@ use crate::prelude::*;
 
 const CONSTRUCTION_EVIDENCE: u32 = 2;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub(crate) struct LearnerReturnMemory {
-    pub(crate) link: LinkId,
-    pub(crate) generation: Generation,
-    pub(crate) origin_physical: u64,
-}
-
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub(crate) enum ConsequenceLifetime {
     #[default]
     Ordinary,
     HeldForFirstChoice,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub(crate) struct LearnerReturnMemory {
+    pub(crate) link: LinkId,
+    pub(crate) generation: Generation,
+    pub(crate) origin_physical: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

@@ -1,0 +1,112 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "composable-active-sensing-effects-candidate.json",
+    "sha256": "09911dd2ed5e62519cd7448d1b17ac045161c970d1489a63b9cf49ae92c251ef"
+  },
+  "verdict": "supported",
+  "independent_test_count": 8,
+  "checks": [
+    {
+      "name": "held-out-availability",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test active_sensing disappearance_and_reappearance_are_honest_sensor_transitions",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.11
+    },
+    {
+      "name": "held-out-seven-port",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test active_sensing held_out_seven_port_frame_preserves_unconstrained_neighbors",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.10
+    },
+    {
+      "name": "exact-stable-replay",
+      "command": "cargo run --release --locked --manifest-path research/experiments/workstation-binocular-alignment/Cargo.toml --bin binocular_alignment_trace -- /tmp/composable-active-sensing-verification-stable.json stable",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 7.73
+    },
+    {
+      "name": "stable-trace-identity",
+      "command": "cmp research/campaigns/workstation-binocular-stable-fixation-v1/artifacts/stable-fixation.json /tmp/composable-active-sensing-verification-stable.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "production-replay",
+      "command": "cargo run --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --bin visual_reach_trace -- /tmp/composable-active-sensing-verification-production.json 64",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 5.00
+    },
+    {
+      "name": "production-trace-identity",
+      "command": "cmp research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visual-reach-64.json /tmp/composable-active-sensing-verification-production.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "semantic-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.72
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.53
+    }
+  ],
+  "findings": [
+    "Availability is a value-preserving sensor construction: mapping an unavailable observation remains unavailable, pairing requires both simultaneous observations, and disappearance or reappearance becomes an honest transition without a retained hidden value.",
+    "Existing DriverBank, Signal, Origin, Incidence, Port, routing, and fan-out compose with Availability to preserve zero, one, or many simultaneous sensor-field candidates without selecting a semantic target.",
+    "CommandCollector accepts every source at an opaque actuator port, and consuming finish is the only route to CommandFrame. The finished frame has no add operation, so effect constraints begin only after command collection closes.",
+    "Bounded opposed-effort combination has an executable identity and association law. EffectMode preserves a finished command or replaces it with the explicit no-command identity.",
+    "The same finished-frame constraint suppressed one eye after two command sources joined, suppressed one contacting finger without suppressing four neighbors, and preserved locality in a held-out seven-port morphology.",
+    "The live workstation now collects all learner eye outputs before applying the centred-eye identity. The six-relation stable-fixation artifact remained byte-identical at SHA-256 4da905f0907302d16b1462f409769c6ebe27e11b474bc45499549a3fdd894b20.",
+    "The Production visual-reach artifact remained byte-identical at SHA-256 4be6c6f75aefe9dc2f38d019ce0f4f9133b26d650e0016a5b5b051f40241b2af; the semantic firewall, replay regressions, and strict warm-time bound also passed."
+  ],
+  "residual_uncertainty": [
+    "This is neutral composition infrastructure. It does not prove natural-image feature extraction, selection under clutter, learned continuity through occlusion, binocular correspondence, stereo depth, or depth-directed reaching.",
+    "Availability pairing is deliberately same-step and memoryless. Asynchronous physical sensors will require an explicit timing adapter whose stale-data policy must be tested rather than hidden in this library.",
+    "The caller supplies each command-combination operation. Opposed effort satisfies the tested identity and association laws; every future command algebra must establish its own laws before reuse.",
+    "Only the common effect boundary has migrated into the live workstation. Natural-image and occlusion experiments must compose the sensor availability surface before that side gains end-to-end evidence."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/composable-active-sensing-effects.md",
+      "sha256": "2a64d2907afe00225a9a1e5648d4b62bf2ac2adfafc1dddb1a31a0ccea70fe4a"
+    },
+    {
+      "path": "truelearner/crates/embodiment/src/lib.rs",
+      "sha256": "27d7102c871a1c618f5c4b07a62abd50cc973aa0d06d99f42dad004ecbcd222c"
+    },
+    {
+      "path": "truelearner/crates/embodiment/tests/active_sensing.rs",
+      "sha256": "783ad731d496e09a17d43eaedbab2e09c39bb6a93ea0ce6fb0a07c51f76802d0"
+    },
+    {
+      "path": "truelearner/crates/workstation/src/harness.rs",
+      "sha256": "acb7d49645ed62e54209ff8437f6a32a5b2a83b763875ee9d87efa526fffa6eb"
+    },
+    {
+      "path": "truelearner/crates/workstation/src/state.rs",
+      "sha256": "80d1a8119f305ef5b159bb0d121277252e4287dadb7cf45bca015b641916237e"
+    },
+    {
+      "path": "research/campaigns/workstation-binocular-stable-fixation-v1/artifacts/stable-fixation.json",
+      "sha256": "4da905f0907302d16b1462f409769c6ebe27e11b474bc45499549a3fdd894b20"
+    },
+    {
+      "path": "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visual-reach-64.json",
+      "sha256": "4be6c6f75aefe9dc2f38d019ce0f4f9133b26d650e0016a5b5b051f40241b2af"
+    }
+  ]
+}

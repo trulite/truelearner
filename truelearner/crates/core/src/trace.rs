@@ -72,6 +72,14 @@ pub enum CompletedCycleState {
     Unique,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NaturalCycleClosureDecision {
+    NoTransition,
+    NoMatchingPath,
+    Ambiguous,
+    Closed,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum OutputChoiceBasis {
     CurrentTransition,
@@ -139,6 +147,17 @@ pub enum PhysicalEvent {
         resolved_origin: u64,
         resolution: CausalOriginResolution,
         causal_wave: u64,
+    },
+    NaturalCycleClosureEvaluated {
+        surface: JunctionId,
+        matching_paths: u32,
+        decision: NaturalCycleClosureDecision,
+    },
+    NaturalCycleClosed {
+        surface: JunctionId,
+        output: JunctionId,
+        first: LinkId,
+        second: LinkId,
     },
     DriveIncidence {
         target: JunctionId,
@@ -227,6 +246,12 @@ pub enum PhysicalEvent {
         link: LinkId,
         junction: JunctionId,
     },
+    OrganismConsequenceConsumed {
+        target: JunctionId,
+        link: LinkId,
+        generation: u32,
+        consequence_tick: i64,
+    },
     ProprioceptiveOpportunity {
         owner: LearnerId,
         target: JunctionId,
@@ -255,6 +280,7 @@ pub enum PhysicalEvent {
         target: JunctionId,
         ownership: CandidateOwnership,
         path_inputs: u32,
+        path_origins: Vec<u64>,
         distinct_path_origins: u32,
         distinct_path_owners: u32,
         positive_path_strength: u64,
@@ -448,6 +474,7 @@ impl PhysicalEvent {
                 | Self::DriveOriginObserved { .. }
                 | Self::DriveProvenanceObserved { .. }
                 | Self::CausalOriginResolved { .. }
+                | Self::NaturalCycleClosureEvaluated { .. }
                 | Self::ModulatoryOriginObserved { .. }
                 | Self::ReturnOriginEvaluated { .. }
                 | Self::ReversePathEvaluated { .. }

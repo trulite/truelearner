@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "downward-mechanism-removals"
+campaign = "workstation-binocular-alignment-v1"
+kind = "hybrid"
+parents = ["complete-binocular-product"]
+imports = ["frozen complete positive reference", "signed placement removal", "visual-return removal", "threshold-factorization removal"]
+mechanism = "After the complete product succeeds, remove one visual mechanism at a time and rerun the entire upward ladder from a fresh identical body."
+prediction = "Collapsed placement loses signed response, removed visual return loses repeatable closed-loop improvement, and removed threshold factorization loses ordinal transfer; zero disparity and uniform light never satisfy binocular alignment."
+falsifiers = ["The complete candidate fails, making removals inadmissible.", "A removal preserves every complete-product predicate.", "A negative control is credited as alignment.", "An ablation changes an unrelated production control."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "18e8c6f650f49543d9ccdacd83ee4b4f255751e39090edbe8fac6f30a3676bf0"
+budget_minutes = 12
+
+[gates]
+tiny_fixture = "cargo test --release --locked --manifest-path research/experiments/workstation-binocular-alignment/Cargo.toml --lib removals_fail_at_declared_rungs"
+full_evidence = "cargo test --release --locked --manifest-path research/experiments/workstation-binocular-alignment/Cargo.toml --lib binocular_controls_and_transfer_hold"

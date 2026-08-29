@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "body-context-terminal-residence-v1"
+program = "learner-physics"
+kind = "diagnostic"
+mode = "discovery"
+hypothesis = "The context curried into calibration determines terminal residence even when the organism transiently crosses another external body norm."
+first_divergence = "The fixed-context trajectory crosses shifted [2, 3] as [3, 3, 2, 2] but then continues to terminal state 1."
+missing_transition = "The prior any-window observer did not distinguish transient crossing from the terminal held relation."
+prediction = "The complete candidate's final four positions remain in shifted [2, 3], while the fixed centered candidate's final four are 1, outside shifted and inside centered [-1, 1]."
+falsifiers = ["Complete terminal residence leaves shifted context.", "Fixed-context terminal residence remains shifted.", "Fixed-context terminal residence leaves centered context.", "Replay natural quiescence or production equality changes."]
+positive_reference = "body-curried-component-calibration-ablation-v1 complete-calibration-reference"
+negative_controls = ["frozen any-window fixed-context arm", "disjoint shifted and centered contexts", "unchanged complete candidate"]
+included_mechanisms = ["body-curried Normalizer", "unchanged attached calibration trace", "observer-only terminal projection"]
+inherited_constraints = ["no production change", "no motor map", "no evaluator reward", "exact replay", "natural quiescence"]
+excluded_proposals = ["new calibration law", "dynamic context learning", "longer run selected after observation", "authority promotion"]
+arm_paths = ["arms/complete-terminal-residence.toml", "arms/terminal-body-context-residence.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 10
+max_minutes_per_arm = 5
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

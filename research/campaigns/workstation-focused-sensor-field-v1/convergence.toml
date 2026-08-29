@@ -1,0 +1,19 @@
+schema = "research-convergence/v1"
+campaign = "workstation-focused-sensor-field-v1"
+round = 1
+survived = ["complete-spatial-field-parent", "focused-field", "no-focus-ablation"]
+falsified = []
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = ["all arms use the same immutable post-development body state real cue pair renderer and complete binocular rasters", "the focused and no-focus arms use the same complete field and associative region transducer", "focus changes only value-blind partition geometry before transduction and comes from retained physical gaze"]
+strongest_counterexamples = ["each focused 360 by 640 eye field reconstructs exactly using 28 regions under a preregistered bound of 57", "each actual focused region is 2 by 5 pixels and both eyes retain one differing transduced region", "all 25 fixed focus positions per eye remain bounded and distinguish the cue pair", "the no-focus one-region pixel sum also distinguishes this cue pair so this evidence does not establish that these glyphs require focus", "the compact artifact is artifacts/focused-field-projection.json sha256 b9f3bd79097f99e5c46c88a2fbd5e71e9260d76f7bea57f3fd168f86f3929235"]
+retired_families = ["calling foveation necessary merely because a focused representation works", "value-dependent crops glyph-specific patches or evaluator-selected differing regions", "representing focus as a semantic target rather than actual physical sensor state", "copying separate foveation implementations into each sensor driver"]
+next_discriminators = ["compose focused region signals through ordinary receptor and learner wiring and locate the first learner-state divergence", "use a discrimination where global aggregation aliases but spatially focused regions can differ before claiming focus is necessary", "then let eye action change physical focus and test whether the changed observation guides later action without target knowledge", "retain no-focus same-cue blank dimensional transfer semantic-firewall and accepted hand controls"]
+
+[[new_arm]]
+id = "focused-field-learner-participation"
+kind = "composition"
+parents = ["focused-field", "no-focus-ablation"]
+imports = ["bounded generic focused partitions", "explicit region transduction", "generic Signal ChangeDetector DriverBank and receptor wiring", "retained physical gaze"]
+interaction_prediction = "A bounded set of physically focused region signals produces an ordinary learner-input and learner-state distinction between appropriate visual scenes without exposing cue identity target coordinates or evaluator-selected regions."
+falsifiers = ["Focused region signals differ but every learner input and learner fingerprint remains equal.", "The wiring requires glyph identity target coordinates or a selected differing region.", "Focus is claimed necessary on a scene where the registered no-focus control is equally discriminative.", "The composition exceeds the declared bound or breaks exact replay natural quiescence semantic firewall parent hand behavior or dimensional laws."]

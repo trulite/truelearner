@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "centered-return-removal"
+campaign = "workstation-binocular-stable-fixation-v1"
+kind = "solve"
+parents = ["post-alignment-choice-localization"]
+imports = ["minimal binocular acquisition", "physical center receptor", "movement-caused visual return", "retained output origin"]
+mechanism = "Keep the centered retinal observation as an ordinary sample but do not return its off-to-on change as another directional movement consequence; preserve peripheral changes and all off-center returns."
+prediction = "If the returned center transition repeats the arrival direction, removing only that return prevents overshoot while retaining acquisition and generic off-center exploration."
+falsifiers = ["The first departure is not a continuation of the arrival output.", "Center-return removal loses acquisition.", "A directional output still departs after center arrival.", "The arm alters non-center retinal returns or Production."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "7792a8541cf90ddf2fe5a897d11e90c3a3fcb2d73fae057526819c9dfaa25279"
+budget_minutes = 12
+
+[gates]
+tiny_fixture = "cargo test --release --locked --manifest-path research/experiments/workstation-binocular-alignment/Cargo.toml --lib centered_return_is_not_directional"
+full_evidence = "cargo test --release --locked --manifest-path research/experiments/workstation-binocular-alignment/Cargo.toml --lib stable_fixation"

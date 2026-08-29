@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "lossless-local-field"
+campaign = "workstation-monitor-cue-local-field-v1"
+kind = "solve"
+parents = ["retained-point-alias", "composable-active-sensing-effects"]
+imports = ["retained real cue pair and post-development gaze", "generic availability", "ordinary ordered finite product"]
+mechanism = "Consume each complete eye raster into a fixed regular 8 by 8 local product factorization that moves every ordered site exactly once and can reconstruct the source field."
+prediction = "Both eye factorizations differ in one or more local blocks, reconstruct exactly, and replay the same cue exactly without cue-specific sites."
+falsifiers = ["Either cue pair has zero differing blocks.", "Either reconstruction is inexact.", "Same-cue replay differs.", "A source site is lost copied reordered padded or invented.", "The shared type or factorization contains workstation glyph key target or evaluator meaning."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "20383610e75399f6d49384a466786e16956c433818f87961de8000606711b1d7"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test spatial_fields"
+full_evidence = "cargo run --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --bin monitor_cue_local_field_projection -- research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json research/campaigns/workstation-monitor-cue-local-field-v1/artifacts/local-field-projection.json"

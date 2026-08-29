@@ -1,0 +1,48 @@
+schema = "research-convergence/v1"
+campaign = "workstation-binocular-alignment-v1"
+round = 1
+survived = ["minimal-binocular-product", "production-and-firewall-controls"]
+falsified = ["complete-binocular-product", "collapsed-placement", "no-visual-return"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "all research arms use the same two independent eye axes shared generic opportunity ordinary body force law fixed twelve-receptor capacity and external evaluator",
+  "outward and inward mirrors use identical learner construction and differ only in the external placement of the two vertical light edges",
+  "all verdicts are projected from retained body poses raster fields movement traces and retinal transitions outside the organism",
+  "all runs replay exactly naturally quiesce stay below the fixed work bound and leave the production Harness unchanged",
+]
+strongest_counterexamples = [
+  "the preregistered complete product was over-composed: with threshold factorization it missed exact joint alignment on the outward near relation and ended the inward middle relation with errors sixteen and four hundred sixteen in the first retained trace",
+  "removing threshold factorization strengthened rather than destroyed spatial transfer: the reduced product reached exact joint alignment in every outward and inward far middle and near relation, with achieved separations thirty-two ninety-six and one hundred sixty",
+  "collapsing signed receptor placement never improved best joint error below its initial value on any of the six mirrored relations",
+  "removing movement-caused visual return produced zero retinal transitions on every relation and missed exact outward-near alignment; the other one-off visits were therefore attributable to open-loop exploration rather than a closed visual return",
+  "the inherited production Harness produced zero retinal transitions and did not acquire the six-relation alignment product",
+]
+retired_families = [
+  "retinal threshold factorization as a necessary part of binary spatial binocular alignment",
+  "largest observed eye separation as alignment evidence",
+  "outward-only disparity fixtures that agree with the body's first exploratory movement",
+  "opposing eye motion with any light change as sufficient Academy evidence",
+]
+next_discriminators = [
+  "treat the reduced signed-placement times movement-return product as development evidence for bounded alignment acquisition only",
+  "separate stable fixation from acquisition and localize why an aligned pair leaves the relation instead of adding a hidden stop command",
+  "test whether the same eye-local composition transfers from vertical edges to held-out natural image features before claiming richer stereo vision",
+]
+
+[[new_arm]]
+id = "binocular-stable-fixation-localization"
+kind = "diagnostic"
+parents = ["minimal-binocular-product", "complete-binocular-product"]
+imports = [
+  "minimal product exact mirrored alignment acquisitions",
+  "retained post-alignment eye movements and output-caused retinal transitions",
+  "external-only joint error projection",
+]
+interaction_prediction = "The first departure after exact alignment will identify whether centered evidence supplies no executable quiet relation, supplies an unselected relation, or is canceled by an ordinary competing eye path, without adding a target coordinate desired direction or stop signal."
+falsifiers = [
+  "The retained trace does not contain the first exact alignment and following departure.",
+  "Localization changes the run state outputs work replay or quiescence.",
+  "The departure already preserves the unique centered relation and is caused only by an evaluator artifact.",
+  "The proposed localization requires cross-eye input target metadata or a semantic fixation command.",
+]

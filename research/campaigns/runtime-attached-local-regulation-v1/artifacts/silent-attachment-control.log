@@ -1,0 +1,19 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (truelearner/target/debug/deps/truelearner_core-e7bc8067e14f8e22)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+     Running tests/harness_boundary.rs (truelearner/target/debug/deps/harness_boundary-00ff295944157636)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.00s
+
+     Running tests/runtime_attachment.rs (truelearner/target/debug/deps/runtime_attachment-442a74ec5f9f2dab)
+
+running 1 test
+test runtime_attachment_is_atomic_quiet_and_checkpointed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s

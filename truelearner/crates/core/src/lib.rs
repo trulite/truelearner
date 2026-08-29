@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod arena;
+mod attachment;
 mod body;
 mod checkpoint;
 mod choose;
@@ -36,4 +37,5 @@ mod prelude {
     pub(crate) use std::collections::{BTreeMap, BTreeSet, HashSet};
 }
 
+pub use attachment::*;
 pub use core::*;

@@ -1,0 +1,78 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "attachment-natural-causal-closure-candidate.json",
+    "sha256": "aa12d8fcfa3e44c878fab6c52a9fdc3556bc491788122c796f9a580e68ab11b2"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "held-out-package-tests",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core -p truelearner-embodiment",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 7.94
+    },
+    {
+      "name": "unknown-capability-falsifier-retention",
+      "command": "run the ignored regulation_attachment_natural_closure probe and require exit 101 plus the retained positive [2, 2, ...], negative [-4, -4, ...], and positive consequence [false, true, false, ...] counterexample fragments",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.64
+    },
+    {
+      "name": "research-record-validation",
+      "command": "validate all runtime-attached campaign and convergence records plus research/programs/learner/program.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.37
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test runtime_attachment && cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.09
+    }
+  ],
+  "findings": [
+    "The missing transition is implemented as opt-in discovery physics: an actual returned transition closes and credits exactly one live participating action path before that return can request another action.",
+    "The identity and ambiguity controls pass. Samples, unrelated transition origins, and multiple matching paths receive no consequence; only the unique physical pullback is consumed.",
+    "The predicted coarse-graining passes. Two exact closures construct exactly one existing learner, and an unrelated runtime attachment before versus after the active component does not change outward history or learner extent.",
+    "The unknown two-sided regulation capability is falsified, not inferred from the lower success. The positive branch closes once and stalls at position 2; the negative branch makes the same unresolved initial choice, reaches -4, crosses no retained transition surface, and records no consequence.",
+    "All 158 non-ignored core and embodiment tests pass; eight frozen adversarial or negative probes remain ignored. The representative warm regression completes in 0.09 seconds, below the strict ten-second limit."
+  ],
+  "residual_uncertainty": [
+    "This supports exact attachment-natural cycle closure and existing learner coarse-graining as development mechanisms. It does not support autonomous regulation, collective competence, morphology transfer, vision-guided reaching, or keyboard use.",
+    "The first missing physical map is now at the containing-body scale: after a child cycle closes, a body-owned local constraint must remain active while the larger disturbance is unresolved and become identity when quiet. Putting that state in the sensor would violate the tested factorization.",
+    "The negative branch also shows that sparse transition surfaces can omit a worsening physical change. The next arm must expose continuing body disturbance without supplying direction, scalar position, a correct output, or an evaluator center.",
+    "The candidate remains opt-in on a dirty development worktree and does not alter accepted or default protocol authority. The receipt digest covers unrelated pre-existing changes, which were preserved but not attributed to this candidate."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/attachment-natural-causal-closure.md",
+      "sha256": "30bc4bc23801fd7e622050db9d98d22142a38f461272fd078b700b22820b47e2"
+    },
+    {
+      "path": "truelearner/crates/core/src/outcome.rs",
+      "sha256": "40a60ee100c5a378f0020ce903779f5da0f9406467e8025d09950588e9c10792"
+    },
+    {
+      "path": "truelearner/crates/core/tests/runtime_attachment.rs",
+      "sha256": "be3144a205e5f1a23668d9994d60c97ab35612f620942f3a7a79604e15981f18"
+    },
+    {
+      "path": "truelearner/crates/embodiment/tests/runtime_attachment.rs",
+      "sha256": "90e57f51db7d1a9164e6199cf59eb1e71b493d631637c3c0b31f1c2ae14443ec"
+    },
+    {
+      "path": "research/campaigns/runtime-attached-natural-closure-v1/convergence.toml",
+      "sha256": "f07ffd240767d9c3d2e6f5cc7228bae97ce3f4525061648ece20a4dacdaa1226"
+    },
+    {
+      "path": "research/campaigns/runtime-attached-natural-closure-v1/artifacts/two-sided-local-regulation.log",
+      "sha256": "396090f562021dc53cd6106f0c382e6c1bfd3f33114f15ea61476fbab013360e"
+    }
+  ]
+}

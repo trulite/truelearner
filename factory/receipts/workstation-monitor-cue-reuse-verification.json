@@ -1,0 +1,87 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-monitor-cue-reuse-candidate.json",
+    "sha256": "0b60c3da26ede476ef0e82715bab59cc06fe38c136d2f4cb641be094c69714fe"
+  },
+  "verdict": "supported",
+  "independent_test_count": 3,
+  "checks": [
+    {
+      "name": "retained-point-field-counterexample",
+      "command": "cargo run --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --bin monitor_cue_retina_projection -- research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json /tmp/workstation-retina-verification.json && cmp research/campaigns/workstation-monitor-cue-retina-v1/artifacts/workstation-retina-projection.json /tmp/workstation-retina-verification.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.52
+    },
+    {
+      "name": "semantic-firewall",
+      "command": "cargo test --release --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.20
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib monitor_cue_action_outcome_reuse_retains_the_first_broken_arrow",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 7.92
+    }
+  ],
+  "findings": [
+    "The external monitor cue is a replayable Academy world presentation: changing it preserves the body, device, learner fingerprint, and physical sequence until the next ordinary sensed step.",
+    "Ordinary development produced six distinct one-character key effects and retained their full physical traces; the paired cue probes began with exact body, device, and learner equality and replayed exactly.",
+    "The two learned cue glyphs first produced different binocular images at sequence 74, but the inherited retina, learner state, candidates, choices, and movements never diverged. The first broken arrow is therefore cue image to retinal value.",
+    "A wider twelve-point research projection reached non-background monitor pixels yet still mapped the two different glyph images to the exact same twenty-four-value vector. More isolated sample points are falsified as the solve for this counterexample.",
+    "The failed wider-point layout remains reproducible as a pure research projection and is not retained in the workstation runtime API. Existing real-key press and release behavior, stable binocular fixation, shared embodiment laws, natural quiescence, and the organism semantic firewall all remain intact.",
+    "The candidate and both campaign convergence records validate, and the representative warm regression completes in 7.92 seconds, below the ten-second limit."
+  ],
+  "residual_uncertainty": [
+    "This verifies the cue boundary and localizes a negative capability result; it does not show that a visual glyph selects its learned key action.",
+    "A reusable local spatial field is only the next predicted solve. It has not yet survived the retained glyph counterexample, uniform-field identity, locality, occlusion, clutter, or held-out sensor tests.",
+    "No Production learner law or Academy capability has been promoted, and keyboard search, closed reach, intended typing, grasping, and transfer remain unproved."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/workstation-monitor-cue-reuse.md",
+      "sha256": "a188b880ef59f2b363540da48232787ef2b4d4055564d44d984289fbd35cc9eb"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-reuse-v1/protocol.toml",
+      "sha256": "f1f3c33b9ebae68933648fede2e2d7ccf274d67e4f53530c6076cb04ba374a21"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json",
+      "sha256": "43bb8b86f1fc05d4c83b7450ab215915211efd6e52169e7b65eecac3b9011da8"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-reuse-v1/convergence.toml",
+      "sha256": "3819178d68ba8c2c6ae66943067beabfa2e0025c4c0e1cc3e224b9511b415f5d"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-retina-v1/artifacts/workstation-retina-projection.json",
+      "sha256": "e0027fa1914cbd01e7beeca745755b10ce475b4668f6b3eda75b9aa2cc69157a"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-retina-v1/convergence.toml",
+      "sha256": "46460a16fdf044aa1d31ea0ad7f135cc022720149eddcbfa98d463c9e4c913cf"
+    },
+    {
+      "path": "academy/crates/academy-workstation/src/world.rs",
+      "sha256": "e1583ce464c34532ddc2ce975bcd7fc898665942dfa2ed199a8f7f4736928fc0"
+    },
+    {
+      "path": "academy/crates/academy-workstation/src/render.rs",
+      "sha256": "0a7c039e00a079ee4b7b6efd47b749b98f70da4fccc9ff48090444d65416ee7e"
+    },
+    {
+      "path": "academy/crates/academy-workstation/src/session.rs",
+      "sha256": "ec503a923c219839e24e4c60fd3c650b712957a0378605b83eb47b8379a98545"
+    },
+    {
+      "path": "research/experiments/workstation-return-bearing-opportunity-composition/src/lib.rs",
+      "sha256": "e032980ee88db701e0aa4e1a3dbcd136cf4011a2067ca64978eaafb9ba41b263"
+    }
+  ]
+}

@@ -2,7 +2,7 @@ schema = "research-program/v1"
 id = "learner-physics"
 thesis = "Small local physical laws can produce increasingly general learner capabilities without high-level cognitive primitives or hidden evaluator authority."
 pre_frontier_checkpoint = "hand-causal-topology-product-authority-v1@7be8bbc3009fe3131622a6ee21e9aa260d649aa1"
-active_frontier = ["DEVELOPMENTAL-HAND-LADDER"]
+active_frontier = ["DEVELOPMENTAL-HAND-LADDER", "WORKSTATION-KEY-SELECTION-LADDER", "RUNTIME-ATTACHED-MULTISCALE-COMPETENCE"]
 
 [[claim]]
 id = "CORE1-LOCAL-LAWS"
@@ -255,4 +255,57 @@ limitations = [
   "Development evidence now composes the complete anonymous joint through two and then conditionally five serial components in one shared harness. Immediate-origin and completed-path-origin partitions were falsified by the exact one-joint control; factoring both output choice and fresh opportunity over existing connected physical outcome-source components preserved one-joint behavior and closed every two- and five-joint component under registration, perturbation, replay, quiescence, exhaustion, and activity-bounded work controls. This remains opt-in development evidence from a dirty worktree, not accepted-default or frozen authority. The next research action is clean integration plus downward ablation before a new hand morphology.",
   "Downward ablation now establishes separate necessity inside the declared serial-articulation world. Removing connected-component output choice preserved exact one-module identity but restored proximal suppression at two-joint step zero; removing connected-component opportunity allocation preserved one-module identity and initial motion but restored the distal step-five reversal failure. Both stopped five, while the unchanged complete product again closed two and five with inherited controls. The next action is one clean frozen authority run of that unchanged complete survivor; no new morphology may begin first.",
   "Connected Outcome Product V1 is now authoritative for the next hand ladder. One valid fresh batch at clean commit 7be8bbc3009fe3131622a6ee21e9aa260d649aa1 reproduced the generic topology fixture, exact one-module identity, complete two- and five-joint closure, both distinct removal walls, both origin controls, registration, perturbation, replay, natural quiescence, zero exhaustion, and bounded work. This promotes only the connected-component output-and-opportunity law and bounded anonymous serial-articulation claim; the next morphology remains untested.",
+]
+
+[[claim]]
+id = "WORKSTATION-KEY-SELECTION-LADDER"
+statement = "After ordinary exploration makes a proper physical key produce a visible monitor glyph, a later matching monitor glyph can reuse that action-outcome history, guide active search across the full keyboard, close the visible fingertip-key relation, and produce one naturally quiet press-release cycle without semantic key or target input."
+status = "proposed"
+depends_on = ["DEVELOPMENTAL-HAND-LADDER", "SENSORIMOTOR-PARTICIPATION-CONTINUITY"]
+falsifiers = [
+  "A real key press changes the monitor but the resulting retinal transition does not return to the exact participating action path.",
+  "A matching monitor glyph and a different learned glyph produce the same learner path, executable choice, and outward action history.",
+  "Cue-specific influence disappears before the eyes can move from the monitor to the keyboard.",
+  "Success requires a key identity, target coordinate, desired gaze or hand route, correctness bit, score, or evaluator decision inside the harness.",
+  "The eyes fixate the corresponding key but the visible fingertip-key relation does not close through ordinary visual, proprioceptive, and contact return.",
+  "A claimed press depends on several fingers, a stuck key, evaluator termination, fixture order, or a memorized keyboard coordinate.",
+  "Exact replay, reference equality, natural quiescence, learner-only fingerprinting, or bounded physical work fails.",
+]
+limitations = [
+  "The first frontier is only action-to-visible-outcome association followed by cue-first reuse on two proper keys in the unchanged full ANSI keyboard scene.",
+  "A forward key-to-glyph arrow does not imply a reverse glyph-to-key arrow; reverse reuse must be observed directly.",
+  "Cue-dependent movement does not establish visual key correspondence, keyboard search, closed reach, intended contact, or typing.",
+  "Initial exact-glyph probes do not establish case, font, scale, perspective, clutter, layout, morphology, or novel-key transfer.",
+  "The monitor cue is external world presentation rendered as pixels; it may not enter the learner as text, a key ID, an answer, or a reward.",
+  "Later rungs stop at the first failed physical prerequisite; supplied diagnostic fixtures may expose a neutral prerequisite but cannot count as end-to-end capability.",
+  "Removal ablations are inadmissible until the complete candidate passes the full upward ladder and is frozen as a positive reference.",
+  "The first complete cue run developed six proper printable keys and preserved image return replay and quiet, but two learned cue images mapped to the same twenty-four retinal values; downstream reverse reuse was therefore not tested.",
+  "A foveal plus upper-peripheral workstation field reached non-background monitor pixels at the retained post-typing gaze but still mapped right-bracket and backslash to the exact same sensory vector. The active frontier is a reusable local spatial sensor field, not another isolated point or a supplied gaze route.",
+]
+
+[[claim]]
+id = "RUNTIME-ATTACHED-MULTISCALE-COMPETENCE"
+statement = "A running organism can assimilate a newly attached anonymous physical sensor, retain its short-lived trace in ordinary body tissue, and compose actual sensor-action return into progressively stronger local and collective competence without a sensor-specific controller or motor map."
+status = "preregistered"
+depends_on = ["ANONYMOUS-SERIAL-ARTICULATION"]
+falsifiers = [
+  "Attachment itself emits an action, outcome, learner change, or hidden motor relation.",
+  "A new sensor requires external previous-value memory, semantic modality identity, or a sensor-specific controller.",
+  "A real sensor change cannot enter ordinary path formation or an action-caused return loses the action's physical origin.",
+  "A local loop moves but cannot regain and hold one externally measured region after disturbances from both sides.",
+  "Runtime plurality leaks history across sensors, depends on attachment order, or makes active work follow dormant tissue.",
+  "A collective result is obtained by counting local successes rather than through an actual coupling relation.",
+  "Replay, natural quiescence, inherited authority controls, or the semantic firewall fail.",
+]
+limitations = [
+  "Current development evidence establishes atomic runtime attachment, body-native threshold trace, modality-independent construction, active-frontier scaling, and one disturbed sensor-to-action-to-return cycle only.",
+  "One action does not establish regulation, alternate-route recovery, multisensor collective competence, morphology transfer, grasping, pointing, clicking, or keyboard use.",
+  "Initial attachment is monotonic; silence and replacement are supported without destructive detach or identity reuse.",
+  "The runtime attachment and physical trace are candidate substrate on a dirty development worktree, not adopted default or frozen organism authority.",
+  "The active next rung is closed one-dimensional local regulation with disturbances from both sides under the accepted connected-outcome parent; later rungs must stop if it fails.",
+  "The first regulation campaign is negative: a positive disturbance moved from three to two, but its truthful motor-origin return wrote no consequence to the acting path; the next ordinary tie reversed action and the body reached and remained at the upper bound. The active frontier is return-to-participating-path composition, comparing physical outcome-boundary placement with rise/fall factorization through a shared local change surface.",
+  "Successive categorical factors localized the next walls without closing regulation. Per-threshold rise/fall identity preserved one corrective continuation but expired at the next threshold. One sensor-wide change surface reached the central boundary, but the rest-entry transition fired that same active surface and immediately drove the body back out. The active frontier is a sensor-local factorization between out-of-band error change and rest-entry identity; higher rungs remain stopped.",
+  "Attachment-natural exact cycle closure now survives its missing and predicted rungs: one uniquely matched action-caused transition writes consequence to the live used path and is consumed, zero and ambiguous matches are not credited, and two exact closures form exactly one existing learner independent of unrelated attachment order. The full two-sided regulation rung remains negative: the positive branch closes once and stalls at two, while the negative branch takes the same unresolved initial action, reaches minus four without crossing a retained transition surface, and writes no consequence. The active frontier has therefore moved above the sensor: test a body-owned component drive that remains active while the containing local physical constraint is unresolved and becomes identity when quiet. This is opt-in dirty-worktree development evidence, not accepted authority; all higher rungs remain stopped.",
+  "Body-curried component calibration now survives its full discovery ladder. One pure Normalizer preserved origin incidence and honest absence across finger five-finger binocular acoustic vocal mixed and held-out spatial values, then attached residual tissue regulated both scalar disturbance signs under ordinary reflected effects and a shifted body norm. Persistent nonzero drive is an ordinary Sample, threshold falls alone return outcome, rises remain distinct, and zero is identity; exact replay and natural quiescence hold. This is opt-in dirty-worktree discovery evidence for the calibration shape and bounded scalar regulation only, not authority or real hand eye ear voice speech morphology transfer or collective competence. The active frontier is downward ablation of body context held drive directional factorization and zero identity before attaching real morphologies.",
+  "Downward ablation now establishes separate necessity of all four calibration factors inside the declared bounded scalar world. Removing persistent drive restored the unresolved position-two stall; merging directional change falsely credited a worsening minus-three-to-minus-four move; driving zero broke normal-state identity; and fixed centered context terminally held one instead of disjoint shifted [2, 3]. The original context arm remains falsified because its any-window oracle mistook transient [3, 3, 2, 2] crossing for holding; a frozen successor using final-four residence passed without repairing it. This remains opt-in dirty-worktree discovery evidence, not authority or real morphology competence. The next admissible step is the first real attached morphology using the unchanged four-factor calibration and only a local body relation plus ordinary effect boundary.",
 ]

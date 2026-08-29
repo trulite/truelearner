@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "runtime-attached-return-composition-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "The missing consequence arrow is a non-commuting physical boundary: it can be repaired either by attaching at the real outcome boundary or by factoring opposite threshold crossings through one anonymous local change surface."
+first_divergence = "At tick seven the 20000-origin sensory transition reaches the body, but both motor candidates have consequence_tick absent and ordinary choice reverses from motor 20000 to 20001."
+missing_transition = "The action-caused sensor return does not revisit or close the physical path that produced the action."
+prediction = "At least one minimal composition records consequence before the second choice and preserves the corrective motor without any fixed sensor-to-motor or sensor-to-outcome link."
+falsifiers = ["Neither arm writes consequence before the second choice.", "Neither arm prevents the frozen ordinary reversal.", "A survivor requires named motor identity or fixed cross-boundary wiring.", "The frozen parent replay quiescence or action origin changes."]
+positive_reference = "runtime-attached-local-regulation-v1 complete-local-regulation retained log sha256:d3ac6fb8ea42a8e0fe7e40be39e3757f77522291c6a0b013659f622732f8e596"
+negative_controls = ["unchanged split trace with distant outcomes", "silent attachment", "equal resampling", "no fixed motor relation", "semantic firewall"]
+included_mechanisms = ["atomic attachment", "body-native physical trace", "action-origin-preserving return", "ordinary local formation", "accepted connected-outcome learner", "existing consequence and choice diagnostics"]
+inherited_constraints = ["no new learner law", "no motor map", "no external previous value", "no target direction score or evaluator input", "exact replay natural quiescence and active work"]
+excluded_proposals = ["longer lifetime", "semantic setpoint", "selected motor", "fixed sensor-to-outcome link", "global history", "new consequence rule", "advancing dependent regulation rungs"]
+arm_paths = ["arms/frozen-parent-control.toml", "arms/outcome-boundary-attachment.toml", "arms/shared-change-surface.toml"]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 20
+max_minutes_per_arm = 8
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.67
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

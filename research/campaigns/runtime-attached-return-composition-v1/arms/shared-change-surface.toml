@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "shared-change-surface"
+campaign = "runtime-attached-return-composition-v1"
+kind = "composition"
+parents = ["frozen-parent-control", "runtime-attached-local-regulation-v1:silent-attachment-control"]
+imports = ["rise and fall trace outputs", "one anonymous component-local change surface per threshold", "ordinary local path formation"]
+mechanism = "Factor each threshold's rise and fall through one shared local change junction, keeping the directional trace internal and the body outcomes distant."
+prediction = "The 20000-origin fall revisits the exact component surface that formed the first path, records consequence before the second choice, and keeps motor 20000 without naming resident structure."
+falsifiers = ["The shared surface does not revisit the acting path.", "No consequence is recorded.", "The second choice still reverses.", "The factor causes broad firing non-quiescence or replay failure."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "8e9a39d38abfce8900c1c9240895601056ace6689715011d7e4c2035788b96a1"
+budget_minutes = 6
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment trace_factored_change_surface_preserves_rise_fall_and_quiet"
+full_evidence = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment regulation_shared_change_surface_closes_first_return"

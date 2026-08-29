@@ -34,6 +34,124 @@ impl Arena {
 }
 
 impl Body {
+    pub(crate) fn close_natural_physical_cycle(
+        &mut self,
+        fired: &Fired,
+        moment: &Moment,
+        run: &mut RunState,
+    ) -> bool {
+        if !self.protocol.closes_natural_physical_cycles() {
+            return false;
+        }
+
+        let Some(lineage) = fired.causal_lineage.as_ref() else {
+            self.trace_natural_cycle_closure(
+                fired.junction,
+                0,
+                NaturalCycleClosureDecision::NoTransition,
+                moment,
+                run,
+            );
+            return false;
+        };
+        let transition_origins = lineage
+            .origins()
+            .iter()
+            .copied()
+            .filter(|origin| lineage.transition_tick(*origin).is_some())
+            .collect::<BTreeSet<_>>();
+        if transition_origins.is_empty() {
+            self.trace_natural_cycle_closure(
+                fired.junction,
+                0,
+                NaturalCycleClosureDecision::NoTransition,
+                moment,
+                run,
+            );
+            return false;
+        }
+
+        let matches = self
+            .arena
+            .paths_from(fired.junction)
+            .into_iter()
+            .filter_map(|path| {
+                let first = self.arena.link_by_id(path.first)?;
+                let second = self.arena.link_by_id(path.second)?;
+                let output = self.arena.junction_by_id(second.to)?;
+                let transition_tick = lineage.transition_tick(output.physical_id)?;
+                (transition_origins.contains(&output.physical_id)
+                    && first.participation_level > 0
+                    && second.participation_level > 0
+                    && transition_tick > first.opened_tick.max(second.opened_tick))
+                .then_some((path, output.id))
+            })
+            .collect::<Vec<_>>();
+
+        let decision = match matches.len() {
+            0 => NaturalCycleClosureDecision::NoMatchingPath,
+            1 => NaturalCycleClosureDecision::Closed,
+            _ => NaturalCycleClosureDecision::Ambiguous,
+        };
+        self.trace_natural_cycle_closure(fired.junction, matches.len(), decision, moment, run);
+        let [(path, output)] = matches.as_slice() else {
+            return false;
+        };
+        let path = *path;
+        let output = *output;
+        let owners = self
+            .learner_owner_for_origin(
+                self.arena
+                    .junction_by_id(output)
+                    .expect("matched output remains live")
+                    .physical_id,
+            )
+            .into_iter()
+            .collect::<Vec<_>>();
+        self.apply_outcome(path.junction, &owners, Some(lineage), moment, run);
+        self.observe_causal_closure(
+            fired.junction,
+            output,
+            &[path.first, path.second],
+            moment,
+            run,
+        );
+        if self.trace_physics {
+            run.trace.push(PhysicalTransition {
+                tick: self.tick,
+                phase: moment.phase,
+                event: PhysicalEvent::NaturalCycleClosed {
+                    surface: fired.junction,
+                    output,
+                    first: path.first,
+                    second: path.second,
+                },
+            });
+        }
+        true
+    }
+
+    fn trace_natural_cycle_closure(
+        &self,
+        surface: JunctionId,
+        matching_paths: usize,
+        decision: NaturalCycleClosureDecision,
+        moment: &Moment,
+        run: &mut RunState,
+    ) {
+        if self.trace_physics {
+            run.trace.push(PhysicalTransition {
+                tick: self.tick,
+                phase: moment.phase,
+                event: PhysicalEvent::NaturalCycleClosureEvaluated {
+                    surface,
+                    matching_paths: u32::try_from(matching_paths).unwrap_or(u32::MAX),
+                    decision,
+                },
+            });
+        }
+    }
+
     /// Remove the temporary path after its outcome has physically returned.
     pub(crate) fn return_outcome(&mut self, id: LinkId) {
         let Some(slot) = self.arena.link_slot(id) else {
@@ -652,6 +770,8 @@ impl Body {
             .link_slot(reverse.second)
             .expect("reverse path link resolves");
         let generation = self.arena.link_snapshot(slot.0).generation;
+        let hold_consequence = self.protocol.holds_organism_outcome_for_first_choice()
+            && timing.transition_tick.is_some();
         self.arena.edit_link(slot.0, |link| {
             link.coupling = i32::try_from(observed).unwrap_or_else(|_| {
                 if observed.is_negative() {
@@ -662,6 +782,9 @@ impl Body {
             });
             link.resistance = u32::try_from(resistance).unwrap_or(u32::MAX);
             link.last_consequence_tick = Some(tick);
+            if hold_consequence {
+                link.held_consequence_tick = Some(tick);
+            }
         });
         if let Some(owner) = consequence_owner {
             self.record_learner_consequence(
@@ -1026,6 +1149,8 @@ impl Body {
                 let coupling_observer = self.arena.strength[index] / UNIT;
                 let resistance_observer =
                     self.arena.life[index].saturating_add(UNIT_U64.saturating_sub(1)) / UNIT_U64;
+                let hold_consequence = self.protocol.holds_organism_outcome_for_first_choice()
+                    && causal_lineage.is_some_and(CausalLineage::contains_transition);
                 self.arena.edit_link(slot.0, |live_link| {
                     live_link.coupling = i32::try_from(coupling_observer).unwrap_or_else(|_| {
                         if coupling_observer.is_negative() {
@@ -1038,6 +1163,9 @@ impl Body {
                     live_link.decay_load = 0;
                     if self.protocol.is_sensorimotor() {
                         live_link.last_consequence_tick = Some(self.tick);
+                        if hold_consequence {
+                            live_link.held_consequence_tick = Some(self.tick);
+                        }
                     }
                 });
                 if self.trace_physics && self.protocol.is_sensorimotor() {

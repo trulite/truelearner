@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-spatial-field-parent"
+campaign = "workstation-focused-sensor-field-v1"
+kind = "control"
+parents = ["workstation-monitor-cue-local-field-v1/lossless-local-field"]
+imports = ["immutable lossless local-field projection", "immutable retained complete monitor-cue trace"]
+mechanism = "Retain the exact parent result in which complete 360 by 640 eye fields reconstruct losslessly and distinguish the learned cue pair through 3,600 fixed 8 by 8 blocks per eye."
+prediction = "The parent artifact and its seventeen differing blocks per eye remain unchanged."
+falsifiers = ["Either immutable digest changes.", "The parent field does not reconstruct exactly.", "The parent cue-pair block distinction disappears."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "5fb4ce170f42439d19809dc2a6bf27246c3d8909de2ae7fde8123b256f75c9c4"
+budget_minutes = 2
+
+[gates]
+tiny_fixture = "shasum -a 256 research/campaigns/workstation-monitor-cue-local-field-v1/artifacts/local-field-projection.json"
+full_evidence = "jq 'all(.eyes[]; .exact_reassembly_a and .exact_reassembly_b and .differing_block_count == 17)' research/campaigns/workstation-monitor-cue-local-field-v1/artifacts/local-field-projection.json"

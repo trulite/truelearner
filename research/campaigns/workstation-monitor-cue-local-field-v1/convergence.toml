@@ -1,0 +1,19 @@
+schema = "research-convergence/v1"
+campaign = "workstation-monitor-cue-local-field-v1"
+round = 1
+survived = ["retained-point-alias", "lossless-local-field"]
+falsified = []
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = ["both arms use the immutable retained post-development state real cue pair renderer and full binocular images", "the local-field arm changes only the sensory product representation and leaves learner body world and runtime retina untouched", "the fixed 8 by 8 tiling covers every raster site exactly once and is chosen before cue comparison"]
+strongest_counterexamples = ["the retained wider-point arm maps different full images to the exact same twenty-four scalar values", "the local-field arm reconstructs both 360 by 640 eye images exactly and preserves seventeen differing blocks per eye", "the first differing block begins at row 24 column 472 in both views while no block origin or difference index is returned to the organism", "the compact local-field artifact is artifacts/local-field-projection.json sha256 eded91dd6afb4e1e44260c00bcc9057e4618ce2dbb845453688f6a6410badb23"]
+retired_families = ["adding isolated retinal points until one happens to hit a distinguishing stroke", "calling full-image difference sufficient when the organism-facing projection identifies the images", "glyph-specific patches offsets semantic features or evaluator-selected attention"]
+next_discriminators = ["compose ordered local blocks through ordinary signal and receptor wiring and locate whether the two cue runs first diverge in learner state", "bound work without selecting a semantic block by testing fixed physical locality and honest availability", "retain same-cue blank unlearned replay semantic-firewall and accepted hand controls"]
+
+[[new_arm]]
+id = "local-field-learner-participation"
+kind = "composition"
+parents = ["lossless-local-field", "retained-point-alias"]
+imports = ["lossless local spatial distinction", "generic Signal ChangeDetector DriverBank and receptor-bank wiring", "retained action-outcome development checkpoint"]
+interaction_prediction = "At least one physically local block distinction produces a different ordinary learner input and learner-only fingerprint without feeding back which block the evaluator found."
+falsifiers = ["Local fields differ but every learner input and learner fingerprint remains equal.", "The wiring requires glyph identity a selected differing block or target coordinates.", "The receptor construction exceeds the work bound or destroys natural quiescence.", "Same-cue replay blank controls parent hand behavior or the semantic firewall fail."]

@@ -1,4 +1,5 @@
 use crate::WorldError;
+use serde::{Deserialize, Serialize};
 use truelearner_workstation::{HandPoint, BODY_MAX};
 
 pub const KEY_COUNT: usize = 104;
@@ -6,7 +7,7 @@ const KEY_HEIGHT: i16 = 42;
 const GAP: i16 = 3;
 const UNIT: i16 = 29;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct KeyId(pub u16);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

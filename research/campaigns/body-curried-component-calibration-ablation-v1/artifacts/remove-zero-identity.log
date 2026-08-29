@@ -1,0 +1,13 @@
+arm: remove-zero-identity
+verdict: survived
+command: cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_zero_identity -- --ignored --exact
+result: 1 passed; 0 failed; 26 filtered out
+
+observations:
+- The unchanged complete body began at zero, emitted no outputs, and remained at zero for all observations.
+- Adding ordinary sample drive at residual zero produced output or departure from the initial identity state.
+- No preferred motor or direction was supplied; the existing ordinary competition acted.
+- The run replayed exactly and naturally quiesced.
+
+necessity_scope:
+- Zero residual must map to no drive for normal state to remain a physical identity in this bounded fixture.

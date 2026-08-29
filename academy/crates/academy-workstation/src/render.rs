@@ -1,4 +1,4 @@
-use crate::{DeviceState, Rect, WorldError, WorldGeometry};
+use crate::{DeviceState, Rect, WorkstationPresentation, WorldError, WorldGeometry};
 use font8x8::{UnicodeFonts, BASIC_FONTS};
 use image::imageops::FilterType;
 use sha2::{Digest, Sha256};
@@ -38,6 +38,7 @@ impl SceneRenderer {
         &self,
         geometry: &WorldGeometry,
         device: &DeviceState,
+        presentation: WorkstationPresentation,
         body: &WorkstationState,
         eye: Eye,
     ) -> Result<LightField, WorldError> {
@@ -55,6 +56,20 @@ impl SceneRenderer {
             245,
             40,
         );
+        if let Some(glyph) = presentation.monitor_glyph() {
+            let cue_x = scale_x(geometry.screen.right() - 118);
+            let cue_y = scale_y(geometry.screen.y + 34);
+            raster.fill_rect(
+                PixelRect {
+                    x: cue_x - 5,
+                    y: cue_y - 5,
+                    width: 42,
+                    height: 42,
+                },
+                16,
+            );
+            draw_glyph_scaled(&mut raster, cue_x, cue_y, glyph, 4, 250);
+        }
         let cursor_x = geometry.screen.x
             + i16::try_from(
                 i32::from(device.cursor().x) * i32::from(geometry.screen.width - 1)
@@ -73,11 +88,36 @@ impl SceneRenderer {
         for key in geometry.keys() {
             let rect = scale_rect(key.rect);
             let pressed = device.keys_down().any(|id| id == key.id);
-            raster.fill_rect(rect, if pressed { 82 } else { 112 });
-            raster.stroke_rect(rect, if pressed { 150 } else { 190 });
+            let illuminated = presentation.illuminated_key() == Some(key.id);
+            raster.fill_rect(
+                rect,
+                match (illuminated, pressed) {
+                    (true, true) => 180,
+                    (true, false) => 245,
+                    (false, true) => 82,
+                    (false, false) => 112,
+                },
+            );
+            raster.stroke_rect(
+                rect,
+                if illuminated {
+                    255
+                } else if pressed {
+                    150
+                } else {
+                    190
+                },
+            );
             let available = usize::try_from(rect.width.max(0)).unwrap_or(0) / 8;
             let label = key.label.chars().take(available.max(1)).collect::<String>();
-            draw_text(&mut raster, rect.x + 2, rect.y + 2, &label, 235, 1);
+            draw_text(
+                &mut raster,
+                rect.x + 2,
+                rect.y + 2,
+                &label,
+                if illuminated { 16 } else { 235 },
+                1,
+            );
         }
         let pad = scale_rect(geometry.touchpad);
         raster.fill_rect(pad, if device.touching() { 105 } else { 78 });
@@ -279,6 +319,28 @@ fn draw_text(raster: &mut Raster, x: i32, y: i32, text: &str, value: u8, max_lin
     }
 }
 
+fn draw_glyph_scaled(raster: &mut Raster, x: i32, y: i32, glyph: char, scale: i32, value: u8) {
+    let Some(bitmap) = BASIC_FONTS.get(glyph) else {
+        return;
+    };
+    for (row, bits) in bitmap.into_iter().enumerate() {
+        for column in 0..8 {
+            if bits & (1 << column) == 0 {
+                continue;
+            }
+            raster.fill_rect(
+                PixelRect {
+                    x: x + column * scale,
+                    y: y + i32::try_from(row).unwrap_or(0) * scale,
+                    width: scale,
+                    height: scale,
+                },
+                value,
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -307,10 +369,22 @@ mod tests {
         let geometry = WorldGeometry::standard_ansi_104().unwrap();
         let body = WorkstationState::default();
         let left = renderer
-            .render(&geometry, &DeviceState::default(), &body, Eye::Left)
+            .render(
+                &geometry,
+                &DeviceState::default(),
+                WorkstationPresentation::default(),
+                &body,
+                Eye::Left,
+            )
             .unwrap();
         let right = renderer
-            .render(&geometry, &DeviceState::default(), &body, Eye::Right)
+            .render(
+                &geometry,
+                &DeviceState::default(),
+                WorkstationPresentation::default(),
+                &body,
+                Eye::Right,
+            )
             .unwrap();
         assert_ne!(left, right);
     }

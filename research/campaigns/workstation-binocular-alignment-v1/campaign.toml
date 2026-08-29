@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "workstation-binocular-alignment-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "The binocular relation requires no fused depth object: two separate signed retinal-to-eye loops compose as a product when each loop preserves retinal side and returns the light change caused by its own movement."
+first_divergence = "In the retained seed-31001 Body Discovery trace, displaced targets reach separate eye fields, but production receptor placement maps every horizontal retinal offset to the same axis center; right-eye movement then runs from 528 to 624 while the far target is at 544."
+missing_transition = "Signed target displacement is lost before local eye-output competition, so changed light cannot return through an arrow that distinguishes decrease from increase for either eye."
+prediction = "The complete research composition makes each eye reduce its own error, reduces total two-eye error across three disparity bands, and orders achieved gaze separation by disparity; removing signed placement, visual return, or threshold factorization kills its predicted rung."
+falsifiers = ["Either eye aligns only after receiving target disparity coordinate verdict or desired direction.", "The complete candidate does not improve both eyes across all declared bands.", "The binocular result depends on fused input or a new vergence motor.", "A declared necessary removal preserves the complete upward ladder.", "Replay natural quiet work checkpoint production identity or semantic firewall regress."]
+positive_reference = "retained inherited failure transcript sha256:dd7daf1cd81d799668b5a6d99861370c9ed93b3b98ec1e4dd1e2b6b37d5709bf plus lessons 66-70 visual causal chain"
+negative_controls = ["production WorkstationHarness", "collapsed signed placement", "removed movement-caused visual return", "removed threshold factorization", "zero disparity", "uniform light", "unchanged-body resampling", "same-direction and one-eye-only external evidence"]
+included_mechanisms = ["connected outcome product", "shared generic opportunity", "output-specific outcome origin", "causal proprioceptive return", "signed retinal placement", "movement-caused visual transition", "ordinal threshold factorization", "two independent eye factors"]
+inherited_constraints = ["no core learner-law change", "no fused depth input", "no vergence actuator", "no target coordinate direction reward score or evaluator input", "production default unchanged", "one retained development run per arm"]
+excluded_proposals = ["depth neuron", "stereo label", "target-centering command", "desired eye direction", "cross-eye sample copying", "hand or device coupling", "hidden stop rule"]
+arm_paths = ["arms/complete-binocular-product.toml", "arms/production-and-firewall-controls.toml", "arms/downward-mechanism-removals.toml"]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 30
+max_minutes_per_arm = 12
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 1.0
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

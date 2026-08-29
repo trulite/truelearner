@@ -1,0 +1,84 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-visual-transition-return-candidate.json",
+    "sha256": "c6f6b2e3ec957d5733f49acb95559f308708c1285a32b7be9e26da73ace4b08f"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "held-out-trace",
+      "command": "jq -e '.key_a == 26 and .key_b == 87 and .steps == 64 and .first_retinal_transition_a == 1 and .first_retinal_transition_b == 1 and .first_learner_divergence == 1 and .first_candidate_divergence == 1 and .first_choice_divergence == 1 and .first_movement_divergence == 1' research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/threshold-retinotopic-visual-transition-64.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.02
+    },
+    {
+      "name": "experiment-controls",
+      "command": "cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 10.15
+    },
+    {
+      "name": "research-replay-and-state",
+      "command": "cargo test --locked --features research --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.31
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "independent-clippy",
+      "command": "cargo clippy --all-targets --all-features --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.78
+    }
+  ],
+  "findings": [
+    "The 26/87 real-key pair first diverges in admitted retina, actual learner state, candidate evaluation, resolved choice, and physical movement at sequence 1 in both the focused and held-out traces.",
+    "Removing visual outcome return, signed retinotopy, or ordinal threshold factorization independently removes the choice and movement divergence.",
+    "The retained impulse-magnitude arm changes actual learner state but never reaches a different candidate through 64 steps, confirming that a receptor threshold absorbs scalar impulse magnitude.",
+    "The dedicated learner fingerprint excludes workstation and retinal adapter state, so diagnostic divergence now names the core learner rather than the whole checkpoint.",
+    "The accepted hand trajectory, legacy and current checkpoint replay, passive-world-change rejection, natural quiescence, semantic firewall, formatting, compilation, clippy, and warm regression budget remain intact."
+  ],
+  "residual_uncertainty": [
+    "This supports cue-dependent visual motor choice only; neither run presses its illuminated key, so it does not establish visual reaching, intended key selection, gaze centering, or hand-eye coordination.",
+    "The result uses one workstation morphology and one opposite real-key pair; transfer to other cue locations, binocular disparities, presentations, and morphologies remains untested.",
+    "Threshold factorization is research-only and has not passed a frozen authority protocol."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/workstation-visual-transition-return.md",
+      "sha256": "10eec6fd9e4f258f31c919fd4abe973b786e02515d25a87d43617a9cf66e9bcb"
+    },
+    {
+      "path": "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visual-transition-return-failed-trace.json",
+      "sha256": "9dd79d21a2528206696d5bc76a5e5798b3eb7bf1fb1b2b1d4e21919e64184e6c"
+    },
+    {
+      "path": "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/retinotopic-visual-transition-trace.json",
+      "sha256": "280ce1a7f54e4e85aff06c8cd3c162ff719a4791390300425f79b1fbc9db1d82"
+    },
+    {
+      "path": "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/impulse-magnitude-retinotopic-64.json",
+      "sha256": "7bfb4fcf8b98a26ed08b41e19af4b17201295db07ec1f8eb1efcf8b9f50b15fa"
+    },
+    {
+      "path": "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/threshold-retinotopic-visual-transition-12.json",
+      "sha256": "4d91a92ce94d80d5f1d26b925e842ff35edd402abf3ac3a8514e7b51a2e75318"
+    },
+    {
+      "path": "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/threshold-retinotopic-visual-transition-64.json",
+      "sha256": "00bfabec21474e7754ef639c3793df2bdfd3f3fba1f9aafe7d3ddfbffd9c5bf8"
+    }
+  ]
+}

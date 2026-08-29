@@ -586,6 +586,22 @@ applies_when = ["one physical opportunity", "multiple motor targets", "unguided 
 research_action = "Use shared workstation opportunity incidence as the clean parent. Start the contact ladder by asking whether ordinary separated movement produces a local surface-contact consequence; do not infer intentional digit selection pointing clicking or typing."
 
 [[lesson]]
+id = "LP-072"
+kind = "learner-physics"
+statement = "We saw exact sensor-action-return closure solve one small cycle but lose the containing body's unresolved need: the positive scalar stopped at two and the negative scalar stopped at minus four. We also saw that copying the motor-caused Transition incidence onto persistent drive falsely credited a worsening residual. The solve was to curry local body context into one modality-independent residual, retain its threshold changes in attached physical tissue, present nonzero persistence as an ordinary Sample drive, return only threshold falls as outcome, keep rises distinct, and omit drive at zero. The unchanged transformation covered finger hand binocular acoustic vocal mixed and held-out spatial values, while ordinary learner physics regulated both signs under reflected effects and a shifted norm with exact replay and natural quiet."
+evidence = ["body-curried-component-calibration-v1:curried-calibration-laws", "body-curried-component-calibration-v1:cross-modality-calibration-ladder", "body-curried-component-calibration-v1:runtime-attached-calibrated-regulation"]
+applies_when = ["runtime sensor attachment", "local body norm", "persistent component drive", "physical calibration", "cross-modality composition"]
+research_action = "Factor the relation as body context to typed observation to residual, then keep persistence, rise, fall, and zero as distinct physical arrows. Downward-ablate those factors before attaching a real morphology; do not add a sensor taxonomy, motor map, fixed center, or sensor-owned temporal memory."
+
+[[lesson]]
+id = "LP-073"
+kind = "learner-physics"
+statement = "We saw four independent calibration removals reach four different walls. Without persistent drive the body moved from three to two once and stalled at unresolved residual one. Merging persistent drive with Transition falsely credited the worsening move from minus three to minus four. Driving residual zero made an already-normal body act. Fixed centered context ultimately settled at one instead of the body's disjoint shifted norm, but the first frozen any-window oracle was falsified because transit [3, 3, 2, 2] looked like holding. The solve was to preserve that failed arm and use a successor terminal projection: complete calibration finished inside [2, 3], while fixed calibration finished [1, 1, 1, 1] inside its wrong [-1, 1] relation. This establishes separate necessity of body context, persistent drive, directional change, and zero identity in the bounded scalar fixture."
+evidence = ["body-curried-component-calibration-ablation-v1:complete-calibration-reference", "body-curried-component-calibration-ablation-v1:remove-persistent-drive", "body-curried-component-calibration-ablation-v1:remove-directional-change", "body-curried-component-calibration-ablation-v1:remove-zero-identity", "body-curried-component-calibration-ablation-v1:remove-body-context", "body-context-terminal-residence-v1:terminal-body-context-residence"]
+applies_when = ["downward ablation", "calibration necessity", "terminal residence", "persistent component drive", "directional outcome", "identity effect"]
+research_action = "Carry all four factors unchanged into the next real morphology. Judge held relations by a preregistered terminal projection rather than transient crossing, and preserve any failed predecessor oracle instead of repairing it in place."
+
+[[lesson]]
 id = "RM-001"
 kind = "research-method"
 statement = "A negative benchmark result does not identify the missing capability."

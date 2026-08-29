@@ -1,0 +1,72 @@
+{
+  "source_trace": "research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json",
+  "cue_a": "]",
+  "cue_b": "\\",
+  "gazes": [
+    [
+      863,
+      911
+    ],
+    [
+      1023,
+      959
+    ]
+  ],
+  "image_differs": [
+    true,
+    true
+  ],
+  "retina_a": [
+    48,
+    203,
+    187,
+    186,
+    182,
+    188,
+    18,
+    18,
+    48,
+    48,
+    48,
+    48,
+    48,
+    140,
+    169,
+    16,
+    18,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48
+  ],
+  "retina_b": [
+    48,
+    203,
+    187,
+    186,
+    182,
+    188,
+    18,
+    18,
+    48,
+    48,
+    48,
+    48,
+    48,
+    140,
+    169,
+    16,
+    18,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48,
+    48
+  ],
+  "retina_differs": false
+}

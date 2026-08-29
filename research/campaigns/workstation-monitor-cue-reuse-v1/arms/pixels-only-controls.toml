@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "pixels-only-controls"
+campaign = "workstation-monitor-cue-reuse-v1"
+kind = "control"
+parents = ["physical-workstation-world", "workstation-visible-key-intention"]
+imports = ["external replayable presentation", "organism-sample semantic firewall", "default presentation identity"]
+mechanism = "Change only optional external monitor presentation, verify sequence body and learner identity before stepping, preserve it in checkpoints, and compare learned blank and unlearned cue photons without admitting presentation values to the harness."
+prediction = "Default presentation is exact identity; a valid glyph changes both eye rasters and world fingerprint but not sequence body or learner before stepping; invalid glyph update fails transactionally and restore reproduces the next step."
+falsifiers = ["A glyph value or evaluator noun enters the organism sample.", "Presentation advances sequence or mutates body or learner before stepping.", "Default identity valid raster change transactional rejection or replay fails."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "f1f3c33b9ebae68933648fede2e2d7ccf274d67e4f53530c6076cb04ba374a21"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world monitor_cue"
+full_evidence = "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world"

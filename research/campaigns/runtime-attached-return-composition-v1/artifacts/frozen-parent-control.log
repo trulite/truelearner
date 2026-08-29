@@ -1,0 +1,7 @@
+    Finished `test` profile [optimized + debuginfo] target(s) in 0.08s
+     Running tests/runtime_attachment.rs (truelearner/target/debug/deps/runtime_attachment-84fb746bf06bb17b)
+
+running 1 test
+test regulation_parent_reproduces_first_reversal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.01s

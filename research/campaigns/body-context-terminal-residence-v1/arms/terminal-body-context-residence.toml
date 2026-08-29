@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "terminal-body-context-residence"
+campaign = "body-context-terminal-residence-v1"
+kind = "diagnostic"
+parents = ["complete-terminal-residence"]
+imports = ["retained fixed-context trajectory", "disjoint shifted body norm", "terminal four-position projection"]
+mechanism = "Compare only the final four observations of complete shifted calibration and fixed centered calibration from the same checkpoint."
+prediction = "Complete ends inside [2, 3]; fixed context ends at 1 inside [-1, 1] and outside [2, 3]."
+falsifiers = ["Complete final four leave [2, 3].", "Fixed final four enter [2, 3].", "Fixed final four leave [-1, 1].", "Replay or quiescence fails."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "272e5d48918c9e4a24a4780b751c8f60a2df7efa420af0aafd727407ac368156"
+budget_minutes = 5
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_fixed_context_terminal_residence -- --ignored --exact"
+full_evidence = "test -s research/campaigns/body-context-terminal-residence-v1/artifacts/terminal-body-context-residence.log"

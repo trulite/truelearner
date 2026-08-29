@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "workstation-focused-receptor-participation-v1"
+program = "learner-physics"
+claim = "WORKSTATION-KEY-SELECTION-LADDER"
+status = "preregistered"
+parent_authority = "plans/focused-field-learner-participation.md; focused-field artifact sha256:b9f3bd79097f99e5c46c88a2fbd5e71e9260d76f7bea57f3fd168f86f3929235; retained monitor-cue trace sha256:43bb8b86f1fc05d4c83b7450ab215915211efd6e52169e7b65eecac3b9011da8"
+question = "Do bounded focused region values compose through fixed generic change receptors into different ordinary core physical participation for the two retained real cue scenes?"
+observables = ["focused frame arity and active-region counts", "blank-to-cue binary transition counts", "admitted physical input counts", "participating internal link counts", "core-only fingerprints", "natural quiescence and physical work", "learner and output counts", "exact replay", "same-cue repeat", "reversed evaluation order", "no-admission and no-focus controls", "fixture topology and resident bytes"]
+frozen_variables = ["retained post-development body state and binocular gazes", "real Academy cue renderer and cue position", "depth-seven one-focus profile with bound 57 per eye", "complete unsigned region pixel sum", "32 little-endian-independent bit positions per u32 sum", "3,648 feature order", "unavailable false and true receptor states", "one neutral relay per feature", "accepted connected causal topology product protocol", "one identical saved Harness checkpoint"]
+permitted_changes = ["generic fixed-width focused receptor frame", "research-only exact binary factorization", "research-only generic receptor fixture", "public Harness physical input admission", "compact observer-only comparison artifact"]
+positive_predicates = ["both focused frames have exactly 3,648 binary features", "blank initialization contains samples only", "the cue transition sets differ", "each changed feature participates through an ordinary internal link", "the cue branches end with different core-only fingerprints", "no-admission leaves the initial core fingerprint unchanged", "same-cue repetition creates no transition", "all admitted branches replay exactly and quiesce naturally", "no cue identity target coordinate expected action or evaluator comparison enters physical input"]
+negative_controls = ["no physical admission", "same cue repeated", "reversed cue evaluation order", "no focus with the same frame transducer and fixture", "unavailable padding", "wrong bank arity", "immutable parent trace and focused-field artifact", "semantic firewall"]
+stop_conditions = ["frame arity varies", "binary factorization loses a differing sum", "focused cue transition sets remain equal", "different physical inputs produce the same core fingerprint", "no-admission changes the core", "same-cue repetition becomes a transition", "a branch exhausts or fails natural quiescence", "wiring depends on cue identity target or evaluator result", "parent evidence runtime retina checkpoint or learner law changes"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = false

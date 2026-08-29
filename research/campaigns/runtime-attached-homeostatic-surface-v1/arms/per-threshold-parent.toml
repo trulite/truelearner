@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "per-threshold-parent"
+campaign = "runtime-attached-homeostatic-surface-v1"
+kind = "control"
+parents = ["runtime-attached-factored-regulation-v1:factored-change-regulation"]
+imports = ["per-threshold change factor", "retained positive trajectory"]
+mechanism = "Preserve the exact per-threshold negative parent."
+prediction = "It moves plus three to plus two to plus one then reverses and reaches plus four."
+falsifiers = ["The retained trajectory changes.", "It gains central residence.", "Replay or quiescence fails."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "995e4cecca301d85fe94b910337628a1f6320fcd1a7c2ce435859ded93e267d7"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment trace_factored_change_surface_preserves_rise_fall_and_quiet"
+full_evidence = "test -s research/campaigns/runtime-attached-factored-regulation-v1/artifacts/factored-change-regulation.log"

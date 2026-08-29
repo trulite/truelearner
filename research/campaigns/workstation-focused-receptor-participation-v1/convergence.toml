@@ -1,0 +1,19 @@
+schema = "research-convergence/v1"
+campaign = "workstation-focused-receptor-participation-v1"
+round = 1
+survived = ["focused-field-parent", "focused-receptor-composition", "no-admission-control", "no-focus-control"]
+falsified = []
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = ["all arms use the immutable retained post-development state real cue renderer and complete binocular rasters", "focused and no-focus arms share the same fixed 3,648-feature frame binary transducer change detectors receptor fixture protocol and saved checkpoint", "cue comparison happens only after physical runs and never enters the Harness"]
+strongest_counterexamples = ["the focused cue branches each admit 24 physical transitions and traverse 24 ordinary internal links but end with different core-only fingerprints", "both focused branches use 48 units of physical work reach natural quiescence emit no output construct no learner boundary and replay exactly", "same-cue repetition admits zero transitions and removing admission leaves the exact initial core fingerprint unchanged", "the no-focus cue branches also diverge using 19 inputs and 38 units of work so this cue pair does not establish focus necessity", "the fixed research fixture costs 3,648 binary features 14,592 junctions 10,944 links and 2,597,376 resident bytes", "the compact artifact is artifacts/participation.json sha256 be700e95a4fb8373f2ad93022ae980e8736fae7f47ce3de0c0251788558d4639"]
+retired_families = ["calling a pre-Harness sensory distinction learner participation", "calling a changed core fingerprint learned behavior when no learner boundary output or outcome exists", "claiming these glyphs require focus despite the successful no-focus control", "cue-specific receptors selected regions semantic hashes adaptive quantizers or evaluator-directed wiring"]
+next_discriminators = ["compose the same bounded receptor changes with the existing real workstation motor and outcome field and locate the first cue-dependent executable candidate choice or output", "retain the no-admission no-focus same-cue replay quiescence semantic-firewall accepted-hand and exact-parent controls", "compare the exact 3,648-feature representation against a smaller lawful physical scalar factorization before any Production adoption because the current fixture costs 2.6 megabytes"]
+
+[[new_arm]]
+id = "focused-receptor-action-participation"
+kind = "composition"
+parents = ["focused-receptor-composition", "no-focus-control"]
+imports = ["bounded focused receptor transitions", "accepted workstation motor and output topology", "output-specific physical return and learner-only diagnostics", "actual post-development physical gaze"]
+interaction_prediction = "At least one cue-dependent focused receptor transition participates in an ordinary executable motor candidate and makes the two isolated branches first differ in candidate choice or output without cue identity target coordinates desired direction or evaluator-selected regions."
+falsifiers = ["Receptor links differ but every executable candidate choice and output remains equal.", "The composition requires a selected differing region semantic feature target coordinate or duplicated cue input.", "The result disappears under exact replay reversed evaluation order or the accepted hand parent.", "No-focus performs identically while the claim says focus is necessary.", "The composition fails natural quiescence semantic firewall or the declared work and memory bounds."]

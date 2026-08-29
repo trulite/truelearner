@@ -591,11 +591,11 @@ impl Body {
                         })
                         .collect::<Vec<_>>();
                     let path_inputs = path_firings.len();
-                    let distinct_path_origins = path_firings
+                    let path_origins = path_firings
                         .iter()
                         .map(|firing| firing.origin_physical)
-                        .collect::<BTreeSet<_>>()
-                        .len();
+                        .collect::<BTreeSet<_>>();
+                    let distinct_path_origins = path_origins.len();
                     let distinct_path_owners = path_firings
                         .iter()
                         .filter_map(|firing| self.learner_owner_for_origin(firing.origin_physical))
@@ -608,6 +608,7 @@ impl Body {
                             target: incidence.junction,
                             ownership,
                             path_inputs: u32::try_from(path_inputs).unwrap_or(u32::MAX),
+                            path_origins: path_origins.into_iter().collect(),
                             distinct_path_origins: u32::try_from(distinct_path_origins)
                                 .unwrap_or(u32::MAX),
                             distinct_path_owners: u32::try_from(distinct_path_owners)
@@ -1349,24 +1350,37 @@ impl Body {
                     }
                 }
                 for (target, owner, link, generation, expected_tick) in held_consequences {
-                    let Some(consequence_tick) =
-                        self.consume_held_learner_consequence(owner, link, generation)
-                    else {
+                    let consequence_tick = match owner {
+                        Some(owner) => {
+                            self.consume_held_learner_consequence(owner, link, generation)
+                        }
+                        None => self.consume_held_organism_consequence(link, generation),
+                    };
+                    let Some(consequence_tick) = consequence_tick else {
                         continue;
                     };
                     debug_assert_eq!(consequence_tick, expected_tick);
                     run.work.total = run.work.total.saturating_add(1);
                     if self.trace_physics {
-                        run.trace.push(PhysicalTransition {
-                            tick: self.tick,
-                            phase: moment.phase,
-                            event: PhysicalEvent::ConstructionContinuationConsumed {
+                        let event = owner.map_or_else(
+                            || PhysicalEvent::OrganismConsequenceConsumed {
+                                target,
+                                link,
+                                generation: generation.0,
+                                consequence_tick,
+                            },
+                            |owner| PhysicalEvent::ConstructionContinuationConsumed {
                                 target,
                                 owner,
                                 link,
                                 generation: generation.0,
                                 consequence_tick,
                             },
+                        );
+                        run.trace.push(PhysicalTransition {
+                            tick: self.tick,
+                            phase: moment.phase,
+                            event,
                         });
                     }
                 }
@@ -2113,13 +2127,13 @@ fn latest_candidate_held_consequence_tick(
     owner: Option<LearnerId>,
     firings: &[Firing],
 ) -> Option<i64> {
-    let owner = owner?;
     firings
         .iter()
         .filter_map(|firing| firing.link)
         .filter(|(link, _)| body.arena.completes_path(*link))
-        .filter_map(|(link, generation)| {
-            body.held_learner_consequence_tick(owner, link, generation)
+        .filter_map(|(link, generation)| match owner {
+            Some(owner) => body.held_learner_consequence_tick(owner, link, generation),
+            None => body.held_organism_consequence_tick(link, generation),
         })
         .max()
 }
@@ -2128,17 +2142,18 @@ fn candidate_held_consequence_witnesses(
     body: &Body,
     owner: Option<LearnerId>,
     firings: &[Firing],
-) -> Vec<(LearnerId, LinkId, Generation, i64)> {
-    let Some(owner) = owner else {
-        return Vec::new();
-    };
+) -> Vec<(Option<LearnerId>, LinkId, Generation, i64)> {
     let mut witnesses = firings
         .iter()
         .filter_map(|firing| firing.link)
         .filter(|(link, _)| body.arena.completes_path(*link))
-        .filter_map(|(link, generation)| {
-            body.held_learner_consequence_tick(owner, link, generation)
-                .map(|tick| (owner, link, generation, tick))
+        .filter_map(|(link, generation)| match owner {
+            Some(owner) => body
+                .held_learner_consequence_tick(owner, link, generation)
+                .map(|tick| (Some(owner), link, generation, tick)),
+            None => body
+                .held_organism_consequence_tick(link, generation)
+                .map(|tick| (None, link, generation, tick)),
         })
         .collect::<Vec<_>>();
     witnesses.sort_unstable();
@@ -2687,7 +2702,7 @@ mod completed_cycle_tests {
         );
         assert_eq!(
             candidate_held_consequence_witnesses(&body, Some(owner), &inputs),
-            vec![(owner, completing, generation, 44)]
+            vec![(Some(owner), completing, generation, 44)]
         );
         assert!(candidate_consequence_witnesses(
             &body,
@@ -2705,5 +2720,60 @@ mod completed_cycle_tests {
         let slot = body.arena.link_slot(completing).unwrap();
         body.arena.edit_link(slot.0, |state| state.live = false);
         assert!(candidate_consequence_witnesses(&body, Some(owner), &inputs, 44).is_empty());
+    }
+
+    #[test]
+    fn organism_consequence_is_exact_and_consumed_once_without_losing_history() {
+        let mut body = Body::with_capacity(8, 8);
+        let source = body.add_junction(junction(1, 0, 0));
+        let middle = body.add_junction(junction(2, 0, 0));
+        let motor = body.add_junction(junction(3, 1, 0));
+        let outside = body.add_junction(junction(4, 1, 1));
+        body.add_link(link(source, middle));
+        let completing = body.add_link(link(middle, motor));
+        body.add_link(link(motor, outside));
+        let generation = body.arena.link_by_id(completing).unwrap().generation;
+        let slot = body.arena.link_slot(completing).unwrap();
+        body.arena.edit_link(slot.0, |state| {
+            state.last_consequence_tick = Some(44);
+            state.held_consequence_tick = Some(44);
+        });
+        let inputs = [firing(motor, completing, generation)];
+
+        assert_eq!(
+            latest_candidate_held_consequence_tick(&body, None, &inputs),
+            Some(44)
+        );
+        assert_eq!(
+            candidate_held_consequence_witnesses(&body, None, &inputs),
+            vec![(None, completing, generation, 44)]
+        );
+        assert!(candidate_held_consequence_witnesses(
+            &body,
+            None,
+            &[firing(
+                motor,
+                completing,
+                Generation(generation.0.saturating_add(1))
+            )]
+        )
+        .is_empty());
+
+        assert_eq!(
+            body.consume_held_organism_consequence(completing, generation),
+            Some(44)
+        );
+        assert_eq!(
+            body.arena
+                .link_by_id(completing)
+                .unwrap()
+                .last_consequence_tick,
+            Some(44)
+        );
+        assert_eq!(
+            body.consume_held_organism_consequence(completing, generation),
+            None
+        );
+        assert!(candidate_held_consequence_witnesses(&body, None, &inputs).is_empty());
     }
 }

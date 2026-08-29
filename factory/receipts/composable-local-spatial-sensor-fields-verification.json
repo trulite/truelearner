@@ -1,0 +1,96 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "composable-local-spatial-sensor-fields-candidate.json",
+    "sha256": "c092841996c270f5f606a99c408ef12c0b9af501f94a16cbf17fd600e25cbdea"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "exact-real-raster-projection",
+      "command": "cargo run --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --bin monitor_cue_local_field_projection -- research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json /tmp/local-field-verification.json && cmp research/campaigns/workstation-monitor-cue-local-field-v1/artifacts/local-field-projection.json /tmp/local-field-verification.json && jq -e 'all(.eyes[]; .differing_block_count == 17 and .block_count == 3600 and .exact_reassembly_a and .exact_reassembly_b and .same_cue_replay_equal)' /tmp/local-field-verification.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.61
+    },
+    {
+      "name": "held-out-dimension-and-edge-locality",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment spatial_field_transfers_across_value_and_dimension && cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment spatial_field_factorization_is_lossless_and_local_at_edges",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.14
+    },
+    {
+      "name": "semantic-vocabulary-audit",
+      "command": "! rg -n 'glyph|key|target|evaluator|workstation|correctness|reward' truelearner/crates/embodiment/src/lib.rs truelearner/crates/embodiment/tests/spatial_fields.rs",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.02
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.43
+    }
+  ],
+  "findings": [
+    "The shared embodiment library now represents a finite ordered field of available or unavailable values, validates its shape and cell count, and consumes it into physically located local blocks without device-specific vocabulary.",
+    "Local factorization is lossless: a non-divisible 7 by 5 field reconstructs exactly, partial edge blocks retain their actual shapes, and every source value occupies one ordered site.",
+    "Identity, two-step mapping composition, mapping/factorization commutation, arrangement distinction, repeated-sample behavior, occlusion, multiple value types, and a held-out three-dimensional field all pass.",
+    "The immutable retained cue pair still aliases under the wider point projection, but the fixed complete 8 by 8 factorization preserves seventeen differing local blocks in each real 640 by 360 eye raster.",
+    "Both cue fields reconstruct to their exact source images, rendering the same cue twice produces the same factorization, the blank control differs, and the evidence artifact reproduces byte-for-byte.",
+    "No runtime retina, Academy world, renderer, core learner law, body state, checkpoint, or accepted hand behavior was changed. The semantic audit, parent trace, stable fixation, real key press and release, formatting, checking, Clippy, replay, and all declared regressions pass.",
+    "The candidate receipt, discovery campaign, and convergence record validate. The independently timed warm embodiment and workstation regression completes in 0.43 seconds, below the ten-second limit."
+  ],
+  "residual_uncertainty": [
+    "This proves only that different visible shapes survive as different local sensory structures. Those structures are not yet connected to learner receptors, so cue-specific learner state, choice, movement, and key selection remain unproved.",
+    "The complete field contains 3600 local blocks per eye. Bounded learner wiring, natural quiescence, and useful physical locality at that scale have not been tested.",
+    "This is not foveation: it preserves the whole field. Gaze-directed detail, attention, translation correspondence, natural clutter, real occlusion, stereo depth, and closed reaching remain later experiments.",
+    "The campaign is discovery evidence, not a fresh-sandbox authority run or Production adoption."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/composable-local-spatial-sensor-fields.md",
+      "sha256": "434ab73882d8df193aec8f29589b4a8f621d2501a4b4da7efb65145f2d7774e3"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-local-field-v1/protocol.toml",
+      "sha256": "20383610e75399f6d49384a466786e16956c433818f87961de8000606711b1d7"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-local-field-v1/campaign.toml",
+      "sha256": "ef0a600acc99de60204e5730dbc02e5da75557c0787148471c62cc0f5e6818fb"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-local-field-v1/artifacts/local-field-projection.json",
+      "sha256": "eded91dd6afb4e1e44260c00bcc9057e4618ce2dbb845453688f6a6410badb23"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-local-field-v1/convergence.toml",
+      "sha256": "a4293f1addd9e76f0d0ed7109a8ff134aed315718a464eb7600c24f122696f09"
+    },
+    {
+      "path": "truelearner/crates/embodiment/src/lib.rs",
+      "sha256": "4a3a4e2c6fe95dc80ec892b0cbf03bc9bf0488cb07e3b3bcc94995c49e8b4393"
+    },
+    {
+      "path": "truelearner/crates/embodiment/tests/spatial_fields.rs",
+      "sha256": "15a345f9dcfda1a5134ab8390b3663a83b6a05303f5a81f2f78e2a0bf44b3009"
+    },
+    {
+      "path": "research/experiments/workstation-return-bearing-opportunity-composition/src/bin/monitor_cue_local_field_projection.rs",
+      "sha256": "7ea940131dc5ef3d79f3acf9d502560e35f41b4c37932aba5dba3c2382143202"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json",
+      "sha256": "43bb8b86f1fc05d4c83b7450ab215915211efd6e52169e7b65eecac3b9011da8"
+    },
+    {
+      "path": "research/campaigns/workstation-monitor-cue-retina-v1/artifacts/workstation-retina-projection.json",
+      "sha256": "e0027fa1914cbd01e7beeca745755b10ce475b4668f6b3eda75b9aa2cc69157a"
+    }
+  ]
+}

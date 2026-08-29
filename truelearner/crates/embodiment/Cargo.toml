@@ -1,0 +1,12 @@
+[package]
+name = "truelearner-embodiment"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Composable causal sensor and actuator drivers for TrueLearner bodies"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+truelearner-core = { path = "../core" }

@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "silent-attachment-control"
+campaign = "runtime-attached-local-regulation-v1"
+kind = "control"
+parents = ["runtime-attachment-identity"]
+imports = ["same body checkpoint", "same physical component", "same attachment site", "no sensor input"]
+mechanism = "Attach the identical trace tissue but send no sensor event, disturbance, or motor opportunity."
+prediction = "Only declared resident topology grows; physical time prior paths strengths learners outputs and pending activity remain unchanged."
+falsifiers = ["Attachment emits activity output outcome learning or time advance.", "Attachment creates a fixed link to a resident motor.", "The body is not naturally quiet immediately after attachment."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "063b7871e8c33ab876df42998fd7f7aab09734577f6decde7601f29c3dda3303"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core runtime_attachment_is_atomic_quiet_and_checkpointed"
+full_evidence = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core runtime_attachment_is_atomic_quiet_and_checkpointed"

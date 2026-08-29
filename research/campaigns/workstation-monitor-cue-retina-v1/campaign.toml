@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "workstation-monitor-cue-retina-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "The cue-retina wall is sensory coverage: a workstation field that preserves a fovea and adds upper-peripheral rows carries a monitor cue while gaze remains over the keyboard."
+first_divergence = "At probe sequence 74 the full left and right images differ between learned glyphs, while all twenty-four retinal values and every downstream learner action value remain identical for twenty-four steps."
+missing_transition = "The rendered monitor-cue difference does not intersect any receptor sampled from the post-development gaze."
+prediction = "The workstation retinal field changes the first failed arrow to a cue-specific retinal value and learner fingerprint without semantic routing; if not, its retained gaze and sampled values distinguish field coverage from glyph aliasing."
+falsifiers = ["Two proper printable development outcomes no longer complete.", "Paired cue images still map to identical workstation retinal values.", "Retina differs but learner state does not.", "The field requires cue identity target position or evaluator routing.", "Replay quiet work references or firewall controls fail."]
+positive_reference = "parent cue-retina counterexample sha256:43bb8b86f1fc05d4c83b7450ab215915211efd6e52169e7b65eecac3b9011da8"
+negative_controls = ["retained parent retinal layout", "blank cue", "unlearned glyph", "default presentation identity", "stable-fixation reference", "Production default"]
+included_mechanisms = ["complete parent hand and visual stack", "foveal receptor", "upper-peripheral workstation field", "signed placement", "threshold factorization", "movement-caused visual return"]
+inherited_constraints = ["pixels-only cue", "no core learner-law change", "same full keyboard world and body", "no target coordinate desired gaze correctness reward or evaluator input", "exact replay natural quiet and bounded work"]
+excluded_proposals = ["moving the cue to a receptor", "evaluator-set gaze", "semantic attention pointer", "key ID routing", "symbolic cue memory"]
+arm_paths = ["arms/retained-parent.toml", "arms/workstation-retina.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 20
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

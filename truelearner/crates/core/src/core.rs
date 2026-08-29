@@ -12,6 +12,7 @@ pub use crate::trace::{
     ReversePathDecision, RunResult as Run, Work,
 };
 
+use crate::attachment::{AttachError, AttachmentSite, PhysicalAttachment, PhysicalComponentSpec};
 use crate::body::Body;
 use crate::junction::JunctionState;
 use crate::schedule::{CausalLineage, Firing};
@@ -82,12 +83,27 @@ pub enum Protocol {
     RecursiveLearnerCausalTopologyOutputComposition,
     RecursiveLearnerCausalTopologyOpportunityComposition,
     RecursiveLearnerCausalTopologyProductComposition,
+    RecursiveLearnerCausalTopologyProductCompositionOutcomeLifetime,
+    RecursiveLearnerCausalTopologyProductCompositionNaturalCycleClosure,
 }
 
 impl Protocol {
+    pub(crate) fn inherited(self) -> Self {
+        match self {
+            Self::RecursiveLearnerCausalTopologyProductCompositionOutcomeLifetime => {
+                Self::RecursiveLearnerCausalTopologyProductComposition
+            }
+            Self::RecursiveLearnerCausalTopologyProductCompositionNaturalCycleClosure => {
+                Self::RecursiveLearnerCausalTopologyProductComposition
+            }
+            protocol => protocol,
+        }
+    }
+
     pub(crate) fn is_sensorimotor(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::SensorimotorCandidate
                 | Self::SensorimotorSynthesis
                 | Self::RecursiveLearnerConstruction
@@ -119,8 +135,9 @@ impl Protocol {
     }
 
     pub(crate) fn consolidates_reverse_paths(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::SensorimotorSynthesis
                 | Self::RecursiveLearnerConstruction
                 | Self::RecursiveLearnerCausalLineage
@@ -155,8 +172,9 @@ impl Protocol {
     }
 
     pub(crate) fn constructs_learners(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerConstruction
                 | Self::RecursiveLearnerCausalLineage
                 | Self::RecursiveLearnerConsequenceBornClosure
@@ -186,8 +204,9 @@ impl Protocol {
     }
 
     pub(crate) fn preserves_causal_lineage(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerCausalLineage
                 | Self::RecursiveLearnerConsequenceBornClosure
                 | Self::RecursiveLearnerConsequenceCohortClosure
@@ -216,8 +235,9 @@ impl Protocol {
     }
 
     pub(crate) fn requires_consequence_born_closure(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerConsequenceBornClosure
                 | Self::RecursiveLearnerConsequenceCohortClosure
                 | Self::RecursiveLearnerEligibleReturnClosure
@@ -245,8 +265,9 @@ impl Protocol {
     }
 
     pub(crate) fn closes_return_cohort(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerConsequenceCohortClosure
                 | Self::RecursiveLearnerEligibleReturnClosure
                 | Self::RecursiveLearnerBoundaryNovelty
@@ -273,8 +294,9 @@ impl Protocol {
     }
 
     pub(crate) fn prioritizes_eligible_returns(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerEligibleReturnClosure
                 | Self::RecursiveLearnerBoundaryNovelty
                 | Self::RecursiveLearnerOwnerFactorization
@@ -300,8 +322,9 @@ impl Protocol {
     }
 
     pub(crate) fn requires_boundary_novelty(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerBoundaryNovelty
                 | Self::RecursiveLearnerOwnerFactorization
                 | Self::RecursiveLearnerCausalOriginFactorization
@@ -330,8 +353,9 @@ impl Protocol {
     }
 
     pub(crate) fn factors_candidate_origins(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerCausalOriginFactorization
                 | Self::RecursiveLearnerRegionalPathClosure
                 | Self::RecursiveLearnerBoundaryEffectTerminal
@@ -358,8 +382,9 @@ impl Protocol {
     }
 
     pub(crate) fn terminates_boundary_effect_formation(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerBoundaryEffectTerminal
                 | Self::RecursiveLearnerConsequenceBornReturn
                 | Self::RecursiveLearnerPhysicalTransitionReturn
@@ -380,8 +405,9 @@ impl Protocol {
     }
 
     pub(crate) fn requires_consequence_born_return(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerConsequenceBornReturn
                 | Self::RecursiveLearnerPhysicalTransitionReturn
                 | Self::RecursiveLearnerFreshOpportunity
@@ -401,8 +427,9 @@ impl Protocol {
     }
 
     pub(crate) fn requires_physical_transition_return(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerPhysicalTransitionReturn
                 | Self::RecursiveLearnerFreshOpportunity
                 | Self::RecursiveLearnerRootFreshOpportunity
@@ -421,8 +448,9 @@ impl Protocol {
     }
 
     pub(crate) fn supplies_fresh_opportunity(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerFreshOpportunity
                 | Self::RecursiveLearnerRootFreshOpportunity
                 | Self::RecursiveLearnerTransitionContinuation
@@ -440,7 +468,7 @@ impl Protocol {
     }
 
     pub fn admits_fresh_opportunity_relation(self, relation: LearnerOwnershipRelation) -> bool {
-        match self {
+        match self.inherited() {
             Self::RecursiveLearnerFreshOpportunity => {
                 relation == LearnerOwnershipRelation::SameOwner
             }
@@ -464,8 +492,9 @@ impl Protocol {
     }
 
     pub(crate) fn continues_current_physical_transition(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerTransitionContinuation
                 | Self::RecursiveLearnerReturnBearingContinuation
                 | Self::RecursiveLearnerCausalOriginProductComposition
@@ -477,8 +506,9 @@ impl Protocol {
     }
 
     pub(crate) fn admits_return_bearing_continuation(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerReturnBearingContinuation
                 | Self::RecursiveLearnerCausalOriginProductComposition
                 | Self::RecursiveLearnerCausalPathProductComposition
@@ -489,8 +519,9 @@ impl Protocol {
     }
 
     pub(crate) fn composes_independent_output_products(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerCausalOriginProductComposition
                 | Self::RecursiveLearnerCausalPathProductComposition
                 | Self::RecursiveLearnerCausalTopologyOutputComposition
@@ -503,24 +534,27 @@ impl Protocol {
     }
 
     pub(crate) fn uses_causal_topology_output_products(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerCausalTopologyOutputComposition
                 | Self::RecursiveLearnerCausalTopologyProductComposition
         )
     }
 
     pub(crate) fn uses_causal_topology_opportunity_products(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerCausalTopologyOpportunityComposition
                 | Self::RecursiveLearnerCausalTopologyProductComposition
         )
     }
 
     pub(crate) fn coheres_recent_unanswered_effect(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerCoherentEffect
                 | Self::RecursiveLearnerCompletedCycle
                 | Self::RecursiveLearnerConstructionOutcomeComposition
@@ -535,8 +569,9 @@ impl Protocol {
     }
 
     pub(crate) fn composes_completed_physical_cycle(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerCompletedCycle
                 | Self::RecursiveLearnerConstructionOutcomeComposition
                 | Self::RecursiveLearnerBoundedConstructionContinuation
@@ -550,8 +585,9 @@ impl Protocol {
     }
 
     pub(crate) fn composes_construction_outcome(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerConstructionOutcomeComposition
                 | Self::RecursiveLearnerBoundedConstructionContinuation
                 | Self::RecursiveLearnerReturnBearingContinuation
@@ -564,8 +600,9 @@ impl Protocol {
     }
 
     pub(crate) fn holds_construction_outcome_for_first_choice(self) -> bool {
+        let self_ = self.inherited();
         matches!(
-            self,
+            self_,
             Self::RecursiveLearnerBoundedConstructionContinuation
                 | Self::RecursiveLearnerReturnBearingContinuation
                 | Self::RecursiveLearnerCausalOriginProductComposition
@@ -574,6 +611,18 @@ impl Protocol {
                 | Self::RecursiveLearnerCausalTopologyOpportunityComposition
                 | Self::RecursiveLearnerCausalTopologyProductComposition
         )
+    }
+
+    pub(crate) fn holds_organism_outcome_for_first_choice(self) -> bool {
+        matches!(
+            self,
+            Self::RecursiveLearnerCausalTopologyProductCompositionOutcomeLifetime
+                | Self::RecursiveLearnerCausalTopologyProductCompositionNaturalCycleClosure
+        )
+    }
+
+    pub(crate) fn closes_natural_physical_cycles(self) -> bool {
+        self == Self::RecursiveLearnerCausalTopologyProductCompositionNaturalCycleClosure
     }
 }
 
@@ -629,6 +678,9 @@ fn run_with_limit(body: &mut Body, protocol: Bindings, max_moments: Option<u64>)
         };
         for incidence in moment.incidences {
             if let Some(fired) = (protocol.fire_junction)(body, incidence, &time, &mut run) {
+                if body.close_natural_physical_cycle(&fired, &time, &mut run) {
+                    continue;
+                }
                 (protocol.form_paths)(body, &fired, &time, &mut run);
                 // New paths and strengthened paths execute by the same rule.
                 (protocol.fire_output)(body, fired, &time, &mut run);
@@ -696,6 +748,7 @@ pub struct LinkObservation {
     pub life: u64,
     pub participation: u64,
     pub last_consequence_tick: Option<i64>,
+    pub available_consequence_tick: Option<i64>,
     pub return_origins: Vec<u64>,
     pub live: bool,
 }
@@ -855,6 +908,11 @@ impl HarnessObservation {
             hash.update(link.participation.to_le_bytes());
             hash.update(link.last_consequence_tick.unwrap_or(i64::MIN).to_le_bytes());
             hash.update(
+                link.available_consequence_tick
+                    .unwrap_or(i64::MIN)
+                    .to_le_bytes(),
+            );
+            hash.update(
                 u64::try_from(link.return_origins.len())
                     .unwrap_or(u64::MAX)
                     .to_le_bytes(),
@@ -896,6 +954,14 @@ pub struct Harness {
 }
 
 impl Harness {
+    pub fn attach_physical(
+        &mut self,
+        site: AttachmentSite,
+        component: &PhysicalComponentSpec,
+    ) -> Result<PhysicalAttachment, AttachError> {
+        crate::attachment::attach_physical(&mut self.body, site, component)
+    }
+
     pub fn send(&mut self, inputs: &[Input]) -> Run {
         let mut next = self.body.clone();
         let mut run = next.arrive(inputs, self.outward_region);
@@ -974,6 +1040,7 @@ impl Harness {
                 life: self.body.arena.life[link.id.0 as usize],
                 participation: link.participation_level,
                 last_consequence_tick: link.last_consequence_tick,
+                available_consequence_tick: link.held_consequence_tick,
                 return_origins: link.return_origins.clone(),
                 live: link.live,
             })

@@ -1,0 +1,63 @@
+{
+  "schema": "workstation-monitor-cue-local-field-projection/v1",
+  "source_trace": "research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json",
+  "source_sha256": "43bb8b86f1fc05d4c83b7450ab215915211efd6e52169e7b65eecac3b9011da8",
+  "cue_a": "]",
+  "cue_b": "\\",
+  "gazes": [
+    [
+      863,
+      911
+    ],
+    [
+      1023,
+      959
+    ]
+  ],
+  "field_shape": [
+    360,
+    640
+  ],
+  "block_shape": [
+    8,
+    8
+  ],
+  "eyes": [
+    {
+      "eye": "left",
+      "image_a_sha256": "95acc02dfdbc5c90b8ac23efe5ee366003404cbe6814f6b3d91c585baf26feb7",
+      "image_b_sha256": "c80a409503e7305595ac1eec034023fb85e9e99667706097610d496616965325",
+      "images_differ": true,
+      "exact_reassembly_a": true,
+      "exact_reassembly_b": true,
+      "same_cue_replay_equal": true,
+      "blank_control_differs": true,
+      "block_count": 3600,
+      "differing_block_count": 17,
+      "first_differing_block_origin": [
+        24,
+        472
+      ],
+      "first_differing_block_a_sha256": "c62d8d732eb27c5c15f09f7b485dee869761a5a79407cef48e048949d3b85de0",
+      "first_differing_block_b_sha256": "9474f352f3945cc8c701c8946cf5965d15cc9b8608327dcd35d7055b6f2585c2"
+    },
+    {
+      "eye": "right",
+      "image_a_sha256": "3109a6972e3969623f0034f53310e49a6eef8f40be191f5d8f2b1e2c10b4f2fe",
+      "image_b_sha256": "471e684b11245632d3c031475cc7976296c129e9d82ddc2c6b81a45f01fd7655",
+      "images_differ": true,
+      "exact_reassembly_a": true,
+      "exact_reassembly_b": true,
+      "same_cue_replay_equal": true,
+      "blank_control_differs": true,
+      "block_count": 3600,
+      "differing_block_count": 17,
+      "first_differing_block_origin": [
+        24,
+        472
+      ],
+      "first_differing_block_a_sha256": "c62d8d732eb27c5c15f09f7b485dee869761a5a79407cef48e048949d3b85de0",
+      "first_differing_block_b_sha256": "9474f352f3945cc8c701c8946cf5965d15cc9b8608327dcd35d7055b6f2585c2"
+    }
+  ]
+}

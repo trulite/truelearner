@@ -78,6 +78,12 @@ impl Body {
     pub(crate) fn from_snapshot(snapshot: BodySnapshot) -> Result<Self, CheckpointError> {
         let mut body = Self::from_arena(snapshot.arena.open()?);
         body.tick = snapshot.clock.tick;
+        if body.arena.links.iter().any(|link| {
+            link.held_consequence_tick
+                .is_some_and(|tick| tick > snapshot.clock.tick)
+        }) {
+            return Err(CheckpointError::InvalidCheckpoint);
+        }
         body.protocol = snapshot.protocol;
         body.trace_physics = snapshot.trace_physics;
         body.pressure_tick = pressure_epoch(snapshot.clock.tick);
@@ -278,6 +284,10 @@ impl ArenaSnapshot {
                 || arena.link_slots[identity].is_some()
                 || link.delay < 0
                 || link.live != (link.resistance > 0)
+                || (!link.live && link.held_consequence_tick.is_some())
+                || link
+                    .held_consequence_tick
+                    .is_some_and(|held| link.last_consequence_tick.is_none_or(|last| held > last))
             {
                 return Err(CheckpointError::InvalidCheckpoint);
             }

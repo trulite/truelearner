@@ -1,0 +1,19 @@
+schema = "research-convergence/v1"
+campaign = "runtime-attached-return-composition-v1"
+round = 1
+survived = ["frozen-parent-control"]
+falsified = ["outcome-boundary-attachment", "shared-change-surface"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = ["all arms preserve the same attached trace thresholds motor alternatives schedule action origin accepted learner and first corrective output", "neither solve adds a fixed component-to-resident link or names a motor inside the sensor", "all observed runs remain naturally quiescent"]
+strongest_counterexamples = ["the frozen parent exactly repeated motor 20000 then motor 20001 with no consequence tick", "co-locating body outcome sources at the attachment site left the exact parent reversal unchanged", "the shared change surface did not satisfy its registered consequence-write prediction and is therefore falsified under this protocol", "despite that negative verdict the shared surface changed the second choice from ordinary motor 20001 to coherent-effect motor 20000 while retaining the exact 20000 return origin", "the parent log is artifacts/frozen-parent-control.log sha256 ea5d69874d1a0457ccedce8e77a43572b9aa137e804c9c42dd769d34eba69cb0", "the outcome placement log is artifacts/outcome-boundary-attachment.log sha256 4975389ff994252ae8805e7e0954490bdbd8dd06c7708435806f21d1834105f6", "the shared factor log is artifacts/shared-change-surface.log sha256 81fb8dbacb7c3cc7a8ce187ce824b62b905c9d031b6873727cd20d9a1333e3b0"]
+retired_families = ["moving outcome coordinates alone", "requiring consequence write as the only valid continuation mechanism", "patching the shared-change arm after its declared predicate failed", "adding a fixed sensor-to-outcome link"]
+next_discriminators = ["freeze a successor around the observed shared-change coherent-effect arrow and test the complete both-disturbance regulation contract", "retain the unchanged split-trace reversal as the negative control", "if the full run fails descend from the first lost shared-change continuation without assuming consequence is required"]
+
+[[new_arm]]
+id = "factored-change-regulation"
+kind = "composition"
+parents = ["shared-change-surface", "frozen-parent-control"]
+imports = ["component-local threshold-change factor", "existing coherent-effect continuation", "complete both-disturbance regulation fixture"]
+interaction_prediction = "Repeated return through the same threshold-change surfaces will preserve the corrective action while deviation crossings continue and naturally stop when no threshold changes, allowing both disturbance branches to enter and remain in the central region."
+falsifiers = ["Either branch loses coherent continuation before central entry.", "The factor carries action through the central region and overshoots to the opposite bound.", "Either branch never enters or fails four-observation residence.", "Replay quiescence origin or work controls fail."]

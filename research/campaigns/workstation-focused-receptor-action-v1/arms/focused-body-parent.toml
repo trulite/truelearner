@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "focused-body-parent"
+campaign = "workstation-focused-receptor-action-v1"
+kind = "control"
+parents = ["workstation-focused-vision-body-integration"]
+imports = ["body-owned focused transduction", "fixed receptor product", "exact change state", "checkpoint replay", "zero sparse retinal admission"]
+mechanism = "Keep every focused receptor connected only to its established neutral internal relay and preserve the verified body-boundary result unchanged."
+prediction = "Different cue scenes retain different focused transition sets and learner fingerprints with exact replay, but no focused signal origin participates in a palm candidate."
+falsifiers = ["The focused parent no longer distinguishes the cue scenes.", "A repeated receptor state emits a transition.", "Sparse retinal input appears.", "Checkpoint replay or quiescence fails."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "d21bfc97658a61eea946051c2b3b973f911aa36c5dbf03d01aacdf1b390d1788"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation --features research --test focused_vision_body"
+full_evidence = "isolated arm in focused_receptor_action_participation artifact"

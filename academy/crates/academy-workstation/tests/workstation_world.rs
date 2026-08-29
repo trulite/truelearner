@@ -1,9 +1,12 @@
-use academy_workstation::{SessionCheckpoint, WorkstationSession, KEY_COUNT};
+use academy_workstation::{
+    KeyId, SessionCheckpoint, WorkstationPresentation, WorkstationSession, WorkstationWorld,
+    KEY_COUNT,
+};
 use truelearner_workstation::Eye;
 #[cfg(feature = "research")]
 use truelearner_workstation::{
-    BodyAxis, Protocol, ResearchHarnessConfig, ResearchOpportunityIncidence,
-    ResearchTransitionOpportunity,
+    BodyAxis, Protocol, ResearchFocusedActionProjection, ResearchHarnessConfig,
+    ResearchOpportunityIncidence, ResearchTransitionOpportunity, ResearchVisualComposition,
 };
 
 #[test]
@@ -73,6 +76,119 @@ fn corrupt_session_checkpoint_fails_closed() {
     assert_eq!(session.read().unwrap(), before);
 }
 
+#[test]
+fn illuminated_real_keys_change_only_the_external_pixels() {
+    let left = WorkstationPresentation::with_illuminated_key(KeyId(17));
+    let right = WorkstationPresentation::with_illuminated_key(KeyId(29));
+    let body = truelearner_workstation::WorkstationState::default();
+    let left_sample = WorkstationWorld::new_with_presentation(left)
+        .unwrap()
+        .sense(&body)
+        .unwrap();
+    let right_sample = WorkstationWorld::new_with_presentation(right)
+        .unwrap()
+        .sense(&body)
+        .unwrap();
+
+    for eye in Eye::ALL {
+        assert_ne!(left_sample.eye(eye), right_sample.eye(eye));
+    }
+    for sample in [left_sample, right_sample] {
+        let wire = serde_json::to_string(&sample).unwrap();
+        for forbidden in ["key", "target", "coordinate", "direction", "score"] {
+            assert!(!wire.contains(forbidden), "leaked {forbidden}: {wire}");
+        }
+    }
+}
+
+#[test]
+fn illuminated_key_presentation_restores_the_exact_next_step() {
+    let presentation = WorkstationPresentation::with_illuminated_key(KeyId(29));
+    let mut session = WorkstationSession::new_with_presentation(71_005, presentation).unwrap();
+    session.step().unwrap();
+    let checkpoint = session.save().unwrap();
+    let mut restored = WorkstationSession::restore(checkpoint).unwrap();
+
+    assert_eq!(restored.read().unwrap(), session.read().unwrap());
+    assert_eq!(restored.step().unwrap(), session.step().unwrap());
+}
+
+#[test]
+fn invalid_illuminated_key_fails_closed() {
+    let presentation = WorkstationPresentation::with_illuminated_key(KeyId(KEY_COUNT as u16));
+    assert_eq!(
+        WorkstationWorld::new_with_presentation(presentation).unwrap_err(),
+        academy_workstation::WorldError::InvalidPresentation
+    );
+}
+
+#[test]
+fn monitor_cue_changes_only_pixels_and_preserves_the_body_until_the_next_step() {
+    let mut blank = WorkstationSession::new(71_007).unwrap();
+    let before = blank.read().unwrap();
+    let blank_sample = WorkstationWorld::new()
+        .unwrap()
+        .sense(&before.body.state)
+        .unwrap();
+
+    blank
+        .set_presentation(WorkstationPresentation::with_monitor_glyph('1'))
+        .unwrap();
+    let after = blank.read().unwrap();
+    let cue_sample =
+        WorkstationWorld::new_with_presentation(WorkstationPresentation::with_monitor_glyph('1'))
+            .unwrap()
+            .sense(&after.body.state)
+            .unwrap();
+
+    assert_eq!(after.sequence, before.sequence);
+    assert_eq!(after.body, before.body);
+    assert_ne!(after.world_fingerprint, before.world_fingerprint);
+    assert_ne!(after.session_fingerprint, before.session_fingerprint);
+    for eye in Eye::ALL {
+        assert_ne!(cue_sample.eye(eye), blank_sample.eye(eye));
+    }
+    let wire = serde_json::to_string(&cue_sample).unwrap();
+    for forbidden in ["glyph", "character", "key", "target", "answer", "score"] {
+        assert!(!wire.contains(forbidden), "leaked {forbidden}: {wire}");
+    }
+}
+
+#[test]
+fn monitor_cue_update_is_transactional_and_restores_the_exact_next_step() {
+    let mut session = WorkstationSession::new(71_008).unwrap();
+    session
+        .set_presentation(WorkstationPresentation::with_monitor_glyph('9'))
+        .unwrap();
+    let checkpoint = session.save().unwrap();
+    let mut restored = WorkstationSession::restore(checkpoint).unwrap();
+
+    assert_eq!(restored.read().unwrap(), session.read().unwrap());
+    assert_eq!(restored.step().unwrap(), session.step().unwrap());
+
+    let before = restored.read().unwrap();
+    assert_eq!(
+        restored
+            .set_presentation(WorkstationPresentation::with_monitor_glyph('\n'))
+            .unwrap_err(),
+        academy_workstation::WorldError::InvalidPresentation
+    );
+    assert_eq!(restored.read().unwrap(), before);
+}
+
+#[test]
+fn absent_monitor_cue_is_the_exact_default_identity() {
+    let body = truelearner_workstation::WorkstationState::default();
+    let default_world = WorkstationWorld::new().unwrap();
+    let explicit_world =
+        WorkstationWorld::new_with_presentation(WorkstationPresentation::default()).unwrap();
+    assert_eq!(default_world, explicit_world);
+    assert_eq!(
+        default_world.sense(&body).unwrap(),
+        explicit_world.sense(&body).unwrap()
+    );
+}
+
 #[cfg(feature = "research")]
 #[test]
 fn shared_opportunity_wave_exposes_separate_full_morphology_movements() {
@@ -122,4 +238,34 @@ fn shared_opportunity_wave_exposes_separate_full_morphology_movements() {
     assert!(moved_digits.len() >= 2, "moved digits: {moved_digits:?}");
     assert_eq!(five_finger_steps, 0);
     assert_eq!(default_session.save().unwrap(), session.save().unwrap());
+}
+
+#[cfg(feature = "research")]
+#[test]
+fn focused_action_session_restores_the_exact_next_world_and_body_step() {
+    let config = ResearchHarnessConfig {
+        protocol: Protocol::RecursiveLearnerCausalTopologyProductCompositionOutcomeLifetime,
+        opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
+        transition_opportunity: ResearchTransitionOpportunity::OutputSpecificProprioceptiveSequentialAlignedCausalDeltaPalmComponent,
+    };
+    let visual_composition = ResearchVisualComposition::default()
+        .with_focused_sensor_field(true)
+        .with_focused_action_projection(ResearchFocusedActionProjection::PalmHorizontal);
+    let presentation = WorkstationPresentation::with_illuminated_key(KeyId(26));
+    let mut session = WorkstationSession::new_research_composed_with_presentation(
+        82_002,
+        config,
+        visual_composition,
+        presentation,
+    )
+    .unwrap();
+    session.step().unwrap();
+    let checkpoint = session.save().unwrap();
+    let mut restored =
+        WorkstationSession::restore_research_composed(checkpoint, config, visual_composition)
+            .unwrap();
+
+    assert_eq!(restored.read().unwrap(), session.read().unwrap());
+    assert_eq!(restored.step().unwrap(), session.step().unwrap());
+    assert_eq!(restored.save().unwrap(), session.save().unwrap());
 }

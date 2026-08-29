@@ -28,10 +28,11 @@ remain not reached when their prerequisites fail.
 
 Eye Control includes a bounded binocular-depth lesson. A target is projected
 with equal-and-opposite horizontal disparity, and the probe requires repeated
-opposing horizontal movements of the independent eyes with actual light
-consequences in both eyes. No vergence motor or fused depth enters the learner.
-This tests a stereo sensorimotor contingency, not general 3D understanding or
-depth-directed reaching.
+opposing horizontal movements that reduce each independent eye's external
+target error while changing actual light in both eyes. Target coordinates and
+errors remain evaluator-only. No vergence motor or fused depth enters the
+learner. This tests a stereo sensorimotor contingency, not general 3D
+understanding, stable fixation, or depth-directed reaching.
 
 Opposing motor effort is integrated per physical axis, then
 signed position, actual velocity, effort, joint limits, and touch return as

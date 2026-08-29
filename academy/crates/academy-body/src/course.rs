@@ -401,7 +401,7 @@ fn evaluate(
         }
         return binocular_depth_verdict(
             opposing_eye_movements,
-            binocular_visual_consequences(samples, observations),
+            binocular_alignment_consequences(samples, observations),
         );
     }
     let movements = observations
@@ -484,7 +484,7 @@ fn evaluate_physical(
     }
 }
 
-fn binocular_visual_consequences(
+fn binocular_alignment_consequences(
     samples: &[WorldSample],
     observations: &[WorkstationStepObservation],
 ) -> usize {
@@ -495,11 +495,13 @@ fn binocular_visual_consequences(
         .filter(|(sample, _)| has_stereo_target(sample))
         .filter(|(sample, observation)| {
             Eye::ALL.into_iter().all(|eye| {
-                focus_changes_light(
-                    sample.eye(eye),
-                    observation.state_before.eye(eye).gaze(),
-                    observation.state_after.eye(eye).gaze(),
-                )
+                let field = sample.eye(eye);
+                let before = observation.state_before.eye(eye).gaze();
+                let after = observation.state_after.eye(eye).gaze();
+                target_horizontal(field).is_some_and(|target| {
+                    after.x().abs_diff(target) < before.x().abs_diff(target)
+                        && focus_changes_light(field, before, after)
+                })
             })
         })
         .count()
@@ -507,9 +509,9 @@ fn binocular_visual_consequences(
 
 fn binocular_depth_verdict(
     opposing_eye_movements: usize,
-    binocular_visual_consequences: usize,
+    binocular_alignment_consequences: usize,
 ) -> BodyVerdict {
-    if opposing_eye_movements >= 2 && binocular_visual_consequences >= 2 {
+    if opposing_eye_movements >= 2 && binocular_alignment_consequences >= 2 {
         BodyVerdict::Passed
     } else {
         BodyVerdict::Failed
@@ -517,18 +519,25 @@ fn binocular_depth_verdict(
 }
 
 fn has_stereo_target(sample: &WorldSample) -> bool {
-    let target_column = |eye| {
-        let field = sample.eye(eye);
-        field
-            .pixels()
-            .iter()
-            .position(|pixel| *pixel == 255)
-            .map(|index| index % usize::from(field.width()))
-    };
     matches!(
-        (target_column(Eye::Left), target_column(Eye::Right)),
+        (
+            target_horizontal(sample.eye(Eye::Left)),
+            target_horizontal(sample.eye(Eye::Right))
+        ),
         (Some(left), Some(right)) if left != right
     )
+}
+
+fn target_horizontal(field: &LightField) -> Option<i16> {
+    let column =
+        field.pixels().iter().position(|pixel| *pixel == 255)? % usize::from(field.width());
+    let denominator = i32::from(field.width().saturating_sub(1));
+    if denominator == 0 {
+        return Some(0);
+    }
+    let body_x =
+        i32::try_from(column).ok()? * i32::from(truelearner_workstation::BODY_MAX) / denominator;
+    i16::try_from(body_x).ok()
 }
 
 fn has_digit_separation<'a>(steps: impl IntoIterator<Item = &'a [BodyMovement]>) -> bool {
@@ -722,7 +731,7 @@ mod tests {
     }
 
     #[test]
-    fn binocular_depth_requires_repeated_opposing_eye_consequences() {
+    fn binocular_depth_requires_repeated_opposing_alignment_consequences() {
         assert_eq!(binocular_depth_verdict(0, 0), BodyVerdict::Failed);
         assert_eq!(binocular_depth_verdict(2, 0), BodyVerdict::Failed);
         assert_eq!(binocular_depth_verdict(1, 1), BodyVerdict::Failed);

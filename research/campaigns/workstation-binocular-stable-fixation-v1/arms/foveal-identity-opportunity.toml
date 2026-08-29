@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "foveal-identity-opportunity"
+campaign = "workstation-binocular-stable-fixation-v1"
+kind = "solve"
+parents = ["post-alignment-choice-localization"]
+imports = ["minimal binocular acquisition", "physical center receptor", "eye-local generic opportunity", "embodiment identity and optional-event composition"]
+mechanism = "For only the owning eye, map its generic directional opportunity to the motor identity while its ordinary center receptor is active; preserve every off-center opportunity unchanged."
+prediction = "If generic opportunity causes departure, the eye stops emitting directional movement at center, the other eye remains independent, and all six acquired relations hold for eight steps."
+falsifiers = ["A directional eye output still occurs during center hold.", "An off-center or dark eye stops exploring.", "One centered eye suppresses the other.", "The solve needs target position or evaluator alignment."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "7792a8541cf90ddf2fe5a897d11e90c3a3fcb2d73fae057526819c9dfaa25279"
+budget_minutes = 12
+
+[gates]
+tiny_fixture = "cargo test --release --locked --manifest-path research/experiments/workstation-binocular-alignment/Cargo.toml --lib foveal_identity_is_eye_local"
+full_evidence = "cargo test --release --locked --manifest-path research/experiments/workstation-binocular-alignment/Cargo.toml --lib stable_fixation"

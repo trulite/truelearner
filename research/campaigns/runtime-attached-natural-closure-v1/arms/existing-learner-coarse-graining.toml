@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "existing-learner-coarse-graining"
+campaign = "runtime-attached-natural-closure-v1"
+kind = "composition"
+parents = ["exact-attached-cycle-closure"]
+imports = ["exact attached cycle closure", "existing observe_causal_closure", "existing learner construction"]
+mechanism = "Feed each exact closed path lineage to the existing causal-closure evidence law, with no component wrapper or new memory."
+prediction = "Two exact closures form exactly one existing learner around that surface path and output; an unrelated attachment before or after it changes neither closure nor learner boundary."
+falsifiers = ["No learner forms after two closures.", "More than one or an unrelated learner forms.", "Attachment order changes outward history.", "A new component type or memory is required.", "Replay or quiescence fails."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "8622805dd11531f01cd5e72a72154677ba7158cfff66d9834708ba07e5d303ea"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test runtime_attachment physical_cycle_composition_"
+full_evidence = "test -s research/campaigns/runtime-attached-natural-closure-v1/artifacts/existing-learner-coarse-graining.log"

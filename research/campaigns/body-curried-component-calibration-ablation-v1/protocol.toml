@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "body-curried-component-calibration-ablation-v1"
+program = "learner-physics"
+claim = "RUNTIME-ATTACHED-MULTISCALE-COMPETENCE"
+status = "preregistered"
+parent_authority = "body-curried-component-calibration-v1 convergence sha256:b26f1cc512461e7ddc011689961760ee14327303d5efa10d55795459ed8bea4c; candidate sha256:fbe476cb97b16e45f27259e779ca56eddf6463f1953aebbe8b90da05ea843208"
+question = "Are body context, persistent unresolved drive, directional change factorization, and zero identity separately necessary for the supported bounded calibrated-regulation result?"
+observables = ["body-supplied and curried normal relation", "residual sequence", "late persistent drive inputs", "sample or transition incidence", "rise and fall trace paths", "new consequence writes", "scalar trajectory", "output origins", "exact replay", "natural quiescence"]
+frozen_variables = ["complete body-curried calibration implementation", "exact natural-cycle closure parent", "connected outcome product", "physical trace thresholds one through five", "trace lifetime eight", "two anonymous motors", "scalar bounds minus four through four", "thirty-two observations"]
+permitted_changes = ["test-only fixed calibration context", "test-only removal of late persistent sample after its first use", "test-only substitution of transition incidence at the persistent drive input", "test-only sample drive addition at residual zero", "observer-only evidence projections"]
+positive_predicates = ["complete candidate remains exact", "fixed context fails shifted residence", "one-shot drive stalls while residual remains nonzero", "merged change falsely closes a worsening residual", "drive at zero acts or departs from normal", "all arms replay and naturally quiesce"]
+negative_controls = ["unchanged complete candidate", "ordinary centered minus-one-through-one context", "disjoint shifted two-through-three body context", "same residual", "larger residual", "residual zero", "reflected motor effects"]
+stop_conditions = ["complete reference changes", "an arm does not reach its predicted first wall", "a removal changes production code", "an arm needs motor direction target or evaluator reward", "replay natural quiescence or semantic firewall fails"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

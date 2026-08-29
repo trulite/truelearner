@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "production-and-firewall-controls"
+campaign = "workstation-binocular-alignment-v1"
+kind = "control"
+parents = ["workstation-embodiment-wiring-migration", "academy.md:semantic-firewall"]
+imports = ["production trace identity", "checkpoint replay", "natural quiescence", "serialized-input audit"]
+mechanism = "Keep the composed visual profile research-only and require the inherited production body traces state and Academy semantic boundary to remain unchanged."
+prediction = "Production traces remain byte-identical, unchanged samples do not become transitions, and no target disparity error direction or verdict appears in organism-visible input."
+falsifiers = ["Production behavior changes.", "An unchanged sample becomes a physical transition.", "Checkpoint replay differs.", "Evaluator-only knowledge appears in a serialized WorldSample."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "18e8c6f650f49543d9ccdacd83ee4b4f255751e39090edbe8fac6f30a3676bf0"
+budget_minutes = 8
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment -p truelearner-workstation"
+full_evidence = "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields"

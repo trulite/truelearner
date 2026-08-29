@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "runtime-attached-local-regulation-v1"
+program = "learner-physics"
+claim = "RUNTIME-ATTACHED-MULTISCALE-COMPETENCE"
+status = "preregistered"
+parent_authority = "Connected Outcome Product V1 commit:7be8bbc3009fe3131622a6ee21e9aa260d649aa1; runtime attachment plan plans/composable-multiscale-physical-competence.md; development revision dfe933886d4a030d7775356f78e908e8531c2fc2"
+question = "Can an anonymous runtime-attached scalar sensor close one local regulating loop through ordinary path formation and actual action-caused sensory return without a motor map or adapter history?"
+observables = ["attachment-time body clock paths strengths learners and outputs", "physical threshold-trace rise and fall firings", "formed local path proposals", "outward motor outputs", "action-origin-preserving returned incidence", "externally measured scalar trajectory", "entry into and residence within the neutral central region after positive and negative disturbances", "path participation and consequence", "exact checkpoint replay", "natural quiescence", "active physical work and resident bytes", "lossless ordered physical trace"]
+frozen_variables = ["accepted connected-outcome product protocol", "one scalar physical coordinate with reflected bounds minus four and plus four", "neutral central observation region minus one through plus one", "integer trace thresholds minus four through plus four", "trace lifetime eight physical ticks", "sensor attachment site position ten region zero", "two anonymous local motor alternatives at positions nine and eleven", "one outward sink per motor", "one ordinary outcome source per motor", "batched physical effect", "one initial sample followed by disturbances from plus three and minus three", "thirty-two external steps per disturbance", "fixed capacity and propagation budget", "full physical tracing on first run"]
+permitted_changes = ["runtime attachment transaction", "anonymous physical trace component", "cause-preserving sensor transduction", "experiment-only scalar world adapter and observer", "lossless evidence projection"]
+positive_predicates = ["attachment is quiet and creates no fixed motor link", "the first disturbance creates an ordinary local path and a real motor output", "every movement-caused sensory transition retains the exact motor physical origin", "both positive and negative disturbances enter the neutral central region", "after entry each branch remains in that region for at least four external observations without evaluator termination", "both movement signs occur", "all runs replay exactly quiesce naturally and stay within the fixed work budget", "no semantic direction target desired action score or evaluator result enters body input"]
+negative_controls = ["silent attachment", "equal resampling", "no attachment", "shuffled action origin", "same initial checkpoint", "accepted parent identity", "semantic firewall", "fixed-active dormant replacement cost"]
+stop_conditions = ["attachment itself emits output or mutates prior learned state", "the disturbed trace forms no local path", "no motor output occurs", "a movement-caused return loses its action origin", "either disturbance never enters the neutral region", "entry requires an evaluator-selected motor or supplied route", "the body leaves the region before four observations", "a run exhausts the budget or fails natural quiescence replay or inherited controls"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = false

@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "workstation-monitor-cue-local-field-v1"
+program = "learner-physics"
+claim = "WORKSTATION-KEY-SELECTION-LADDER"
+status = "preregistered"
+parent_authority = "plans/composable-local-spatial-sensor-fields.md and workstation-monitor-cue-reuse trace sha256:43bb8b86f1fc05d4c83b7450ab215915211efd6e52169e7b65eecac3b9011da8"
+question = "Does lossless regular local factorization preserve the difference between the two retained real monitor-cue images that isolated point sampling aliases?"
+observables = ["per-eye image and local-block difference", "per-eye exact field reconstruction", "same-cue replay equality", "blank-cue difference", "field and block shapes", "parent point-projection digest"]
+frozen_variables = ["retained post-development body state and gazes", "real Academy renderer cue glyphs and cue position", "full 640 by 360 binocular rasters", "row-major ordering", "fixed 8 by 8 regular tiling chosen before cue comparison", "parent point-retina projection"]
+permitted_changes = ["generic dimension- and value-independent finite spatial field", "consuming lossless factorization into ordered local blocks", "research-only projection of already-rendered eye rasters"]
+positive_predicates = ["both cue images differ", "both local-field factorizations differ", "both fields reassemble exactly", "same-cue replay is equal", "source and parent digests are unchanged", "no cue identity location target or differing-block index enters organism state"]
+negative_controls = ["same cue rendered twice", "blank cue", "uniform field identity", "same-multiset different-arrangement field", "unavailable depth site", "non-divisible field edge", "retained wider-point alias projection"]
+stop_conditions = ["either local-field projection remains equal", "any source cell is lost copied reordered padded or invented", "factorization depends on cue identity or inspected difference location", "same-cue replay differs", "parent digest semantic firewall or runtime reference changes"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = false

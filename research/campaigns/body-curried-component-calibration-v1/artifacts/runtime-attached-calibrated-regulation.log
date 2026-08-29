@@ -1,0 +1,25 @@
+arm: runtime-attached-calibrated-regulation
+verdict: survived
+commands:
+- cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_trace_
+- cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment regulation_body_curried_calibration -- --exact
+result: 2 focused tests passed; 0 failed
+
+observations:
+- Nonzero residual reached one ordinary local drive surface late on every unresolved observation.
+- The persistent drive arrived as Sample; it did not pretend to be an action-caused physical change.
+- Threshold falls carried the real transition origin back to that drive surface before renewed drive, while rises remained physically separate.
+- Zero residual omitted fresh drive. Entry into zero returned only through real threshold falls, which exact closure consumed without another output.
+- Same or larger residual wrote no new consequence. A smaller nonzero residual closed before renewed action.
+- Positive and negative disturbances entered and held the body-supplied band.
+- Both disturbances still regulated after motor effects were reflected and after the body context shifted from [-1, 1] to [1, 2].
+- All six scenarios replayed exactly, preserved action-return origins, and naturally quiesced after each observation.
+
+retained_debugging_evidence:
+- A broad projection initially confused a candidate carrying an old consequence_tick with a new consequence write. The retained trace showed zero matching closure paths and no transition; the projection was narrowed to ConsequenceRecorded, LearnerConsequenceRecorded, and NaturalCycleClosed.
+- A stronger worsening-residual control then exposed a real non-commuting square: the late persistent drive copied Transition incidence, so a worsening motor return falsely closed at the drive surface.
+- The frozen plan already specified that late arrow as an ordinary sample. Sending the persistent drive as Sample separated "still unresolved" from the trace's rise/fall transition. The unchanged full rung then passed.
+
+semantic_firewall:
+- Regulation received no motor identity, preferred direction, correct action, scalar center, sensor name, or evaluator reward.
+- Body context supplied only the local normal relation. Existing ordinary learner physics discovered which output reduced the residual under each effect arrangement.

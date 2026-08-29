@@ -1,0 +1,170 @@
+{
+  "schema": "rust-candidate/v1",
+  "generated_at": "2026-08-28T19:50:39.373606+00:00",
+  "started_at": "2026-08-28T19:50:25.101112+00:00",
+  "plan": {
+    "path": "/Users/satya/work/br/truelearner-core0/plans/workstation-visual-transition-return.md",
+    "sha256": "10eec6fd9e4f258f31c919fd4abe973b786e02515d25a87d43617a9cf66e9bcb"
+  },
+  "candidate": {
+    "revision": "dfe933886d4a030d7775356f78e908e8531c2fc2",
+    "tree_sha256": "e88cfe2fd534541f3a1640f7f43b4ae9f25835fafb2588cc508a27420d798694"
+  },
+  "scope": [
+    "."
+  ],
+  "changed_paths": [
+    ".agents/skills/causal-debug/SKILL.md",
+    ".agents/skills/causal-debug/agents/openai.yaml",
+    "AGENTS.md",
+    "academy/crates/academy-workstation/src/checkpoint.rs",
+    "academy/crates/academy-workstation/src/geometry.rs",
+    "academy/crates/academy-workstation/src/lib.rs",
+    "academy/crates/academy-workstation/src/render.rs",
+    "academy/crates/academy-workstation/src/session.rs",
+    "academy/crates/academy-workstation/src/world.rs",
+    "academy/crates/academy-workstation/tests/workstation_world.rs",
+    "factory/receipts/link-outcome-first-choice-lifetime-candidate.json",
+    "factory/receipts/link-outcome-first-choice-lifetime-verification.json",
+    "factory/receipts/workstation-output-specific-return-source-candidate.json",
+    "factory/receipts/workstation-output-specific-return-source-verification.json",
+    "lessons.md",
+    "plans/link-outcome-first-choice-lifetime.md",
+    "plans/organism-executable-transition-choice.md",
+    "plans/organism-transition-divergence.md",
+    "plans/organism-view-transition-continuation.md",
+    "plans/run-local-organism-outcome.md",
+    "plans/workstation-causal-delta-return.md",
+    "plans/workstation-effect-receptor-return.md",
+    "plans/workstation-generic-opportunity-alignment.md",
+    "plans/workstation-intermediate-transition-incidence.md",
+    "plans/workstation-output-specific-return-source.md",
+    "plans/workstation-palm-component.md",
+    "plans/workstation-proprioceptor-delta-return.md",
+    "plans/workstation-quiescent-sequential-composition.md",
+    "plans/workstation-visible-key-intention.md",
+    "plans/workstation-visual-transition-return.md",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/aligned-contact-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/effect-receptor-contact-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/impulse-magnitude-retinotopic-64.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/impulse-magnitude-retinotopic-failed-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/intermediate-transition-contact-continuation.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/intermediate-transition-contact-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/output-specific-opposition-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/output-specific-return-engineering-preflight.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/retinotopic-visual-transition-failed-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/retinotopic-visual-transition-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/sequential-opposition-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/threshold-retinotopic-visual-transition-12.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/threshold-retinotopic-visual-transition-64.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visible-key-intention-retina-field-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visible-key-intention-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visible-key-intention-wide-retina-trace.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visual-transition-opposition-64.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visual-transition-opposition-witness.json",
+    "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visual-transition-return-failed-trace.json",
+    "research/experiments/workstation-return-bearing-opportunity-composition/src/bin/magnitude_retinotopic_visual_transition_trace.rs",
+    "research/experiments/workstation-return-bearing-opportunity-composition/src/bin/output_specific_trace.rs",
+    "research/experiments/workstation-return-bearing-opportunity-composition/src/bin/retinotopic_visual_transition_trace.rs",
+    "research/experiments/workstation-return-bearing-opportunity-composition/src/bin/threshold_retinotopic_visual_transition_trace.rs",
+    "research/experiments/workstation-return-bearing-opportunity-composition/src/bin/visible_key_intention_trace.rs",
+    "research/experiments/workstation-return-bearing-opportunity-composition/src/bin/visual_transition_opposition_trace.rs",
+    "research/experiments/workstation-return-bearing-opportunity-composition/src/bin/visual_transition_trace.rs",
+    "research/experiments/workstation-return-bearing-opportunity-composition/src/lib.rs",
+    "truelearner/crates/core/src/choose.rs",
+    "truelearner/crates/core/src/core.rs",
+    "truelearner/crates/core/src/learner.rs",
+    "truelearner/crates/core/src/link.rs",
+    "truelearner/crates/core/src/outcome.rs",
+    "truelearner/crates/core/src/physics.rs",
+    "truelearner/crates/core/src/schedule.rs",
+    "truelearner/crates/core/src/snapshot.rs",
+    "truelearner/crates/core/src/trace.rs",
+    "truelearner/crates/workstation/src/checkpoint.rs",
+    "truelearner/crates/workstation/src/harness.rs",
+    "truelearner/crates/workstation/src/lib.rs",
+    "truelearner/crates/workstation/tests/workstation_harness.rs"
+  ],
+  "checks": [
+    {
+      "name": "fmt",
+      "command": "cargo fmt --all --manifest-path truelearner/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.181399,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "research-fmt",
+      "command": "cargo fmt --all --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.26997,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "academy-fmt",
+      "command": "cargo fmt --all --manifest-path academy/Cargo.toml -- --check",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.224497,
+      "output_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "name": "check",
+      "command": "cargo check --all-targets --all-features --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.550838,
+      "output_sha256": "d74c8559cc48428acf89dffeae577c7a3777a9d49ae8e8f105b6400d2038a34e"
+    },
+    {
+      "name": "clippy",
+      "command": "cargo clippy --all-targets --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.324473,
+      "output_sha256": "ef695b26c849ff78fb4136a0d17ba58b9674e41385cb3d091496705505fa7795"
+    },
+    {
+      "name": "focused-tests",
+      "command": "cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib threshold_retinotopic_visual_transition_reaches_an_executable_choice",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 6.18034,
+      "output_sha256": "3b9372da523017cebcd5156bc9a941a58ecb6910e6765015c0bc3fa9a2865a2c"
+    },
+    {
+      "name": "ablations",
+      "command": "cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib visual_transition",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.785311,
+      "output_sha256": "21306295f5776aa3a46646392689242f058a8b32147c15b433914f663b50975e"
+    },
+    {
+      "name": "accepted-hand",
+      "command": "cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib first_choice_lifetime_presses_and_releases_real_keys",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.162079,
+      "output_sha256": "5e16773fc29786914539873775463327253911d1dd76fd4050a9777a1988b4a8"
+    },
+    {
+      "name": "firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.407226,
+      "output_sha256": "01f2ad4baa1fdaea959fbdcbb51c6c57049721c251e915a93fe696fd76b6074f"
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.185254,
+      "output_sha256": "f4a011c3e4af6c77c839b97c7ab1ca15580a9f73bea8834aba218869b6621b78"
+    }
+  ]
+}

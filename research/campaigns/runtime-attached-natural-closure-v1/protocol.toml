@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "runtime-attached-natural-closure-v1"
+program = "learner-physics"
+claim = "RUNTIME-ATTACHED-MULTISCALE-COMPETENCE"
+status = "preregistered"
+parent_authority = "Connected Outcome Product V1@7be8bbc3009fe3131622a6ee21e9aa260d649aa1; runtime-attached-homeostatic-surface-v1 convergence sha256:1710b6d3680e2e3a1da5ec8a99075865c4f6ec148706769f4cb21328deed8c73"
+question = "Does the existing body outcome law close one uniquely matched action-return cycle after runtime attachment, does repeated closure form the existing learner boundary, and is that stack sufficient for two-sided scalar regulation?"
+observables = ["surface and output causal-origin match", "participating path links and generations", "physical transition tick", "consequence writes", "whether the returned firing emits an output", "causal closure evidence and learner construction", "independent attachment order", "two scalar trajectories", "central residence", "exact replay", "natural quiescence", "work"]
+frozen_variables = ["atomic runtime attachment", "body-native trace", "unified change surface for the regulation rung", "trace lifetime eight", "attachment and motor geometry", "disturbances plus three and minus three", "thirty-two regulation observations", "accepted connected-outcome parent behavior", "no fixed attachment-to-output link"]
+permitted_changes = ["one opt-in pre-formation exact physical-cycle closure using existing causal lineage participation consequence and learner laws", "diagnostic event", "observer-only research evidence"]
+positive_predicates = ["a unique actual returned transition writes consequence to the exact used path and emits no second action", "unchanged unrelated and ambiguous controls are identity", "two exact closures construct exactly one existing learner around the local cycle", "independent attachment composition and replay are exact", "conditional regulation enters and holds the central region from both sides", "all runs naturally quiesce without semantic or motor authority"]
+negative_controls = ["unchanged sample carrying the same output origin", "unrelated transition origin", "return before participation", "ambiguous matching participation", "silent attachment", "reversed independent attachment order", "frozen unified-surface bounce"]
+stop_conditions = ["the missing closure gate fails", "closure credits or suppresses a control", "the predicted learner boundary fails after closure", "composition depends on attachment order", "the conditional regulation rung fails residence", "replay quiescence cost or semantic firewall fails"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = false

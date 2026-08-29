@@ -1,0 +1,20 @@
+arm: curried-calibration-laws
+verdict: survived
+command: cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test calibration calibration_laws_
+result: 5 passed; 0 failed; 7 filtered out
+
+observations:
+- The body context was curried once and was not requested from the component on each observation.
+- Available observations mapped to a nonnegative residual while physical origin and sample-versus-transition incidence were preserved.
+- Unavailable observations did not evaluate the relation or invent a residual.
+- Unavailable body context did not construct a Normalizer.
+- Residual zero was the two-sided composition identity and mapped to effect identity; positive residual mapped to an available effect opportunity.
+- Independent Normalizers composed in parallel without merging their local factors.
+
+categorical_reading:
+- calibrate has the implemented shape body_context -> (available component observation -> residual).
+- Residual composition is associative with zero identity under saturating addition.
+- Availability is preserved by mapping rather than silently assigned an inverse or default value.
+
+semantic_firewall:
+- The library contains no sensor kind, body-part kind, target motor, direction, scalar center, evaluator answer, or previous observation.

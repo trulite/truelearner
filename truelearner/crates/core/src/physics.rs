@@ -15,7 +15,7 @@ impl Body {
 // Bind each line of the algorithm to one coherent physical implementation.
 impl Protocol {
     pub(crate) fn bindings(self) -> Bindings {
-        match self {
+        match self.inherited() {
             Self::Physical => Bindings {
                 start,
                 links_meet: Body::meet_links,
@@ -100,18 +100,22 @@ impl Protocol {
             | Self::RecursiveLearnerCausalPathProductComposition
             | Self::RecursiveLearnerCausalTopologyOutputComposition
             | Self::RecursiveLearnerCausalTopologyOpportunityComposition
-            | Self::RecursiveLearnerCausalTopologyProductComposition => Bindings {
-                start,
-                links_meet: Body::meet_links,
-                choose: Body::choose_sensorimotor_candidate,
-                outcome_returns: Body::outcomes_return,
-                strengthen: Body::strengthen_candidate_outcomes,
-                fire_junction: Body::fire,
-                form_paths: Body::form_from_participation,
-                fire_output: Body::fire_output_from,
-                hold,
-                finish,
-            },
+            | Self::RecursiveLearnerCausalTopologyProductComposition
+            | Self::RecursiveLearnerCausalTopologyProductCompositionOutcomeLifetime
+            | Self::RecursiveLearnerCausalTopologyProductCompositionNaturalCycleClosure => {
+                Bindings {
+                    start,
+                    links_meet: Body::meet_links,
+                    choose: Body::choose_sensorimotor_candidate,
+                    outcome_returns: Body::outcomes_return,
+                    strengthen: Body::strengthen_candidate_outcomes,
+                    fire_junction: Body::fire,
+                    form_paths: Body::form_from_participation,
+                    fire_output: Body::fire_output_from,
+                    hold,
+                    finish,
+                }
+            }
         }
     }
 }

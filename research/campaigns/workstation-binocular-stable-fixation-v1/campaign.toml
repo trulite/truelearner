@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "workstation-binocular-stable-fixation-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Stable fixation is the missing identity arrow of each eye factor: when that eye's ordinary center receptor is physically active, its generic directional opportunity must compose to no motor event while the other eye remains independent."
+first_divergence = "In the retained minimal inward-middle trace, both eyes are exact after sequence two, then sequence three moves the left eye from 560 to 576 and the right eye from 464 to 480, raising both errors from zero to sixteen."
+missing_transition = "The acquired centered eye state has only decrease and increase motor arrows; no eye-local identity arrow closes the state onto itself."
+prediction = "The retained choices identify the source of the first departure; the selected eye-local identity composition preserves six-relation acquisition and yields eight consecutive exact holds without suppressing an off-center or other-eye factor."
+falsifiers = ["The first post-alignment choice is already an identity and the measured departure is observer error.", "Fixation requires target position disparity error desired direction reward or an evaluator stop.", "The identity composition freezes off-center exploration or crosses between eyes.", "Acquisition replay quiet work checkpoint Production identity or semantic firewall regresses."]
+positive_reference = "minimal binocular acquisition artifact sha256:ad39ca0ee0080d36aa0409f553ea4abd7395aef2a66b7a583cb74489f8275329"
+negative_controls = ["minimal acquisition with identity disabled", "uniform dark field", "one eye centered and the other displaced", "Production WorkstationHarness", "unchanged-body resampling"]
+included_mechanisms = ["connected outcome product", "shared generic opportunity", "output-specific outcome origin", "causal proprioceptive return", "signed retinal placement", "movement-caused visual return", "two independent eye factors"]
+inherited_constraints = ["no core learner-law change", "no fused depth input", "no target coordinate direction reward score or evaluator input", "Production default unchanged", "one retained development run per arm"]
+excluded_proposals = ["semantic fixation command", "evaluator-side episode stop", "cross-eye suppression", "target-error gate", "new vergence actuator", "arbitrary time-based hold"]
+arm_paths = ["arms/post-alignment-choice-localization.toml", "arms/foveal-identity-opportunity.toml", "arms/centered-return-removal.toml", "arms/foveal-identity-return-composition.toml", "arms/foveal-actuator-identity.toml"]
+max_parallel_arms = 2
+max_rounds = 2
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 45
+max_minutes_per_arm = 15
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

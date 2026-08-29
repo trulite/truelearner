@@ -1,0 +1,70 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "link-outcome-first-choice-lifetime-candidate.json",
+    "sha256": "2f67a3c952971f5aa62df0d8fa10bcdb66a582c588342730bf5f36a2a1a5a8fa"
+  },
+  "verdict": "supported",
+  "independent_test_count": 6,
+  "checks": [
+    {
+      "name": "parent-expiry-negative-control",
+      "command": "cargo test --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml palm_component_outcome_survives_but_expires_before_first_executable_choice",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 33.52
+    },
+    {
+      "name": "one-use-link-lifecycle",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core organism_consequence_is_exact_and_consumed_once_without_losing_history",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.13
+    },
+    {
+      "name": "full-core-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.53
+    },
+    {
+      "name": "core-diagnostic-purity",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core physical_diagnostics_are_opt_in_pure_and_replayable",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "semantic-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 4.63
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.17
+    }
+  ],
+  "findings": [
+    "The research-only lifetime protocol reaches real surface contact at sequence 19 with palm pose (528, 768, 560), fingertip pressure [0, 0, 8, 8, 8, 8], and exact pre-contact checkpoint replay.",
+    "The unchanged upward run presses keys 42, 43, 80, and 81 at sequence 26, changes text to ]\\, begins releasing at sequence 29, releases every key by sequence 61, exactly replays final release, and repeats no full session state.",
+    "Only a consequence carrying an actual physical-transition lineage becomes available; ordinary samples cannot create or refresh the one-use value.",
+    "The exact live link generation supplies the completed-cycle candidate and is consumed at its first participating executable local choice without erasing historical consequence time.",
+    "The unchanged parent protocol preserves the retained tick-424 to tick-429 expiry, while production behavior, diagnostic purity, and evaluator isolation remain unchanged."
+  ],
+  "residual_uncertainty": [
+    "This is authoritative engineering evidence for the research arm, not frozen scientific authority or promotion to the accepted production protocol.",
+    "The fixture proves uncontrolled multi-key pressing and complete release, not intentional single-key typing, touchpad movement or clicking, grasping, transfer across seeds, or transfer to another morphology."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/link-outcome-first-choice-lifetime.md",
+      "sha256": "f943ac82e767fb922a049c13e4ee104d87cc994f7011c7d71b08ae4a780be84b"
+    }
+  ]
+}

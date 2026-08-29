@@ -1,0 +1,130 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "body-curried-component-calibration-ablation-candidate.json",
+    "sha256": "23baa85d33460b7033756e9d707a44f1ce2813292bc0fe9f9c024c56e8520d7c"
+  },
+  "verdict": "supported",
+  "independent_test_count": 11,
+  "checks": [
+    {
+      "name": "complete-reference",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment regulation_body_curried_calibration -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.14
+    },
+    {
+      "name": "persistent-drive-removal",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_persistent_drive -- --ignored --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "directional-change-removal",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_directional_change -- --ignored --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "zero-identity-removal",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_zero_identity -- --ignored --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "complete-terminal-residence",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_terminal_shifted_context_reference -- --ignored --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "fixed-context-terminal-residence",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_fixed_context_terminal_residence -- --ignored --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "frozen-predecessor-evidence",
+      "command": "test -s research/campaigns/body-curried-component-calibration-ablation-v1/artifacts/remove-body-context.log",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.0
+    },
+    {
+      "name": "ablation-convergence",
+      "command": "uv run research/validators/validate_convergence.py --file research/campaigns/body-curried-component-calibration-ablation-v1/convergence.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "terminal-convergence",
+      "command": "uv run research/validators/validate_convergence.py --file research/campaigns/body-context-terminal-residence-v1/convergence.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.03
+    },
+    {
+      "name": "research-program",
+      "command": "uv run research/validators/validate_program.py --file research/programs/learner/program.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.06
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core -p truelearner-embodiment",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.51
+    }
+  ],
+  "findings": [
+    "The complete body-curried calibration reference remains unchanged and passes all centered, reflected-effect, and shifted-context cases.",
+    "Removing persistent nonzero drive preserves the first useful move and return but restores the exact unresolved stall at position 2.",
+    "Merging persistent drive with action-caused Transition incidence makes the worsening move from -3 to -4 write false closure; the complete reference writes none.",
+    "Adding ordinary drive at residual zero makes an initially normal body act, while the complete reference remains output-free at zero.",
+    "The first fixed-context arm is honestly retained as falsified because its any-window oracle accepted transient [3, 3, 2, 2] passage through the shifted band.",
+    "The separately frozen successor distinguishes terminal residence: complete calibration finishes inside shifted [2, 3], while fixed calibration finishes [1, 1, 1, 1] inside its old centered relation.",
+    "All removals are test-only transformations of existing PhysicalInput values; production calibration, trace topology, core choice, and motor effects are unchanged.",
+    "Every surviving arm replays exactly and naturally quiesces, both convergence records validate, and the independently timed warm regression is 0.51 seconds."
+  ],
+  "residual_uncertainty": [
+    "Necessity is bounded to the declared scalar world, two anonymous motors, thirty-two observations, and a four-observation terminal projection.",
+    "The result does not establish that body norms develop autonomously, change online, or compose collectively across several attached sensors.",
+    "It does not establish real finger hand eye ear vocal speech workstation or arbitrary-morphology competence.",
+    "The worktree remains dirty development state; this is candidate evidence, not a clean authority or default-protocol promotion."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/body-curried-component-calibration-ablation.md",
+      "sha256": "b368fb54148d979a5e5edaaf63a5e17ce151836203ed75459e64a77decaa56e1"
+    },
+    {
+      "path": "plans/body-context-terminal-residence.md",
+      "sha256": "aa91fc34b47b4a3fd252b3acb68665982319ad74e1ff302aaeb6583dc4c6df0c"
+    },
+    {
+      "path": "truelearner/crates/embodiment/tests/runtime_attachment.rs",
+      "sha256": "d9b78bc194ec646bce4fdf01a681240cc7ec8f7e4b8f1beb4bf2129cf3d885ba"
+    },
+    {
+      "path": "research/campaigns/body-curried-component-calibration-ablation-v1/convergence.toml",
+      "sha256": "65fede4fd46cf805273513f7f230596d5e461cdf89b7f545bee821d7ccc4c17b"
+    },
+    {
+      "path": "research/campaigns/body-context-terminal-residence-v1/convergence.toml",
+      "sha256": "924bf3f55d88751bf6d9f5a3c7f36ac2750bc1cc966239c6d1999c98ffaa39b7"
+    },
+    {
+      "path": "research/programs/learner/lessons.toml",
+      "sha256": "7727e6116082737c9fd7a260391910699f27fc1b797f0c37c2ee5675933479d7"
+    }
+  ]
+}

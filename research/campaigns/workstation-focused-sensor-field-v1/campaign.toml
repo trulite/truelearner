@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "workstation-focused-sensor-field-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Focused sensing is a value-blind reassociation of a complete spatial field: physical focus refines only the nearby product factors, exact reconstruction is retained until a separate transducer, and work is bounded independently of field size."
+first_divergence = "The complete local-field representation preserves the learned monitor-cue difference, but exposes 3,600 blocks per eye and has no reusable physical operation for allocating finer resolution around an organism's actual focus."
+missing_transition = "A complete sensor field and actual physical focus do not yet compose into a bounded focus-dependent observation that can be shared by vision touch depth and unknown finite sensor fields."
+prediction = "Depth-seven focus partitions driven by each retained physical gaze reconstruct both 360 by 640 rasters exactly, use no more than 57 regions per eye, preserve the learned cue difference and controls, and satisfy the same laws in one two and three dimensions."
+falsifiers = ["Any focused partition fails exact reconstruction.", "Any partition exceeds 57 regions.", "Partition shape depends on sensed values cue identity target or evaluator-selected differences.", "The retained actual gaze is not the source of focus.", "Same-cue replay blank control focus algebra mirror mapping completeness or dimensional transfer fails.", "Parent artifacts runtime sensor behavior or accepted hand behavior changes."]
+positive_reference = "retained full-image and lossless-local-field distinction: trace sha256 43bb8b86f1fc05d4c83b7450ab215915211efd6e52169e7b65eecac3b9011da8; local-field projection sha256 eded91dd6afb4e1e44260c00bcc9057e4618ce2dbb845453688f6a6410badb23"
+negative_controls = ["zero-focus single-region ablation", "same cue replay", "blank cue", "invalid and mismatched focus construction", "focus union order and duplication", "horizontal mirror", "unavailable site"]
+included_mechanisms = ["generic finite SpatialField", "validated FocusProfile and FocusSet", "symmetric value-blind geometric refinement", "exact FocusedPartition reconstruction", "explicit complete associative region transduction", "actual post-effect physical gaze", "retained real binocular cue rasters"]
+inherited_constraints = ["no core learner-law change", "no runtime retina change", "no cue key target coordinate desired action correctness reward or evaluator input", "immutable parent artifacts", "exact same-cue replay", "bounded work independent of raw field area"]
+excluded_proposals = ["semantic visual attention", "glyph-specific crop or feature", "evaluator-selected differing region", "target-directed gaze", "convolution or learned vision model", "learner wiring", "active eye movement"]
+arm_paths = ["arms/complete-spatial-field-parent.toml", "arms/focused-field.toml", "arms/no-focus-ablation.toml"]
+max_parallel_arms = 3
+max_rounds = 1
+interaction_expected = false
+
+[budget]
+total_sandbox_minutes = 30
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.66
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

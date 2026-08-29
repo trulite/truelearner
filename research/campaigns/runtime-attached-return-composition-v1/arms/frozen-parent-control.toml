@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "frozen-parent-control"
+campaign = "runtime-attached-return-composition-v1"
+kind = "control"
+parents = ["runtime-attached-local-regulation-v1:complete-local-regulation"]
+imports = ["split rise and fall trace", "distant body outcomes", "retained first reversal"]
+mechanism = "Reproduce the exact first two external steps of the frozen negative parent without changing topology trace or schedule."
+prediction = "Motor 20000 acts first, its origin returns truthfully, consequence remains absent, and ordinary choice selects motor 20001 second."
+falsifiers = ["The first two positions or motors change.", "A consequence appears in the unchanged parent.", "Replay or quiescence fails."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "8e9a39d38abfce8900c1c9240895601056ace6689715011d7e4c2035788b96a1"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment attachment_ordinary_physics_assimilates_a_disturbed_sensor_without_a_motor_map"
+full_evidence = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment regulation_parent_reproduces_first_reversal"

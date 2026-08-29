@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "body-context-terminal-residence-v1"
+program = "learner-physics"
+claim = "RUNTIME-ATTACHED-MULTISCALE-COMPETENCE"
+status = "preregistered"
+parent_authority = "body-curried-component-calibration-ablation-v1 convergence sha256:65fede4fd46cf805273513f7f230596d5e461cdf89b7f545bee821d7ccc4c17b"
+question = "Does the context curried into calibration determine terminal residence even when a trajectory transiently crosses a different external norm?"
+observables = ["complete final four positions", "fixed-context final four positions", "shifted external body norm", "fixed curried norm", "exact replay", "natural quiescence"]
+frozen_variables = ["complete production calibration", "same physical checkpoint", "disturbance four", "ordinary motor effects", "centered context minus one through one", "shifted context two through three", "thirty-two observations", "terminal window length four"]
+permitted_changes = ["one observer-only projection of the final four positions", "one complete shifted-terminal reference test", "one fixed-context successor test", "retained evidence"]
+positive_predicates = ["complete final four remain in shifted norm", "fixed-context final four remain outside shifted norm", "fixed-context final four remain in centered norm", "replay and natural quiescence hold"]
+negative_controls = ["frozen any-window arm", "unchanged complete reference", "disjoint contexts"]
+stop_conditions = ["complete terminal residence fails", "fixed context finishes in shifted norm", "fixed context finishes outside centered norm", "any production code changes", "replay or quiescence fails"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = true

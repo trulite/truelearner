@@ -1,5 +1,6 @@
 use crate::WorkstationError;
 use serde::{Deserialize, Serialize};
+use truelearner_embodiment::OpposedEffort;
 
 pub const BODY_MAX: i16 = 1_023;
 pub const DIGIT_COUNT: usize = 5;
@@ -163,33 +164,28 @@ impl BodyAxis {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct AxisEffort {
-    decrease: u16,
-    increase: u16,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ActuatorFrame {
-    pub(crate) axes: [AxisEffort; AXIS_COUNT],
+    pub(crate) axes: [OpposedEffort; AXIS_COUNT],
 }
 
 impl Default for ActuatorFrame {
     fn default() -> Self {
         Self {
-            axes: [AxisEffort::default(); AXIS_COUNT],
+            axes: [OpposedEffort::default(); AXIS_COUNT],
         }
     }
 }
 
 impl ActuatorFrame {
+    #[cfg(test)]
     pub(crate) fn activate(&mut self, axis: BodyAxis, direction: Direction, impulse: u16) {
         let effort = &mut self.axes[axis.index()];
-        let target = match direction {
-            Direction::Decrease => &mut effort.decrease,
-            Direction::Increase => &mut effort.increase,
+        let command = match direction {
+            Direction::Decrease => OpposedEffort::new(impulse, 0),
+            Direction::Increase => OpposedEffort::new(0, impulse),
         };
-        *target = target.saturating_add(impulse).min(BODY_MAX as u16);
+        *effort = effort.combine_bounded(command, BODY_MAX as u16);
     }
 }
 
@@ -555,12 +551,12 @@ impl WorkstationState {
         self.dynamics.fill(AxisDynamics::default());
         let mut movements = Vec::new();
         for (index, effort) in frame.axes.into_iter().enumerate() {
-            if effort == AxisEffort::default() {
+            if effort == OpposedEffort::default() {
                 continue;
             }
             let axis = BodyAxis::ALL[index];
             let before = self.axis_position(axis);
-            let net_impulse = i32::from(effort.increase) - i32::from(effort.decrease);
+            let net_impulse = effort.net();
             self.apply_net(axis, net_impulse);
             let velocity = self.axis_position(axis).saturating_sub(before);
             self.dynamics[index] = AxisDynamics {

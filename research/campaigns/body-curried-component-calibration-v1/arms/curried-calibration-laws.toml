@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "curried-calibration-laws"
+campaign = "body-curried-component-calibration-v1"
+kind = "solve"
+parents = ["runtime-attached-natural-closure-v1:exact-attached-cycle-closure"]
+imports = ["Signal and Availability mapping", "Driver composition", "identity effect", "actual physical origin and incidence"]
+mechanism = "Capture local body context in one pure Normalizer driver and map any available observation through a caller-supplied body relation into a nonnegative residual with zero identity."
+prediction = "Currying context changes only the resulting relation; origin incidence availability zero identity residual association and local composition laws all pass."
+falsifiers = ["Unavailable input evaluates the relation or invents residual.", "Origin or incidence changes.", "Zero permits effect or positive residual suppresses it.", "Residual combination lacks identity or association.", "A sensor type enters the implementation."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "bebc2bc03a2a53261631ed9c4ed376ba409882ac08edcc232149584a1729e37f"
+budget_minutes = 5
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test calibration calibration_laws_"
+full_evidence = "test -s research/campaigns/body-curried-component-calibration-v1/artifacts/curried-calibration-laws.log"

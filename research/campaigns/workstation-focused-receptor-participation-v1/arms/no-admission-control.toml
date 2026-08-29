@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "no-admission-control"
+campaign = "workstation-focused-receptor-participation-v1"
+kind = "control"
+parents = ["focused-receptor-composition"]
+imports = ["identical saved generic receptor Harness checkpoint", "observer-only core fingerprint"]
+mechanism = "Remove physical input admission while retaining the exact fixture and both isolated cue branches."
+prediction = "Both branches remain at the one identical initial core fingerprint."
+falsifiers = ["Either no-admission branch differs from the initial fingerprint.", "The two no-admission branches differ from each other.", "The control uses another checkpoint or fixture."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "13982da0606f386c27e6622a5811ace36399f4dd557045fbaa143315054c7213"
+budget_minutes = 3
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment repeated_observation_is_not_a_transition"
+full_evidence = "jq '.controls.no_admission_preserves_core and .controls.blank_initialization_is_all_sample' research/campaigns/workstation-focused-receptor-participation-v1/artifacts/participation.json"

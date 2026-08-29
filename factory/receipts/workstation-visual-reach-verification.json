@@ -1,0 +1,65 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-visual-reach-candidate.json",
+    "sha256": "f55dc4730fece20ef695228a0a260ebbc5802bd215a4f3bf5ffd580034013b45"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "retained-initiation-trace",
+      "command": "jq -e '.key_a == 26 and .key_b == 87 and .steps == 64 and .first_retinal_divergence == 1 and .first_learner_divergence == 1 and .first_candidate_divergence == 1 and .first_choice_divergence == 1 and .first_movement_divergence == 1' research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visual-reach-64.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.02
+    },
+    {
+      "name": "experiment-controls",
+      "command": "cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 10.04
+    },
+    {
+      "name": "semantic-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.6
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 3.72
+    }
+  ],
+  "findings": [
+    "One admitted signed retinal firing now fans out through fixed body-internal anatomy into eye-horizontal and palm-horizontal paths; real key 26 starts leftward palm movement and real key 87 starts rightward palm movement.",
+    "Both 64-step runs enter the intended real key's horizontal span near sequence 10 without receiving key identity, coordinates, desired direction, distance, score, contact verdict, or evaluator state.",
+    "The predecessor threshold arm leaves both palm trajectories identical, so the retinal-to-palm projection is necessary for visual-reach initiation.",
+    "The foveal successor makes the centered surface visible but both runs later reach a horizontal body boundary, independently refuting the stronger closed-loop reach claim.",
+    "The accepted hand trajectory, learner-only diagnostic fingerprint, checkpoint replay, semantic firewall, formatting, compilation, clippy, and warm regression budget remain intact."
+  ],
+  "residual_uncertainty": [
+    "This supports visual-reach initiation only; it does not support stable hand-target alignment, intended contact, clicking, typing, grasping, or transfer to another morphology.",
+    "A closed-loop reach still needs a physical relation between the seen surface and the hand; foveal target visibility alone is insufficient.",
+    "The result uses one workstation morphology and one opposite real-key pair, and remains research-only development evidence rather than frozen authority."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/workstation-visual-reach.md",
+      "sha256": "57e1eeed2d86aabcca7a9cbace97ae2f56367fd37d55d8964c3caa413cb65597"
+    },
+    {
+      "path": "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/visual-reach-64.json",
+      "sha256": "4be6c6f75aefe9dc2f38d019ce0f4f9133b26d650e0016a5b5b051f40241b2af"
+    },
+    {
+      "path": "research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/foveal-visual-reach-64.json",
+      "sha256": "b45ae35eeb6d19fa563e758f308af47cefa9d9e5717b19b066ae445c88c33083"
+    }
+  ]
+}

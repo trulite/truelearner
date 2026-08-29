@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "workstation-focused-receptor-action-v1"
+program = "learner-physics"
+claim = "WORKSTATION-KEY-SELECTION-LADDER"
+status = "preregistered"
+parent_authority = "focused body verification sha256:c2daa7ba9ed3d138d53830f0d903b0d85c5ef5ef9b97cbd0d208842cc1bfc703; focused receptor convergence sha256:95c4544ecd4c99cf1c5359883868e5c66982d548881a4454a7f9b89611255066"
+question = "Does one fixed symmetric body-internal projection let bounded focused receptor changes participate in different executable palm candidates choices outputs or movements for two real cue scenes?"
+observables = ["focused changed-feature sets", "focused signal origins on executable candidate paths", "candidate and choice diagnostics", "outward outputs and palm movements", "learner and body fingerprints", "physical work and resident bytes", "natural quiescence", "exact checkpoint replay", "isolated-relay and same-cue controls"]
+frozen_variables = ["depth-seven one-focus profile and exact 3,648-factor body organ", "actual body gaze", "one blank-seeded saved workstation body per arm", "real Academy binocular renderer and ANSI keyboard", "illuminated key pair 26 and 87", "output-specific palm component and first-choice outcome lifetime protocol", "one fixed projection relay per focused factor", "two symmetric palm-horizontal outcome links", "sixteen-step branch budget"]
+permitted_changes = ["research-only typed focused action projection", "fixed body-internal anchor relay and outcome links", "observer-only candidate path-origin projection", "public composed research session construction and restore", "compact evidence executable"]
+positive_predicates = ["complete and isolated arms begin paired cue branches from equal checkpoints", "focused changed-feature sets differ between cue branches", "at least one executable palm-horizontal candidate in the complete arm retains a focused physical origin", "the complete cue branches first differ at candidate choice output or movement after receptor divergence", "the isolated control retains receptor and learner distinction but removes focused-origin palm candidate participation", "one changed factor remains one admitted input", "all branches replay exactly and quiesce naturally", "no cue key coordinate target direction correctness reward or evaluator result enters the body"]
+negative_controls = ["isolated focused relays", "same cue repeated", "reversed branch evaluation", "default sparse workstation body", "projection without focused organ", "focused organ with sparse visual effects", "accepted hand and focused-body parents", "semantic firewall"]
+stop_conditions = ["projection duplicates an admitted visual input", "projection wiring differs by cue or selected region", "opposing directions are wired asymmetrically", "claimed candidate lacks a focused physical origin", "action branches diverge before focused receptors", "complete and isolated arms remain equal through every action rung", "a branch exhausts or fails natural quiescence", "exact replay or a parent control fails", "learner law or Production behavior changes"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = false

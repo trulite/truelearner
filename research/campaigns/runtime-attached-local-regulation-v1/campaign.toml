@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "runtime-attached-local-regulation-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "Atomic runtime attachment, body-native threshold trace, accepted connected-outcome competition, and action-origin-preserving return compose into bounded local regulation without a sensor-specific controller or motor map."
+first_divergence = "The attached sensor now produces one ordinary motor action and a truthful returned change, but repeated return to and residence within one externally measured region has not been tested."
+missing_transition = "A one-cycle sensor-action-return arrow has not yet composed into repeated negative feedback after disturbances from both sides."
+prediction = "The complete attached-tissue candidate enters the neutral central region from plus three and minus three, remains there for four observations, replays exactly, and quiesces naturally; silent attachment emits nothing and changes no prior body state."
+falsifiers = ["Either disturbed branch forms no path or emits no action.", "Action-caused sensory return loses its motor origin.", "Either branch fails to enter and remain in the central region.", "The result requires a supplied motor choice route or target fact.", "Replay quiescence inherited controls or the fixed work budget fail."]
+positive_reference = "Connected Outcome Product V1@7be8bbc3009fe3131622a6ee21e9aa260d649aa1 plus the exact runtime attachment and physical-trace candidate in plans/composable-multiscale-physical-competence.md"
+negative_controls = ["silent runtime attachment", "equal resampling", "no fixed sensor-to-motor link", "same initial checkpoint", "semantic firewall", "fixed-active dormant replacement cost"]
+included_mechanisms = ["authoritative connected-component output and opportunity factorization", "ordinary local path formation", "atomic runtime physical attachment", "short-lived trace in ordinary junction activation", "physical transition incidence", "action-origin-preserving sensory return", "existing participation consequence and learner construction"]
+inherited_constraints = ["no semantic sensor modality direction pose target desired action score or evaluator input", "no adapter previous-value state", "no motor map", "no evaluator termination", "actual physical effect before return", "exact replay natural quiescence and bounded work"]
+excluded_proposals = ["sensor-specific controller", "fixed sensor-to-motor wiring", "semantic setpoint in the learner", "evaluator-selected alternative", "external history comparator", "new learner law", "destructive detach", "authority promotion"]
+arm_paths = ["arms/complete-local-regulation.toml", "arms/silent-attachment-control.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 20
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

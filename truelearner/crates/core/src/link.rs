@@ -49,6 +49,8 @@ pub(crate) struct LinkState {
     pub(crate) live: bool,
     pub(crate) participation_level: u64,
     pub(crate) last_consequence_tick: Option<i64>,
+    #[serde(default)]
+    pub(crate) held_consequence_tick: Option<i64>,
     pub(crate) return_origins: Vec<u64>,
     pub(crate) plastic_support: u64,
     pub(crate) decay_load: u64,
@@ -62,10 +64,42 @@ impl LinkState {
         self.live = false;
         self.participation_level = 0;
         self.last_consequence_tick = None;
+        self.held_consequence_tick = None;
         self.return_origins.clear();
         self.plastic_support = 0;
         self.decay_load = 0;
         self.generation = Generation(self.generation.0.wrapping_add(1).max(1));
+    }
+}
+
+impl Body {
+    pub(crate) fn held_organism_consequence_tick(
+        &self,
+        link: LinkId,
+        generation: Generation,
+    ) -> Option<i64> {
+        self.arena.link_by_id(link).and_then(|state| {
+            (state.live && state.generation == generation)
+                .then_some(state.held_consequence_tick)
+                .flatten()
+        })
+    }
+
+    pub(crate) fn consume_held_organism_consequence(
+        &mut self,
+        link: LinkId,
+        generation: Generation,
+    ) -> Option<i64> {
+        let slot = self.arena.link_slot(link)?;
+        let state = self.arena.link_snapshot(slot.0);
+        if !state.live || state.generation != generation {
+            return None;
+        }
+        let consequence_tick = state.held_consequence_tick?;
+        self.arena.edit_link(slot.0, |state| {
+            state.held_consequence_tick = None;
+        });
+        Some(consequence_tick)
     }
 }
 
@@ -117,6 +151,7 @@ impl Arena {
             live: spec.resistance > 0,
             participation_level: 0,
             last_consequence_tick: None,
+            held_consequence_tick: None,
             return_origins: Vec::new(),
             plastic_support: 0,
             decay_load: 0,

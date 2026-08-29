@@ -1,0 +1,17 @@
+schema = "research-protocol/v1"
+id = "workstation-focused-sensor-field-v1"
+program = "learner-physics"
+claim = "WORKSTATION-KEY-SELECTION-LADDER"
+status = "preregistered"
+parent_authority = "plans/composable-focused-sensor-fields.md; local-field artifact sha256:eded91dd6afb4e1e44260c00bcc9057e4618ce2dbb845453688f6a6410badb23; retained monitor-cue trace sha256:43bb8b86f1fc05d4c83b7450ab215915211efd6e52169e7b65eecac3b9011da8"
+question = "Can a generic physical focus turn a complete finite sensor field into a bounded, lossless, focus-dependent partition before an explicit transducer, across sensor dimensions and value types?"
+observables = ["exact reconstruction before transduction", "per-eye focused region count and mathematical bound", "focused-region shape at actual physical gaze", "same-cue replay equality", "blank-cue difference", "cue-pair difference after region transduction", "no-focus ablation", "fixed-grid focus transfer", "one-dimensional two-dimensional and held-out three-dimensional law tests"]
+frozen_variables = ["retained post-development body state and binocular gazes", "real Academy renderer cue glyphs and position", "full 640 by 360 binocular rasters", "row-major field order", "refinement depth seven", "at most one focus per eye", "value-blind symmetric geometric refinement", "region transducer u8-to-u64 sum", "five by five fixed focus grid"]
+permitted_changes = ["generic focus profile and validated finite focus set", "generic symmetric focus-dependent spatial partition", "exact pre-transduction reconstruction", "explicit complete region transduction", "research-only projection of already-rendered eye rasters"]
+positive_predicates = ["all focused fields reassemble exactly", "all region counts stay at or below 57", "actual physical gaze selects the focused region", "same cue replay is equal", "blank and learned cue differ", "both retained cue images differ after focused-region transduction", "all fixed-grid focus positions remain bounded and preserve the cue difference", "the generic laws transfer across dimensions and modalities"]
+negative_controls = ["zero-focus single-region ablation", "same cue rendered twice", "blank cue", "invalid focus profile", "out-of-field coordinate", "focus-field shape mismatch", "focus union order and duplication", "horizontal mirror", "unavailable site during complete transduction"]
+stop_conditions = ["any source cell is lost copied reordered or invented", "a region count exceeds its declared bound", "partition geometry inspects sensed values cue identity target or evaluator difference", "the focus comes from a desired target instead of actual body state", "same-cue replay differs", "generic dimension transfer mirror or availability laws fail", "parent artifacts or runtime sensor behavior change"]
+
+[run_policy]
+max_valid_runs = 1
+fresh_environment = false

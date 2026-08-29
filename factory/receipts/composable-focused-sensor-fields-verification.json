@@ -1,0 +1,103 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "composable-focused-sensor-fields-candidate.json",
+    "sha256": "12d92d3a4ab174b6b074a21e717de899cfa2101d053ce37b1dfabe5b22a5c51c"
+  },
+  "verdict": "supported",
+  "independent_test_count": 6,
+  "checks": [
+    {
+      "name": "exact-real-focused-projection",
+      "command": "cargo run --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --bin focused_sensor_field_projection -- research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json /tmp/focused-field-verification.json && cmp research/campaigns/workstation-focused-sensor-field-v1/artifacts/focused-field-projection.json /tmp/focused-field-verification.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.53
+    },
+    {
+      "name": "categorical-and-held-out-controls",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test focused_sensor_fields",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.21
+    },
+    {
+      "name": "parent-and-firewall-controls",
+      "command": "cargo run --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --bin monitor_cue_local_field_projection -- research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json /tmp/local-field-parent-verification.json && cmp research/campaigns/workstation-monitor-cue-local-field-v1/artifacts/local-field-projection.json /tmp/local-field-parent-verification.json && cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib monitor_cue_action_outcome_reuse_retains_the_first_broken_arrow && cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 14.37
+    },
+    {
+      "name": "semantic-vocabulary-audit",
+      "command": "! rg -n -i 'glyph|key|target|evaluator|correctness|reward|workstation|monitor|retina' truelearner/crates/embodiment/src/lib.rs truelearner/crates/embodiment/tests/focused_sensor_fields.rs",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "research-record-validation",
+      "command": "uv run research/validators/validate_campaign.py --file research/campaigns/workstation-focused-sensor-field-v1/campaign.toml && uv run research/validators/validate_convergence.py --file research/campaigns/workstation-focused-sensor-field-v1/convergence.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.2
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.17
+    }
+  ],
+  "findings": [
+    "The shared embodiment library now turns a generic finite SpatialField plus a validated physical FocusSet into a bounded FocusedPartition without reading sensor values or device semantics.",
+    "The partition is lossless before transduction: all tested fields reconstruct exactly, including odd edges, unit fields, zero refinement, five simultaneous foci, multiple value types, unavailable sites, and a held-out three-dimensional field.",
+    "Focus union is commutative and idempotent, mapping commutes with focusing, odd and even horizontal mirrors commute with focusing, uniform and nonuniform fields produce identical geometry, and an unchanged physical focus reproduces the same observation.",
+    "The checked bound is one plus maximum foci times refinement depth times three-to-the-dimension minus one. The retained depth-seven two-dimensional run has a bound of 57 and uses 28 regions per eye rather than 3,600 fixed local blocks.",
+    "Each actual physical gaze selects a 2 by 5 focused region. Both real cue rasters reconstruct exactly, same-cue replay is exact, the blank differs, the learned cue pair differs in one transduced region per eye, and all 25 preregistered grid positions per eye preserve the distinction.",
+    "The no-focus ablation also distinguishes this cue pair using one global sum. Therefore the implementation is supported as generic bounded focused-sensing infrastructure, but this evidence does not claim these two glyphs need focus.",
+    "The focused artifact reproduces byte-for-byte, parent digests and full diagnostic behavior are unchanged, the semantic firewall passes, strict Rust checks pass, and the independently timed warm regression remains below ten seconds."
+  ],
+  "residual_uncertainty": [
+    "Focused regions are not yet connected to ordinary learner receptors, so learner-state distinction, choice, eye movement, hand movement, and key selection remain unproved.",
+    "The retained experiment uses static post-development physical gazes. Active focus movement followed by useful changed sensing is tested only as a generic state law, not yet in the workstation loop.",
+    "The unsigned intensity sum is intentionally simple and loses spatial arrangement within each region. Future physical transducers may need richer lawful outputs, but must be tested rather than smuggling semantic features into geometry.",
+    "The no-focus control succeeds for this cue pair, so a later experiment with a genuine global-aggregation alias is required before claiming that focus is necessary.",
+    "The campaign is discovery evidence and does not promote this mechanism into Production authority."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/composable-focused-sensor-fields.md",
+      "sha256": "7e9dade12debf678158a7de6cab769f226f38dd50991b13b86fea956023c3911"
+    },
+    {
+      "path": "research/campaigns/workstation-focused-sensor-field-v1/protocol.toml",
+      "sha256": "5fb4ce170f42439d19809dc2a6bf27246c3d8909de2ae7fde8123b256f75c9c4"
+    },
+    {
+      "path": "research/campaigns/workstation-focused-sensor-field-v1/campaign.toml",
+      "sha256": "ee3f8a3804e8f4606477b7a6fc3da42bf34193c3119542e989aadfe298755bd7"
+    },
+    {
+      "path": "research/campaigns/workstation-focused-sensor-field-v1/convergence.toml",
+      "sha256": "0b4f469e6518c416796edd330219e4cf57bfedeb3201a54e5b51c2fc9c2449b6"
+    },
+    {
+      "path": "research/campaigns/workstation-focused-sensor-field-v1/artifacts/focused-field-projection.json",
+      "sha256": "b9f3bd79097f99e5c46c88a2fbd5e71e9260d76f7bea57f3fd168f86f3929235"
+    },
+    {
+      "path": "truelearner/crates/embodiment/src/lib.rs",
+      "sha256": "911999e5b8736c3f7dbc6e4280db03fe319fa4c2ae30c184c72968f9fa3e6eeb"
+    },
+    {
+      "path": "truelearner/crates/embodiment/tests/focused_sensor_fields.rs",
+      "sha256": "5d2874a563bda398a335277fd8ac153a3379b1c99ca942c57ee66ba36b91acda"
+    },
+    {
+      "path": "research/experiments/workstation-return-bearing-opportunity-composition/src/bin/focused_sensor_field_projection.rs",
+      "sha256": "1026881f7b3ee781c5b5c27d945a4c303646911730b0c8f30328d63f92ba8574"
+    }
+  ]
+}

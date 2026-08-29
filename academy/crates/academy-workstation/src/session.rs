@@ -1,8 +1,13 @@
-use crate::{DeviceEvent, DeviceState, SessionCheckpoint, WorkstationWorld, WorldError};
+use crate::{
+    DeviceEvent, DeviceState, SessionCheckpoint, WorkstationPresentation, WorkstationWorld,
+    WorldError,
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 #[cfg(feature = "research")]
-use truelearner_workstation::{ResearchHarnessConfig, ResearchOpportunityIncidence};
+use truelearner_workstation::{
+    ResearchHarnessConfig, ResearchOpportunityIncidence, ResearchVisualComposition,
+};
 use truelearner_workstation::{
     WorkstationHarness, WorkstationRead, WorkstationStepObservation, WorldSample,
 };
@@ -36,18 +41,48 @@ pub struct WorkstationSession {
 
 impl WorkstationSession {
     pub fn new(seed: u64) -> Result<Self, WorldError> {
+        Self::new_with_presentation(seed, WorkstationPresentation::default())
+    }
+
+    pub fn new_with_presentation(
+        seed: u64,
+        presentation: WorkstationPresentation,
+    ) -> Result<Self, WorldError> {
         Ok(Self {
             harness: WorkstationHarness::new(seed)?,
-            world: WorkstationWorld::new()?,
+            world: WorkstationWorld::new_with_presentation(presentation)?,
             sequence: 0,
         })
     }
 
     #[cfg(feature = "research")]
     pub fn new_research(seed: u64, config: ResearchHarnessConfig) -> Result<Self, WorldError> {
+        Self::new_research_with_presentation(seed, config, WorkstationPresentation::default())
+    }
+
+    #[cfg(feature = "research")]
+    pub fn new_research_with_presentation(
+        seed: u64,
+        config: ResearchHarnessConfig,
+        presentation: WorkstationPresentation,
+    ) -> Result<Self, WorldError> {
         Ok(Self {
             harness: WorkstationHarness::new_research(seed, config)?,
-            world: WorkstationWorld::new()?,
+            world: WorkstationWorld::new_with_presentation(presentation)?,
+            sequence: 0,
+        })
+    }
+
+    #[cfg(feature = "research")]
+    pub fn new_research_composed_with_presentation(
+        seed: u64,
+        config: ResearchHarnessConfig,
+        visual_composition: ResearchVisualComposition,
+        presentation: WorkstationPresentation,
+    ) -> Result<Self, WorldError> {
+        Ok(Self {
+            harness: WorkstationHarness::new_research_composed(seed, config, visual_composition)?,
+            world: WorkstationWorld::new_with_presentation(presentation)?,
             sequence: 0,
         })
     }
@@ -83,10 +118,21 @@ impl WorkstationSession {
         })
     }
 
+    pub fn set_presentation(
+        &mut self,
+        presentation: WorkstationPresentation,
+    ) -> Result<(), WorldError> {
+        let mut next = self.clone();
+        next.world.set_presentation(presentation)?;
+        *self = next;
+        Ok(())
+    }
+
     pub fn save(&self) -> Result<SessionCheckpoint, WorldError> {
         Ok(SessionCheckpoint::new(
             self.harness.save()?.canonical_bytes()?,
             self.world.device_clone(),
+            self.world.presentation(),
             self.sequence,
             self.world.asset_digest(),
         ))
@@ -98,7 +144,11 @@ impl WorkstationSession {
             truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
         Ok(Self {
             harness: WorkstationHarness::restore(harness_checkpoint)?,
-            world: WorkstationWorld::from_parts(payload.device, payload.asset_digest)?,
+            world: WorkstationWorld::from_parts(
+                payload.device,
+                payload.presentation,
+                payload.asset_digest,
+            )?,
             sequence: payload.sequence,
         })
     }
@@ -116,7 +166,11 @@ impl WorkstationSession {
                 harness_checkpoint,
                 opportunity_incidence,
             )?,
-            world: WorkstationWorld::from_parts(payload.device, payload.asset_digest)?,
+            world: WorkstationWorld::from_parts(
+                payload.device,
+                payload.presentation,
+                payload.asset_digest,
+            )?,
             sequence: payload.sequence,
         })
     }
@@ -131,7 +185,35 @@ impl WorkstationSession {
             truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
         Ok(Self {
             harness: WorkstationHarness::restore_research_config(harness_checkpoint, config)?,
-            world: WorkstationWorld::from_parts(payload.device, payload.asset_digest)?,
+            world: WorkstationWorld::from_parts(
+                payload.device,
+                payload.presentation,
+                payload.asset_digest,
+            )?,
+            sequence: payload.sequence,
+        })
+    }
+
+    #[cfg(feature = "research")]
+    pub fn restore_research_composed(
+        checkpoint: SessionCheckpoint,
+        config: ResearchHarnessConfig,
+        visual_composition: ResearchVisualComposition,
+    ) -> Result<Self, WorldError> {
+        let payload = checkpoint.open()?;
+        let harness_checkpoint =
+            truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
+        Ok(Self {
+            harness: WorkstationHarness::restore_research_composed(
+                harness_checkpoint,
+                config,
+                visual_composition,
+            )?,
+            world: WorkstationWorld::from_parts(
+                payload.device,
+                payload.presentation,
+                payload.asset_digest,
+            )?,
             sequence: payload.sequence,
         })
     }

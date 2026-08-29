@@ -1,0 +1,9 @@
+arm: complete-terminal-residence
+verdict: survived
+command: cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_terminal_shifted_context_reference -- --ignored --exact
+result: 1 passed; 0 failed; 28 filtered out
+
+observations:
+- Complete calibration used shifted body context [2, 3] from disturbance 4.
+- Its final four observations all remained inside [2, 3].
+- The run replayed exactly and naturally quiesced.

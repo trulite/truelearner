@@ -1,0 +1,38 @@
+schema = "research-campaign/v1"
+id = "runtime-attached-natural-closure-v1"
+program = "learner-physics"
+kind = "solve"
+mode = "discovery"
+hypothesis = "The body's existing outcome and learner laws are closed under runtime attachment when an actual returned transition uniquely matches the live participating path by physical cause."
+first_divergence = "The unified attached surface receives the action-caused transition with the true motor origin, but no consequence reaches the participating path and the same firing becomes another action."
+missing_transition = "A returned physical transition is not composed with its uniquely matching live action path before ordinary formation and output firing."
+prediction = "Exact attachment-natural closure passes first, two closures form the existing learner boundary second, and this complete stack then either holds the scalar rest region or exposes the next physical wall without sensor-local completion logic."
+falsifiers = ["The exact return does not record consequence.", "A sample unrelated origin or ambiguity is credited or consumed.", "Repeated exact closure does not form the existing learner boundary.", "Independent attachment order changes closure.", "The full scalar rung fails central residence.", "Any arm loses replay quiescence or the semantic firewall."]
+positive_reference = "Connected Outcome Product V1@7be8bbc3009fe3131622a6ee21e9aa260d649aa1 plus validated runtime attachment and physical trace candidate"
+negative_controls = ["runtime-attached-homeostatic-surface-v1 unified-homeostatic-surface log sha256:96d4abdee93a6399db1af08e6c63a2ba9da761542c5de62cf1eed6d2a9f13f95", "unchanged sample", "unrelated origin", "ambiguous path", "silent attachment"]
+included_mechanisms = ["atomic attachment", "body-native physical trace", "physical transition lineage", "actual path participation", "existing consequence write", "existing causal closure and learner construction", "connected outcome product"]
+inherited_constraints = ["no sensor gate", "no motor map", "no new memory kind", "no fixed new outcome source", "no semantic rest or direction", "active-frontier work", "exact replay", "natural quiescence"]
+excluded_proposals = ["sensor-local rest-entry surface", "attachment-specific controller", "selected action", "external history", "global path scan", "higher collective and keyboard rungs"]
+arm_paths = ["arms/frozen-bounce-parent.toml", "arms/exact-attached-cycle-closure.toml", "arms/existing-learner-coarse-graining.toml", "arms/two-sided-local-regulation.toml"]
+max_parallel_arms = 2
+max_rounds = 1
+interaction_expected = true
+
+[budget]
+total_sandbox_minutes = 30
+max_minutes_per_arm = 10
+
+[preflight]
+tiny_fixture = true
+hidden_authority_audit = true
+reference_replay_equality = true
+natural_quiescence = true
+
+[convergence]
+after_each_round = true
+survivor_fraction = 0.5
+
+[authority]
+fresh_sandbox = true
+max_valid_runs = 1
+requires_frozen_protocol = true

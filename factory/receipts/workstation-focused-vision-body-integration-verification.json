@@ -1,0 +1,90 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-focused-vision-body-integration-candidate.json",
+    "sha256": "e5a478a38d9ac9c6446f5b0ee21d6264d3f333c309330af568e03ac92785eb16"
+  },
+  "verdict": "supported",
+  "independent_test_count": 6,
+  "checks": [
+    {
+      "name": "focused-body-integration",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation --features research --test focused_vision_body",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 5.16
+    },
+    {
+      "name": "checkpoint-migration-and-replay",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation --features research checkpoint",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "normal-body-control",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.28
+    },
+    {
+      "name": "focused-frame-parent-laws",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test focused_receptor_frames",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.02
+    },
+    {
+      "name": "semantic-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.55
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation --features research",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 5.25
+    }
+  ],
+  "findings": [
+    "Focused vision is now an optional organ owned by WorkstationHarness. The world supplies only two light fields, while the body uses its own current gaze to focus, transduce, factor, retain, and compare receptor state.",
+    "The focused body uses the established fixed product of 57 slots per eye and 32 exact binary factors per slot, giving 3,648 three-valued physical receptor features. Receptor source identities and receptor-site identities occupy disjoint physical ranges.",
+    "A first observation seeds body state without emitting a transition, an exact repeated receptor state emits nothing, and a changed one-pixel field emits exactly the changed factors as ordinary PhysicalIncidence::Transition inputs.",
+    "The integration test restores two branches from one saved real workstation body. Two different binocular light fields produce different changed-feature sets and different learner-core fingerprints, while replay of the same branch reproduces the complete workstation observation exactly.",
+    "Focused mode reports zero legacy sparse-retina admissions. Normal WorkstationHarness construction retains its sparse retina and passes all existing body tests, so the two visual routes do not run together.",
+    "The focused organ, its 10,944 receptor junctions, 3,648 relays, and its previous receptor frame are saved inside the workstation checkpoint. Version-one and version-two checkpoints migrate with no focused organ, invalid retained state is rejected, and current restart preserves the exact next step.",
+    "Focus-dependent sparse-retina research effects are rejected when focused mode is selected, preventing two incompatible visual morphologies from silently composing.",
+    "Strict formatting, workspace checks, all-feature clippy, focused parent laws, the Academy semantic firewall, and the independently timed 5.25-second warm regression all pass."
+  ],
+  "residual_uncertainty": [
+    "This establishes the correct body boundary and physical participation, not vision learning or behavior. The focused receptors currently terminate in neutral internal relays and are not yet composed with the workstation motor and outcome topology.",
+    "The exact 3,648-feature representation is intentionally authoritative to the parent experiment but expensive. A smaller lawful physical factorization still needs comparison before production adoption.",
+    "The focused morphology is research-only. It does not change accepted body authority, the default workstation body, or the learner law."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/workstation-focused-vision-body-integration.md",
+      "sha256": "1f99178b4e141dc4791bd54034c531cf2f0eb0d7383aa2a7005a9b76b9557b51"
+    },
+    {
+      "path": "truelearner/crates/workstation/src/harness.rs",
+      "sha256": "a467c4f2caff51038931ed2028c37ae83211f3c0fe78de05c186050b4d04780c"
+    },
+    {
+      "path": "truelearner/crates/workstation/src/checkpoint.rs",
+      "sha256": "71e5ee724b2157a2f1b2d4069e8d0143cabba0c24d878447486be2663d3f99fa"
+    },
+    {
+      "path": "truelearner/crates/workstation/src/lib.rs",
+      "sha256": "8a19a886af06a5d7de5d93292ab3428e2d35606338a31d9105abc2b17bd97075"
+    },
+    {
+      "path": "truelearner/crates/workstation/tests/focused_vision_body.rs",
+      "sha256": "c37711ff3c75b4b522ff8f25fffbbffcaebd86fb04f2eaa36e050272183a077c"
+    }
+  ]
+}

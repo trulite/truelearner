@@ -12,7 +12,9 @@ pub use checkpoint::SessionCheckpoint;
 pub use geometry::{Key, KeyId, Rect, WorldGeometry, KEY_COUNT};
 pub use recording::{RecordedStep, WorkstationRecording, MAX_RECORDING_STEPS};
 pub use session::{SessionObservation, SessionRead, WorkstationSession};
-pub use world::{DeviceEvent, DeviceState, ScreenPoint, WorkstationWorld, CONTACT_DEPTH};
+pub use world::{
+    DeviceEvent, DeviceState, ScreenPoint, WorkstationPresentation, WorkstationWorld, CONTACT_DEPTH,
+};
 
 use std::fmt;
 
@@ -21,6 +23,7 @@ pub enum WorldError {
     AssetDecode,
     AssetDigest,
     InvalidGeometry,
+    InvalidPresentation,
     InvalidState,
     InvalidCheckpoint,
     TruncatedCheckpoint,
@@ -45,6 +48,7 @@ impl fmt::Display for WorldError {
             Self::AssetDecode => formatter.write_str("monitor image could not be decoded"),
             Self::AssetDigest => formatter.write_str("monitor image digest differs"),
             Self::InvalidGeometry => formatter.write_str("workstation geometry is invalid"),
+            Self::InvalidPresentation => formatter.write_str("workstation presentation is invalid"),
             Self::InvalidState => formatter.write_str("workstation device state is invalid"),
             Self::InvalidCheckpoint => formatter.write_str("workstation checkpoint is invalid"),
             Self::TruncatedCheckpoint => formatter.write_str("workstation checkpoint is truncated"),

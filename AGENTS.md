@@ -5,6 +5,7 @@ Request
   |-- Academy work --------> $academy
   |-- Rust model ----------> $categorical-rust
   |-- Rust change ---------> $rust-plan -> $rust-implement -> $rust-verify
+  |-- Debug or trace ------> $causal-debug
   |-- Research program ----> $research-program
   |-- Research forecast ---> $research-forecast
   |-- Experiment batch ----> $research-campaign -> $research-converge

@@ -107,6 +107,10 @@ impl CausalLineage {
             .and_then(|index| self.transition_ticks[index])
     }
 
+    pub(crate) fn contains_transition(&self) -> bool {
+        self.transition_ticks.iter().any(Option::is_some)
+    }
+
     fn memory_bytes(&self) -> usize {
         self.origins
             .capacity()

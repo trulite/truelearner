@@ -1,0 +1,9 @@
+arm: complete-calibration-reference
+verdict: survived
+command: cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment regulation_body_curried_calibration -- --exact
+result: 1 passed; 0 failed; 26 filtered out
+
+observations:
+- The unchanged complete candidate regulated centered, reflected-effect, and shifted-context cases from both disturbance signs.
+- Same-or-larger residual wrote no new consequence, smaller residual closed before renewed action, and zero emitted no action.
+- Replay, physical return origins, and natural quiescence remained exact.

@@ -1,0 +1,44 @@
+schema = "research-convergence/v1"
+campaign = "runtime-attached-natural-closure-v1"
+round = 1
+survived = ["frozen-bounce-parent", "exact-attached-cycle-closure", "existing-learner-coarse-graining"]
+falsified = ["two-sided-local-regulation"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = [
+  "all live arms preserved atomic runtime attachment, truthful physical lineage, exact replay, natural quiescence, and the semantic firewall",
+  "the exact closure arm intersected transition-bearing physical origins with live participating output paths before ordinary formation and output firing",
+  "zero matches remained ordinary dynamics, one match used the existing outcome and causal-closure laws, and multiple matches were rejected as ambiguous",
+  "two exact closures formed one ordinary existing learner and independent attachment order did not change the result",
+  "the full regulation arm used that complete lower stack without a sensor-local completion gate, motor map, or semantic center",
+]
+strongest_counterexamples = [
+  "exact-attached-cycle-closure: the returned action-caused transition wrote consequence to the unique used path and emitted no second action, while sample, unrelated-origin, and ambiguous controls were not credited",
+  "existing-learner-coarse-graining: two closures produced exactly one existing learner with the same outward history under reversed independent attachment order",
+  "two-sided-local-regulation positive branch: closure removed the old bounce but stalled at position 2 because no containing-body drive remained after the small cycle closed",
+  "two-sided-local-regulation negative branch: the initial unresolved choice moved -3 to -4, crossed no retained transition surface, wrote no consequence, and stalled",
+]
+retired_families = [
+  "putting a rest gate, completion predicate, motor map, or evaluator-defined center inside the attached sensor",
+  "treating exact sensor-action-return closure alone as sufficient for persistent body regulation",
+  "advancing to collective, visual, keyboard, or hand rungs before the containing body can keep an unresolved local constraint active",
+]
+next_discriminators = [
+  "test a body-owned component drive that remains physically active while the containing local constraint is unresolved and becomes identity when that constraint is quiet",
+  "after each exact child-cycle closure, require the containing component to open a fresh ordinary cycle only when its own physical disturbance remains present",
+  "retain sample, unrelated-origin, ambiguous-path, quiet-body, reversed-attachment-order, replay, quiescence, bounded-work, and semantic-firewall controls",
+  "require both disturbance signs to be solved without output identity, direction, scalar position, or a sensor-specific regulator",
+]
+
+[[new_arm]]
+id = "persistent-component-drive-after-closure"
+kind = "solve"
+parents = ["exact-attached-cycle-closure", "existing-learner-coarse-graining", "two-sided-local-regulation"]
+imports = ["exact physical cycle closure", "existing learner coarse-graining", "body-owned local physical constraint"]
+interaction_prediction = "Closing a child sensor-action-return cycle will leave the containing component active only while its local physical constraint remains unresolved; that activity will open a fresh ordinary cycle, while a quiet component maps to identity."
+falsifiers = [
+  "The drive must live in the sensor or name a motor, direction, scalar position, or evaluator center.",
+  "The drive persists after the containing physical constraint becomes quiet.",
+  "Either disturbance sign still stalls or diverges.",
+  "Attachment order, replay, quiescence, work, or semantic-firewall controls fail.",
+]

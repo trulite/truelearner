@@ -369,6 +369,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "truelearner-embodiment"
+version = "0.1.0"
+dependencies = [
+ "truelearner-core",
+]
+
+[[package]]
 name = "truelearner-workstation"
 version = "0.1.0"
 dependencies = [
@@ -376,6 +383,7 @@ dependencies = [
  "serde",
  "sha2",
  "truelearner-core",
+ "truelearner-embodiment",
 ]
 
 [[package]]
@@ -421,6 +429,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "truelearner-core",
+ "truelearner-embodiment",
  "truelearner-workstation",
  "workstation-contact-contingency",
 ]

@@ -16,6 +16,50 @@ const MAX_TAP_STEPS: u64 = 5;
 const MAX_TAP_TRAVEL: u32 = 28;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkstationPresentation {
+    illuminated_key: Option<KeyId>,
+    monitor_glyph: Option<char>,
+}
+
+impl WorkstationPresentation {
+    pub const fn with_illuminated_key(key: KeyId) -> Self {
+        Self {
+            illuminated_key: Some(key),
+            monitor_glyph: None,
+        }
+    }
+
+    pub const fn with_monitor_glyph(glyph: char) -> Self {
+        Self {
+            illuminated_key: None,
+            monitor_glyph: Some(glyph),
+        }
+    }
+
+    pub const fn illuminated_key(self) -> Option<KeyId> {
+        self.illuminated_key
+    }
+
+    pub const fn monitor_glyph(self) -> Option<char> {
+        self.monitor_glyph
+    }
+
+    pub(crate) fn validate(self, geometry: &WorldGeometry) -> Result<(), WorldError> {
+        let invalid_key = self
+            .illuminated_key
+            .is_some_and(|key| geometry.key(key).is_none());
+        let invalid_glyph = self
+            .monitor_glyph
+            .is_some_and(|glyph| !glyph.is_ascii_graphic());
+        if invalid_key || invalid_glyph {
+            Err(WorldError::InvalidPresentation)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScreenPoint {
     pub x: i16,
     pub y: i16,
@@ -137,6 +181,7 @@ impl SurfaceFrame {
 pub struct WorkstationWorld {
     geometry: WorldGeometry,
     device: DeviceState,
+    presentation: WorkstationPresentation,
     renderer: SceneRenderer,
 }
 
@@ -144,6 +189,7 @@ impl PartialEq for WorkstationWorld {
     fn eq(&self, other: &Self) -> bool {
         self.geometry == other.geometry
             && self.device == other.device
+            && self.presentation == other.presentation
             && self.renderer.asset_digest() == other.renderer.asset_digest()
     }
 }
@@ -152,9 +198,18 @@ impl Eq for WorkstationWorld {}
 
 impl WorkstationWorld {
     pub fn new() -> Result<Self, WorldError> {
+        Self::new_with_presentation(WorkstationPresentation::default())
+    }
+
+    pub fn new_with_presentation(
+        presentation: WorkstationPresentation,
+    ) -> Result<Self, WorldError> {
+        let geometry = WorldGeometry::standard_ansi_104()?;
+        presentation.validate(&geometry)?;
         Ok(Self {
-            geometry: WorldGeometry::standard_ansi_104()?,
+            geometry,
             device: DeviceState::default(),
+            presentation,
             renderer: SceneRenderer::new()?,
         })
     }
@@ -167,6 +222,19 @@ impl WorkstationWorld {
         &self.device
     }
 
+    pub const fn presentation(&self) -> WorkstationPresentation {
+        self.presentation
+    }
+
+    pub fn set_presentation(
+        &mut self,
+        presentation: WorkstationPresentation,
+    ) -> Result<(), WorldError> {
+        presentation.validate(&self.geometry)?;
+        self.presentation = presentation;
+        Ok(())
+    }
+
     pub fn asset_digest(&self) -> [u8; 32] {
         self.renderer.asset_digest()
     }
@@ -174,10 +242,20 @@ impl WorkstationWorld {
     pub fn sense(&self, body: &WorkstationState) -> Result<WorldSample, WorldError> {
         let contacts = self.contacts(SurfaceFrame::from_body(body))?;
         let eyes = [
-            self.renderer
-                .render(&self.geometry, &self.device, body, Eye::Left)?,
-            self.renderer
-                .render(&self.geometry, &self.device, body, Eye::Right)?,
+            self.renderer.render(
+                &self.geometry,
+                &self.device,
+                self.presentation,
+                body,
+                Eye::Left,
+            )?,
+            self.renderer.render(
+                &self.geometry,
+                &self.device,
+                self.presentation,
+                body,
+                Eye::Right,
+            )?,
         ];
         Ok(WorldSample::new(eyes, contacts)?)
     }
@@ -199,6 +277,8 @@ impl WorkstationWorld {
         let mut digest = Sha256::new();
         digest.update(b"truelearner-workstation-world-v1");
         digest.update(self.renderer.asset_digest());
+        digest
+            .update(bincode::serialize(&self.presentation).map_err(|_| WorldError::InvalidState)?);
         digest.update(bytes);
         Ok(digest
             .finalize()
@@ -209,10 +289,11 @@ impl WorkstationWorld {
 
     pub(crate) fn from_parts(
         device: DeviceState,
+        presentation: WorkstationPresentation,
         expected_asset_digest: [u8; 32],
     ) -> Result<Self, WorldError> {
         device.validate()?;
-        let world = Self::new()?;
+        let world = Self::new_with_presentation(presentation)?;
         if world.asset_digest() != expected_asset_digest {
             return Err(WorldError::AssetDigest);
         }

@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "retained-point-alias"
+campaign = "workstation-monitor-cue-local-field-v1"
+kind = "control"
+parents = ["workstation-monitor-cue-retina-v1/workstation-retina"]
+imports = ["immutable wider-point alias projection", "immutable complete monitor-cue trace"]
+mechanism = "Retain the exact counterexample in which both full images differ but twelve isolated points per eye remain equal."
+prediction = "The parent remains an exact cue-image to point-retina alias and is not repaired or reinterpreted."
+falsifiers = ["Either immutable digest changes.", "The retained point vectors already differ."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "20383610e75399f6d49384a466786e16956c433818f87961de8000606711b1d7"
+budget_minutes = 2
+
+[gates]
+tiny_fixture = "shasum -a 256 research/campaigns/workstation-monitor-cue-reuse-v1/artifacts/monitor-cue-reuse.json research/campaigns/workstation-monitor-cue-retina-v1/artifacts/workstation-retina-projection.json"
+full_evidence = "jq '.retina_differs == false and .retina_a == .retina_b' research/campaigns/workstation-monitor-cue-retina-v1/artifacts/workstation-retina-projection.json"

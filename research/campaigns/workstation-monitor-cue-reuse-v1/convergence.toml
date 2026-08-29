@@ -1,0 +1,19 @@
+schema = "research-convergence/v1"
+campaign = "workstation-monitor-cue-reuse-v1"
+round = 1
+survived = ["pixels-only-controls"]
+falsified = ["complete-candidate"]
+inconclusive = []
+infrastructure_failed = []
+shared_mechanisms = ["both arms preserve the full ANSI world and pixels-only semantic firewall", "presentation update preserves sequence body learner and device state until the next step", "checkpoint replay and natural quiescence remain exact"]
+strongest_counterexamples = ["the complete candidate developed six proper printable glyphs from keys 42 43 and 91 through 94 and released all keys by sequence 73", "the first key-caused text change at sequence 26 changed the monitor image at 27 retina at 28 learner at 27 and had a consequence record at 27", "paired learned cues from equal body learner and device state changed both complete eye images at sequence 74 but all twenty-four retinal values learner fingerprints candidates choices movements and body states stayed identical for twenty-four steps", "the exact retained counterexample is artifacts/monitor-cue-reuse.json sha256 43bb8b86f1fc05d4c83b7450ab215915211efd6e52169e7b65eecac3b9011da8"]
+retired_families = ["treating a full-image difference as organism-visible evidence", "testing reverse action-outcome reuse before the monitor cue survives the retinal map", "removal ablation before a positive complete stack"]
+next_discriminators = ["project a workstation-wide foveal plus upper-peripheral field over the retained post-development gaze", "distinguish missing monitor coverage from two glyphs aliasing at the sampled receptors", "change no learner law until cue pixels produce different retinal values"]
+
+[[new_arm]]
+id = "workstation-retina"
+kind = "solve"
+parents = ["pixels-only-controls", "complete-candidate"]
+imports = ["pixels-only cue boundary", "retained post-development gaze", "wide-retina visibility constraint", "ordinary foveal identity"]
+interaction_prediction = "A foveal point plus upper-peripheral rows changes the first failed arrow from equal retinal values to cue-specific retinal values while preserving the same world and learner law."
+falsifiers = ["The complete candidate loses proper key development.", "The expanded field still maps the two cue images to equal retinal values.", "The field requires cue identity desired gaze or evaluator routing."]

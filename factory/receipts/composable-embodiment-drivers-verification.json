@@ -1,0 +1,84 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "composable-embodiment-drivers-candidate.json",
+    "sha256": "00bbe562e04f01e39db5438eb66afdb0b6a4d4d85b24370428d5140fa30a60dc"
+  },
+  "verdict": "supported",
+  "independent_test_count": 6,
+  "checks": [
+    {
+      "name": "held-out-composition",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test held_out_composition",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.15
+    },
+    {
+      "name": "identity-association-law",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment identity_and_association_hold",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "threshold-preservation-law",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment quantized_thresholds_preserve_order_and_one_transition",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "independent-clippy",
+      "command": "cargo clippy --all-targets --all-features --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment -p truelearner-workstation -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.16
+    },
+    {
+      "name": "semantic-firewall",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world organism_sample_contains_no_device_or_evaluator_fields",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.65
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment -p truelearner-workstation",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.26
+    }
+  ],
+  "findings": [
+    "The driver category has executable identity, serial composition, parallel composition, homogeneous banks, routing, and cause-preserving fan-out with ordinary Rust types.",
+    "Two independent change detectors preserve separate binocular values and histories; changing one eye produces one transition without changing the other eye's sample.",
+    "Five independent bounded axes move one selected finger and return only that finger's physical cause; invalid bank arity leaves every axis unchanged.",
+    "Independent held-out compositions with three sensor factors and seven actuator-feedback factors preserve local state, incidence, and origin.",
+    "Quantization followed by change detection and threshold factorization preserves ordinal crossings while marking only the final changed bin as a physical transition.",
+    "The workstation now reuses bounded magnitude, signed channels, quantization, and opposed effort while its checkpoint, replay, binocular rendering, semantic firewall, and visual-reach control remain unchanged."
+  ],
+  "residual_uncertainty": [
+    "The library supplies composition mechanics, not a binocular-depth, independent-finger-control, reach, click, typing, or grasping capability claim.",
+    "The workstation currently reuses pure primitives only; migrating complete receptor banks, actuator axes, and morphology wiring requires a separate behavior-preserving plan.",
+    "Future sensors with asynchronous I/O or real device delay will need an explicit boundary adapter while preserving the same deterministic driver and physical-time laws."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/composable-embodiment-drivers.md",
+      "sha256": "6b7c3b96b9010ff82afafabe991b41d61ae91a5cd92524c0882430e803d249ed"
+    },
+    {
+      "path": "truelearner/crates/embodiment/src/lib.rs",
+      "sha256": "39328d235a29d1c8e88a7f36c85151b319fe3c5f2420e0823d9e074633713d3e"
+    },
+    {
+      "path": "truelearner/crates/embodiment/tests/binocular_hand.rs",
+      "sha256": "e9acd9054ea5de0fbc01c711be70147be97f82b7de16aa2373f8809580dccb93"
+    },
+    {
+      "path": "truelearner/crates/embodiment/tests/held_out_composition.rs",
+      "sha256": "18d0f9618ce697d5766745e3898b7c4fbfa8cedb54688a7593623ab5955728d3"
+    }
+  ]
+}

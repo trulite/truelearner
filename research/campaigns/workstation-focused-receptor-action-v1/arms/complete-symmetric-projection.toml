@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-symmetric-projection"
+campaign = "workstation-focused-receptor-action-v1"
+kind = "composition"
+parents = ["focused-body-parent", "connected-causal-topology-product", "output-specific-physical-return", "first-choice-outcome-lifetime"]
+imports = ["body-owned focused receptor transitions", "accepted palm motor and outcome field", "ordinary fixed anatomical fan-out", "candidate origin diagnostics"]
+mechanism = "Place each existing focused relay at the palm-horizontal local center, connect the palm anchor to it, and connect it equally to both output-specific palm-horizontal outcomes without adding another world input."
+prediction = "At least one focused origin completes an executable palm candidate and the two cue branches first differ at candidate choice output or movement after their receptor sets diverge."
+falsifiers = ["No executable palm candidate contains a focused origin.", "Both cue branches remain equal through every action rung.", "The projection emits two inputs for one changed factor.", "The two movement directions have unequal fixed anatomy.", "The result needs cue identity region selection or desired direction."]
+source_revision = "dfe933886d4a030d7775356f78e908e8531c2fc2"
+protocol_sha256 = "d21bfc97658a61eea946051c2b3b973f911aa36c5dbf03d01aacdf1b390d1788"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "focused projection symmetry and one-admission workstation tests"
+full_evidence = "complete arm in focused_receptor_action_participation artifact"
