@@ -1,0 +1,42 @@
+schema = "research-adjudication/v1"
+protocol_path = "protocol.toml"
+protocol_sha256 = "3a5f6b85e20cbd88693b9a0a9b3226abab9eac0c8dc62a650a16c668d863c3f3"
+evidence_path = "evidence.json"
+evidence_sha256 = "fe437105d023c42d8e1e87bd9f624bd49541eaec954c7449acefba27aa9350bd"
+verdict = "inconclusive"
+predicate_results = [
+  "subject identity=passed: clean detached commit cd03892564190d787d8fd8ca0cf0e1289289ff76 and tree 74dea24d6b58280a358f1d46452e227d128a7701 matched before and after",
+  "calibration laws and transfer=passed: five law preflight tests twelve full law and cross-type tests and the physical calibration trace passed",
+  "complete scalar regulation=passed: all centered reflected and shifted cases preserved returned origins replay and natural quiescence",
+  "persistent-drive removal=passed at the frozen unresolved position-two stall",
+  "directional-change removal=passed at the frozen false consequence on worsening minus-three to minus-four movement",
+  "zero-identity removal=passed by acting from the initially normal body",
+  "body-context terminal removal=passed: complete calibration finished inside shifted two-through-three while fixed centered calibration finished [1, 1, 1, 1]",
+  "historical context oracle=passed as a negative control: the unchanged any-window test failed on its transient [3, 3, 2, 2] crossing",
+  "warm integration=passed: the full truelearner workspace regression completed in 9.94 seconds",
+  "semantic firewall=inconclusive: the frozen substring matcher stopped on TRACE_CLEAR_PHASE and truelearner_core because both contain the letters ear, without observing a semantic ear or other forbidden identifier",
+]
+control_results = [
+  "unavailable controls=passed inside the calibration law suite",
+  "reflected-effect control=passed inside complete scalar regulation",
+  "worsening-versus-improving control=passed through the complete and directional-removal contrast",
+  "zero identity control=passed through the complete and zero-removal contrast",
+  "terminal-versus-transient control=passed while preserving the falsified predecessor oracle",
+  "workspace regression=passed: inherited core embodiment and workstation tests remained green with the same two declared adversarial core tests ignored",
+  "run policy=passed: one valid frozen batch ran in one fresh detached worktree and fresh target; it stopped without repair or rerun",
+  "hidden-authority text audit=not established by v1 because its classifier used raw substring matching instead of exact identifier tokens",
+]
+scientific_findings = [
+  "The behavioral evidence supports the bounded body-curried calibration law and reproduces four distinct removal walls on one exact clean subject.",
+  "The first authority protocol cannot promote that result because one frozen control is not interpretable as written: ear matched CLEAR and learner rather than a semantic modality identifier.",
+  "This is a stale audit contract rather than evidence of hidden anatomy, but that distinction must be frozen in a separate successor protocol rather than repaired inside v1.",
+]
+residual_uncertainty = [
+  "Protocol v1 did not preregister identifier-boundary matching, so its semantic-firewall predicate remains unresolved.",
+  "A successor must rerun the unchanged complete batch once with an exact Rust identifier-token audit and may not import a positive authority verdict from v1.",
+]
+sufficiency = "not-established"
+integration = "passed"
+adoption = "not-adopted"
+authority = "not-promoted"
+authorized_by = "User explicitly instructed on 2026-08-29 to make the body-curried calibration law authoritative before continuing calibration and real morphology work."

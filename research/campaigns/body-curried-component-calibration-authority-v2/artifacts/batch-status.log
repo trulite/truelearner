@@ -1,0 +1,18 @@
+PASSED laws-preflight
+PASSED laws-and-transfer
+PASSED physical-calibration-trace
+PASSED complete-regulation
+PASSED remove-persistent-drive
+PASSED remove-directional-change
+PASSED remove-zero-identity
+PASSED complete-terminal-context
+PASSED remove-body-context-terminal
+EXPECTED_FAILURE historical-any-window-context status=101
+PASSED core-preflight
+PASSED workspace-bootstrap cold_seconds=9.79
+PASSED workspace-warm-regression warm_seconds=0.96
+PASSED firewall-positive-control
+PASSED firewall-substring-control
+PASSED semantic-firewall
+PASSED clean-after
+VALID_BATCH_COMPLETE

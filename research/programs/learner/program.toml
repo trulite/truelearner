@@ -1,7 +1,7 @@
 schema = "research-program/v1"
 id = "learner-physics"
 thesis = "Small local physical laws can produce increasingly general learner capabilities without high-level cognitive primitives or hidden evaluator authority."
-pre_frontier_checkpoint = "hand-causal-topology-product-authority-v1@7be8bbc3009fe3131622a6ee21e9aa260d649aa1"
+pre_frontier_checkpoint = "body-curried-component-calibration-authority-v2@cd03892564190d787d8fd8ca0cf0e1289289ff76"
 active_frontier = ["DEVELOPMENTAL-HAND-LADDER", "WORKSTATION-KEY-SELECTION-LADDER", "RUNTIME-ATTACHED-MULTISCALE-COMPETENCE"]
 
 [[claim]]
@@ -284,10 +284,30 @@ limitations = [
 ]
 
 [[claim]]
+id = "BODY-CURRIED-COMPONENT-CALIBRATION"
+statement = "In the declared bounded fixtures, a body-supplied relation can be curried into a modality-independent residual transformation whose nonzero need persists as ordinary sample drive, whose improving physical change returns outcome, whose worsening change remains distinct, and whose zero is identity, sufficient for exact replayable naturally quiescent scalar regulation."
+status = "authoritative"
+depends_on = ["ANONYMOUS-SERIAL-ARTICULATION"]
+falsifiers = [
+  "The pure transformation changes physical origin incidence availability or composition laws, or requires a modality identity.",
+  "The unchanged complete subject cannot regain and terminally hold the declared relation from both disturbance signs under ordinary and reflected effects or a shifted body context.",
+  "Removing body context persistent drive directional change or zero identity does not reproduce its distinct preregistered wall.",
+  "The historical any-window context oracle is repaired or reclassified instead of remaining a frozen falsified predecessor.",
+  "Exact replay natural quiescence returned-origin integrity bounded warm work inherited regressions or the semantic firewall fails.",
+]
+limitations = [
+  "Authority is pinned to commit cd03892564190d787d8fd8ca0cf0e1289289ff76, tree 74dea24d6b58280a358f1d46452e227d128a7701, protocol sha256 6f82cd9c91e2f1af62b23429767c06558375bd5498dc4f82331eca2b376db696, evidence sha256 31be13aed1851c09843d0fe2575039d46708788a0e57e78b43be2e4166ded9ce, and positive adjudication sha256 d971b8680ea3702d2ae38048fe90157bbc552ae82a961c60e90a1d4308820d30.",
+  "Authority is bounded to the pure calibration laws, declared cross-type values, and one-dimensional scalar regulation fixtures.",
+  "Finger hand binocular acoustic vocal mixed and spatial values test transformation shape only; they do not establish real hand eye ear voice speech or morphology competence.",
+  "The result does not establish learned norms, arbitrary residual algebras, multisensor collective competence, pointing clicking grasping typing or workstation use.",
+  "Authority protocol v1 remains inconclusive rather than negative because its raw substring firewall classified the letters ear inside TRACE_CLEAR_PHASE and truelearner_core; v2 used a separately frozen identifier-boundary contract and did not repair or import authority from v1.",
+]
+
+[[claim]]
 id = "RUNTIME-ATTACHED-MULTISCALE-COMPETENCE"
 statement = "A running organism can assimilate a newly attached anonymous physical sensor, retain its short-lived trace in ordinary body tissue, and compose actual sensor-action return into progressively stronger local and collective competence without a sensor-specific controller or motor map."
 status = "preregistered"
-depends_on = ["ANONYMOUS-SERIAL-ARTICULATION"]
+depends_on = ["ANONYMOUS-SERIAL-ARTICULATION", "BODY-CURRIED-COMPONENT-CALIBRATION"]
 falsifiers = [
   "Attachment itself emits an action, outcome, learner change, or hidden motor relation.",
   "A new sensor requires external previous-value memory, semantic modality identity, or a sensor-specific controller.",
@@ -308,4 +328,5 @@ limitations = [
   "Attachment-natural exact cycle closure now survives its missing and predicted rungs: one uniquely matched action-caused transition writes consequence to the live used path and is consumed, zero and ambiguous matches are not credited, and two exact closures form exactly one existing learner independent of unrelated attachment order. The full two-sided regulation rung remains negative: the positive branch closes once and stalls at two, while the negative branch takes the same unresolved initial action, reaches minus four without crossing a retained transition surface, and writes no consequence. The active frontier has therefore moved above the sensor: test a body-owned component drive that remains active while the containing local physical constraint is unresolved and becomes identity when quiet. This is opt-in dirty-worktree development evidence, not accepted authority; all higher rungs remain stopped.",
   "Body-curried component calibration now survives its full discovery ladder. One pure Normalizer preserved origin incidence and honest absence across finger five-finger binocular acoustic vocal mixed and held-out spatial values, then attached residual tissue regulated both scalar disturbance signs under ordinary reflected effects and a shifted body norm. Persistent nonzero drive is an ordinary Sample, threshold falls alone return outcome, rises remain distinct, and zero is identity; exact replay and natural quiescence hold. This is opt-in dirty-worktree discovery evidence for the calibration shape and bounded scalar regulation only, not authority or real hand eye ear voice speech morphology transfer or collective competence. The active frontier is downward ablation of body context held drive directional factorization and zero identity before attaching real morphologies.",
   "Downward ablation now establishes separate necessity of all four calibration factors inside the declared bounded scalar world. Removing persistent drive restored the unresolved position-two stall; merging directional change falsely credited a worsening minus-three-to-minus-four move; driving zero broke normal-state identity; and fixed centered context terminally held one instead of disjoint shifted [2, 3]. The original context arm remains falsified because its any-window oracle mistook transient [3, 3, 2, 2] crossing for holding; a frozen successor using final-four residence passed without repairing it. This remains opt-in dirty-worktree discovery evidence, not authority or real morphology competence. The next admissible step is the first real attached morphology using the unchanged four-factor calibration and only a local body relation plus ordinary effect boundary.",
+  "Body-Curried Component Calibration V2 is now authoritative for the bounded calibration shape and scalar regulation world. One valid fresh run at clean commit cd03892564190d787d8fd8ca0cf0e1289289ff76 reproduced all laws six complete relations four removal walls the preserved predecessor failure exact replay natural quiescence returned-origin integrity warm work and identifier firewall. The active next rung is the first real attached morphology using this law unchanged and supplying only its local body relation plus ordinary effect boundary.",
 ]

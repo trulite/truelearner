@@ -1,0 +1,337 @@
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.151
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling truelearner-embodiment v0.1.0 (/private/tmp/truelearner-calibration-authority-v2.BtxRFg/truelearner/crates/embodiment)
+   Compiling truelearner-workstation v0.1.0 (/private/tmp/truelearner-calibration-authority-v2.BtxRFg/truelearner/crates/workstation)
+    Finished `test` profile [optimized + debuginfo] target(s) in 3.17s
+     Running unittests src/lib.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/truelearner_core-e7bc8067e14f8e22)
+
+running 17 tests
+test choose::completed_cycle_tests::bounded_construction_continuation_is_eligible_only_for_its_first_choice ... ok
+test choose::completed_cycle_tests::causal_origin_product_preserves_overlap_transitivity_and_unknowns ... ok
+test choose::completed_cycle_tests::causal_origin_product_splits_disjoint_nearby_outputs ... ok
+test choose::completed_cycle_tests::causal_path_product_uses_completed_path_origins_not_immediate_origins ... ok
+test choose::completed_cycle_tests::causal_origin_product_is_invariant_to_candidate_order ... ok
+test choose::completed_cycle_tests::causal_topology_product_groups_connected_outcomes_and_splits_disconnected_ones ... ok
+test choose::completed_cycle_tests::organism_consequence_is_exact_and_consumed_once_without_losing_history ... ok
+test choose::completed_cycle_tests::output_choice_resolution_classifies_completed_cycle_evidence ... ok
+test choose::completed_cycle_tests::completed_cycle_consequence_witnesses_select_live_completing_exact_generation ... ok
+test choose::completed_cycle_tests::return_bearing_continuation_prefers_promoted_then_unique_latest_current_path ... ok
+test choose::completed_cycle_tests::return_bearing_continuation_rejects_samples_unbalanced_paths_and_single_origin_release ... ok
+test choose::completed_cycle_tests::return_bearing_continuation_requires_opt_in_current_transition_and_return ... ok
+test learner::tests::bounded_construction_continuation_consumes_exact_memory_without_refreshing_tick ... ok
+test timing_wheel::tests::timing_wheel_comparison_attribution_partitions_the_existing_total ... ok
+test learner::tests::construction_outcome_composition_selects_only_live_same_tick_lineage ... ok
+test timing_wheel::tests::timing_wheel_wave_preserves_causal_order_and_residual ... ok
+test timing_wheel::tests::timing_wheel_wave_comparisons_scale_linearly ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/harness_boundary.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/harness_boundary-00ff295944157636)
+
+running 69 tests
+test boundary_effect_reentry_external_surface_discriminates_terminal_from_regional_law ... ok
+test boundary_effect_reentry_terminal_preserves_effect_but_blocks_effect_born_genesis ... ok
+test autonomous_reuse_diagnostics_are_observational_only ... ok
+test boundary_effect_reentry_candidates_preserve_same_region_path_formation ... ok
+test causal_lineage_candidate_preserves_actual_origins_without_changing_impulse ... ok
+test boundary_effect_reentry_reference_exposes_cross_region_path_genesis ... ok
+test causal_lineage_candidate_preserves_replay_and_old_protocol ... ok
+test autonomous_reuse_diagnostics_order_owned_surface_path_and_candidate ... ok
+test causal_local_outcome_rejects_duplicate_output_wiring - should panic ... ok
+test causal_local_outcome_global_reference_credits_both_participating_paths ... ok
+test boundary_novelty_preserves_inherited_distance_three_return_rejection ... ok
+test causal_local_outcome_credits_only_the_physically_wired_path ... ok
+test causal_local_outcome_shuffled_wiring_credits_the_wrong_path ... ok
+test causal_origin_ownership_factorization_bounded_send_reports_non_quiescence ... ok
+test bounded_fresh_opportunity_exposes_one_balanced_local_candidate ... ok
+test boundary_novelty_allows_adjacent_expansion_with_a_new_physical_member ... ok
+test causal_lineage_candidate_is_order_independent_and_duplicate_free ... ok
+test checkpoint_and_reads_preserve_body_time_and_protocol ... ok
+test consequence_born_closure_is_strict_duplicate_free_and_replays ... ok
+test consequence_born_return_preserves_genuinely_later_local_return ... ok
+test consequence_born_return_rejects_preopening_origin_without_writing ... ok
+test consequence_born_cohort_rejects_repeated_coactivity_and_keeps_delayed_consequence ... ok
+test coherent_unresolved_effect_holds_once_then_releases ... ok
+test bounded_fresh_opportunity_controls_answered_old_protocol_and_reflection ... ok
+test completed_cycle_composes_truthful_returns_but_not_samples ... ok
+test consequence_born_eligible_return_priority_completes_temporal_cohort_composition ... ok
+test distinct_opportunity_origins_still_compose_across_topology ... ok
+test input_forms_complete_signed_paths ... ok
+test input_without_near_output_forms_no_path ... ok
+test junction_chooses_one_path_and_output_fires ... ok
+test local_motor_competition_does_not_suppress_far_outputs ... ok
+test outcome_does_not_form_a_missing_return ... ignored, adversarial causal boundary
+test opportunity_owner_relation_partitions_actual_ancestry ... ok
+test outcome_strengthens_used_links_only_before_the_time_boundary ... ignored, adversarial time boundary
+test causal_origin_ownership_factorization_selects_one_origin_and_replays ... ok
+test consequence_born_temporal_only_rejects_first_coactivity_but_reuses_old_sibling ... ok
+test outcome_returns_through_every_used_link ... ok
+test construction_outcome_composition_preserves_the_same_tick_exact_lineage ... ok
+test organism_root_fresh_opportunity_is_protocol_scoped ... ok
+test physical_diagnostics_explain_reverse_path_failures ... ok
+test physical_diagnostics_are_opt_in_pure_and_replayable ... ok
+test output_choice_resolution_matches_existing_admissions ... ok
+test physical_diagnostics_explain_origin_resolution_and_return_decisions ... ok
+test boundary_novelty_constructs_distinct_root_siblings_in_either_order ... ok
+test local_motor_competition_explores_then_reuses_consequence ... ok
+test physical_transition_continuation_is_cumulative_and_protocol_scoped ... ok
+test drive_provenance_reports_path_owner_separately_from_carried_origin_owner ... ok
+test physical_transition_return_preserves_sampling_for_old_protocols_and_replay ... ok
+test physical_transition_return_rejects_later_sample_but_admits_matched_transition ... ok
+test pre_executability_diagnostics_report_signed_drive_and_live_returns_observationally ... ok
+test sensorimotor_candidate_consolidates_actual_surface_consequence_for_reverse_execution ... ok
+test recursive_learner_rejects_noncausal_and_single_closure_controls ... ok
+test sensorimotor_candidate_uses_current_proprioception_to_cross_motor_threshold ... ok
+test shared_opportunity_origin_is_already_a_bounded_choice ... ok
+test strengthened_path_fires_on_later_input ... ok
+test recursive_learner_constructs_once_from_repeated_actual_closure_and_replays ... ok
+test unanswered_local_return_keeps_a_valid_delay_without_competition ... ok
+test sensorimotor_candidate_preserves_valid_return_expires_stale_return_and_replays ... ok
+test recursive_learner_proprioceptive_opportunity_is_current_and_owner_local ... ok
+test unanswered_local_return_deferral_exposes_one_neighbor ... ok
+test boundary_novelty_rejects_exact_owned_repetition_and_replays ... ok
+test recursive_learner_children_start_with_fresh_return_memory ... ok
+test used_path_holds_return_until_later_outcome ... ok
+test unanswered_local_return_replacement_closes_only_the_displaced_return ... ok
+test unanswered_local_return_replacement_does_not_suppress_a_far_output ... ok
+test recursive_learner_proprioceptive_consequence_is_private_recent_and_replayable ... ok
+test unanswered_local_return_protocol_reflects_and_survives_checkpoint ... ok
+test owner_local_factorization_turns_one_unique_private_group_into_one_effect ... ok
+test sensorimotor_candidate_structural_work_follows_the_local_source_neighborhood ... ok
+
+test result: ok. 67 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime_attachment.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/runtime_attachment-442a74ec5f9f2dab)
+
+running 9 tests
+test runtime_attachment_spec_makes_invalid_local_topology_unrepresentable ... ok
+test runtime_attachment_capacity_failure_rolls_back_exactly ... ok
+test runtime_attachment_refuses_pending_activity_without_mutation ... ok
+test runtime_attachment_is_atomic_quiet_and_checkpointed ... ok
+test runtime_attachment_adds_no_motor_map_and_uses_ordinary_formation ... ok
+test physical_cycle_closure_rejects_ambiguous_participating_paths ... ok
+test physical_cycle_closure_returns_on_the_used_path_before_another_action ... ok
+test physical_cycle_composition_forms_one_existing_learner_and_ignores_attachment_order ... ok
+test physical_cycle_closure_treats_samples_and_unrelated_causes_as_identity ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/truelearner_embodiment-5133959ef08e10ec)
+
+running 6 tests
+test tests::bounded_axis_reports_only_actual_change ... ok
+test tests::cloned_driver_replays_the_exact_next_signal ... ok
+test tests::identity_and_association_hold ... ok
+test tests::mapping_routing_and_fanout_preserve_the_cause ... ok
+test tests::quantized_thresholds_preserve_order_and_one_transition ... ok
+test tests::repeated_observation_is_not_a_transition ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/active_sensing.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/active_sensing-442bc85e3d6f90e6)
+
+running 9 tests
+test a_sensor_field_preserves_multiple_simultaneous_candidates ... ok
+test all_eye_sources_join_before_the_finished_effect_becomes_identity ... ok
+test availability_maps_and_pairs_without_inventing_an_occluded_value ... ok
+test binocular_relation_routes_a_command_only_while_both_views_are_available ... ok
+test invalid_port_does_not_change_the_command_collector ... ok
+test held_out_seven_port_frame_preserves_unconstrained_neighbors ... ok
+test bounded_command_join_has_identity_and_association ... ok
+test disappearance_and_reappearance_are_honest_sensor_transitions ... ok
+test the_same_finished_effect_constraint_is_local_across_five_fingers ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/binocular_hand.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/binocular_hand-f1a12a36f3ed7ca9)
+
+running 4 tests
+test opportunity_gate_composes_an_event_or_the_identity ... ok
+test binocular_drivers_keep_two_views_and_two_histories ... ok
+test five_finger_axes_move_independently_and_return_their_causes ... ok
+test wrong_hand_arity_fails_before_any_finger_moves ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/calibration.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/calibration-b6fe03ffdd41329e)
+
+running 12 tests
+test calibration_ladder_binocular_eye_composes_available_and_missing_views ... ok
+test calibration_ladder_ear_does_not_turn_silence_or_dropout_into_a_measurement ... ok
+test calibration_ladder_finger_pressure_uses_body_supplied_normal ... ok
+test calibration_ladder_hand_keeps_five_fingers_independent ... ok
+test calibration_ladder_mixed_modalities_compose_without_a_shared_value_type ... ok
+test calibration_ladder_held_out_spatial_field_uses_the_same_transformation ... ok
+test calibration_ladder_voice_accepts_structured_delayed_feedback ... ok
+test calibration_laws_curries_body_context_and_preserves_signal ... ok
+test calibration_laws_parallel_composition_preserves_local_factors ... ok
+test calibration_laws_residual_identity_association_and_effect ... ok
+test calibration_laws_unavailable_body_context_does_not_construct_a_normalizer ... ok
+test calibration_laws_unavailable_never_evaluates_relation ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/focused_receptor_frames.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/focused_receptor_frames-b1354946f99bbb8f)
+
+running 5 tests
+test focused_receptor_frame_has_fixed_arity_and_unavailable_padding ... ok
+test focused_receptor_frame_mapping_commutes_with_framing ... ok
+test focused_receptor_frames_compose_independently ... ok
+test focused_receptor_frame_transfers_across_dimensions_and_controls ... ok
+test focused_receptor_frame_repeats_exactly_and_observes_focus_movement ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/focused_sensor_fields.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/focused_sensor_fields-5d7b884a968f7296)
+
+running 9 tests
+test focused_sensor_field_is_bounded_and_reconstructs_exactly ... ok
+test focused_sensor_field_commutes_with_a_horizontal_mirror ... ok
+test focused_sensor_field_observes_only_actual_post_effect_focus ... ok
+test focused_sensor_field_focus_union_is_commutative_and_idempotent ... ok
+test focused_sensor_field_rejects_invalid_profiles_and_coordinates ... ok
+test focused_sensor_field_transduction_is_complete_and_refinement_consistent ... ok
+test focused_sensor_field_transfers_across_dimensions_and_modalities ... ok
+test focused_sensor_field_mapping_commutes_with_focus ... ok
+test focused_sensor_field_handles_identity_and_value_blind_controls ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/held_out_composition.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/held_out_composition-9f9209acd27ff669)
+
+running 2 tests
+test seven_actuator_factors_preserve_local_change_and_feedback ... ok
+test three_parallel_sensor_factors_retain_independent_histories ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/perception_action.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/perception_action-af9e88d013779fb8)
+
+running 6 tests
+test absent_command_is_the_identity_action ... ok
+test five_fingers_use_contact_to_make_only_the_touching_effect_identity ... ok
+test return_is_sensed_from_actual_state_not_copied_from_the_request ... ok
+test repeated_cycles_close_orientation_then_become_identity ... ok
+test held_out_mixed_body_composes_visual_contact_and_three_actuators ... ok
+test one_binocular_cycle_preserves_occlusion_and_eye_locality ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime_attachment.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/runtime_attachment-84fb746bf06bb17b)
+
+running 29 tests
+test calibration_ablation_directional_change ... ignored, frozen ablation: merged rise and fall must falsely close a worsening residual
+test calibration_ablation_fixed_context ... ignored, frozen ablation: fixed context must fail a disjoint shifted body norm
+test calibration_ablation_fixed_context_terminal_residence ... ignored, frozen successor: fixed calibration must finish outside the disjoint body norm
+test calibration_ablation_persistent_drive ... ignored, frozen ablation: one-shot drive must stall after the first useful closure
+test calibration_ablation_zero_identity ... ignored, frozen ablation: drive at zero must act from an initially normal body
+test calibration_terminal_shifted_context_reference ... ignored, frozen successor reference: complete calibration must finish in shifted context
+test regulation_attachment_natural_closure ... ignored, frozen negative: exact closure stalls at the first still-disturbed state
+test regulation_factored_change_returns_from_both_disturbances ... ignored, frozen negative: per-threshold factor lost continuation at the next threshold
+test regulation_outcome_boundary_attachment_closes_first_return ... ignored, frozen negative: outcome placement did not close the return
+test regulation_runtime_attached_scalar_returns_from_both_disturbances ... ignored, frozen negative: split trace reverses before local regulation
+test regulation_shared_change_surface_closes_first_return ... ignored, frozen negative: shared surface continued without consequence write
+test regulation_unified_homeostatic_surface_returns_from_both_disturbances ... ignored, frozen negative: rest entry fired another action instead of becoming identity
+test trace_checkpoint_replays_the_same_next_comparison ... ok
+test trace_forgets_at_its_declared_physical_lifetime ... ok
+test trace_factored_change_surface_preserves_rise_fall_and_quiet ... ok
+test reconnect_and_replacement_do_not_invent_shared_history ... ok
+test composition_keeps_attached_sensor_memories_independent ... ok
+test trace_spec_rejects_shapes_that_cannot_be_physical_memory ... ok
+test attachment_order_does_not_change_each_sensor_truth_table ... ok
+test calibration_trace_materializes_drive_fall_return_and_zero_identity ... ok
+test trace_initializes_then_reports_only_real_rise_and_fall ... ok
+test attachment_ordinary_physics_assimilates_a_disturbed_sensor_without_a_motor_map ... ok
+test trace_transduction_preserves_the_real_physical_cause ... ok
+test trace_tracks_multiple_thresholds_without_collapsing_them ... ok
+test modality_labels_do_not_change_the_physical_construction ... ok
+test trace_unified_change_surface_preserves_all_threshold_changes ... ok
+test composition_active_work_does_not_follow_dormant_replacements ... ok
+test regulation_parent_reproduces_first_reversal ... ok
+test regulation_body_curried_calibration ... ok
+
+test result: ok. 17 passed; 0 failed; 12 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/spatial_fields.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/spatial_fields-006ba62c90b578d1)
+
+running 5 tests
+test spatial_field_preserves_arrangement_and_repeated_sample ... ok
+test spatial_field_factorization_is_lossless_and_local_at_edges ... ok
+test spatial_field_mapping_commutes_with_local_factorization ... ok
+test spatial_field_rejects_invalid_shape_and_cell_count ... ok
+test spatial_field_transfers_across_value_and_dimension ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wiring.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/wiring-b24be45e5c0ec4b5)
+
+running 4 tests
+test wiring_empty_banks_are_identity ... ok
+test wiring_receptor_and_actuator_banks_preserve_declared_order ... ok
+test wiring_preserves_direct_physical_construction ... ok
+test wiring_one_source_fans_out_without_duplication ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/truelearner_workstation-2816e986d844a411)
+
+running 17 tests
+test harness::tests::effect_transition_uses_only_velocity_and_effort_factors ... ok
+test state::tests::bounded_motion_reports_actual_delta_and_limit ... ok
+test state::tests::equal_opposing_effort_is_visible_without_movement ... ok
+test state::tests::five_fingertips_have_bounded_three_dimensional_positions ... ok
+test harness::tests::retinal_delta_requires_a_changed_bin ... ok
+test harness::tests::every_receptor_is_local_to_one_anatomical_axis ... ok
+test harness::tests::every_control_maps_to_one_axis_and_the_two_directions ... ok
+test harness::tests::each_axis_has_one_distinct_local_outcome_component ... ok
+test harness::tests::proprioceptor_delta_selects_only_changed_active_bins ... ok
+test harness::tests::neutral_proprioception_keeps_every_axis_physically_present ... ok
+test state::tests::independent_eye_and_hand_axes_commute ... ok
+test state::tests::one_axis_changes_only_its_owned_state ... ok
+test checkpoint::tests::version_two_checkpoint_migrates_without_a_focused_organ ... ok
+test checkpoint::tests::version_one_checkpoint_migrates_with_empty_retinal_state ... ok
+test harness::tests::focused_driver_bounds_edge_gaze_and_rejects_corrupt_state ... ok
+test harness::tests::focused_driver_emits_only_actual_receptor_changes ... ok
+test harness::tests::focused_action_projection_is_symmetric_inside_one_palm_component ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+
+     Running tests/focused_vision_body.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/focused_vision_body-1beca24a152e3d09)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/workstation_harness.rs (/tmp/truelearner-calibration-authority-v2-target.XSYAfC/debug/deps/workstation_harness-424d1fe9c3c4c562)
+
+running 4 tests
+test two_eyes_one_hand_and_five_fingertips_have_stable_positions ... ok
+test corrupt_and_invalid_external_values_fail_closed ... ok
+test physical_exploration_returns_only_actual_changed_axes ... ok
+test reads_are_inert_and_checkpoint_restores_the_exact_next_step ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+   Doc-tests truelearner_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests truelearner_embodiment
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests truelearner_workstation
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+real 9.79
+user 12.40
+sys 1.73

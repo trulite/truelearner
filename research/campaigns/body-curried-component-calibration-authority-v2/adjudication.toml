@@ -1,0 +1,45 @@
+schema = "research-adjudication/v1"
+protocol_path = "protocol.toml"
+protocol_sha256 = "6f82cd9c91e2f1af62b23429767c06558375bd5498dc4f82331eca2b376db696"
+evidence_path = "evidence.json"
+evidence_sha256 = "31be13aed1851c09843d0fe2575039d46708788a0e57e78b43be2e4166ded9ce"
+verdict = "positive"
+predicate_results = [
+  "subject identity=passed: clean detached commit cd03892564190d787d8fd8ca0cf0e1289289ff76 and tree 74dea24d6b58280a358f1d46452e227d128a7701 matched before and after",
+  "calibration laws and transfer=passed: five law preflight tests twelve full law and cross-type tests and the physical calibration trace passed",
+  "complete scalar regulation=passed: centered positive centered negative reflected positive reflected negative shifted positive and shifted negative cases all held their body relation with exact replay returned-origin integrity and natural quiescence",
+  "persistent-drive necessity=passed: its removal moved three to two once then remained at unresolved position two",
+  "directional-change necessity=passed: its removal falsely recorded outcome while residual worsened from two to three on minus-three to minus-four movement",
+  "zero-identity necessity=passed: its removal produced action from residual zero while the complete subject remained inert",
+  "body-context necessity=passed: complete calibration terminally held shifted two-through-three while fixed centered context finished exactly [1, 1, 1, 1]",
+  "historical oracle integrity=passed: the unchanged any-window test remained falsified by transient [3, 3, 2, 2] rather than being repaired",
+  "workspace integration=passed: cold bootstrap completed in 9.79 seconds and the second exact warm regression completed in 0.96 seconds",
+  "identifier semantic firewall=passed: positive forbidden-component controls matched, TRACE_CLEAR_PHASE and truelearner_core remained nonmatches, production calibration exposed zero forbidden components and no CalibrationAblation wiring",
+]
+control_results = [
+  "unavailable controls=passed: unavailable body context constructs no normalizer and unavailable observation is not evaluated",
+  "signal honesty=passed: origin incidence availability mapping and parallel composition remained unchanged",
+  "reflected-effect control=passed without a semantic direction map",
+  "worsening-versus-improving control=passed through the complete and directional-removal contrast",
+  "zero identity control=passed through the complete and zero-removal contrast",
+  "terminal-versus-transient control=passed while preserving the falsified predecessor oracle",
+  "core and workspace regression=passed with the same two declared adversarial tests ignored and all runtime attachment embodiment and workstation tests green",
+  "run policy=passed: one valid v2 batch completed in one fresh detached checkout and fresh target with no repair rerun or infrastructure failure",
+  "v1 lineage control=passed: v1 remains separately adjudicated inconclusive and contributed no authority verdict to v2",
+]
+scientific_findings = [
+  "In the declared bounded worlds a body-supplied context can be curried into one value-generic calibration transformation while preserving the physical cause and honest absence.",
+  "Persistent nonzero Sample drive improving-only outcome worsening-change separation and zero identity are jointly sufficient and separately necessary for the declared scalar regulation result.",
+  "The same transformation shape composes over the declared finger five-finger binocular acoustic vocal mixed and held-out spatial values without a modality taxonomy, but those values are type-transfer fixtures rather than evidence of real modality competence.",
+  "This promoted law is the accepted parent for the first real runtime-attached morphology; it does not establish learned norms arbitrary residuals collective multisensor competence pointing grasping clicking typing speech or workstation use.",
+]
+residual_uncertainty = [
+  "Authority is bounded to the exact clean subject, frozen transformation laws, declared cross-type values, and one-dimensional thirty-two-observation scalar regulation fixtures.",
+  "The body relation is supplied locally; autonomous development or revision of that relation has not been tested.",
+  "A real morphology may expose new coupling geometry contact occlusion delay or actuation walls and must localize them without changing this accepted calibration law first.",
+]
+sufficiency = "established"
+integration = "passed"
+adoption = "adopted"
+authority = "promoted"
+authorized_by = "User explicitly instructed on 2026-08-29 to make the body-curried calibration law authoritative before continuing calibration and real morphology work, then confirmed: do it."

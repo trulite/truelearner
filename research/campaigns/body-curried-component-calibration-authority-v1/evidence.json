@@ -1,0 +1,70 @@
+{
+  "schema": "research-evidence/v1",
+  "experiment": "body-curried-component-calibration-authority-v1",
+  "protocol_sha256": "3a5f6b85e20cbd88693b9a0a9b3226abab9eac0c8dc62a650a16c668d863c3f3",
+  "subject_digest": "00f8862a66efacf603cd7d1c97d3a9a87f9ae1cb63de3e47727867c1b3773e89",
+  "producer": "truelearner-embodiment at frozen commit cd03892564190d787d8fd8ca0cf0e1289289ff76",
+  "environment": {
+    "identity": "fresh detached git worktree /tmp/truelearner-calibration-authority.ISWxkW",
+    "subject_commit": "cd03892564190d787d8fd8ca0cf0e1289289ff76",
+    "subject_tree": "74dea24d6b58280a358f1d46452e227d128a7701",
+    "subject_status_lines_before_and_after": 0,
+    "cargo_target": "fresh /tmp/truelearner-calibration-authority-target.ErP06s",
+    "rustc": "1.97.1 (8bab26f4f 2026-07-14)",
+    "host": "aarch64-apple-darwin; Darwin 25.5.0 arm64",
+    "valid_runs": 1,
+    "run_policy": "one valid frozen batch; stopped without repair or rerun when the frozen semantic string audit returned an unexpected match"
+  },
+  "observations": {
+    "subject": {
+      "commit_matched": true,
+      "tree_matched": true,
+      "clean_before": true,
+      "clean_after": true
+    },
+    "calibration_laws_and_transfer": {
+      "law_preflight": "5 passed",
+      "full_laws_and_cross_type_transfer": "12 passed",
+      "physical_trace": "passed"
+    },
+    "complete_regulation": {
+      "six_centered_reflected_and_shifted_cases": "passed",
+      "returned_origins_exact_replay_and_natural_quiescence": "passed"
+    },
+    "downward_necessity": {
+      "remove_persistent_drive": "passed at frozen position-two stall",
+      "remove_directional_change": "passed at frozen false worsening consequence",
+      "remove_zero_identity": "passed at frozen normal-state action",
+      "complete_shifted_terminal_residence": "passed",
+      "remove_body_context_terminal_residence": "passed at final [1, 1, 1, 1] outside shifted [2, 3]",
+      "historical_any_window_context_oracle": "expected failure reproduced with transient [3, 3, 2, 2]"
+    },
+    "integration": {
+      "core_preflight": "17 unit, 67 boundary, and 9 runtime-attachment tests passed; 2 declared adversarial tests ignored",
+      "workspace_regression": "passed",
+      "warm_seconds": 9.94
+    },
+    "semantic_firewall_contract": {
+      "frozen_substring_audit": "stopped the batch",
+      "matches": ["TRACE_CLEAR_PHASE via substring ear", "truelearner_core via substring ear"],
+      "semantic_anatomy_or_evaluator_match_observed": false,
+      "successor_required": true
+    }
+  },
+  "artifacts": [
+    {"path": "artifacts/environment.log", "sha256": "f6a980a24fb5d588827534f15a96bd12ce552e270a2bd18480bc9e4648e3a933"},
+    {"path": "artifacts/batch-status.log", "sha256": "b046a4a8e92d921b2582de8e7dd9e7089e018974687d02b73c2bf6e982275aa5"},
+    {"path": "artifacts/laws-and-transfer.log", "sha256": "4e06e265d813dae7cda14739cd6bdcd16b15a55805b3a64497d329bdb0df12ed"},
+    {"path": "artifacts/physical-calibration-trace.log", "sha256": "bcc02d525892ecb2c82f0ba0a696476bcfc89a2306ed9dc65201e1fe741768a9"},
+    {"path": "artifacts/complete-regulation.log", "sha256": "e3294e8309bfa2897e1b75c0b34899e2bc1918014d473b929d1b4acd287ec03e"},
+    {"path": "artifacts/remove-persistent-drive.log", "sha256": "a9d2d7fdafb9e0e57452a2be4865f3cae2d15b610545443a1e06ba815831daec"},
+    {"path": "artifacts/remove-directional-change.log", "sha256": "65895575e251b4ab5416da1eb0ccc6e4aad7eb498fae2fe53026c3977d6d5147"},
+    {"path": "artifacts/remove-zero-identity.log", "sha256": "3124e4f93fd1464ad693d4ca6b904ecc474f9d5b7134691b6b0c96a864e67c98"},
+    {"path": "artifacts/complete-terminal-context.log", "sha256": "4fc9c5b57a6fb344c260f4e9d4296f6fe044764debcddfab4fdb40b6c1828752"},
+    {"path": "artifacts/remove-body-context-terminal.log", "sha256": "2ad5df5a0c145c2b6191ade59353462ed68fd8c068266b0ef1cdc0a8230d8c7e"},
+    {"path": "artifacts/historical-any-window-context.log", "sha256": "69ba15f7b23028e245e010a0f8f25eb4d1adb3c0877c90de08085c2369f36aad"},
+    {"path": "artifacts/workspace-regression.log", "sha256": "400ac0c0fc272b1f938d8721fc96607c9bc7ea5f10f7215818740b3a5dd1ba85"},
+    {"path": "artifacts/semantic-firewall.log", "sha256": "fb5a083b844a8bd57b5f83ae308391fe072b5e501309766e92a30d69f02cc17c"}
+  ],
+  "completed": true
+}

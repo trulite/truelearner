@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-regulation-and-necessity"
+campaign = "body-curried-component-calibration-authority-v1"
+kind = "composition"
+parents = ["body-curried-component-calibration-v1:runtime-attached-calibrated-regulation", "body-curried-component-calibration-ablation-v1:complete-calibration-reference", "body-context-terminal-residence-v1:terminal-body-context-residence"]
+imports = ["six complete regulation cases", "four single-factor removals", "historical context-oracle counterexample", "terminal context projection"]
+mechanism = "Run the unchanged complete scalar regulator and then reproduce each test-only removal against the same frozen subject."
+prediction = "Complete regulation holds all six relations while every removal reaches its exact distinct wall and the historical any-window oracle remains falsified."
+falsifiers = ["Any complete case fails or loses integrity.", "Any removal survives or changes its wall.", "The historical oracle passes.", "Terminal context does not discriminate the curried body relation."]
+source_revision = "commit:cd03892564190d787d8fd8ca0cf0e1289289ff76"
+protocol_sha256 = "3a5f6b85e20cbd88693b9a0a9b3226abab9eac0c8dc62a650a16c668d863c3f3"
+budget_minutes = 15
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment regulation_body_curried_calibration -- --exact"
+full_evidence = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_persistent_drive -- --ignored --exact; cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_directional_change -- --ignored --exact; cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_zero_identity -- --ignored --exact; cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_terminal_shifted_context_reference -- --ignored --exact; cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_fixed_context_terminal_residence -- --ignored --exact; ! cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-embodiment --test runtime_attachment calibration_ablation_fixed_context -- --ignored --exact"

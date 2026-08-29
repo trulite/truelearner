@@ -1,0 +1,7 @@
+81:                push_link(&mut links, sample, latch, TRACE_CLEAR_PHASE, -lifetime);
+82:                push_link(&mut links, latch, latch, TRACE_CLEAR_PHASE, lifetime);
+91:            push_link(&mut links, rise_output, rise_output, TRACE_CLEAR_PHASE, 3);
+92:            push_link(&mut links, fall_output, fall_output, TRACE_CLEAR_PHASE, 3);
+182:    push_link(links, from, comparison, TRACE_CLEAR_PHASE, -1);
+315:    port: truelearner_core::PhysicalPort,
+324:    port: truelearner_core::PhysicalPort,
