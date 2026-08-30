@@ -1,0 +1,67 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory/receipts/simplify-black-box-world-format-candidate.json",
+    "sha256": "afc387cd41b9175f9ec2dd7d135569412fb46689b455967f2cbd2bebb1ac2f1c"
+  },
+  "verdict": "supported",
+  "independent_test_count": 4,
+  "checks": [
+    {
+      "name": "invalid-reference-control",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-behavior-contract unknown_nearby_motor_fails_before_adapter_construction -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.03
+    },
+    {
+      "name": "held-out-learned-reuse",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary strengthened_path_fires_on_later_input -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.03
+    },
+    {
+      "name": "compact-adapter-compile",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --test behavior_contract --no-run",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.14
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-core --test behavior_contract",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.09
+    }
+  ],
+  "findings": [
+    "The shared world now contains only sensors, motors, nearness, and typed input targets; generic junctions, ports, links, triggers, and motor internals are absent.",
+    "The compact adapter build is a direct motor loop followed by a sensor attachment loop and no longer infers motor structure from thresholds or links.",
+    "All fixed and deterministic shared scenarios pass through the old harness with effects, causes, times, quietness, learned reuse, checkpoint replay, observer purity, construction reversal, distance controls, and dormant sensors preserved.",
+    "All 77 active held-out legacy regressions pass and the same two adversarial tests remain intentionally ignored."
+  ],
+  "residual_uncertainty": [
+    "The compact body retains its previously observed behavioral result: quiet and distant controls pass, while local action formation remains absent and blocks later learning comparisons.",
+    "The old adapter still contains necessarily private legacy placement, region, outcome-source, identity, and trace-normalization details."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/simplify-black-box-world-format.md",
+      "sha256": "f8ab42383655f1c041be4f651d66c33ce07092ce4b081dc5c876fb4a3b1ccbe3"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/behavior-contract/src/model.rs",
+      "sha256": "c4455c6185b27e169e0b9e14b7e9444eb58c564e96c2563ba36423229b297830"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/body/tests/behavior_contract/new_body.rs",
+      "sha256": "112ede7b4762f883092a7fe00a5fc60f9cc47b3a1024d14cd8d1467c5e323d6a"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/core/tests/behavior_contract/legacy.rs",
+      "sha256": "6a855b7cf1997b6770547a62c53f49f50630dc573d41d6a353b78b614a420d4d"
+    }
+  ]
+}

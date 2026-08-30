@@ -1,0 +1,63 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory/receipts/legacy-black-box-behavior-contract-candidate.json",
+    "sha256": "ef4afd6ebdd888c1ab5fc47d5e5d7e5f462c093ccdbd179c4e2ee9e052c78b2c"
+  },
+  "verdict": "supported",
+  "independent_test_count": 3,
+  "checks": [
+    {
+      "name": "dependency-boundary",
+      "command": "cargo tree --manifest-path truelearner/Cargo.toml -p truelearner-behavior-contract --edges normal --depth 1",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.02
+    },
+    {
+      "name": "held-out-learning-law",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-core --test harness_boundary strengthened_path_fires_on_later_input -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "deterministic-controls",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-core --test behavior_contract deterministic_property_variants_run_on_the_old_harness -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.03
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-core --test behavior_contract",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    }
+  ],
+  "findings": [
+    "The shared contract has no normal dependency on either organism implementation; legacy lowering remains private to the core integration test.",
+    "The old harness passes quiet, local action, distant rejection, consequence-driven retained learning, later surface-only reuse, checkpoint replay, observer purity, construction-order, cause, locality, and dormant-part cases.",
+    "The unchanged historical learning law independently confirms that a strengthened path fires from later surface input alone."
+  ],
+  "residual_uncertainty": [
+    "This verifies the old-harness oracle only; behavioral equality with the new body requires a separate adapter running these exact scenarios.",
+    "The initial catalog is a representative learning contract rather than a port of every historical protocol arm.",
+    "Four unrelated Clippy warnings remain in pre-existing dirty production files; the new contract and legacy adapter have independent strict warning gates."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/legacy-black-box-behavior-contract.md",
+      "sha256": "4e0a838f0b7fcf8fd423b8270d7a4cb20e09e107d979fc2f3ec317c212d9ab9c"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/behavior-contract/src/model.rs",
+      "sha256": "196d708f1efbb21d27bbffd61d49c391a3c63bc34930089f31e747bdea5c526b"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/core/tests/behavior_contract/legacy.rs",
+      "sha256": "faa982c25a69b6006741a012397e709f0e6e00d2819f9015655056755fb15d8b"
+    }
+  ]
+}

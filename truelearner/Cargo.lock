@@ -167,12 +167,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "truelearner-behavior-contract"
+version = "0.1.0"
+
+[[package]]
+name = "truelearner-body"
+version = "0.1.0"
+dependencies = [
+ "truelearner-behavior-contract",
+]
+
+[[package]]
+name = "truelearner-checkpoint"
+version = "0.1.0"
+dependencies = [
+ "truelearner-body",
+]
+
+[[package]]
 name = "truelearner-core"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "serde",
  "sha2",
+ "truelearner-behavior-contract",
+ "truelearner-body",
 ]
 
 [[package]]

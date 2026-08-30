@@ -1,0 +1,63 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory/receipts/body-owned-harness-candidate.json",
+    "sha256": "fe0c04a00d0127444058bff5abf7fb8c601cc6dfe989713bf828eac09deb048f"
+  },
+  "verdict": "supported",
+  "independent_test_count": 3,
+  "checks": [
+    {
+      "name": "law-catalog",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --test body_laws -- --list",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.09
+    },
+    {
+      "name": "removed-package",
+      "command": "cargo metadata --manifest-path truelearner/Cargo.toml --no-deps --format-version 1 | jq -e '[.packages[].name] | index(\"truelearner-new-harness\") == null'",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    },
+    {
+      "name": "held-out-body-kernel",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --test body_laws --no-run",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.03
+    }
+  ],
+  "findings": [
+    "The standalone truelearner-new-harness package is absent from workspace metadata and the lockfile.",
+    "All 28 acceptance laws now compile and are discoverable directly under truelearner-body.",
+    "Executing the moved laws preserves the exact pre-move result: 13 passed and the same 15 failed.",
+    "The body-owned harness composes existing public body and attachment operations; attachment.rs and physical laws are unchanged."
+  ],
+  "residual_uncertainty": [
+    "Fifteen body learning laws remain failing exactly as before; this structural simplification intentionally does not repair them.",
+    "The shared black-box scenario harness has not yet been added to the compact body."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/body-owned-harness.md",
+      "sha256": "48db2ae3a60247e176a928dd982c9af129d9a8649d85ed22be8f8319df6411a0"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/body/src/harness.rs",
+      "sha256": "786678a9e6f45479721b45fc4a4065cfc427755f69f0090e8aa6a1772cd69088"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/body/tests/body_laws.rs",
+      "sha256": "dcf4f1e2e1cb53b1efab4325264910b486923d85d18ef16e73c80eb446e34529"
+    }
+  ]
+}

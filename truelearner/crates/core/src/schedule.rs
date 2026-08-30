@@ -1,5 +1,8 @@
 use crate::prelude::*;
+#[cfg(not(feature = "compact-body"))]
 use crate::timing_wheel::TimingWheel;
+#[cfg(feature = "compact-body")]
+use truelearner_body::{MomentKey, QueueWork, Timeline, TimelineItem};
 
 pub(crate) const LOCAL_DECAY_PERIOD: i64 = 10;
 
@@ -111,7 +114,7 @@ impl CausalLineage {
         self.transition_ticks.iter().any(Option::is_some)
     }
 
-    fn memory_bytes(&self) -> usize {
+    pub(crate) fn memory_bytes(&self) -> usize {
         self.origins
             .capacity()
             .saturating_mul(std::mem::size_of::<u64>())
@@ -156,14 +159,38 @@ pub(crate) struct Firing {
     pub(crate) link: Option<(LinkId, Generation)>,
 }
 
-const RING_WIDTH: usize = 64;
+#[cfg(feature = "compact-body")]
+impl TimelineItem for Firing {
+    fn serial(&self) -> u64 {
+        self.serial
+    }
+
+    fn retained_bytes(&self) -> usize {
+        self.causal_lineage
+            .as_ref()
+            .map_or(0, CausalLineage::memory_bytes)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg(not(feature = "compact-body"))]
 pub(super) struct Schedule(TimingWheel);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg(feature = "compact-body")]
+pub(super) struct Schedule(Timeline<Firing>);
 
 impl Schedule {
     pub(super) fn new(head_tick: i64) -> Self {
-        Self(TimingWheel::new(head_tick, RING_WIDTH))
+        #[cfg(not(feature = "compact-body"))]
+        {
+            const RING_WIDTH: usize = 64;
+            return Self(TimingWheel::new(head_tick, RING_WIDTH));
+        }
+        #[cfg(feature = "compact-body")]
+        {
+            Self(Timeline::new(head_tick))
+        }
     }
 
     pub(super) fn is_empty(&self) -> bool {
@@ -173,15 +200,36 @@ impl Schedule {
     pub(super) fn push(&mut self, firing: Firing, cost: &mut ExecutionCost) {
         cost.queue_ops = cost.queue_ops.saturating_add(1);
         cost.touch::<Firing>(1);
+        #[cfg(not(feature = "compact-body"))]
         self.0.push(firing, cost);
+        #[cfg(feature = "compact-body")]
+        {
+            let moment = MomentKey::new(firing.arrival_tick, firing.phase, firing.causal_wave);
+            let mut work = QueueWork::default();
+            self.0.push(moment, firing, &mut work);
+            account_queue_work(cost, work);
+        }
     }
 
     pub(super) fn next_wave(&mut self, cost: &mut ExecutionCost) -> Option<Vec<Firing>> {
-        self.0.pop_next_wave(cost)
+        #[cfg(not(feature = "compact-body"))]
+        {
+            return self.0.pop_next_wave(cost);
+        }
+        #[cfg(feature = "compact-body")]
+        {
+            let mut work = QueueWork::default();
+            let wave = self.0.pop(&mut work).map(|(_, wave)| wave);
+            account_queue_work(cost, work);
+            wave
+        }
     }
 
     pub(super) fn canonical(&self) -> Vec<Firing> {
+        #[cfg(not(feature = "compact-body"))]
         let mut firings: Vec<_> = self.0.firings().cloned().collect();
+        #[cfg(feature = "compact-body")]
+        let mut firings: Vec<_> = self.0.values().cloned().collect();
         firings.sort_by_key(canonical_storage_key);
         firings
     }
@@ -196,14 +244,29 @@ impl Schedule {
     }
 
     pub(super) fn memory_bytes(&self) -> usize {
+        #[cfg(not(feature = "compact-body"))]
+        let firings = self.0.firings();
+        #[cfg(feature = "compact-body")]
+        let firings = self.0.values();
         self.0.memory_bytes().saturating_add(
-            self.0
-                .firings()
+            firings
                 .filter_map(|firing| firing.causal_lineage.as_ref())
                 .map(CausalLineage::memory_bytes)
                 .sum::<usize>(),
         )
     }
+}
+
+#[cfg(feature = "compact-body")]
+fn account_queue_work(cost: &mut ExecutionCost, work: QueueWork) {
+    cost.allocations = cost.allocations.saturating_add(work.allocations);
+    cost.scans = cost.scans.saturating_add(work.scans);
+    cost.comparisons = cost.comparisons.saturating_add(work.comparisons);
+    cost.timing_wheel_bucket_selection_comparisons = cost
+        .timing_wheel_bucket_selection_comparisons
+        .saturating_add(work.comparisons);
+    let touched = usize::try_from(work.touched_items).unwrap_or(usize::MAX);
+    cost.touch::<Firing>(touched);
 }
 
 fn canonical_storage_key(firing: &Firing) -> (i64, i32, u64, u64, u64, u64) {
@@ -216,4 +279,17 @@ fn canonical_storage_key(firing: &Firing) -> (i64, i32, u64, u64, u64, u64) {
         firing.target.0,
         firing.serial,
     )
+}
+
+#[cfg(all(test, feature = "compact-body"))]
+mod compact_backend_tests {
+    use super::*;
+
+    #[test]
+    fn harness_frontiers_are_owned_by_truelearner_body() {
+        fn require_body_timeline(_: &Timeline<Firing>) {}
+
+        let schedule = Schedule::new(0);
+        require_body_timeline(&schedule.0);
+    }
 }

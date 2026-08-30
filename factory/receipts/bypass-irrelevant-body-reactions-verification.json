@@ -1,0 +1,86 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory/receipts/bypass-irrelevant-body-reactions-candidate.json",
+    "sha256": "6e5a56736ea6f01d860dd763f98cd9d194c95720aef4ffda45bbca6f99639b77"
+  },
+  "verdict": "supported",
+  "independent_test_count": 7,
+  "checks": [
+    {
+      "name": "no-whole-scratch-move-control",
+      "command": "test -z \"$(rg 'mem::take\\(&mut self\\.activity\\.reaction\\)' truelearner/crates/body/src/engine.rs)\"",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "single-participant-classification-control",
+      "command": "test \"$(rg -c 'participants_from\\(meeting\\.first\\)' truelearner/crates/body/src/engine.rs)\" -eq 1",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "relevance-boundary-control",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --lib reaction_workspace",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.11
+    },
+    {
+      "name": "old-black-box-control",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-core --test behavior_contract",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.06
+    },
+    {
+      "name": "new-black-box-control",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --test behavior_contract",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.04
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --lib --test engine --test attachment --test calibration --test physics --test behavior_contract",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.06
+    },
+    {
+      "name": "performance-controls",
+      "command": "cargo run --release --quiet --manifest-path truelearner/Cargo.toml -p truelearner-body --example engine_cost && cargo run --release --quiet --manifest-path truelearner/Cargo.toml -p truelearner-body --example link_cost",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 3.2
+    }
+  ],
+  "findings": [
+    "Each changed meeting now classifies its participant chain once and carries boundary and completed-path information in MomentChange.",
+    "Inert boundary and ordinary drive moments bypass react_into and leave ReactionScratch untouched; learning-bearing and ambiguous moments retain the full reaction path.",
+    "ReactionView separates immutable arena, link-memory, and live-return borrows from mutable activity scratch, so the whole ReactionScratch is no longer moved or replaced.",
+    "Fresh release samples no longer contain react_into or ReactionScratch drop glue on the primitive or ordinary-link common paths.",
+    "The old black-box contract passed 3 of 3 tests, the compact-body contract passed 6 of 6 tests, and checkpoint passed 9 of 9 tests.",
+    "The known advanced body-law boundary remained exactly 17 passing and 11 failing tests, with no regression among previously passing laws.",
+    "The independent primitive-wave median was 22.35 ns versus 40.01 ns before this change, and active propagation was 23.91 ns per link versus 35.17 ns."
+  ],
+  "residual_uncertainty": [
+    "The relevance predicate deliberately over-approximates uncertain boundary structure, so some ultimately empty structured moments may still enter reaction construction; learning-heavy reaction cost is unchanged and is not represented by these two common-path benchmarks."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/bypass-irrelevant-body-reactions.md",
+      "sha256": "aca62d721f9cdc76be49ad8591603f16c8686f0b0c49a72aab800531b697e27d"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/body/src/core.rs",
+      "sha256": "1d145a53a997cb2210d08e67f5511cee2d4b5245f0e75b14445db1c56eecd120"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/body/src/engine.rs",
+      "sha256": "8a14408f62ac6129570954c02cd19e7b3dda53694aeee162beaab85354ffa775"
+    }
+  ]
+}

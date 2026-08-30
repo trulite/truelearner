@@ -1,0 +1,50 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory/receipts/minimal-new-body-adapter-build-candidate.json",
+    "sha256": "07ce5ea5e2bf88671244d402d0310d450391f2d588cb5f093517f20198bf96b4"
+  },
+  "verdict": "supported",
+  "independent_test_count": 3,
+  "checks": [
+    {
+      "name": "shared-contract",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-behavior-contract",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.08
+    },
+    {
+      "name": "strict-adapter-lint",
+      "command": "cargo clippy --manifest-path truelearner/Cargo.toml -p truelearner-body --test behavior_contract -- -D warnings",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.09
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-core --test behavior_contract",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.07
+    }
+  ],
+  "findings": [
+    "NewBodyAdapter::build now only creates an empty organism, attaches declared motors, attaches declared sensors, and returns the organism.",
+    "Sensor, motor-opportunity, and outward-effect translations are isolated in a private Handles record and populated only by NewOrganism attachment methods.",
+    "The shared contract remains valid, the compact adapter compiles without warnings, and all fixed and deterministic old-body black-box scenarios still pass."
+  ],
+  "residual_uncertainty": [
+    "The compact body's previously recorded missing local outward effect remains outside this behavior-preserving adapter refactor."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/minimal-new-body-adapter-build.md",
+      "sha256": "74f54a51e3ddc0343a8b030719a3b3345b9ff7a6b5a2e572e11b7f63ea36b970"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/body/tests/behavior_contract/new_body.rs",
+      "sha256": "c8586684825aeb73aee2f39d041d46c82ef5e9031ee9e68b88ae006dc4a07808"
+    }
+  ]
+}

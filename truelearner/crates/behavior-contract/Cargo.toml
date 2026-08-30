@@ -1,0 +1,9 @@
+[package]
+name = "truelearner-behavior-contract"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Implementation-neutral physical organism behavior contract"
+
+[lib]
+path = "src/lib.rs"

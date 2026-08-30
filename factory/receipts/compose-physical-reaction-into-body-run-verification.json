@@ -1,0 +1,76 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "/Users/satya/work/br/truelearner-core0/factory/receipts/compose-physical-reaction-into-body-run-candidate.json",
+    "sha256": "1c6e92df40a3a0f4a3b55bed4f98745c389d08377e255927c12a567176b9a83e"
+  },
+  "verdict": "supported",
+  "independent_test_count": 5,
+  "checks": [
+    {
+      "name": "nearby-action-rung",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --test body_laws one_connected_world_chooses_exactly_one_action -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.06
+    },
+    {
+      "name": "observer-purity-control",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --test body_laws observing_events_cannot_change_the_body -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "distance-control",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --test body_laws formation_is_local_and_does_not_cross_distance_three -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.01
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-body --lib --test engine --test attachment --test calibration --test physics",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.06
+    },
+    {
+      "name": "wave-benchmark",
+      "command": "cargo run --release --quiet --manifest-path truelearner/Cargo.toml -p truelearner-body --example engine_cost",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 2.2
+    }
+  ],
+  "findings": [
+    "Normal Body::step execution now derives one reaction from the retained physical moment and applies its edits after ordinary transmission and before releasing the moment.",
+    "All six shared scenarios pass through the new adapter unchanged: quiet, local action, distance rejection, learned reuse, checkpoint replay, and deterministic variants.",
+    "The old black-box oracle, kernel, attachment, calibration, observer-purity, distance, and checkpoint controls remain green.",
+    "The broader unchanged body-law frontier improved from 13 passing and 15 failing to 17 passing and 11 failing; no previously passing law regressed.",
+    "On this host, the warmed primitive-wave benchmark measured 42.83 ns minimum, 43.67 ns median, and 44.20 ns maximum across nine samples of five million waves."
+  ],
+  "residual_uncertainty": [
+    "The primitive-wave benchmark measures admitting one input and running one single-junction physical moment; it does not measure a learned action wave or a large learned body.",
+    "Eleven unchanged higher laws still fail around connected competition, outcome availability, and recursive membership, so the result supports the shared adapter contract but not complete compact-body equivalence.",
+    "Live-return discovery currently scans link memory when evaluating a possible consequence; large learned-body scaling remains unverified."
+  ],
+  "artifacts": [
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/plans/compose-physical-reaction-into-body-run.md",
+      "sha256": "58fbb5e90245ca8da0c95c062c0d5724b32266568707ff9b46cec1e5273b3a66"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/body/src/core.rs",
+      "sha256": "024ece56d981d1d93b68ef6a1bee909a7285fcecfbff9c91f93ac0d7cee3b598"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/body/src/engine.rs",
+      "sha256": "f9f3829890d1a5a71fdd4028ff792c360719068185514928b835db2aba83d3fe"
+    },
+    {
+      "path": "/Users/satya/work/br/truelearner-core0/truelearner/crates/body/src/physics.rs",
+      "sha256": "a9c769805ef77072ade9c9fbdc963e3f029d35c697dbde36e226bb917bb1c89f"
+    }
+  ]
+}

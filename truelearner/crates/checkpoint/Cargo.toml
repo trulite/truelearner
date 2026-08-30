@@ -1,0 +1,9 @@
+[package]
+name = "truelearner-checkpoint"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "External quiet-body checkpoint service"
+
+[dependencies]
+truelearner-body = { path = "../body" }

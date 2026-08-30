@@ -1,0 +1,12 @@
+[package]
+name = "truelearner-body"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Small physical body engine"
+
+[lib]
+path = "src/lib.rs"
+
+[dev-dependencies]
+truelearner-behavior-contract = { path = "../behavior-contract" }

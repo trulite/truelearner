@@ -20,6 +20,7 @@ mod reuse;
 mod schedule;
 mod snapshot;
 mod strength;
+#[cfg(not(feature = "compact-body"))]
 mod timing_wheel;
 mod trace;
 
