@@ -1,4 +1,4 @@
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 //! A bounded visual-touch workstation body around the public TrueLearner Harness.
 
 mod checkpoint;
@@ -30,6 +30,7 @@ pub enum WorkstationError {
     InvalidCheckpoint,
     CheckpointChecksum,
     TrailingCheckpointBytes,
+    CheckpointIo,
     UnknownOutput(u64),
     Body(String),
 }
@@ -65,6 +66,7 @@ impl fmt::Display for WorkstationError {
             Self::TrailingCheckpointBytes => {
                 formatter.write_str("workstation checkpoint has trailing bytes")
             }
+            Self::CheckpointIo => formatter.write_str("workstation checkpoint file I/O failed"),
             Self::UnknownOutput(physical) => {
                 write!(formatter, "unknown outward physical output {physical}")
             }

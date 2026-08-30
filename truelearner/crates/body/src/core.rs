@@ -9,6 +9,7 @@ use crate::{
     },
     Body, BuildError, Impulse, Junction, JunctionId, Link, LinkId, RunError, Time, Trigger,
 };
+use serde::{Deserialize, Serialize};
 use std::{
     cmp::Reverse,
     collections::{BTreeSet, HashMap},
@@ -167,7 +168,7 @@ impl From<NewLink> for LinkRef {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LinkRole {
     #[default]
     Drive,
@@ -197,6 +198,11 @@ pub enum LinkChange {
     RememberOutcome {
         at: Time,
         available_until_choice: bool,
+    },
+    LearnOutcome {
+        at: Time,
+        available_until_choice: bool,
+        strength: i32,
     },
     ConsumeOutcome,
     Strengthen {
@@ -936,7 +942,12 @@ fn record_returned_outcomes<T: TraceSink>(
             continue;
         }
 
-        let selected = select_live_return(body, fact.event.junction, fact.event.cause);
+        let selected = scan_live_returns(body, fact.event.junction, fact.event.cause, |link| {
+            change.push(Edit::ChangeLink {
+                link: link.into(),
+                change: LinkChange::Retire,
+            });
+        });
         let decision = match selected.selected {
             Some(returned) if returned.opened_at <= fact.event.at => ReturnDecision::Accepted,
             Some(_) => ReturnDecision::BeforeReturnOpened,
@@ -963,25 +974,11 @@ fn record_returned_outcomes<T: TraceSink>(
             for link in returned.path.links() {
                 change.push(Edit::ChangeLink {
                     link: link.into(),
-                    change: LinkChange::RememberOutcome {
+                    change: LinkChange::LearnOutcome {
                         at: fact.event.at,
                         available_until_choice: true,
+                        strength: 1,
                     },
-                });
-                change.push(Edit::ChangeLink {
-                    link: link.into(),
-                    change: LinkChange::Strengthen { amount: 1 },
-                });
-            }
-        }
-        for entry in body.live_returns {
-            let Some(returned) = open_return(body, *entry) else {
-                continue;
-            };
-            if return_is_connected(body, fact.event.junction, returned) {
-                change.push(Edit::ChangeLink {
-                    link: entry.link.into(),
-                    change: LinkChange::Retire,
                 });
             }
         }
@@ -1002,7 +999,12 @@ struct ReturnSelection {
     exact_total: usize,
 }
 
-fn select_live_return(body: ReactionView<'_>, source: JunctionId, cause: Cause) -> ReturnSelection {
+fn scan_live_returns(
+    body: ReactionView<'_>,
+    source: JunctionId,
+    cause: Cause,
+    mut retire: impl FnMut(LinkId),
+) -> ReturnSelection {
     let mut only = None;
     let mut total = 0_usize;
     let mut exact = None;
@@ -1014,6 +1016,7 @@ fn select_live_return(body: ReactionView<'_>, source: JunctionId, cause: Cause) 
         if !return_is_connected(body, source, returned) {
             continue;
         }
+        retire(entry.link);
         total += 1;
         only = Some(returned);
         if returned.cause == cause {
@@ -1853,7 +1856,7 @@ impl ReturnEntry {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct LinkMemory {
     pub(crate) live: bool,
     pub(crate) transmitted: bool,
@@ -1907,6 +1910,23 @@ pub struct Applied {
 }
 
 impl Body {
+    pub(crate) fn rebuild_live_returns(&mut self) {
+        self.live_returns.clear();
+        for (slot, memory) in self.link_memory.iter().enumerate() {
+            let LinkRole::Return { cause, .. } = memory.role else {
+                continue;
+            };
+            if !memory.live {
+                continue;
+            }
+            self.live_returns.push(ReturnEntry {
+                cause,
+                link: LinkId::new(slot).expect("validated checkpoint link identity"),
+            });
+        }
+        self.live_returns.sort_unstable();
+    }
+
     fn insert_live_return(&mut self, link: LinkId, role: LinkRole) {
         let LinkRole::Return { cause, .. } = role else {
             return;
@@ -2078,6 +2098,25 @@ impl Body {
                         } => {
                             memory.outcome_at = Some(at);
                             memory.outcome_available = available_until_choice;
+                        }
+                        LinkChange::LearnOutcome {
+                            at,
+                            available_until_choice,
+                            strength,
+                        } => {
+                            memory.outcome_at = Some(at);
+                            memory.outcome_available = available_until_choice;
+                            let before = memory.strength;
+                            let after = before.saturating_add(i64::from(strength));
+                            memory.strength = after;
+                            if T::ENABLED {
+                                trace.record(TraceEvent::Strengthened(StrengthTrace {
+                                    at,
+                                    link,
+                                    before,
+                                    after,
+                                }));
+                            }
                         }
                         LinkChange::ConsumeOutcome => memory.outcome_available = false,
                         LinkChange::Strengthen { amount } => {

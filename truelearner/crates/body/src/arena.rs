@@ -11,6 +11,18 @@ pub(crate) struct LinkSlot {
     pub(crate) impulse: Impulse,
 }
 
+impl LinkSlot {
+    pub(crate) const fn checkpoint_law(self) -> Link {
+        Link {
+            from: self.from,
+            to: self.to,
+            delay: self.delay,
+            impulse: self.impulse,
+            trigger: self.trigger,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Arena {
     junctions: Vec<JunctionSlot>,
@@ -28,6 +40,14 @@ impl Arena {
 
     pub(crate) fn link_count(&self) -> usize {
         self.links.len()
+    }
+
+    pub(crate) fn junctions(&self) -> impl Iterator<Item = &JunctionSlot> {
+        self.junctions.iter()
+    }
+
+    pub(crate) fn links(&self) -> impl Iterator<Item = &LinkSlot> {
+        self.links.iter()
     }
 
     pub(crate) fn reserve(&mut self, junctions: usize, links: usize) {

@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
 pub type Time = u64;
 pub type Impulse = i32;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct JunctionId(NonZeroU32);
 
 impl JunctionId {
@@ -20,7 +21,7 @@ impl JunctionId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct LinkId(NonZeroU32);
 
 impl LinkId {
@@ -37,13 +38,13 @@ impl LinkId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Retention {
     Integrating,
     Sampled { lifetime: Time },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Junction {
     pub threshold: Impulse,
     pub retention: Retention,
@@ -65,14 +66,14 @@ impl Junction {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Trigger {
     SourceFires,
     RisesThrough(Impulse),
     FallsThrough(Impulse),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Link {
     pub from: JunctionId,
     pub to: JunctionId,
@@ -211,6 +212,28 @@ impl JunctionSlot {
 
     pub(crate) const fn held(self) -> Impulse {
         self.value
+    }
+
+    pub(crate) const fn checkpoint_law(self) -> Junction {
+        Junction {
+            threshold: self.threshold,
+            retention: match self.retention {
+                RetentionTag::Integrating => Retention::Integrating,
+                RetentionTag::Sampled => Retention::Sampled {
+                    lifetime: self.lifetime,
+                },
+            },
+        }
+    }
+
+    pub(crate) const fn checkpoint_state(self) -> (Time, Impulse, bool) {
+        (self.stamp, self.value, self.sampled_known)
+    }
+
+    pub(crate) fn restore_state(&mut self, stamp: Time, value: Impulse, sampled_known: bool) {
+        self.stamp = stamp;
+        self.value = value;
+        self.sampled_known = sampled_known;
     }
 
     pub(crate) fn clear(&mut self) {

@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use truelearner_body::{
     harness::{attach_outcome_component, attach_sensor, motor},
-    Arrival, Body, Junction, JunctionId, Run, TraceEvent as BodyTraceEvent, Work,
+    Arrival, Body, BodyCheckpoint, BodyCheckpointError, Junction, JunctionId, Run,
+    TraceEvent as BodyTraceEvent, Work,
 };
 
 const CONTROL_COUNT: usize = AXIS_COUNT * 2;
@@ -24,14 +25,96 @@ const SENSOR_PRIME: i32 = i32::MIN;
 const OUTCOME_COMPONENTS: usize = 3;
 const MOMENT_LIMIT: usize = 512;
 
-#[derive(Clone, Debug)]
-struct Handles {
-    vision: [Vec<JunctionId>; 2],
-    contacts: [[JunctionId; CONTACT_FIELDS]; TOUCH_SITES],
-    proprioception: [[JunctionId; PROPRIOCEPTIVE_FIELDS]; AXIS_COUNT],
-    outcomes: [JunctionId; OUTCOME_COMPONENTS],
-    opportunities: Vec<JunctionId>,
-    outward: Vec<(JunctionId, BodyControl)>,
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct Handles {
+    pub(crate) vision: [Vec<JunctionId>; 2],
+    pub(crate) contacts: [[JunctionId; CONTACT_FIELDS]; TOUCH_SITES],
+    pub(crate) proprioception: [[JunctionId; PROPRIOCEPTIVE_FIELDS]; AXIS_COUNT],
+    pub(crate) outcomes: [JunctionId; OUTCOME_COMPONENTS],
+    pub(crate) opportunities: Vec<JunctionId>,
+    #[serde(with = "outward_checkpoint")]
+    pub(crate) outward: Vec<(JunctionId, BodyControl)>,
+}
+
+impl Handles {
+    fn valid_for(&self, body: &Body) -> bool {
+        if self
+            .vision
+            .iter()
+            .any(|receptors| receptors.len() != RECEPTORS_PER_EYE)
+            || self.opportunities.len() != CONTROL_COUNT
+            || self.outward.len() != CONTROL_COUNT
+        {
+            return false;
+        }
+        let controls_are_canonical = self
+            .outward
+            .iter()
+            .map(|(_, body_control)| *body_control)
+            .eq(BodyAxis::ALL.into_iter().flat_map(|axis| {
+                [Direction::Decrease, Direction::Increase]
+                    .into_iter()
+                    .map(move |direction| control(axis, direction))
+            }));
+        controls_are_canonical
+            && self
+                .vision
+                .iter()
+                .flatten()
+                .chain(self.contacts.iter().flatten())
+                .chain(self.proprioception.iter().flatten())
+                .chain(&self.outcomes)
+                .chain(&self.opportunities)
+                .chain(self.outward.iter().map(|(junction, _)| junction))
+                .all(|junction| body.held(*junction).is_some())
+    }
+}
+
+mod outward_checkpoint {
+    use super::{control, BodyAxis, BodyControl, Direction, JunctionId, CONTROL_COUNT};
+    use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(
+        outward: &[(JunctionId, BodyControl)],
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        outward
+            .iter()
+            .map(|(junction, body_control)| {
+                let axis = body_control.axis().index();
+                let direction = usize::from(body_control.direction() == Direction::Increase);
+                (
+                    *junction,
+                    u16::try_from(axis * 2 + direction).unwrap_or(u16::MAX),
+                )
+            })
+            .collect::<Vec<_>>()
+            .serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<(JunctionId, BodyControl)>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Vec::<(JunctionId, u16)>::deserialize(deserializer)?
+            .into_iter()
+            .map(|(junction, encoded)| {
+                let encoded = usize::from(encoded);
+                if encoded >= CONTROL_COUNT {
+                    return Err(D::Error::custom("invalid checkpoint body control"));
+                }
+                let direction = if encoded % 2 == 0 {
+                    Direction::Decrease
+                } else {
+                    Direction::Increase
+                };
+                Ok((junction, control(BodyAxis::ALL[encoded / 2], direction)))
+            })
+            .collect()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -381,16 +464,39 @@ impl WorkstationHarness {
         if !self.body.is_quiet() {
             return Err(WorkstationError::InvalidCheckpoint);
         }
-        Ok(WorkstationCheckpoint::new(self.history.clone()))
+        let body = self
+            .body
+            .checkpoint()
+            .and_then(|checkpoint| checkpoint.canonical_bytes())
+            .map_err(body_checkpoint_error)?;
+        Ok(WorkstationCheckpoint::new(
+            body,
+            self.handles.clone(),
+            self.state.clone(),
+            self.sequence,
+            self.physical_tick,
+            self.pending_transitions,
+            self.history.clone(),
+        ))
     }
 
     pub fn restore(checkpoint: WorkstationCheckpoint) -> Result<Self, WorkstationError> {
-        let history = checkpoint.into_history();
-        let mut harness = Self::fresh()?;
-        for sample in history {
-            harness.step_in_place(sample)?;
+        let payload = checkpoint.open();
+        let body = BodyCheckpoint::decode(&payload.body)
+            .and_then(BodyCheckpoint::restore)
+            .map_err(body_checkpoint_error)?;
+        if !payload.handles.valid_for(&body) {
+            return Err(WorkstationError::InvalidCheckpoint);
         }
-        Ok(harness)
+        Ok(Self {
+            body,
+            handles: payload.handles,
+            state: payload.state,
+            sequence: payload.sequence,
+            physical_tick: payload.physical_tick,
+            pending_transitions: payload.pending_transitions,
+            history: payload.history,
+        })
     }
 
     fn pending_axes(&self) -> Vec<BodyAxis> {
@@ -460,6 +566,10 @@ const fn total_work(work: Work) -> u64 {
 
 fn body_error(error: truelearner_body::RunError) -> WorkstationError {
     WorkstationError::Body(format!("{error:?}"))
+}
+
+fn body_checkpoint_error(error: BodyCheckpointError) -> WorkstationError {
+    WorkstationError::Body(error.to_string())
 }
 
 fn attach_sampled_sensor(

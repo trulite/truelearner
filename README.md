@@ -18,7 +18,7 @@ evaluator knowledge never enters the organism.
 - `truelearner-body`: the organism, physical propagation, choice, return, and
   link memory.
 - `truelearner-workstation`: physical attachment, external state, observation,
-  and checkpoint replay.
+  and direct checkpoint restore.
 - `truelearner-behavior-contract`: shared black-box scenarios used to verify
   behavior independently of an adapter.
 

@@ -300,6 +300,11 @@ impl Body {
         self.activity.pending.now
     }
 
+    pub(crate) fn restore_checkpoint_time(&mut self, now: Time) {
+        debug_assert!(self.is_quiet());
+        self.activity.pending.now = now;
+    }
+
     pub(crate) fn prepare_attachment(&mut self, junctions: usize, at: Time) {
         debug_assert!(self.is_quiet());
         self.activity.pending.now = at;

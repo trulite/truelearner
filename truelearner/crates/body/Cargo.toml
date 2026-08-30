@@ -8,5 +8,10 @@ description = "Small physical body engine"
 [lib]
 path = "src/lib.rs"
 
+[dependencies]
+bincode = "1"
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+
 [dev-dependencies]
 truelearner-behavior-contract = { path = "../behavior-contract" }

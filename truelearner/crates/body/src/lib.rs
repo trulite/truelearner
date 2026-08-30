@@ -3,6 +3,7 @@
 mod arena;
 mod attachment;
 mod calibration;
+mod checkpoint;
 pub mod core;
 mod engine;
 pub mod harness;
@@ -14,6 +15,7 @@ pub use crate::attachment::{
     attach, AttachError, AttachFailure, Attachment, Join, OpenBody, OpenBodyError, Port,
 };
 pub use crate::calibration::{calibrate, Normalizer, Residual};
+pub use crate::checkpoint::{BodyCheckpoint, BodyCheckpointError};
 pub use crate::core::*;
 pub use crate::engine::Body;
 pub use crate::physics::{
