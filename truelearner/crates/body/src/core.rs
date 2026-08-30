@@ -973,18 +973,6 @@ fn record_returned_outcomes<T: TraceSink>(
                     change: LinkChange::Strengthen { amount: 1 },
                 });
             }
-            let witness = change.new_link();
-            change.push(Edit::AddLink {
-                new: witness,
-                from: fact.event.junction.into(),
-                to: returned.path.middle.into(),
-                spec: LinkSpec {
-                    delay: 0,
-                    impulse: 0,
-                    trigger: Trigger::SourceFires,
-                    role: LinkRole::OutcomeWitness,
-                },
-            });
         }
         for entry in body.live_returns {
             let Some(returned) = open_return(body, *entry) else {
@@ -2267,6 +2255,10 @@ fn unique_latest<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::harness::{
+        attach_outcome_component, attach_sensor, finish, motor, reading, schedule,
+    };
+    use crate::Arrival;
 
     fn membership(body: &mut Body, parent: JunctionId, member: JunctionId) {
         let link = body.add_link(Link::new(parent, member, 0, 1)).unwrap();
@@ -2385,5 +2377,29 @@ mod tests {
                 link: third,
             }]
         );
+    }
+
+    #[test]
+    fn accepted_return_updates_memory_without_growing_morphology() {
+        let mut body = Body::default();
+        let motor = motor(&mut body);
+        let sensor = attach_sensor(
+            &mut body,
+            Junction::integrating(1),
+            &[(motor.opportunity, 1)],
+        );
+        let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+        attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+        schedule(&mut body, 0, &[reading(outcome, 0, 0, 0)]);
+        finish(&mut body);
+        schedule(&mut body, 1, &[reading(sensor, 0, 1, 1)]);
+        schedule(&mut body, 2, &[Arrival::caused(motor.opportunity, 1, 1)]);
+        finish(&mut body);
+
+        let links_before_return = body.arena.link_count();
+        schedule(&mut body, 20, &[Arrival::caused(outcome, 1, 2)]);
+        finish(&mut body);
+
+        assert_eq!(body.arena.link_count(), links_before_return);
     }
 }
