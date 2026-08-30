@@ -1,7 +1,8 @@
 use std::convert::Infallible;
 use truelearner_behavior_contract::{
     run_scenario, scenarios, Adapter, BehaviorMismatch, ContractError, Episode, Expected,
-    Morphology, MotorId, Observation, OutcomeComponent, Scenario, SensorId, Step, ValidationError,
+    Morphology, MotorId, Observation, OutcomeComponent, Retention, Scenario, Sensor, SensorId,
+    Step, ValidationError,
 };
 
 #[derive(Clone)]
@@ -147,4 +148,21 @@ fn product_and_release_scenarios_are_valid_shared_data() {
         .validate()
         .unwrap();
     scenarios::unanswered_output_releases().validate().unwrap();
+}
+
+#[test]
+fn sampled_range_is_validated_as_sensor_morphology() {
+    let mut scenario = scenarios::quiet();
+    scenario.morphology.sensors.push(Sensor {
+        id: SensorId(1),
+        retention: Retention::Sampled {
+            lifetime: 1,
+            range: 0,
+        },
+    });
+
+    assert_eq!(
+        scenario.validate(),
+        Err(ValidationError::InvalidRange(SensorId(1)))
+    );
 }

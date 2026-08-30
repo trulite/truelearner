@@ -22,6 +22,9 @@ const SENSOR_COUNT: usize =
     VISUAL_SENSOR_COUNT + TOUCH_SITES * CONTACT_FIELDS + AXIS_COUNT * PROPRIOCEPTIVE_FIELDS;
 const SENSOR_LIFETIME: u64 = u64::MAX;
 const SENSOR_PRIME: i32 = i32::MIN;
+const LIGHT_RANGE: u32 = u8::MAX as u32;
+const BODY_RANGE: u32 = BODY_MAX as u32;
+const SIGNED_BODY_RANGE: u32 = BODY_RANGE * 2;
 const OUTCOME_COMPONENTS: usize = 3;
 const MOMENT_LIMIT: usize = 512;
 
@@ -224,17 +227,27 @@ impl WorkstationHarness {
             (0..RECEPTORS_PER_EYE)
                 .map(|receptor| {
                     let nearby = eye_nearness(&opportunities, eye, receptor);
-                    attach_sampled_sensor(&mut body, &nearby, &mut prime)
+                    attach_sampled_sensor(&mut body, LIGHT_RANGE, &nearby, &mut prime)
                 })
                 .collect()
         });
         let contacts = std::array::from_fn(|site| {
             let nearby = contact_nearness(&opportunities, site);
-            std::array::from_fn(|_| attach_sampled_sensor(&mut body, &nearby, &mut prime))
+            [
+                attach_sampled_sensor(&mut body, BODY_RANGE, &nearby, &mut prime),
+                attach_sampled_sensor(&mut body, SIGNED_BODY_RANGE, &nearby, &mut prime),
+            ]
         });
         let proprioception = BodyAxis::ALL.map(|axis| {
             let nearby = axis_nearness(&opportunities, axis);
-            std::array::from_fn(|_| attach_sampled_sensor(&mut body, &nearby, &mut prime))
+            [
+                attach_sampled_sensor(&mut body, axis_range(axis), &nearby, &mut prime),
+                attach_sampled_sensor(&mut body, axis_range(axis), &nearby, &mut prime),
+                attach_sampled_sensor(&mut body, BODY_RANGE, &nearby, &mut prime),
+                attach_sampled_sensor(&mut body, BODY_RANGE, &nearby, &mut prime),
+                attach_sampled_sensor(&mut body, 1, &nearby, &mut prime),
+                attach_sampled_sensor(&mut body, 1, &nearby, &mut prime),
+            ]
         });
         let outcomes =
             std::array::from_fn(|_| attach_sensor(&mut body, Junction::integrating(1), &[]));
@@ -576,12 +589,20 @@ fn body_checkpoint_error(error: BodyCheckpointError) -> WorkstationError {
 
 fn attach_sampled_sensor(
     body: &mut Body,
+    range: u32,
     nearby: &[(JunctionId, u64)],
     prime: &mut Vec<Arrival>,
 ) -> JunctionId {
-    let sensor = attach_sensor(body, Junction::sampled(SENSOR_LIFETIME), nearby);
+    let sensor = attach_sensor(body, Junction::sampled_in(SENSOR_LIFETIME, range), nearby);
     prime.push(Arrival::new(sensor, SENSOR_PRIME));
     sensor
+}
+
+const fn axis_range(axis: BodyAxis) -> u32 {
+    match axis {
+        BodyAxis::Wrist | BodyAxis::Spread | BodyAxis::ThumbOpposition => SIGNED_BODY_RANGE,
+        _ => BODY_RANGE,
+    }
 }
 
 fn axis_nearness(opportunities: &[JunctionId], axis: BodyAxis) -> Vec<(JunctionId, u64)> {
@@ -870,6 +891,7 @@ mod tests {
             .iter()
             .any(|event| matches!(event, BodyTraceEvent::Choice(_))));
         assert!(matches!(trace.last(), Some(BodyTraceEvent::Quiet(_))));
+        crate::verify_choice_laws(&trace).unwrap();
 
         assert_eq!(
             plain.step(sample()).unwrap(),

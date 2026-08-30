@@ -338,6 +338,7 @@ impl UsedPaths {
 #[derive(Clone, Copy, Debug)]
 struct MomentFact {
     event: crate::physics::Event,
+    drive: u16,
     boundary: bool,
     used: UsedPaths,
     had_ready_path: bool,
@@ -761,6 +762,7 @@ pub(crate) fn react_into<T: TraceSink>(
         .facts
         .extend(moment.changes.iter().map(|recorded| MomentFact {
             event: recorded.event,
+            drive: event_drive(body, recorded.event),
             boundary: recorded.boundary,
             used: recorded.used,
             had_ready_path: false,
@@ -819,10 +821,18 @@ fn return_only_fact(body: ReactionView<'_>, moment: &PhysicalMoment) -> Option<M
     }
     Some(MomentFact {
         event: recorded.event,
+        drive: event_drive(body, recorded.event),
         boundary: true,
         used: UsedPaths::None,
         had_ready_path: false,
     })
+}
+
+fn event_drive(body: ReactionView<'_>, event: crate::physics::Event) -> u16 {
+    body.arena
+        .junction(event.junction)
+        .expect("live event junction")
+        .drive(event.before, event.after)
 }
 
 fn surface_may_choose(body: ReactionView<'_>, surface: JunctionId) -> bool {
@@ -1192,6 +1202,7 @@ struct ReadyPath {
     outcome: Option<Outcome>,
     participation: u64,
     strength: i64,
+    drive: u16,
     stable_order: u32,
     executable: bool,
 }
@@ -1238,6 +1249,7 @@ fn form_and_choose<T: TraceSink>(
             surface,
             fact.event.at,
             fact.event.cause,
+            fact.drive,
             ready,
             connected_outcomes,
         );
@@ -1306,6 +1318,7 @@ fn form_and_choose<T: TraceSink>(
                     outcome: None,
                     participation: 0,
                     strength: 1,
+                    drive: fact.drive,
                     stable_order: u32::try_from(body.arena.link_count())
                         .unwrap_or(u32::MAX)
                         .saturating_add(second.0),
@@ -1340,6 +1353,8 @@ fn form_and_choose<T: TraceSink>(
                 outcome: candidate.outcome,
                 participation: candidate.participation,
                 strength: candidate.strength,
+                drive: candidate.drive,
+                stable_order: candidate.stable_order,
                 new_path: matches!(candidate.first, LinkRef::New(_)),
             }));
         }
@@ -1362,6 +1377,7 @@ fn form_and_choose<T: TraceSink>(
                     winner.trace_path()
                 }),
                 basis: choice.map(|choice| choice.basis),
+                construction,
                 sent: choice.is_some() && !construction,
             }));
         }
@@ -1391,6 +1407,7 @@ fn append_existing_ready_paths(
     surface: JunctionId,
     at: Time,
     current_cause: Cause,
+    drive: u16,
     paths: &mut Vec<ReadyPath>,
     connected_outcomes: &mut Vec<JunctionId>,
 ) {
@@ -1437,6 +1454,7 @@ fn append_existing_ready_paths(
                     outcome,
                     participation: memory.participation,
                     strength: memory.strength,
+                    drive,
                     stable_order: second_id.slot() as u32,
                     executable: path_is_executable(body, surface, outcome.is_some()),
                 });
@@ -1480,19 +1498,24 @@ fn choose_ready(
     world: usize,
     construction: bool,
 ) -> Option<ReadyChoice> {
-    let in_world =
+    let eligible =
         |index: &usize| worlds[*index] == world && (construction || paths[*index].executable);
+    let strongest_drive = (0..paths.len())
+        .filter(eligible)
+        .map(|index| paths[index].drive)
+        .max()?;
+    let active = |index: &usize| eligible(index) && paths[*index].drive == strongest_drive;
     let output_is_tried = |output| {
         (0..paths.len()).any(|index| {
-            in_world(&index) && paths[index].output == output && paths[index].participation > 0
+            active(&index) && paths[index].output == output && paths[index].participation > 0
         })
     };
     let has_tried_output =
-        (0..paths.len()).any(|index| in_world(&index) && output_is_tried(paths[index].output));
+        (0..paths.len()).any(|index| active(&index) && output_is_tried(paths[index].output));
     let has_untried_output =
-        (0..paths.len()).any(|index| in_world(&index) && !output_is_tried(paths[index].output));
+        (0..paths.len()).any(|index| active(&index) && !output_is_tried(paths[index].output));
     let release_to_untried_output = has_tried_output && has_untried_output;
-    unique_ready((0..paths.len()).filter(in_world).filter(|index| {
+    unique_ready((0..paths.len()).filter(eligible).filter(|index| {
         let path = &paths[*index];
         path.return_cause.is_some() && path.return_cause == Some(path.current_cause)
     }))
@@ -1504,13 +1527,14 @@ fn choose_ready(
         release_to_untried_output
             .then(|| {
                 (0..paths.len())
-                    .filter(in_world)
+                    .filter(active)
                     .filter(|index| !output_is_tried(paths[*index].output))
                     .max_by_key(|index| {
                         let path = &paths[*index];
                         (
                             path.participation,
                             path.strength,
+                            path.drive,
                             Reverse(path.stable_order),
                         )
                     })
@@ -1522,31 +1546,36 @@ fn choose_ready(
             })
     })
     .or_else(|| {
-        unique_latest_ready(paths, worlds, world, true, construction).map(|winner| ReadyChoice {
-            winner,
-            basis: ChoiceBasis::AvailableOutcome,
-        })
+        unique_latest_ready(paths, worlds, world, strongest_drive, true, construction).map(
+            |winner| ReadyChoice {
+                winner,
+                basis: ChoiceBasis::AvailableOutcome,
+            },
+        )
     })
     .or_else(|| {
-        unique_latest_ready(paths, worlds, world, false, construction).map(|winner| ReadyChoice {
-            winner,
-            basis: ChoiceBasis::LatestOutcome,
-        })
+        unique_latest_ready(paths, worlds, world, strongest_drive, false, construction).map(
+            |winner| ReadyChoice {
+                winner,
+                basis: ChoiceBasis::LatestOutcome,
+            },
+        )
     })
     .or_else(|| {
         (0..paths.len())
-            .filter(in_world)
+            .filter(active)
             .max_by_key(|index| {
                 let path = &paths[*index];
                 (
                     path.participation,
                     path.strength,
+                    path.drive,
                     Reverse(path.stable_order),
                 )
             })
             .map(|winner| ReadyChoice {
                 winner,
-                basis: ChoiceBasis::ParticipationAndStrength,
+                basis: ChoiceBasis::ParticipationStrengthAndDrive,
             })
     })
 }
@@ -1578,11 +1607,16 @@ fn unique_latest_ready(
     paths: &[ReadyPath],
     worlds: &[usize],
     world: usize,
+    drive: u16,
     available_only: bool,
     construction: bool,
 ) -> Option<usize> {
     let latest = (0..paths.len())
-        .filter(|index| worlds[*index] == world && (construction || paths[*index].executable))
+        .filter(|index| {
+            worlds[*index] == world
+                && paths[*index].drive == drive
+                && (construction || paths[*index].executable)
+        })
         .filter_map(|index| {
             paths[index]
                 .outcome
@@ -1591,7 +1625,10 @@ fn unique_latest_ready(
         .map(|outcome| outcome.at)
         .max()?;
     unique_ready((0..paths.len()).filter(|index| {
-        if worlds[*index] != world || (!construction && !paths[*index].executable) {
+        if worlds[*index] != world
+            || paths[*index].drive != drive
+            || (!construction && !paths[*index].executable)
+        {
             return false;
         }
         let path = &paths[*index];
@@ -2497,7 +2534,138 @@ mod tests {
     use crate::harness::{
         attach_outcome_component, attach_sensor, finish, motor, reading, schedule,
     };
-    use crate::Arrival;
+    use crate::{verify_choice_laws, Arrival};
+    use proptest::prelude::*;
+
+    fn ready_path(drive: u16, stable_order: u32) -> ReadyPath {
+        let surface = JunctionId::new(0).unwrap();
+        let output = JunctionId::new(stable_order as usize + 1).unwrap();
+        ReadyPath {
+            surface,
+            middle: JunctionId::new(stable_order as usize + 3).unwrap().into(),
+            output,
+            first: LinkId::new(stable_order as usize * 2).unwrap().into(),
+            second: LinkId::new(stable_order as usize * 2 + 1).unwrap().into(),
+            at: 1,
+            current_cause: 1,
+            return_cause: None,
+            unanswered: false,
+            connected_start: 0,
+            connected_end: 0,
+            outcome: None,
+            participation: 0,
+            strength: 1,
+            drive,
+            stable_order,
+            executable: true,
+        }
+    }
+
+    #[test]
+    fn current_normalized_drive_breaks_an_unlearned_choice_tie() {
+        let paths = [ready_path(512, 0), ready_path(513, 1)];
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 1);
+        assert_eq!(choice.basis, ChoiceBasis::ParticipationStrengthAndDrive);
+    }
+
+    #[test]
+    fn old_outcome_cannot_override_a_stronger_current_surface() {
+        let mut paths = [ready_path(44, 0), ready_path(1_023, 1)];
+        paths[0].outcome = Some(Outcome {
+            at: 1,
+            caused_transition: true,
+            available_until_choice: true,
+        });
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 1);
+    }
+
+    #[test]
+    fn equal_current_drive_preserves_physical_stable_order() {
+        let paths = [ready_path(512, 0), ready_path(512, 1)];
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 0);
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(64))]
+
+        #[test]
+        fn every_ready_choice_satisfies_the_offline_laws(
+            left_drive in 0_u16..=1_023,
+            right_drive in 0_u16..=1_023,
+            left_participation in 0_u64..4,
+            right_participation in 0_u64..4,
+            left_strength in -2_i64..=2,
+            right_strength in -2_i64..=2,
+            left_outcome_at in prop::option::of(0_u64..4),
+            right_outcome_at in prop::option::of(0_u64..4),
+            left_available in any::<bool>(),
+            right_available in any::<bool>(),
+            left_returns in any::<bool>(),
+            right_returns in any::<bool>(),
+            left_executable in any::<bool>(),
+            right_executable in any::<bool>(),
+            construction in any::<bool>(),
+        ) {
+            let mut paths = [ready_path(left_drive, 0), ready_path(right_drive, 1)];
+            paths[0].participation = left_participation;
+            paths[1].participation = right_participation;
+            paths[0].strength = left_strength;
+            paths[1].strength = right_strength;
+            paths[0].outcome = left_outcome_at.map(|at| Outcome {
+                at,
+                caused_transition: true,
+                available_until_choice: left_available,
+            });
+            paths[1].outcome = right_outcome_at.map(|at| Outcome {
+                at,
+                caused_transition: true,
+                available_until_choice: right_available,
+            });
+            paths[0].return_cause = left_returns.then_some(paths[0].current_cause);
+            paths[1].return_cause = right_returns.then_some(paths[1].current_cause);
+            paths[0].executable = left_executable;
+            paths[1].executable = right_executable;
+
+            let selected = choose_ready(&paths, &[0, 0], 0, construction);
+            let candidates = paths.iter().map(|path| CandidateTrace {
+                at: path.at,
+                cause: path.current_cause,
+                group: 0,
+                path: path.trace_path(),
+                connected_outcomes: Vec::new(),
+                executable: path.executable,
+                return_cause: path.return_cause,
+                unanswered: path.unanswered,
+                outcome: path.outcome,
+                participation: path.participation,
+                strength: path.strength,
+                drive: path.drive,
+                stable_order: path.stable_order,
+                new_path: false,
+            });
+            let mut events = candidates.map(TraceEvent::Candidate).collect::<Vec<_>>();
+            events.push(TraceEvent::Choice(ChoiceTrace {
+                at: 1,
+                group: 0,
+                alternatives: paths.len(),
+                winner: selected.map(|choice| paths[choice.winner].trace_path()),
+                basis: selected.map(|choice| choice.basis),
+                construction,
+                sent: selected.is_some() && !construction,
+            }));
+
+            prop_assert_eq!(verify_choice_laws(&events), Ok(()));
+        }
+    }
 
     fn membership(body: &mut Body, parent: JunctionId, member: JunctionId) {
         let link = body.add_link(Link::new(parent, member, 0, 1)).unwrap();

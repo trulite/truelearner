@@ -3,6 +3,7 @@ use std::num::NonZeroU32;
 
 pub type Time = u64;
 pub type Impulse = i32;
+pub const DRIVE_MAX: u16 = 1_023;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct JunctionId(NonZeroU32);
@@ -41,7 +42,7 @@ impl LinkId {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Retention {
     Integrating,
-    Sampled { lifetime: Time },
+    Sampled { lifetime: Time, range: u32 },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,9 +60,13 @@ impl Junction {
     }
 
     pub const fn sampled(lifetime: Time) -> Self {
+        Self::sampled_in(lifetime, DRIVE_MAX as u32)
+    }
+
+    pub const fn sampled_in(lifetime: Time, range: u32) -> Self {
         Self {
             threshold: 1,
-            retention: Retention::Sampled { lifetime },
+            retention: Retention::Sampled { lifetime, range },
         }
     }
 }
@@ -102,6 +107,7 @@ impl Link {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildError {
     NonPositiveThreshold,
+    InvalidRange,
     CapacityExhausted,
     UnknownJunction(JunctionId),
 }
@@ -195,15 +201,17 @@ pub(crate) struct JunctionSlot {
 
 impl JunctionSlot {
     pub(crate) const fn new(law: Junction) -> Self {
-        let (retention, lifetime) = match law.retention {
-            Retention::Integrating => (RetentionTag::Integrating, 0),
-            Retention::Sampled { lifetime } => (RetentionTag::Sampled, lifetime),
+        let (retention, lifetime, threshold) = match law.retention {
+            Retention::Integrating => (RetentionTag::Integrating, 0, law.threshold),
+            Retention::Sampled { lifetime, range } => {
+                (RetentionTag::Sampled, lifetime, range as Impulse)
+            }
         };
         Self {
             lifetime,
             stamp: 0,
             value: 0,
-            threshold: law.threshold,
+            threshold,
             outgoing_head: None,
             retention,
             sampled_known: false,
@@ -221,6 +229,7 @@ impl JunctionSlot {
                 RetentionTag::Integrating => Retention::Integrating,
                 RetentionTag::Sampled => Retention::Sampled {
                     lifetime: self.lifetime,
+                    range: self.threshold as u32,
                 },
             },
         }
@@ -275,6 +284,25 @@ impl JunctionSlot {
             }
         }
     }
+
+    pub(crate) fn drive(&self, before: Impulse, after: Impulse) -> u16 {
+        let drive = match self.retention {
+            RetentionTag::Integrating => before.abs_diff(after).min(u32::from(DRIVE_MAX)),
+            RetentionTag::Sampled => normalized_drive(before, after, self.threshold as u32),
+        };
+        drive as u16
+    }
+}
+
+fn normalized_drive(before: Impulse, after: Impulse, range: u32) -> u32 {
+    let change = before.abs_diff(after);
+    if range == u32::from(DRIVE_MAX) {
+        return change.min(u32::from(DRIVE_MAX));
+    }
+    let change = u64::from(change);
+    let range = u64::from(range);
+    let scaled = (change * u64::from(DRIVE_MAX) + range / 2) / range;
+    u32::try_from(scaled.min(u64::from(DRIVE_MAX))).unwrap_or(u32::from(DRIVE_MAX))
 }
 
 fn clamp_signal(value: i64) -> Impulse {
@@ -286,5 +314,17 @@ pub(crate) fn opens(trigger: Trigger, before: Impulse, after: Impulse) -> bool {
         Trigger::SourceFires => true,
         Trigger::RisesThrough(level) => before < level && after >= level,
         Trigger::FallsThrough(level) => before > level && after <= level,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_changes_are_mapped_to_the_common_drive_scale() {
+        assert_eq!(normalized_drive(0, 128, 255), 514);
+        assert_eq!(normalized_drive(0, 512, 1_023), 512);
+        assert_eq!(normalized_drive(-1_023, 1_023, 2_046), 1_023);
     }
 }

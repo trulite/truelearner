@@ -45,29 +45,30 @@ fn generated_course_preserves_first_failure_instead_of_teaching_around_it() {
     }
     assert!(run.exact_replay);
     assert!(!run.experiences.is_empty());
-    assert!(!run.acquired.contains(&BodyCapability::BinocularDepth));
+    assert!(run.acquired.contains(&BodyCapability::BinocularDepth));
     assert!(run.acquired.contains(&BodyCapability::HandContingency));
     assert!(run.acquired.contains(&BodyCapability::DigitSeparation));
-    assert_eq!(run.first_failure, Some(BodyCapability::BinocularDepth));
+    assert!(run.acquired.contains(&BodyCapability::SelfWorld));
+    assert!(!run.acquired.contains(&BodyCapability::Contact));
+    assert_eq!(run.first_failure, Some(BodyCapability::Contact));
     assert_eq!(run.courses.len(), BodyCourseKind::ORDER.len());
     assert_eq!(run.courses[0].course, BodyCourseKind::EyeControl);
-    assert_eq!(
-        run.courses[0].outcome,
-        BodyCourseOutcome::Failed(BodyCapability::BinocularDepth)
-    );
+    assert_eq!(run.courses[0].outcome, BodyCourseOutcome::Acquired);
     assert_eq!(run.courses[1].outcome, BodyCourseOutcome::Acquired);
-    assert!(run.courses[2..]
-        .iter()
-        .all(|course| course.outcome == BodyCourseOutcome::NotReached));
-    let binocular_probe = run
+    assert_eq!(run.courses[2].outcome, BodyCourseOutcome::Acquired);
+    assert_eq!(
+        run.courses[3].outcome,
+        BodyCourseOutcome::Failed(BodyCapability::Contact)
+    );
+    let contact_probe = run
         .experiences
         .iter()
         .find(|experience| {
-            experience.capability == BodyCapability::BinocularDepth
+            experience.capability == BodyCapability::Contact
                 && experience.mode == BodyExperienceMode::Probe
         })
         .unwrap();
-    assert_ne!(binocular_probe.verdict, BodyVerdict::Passed);
+    assert_ne!(contact_probe.verdict, BodyVerdict::Passed);
     assert!(run
         .experiences
         .iter()

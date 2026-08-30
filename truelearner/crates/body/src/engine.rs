@@ -194,6 +194,11 @@ impl Body {
         if law.threshold <= 0 {
             return Err(BuildError::NonPositiveThreshold);
         }
+        if let Retention::Sampled { range, .. } = law.retention {
+            if range == 0 || range > i32::MAX as u32 {
+                return Err(BuildError::InvalidRange);
+            }
+        }
         let id = self.arena.add_junction(law)?;
         self.returns.by_source.push(Vec::new());
         self.activity.meetings.add_junction();

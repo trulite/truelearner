@@ -321,6 +321,6 @@ impl NewOrganism {
 const fn junction(retention: Retention) -> Junction {
     match retention {
         Retention::Integrating { threshold } => Junction::integrating(threshold),
-        Retention::Sampled { lifetime } => Junction::sampled(lifetime),
+        Retention::Sampled { lifetime, range } => Junction::sampled_in(lifetime, range),
     }
 }

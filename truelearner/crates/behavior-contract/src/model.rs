@@ -9,7 +9,7 @@ pub struct MotorId(pub u16);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Retention {
     Integrating { threshold: i32 },
-    Sampled { lifetime: u64 },
+    Sampled { lifetime: u64, range: u32 },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -86,6 +86,7 @@ pub enum ValidationError {
     DuplicateMotor(MotorId),
     InvalidThreshold(SensorId),
     InvalidLifetime(SensorId),
+    InvalidRange(SensorId),
     UnknownSensor(SensorId),
     UnknownMotor(MotorId),
     ZeroDistance,
@@ -112,8 +113,11 @@ impl Scenario {
                 Retention::Integrating { threshold } if threshold <= 0 => {
                     return Err(ValidationError::InvalidThreshold(sensor.id));
                 }
-                Retention::Sampled { lifetime: 0 } => {
+                Retention::Sampled { lifetime: 0, .. } => {
                     return Err(ValidationError::InvalidLifetime(sensor.id));
+                }
+                Retention::Sampled { range, .. } if range == 0 || range > i32::MAX as u32 => {
+                    return Err(ValidationError::InvalidRange(sensor.id));
                 }
                 _ => {}
             }

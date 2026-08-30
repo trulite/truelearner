@@ -20,10 +20,10 @@ pub use crate::core::*;
 pub use crate::engine::Body;
 pub use crate::physics::{
     Arrival, BuildError, Event as PhysicalEvent, Impulse, Junction, JunctionId, Link, LinkId,
-    Retention, Run, RunError, Step, Time, Trigger, Work,
+    Retention, Run, RunError, Step, Time, Trigger, Work, DRIVE_MAX,
 };
 pub use crate::timeline::{MomentKey, QueueWork, Timeline, TimelineItem};
 pub use crate::trace::{
-    CandidateTrace, ChoiceBasis, ChoiceTrace, ReturnDecision, ReturnTrace, StrengthTrace,
-    TraceArrival, TraceEvent, TracePath,
+    verify_choice_laws, CandidateTrace, ChoiceBasis, ChoiceLaw, ChoiceLawViolation, ChoiceTrace,
+    ReturnDecision, ReturnTrace, StrengthTrace, TraceArrival, TraceEvent, TracePath,
 };
