@@ -2,6 +2,7 @@ use crate::{
     arena::Arena,
     core::{LinkMemory, ReactionScratch, ReactionView, ReturnEntry, UsedPaths},
     physics::*,
+    trace::{NoTrace, ObserveTrace, TraceArrival, TraceEvent, TraceSink},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -230,7 +231,7 @@ impl Body {
     /// Executes exactly one scheduled frontier. Quiet is the identity step.
     pub fn step(&mut self, mut observe: impl FnMut(Event)) -> Result<Option<Step>, RunError> {
         let mut work = Work::default();
-        let at = self.step_kernel(&mut work, &mut observe)?;
+        let at = self.step_kernel(&mut work, &mut observe, &mut NoTrace)?;
         Ok(at.map(|at| Step { at, work }))
     }
 
@@ -240,14 +241,36 @@ impl Body {
         moment_limit: usize,
         mut observe: impl FnMut(Event),
     ) -> Result<Run, RunError> {
+        self.run_kernel(moment_limit, &mut observe, &mut NoTrace)
+    }
+
+    /// Runs the ordinary kernel while reporting its complete causal chain.
+    pub fn run_traced(
+        &mut self,
+        moment_limit: usize,
+        mut observe: impl FnMut(Event),
+        trace: impl FnMut(TraceEvent),
+    ) -> Result<Run, RunError> {
+        self.run_kernel(moment_limit, &mut observe, &mut ObserveTrace::new(trace))
+    }
+
+    fn run_kernel<T: TraceSink>(
+        &mut self,
+        moment_limit: usize,
+        observe: &mut impl FnMut(Event),
+        trace: &mut T,
+    ) -> Result<Run, RunError> {
         let mut run = Run::default();
         while !self.is_quiet() {
             if run.moments == moment_limit as u64 {
                 return Err(RunError::MomentLimitReached);
             }
-            self.step_kernel(&mut run.work, &mut observe)?
+            self.step_kernel(&mut run.work, observe, trace)?
                 .expect("body is not quiet");
             run.moments += 1;
+        }
+        if T::ENABLED {
+            trace.record(TraceEvent::Quiet(run));
         }
         Ok(run)
     }
@@ -285,10 +308,11 @@ impl Body {
         }
     }
 
-    fn step_kernel(
+    fn step_kernel<T: TraceSink>(
         &mut self,
         work: &mut Work,
         observe: &mut impl FnMut(Event),
+        trace: &mut T,
     ) -> Result<Option<Time>, RunError> {
         let Some(at) = self
             .activity
@@ -306,6 +330,15 @@ impl Body {
             let participant =
                 u32::try_from(participant_index).map_err(|_| RunError::WaveTooLarge)?;
             let firing = self.activity.moment.participants[participant_index];
+            if T::ENABLED {
+                trace.record(TraceEvent::Arrival(TraceArrival {
+                    at: firing.at,
+                    target: firing.target,
+                    impulse: firing.impulse,
+                    cause: firing.cause,
+                    via: firing.via,
+                }));
+            }
             let index = firing.target.slot();
             let meeting = &mut self.activity.meetings.states[index];
             if meeting.arrivals == 0 {
@@ -380,6 +413,9 @@ impl Body {
         for change_index in 0..self.activity.moment.changes.len() {
             let recorded = self.activity.moment.changes[change_index];
             observe(recorded.event);
+            if T::ENABLED {
+                trace.record(TraceEvent::Transition(recorded.event));
+            }
             self.transmit(recorded.event, work)?;
         }
         let reaction_needed = crate::core::reaction_needed(
@@ -393,6 +429,7 @@ impl Body {
                 ReactionView::new(&self.arena, &self.link_memory, &self.live_returns),
                 &self.activity.moment,
                 &mut self.activity.reaction,
+                trace,
             );
             if self.activity.reaction.change.is_empty() {
                 self.activity.reaction.clear();
@@ -400,7 +437,7 @@ impl Body {
             } else {
                 let mut change = std::mem::take(&mut self.activity.reaction.change);
                 let mut applied = std::mem::take(&mut self.activity.reaction.applied);
-                let result = self.apply_reusing(&mut change, &mut applied);
+                let result = self.apply_reusing(&mut change, &mut applied, at, trace);
                 self.activity.reaction.change = change;
                 self.activity.reaction.applied = applied;
                 self.activity.reaction.clear();

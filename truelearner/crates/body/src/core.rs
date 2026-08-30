@@ -1,8 +1,13 @@
 //! What changes because of one observed physical event.
 
 use crate::{
-    arena::Arena, engine::PhysicalMoment, Body, BuildError, Impulse, Junction, JunctionId, Link,
-    LinkId, RunError, Time, Trigger,
+    arena::Arena,
+    engine::PhysicalMoment,
+    trace::{
+        CandidateTrace, ChoiceBasis, ChoiceTrace, NoTrace, ReturnDecision, ReturnTrace,
+        StrengthTrace, TraceEvent, TracePath, TraceSink,
+    },
+    Body, BuildError, Impulse, Junction, JunctionId, Link, LinkId, RunError, Time, Trigger,
 };
 use std::{
     cmp::Reverse,
@@ -380,7 +385,7 @@ pub(crate) struct ReactionScratch {
     ready: Vec<ReadyPath>,
     connected_outcomes: Vec<JunctionId>,
     worlds: Vec<usize>,
-    winners: Vec<usize>,
+    winners: Vec<ReadyChoice>,
     construction: ConstructionScratch,
     pub(crate) change: Change,
     pub(crate) applied: Applied,
@@ -728,10 +733,11 @@ fn path_is_executable(body: ReactionView<'_>, surface: JunctionId, has_outcome: 
     }
 }
 
-pub(crate) fn react_into(
+pub(crate) fn react_into<T: TraceSink>(
     body: ReactionView<'_>,
     moment: &PhysicalMoment,
     scratch: &mut ReactionScratch,
+    trace: &mut T,
 ) {
     scratch.clear();
     scratch
@@ -752,6 +758,7 @@ pub(crate) fn react_into(
         &mut scratch.winners,
         &mut scratch.change,
         construction.is_some(),
+        trace,
     );
     if let Some(closure) = construction {
         construct_membership(
@@ -773,7 +780,7 @@ pub(crate) fn react_into(
         return;
     }
     record_used_outputs(&scratch.facts, &mut scratch.change);
-    record_returned_outcomes(body, &scratch.facts, &mut scratch.change);
+    record_returned_outcomes(body, &scratch.facts, &mut scratch.change, trace);
 }
 
 fn construct_membership(
@@ -831,13 +838,13 @@ fn remember_construction_outcomes(
     consequences: &[JunctionId],
     ready: &[ReadyPath],
     connected_outcomes: &[JunctionId],
-    winners: &[usize],
+    winners: &[ReadyChoice],
     change: &mut Change,
 ) {
     if consequences.is_empty() {
         return;
     }
-    for winner in winners.iter().map(|winner| &ready[*winner]) {
+    for winner in winners.iter().map(|choice| &ready[choice.winner]) {
         if !members.contains(&winner.surface) || parent_members.contains(&winner.surface) {
             continue;
         }
@@ -899,18 +906,60 @@ fn record_used_outputs(facts: &[MomentFact], change: &mut Change) {
     }
 }
 
-fn record_returned_outcomes(body: ReactionView<'_>, facts: &[MomentFact], change: &mut Change) {
+fn record_returned_outcomes<T: TraceSink>(
+    body: ReactionView<'_>,
+    facts: &[MomentFact],
+    change: &mut Change,
+    trace: &mut T,
+) {
     for fact in facts {
         if !fact.boundary
-            || fact.had_ready_path
             || !matches!(fact.used, UsedPaths::None)
             || !is_outcome_source(body, fact.event.junction)
         {
             continue;
         }
+        if fact.had_ready_path {
+            if T::ENABLED {
+                trace.record(TraceEvent::Return(ReturnTrace {
+                    at: fact.event.at,
+                    source: fact.event.junction,
+                    incoming_cause: fact.event.cause,
+                    path: None,
+                    return_cause: None,
+                    return_opened_at: None,
+                    open_paths: component_return_count(body, fact.event.junction),
+                    exact_paths: 0,
+                    decision: ReturnDecision::BlockedByReadyPath,
+                }));
+            }
+            continue;
+        }
 
-        let selected = select_live_return(body, fact.event.cause);
-        if let Some(returned) = selected.filter(|returned| returned.opened_at <= fact.event.at) {
+        let selected = select_live_return(body, fact.event.junction, fact.event.cause);
+        let decision = match selected.selected {
+            Some(returned) if returned.opened_at <= fact.event.at => ReturnDecision::Accepted,
+            Some(_) => ReturnDecision::BeforeReturnOpened,
+            None if selected.total == 0 => ReturnDecision::NoOpenPath,
+            None => ReturnDecision::Ambiguous,
+        };
+        if T::ENABLED {
+            trace.record(TraceEvent::Return(ReturnTrace {
+                at: fact.event.at,
+                source: fact.event.junction,
+                incoming_cause: fact.event.cause,
+                path: selected.selected.map(|returned| returned.path),
+                return_cause: selected.selected.map(|returned| returned.cause),
+                return_opened_at: selected.selected.map(|returned| returned.opened_at),
+                open_paths: selected.total,
+                exact_paths: selected.exact_total,
+                decision,
+            }));
+        }
+        if let Some(returned) = selected
+            .selected
+            .filter(|returned| returned.opened_at <= fact.event.at)
+        {
             for link in returned.path.links() {
                 change.push(Edit::ChangeLink {
                     link: link.into(),
@@ -938,7 +987,10 @@ fn record_returned_outcomes(body: ReactionView<'_>, facts: &[MomentFact], change
             });
         }
         for entry in body.live_returns {
-            if open_return(body, *entry).is_some() {
+            let Some(returned) = open_return(body, *entry) else {
+                continue;
+            };
+            if return_is_connected(body, fact.event.junction, returned) {
                 change.push(Edit::ChangeLink {
                     link: entry.link.into(),
                     change: LinkChange::Retire,
@@ -955,7 +1007,14 @@ struct OpenReturn {
     opened_at: Time,
 }
 
-fn select_live_return(body: ReactionView<'_>, cause: Cause) -> Option<OpenReturn> {
+#[derive(Clone, Copy)]
+struct ReturnSelection {
+    selected: Option<OpenReturn>,
+    total: usize,
+    exact_total: usize,
+}
+
+fn select_live_return(body: ReactionView<'_>, source: JunctionId, cause: Cause) -> ReturnSelection {
     let mut only = None;
     let mut total = 0_usize;
     let mut exact = None;
@@ -964,6 +1023,9 @@ fn select_live_return(body: ReactionView<'_>, cause: Cause) -> Option<OpenReturn
         let Some(returned) = open_return(body, *entry) else {
             continue;
         };
+        if !return_is_connected(body, source, returned) {
+            continue;
+        }
         total += 1;
         only = Some(returned);
         if returned.cause == cause {
@@ -971,11 +1033,40 @@ fn select_live_return(body: ReactionView<'_>, cause: Cause) -> Option<OpenReturn
             exact = Some(returned);
         }
     }
-    match (exact_total, total) {
+    let selected = match (exact_total, total) {
         (1, _) => exact,
         (0, 1) => only,
         _ => None,
+    };
+    ReturnSelection {
+        selected,
+        total,
+        exact_total,
     }
+}
+
+fn component_return_count(body: ReactionView<'_>, source: JunctionId) -> usize {
+    body.live_returns
+        .iter()
+        .filter_map(|entry| open_return(body, *entry))
+        .filter(|returned| return_is_connected(body, source, *returned))
+        .count()
+}
+
+fn return_is_connected(body: ReactionView<'_>, source: JunctionId, returned: OpenReturn) -> bool {
+    outcome_source_enters(body, source, returned.path.middle)
+        || outcome_source_enters(body, source, returned.path.output)
+}
+
+fn outcome_source_enters(body: ReactionView<'_>, source: JunctionId, junction: JunctionId) -> bool {
+    body.arena.incoming(junction).any(|link| {
+        body.link_memory[link.slot()].live
+            && body.link_memory[link.slot()].role == LinkRole::OutcomeWitness
+            && body
+                .arena
+                .link(link)
+                .is_some_and(|physical| physical.from == source)
+    })
 }
 
 fn open_return(body: ReactionView<'_>, entry: ReturnEntry) -> Option<OpenReturn> {
@@ -1046,11 +1137,14 @@ pub(crate) fn path_from_drive(body: ReactionView<'_>, second: LinkId) -> Option<
 #[derive(Clone, Debug)]
 struct ReadyPath {
     surface: JunctionId,
+    middle: JunctionRef,
+    output: JunctionId,
     first: LinkRef,
     second: LinkRef,
     at: Time,
     current_cause: Cause,
     return_cause: Option<Cause>,
+    unanswered: bool,
     connected_start: usize,
     connected_end: usize,
     outcome: Option<Outcome>,
@@ -1060,16 +1154,35 @@ struct ReadyPath {
     executable: bool,
 }
 
+impl ReadyPath {
+    const fn trace_path(&self) -> TracePath {
+        TracePath {
+            surface: self.surface,
+            middle: self.middle,
+            output: self.output,
+            first: self.first,
+            second: self.second,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct ReadyChoice {
+    winner: usize,
+    basis: ChoiceBasis,
+}
+
 #[allow(clippy::too_many_arguments)]
-fn form_and_choose(
+fn form_and_choose<T: TraceSink>(
     body: ReactionView<'_>,
     facts: &mut [MomentFact],
     ready: &mut Vec<ReadyPath>,
     connected_outcomes: &mut Vec<JunctionId>,
     worlds: &mut Vec<usize>,
-    winners: &mut Vec<usize>,
+    winners: &mut Vec<ReadyChoice>,
     change: &mut Change,
     construction: bool,
+    trace: &mut T,
 ) {
     for fact in facts.iter_mut() {
         if !fact.boundary {
@@ -1138,11 +1251,14 @@ fn form_and_choose(
                 let connected_end = connected_outcomes.len();
                 ready.push(ReadyPath {
                     surface,
+                    middle: middle.into(),
+                    output: morphology.to,
                     first: first.into(),
                     second: second.into(),
                     at: fact.event.at,
                     current_cause: fact.event.cause,
                     return_cause: None,
+                    unanswered: false,
                     connected_start,
                     connected_end,
                     outcome: None,
@@ -1165,11 +1281,53 @@ fn form_and_choose(
             }
         }
     }
-    winners.sort_by_key(|winner| ready[*winner].surface);
+    winners.sort_by_key(|choice| ready[choice.winner].surface);
+    if T::ENABLED {
+        for (index, candidate) in ready.iter().enumerate() {
+            trace.record(TraceEvent::Candidate(CandidateTrace {
+                at: candidate.at,
+                cause: candidate.current_cause,
+                group: worlds[index],
+                path: candidate.trace_path(),
+                connected_outcomes: connected_outcomes
+                    [candidate.connected_start..candidate.connected_end]
+                    .to_vec(),
+                executable: candidate.executable,
+                return_cause: candidate.return_cause,
+                unanswered: candidate.unanswered,
+                outcome: candidate.outcome,
+                participation: candidate.participation,
+                strength: candidate.strength,
+                new_path: matches!(candidate.first, LinkRef::New(_)),
+            }));
+        }
+        for world in 0..ready.len() {
+            if worlds[world] != world {
+                continue;
+            }
+            let choice = winners.iter().find(|choice| worlds[choice.winner] == world);
+            let at = ready
+                .iter()
+                .enumerate()
+                .find(|(index, _)| worlds[*index] == world)
+                .map_or(0, |(_, candidate)| candidate.at);
+            trace.record(TraceEvent::Choice(ChoiceTrace {
+                at,
+                group: world,
+                alternatives: worlds.iter().filter(|group| **group == world).count(),
+                winner: choice.map(|choice| {
+                    let winner = &ready[choice.winner];
+                    winner.trace_path()
+                }),
+                basis: choice.map(|choice| choice.basis),
+                sent: choice.is_some() && !construction,
+            }));
+        }
+    }
     if construction {
         return;
     }
-    for winner in winners.iter().map(|index| &ready[*index]) {
+    for winner in winners.iter().map(|choice| &ready[choice.winner]) {
         change.push(Edit::Send {
             through: winner.first,
             at: winner.at,
@@ -1224,11 +1382,14 @@ fn append_existing_ready_paths(
                 });
                 paths.push(ReadyPath {
                     surface,
+                    middle: first.to.into(),
+                    output: link.to,
                     first: first_id.into(),
                     second: second_id.into(),
                     at,
                     current_cause,
                     return_cause: (memory.participation > 0).then_some(memory.cause),
+                    unanswered: path_has_open_return(body, first.to, link.to),
                     connected_start,
                     connected_end,
                     outcome,
@@ -1276,25 +1437,80 @@ fn choose_ready(
     worlds: &[usize],
     world: usize,
     construction: bool,
-) -> Option<usize> {
+) -> Option<ReadyChoice> {
     let in_world =
         |index: &usize| worlds[*index] == world && (construction || paths[*index].executable);
+    let output_is_unanswered = |output| {
+        (0..paths.len()).any(|index| {
+            in_world(&index) && paths[index].output == output && paths[index].unanswered
+        })
+    };
+    let has_unanswered_output =
+        (0..paths.len()).any(|index| in_world(&index) && output_is_unanswered(paths[index].output));
+    let has_other_output = (0..paths.len())
+        .any(|index| in_world(&index) && !output_is_unanswered(paths[index].output));
+    let release_unanswered_output = has_unanswered_output && has_other_output;
     unique_ready((0..paths.len()).filter(in_world).filter(|index| {
         let path = &paths[*index];
         path.return_cause.is_some() && path.return_cause == Some(path.current_cause)
     }))
-    .or_else(|| unique_latest_ready(paths, worlds, world, true, construction))
-    .or_else(|| unique_latest_ready(paths, worlds, world, false, construction))
+    .map(|winner| ReadyChoice {
+        winner,
+        basis: ChoiceBasis::CurrentReturn,
+    })
     .or_else(|| {
-        (0..paths.len()).filter(in_world).max_by_key(|index| {
-            let path = &paths[*index];
-            (
-                path.participation,
-                path.strength,
-                Reverse(path.stable_order),
-            )
+        unique_latest_ready(paths, worlds, world, true, construction).map(|winner| ReadyChoice {
+            winner,
+            basis: ChoiceBasis::AvailableOutcome,
         })
     })
+    .or_else(|| {
+        unique_latest_ready(paths, worlds, world, false, construction).map(|winner| ReadyChoice {
+            winner,
+            basis: ChoiceBasis::LatestOutcome,
+        })
+    })
+    .or_else(|| {
+        (0..paths.len())
+            .filter(in_world)
+            .filter(|index| {
+                !release_unanswered_output || !output_is_unanswered(paths[*index].output)
+            })
+            .max_by_key(|index| {
+                let path = &paths[*index];
+                (
+                    path.participation,
+                    path.strength,
+                    Reverse(path.stable_order),
+                )
+            })
+            .map(|winner| ReadyChoice {
+                winner,
+                basis: if release_unanswered_output {
+                    ChoiceBasis::UnansweredOutputRelease
+                } else {
+                    ChoiceBasis::ParticipationAndStrength
+                },
+            })
+    })
+}
+
+fn path_has_open_return(body: ReactionView<'_>, middle: JunctionId, output: JunctionId) -> bool {
+    let mut next = body
+        .arena
+        .junction(output)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(link) = next {
+        let physical = body.arena.link(link).expect("live link");
+        next = physical.next;
+        if physical.to == middle
+            && body.link_memory[link.slot()].live
+            && matches!(body.link_memory[link.slot()].role, LinkRole::Return { .. })
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn unique_ready(mut paths: impl Iterator<Item = usize>) -> Option<usize> {
@@ -1768,14 +1984,17 @@ impl Body {
 
     pub fn apply(&mut self, mut change: Change) -> Result<Applied, ApplyError> {
         let mut applied = Applied::default();
-        self.apply_reusing(&mut change, &mut applied)?;
+        let at = self.now();
+        self.apply_reusing(&mut change, &mut applied, at, &mut NoTrace)?;
         Ok(applied)
     }
 
-    pub(crate) fn apply_reusing(
+    pub(crate) fn apply_reusing<T: TraceSink>(
         &mut self,
         change: &mut Change,
         applied: &mut Applied,
+        at: Time,
+        trace: &mut T,
     ) -> Result<(), ApplyError> {
         applied.junctions.clear();
         applied.links.clear();
@@ -1874,7 +2093,17 @@ impl Body {
                         }
                         LinkChange::ConsumeOutcome => memory.outcome_available = false,
                         LinkChange::Strengthen { amount } => {
-                            memory.strength = memory.strength.saturating_add(i64::from(amount));
+                            let before = memory.strength;
+                            let after = before.saturating_add(i64::from(amount));
+                            memory.strength = after;
+                            if T::ENABLED {
+                                trace.record(TraceEvent::Strengthened(StrengthTrace {
+                                    at,
+                                    link,
+                                    before,
+                                    after,
+                                }));
+                            }
                         }
                         LinkChange::Retire => unreachable!("retirement handled before mutation"),
                     }

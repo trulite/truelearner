@@ -1,1 +1,0 @@
-{"schema":"research-arm-result/v1","arm":"current-candidate-reference","outcome":"survived","falsifier":null,"observations":{"parent_classifications_unchanged":true},"artifacts":[{"path":"research/campaigns/sensorimotor-participation-continuity-v1/artifacts/current-candidate-reference.json","sha256":"8b113da5f96d16bf3d2d458a077d1fdc33e40df046a446de7e0787c3405628b6"}]}

@@ -1,8 +1,0 @@
-[package]
-name = "px0-physical-correspondence"
-version = "0.1.0"
-edition = "2021"
-publish = false
-description = "PX0 experimental substrate-native local plastic physics"
-
-[dependencies]

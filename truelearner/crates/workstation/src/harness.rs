@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use truelearner_body::{
     harness::{attach_outcome_component, attach_sensor, motor},
-    Arrival, Body, Junction, JunctionId, Run, Work,
+    Arrival, Body, Junction, JunctionId, Run, TraceEvent as BodyTraceEvent, Work,
 };
 
 const CONTROL_COUNT: usize = AXIS_COUNT * 2;
@@ -192,6 +192,18 @@ impl WorkstationHarness {
         Ok(observation)
     }
 
+    pub fn step_traced(
+        &mut self,
+        sample: WorldSample,
+    ) -> Result<(WorkstationStepObservation, Vec<BodyTraceEvent>), WorkstationError> {
+        sample.validate()?;
+        let mut next = self.clone();
+        let mut trace = Vec::new();
+        let observation = next.step_in_place_with_trace(sample, Some(&mut trace))?;
+        *self = next;
+        Ok((observation, trace))
+    }
+
     pub fn transition(
         &self,
         sample: WorldSample,
@@ -205,6 +217,14 @@ impl WorkstationHarness {
     fn step_in_place(
         &mut self,
         sample: WorldSample,
+    ) -> Result<WorkstationStepObservation, WorkstationError> {
+        self.step_in_place_with_trace(sample, None)
+    }
+
+    fn step_in_place_with_trace(
+        &mut self,
+        sample: WorldSample,
+        trace: Option<&mut Vec<BodyTraceEvent>>,
     ) -> Result<WorkstationStepObservation, WorkstationError> {
         sample.validate()?;
         let state_before = self.state.clone();
@@ -237,26 +257,30 @@ impl WorkstationHarness {
         let outward = &self.handles.outward;
         let mut crossings = Vec::new();
         let mut latest = opportunity_at;
-        let run = self
-            .body
-            .run(MOMENT_LIMIT, |event| {
-                latest = latest.max(event.at);
-                if let Some((_, control)) = outward
-                    .iter()
-                    .find(|(junction, _)| *junction == event.junction)
-                {
-                    crossings.push(MotorEffect {
-                        at: event.at,
-                        control: *control,
-                        impulse: event
-                            .impulse
-                            .clamp(i64::from(i32::MIN), i64::from(i32::MAX))
-                            as i32,
-                        cause: event.cause,
-                    });
-                }
-            })
-            .map_err(body_error)?;
+        let mut observe = |event: truelearner_body::PhysicalEvent| {
+            latest = latest.max(event.at);
+            if let Some((_, control)) = outward
+                .iter()
+                .find(|(junction, _)| *junction == event.junction)
+            {
+                crossings.push(MotorEffect {
+                    at: event.at,
+                    control: *control,
+                    impulse: event
+                        .impulse
+                        .clamp(i64::from(i32::MIN), i64::from(i32::MAX))
+                        as i32,
+                    cause: event.cause,
+                });
+            }
+        };
+        let run = match trace {
+            Some(trace) => self
+                .body
+                .run_traced(MOMENT_LIMIT, &mut observe, |event| trace.push(event)),
+            None => self.body.run(MOMENT_LIMIT, &mut observe),
+        }
+        .map_err(body_error)?;
         self.physical_tick = latest.max(self.body.now());
 
         let mut frame = ActuatorFrame::default();
@@ -644,5 +668,27 @@ mod tests {
         let next_expected = candidate.step(sample()).unwrap();
         let mut restored = WorkstationHarness::restore(checkpoint).unwrap();
         assert_eq!(restored.step(sample()).unwrap(), next_expected);
+    }
+
+    #[test]
+    fn traced_step_preserves_the_body_and_its_continuation() {
+        let mut plain = WorkstationHarness::new(4).unwrap();
+        let mut traced = plain.clone();
+
+        let plain_observation = plain.step(sample()).unwrap();
+        let (traced_observation, trace) = traced.step_traced(sample()).unwrap();
+
+        assert_eq!(plain_observation, traced_observation);
+        assert_eq!(format!("{:?}", plain.body), format!("{:?}", traced.body));
+        assert!(trace
+            .iter()
+            .any(|event| matches!(event, BodyTraceEvent::Choice(_))));
+        assert!(matches!(trace.last(), Some(BodyTraceEvent::Quiet(_))));
+
+        assert_eq!(
+            plain.step(sample()).unwrap(),
+            traced.step(sample()).unwrap()
+        );
+        assert_eq!(format!("{:?}", plain.body), format!("{:?}", traced.body));
     }
 }

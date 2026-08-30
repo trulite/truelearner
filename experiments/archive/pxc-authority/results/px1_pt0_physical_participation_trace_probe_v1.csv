@@ -1,6 +1,0 @@
-scenario,transfer,active,expected_mature,resistance,branch_firings,effect_firings,return_arrivals,heldout_effects,quiescent,duplicate_exact,work,fingerprint,passed
-in-window-a,false,true|false|false,true|false|false,5|2|2,1|0|0,1|0|0,1|1|1,1|0|0,true,true,109,12908445254784442097,true
-late-a,false,true|false|false,false|false|false,1|2|2,1|0|0,1|0|0,1|1|1,0|0|0,true,true,109,3451753309641434262,true
-no-participation,false,false|false|false,false|false|false,2|2|2,0|0|0,0|0|0,1|1|1,0|0|0,true,true,38,14803349827114647369,true
-swap-b,false,false|true|false,false|true|false,2|5|2,0|1|0,0|1|0,1|1|1,0|1|0,true,true,109,313667797384417987,true
-joint,false,true|true|false,true|true|false,5|5|2,1|1|0,1|1|0,1|1|1,1|1|0,true,true,209,8058178495417013270,true

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Research Converge"
-  short_description: "Fuse evidence and define discriminating arms"
-  default_prompt: "Use $research-converge to synthesize these arms, preserve failures, and define the next frontier."

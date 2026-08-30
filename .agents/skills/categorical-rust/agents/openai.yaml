@@ -1,4 +1,0 @@
-interface:
-  display_name: "Categorical Rust"
-  short_description: "Model composable, lawful, readable Rust"
-  default_prompt: "Use $categorical-rust to model this Rust code with simple composable types and functions."

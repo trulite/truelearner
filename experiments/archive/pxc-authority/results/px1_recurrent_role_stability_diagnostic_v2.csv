@@ -1,5 +1,0 @@
-arm,completed,timed_out,primary_role,primary_role_r0,primary_role_r1,primary_effect0,primary_effect1,primary_source_returns,primary_site_returns,primary_extra_source_firings,primary_brake_r,primary_brake_firings,primary_productive_recurrence,primary_replay,primary_quiescent,primary_work,primary_fingerprint,transfer_role,transfer_role_r0,transfer_role_r1,transfer_effect0,transfer_effect1,transfer_source_returns,transfer_site_returns,transfer_extra_source_firings,transfer_brake_r,transfer_brake_firings,transfer_productive_recurrence,transfer_replay,transfer_quiescent,transfer_work,transfer_fingerprint,passed
-margin,true,false,0,19,19,1,1,32,8,0,0,0,1,1,1,6189,80047486419770612,0,19,19,1,1,32,8,0,0,0,1,1,1,6189,10906153665402632790,false
-inhibition,true,false,0,19,19,1,1,32,8,0,19,16,1,1,1,7429,12601440415319377656,0,19,19,1,1,32,8,0,19,16,1,1,1,7429,12079707118082250840,false
-distance,true,false,0,0,0,0,0,16,0,0,0,0,0,1,1,4550,5769863714865135486,0,0,0,0,0,16,0,0,0,0,0,1,1,4550,961454449849901228,false
-timing,false,true,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,false

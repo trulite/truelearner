@@ -1,3 +1,0 @@
-arm,old_dead,fresh_current,current_effects,unsupported_effects,unsupported_first_crossing_tick,unsupported_trace_entries,unsupported_firings,naturally_quiescent,passed_negative
-fresh-short-two-direct,true,2,1,1,352,10,6,true,true
-fresh-threshold-three-mirror,true,2,1,1,364,12,7,true,true

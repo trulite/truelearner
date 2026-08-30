@@ -1,8 +1,0 @@
-seed,case,offset,first_source_firings,first_traversals,advance_pressure_updates,trace_live_before_second_arrival,second_return_closes,second_source_firings,second_traversals,second_locus_arrivals,second_locus_impulse,first_locus_firings,second_locus_firings,cumulative_locus_firings,eligibility_writes,distinct_a_probe_closes,distinct_b_probe_closes,work,persistent_bytes,first_end_fingerprint,second_end_fingerprint,quiescent,replay_equal,passed
-2401,same-path,0,1,1,0,true,1,0,0,0,0,0,0,0,1,0,0,17,208,16303936269874433539,4501638799267600800,true,true,true
-2401,same-path,1,1,1,0,true,1,1,1,1,1,0,0,0,2,0,0,25,208,4495447887567947094,18003731875710750321,true,true,true
-2401,same-path,2,1,1,0,true,1,1,1,1,1,0,0,0,2,0,0,25,208,4640267954737693149,5475345914960967662,true,true,true
-2401,same-path,3,1,1,0,true,1,1,1,1,1,0,0,0,2,0,0,25,208,15040923611153230464,5963991831417723155,true,true,true
-2401,same-path,4,1,1,0,true,1,1,1,1,1,0,0,0,2,0,0,25,208,1929167128950644831,2888868840528800888,true,true,true
-2401,same-path,5,1,1,1,false,0,1,1,1,1,0,0,0,2,0,0,25,208,12416683750629581154,7857520208513643489,true,true,true
-2401,distinct-paths-same-tick,0,2,2,0,false,0,0,0,0,0,1,0,1,2,1,1,41,272,16537760828958150226,1031452172528741095,true,true,true

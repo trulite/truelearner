@@ -1,8 +1,0 @@
-{
-  "schema": "research-arm-result/v1",
-  "arm": "scale-selectivity",
-  "outcome": "falsified",
-  "falsifier": "Growing available outputs from four to 64 grew active outputs from four to 64 and work from 78 to 1158.",
-  "observations": {"small_outputs": 4, "large_outputs": 64, "small_work": 78, "large_work": 1158, "exact_replay": true, "naturally_quiescent": true},
-  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/scale-selectivity.json", "sha256": "9d54c9dfba335c8f9731fc95eed4a8d5c4cd51e3f2899b96db73f11f130a5056"}]
-}

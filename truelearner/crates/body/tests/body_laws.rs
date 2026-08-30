@@ -1,5 +1,6 @@
 use truelearner_body::{
-    attach, harness::*, Arrival, Body, Join, Junction, JunctionId, Link, OpenBody, Work,
+    attach, harness::*, Arrival, Body, ChoiceBasis, Join, Junction, JunctionId, Link, OpenBody,
+    ReturnDecision, TraceEvent, Work,
 };
 
 struct LocalWorld {
@@ -97,6 +98,10 @@ impl CompetitionWorld {
     }
 
     fn compete(&mut self, at: u64, cause: u64) -> Trace {
+        self.compete_traced(at, cause).0
+    }
+
+    fn compete_traced(&mut self, at: u64, cause: u64) -> (Trace, Vec<TraceEvent>) {
         schedule(
             &mut self.body,
             at,
@@ -109,7 +114,14 @@ impl CompetitionWorld {
                 .motors
                 .map(|motor| Arrival::caused(motor.opportunity, 1, cause)),
         );
-        finish(&mut self.body)
+        let mut events = Vec::new();
+        let mut trace = Vec::new();
+        let run = self
+            .body
+            .run_traced(256, |event| events.push(event), |event| trace.push(event))
+            .unwrap();
+        assert!(self.body.is_quiet());
+        (Trace { run, events }, trace)
     }
 
     fn return_change(&mut self, at: u64, cause: u64) -> Trace {
@@ -390,6 +402,26 @@ fn ambiguous_current_returns_do_not_create_a_false_preference() {
 }
 
 #[test]
+fn an_unanswered_action_gives_an_alternative_the_next_chance() {
+    let mut world = CompetitionWorld::new(false);
+
+    let first = world.act(0, 10, 1);
+    assert_eq!(effect(&first.events, &world.motors), [0]);
+
+    let (next, trace) = world.compete_traced(20, 2);
+    assert_eq!(effect(&next.events, &world.motors), [1]);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::UnansweredOutputRelease)
+    )));
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Candidate(candidate)
+            if candidate.path.output == world.motors[0].opportunity && candidate.unanswered
+    )));
+}
+
+#[test]
 fn a_fresh_external_opportunity_crosses_only_into_the_root_learner() {
     let mut root = LearnerWorld::new();
     root.close(2, 10, 1, true);
@@ -604,20 +636,34 @@ fn one_completed_physical_cycle_strengthens_its_participating_action() {
 }
 
 #[test]
-fn ambiguous_or_unchanged_cycles_are_identity() {
+fn an_ambiguous_return_does_not_strengthen_a_path() {
     let mut ambiguous = CompetitionWorld::new(false);
     ambiguous.act(0, 10, 7);
     ambiguous.act(1, 20, 7);
-    ambiguous.return_change(22, 7);
-
-    let mut unchanged = CompetitionWorld::new(false);
-    unchanged.act(0, 10, 7);
-    unchanged.return_repeat(22, 7);
-
-    assert_eq!(
-        effect(&ambiguous.compete(30, 8).events, &ambiguous.motors),
-        effect(&unchanged.compete(30, 8).events, &unchanged.motors)
+    ambiguous.consequence_value += 1;
+    schedule(
+        &mut ambiguous.body,
+        22,
+        &[reading(
+            ambiguous.consequence,
+            0,
+            ambiguous.consequence_value,
+            7,
+        )],
     );
+    let mut trace = Vec::new();
+    ambiguous
+        .body
+        .run_traced(256, |_| {}, |event| trace.push(event))
+        .unwrap();
+
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Ambiguous
+    )));
+    assert!(!trace
+        .iter()
+        .any(|event| matches!(event, TraceEvent::Strengthened(_))));
 }
 
 #[test]

@@ -1,8 +1,0 @@
-{
-  "schema": "research-arm-result/v1",
-  "arm": "consequence-supported-continuation",
-  "outcome": "survived",
-  "falsifier": null,
-  "observations": {"summary": "the fresh consequential route won four renewed cycles", "consecutive_fresh_cycles": 4, "exact_replay": true, "naturally_quiescent": true},
-  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/consequence-supported-continuation.json", "sha256": "32b7cf5886f37eea29d81c33c740aa498c570427aafd2bcbb87c0064d2039e16"}]
-}

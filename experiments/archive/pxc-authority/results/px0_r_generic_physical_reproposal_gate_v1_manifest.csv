@@ -1,7 +1,0 @@
-cell,namespace,selected_route,reverse_allocation,spacing_ticks,active_opportunities,passed,total_rows,proposals,deallocations,work
-1,0x200000,0,false,8,2,true,7,44,32,10628
-2,0x240000,1,true,9,2,true,7,44,36,10487
-3,0x280000,2,false,10,2,true,7,44,32,10722
-4,0x2c0000,0,true,11,3,true,7,70,54,15100
-5,0x300000,1,false,12,3,true,7,70,62,15168
-6,0x340000,2,true,13,3,true,7,70,60,14787

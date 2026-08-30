@@ -1,1 +1,0 @@
-{"schema":"research-arm-result/v1","arm":"current-physics-reference","outcome":"survived","falsifier":null,"observations":{"surviving_references":3,"frozen_counterexamples":5},"artifacts":[{"path":"research/campaigns/sensorimotor-physical-boundaries-v1/artifacts/current-physics-reference.json","sha256":"3709739dbd27a79480aec5cf046af6a9ba3394782e51f90b761da055c1e68713"}]}

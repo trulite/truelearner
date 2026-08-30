@@ -1,2 +1,0 @@
-correspondence_resistance,continuation_resistance,branch_firings,outlet_firings,trace_arrivals,trace_firings,local_returns,extra_source_firings,heldout_effects,postgap_effects,heldout_extra_source_firings,postgap_extra_source_firings,heldout_quiescent,postgap_quiescent,correspondence_acquired,role_formed,productive_recurrence,training_quiescent,duplicate_exact,work,fingerprint,passed
-22|22,17|0,8|0,8|0,16|8,8|0,8|0,0,1|0,1|0,0,0,true,true,true,true,true,true,true,6805,9845540630731091206,true

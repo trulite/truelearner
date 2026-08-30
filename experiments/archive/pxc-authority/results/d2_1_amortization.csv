@@ -1,6 +1,0 @@
-choices,first_learned_actions,mature_learned_actions,mature_random_actions,mature_oracle_actions,break_even_problem,average_learned_spikes,average_random_spikes,average_learned_episodes,average_random_episodes
-4,2.0,1.0,2.5,1.0,1,3347,5586,91,152
-8,3.8,1.0,5.1,1.0,1,3361,7670,91,208
-16,10.0,1.0,8.2,1.0,2,3415,10011,93,272
-32,15.6,1.0,17.9,1.0,1,3458,18573,94,504
-64,41.4,1.0,36.0,1.0,2,3684,35548,100,965

@@ -1,9 +1,0 @@
-[package]
-name = "px7-lrc-arrival"
-version = "0.1.0"
-edition = "2021"
-publish = false
-description = "PX7 development topology over the authoritative LR-C substrate"
-
-[dependencies]
-lr1-modulatory-physical-return = { path = "../lr1-modulatory-physical-return" }

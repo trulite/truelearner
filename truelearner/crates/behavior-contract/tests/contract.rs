@@ -138,3 +138,11 @@ fn outcome_components_are_part_of_validated_morphology() {
         Err(ValidationError::DuplicateOutcomeMotor(scenarios::ACTION))
     );
 }
+
+#[test]
+fn product_and_release_scenarios_are_valid_shared_data() {
+    scenarios::independent_outcome_components()
+        .validate()
+        .unwrap();
+    scenarios::unanswered_output_releases().validate().unwrap();
+}

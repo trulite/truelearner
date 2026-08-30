@@ -1,1 +1,0 @@
-{"schema":"research-arm-result/v1","arm":"opportunity-reference","outcome":"survived","falsifier":null,"observations":{"exposure":"survived","supersession":"survived","release":"survived"},"artifacts":[{"path":"research/campaigns/sensorimotor-composition-sweep-v1/artifacts/opportunity-reference.json","sha256":"e161030fb0b9104d9973e060d0b4a94e590dd66b3f666ef51a9106a5e93bac3b"}]}

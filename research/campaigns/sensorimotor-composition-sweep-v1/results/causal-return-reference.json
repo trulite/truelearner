@@ -1,1 +1,0 @@
-{"schema":"research-arm-result/v1","arm":"causal-return-reference","outcome":"survived","falsifier":null,"observations":{"causal":"survived","delayed":"survived"},"artifacts":[{"path":"research/campaigns/sensorimotor-composition-sweep-v1/artifacts/causal-return-reference.json","sha256":"13b5d4b70ac4ef5ebf06d40b336bb4a2aed843e33257569bae646a77a9ebc157"}]}

@@ -48,7 +48,8 @@ offline. Do not add a succession of narrow print statements or broad reruns.
 
 ## Draw the physical square
 
-Use `$categorical-rust` as a modeling lens and ordinary domain words in code.
+Use `$dev` for the category-theory and TAME modeling lenses and ordinary domain
+words in code.
 
 1. Name the objects: physical states, junctions, paths, outputs, and outcomes.
 2. Name the arrows: fire, choose, move, return, strengthen, and reuse.
@@ -77,8 +78,7 @@ For each proposed solve:
 4. If it passes, climb the unchanged upstream ladder before a broad benchmark.
 5. Run a full embodiment or capability test only after every prerequisite arrow
    passes.
-6. Use `$research-campaign` for competing or interacting solves and
-   `$research-converge` after every declared round.
+6. Use `$dev` for any repair and its behavior, regression, and wave checks.
 
 A benchmark failure names a symptom, not a mechanism. A software test passing
 proves implementation integrity, not scientific success or authority.

@@ -1,8 +1,0 @@
-[package]
-name = "px8-lrc-physical-closure"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-
-[workspace]

@@ -37,6 +37,16 @@ fn learned_action_replays_after_checkpoint_on_the_compact_body() {
 }
 
 #[test]
+fn outcome_components_return_independently_on_the_compact_body() {
+    assert_scenario(scenarios::independent_outcome_components());
+}
+
+#[test]
+fn an_unanswered_output_releases_on_the_compact_body() {
+    assert_scenario(scenarios::unanswered_output_releases());
+}
+
+#[test]
 fn deterministic_variants_are_the_same_on_the_compact_body() {
     let base = scenarios::local_action(1, 7);
     let failures = [

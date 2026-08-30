@@ -12,10 +12,8 @@ truelearner-workstation -> truelearner-body
   motor attachment, private junction handles, external state, and opaque
   checkpoint replay.
 - `truelearner-behavior-contract` holds the shared black-box scenario format.
-- `truelearner-checkpoint` provides neutral checkpoint envelope mechanics.
 
-The former core and embodiment crates are not workspace members or production
+The former core, embodiment, harness, and checkpoint crates are not production
 dependencies. Research archives may refer to them as historical evidence.
 
-Production crates must not depend on anything under `experiments/` or
-`research/`.
+Production crates depend only on crates in the production workspace.

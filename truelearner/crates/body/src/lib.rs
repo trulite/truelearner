@@ -8,6 +8,7 @@ mod engine;
 pub mod harness;
 mod physics;
 mod timeline;
+mod trace;
 
 pub use crate::attachment::{
     attach, AttachError, AttachFailure, Attachment, Join, OpenBody, OpenBodyError, Port,
@@ -20,3 +21,7 @@ pub use crate::physics::{
     Retention, Run, RunError, Step, Time, Trigger, Work,
 };
 pub use crate::timeline::{MomentKey, QueueWork, Timeline, TimelineItem};
+pub use crate::trace::{
+    CandidateTrace, ChoiceBasis, ChoiceTrace, ReturnDecision, ReturnTrace, StrengthTrace,
+    TraceArrival, TraceEvent, TracePath,
+};

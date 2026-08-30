@@ -1,7 +1,0 @@
-label,mode,seed,phase,raw_relation_comparisons,triples_enumerated,canonical_permutations,persistent_shape_comparisons,proposals,physical_propagations,ordinary_consequence_updates,temporary_formations,serializations,organism_work,persistent_shapes,persistent_bytes,temporary_peak_bytes,retained_occurrences,retained_memberships,maintenance_per_use,carrying_per_tick,evaluator_work
-DS-E0 DEVELOPMENT,MICRO,100,full development matrix,293328,5432,32592,869,32,32,32,49,49,332415,5,130,40,0,0,0,0,excluded
-DS-E0 DEVELOPMENT,GATE,100,full development matrix,583632,10808,64848,1749,64,64,64,97,97,661423,5,130,40,0,0,0,0,excluded
-DS-E0 DEVELOPMENT,GATE,101,full development matrix,583632,10808,64848,1749,64,64,64,97,97,661423,5,130,40,0,0,0,0,excluded
-DS-E0 DEVELOPMENT,GATE,102,full development matrix,583632,10808,64848,1749,64,64,64,97,97,661423,5,130,40,0,0,0,0,excluded
-DS-E0 DEVELOPMENT,GATE,103,full development matrix,583632,10808,64848,1749,64,64,64,97,97,661423,5,130,40,0,0,0,0,excluded
-DS-E0 DEVELOPMENT,GATE,104,full development matrix,583632,10808,64848,1749,64,64,64,97,97,661423,5,130,40,0,0,0,0,excluded

@@ -1,7 +1,6 @@
 target/
 /output/
 /.DS_Store
-.env.e2b
 .env
 academy/.env
 academy/capstones/arc3/.venv/
@@ -10,8 +9,3 @@ academy/capstones/arc3/recordings/
 *.profraw
 *.profdata
 __pycache__/
-.e2b-dev-state*
-
-# Local diagnostic recordings; retain compact manifests and digests in Git.
-research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/*.json
-!research/campaigns/workstation-return-bearing-opportunity-composition-v1/artifacts/preflight-failure.json

@@ -1,1 +1,0 @@
-{"schema":"research-arm-result/v1","arm":"first-motor-output","outcome":"survived","falsifier":null,"observations":{"steps":4,"changed_steps":3,"directions":[-1,1]},"artifacts":[{"path":"research/campaigns/sensorimotor-synthesis-ladder-v1/artifacts/first-motor-output.json","sha256":"a7c34bc47c1e5f8fe0de1960891985d27f37ee08291142a36eca45bac8ec131f"}]}

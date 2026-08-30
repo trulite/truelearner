@@ -1,8 +1,0 @@
-{
-  "schema": "research-arm-result/v1",
-  "arm": "displaced-return-closure",
-  "outcome": "survived",
-  "falsifier": null,
-  "observations": {"summary": "one displaced return superseded and the fresh return remained", "exact_replay": true, "naturally_quiescent": true},
-  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/displaced-return-closure.json", "sha256": "7c6418f36a723298addab3c97fb8759893046150d4f17cd5e4e98dd0b8686c55"}]
-}

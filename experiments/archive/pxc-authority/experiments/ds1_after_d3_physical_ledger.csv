@@ -1,7 +1,0 @@
-mode,seed,acquisition,event_formations,two_root_episodes,d3_directions,physical_directions,direction_deliveries,ds1_updates,patterns,divergent_patterns,consequence_mature,evaluator_mature,heldout_successes,heldout_attempts,heldout_abstentions,reversed_world_mature,reversed_world_evaluator,d3_work,ds1_learner_work,ds1_persistent_bytes,learner_fingerprint,pass
-MICRO,100,16,16,16,16,16,16,16,4,4,4,4,8,8,0,4,0,2864,106,320,2e58feada290ac1d,PASS
-GATE,100,32,32,32,32,32,32,32,4,4,4,4,16,16,0,4,0,5728,186,320,eeb7bc503dbb4ff5,PASS
-GATE,101,32,32,32,32,32,32,32,4,4,4,4,16,16,0,4,0,5728,186,320,11b0c6191139f059,PASS
-GATE,102,32,32,32,32,32,32,32,4,4,4,4,16,16,0,4,0,5728,186,320,eeb7bc503dbb4ff5,PASS
-GATE,103,32,32,32,32,32,32,32,4,4,4,4,16,16,0,4,0,5728,186,320,11b0c6191139f059,PASS
-GATE,104,32,32,32,32,32,32,32,4,4,4,4,16,16,0,4,0,5728,186,320,eeb7bc503dbb4ff5,PASS

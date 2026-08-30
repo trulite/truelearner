@@ -1,9 +1,0 @@
-protocol,mode,claim_eligible,passed,seed,acquisition,events,two_roots,d3_directions,physical_directions,deliveries,updates,patterns,divergent_patterns,consequence_mature,evaluator_mature,held_out_attempts,held_out_successes,held_out_abstentions,reversed_consequence_mature,reversed_evaluator_mature,d3_work,learner_work,learner_bytes,fingerprint,duplicate_deterministic,first_collapse
-ds1-boundary-role-cumulative-definitive-v1,DEFINITIVE,true,true,0,64,64,64,64,64,64,64,4,4,4,4,32,32,0,4,0,11456,346,320,addd65845c0e78f5,true,NONE
-ds1-boundary-role-cumulative-definitive-v1,DEFINITIVE,true,true,1,64,64,64,64,64,64,64,4,4,4,4,32,32,0,4,0,11456,346,320,5d78d928cdc83699,true,NONE
-ds1-boundary-role-cumulative-definitive-v1,DEFINITIVE,true,true,2,64,64,64,64,64,64,64,4,4,4,4,32,32,0,4,0,11456,346,320,addd65845c0e78f5,true,NONE
-ds1-boundary-role-cumulative-definitive-v1,DEFINITIVE,true,true,3,64,64,64,64,64,64,64,4,4,4,4,32,32,0,4,0,11456,346,320,5d78d928cdc83699,true,NONE
-ds1-boundary-role-cumulative-definitive-v1,DEFINITIVE,true,true,4,64,64,64,64,64,64,64,4,4,4,4,32,32,0,4,0,11456,346,320,addd65845c0e78f5,true,NONE
-ds1-boundary-role-cumulative-definitive-v1,DEFINITIVE,true,true,5,64,64,64,64,64,64,64,4,4,4,4,32,32,0,4,0,11456,346,320,5d78d928cdc83699,true,NONE
-ds1-boundary-role-cumulative-definitive-v1,DEFINITIVE,true,true,6,64,64,64,64,64,64,64,4,4,4,4,32,32,0,4,0,11456,346,320,addd65845c0e78f5,true,NONE
-ds1-boundary-role-cumulative-definitive-v1,DEFINITIVE,true,true,7,64,64,64,64,64,64,64,4,4,4,4,32,32,0,4,0,11456,346,320,5d78d928cdc83699,true,NONE

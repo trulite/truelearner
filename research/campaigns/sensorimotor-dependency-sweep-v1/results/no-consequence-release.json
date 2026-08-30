@@ -1,8 +1,0 @@
-{
-  "schema": "research-arm-result/v1",
-  "arm": "no-consequence-release",
-  "outcome": "survived",
-  "falsifier": null,
-  "observations": {"summary": "the dominant unanswered route released to one fresh competitor", "exact_replay": true, "naturally_quiescent": true},
-  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/no-consequence-release.json", "sha256": "ba626c4463296bee0cfb157965af503d303904f74708937e7b4b0c6d5f3b82ce"}]
-}

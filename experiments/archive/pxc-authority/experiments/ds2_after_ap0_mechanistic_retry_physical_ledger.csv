@@ -1,4 +1,0 @@
-scope,seeds,contexts_per_seed,proposals,support_updates,probationary_bytes_per_seed,persistent_causal_bytes
-selected physical route,5,4,20,20,16,0
-alternate physical route,5,4,20,20,16,0
-directional differential,5,4,0,0,0,0

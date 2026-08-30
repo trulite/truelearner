@@ -15,6 +15,7 @@ pub use state::{
     WorldSample, AXIS_COUNT, BODY_MAX, DIGIT_COUNT, TOUCH_SITES,
 };
 use std::fmt;
+pub use truelearner_body::TraceEvent as BodyTraceEvent;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WorkstationError {

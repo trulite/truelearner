@@ -47,8 +47,8 @@ what it is allowed to know.
 
 ## Synthesize and climb
 
-- Use `$research-forecast` to compose every applicable compatible established
-  lesson into the strongest benchmark-blind candidate.
+- Compose every applicable compatible established lesson into the strongest
+  benchmark-blind candidate.
 - Preserve incompatible alternatives and falsified proposals as constraints; do
   not withhold a known prerequisite merely to rediscover it one rung at a time.
 - Freeze the complete candidate, then test it upward from primitive physical
@@ -79,12 +79,10 @@ Once the first physical divergence is localized:
 - Give each hypothesis a prediction, killing falsifier, negative control, and
   expected cost.
 - Prefer laws that could help unrelated worlds.
-- Use `$research-campaign` to run competing arms and composition arms in
-  parallel when mechanisms may interact.
 - Test the smallest adversarial constructed world before the benchmark.
 - Stop and freeze an arm as soon as its prediction fails.
-- Use `$research-converge` to preserve failures, cross-pollinate compatible
-  survivors, and choose the next discriminating test.
+- Preserve failures, cross-pollinate compatible survivors, and choose the next
+  discriminating test.
 
 A candidate must earn itself twice: the constructed world must expose its
 mechanism, and the original benchmark must improve. Either result alone is
@@ -130,7 +128,9 @@ across unseen variants; do not celebrate an individual task number.
 
 - Promote a local law, never an experimental harness.
 - Require minimal, readable, benchmark-blind adoption code.
-- Hand clean adoption to `$rust-plan`, `$rust-implement`, and `$rust-verify`.
+- Hand clean adoption to `$dev`.
+- Keep representative warm wave time strictly under 25 ns unless the user
+  expressly approves otherwise.
 - Keep the representative warm regression loop strictly under 10 seconds.
 - Re-run the complete upward capability ladder from the frozen clean organism
   after each declared adoption group.

@@ -1,6 +1,0 @@
-protocol,source_csv_sha256,use_count,residual_overhead,temporary_binding,temporary_installation,grounding_total,other_compiled_work
-identity-desupply-ladder-v1/cs0a,98b983fb9cc88149c2c9de83e74e11d94e1aa3488a6f63f756e835fbd341bf36,1,6,1,1,2,4
-identity-desupply-ladder-v1/cs0a,98b983fb9cc88149c2c9de83e74e11d94e1aa3488a6f63f756e835fbd341bf36,2,12,2,2,4,8
-identity-desupply-ladder-v1/cs0a,98b983fb9cc88149c2c9de83e74e11d94e1aa3488a6f63f756e835fbd341bf36,4,24,4,4,8,16
-identity-desupply-ladder-v1/cs0a,98b983fb9cc88149c2c9de83e74e11d94e1aa3488a6f63f756e835fbd341bf36,8,48,8,8,16,32
-identity-desupply-ladder-v1/cs0a,98b983fb9cc88149c2c9de83e74e11d94e1aa3488a6f63f756e835fbd341bf36,16,96,16,16,32,64

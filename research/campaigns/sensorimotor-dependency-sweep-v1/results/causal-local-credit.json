@@ -1,8 +1,0 @@
-{
-  "schema": "research-arm-result/v1",
-  "arm": "causal-local-credit",
-  "outcome": "survived",
-  "falsifier": null,
-  "observations": {"summary": "one of two paths strengthened", "exact_replay": true, "naturally_quiescent": true},
-  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/causal-local-credit.json", "sha256": "19c0ece33931821b0bb8908aa46c6f096fb83a6d93a6157a92c09995aca72272"}]
-}

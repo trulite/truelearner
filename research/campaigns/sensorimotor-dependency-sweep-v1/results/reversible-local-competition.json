@@ -1,8 +1,0 @@
-{
-  "schema": "research-arm-result/v1",
-  "arm": "reversible-local-competition",
-  "outcome": "survived",
-  "falsifier": null,
-  "observations": {"summary": "later contrary evidence displaced the earlier local winner", "exact_replay": true, "naturally_quiescent": true},
-  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/reversible-local-competition.json", "sha256": "45e8380b2b0f46f93bbb4ccb5f77c65a1ca60940fd3fce96566fcf0bf2994cc8"}]
-}

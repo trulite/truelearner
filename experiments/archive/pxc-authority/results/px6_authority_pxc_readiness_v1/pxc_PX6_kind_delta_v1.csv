@@ -1,9 +1,0 @@
-kind,before,after,delta
-typed_representation,85,75,-10
-explicit_mechanism_invocation,62,60,-2
-episode_reset_boundary,1,1,0
-seed_history_synthesis,5,0,-5
-semantic_condition,38,22,-16
-manual_temporary_cleanup,1,1,0
-typed_handoff,84,80,-4
-evaluator_derived_input,7,7,0

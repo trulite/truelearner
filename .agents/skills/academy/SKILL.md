@@ -16,9 +16,10 @@ world -> physical input -> Harness -> owned observation -> Academy evidence
 
 ## Ground the work
 
-- Read the active checkout's `academy.md` completely.
-- Read `arch.md` boundaries before changing an interface or dependency edge.
-- Read `LANGUAGE.md` and `algo.md` before proposing organism physics.
+- Read the active checkout's `docs/academy.md` completely.
+- Read `docs/arch.md` boundaries before changing an interface or dependency
+  edge.
+- Read `docs/LANGUAGE.md` and `docs/algo.md` before proposing organism physics.
 - Use `uv` or `uvx` for every Python script, validator, CLI, and dependency
   environment. Run repository scripts as `uv run ...`, add ephemeral libraries
   with `uv run --with`, and run packaged command-line tools with `uvx`. Do not
@@ -99,11 +100,7 @@ capstone to make the organism pass.
 
 ## Route changes
 
-- Hand Rust modeling to `$categorical-rust`.
-- Hand a bounded Rust adoption to `$rust-plan`, then `$rust-implement`, then
-  `$rust-verify`.
-- Use `$research-campaign` and `$research-converge` for competing physical laws.
-- Use `$research-adjudicate` only for frozen authority evidence.
+- Hand code modeling, implementation, and verification to `$dev`.
 - Keep the representative warm regression strictly under 10 seconds and record
   cold bootstrap separately.
 

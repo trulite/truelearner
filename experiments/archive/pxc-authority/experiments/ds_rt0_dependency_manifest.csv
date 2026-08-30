@@ -1,9 +1,0 @@
-dependency,origin,use,status
-CP0 structural signal,frozen CP0,selects matching existing probation structurally,required
-A1 support map,frozen A1,persistent retained asset,required
-A1 install,frozen A1,grounds retained template on fresh occurrences,required
-A1 execute_root,frozen A1,physical execution,required
-fresh E0 occurrence structure,frozen E0 under A1,transfer substrate,required
-semantic direction or correctness,none,none,forbidden
-post-freeze reacquisition,none,none,forbidden
-invalidation and reopening,not implemented,next cumulative stage,absent

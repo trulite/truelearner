@@ -1,0 +1,4 @@
+interface:
+  display_name: "Development"
+  short_description: "Develop with category theory, TAME, and a 25 ns gate"
+  default_prompt: "Use $dev to make the smallest complete change, apply category-theory and TAME lenses, verify behavior, and enforce the strict 25 ns warm-wave limit."

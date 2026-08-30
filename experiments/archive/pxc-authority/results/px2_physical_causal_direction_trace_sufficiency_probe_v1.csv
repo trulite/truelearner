@@ -1,6 +1,0 @@
-scenario,correspondence_resistance,directional_resistance,training_continuation_firings,training_consequence_firings,training_trace_arrivals,training_trace_firings,training_local_returns,training_effects,training_extra_arrival_firings,heldout_continuation_firings,heldout_consequence_firings,heldout_trace_arrivals,heldout_trace_firings,heldout_local_returns,heldout_effects,postgap_effects,heldout_extra_arrival_firings,postgap_extra_arrival_firings,training_quiescent,heldout_quiescent,postgap_quiescent,work,fingerprint,duplicate_exact,passed
-forward-participation,22|22,17|0,8|0,8|8,16|16,8|8,8|8,8|8,0,1|1,1|0,2|1,1|0,1|0,1|0,1|0,0,0,true,true,true,8801,5409661212786556096,true,true
-reverse-participation,22|22,0|17,0|8,8|8,16|16,8|8,8|8,8|8,0,1|1,0|1,1|2,0|1,0|1,0|1,0|1,0,0,true,true,true,8801,4489633440663324024,true,true
-correlation-only,22|22,0|0,0|0,8|8,16|16,8|8,8|8,8|8,0,1|1,0|0,0|0,0|0,0|0,0|0,0|0,0,0,true,true,true,8243,7381823467026741565,true,true
-joint-participation,22|22,17|17,8|8,8|8,16|16,8|8,8|8,8|8,0,1|1,1|1,2|2,1|1,1|1,1|1,1|1,0,0,true,true,true,9438,10095995585837742149,true,true
-participation-without-return,22|22,0|0,8|0,1|8,1|8,0|0,0|0,1|8,0,1|1,0|0,0|0,0|0,0|0,0|0,0|0,0,0,true,true,true,6590,1160930829451008961,true,false

@@ -1,8 +1,0 @@
-[package]
-name = "lr1-route-aware-physical-return"
-version = "0.1.0"
-edition = "2021"
-publish = false
-description = "LR1 Arm A route-aware successor to PX0 local plastic physics"
-
-[dependencies]

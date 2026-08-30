@@ -1,7 +1,0 @@
-[package]
-name = "harness-privacy-check"
-version = "0.0.0"
-edition = "2021"
-
-[dependencies]
-truelearner-core = { path = "../../truelearner/crates/core" }

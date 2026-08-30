@@ -1,8 +1,0 @@
-{
-  "schema": "research-arm-result/v1",
-  "arm": "one-joint-composition",
-  "outcome": "falsified",
-  "falsifier": "The composition produced both directions and left the upper limit, but never reached or left the lower limit in 40 steps.",
-  "observations": {"directions": [-1, 1], "reached_upper": true, "escaped_upper": true, "reached_lower": false, "escaped_lower": false, "exact_replay": true, "naturally_quiescent": true},
-  "artifacts": [{"path": "research/campaigns/sensorimotor-dependency-sweep-v1/artifacts/one-joint-composition.json", "sha256": "61f6a41f6427e0c8a13b65b762eadb1492fd2895112e37b9d2ff5ddf9caec707"}]
-}

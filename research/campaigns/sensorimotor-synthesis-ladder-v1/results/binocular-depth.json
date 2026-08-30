@@ -1,1 +1,0 @@
-{"schema":"research-arm-result/v1","arm":"binocular-depth","outcome":"inconclusive","falsifier":"The one-joint prerequisite was falsified.","observations":{"stopped_after":"one-joint-control"},"artifacts":[{"path":"research/campaigns/sensorimotor-synthesis-ladder-v1/artifacts/binocular-depth.json","sha256":"be8051700be872f4fc261087bd2eeb620916bffcc3bf3471e188e9035110e35a"}]}

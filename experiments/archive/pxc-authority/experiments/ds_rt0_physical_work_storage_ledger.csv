@@ -1,8 +1,0 @@
-case,contexts,acquisition_observe_calls_min,post_freeze_observe_calls,installed_roots,executed_roots,persistent_bytes
-retained execution,20,4,0,20,20,8
-reversed history,20,4,0,20,20,8
-same downstream,20,2,0,0,0,8
-variable downstream,20,2,0,0,0,8
-shuffled downstream,20,2,0,0,0,8
-suppressed direction,20,2,0,0,0,8
-removed source,20,2,0,0,0,8

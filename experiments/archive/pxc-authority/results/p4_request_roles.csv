@@ -1,6 +1,0 @@
-gate,condition,successful,total,correct,correct_total,sensory_roles,request_roles,working_roles,event_roles,program_arrows,encounter_representations,created,released,competence_episode,passed
-P4a,request,8,8,256,256,0,1,0,0,0,0,0,0,,true
-P4b,interface,8,8,56,56,0,1,2,2,4,0,0,0,,true
-P4c,real,8,8,512,512,2.0,1.0,2.0,2.0,4.0,14.0,27558,27554,Some(795.25),true
-P4c,shuffled,0,8,0,0,2.0,0.0,2.0,2.0,0.0,14.0,418769,418601,None,false
-P4c,random,0,8,0,0,2.0,0.0,2.0,2.0,0.0,14.0,420498,420330,None,false

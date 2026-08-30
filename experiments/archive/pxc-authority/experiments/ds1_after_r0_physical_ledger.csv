@@ -1,7 +1,0 @@
-mode,seed,e0_work,a1_work,r0_work,e0_persistent_bytes,a1_persistent_bytes,ds1_persistent_bytes,r0_persistent_bytes,temporary_peak_bytes,roots,handles,choose_calls,physical_executions,activity_pulses,activity_relations,return_relations,evidence_fields,evidence_surfaces,ds1_updates,boundary_strength_work,heldout_reconstruction_work,maintenance,carrying,first_collapse
-MICRO,100,99443,412,210,130,12,320,6,128,2,2,1,1,3,2,1,4,1,0,,,0,0,8
-GATE,100,154355,412,210,130,12,320,6,128,2,2,1,1,3,2,1,4,1,0,,,0,0,8
-GATE,101,154355,416,210,130,12,320,6,128,2,2,1,1,3,2,1,4,1,0,,,0,0,8
-GATE,102,154355,412,210,130,12,320,6,128,2,2,1,1,3,2,1,4,1,0,,,0,0,8
-GATE,103,154355,416,210,130,12,320,6,128,2,2,1,1,3,2,1,4,1,0,,,0,0,8
-GATE,104,154355,412,210,130,12,320,6,128,2,2,1,1,3,2,1,4,1,0,,,0,0,8

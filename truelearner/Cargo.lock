@@ -178,13 +178,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "truelearner-checkpoint"
-version = "0.1.0"
-dependencies = [
- "truelearner-body",
-]
-
-[[package]]
 name = "truelearner-workstation"
 version = "0.1.0"
 dependencies = [

@@ -1,4 +1,0 @@
-interface:
-  display_name: "Research Program"
-  short_description: "Maintain claims, lessons, and research frontiers"
-  default_prompt: "Use $research-program to model this research program and its next admissible frontier."
