@@ -1,11 +1,27 @@
 use crate::course::{BodyCapability, BodyCourseError};
 use truelearner_workstation::{
-    ContactSample, Digit, Eye, HandPoint, LightField, Point, WorkstationRead, WorldSample,
-    BODY_MAX, TOUCH_SITES,
+    ContactSample, Digit, Eye, HandPoint, HandState, LightField, Point, WorkstationRead,
+    WorldSample, BODY_MAX, TOUCH_SITES,
 };
 
-const SIDE: u16 = 33;
+const SIDE: u16 = 9;
 const CONTACT_DEPTH: i16 = 600;
+const EYE_CENTER: i16 = (BODY_MAX + 1) / 2;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ScenePoint {
+    x: i32,
+    y: i32,
+}
+
+impl ScenePoint {
+    const fn from_point(point: Point) -> Self {
+        Self {
+            x: point.x() as i32,
+            y: point.y() as i32,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum StereoDepth {
@@ -25,9 +41,9 @@ impl StereoDepth {
 
     const fn half_disparity(self) -> i16 {
         match self {
-            Self::Near => 96,
-            Self::Middle => 64,
-            Self::Far => 32,
+            Self::Near => 384,
+            Self::Middle => 256,
+            Self::Far => 128,
         }
     }
 }
@@ -38,6 +54,7 @@ pub(crate) struct FlatWorld {
     capability: BodyCapability,
     step: u32,
     target: Point,
+    stereo_targets: Option<[ScenePoint; 2]>,
     passive_motion: bool,
 }
 
@@ -62,6 +79,7 @@ impl FlatWorld {
             capability,
             step: 0,
             target,
+            stereo_targets: None,
             passive_motion: false,
         }
     }
@@ -83,47 +101,91 @@ impl FlatWorld {
         } else {
             self.target
         };
-        let [left_target, right_target] = eye_targets(self.capability, self.seed, target);
+        let targets = if self.capability == BodyCapability::BinocularDepth {
+            let gazes = Eye::ALL.map(|eye| body.state.eye(eye).gaze());
+            self.fixed_stereo_targets(gazes)
+        } else {
+            [ScenePoint::from_point(target); 2]
+        };
+        let [left_target, right_target] = targets;
         let left = render_eye(self.seed, left_target, body, Eye::Left)?;
         let right = render_eye(self.seed.rotate_left(11), right_target, body, Eye::Right)?;
         let contacts = contacts(self.capability, self.seed, self.step, body)?;
         self.step = self.step.saturating_add(1);
         Ok(WorldSample::new([left, right], contacts)?)
     }
+
+    fn fixed_stereo_targets(&mut self, gazes: [Point; 2]) -> [ScenePoint; 2] {
+        *self
+            .stereo_targets
+            .get_or_insert_with(|| eye_targets(self.capability, self.seed, gazes))
+    }
 }
 
-fn eye_targets(capability: BodyCapability, seed: u64, center: Point) -> [Point; 2] {
+fn eye_targets(capability: BodyCapability, seed: u64, centers: [Point; 2]) -> [ScenePoint; 2] {
     if capability != BodyCapability::BinocularDepth {
-        return [center, center];
+        return centers.map(ScenePoint::from_point);
     }
-    let disparity = StereoDepth::generated(seed).half_disparity();
+    let disparity = i32::from(StereoDepth::generated(seed).half_disparity());
     [
-        center.offset_public(-disparity, 0),
-        center.offset_public(disparity, 0),
+        ScenePoint {
+            x: i32::from(centers[0].x()) + disparity,
+            y: i32::from(centers[0].y()),
+        },
+        ScenePoint {
+            x: i32::from(centers[1].x()) - disparity,
+            y: i32::from(centers[1].y()),
+        },
     ]
 }
 
 fn render_eye(
     seed: u64,
-    target: Point,
+    target: ScenePoint,
     body: &WorkstationRead,
     eye: Eye,
 ) -> Result<LightField, BodyCourseError> {
+    render_eye_at(
+        seed,
+        target,
+        body.state.eye(eye).gaze(),
+        body.state.hand(),
+        eye,
+    )
+}
+
+fn render_eye_at(
+    seed: u64,
+    target: ScenePoint,
+    gaze: Point,
+    hand: &HandState,
+    eye: Eye,
+) -> Result<LightField, BodyCourseError> {
     let mut pixels = (0..SIDE)
-        .flat_map(|y| (0..SIDE).map(move |x| background_light(seed, x, y)))
+        .flat_map(|y| (0..SIDE).map(move |x| retinal_background(seed, x, y, gaze)))
         .collect::<Vec<_>>();
-    set_body_pixel(&mut pixels, target, 255);
+    set_world_pixel(&mut pixels, target, gaze, 255);
     for index in 0..6_u64 {
         let x = i16::try_from((seed.rotate_left(index as u32) + index * 97) % 1_024).unwrap_or(0);
         let y = i16::try_from((seed.rotate_right(index as u32) + index * 53) % 1_024).unwrap_or(0);
-        set_body_pixel(&mut pixels, Point::new(x, y)?, 48);
-    }
-    let hand = body.state.hand();
-    set_body_pixel(&mut pixels, project_hand_point(hand.palm(), eye), 96);
-    for digit in Digit::ALL {
-        set_body_pixel(
+        set_world_pixel(
             &mut pixels,
-            project_hand_point(hand.fingertip(digit), eye),
+            ScenePoint::from_point(Point::new(x, y)?),
+            gaze,
+            48,
+        );
+    }
+    set_world_pixel(
+        &mut pixels,
+        ScenePoint::from_point(project_hand_point(hand.palm(), eye)),
+        gaze,
+        96,
+    );
+    for digit in Digit::ALL {
+        set_world_pixel(
+            &mut pixels,
+            ScenePoint::from_point(project_hand_point(hand.fingertip(digit), eye)),
+            gaze,
             128,
         );
     }
@@ -147,6 +209,36 @@ fn background_light(seed: u64, x: u16, y: u16) -> u8 {
     let offset = u64::from(x) * 5 + u64::from(y) * 11;
     let value = seed.wrapping_add(offset) % 32;
     u8::try_from(value).unwrap_or(0)
+}
+
+fn retinal_background(seed: u64, x: u16, y: u16, gaze: Point) -> u8 {
+    let world_index = |retinal: u16, gaze: i16| {
+        let retinal = i32::from(retinal) * i32::from(BODY_MAX) / i32::from(SIDE - 1);
+        let world = retinal + i32::from(gaze) - i32::from(EYE_CENTER);
+        (0..=i32::from(BODY_MAX))
+            .contains(&world)
+            .then(|| u16::try_from(world * i32::from(SIDE - 1) / i32::from(BODY_MAX)).unwrap_or(0))
+    };
+    match (world_index(x, gaze.x()), world_index(y, gaze.y())) {
+        (Some(world_x), Some(world_y)) => background_light(seed, world_x, world_y),
+        _ => 0,
+    }
+}
+
+fn set_world_pixel(pixels: &mut [u8], point: ScenePoint, gaze: Point, value: u8) {
+    if let Some(retinal) = retinal_point(point, gaze) {
+        set_body_pixel(pixels, retinal, value);
+    }
+}
+
+fn retinal_point(point: ScenePoint, gaze: Point) -> Option<Point> {
+    let retinal = |world: i32, gaze: i16| {
+        let coordinate = world - i32::from(gaze) + i32::from(EYE_CENTER);
+        i16::try_from(coordinate)
+            .ok()
+            .filter(|coordinate| (0..=BODY_MAX).contains(coordinate))
+    };
+    Point::new(retinal(point.x, gaze.x())?, retinal(point.y, gaze.y())?).ok()
 }
 
 fn set_body_pixel(pixels: &mut [u8], point: Point, value: u8) {
@@ -270,24 +362,25 @@ mod tests {
     }
 
     #[test]
-    fn stereo_targets_are_symmetric_and_near_means_more_disparity() {
+    fn stereo_targets_are_crossed_symmetric_and_near_means_more_disparity() {
         let center = Point::new(512, 512).unwrap();
-        let near = eye_targets(BodyCapability::BinocularDepth, 0, center);
-        let middle = eye_targets(BodyCapability::BinocularDepth, 1, center);
-        let far = eye_targets(BodyCapability::BinocularDepth, 2, center);
+        let near = eye_targets(BodyCapability::BinocularDepth, 0, [center; 2]);
+        let middle = eye_targets(BodyCapability::BinocularDepth, 1, [center; 2]);
+        let far = eye_targets(BodyCapability::BinocularDepth, 2, [center; 2]);
 
         for targets in [near, middle, far] {
-            assert_eq!(targets[0].y(), center.y());
-            assert_eq!(targets[1].y(), center.y());
-            assert_eq!(targets[0].x() + targets[1].x(), center.x() * 2);
-            assert!(targets[0].x() < targets[1].x());
+            assert_eq!(targets[0].y, i32::from(center.y()));
+            assert_eq!(targets[1].y, i32::from(center.y()));
+            assert_eq!(targets[0].x + targets[1].x, i32::from(center.x()) * 2);
+            assert!(targets[0].x > i32::from(center.x()));
+            assert!(targets[1].x < i32::from(center.x()));
         }
-        let disparity = |targets: [Point; 2]| targets[1].x() - targets[0].x();
+        let disparity = |targets: [ScenePoint; 2]| targets[0].x - targets[1].x;
         assert!(disparity(near) > disparity(middle));
         assert!(disparity(middle) > disparity(far));
         assert_eq!(
-            eye_targets(BodyCapability::GazeControl, 0, center),
-            [center, center]
+            eye_targets(BodyCapability::GazeControl, 0, [center; 2]),
+            [ScenePoint::from_point(center); 2]
         );
     }
 
@@ -312,5 +405,110 @@ mod tests {
         for forbidden in ["depth", "disparity", "target", "course", "capability"] {
             assert!(!wire.contains(forbidden), "leaked {forbidden}: {wire}");
         }
+    }
+
+    #[test]
+    fn binocular_targets_are_visible_at_receptor_resolution() {
+        let body = WorkstationHarness::new(76).unwrap().read().unwrap();
+        for seed in 0..3 {
+            let sample = FlatWorld::generated(seed, BodyCapability::BinocularDepth)
+                .sample(&body)
+                .unwrap();
+            for eye in Eye::ALL {
+                let field = sample.eye(eye);
+                assert_eq!((field.width(), field.height()), (9, 9));
+                assert!(field.pixels().contains(&255));
+            }
+        }
+    }
+
+    #[test]
+    fn one_converging_eye_step_moves_both_targets_toward_center() {
+        let body = WorkstationHarness::new(77).unwrap().read().unwrap();
+        let center = Point::new(512, 512).unwrap();
+        let targets = eye_targets(BodyCapability::BinocularDepth, 2, [center; 2]);
+        let target_column = |field: &LightField| {
+            field
+                .pixels()
+                .iter()
+                .position(|pixel| *pixel == 255)
+                .unwrap()
+                % usize::from(field.width())
+        };
+        let distance_from_center = |field: &LightField| target_column(field).abs_diff(4);
+
+        let left_before =
+            render_eye_at(78, targets[0], center, body.state.hand(), Eye::Left).unwrap();
+        let right_before =
+            render_eye_at(78, targets[1], center, body.state.hand(), Eye::Right).unwrap();
+        let left_after = render_eye_at(
+            78,
+            targets[0],
+            Point::new(640, 512).unwrap(),
+            body.state.hand(),
+            Eye::Left,
+        )
+        .unwrap();
+        let right_after = render_eye_at(
+            78,
+            targets[1],
+            Point::new(384, 512).unwrap(),
+            body.state.hand(),
+            Eye::Right,
+        )
+        .unwrap();
+
+        assert!(distance_from_center(&left_after) < distance_from_center(&left_before));
+        assert!(distance_from_center(&right_after) < distance_from_center(&right_before));
+    }
+
+    #[test]
+    fn crossed_targets_are_visible_from_a_boundary_start() {
+        let body = WorkstationHarness::new(79).unwrap().read().unwrap();
+        let boundary = Point::new(0, 512).unwrap();
+        let targets = eye_targets(BodyCapability::BinocularDepth, 2, [boundary; 2]);
+        let target_column = |field: &LightField| {
+            field
+                .pixels()
+                .iter()
+                .position(|pixel| *pixel == 255)
+                .unwrap()
+                % usize::from(field.width())
+        };
+        let left = render_eye_at(80, targets[0], boundary, body.state.hand(), Eye::Left).unwrap();
+        let right = render_eye_at(80, targets[1], boundary, body.state.hand(), Eye::Right).unwrap();
+
+        assert!(target_column(&left) > 4);
+        assert!(target_column(&right) < 4);
+    }
+
+    #[test]
+    fn stereo_targets_do_not_follow_later_gaze() {
+        let center = Point::new(512, 512).unwrap();
+        let moved = Point::new(640, 384).unwrap();
+        let mut world = FlatWorld::generated(81, BodyCapability::BinocularDepth);
+
+        let placed = world.fixed_stereo_targets([center; 2]);
+
+        assert_eq!(world.fixed_stereo_targets([moved; 2]), placed);
+    }
+
+    #[test]
+    fn moving_one_eye_changes_only_its_world_raster() {
+        let body = WorkstationHarness::new(77).unwrap().read().unwrap();
+        let target = ScenePoint::from_point(Point::new(256, 512).unwrap());
+        let center = Point::new(512, 512).unwrap();
+        let moved = Point::new(640, 512).unwrap();
+        let before = [
+            render_eye_at(78, target, center, body.state.hand(), Eye::Left).unwrap(),
+            render_eye_at(78, target, center, body.state.hand(), Eye::Right).unwrap(),
+        ];
+        let after = [
+            render_eye_at(78, target, moved, body.state.hand(), Eye::Left).unwrap(),
+            render_eye_at(78, target, center, body.state.hand(), Eye::Right).unwrap(),
+        ];
+
+        assert_ne!(before[0], after[0]);
+        assert_eq!(before[1], after[1]);
     }
 }

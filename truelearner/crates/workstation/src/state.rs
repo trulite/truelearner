@@ -682,11 +682,8 @@ impl WorldSample {
 
 const fn axis_step(axis: BodyAxis) -> i32 {
     match axis {
-        BodyAxis::EyeHorizontal { .. }
-        | BodyAxis::EyeVertical { .. }
-        | BodyAxis::PalmHorizontal
-        | BodyAxis::PalmVertical
-        | BodyAxis::PalmDepth => 16,
+        BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. } => 128,
+        BodyAxis::PalmHorizontal | BodyAxis::PalmVertical | BodyAxis::PalmDepth => 16,
         BodyAxis::Wrist | BodyAxis::Spread | BodyAxis::ThumbOpposition => 32,
         BodyAxis::FingerFlexion { .. } => 64,
     }
@@ -766,6 +763,23 @@ mod tests {
         assert_eq!(state.eye(Eye::Left), initial.eye(Eye::Left));
         assert_ne!(state.eye(Eye::Right), initial.eye(Eye::Right));
         assert_eq!(state.hand(), initial.hand());
+    }
+
+    #[test]
+    fn one_eye_impulse_moves_one_receptor_pitch() {
+        let mut state = WorkstationState::default();
+        let before = state.eye(Eye::Left).gaze().x();
+        let mut frame = ActuatorFrame::default();
+        frame.activate(
+            BodyAxis::EyeHorizontal { eye: Eye::Left },
+            Direction::Increase,
+            1,
+        );
+
+        let movement = state.integrate(frame);
+
+        assert_eq!(movement[0].velocity, 128);
+        assert_eq!(state.eye(Eye::Left).gaze().x() - before, 128);
     }
 
     #[test]

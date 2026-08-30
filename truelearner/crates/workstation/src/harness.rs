@@ -221,9 +221,11 @@ impl WorkstationHarness {
         }
         let mut prime = Vec::with_capacity(SENSOR_COUNT);
         let vision = Eye::ALL.map(|eye| {
-            let nearby = eye_nearness(&opportunities, eye);
             (0..RECEPTORS_PER_EYE)
-                .map(|_| attach_sampled_sensor(&mut body, &nearby, &mut prime))
+                .map(|receptor| {
+                    let nearby = eye_nearness(&opportunities, eye, receptor);
+                    attach_sampled_sensor(&mut body, &nearby, &mut prime)
+                })
                 .collect()
         });
         let contacts = std::array::from_fn(|site| {
@@ -587,10 +589,44 @@ fn axis_nearness(opportunities: &[JunctionId], axis: BodyAxis) -> Vec<(JunctionI
     vec![(opportunities[start], 1), (opportunities[start + 1], 1)]
 }
 
-fn eye_nearness(opportunities: &[JunctionId], eye: Eye) -> Vec<(JunctionId, u64)> {
-    let mut nearby = axis_nearness(opportunities, BodyAxis::EyeHorizontal { eye });
-    nearby.extend(axis_nearness(opportunities, BodyAxis::EyeVertical { eye }));
+fn eye_nearness(opportunities: &[JunctionId], eye: Eye, receptor: usize) -> Vec<(JunctionId, u64)> {
+    let mut nearby = Vec::with_capacity(2);
+    let column = receptor % RECEPTOR_SIDE;
+    let row = receptor / RECEPTOR_SIDE;
+    extend_directional_nearness(
+        &mut nearby,
+        opportunities,
+        BodyAxis::EyeHorizontal { eye },
+        column,
+    );
+    extend_directional_nearness(
+        &mut nearby,
+        opportunities,
+        BodyAxis::EyeVertical { eye },
+        row,
+    );
     nearby
+}
+
+fn extend_directional_nearness(
+    nearby: &mut Vec<(JunctionId, u64)>,
+    opportunities: &[JunctionId],
+    axis: BodyAxis,
+    position: usize,
+) {
+    let center = RECEPTOR_SIDE / 2;
+    let mut push = |direction| {
+        let offset = usize::from(direction == Direction::Increase);
+        nearby.push((opportunities[axis.index() * 2 + offset], 1));
+    };
+    match position.cmp(&center) {
+        std::cmp::Ordering::Less => push(Direction::Decrease),
+        std::cmp::Ordering::Equal => {
+            push(Direction::Decrease);
+            push(Direction::Increase);
+        }
+        std::cmp::Ordering::Greater => push(Direction::Increase),
+    }
 }
 
 fn contact_nearness(opportunities: &[JunctionId], site: usize) -> Vec<(JunctionId, u64)> {
@@ -717,6 +753,46 @@ mod tests {
             .filter_map(|(index, (left, right))| (left != right).then_some(index))
             .collect::<Vec<_>>();
         assert_eq!(differences, [RECEPTORS_PER_EYE / 2]);
+    }
+
+    #[test]
+    fn retinal_position_is_near_only_its_matching_eye_directions() {
+        let harness = WorkstationHarness::new(1).unwrap();
+        let opportunities = &harness.handles.opportunities;
+        let nearby = |axis: BodyAxis, direction: Direction| {
+            let offset = usize::from(direction == Direction::Increase);
+            (opportunities[axis.index() * 2 + offset], 1)
+        };
+        let horizontal = BodyAxis::EyeHorizontal { eye: Eye::Left };
+        let vertical = BodyAxis::EyeVertical { eye: Eye::Left };
+        let left = eye_nearness(opportunities, Eye::Left, RECEPTOR_SIDE * 4);
+        let center = eye_nearness(opportunities, Eye::Left, RECEPTOR_SIDE * 4 + 4);
+        let lower_right = eye_nearness(opportunities, Eye::Left, RECEPTORS_PER_EYE - 1);
+
+        assert_eq!(
+            left,
+            vec![
+                nearby(horizontal, Direction::Decrease),
+                nearby(vertical, Direction::Decrease),
+                nearby(vertical, Direction::Increase),
+            ]
+        );
+        assert_eq!(
+            center,
+            vec![
+                nearby(horizontal, Direction::Decrease),
+                nearby(horizontal, Direction::Increase),
+                nearby(vertical, Direction::Decrease),
+                nearby(vertical, Direction::Increase),
+            ]
+        );
+        assert_eq!(
+            lower_right,
+            vec![
+                nearby(horizontal, Direction::Increase),
+                nearby(vertical, Direction::Increase),
+            ]
+        );
     }
 
     #[test]

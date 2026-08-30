@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
 use truelearner_workstation::{
-    BodyAxis, BodyMovement, Eye, LightField, Point, WorkstationError, WorkstationHarness,
+    BodyAxis, BodyMovement, Eye, LightField, WorkstationError, WorkstationHarness,
     WorkstationStepObservation, WorldSample,
 };
 
@@ -489,20 +489,14 @@ fn binocular_alignment_consequences(
     observations: &[WorkstationStepObservation],
 ) -> usize {
     samples
-        .iter()
+        .windows(2)
         .zip(observations)
         .filter(|(_, observation)| opposing_horizontal_eye_movement(&observation.movements))
-        .filter(|(sample, _)| has_stereo_target(sample))
-        .filter(|(sample, observation)| {
-            Eye::ALL.into_iter().all(|eye| {
-                let field = sample.eye(eye);
-                let before = observation.state_before.eye(eye).gaze();
-                let after = observation.state_after.eye(eye).gaze();
-                target_horizontal(field).is_some_and(|target| {
-                    after.x().abs_diff(target) < before.x().abs_diff(target)
-                        && focus_changes_light(field, before, after)
-                })
-            })
+        .filter(|(frames, _)| has_stereo_target(&frames[0]))
+        .filter(|(frames, _)| {
+            Eye::ALL
+                .into_iter()
+                .all(|eye| target_alignment_improved(frames[0].eye(eye), frames[1].eye(eye)))
         })
         .count()
 }
@@ -540,6 +534,14 @@ fn target_horizontal(field: &LightField) -> Option<i16> {
     i16::try_from(body_x).ok()
 }
 
+fn target_alignment_improved(before: &LightField, after: &LightField) -> bool {
+    let center = (truelearner_workstation::BODY_MAX + 1) / 2;
+    matches!(
+        (target_horizontal(before), target_horizontal(after)),
+        (Some(before), Some(after)) if after.abs_diff(center) < before.abs_diff(center)
+    )
+}
+
 fn has_digit_separation<'a>(steps: impl IntoIterator<Item = &'a [BodyMovement]>) -> bool {
     let mut isolated = Vec::with_capacity(2);
     for movements in steps {
@@ -565,21 +567,15 @@ fn gaze_visual_consequences(
     observations: &[WorkstationStepObservation],
 ) -> usize {
     samples
-        .iter()
+        .windows(2)
         .zip(observations)
-        .filter(|(_, observation)| {
-            observation
-                .movements
-                .iter()
-                .any(|movement| movement.changed && is_gaze(movement.axis))
-        })
-        .filter(|(sample, observation)| {
+        .filter(|(frames, observation)| {
             Eye::ALL.into_iter().any(|eye| {
-                focus_changes_light(
-                    sample.eye(eye),
-                    observation.state_before.eye(eye).gaze(),
-                    observation.state_after.eye(eye).gaze(),
-                )
+                observation
+                    .movements
+                    .iter()
+                    .any(|movement| movement.changed && moves_eye(movement.axis, eye))
+                    && frames[0].eye(eye) != frames[1].eye(eye)
             })
         })
         .count()
@@ -593,14 +589,18 @@ fn gaze_contingency_verdict(net_gaze_movements: usize, visual_consequences: usiz
     }
 }
 
-fn focus_changes_light(field: &LightField, before: Point, after: Point) -> bool {
-    before != after && field.sample(before) != field.sample(after)
-}
-
 fn is_gaze(axis: BodyAxis) -> bool {
     matches!(
         axis,
         BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. }
+    )
+}
+
+fn moves_eye(axis: BodyAxis, eye: Eye) -> bool {
+    matches!(
+        axis,
+        BodyAxis::EyeHorizontal { eye: moved } | BodyAxis::EyeVertical { eye: moved }
+            if moved == eye
     )
 }
 
@@ -740,21 +740,16 @@ mod tests {
     }
 
     #[test]
-    fn focus_change_must_change_actual_light() {
-        use truelearner_workstation::BODY_MAX;
+    fn binocular_alignment_is_measured_in_successive_retinal_frames() {
+        let target_at = |column: usize| {
+            let mut pixels = vec![0; 9];
+            pixels[column] = 255;
+            LightField::new(9, 1, pixels).unwrap()
+        };
 
-        let uniform = LightField::filled(2, 1, 7).unwrap();
-        assert!(!focus_changes_light(
-            &uniform,
-            Point::new(0, 0).unwrap(),
-            Point::new(BODY_MAX, 0).unwrap()
-        ));
-        let varied = LightField::new(2, 1, vec![0, 255]).unwrap();
-        assert!(focus_changes_light(
-            &varied,
-            Point::new(0, 0).unwrap(),
-            Point::new(BODY_MAX, 0).unwrap()
-        ));
+        assert!(target_alignment_improved(&target_at(1), &target_at(2)));
+        assert!(!target_alignment_improved(&target_at(1), &target_at(1)));
+        assert!(!target_alignment_improved(&target_at(1), &target_at(0)));
     }
 
     fn changed(axis: BodyAxis) -> BodyMovement {
