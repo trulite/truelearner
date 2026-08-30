@@ -66,6 +66,11 @@ impl CompetitionWorld {
             ([left_surface, right_surface], [left_motor, right_motor])
         };
         let consequence = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
+        attach_outcome_component(
+            &mut body,
+            consequence,
+            motors.map(|motor| motor.opportunity),
+        );
         schedule(&mut body, 0, &[reading(consequence, 0, 0, 0)]);
         finish(&mut body);
         Self {
@@ -155,6 +160,7 @@ impl LearnerWorld {
             attach_sensor(&mut body, Junction::integrating(1), &[]),
         ];
         let consequence = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
+        attach_outcome_component(&mut body, consequence, [motor.opportunity]);
         schedule(&mut body, 0, &[reading(consequence, 0, 0, 0)]);
         finish(&mut body);
         Self {
@@ -418,6 +424,9 @@ fn disconnected_causal_components_choose_independently() {
         attach_sensor(&mut body, Junction::sampled(100), &[]),
         attach_sensor(&mut body, Junction::sampled(100), &[]),
     ];
+    for index in 0..2 {
+        attach_outcome_component(&mut body, consequences[index], [motors[index].opportunity]);
+    }
     schedule(
         &mut body,
         0,

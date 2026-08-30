@@ -1,7 +1,7 @@
 use std::convert::Infallible;
 use truelearner_behavior_contract::{
     run_scenario, scenarios, Adapter, BehaviorMismatch, ContractError, Episode, Expected,
-    Morphology, MotorId, Observation, Scenario, Step, ValidationError,
+    Morphology, MotorId, Observation, OutcomeComponent, Scenario, SensorId, Step, ValidationError,
 };
 
 #[derive(Clone)]
@@ -104,5 +104,37 @@ fn unknown_nearby_motor_fails_before_adapter_construction() {
     assert_eq!(
         scenario.validate(),
         Err(ValidationError::UnknownMotor(MotorId(99)))
+    );
+}
+
+#[test]
+fn outcome_components_are_part_of_validated_morphology() {
+    let scenario = scenarios::local_action(1, 7);
+    assert_eq!(
+        scenario.morphology.outcome_components,
+        [OutcomeComponent {
+            source: scenarios::CONSEQUENCE,
+            motors: vec![scenarios::ACTION],
+        }]
+    );
+
+    let mut unknown_source = scenario.clone();
+    unknown_source.morphology.outcome_components[0].source = SensorId(99);
+    assert_eq!(
+        unknown_source.validate(),
+        Err(ValidationError::UnknownSensor(SensorId(99)))
+    );
+
+    let mut duplicate_motor = scenario;
+    duplicate_motor
+        .morphology
+        .outcome_components
+        .push(OutcomeComponent {
+            source: scenarios::SURFACE,
+            motors: vec![scenarios::ACTION],
+        });
+    assert_eq!(
+        duplicate_motor.validate(),
+        Err(ValidationError::DuplicateOutcomeMotor(scenarios::ACTION))
     );
 }

@@ -30,11 +30,18 @@ pub struct Nearby {
     pub distance: u32,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OutcomeComponent {
+    pub source: SensorId,
+    pub motors: Vec<MotorId>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Morphology {
     pub sensors: Vec<Sensor>,
     pub motors: Vec<Motor>,
     pub nearby: Vec<Nearby>,
+    pub outcome_components: Vec<OutcomeComponent>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,6 +89,9 @@ pub enum ValidationError {
     UnknownSensor(SensorId),
     UnknownMotor(MotorId),
     ZeroDistance,
+    EmptyOutcomeComponent(SensorId),
+    DuplicateOutcomeSource(SensorId),
+    DuplicateOutcomeMotor(MotorId),
     TimeWentBackward { previous: u64, requested: u64 },
     ZeroMomentLimit,
     DuplicateCheckpoint(&'static str),
@@ -123,6 +133,27 @@ impl Scenario {
             }
             if nearby.distance == 0 {
                 return Err(ValidationError::ZeroDistance);
+            }
+        }
+        let mut outcome_sources = BTreeSet::new();
+        let mut outcome_motors = BTreeSet::new();
+        for component in &self.morphology.outcome_components {
+            if !sensors.contains(&component.source) {
+                return Err(ValidationError::UnknownSensor(component.source));
+            }
+            if component.motors.is_empty() {
+                return Err(ValidationError::EmptyOutcomeComponent(component.source));
+            }
+            if !outcome_sources.insert(component.source) {
+                return Err(ValidationError::DuplicateOutcomeSource(component.source));
+            }
+            for motor in &component.motors {
+                if !motors.contains(motor) {
+                    return Err(ValidationError::UnknownMotor(*motor));
+                }
+                if !outcome_motors.insert(*motor) {
+                    return Err(ValidationError::DuplicateOutcomeMotor(*motor));
+                }
             }
         }
 

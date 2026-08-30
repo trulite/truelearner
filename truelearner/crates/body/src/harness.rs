@@ -1,8 +1,8 @@
 //! Small physical setup and observation helpers for body-level laws.
 
 use crate::{
-    attach, calibrate, Arrival, Body, Join, Junction, JunctionId, OpenBody, PhysicalEvent,
-    Residual, Run,
+    attach, calibrate, Arrival, Body, Join, Junction, JunctionId, Link, LinkRole, OpenBody,
+    PhysicalEvent, Residual, Run,
 };
 
 #[derive(Clone, Copy)]
@@ -60,6 +60,20 @@ pub fn motor(body: &mut Body) -> Motor {
     Motor {
         opportunity,
         effect,
+    }
+}
+
+pub fn attach_outcome_component(
+    body: &mut Body,
+    source: JunctionId,
+    motor_opportunities: impl IntoIterator<Item = JunctionId>,
+) {
+    for opportunity in motor_opportunities {
+        let link = body
+            .add_link(Link::new(source, opportunity, 0, 0))
+            .expect("validated outcome component");
+        body.set_link_role(link, LinkRole::OutcomeWitness)
+            .expect("new outcome link exists");
     }
 }
 

@@ -4,7 +4,9 @@ use truelearner_behavior_contract::{
     Sensor, SensorId,
 };
 use truelearner_body::{
-    harness::{attach_sensor as attach_body_sensor, motor as attach_motor},
+    harness::{
+        attach_outcome_component, attach_sensor as attach_body_sensor, motor as attach_motor,
+    },
     Arrival, Body, Junction, JunctionId, RunError,
 };
 
@@ -51,6 +53,9 @@ impl Adapter for NewBodyAdapter {
         }
         for sensor in &morphology.sensors {
             organism.attach_sensor(*sensor, &morphology.nearby)?;
+        }
+        for component in &morphology.outcome_components {
+            organism.attach_outcome_component(component)?;
         }
         Ok(organism)
     }
@@ -161,6 +166,31 @@ impl NewOrganism {
         if self.handles.sensors.insert(sensor.id, handle).is_some() {
             return Err(NewAdapterError::DuplicateSensor(sensor.id));
         }
+        Ok(())
+    }
+
+    fn attach_outcome_component(
+        &mut self,
+        component: &truelearner_behavior_contract::OutcomeComponent,
+    ) -> Result<(), NewAdapterError> {
+        let source = *self
+            .handles
+            .sensors
+            .get(&component.source)
+            .ok_or(NewAdapterError::UnknownSensor(component.source))?;
+        for motor in &component.motors {
+            if !self.handles.motors.contains_key(motor) {
+                return Err(NewAdapterError::UnknownMotor(*motor));
+            }
+        }
+        attach_outcome_component(
+            &mut self.body,
+            source,
+            component
+                .motors
+                .iter()
+                .map(|motor| self.handles.motors[motor]),
+        );
         Ok(())
     }
 }

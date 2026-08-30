@@ -487,7 +487,7 @@ fn record_returned_outcomes(body: ReactionView<'_>, facts: &[MomentFact], change
         }
 
         let selected = select_live_return(body, fact.event.cause);
-        if let Some(returned) = selected.filter(|returned| returned.opened_at < fact.event.at) {
+        if let Some(returned) = selected.filter(|returned| returned.opened_at <= fact.event.at) {
             for link in returned.path.links() {
                 change.push(Edit::ChangeLink {
                     link: link.into(),
@@ -706,15 +706,17 @@ fn form_and_choose(
                         role: LinkRole::Drive,
                     },
                 });
-                let connected = connected_outcomes.len();
+                let connected_start = connected_outcomes.len();
+                append_outcome_sources(body, morphology.to, connected_outcomes);
+                let connected_end = connected_outcomes.len();
                 ready.push(ReadyPath {
                     surface,
                     first: first.into(),
                     at: fact.event.at,
                     current_cause: fact.event.cause,
                     return_cause: None,
-                    connected_start: connected,
-                    connected_end: connected,
+                    connected_start,
+                    connected_end,
                     outcome: None,
                     participation: 0,
                     strength: 1,
@@ -781,7 +783,7 @@ fn append_existing_ready_paths(
             let memory = &body.link_memory[second_id.slot()];
             if memory.live && memory.role == LinkRole::Drive && link.impulse != 0 {
                 let connected_start = connected_outcomes.len();
-                append_connected_outcomes(body, first.to, connected_outcomes);
+                append_connected_outcomes(body, first.to, link.to, connected_outcomes);
                 let connected_end = connected_outcomes.len();
                 paths.push(ReadyPath {
                     surface,
@@ -888,11 +890,21 @@ fn unique_latest_ready(
 fn append_connected_outcomes(
     body: ReactionView<'_>,
     middle: JunctionId,
+    output: JunctionId,
+    outcomes: &mut Vec<JunctionId>,
+) {
+    append_outcome_sources(body, middle, outcomes);
+    append_outcome_sources(body, output, outcomes);
+}
+
+fn append_outcome_sources(
+    body: ReactionView<'_>,
+    junction: JunctionId,
     outcomes: &mut Vec<JunctionId>,
 ) {
     outcomes.extend(
         body.arena
-            .incoming(middle)
+            .incoming(junction)
             .filter(|link| {
                 body.link_memory[link.slot()].live
                     && body.link_memory[link.slot()].role == LinkRole::OutcomeWitness

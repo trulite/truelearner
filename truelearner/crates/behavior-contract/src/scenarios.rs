@@ -130,6 +130,10 @@ fn action_morphology(distance: u32) -> Morphology {
             motor: ACTION,
             distance,
         }],
+        outcome_components: vec![OutcomeComponent {
+            source: CONSEQUENCE,
+            motors: vec![ACTION],
+        }],
     }
 }
 

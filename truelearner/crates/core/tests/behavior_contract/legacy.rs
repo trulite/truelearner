@@ -12,8 +12,6 @@ const FIRST_SENSOR_PHYSICAL: u64 = 100_000;
 const FIRST_MOTOR_PHYSICAL: u64 = 200_000;
 const ANCHOR_PHYSICAL: u64 = 99_999;
 const DEFAULT_MOTOR_POSITION: i32 = 1_000_000;
-const CONSEQUENCE_SENSOR: SensorId = SensorId(1);
-
 #[derive(Clone, Copy, Debug)]
 pub enum LegacyProfile {
     Physical,
@@ -23,12 +21,6 @@ impl LegacyProfile {
     fn protocol(self) -> Protocol {
         match self {
             Self::Physical => Protocol::Physical,
-        }
-    }
-
-    fn consequence_sensor(self) -> SensorId {
-        match self {
-            Self::Physical => CONSEQUENCE_SENSOR,
         }
     }
 }
@@ -163,8 +155,14 @@ impl Adapter for LegacyAdapter {
                 });
             }
         }
-        if let Some(consequence) = sensors.get(&self.profile.consequence_sensor()) {
-            builder.set_outcome_source(*consequence);
+        for component in &morphology.outcome_components {
+            let consequence = *sensors
+                .get(&component.source)
+                .ok_or(LegacyError::UnknownSensor(component.source))?;
+            for motor in &component.motors {
+                let output = *motors.get(motor).ok_or(LegacyError::UnknownMotor(*motor))?;
+                builder.set_outcome_source_for_output(output, consequence);
+            }
         }
 
         Ok(LegacyOrganism {

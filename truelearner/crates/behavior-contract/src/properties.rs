@@ -18,6 +18,10 @@ pub fn reversed_construction(mut scenario: Scenario) -> Scenario {
     scenario.morphology.sensors.reverse();
     scenario.morphology.motors.reverse();
     scenario.morphology.nearby.reverse();
+    scenario.morphology.outcome_components.reverse();
+    for component in &mut scenario.morphology.outcome_components {
+        component.motors.reverse();
+    }
     scenario
 }
 
