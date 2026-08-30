@@ -86,7 +86,7 @@ impl FlatWorld {
         let [left_target, right_target] = eye_targets(self.capability, self.seed, target);
         let left = render_eye(self.seed, left_target, body, Eye::Left)?;
         let right = render_eye(self.seed.rotate_left(11), right_target, body, Eye::Right)?;
-        let contacts = contacts(self.capability, body)?;
+        let contacts = contacts(self.capability, self.seed, self.step, body)?;
         self.step = self.step.saturating_add(1);
         Ok(WorldSample::new([left, right], contacts)?)
     }
@@ -162,9 +162,18 @@ fn set_body_pixel(pixels: &mut [u8], point: Point, value: u8) {
 
 fn contacts(
     capability: BodyCapability,
+    seed: u64,
+    step: u32,
     body: &WorkstationRead,
 ) -> Result<[ContactSample; TOUCH_SITES], BodyCourseError> {
     let mut result = [ContactSample::default(); TOUCH_SITES];
+    if capability == BodyCapability::DigitSeparation {
+        let pressure = 64 + u16::try_from(seed.wrapping_add(u64::from(step)) % 4).unwrap_or(0) * 64;
+        for contact in &mut result[1..] {
+            *contact = ContactSample::new(pressure, 0)?;
+        }
+        return Ok(result);
+    }
     if capability < BodyCapability::Contact {
         return Ok(result);
     }
@@ -241,6 +250,23 @@ mod tests {
         let body = WorkstationHarness::new(72).unwrap().read().unwrap();
         let mut world = FlatWorld::generated(73, BodyCapability::GazeContingency);
         assert_eq!(world.sample(&body).unwrap(), world.sample(&body).unwrap());
+    }
+
+    #[test]
+    fn digit_world_varies_touch_without_preferring_a_finger() {
+        let body = WorkstationHarness::new(72).unwrap().read().unwrap();
+        let mut world = FlatWorld::generated(73, BodyCapability::DigitSeparation);
+        let first = world.sample(&body).unwrap();
+        let second = world.sample(&body).unwrap();
+
+        assert_eq!(first.contacts()[0], ContactSample::default());
+        assert!(first.contacts()[1..].iter().all(|contact| {
+            contact.pressure() == first.contacts()[1].pressure() && contact.slip() == 0
+        }));
+        assert_ne!(
+            first.contacts()[1].pressure(),
+            second.contacts()[1].pressure()
+        );
     }
 
     #[test]

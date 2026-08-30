@@ -1482,16 +1482,16 @@ fn choose_ready(
 ) -> Option<ReadyChoice> {
     let in_world =
         |index: &usize| worlds[*index] == world && (construction || paths[*index].executable);
-    let output_is_unanswered = |output| {
+    let output_is_tried = |output| {
         (0..paths.len()).any(|index| {
-            in_world(&index) && paths[index].output == output && paths[index].unanswered
+            in_world(&index) && paths[index].output == output && paths[index].participation > 0
         })
     };
-    let has_unanswered_output =
-        (0..paths.len()).any(|index| in_world(&index) && output_is_unanswered(paths[index].output));
-    let has_other_output = (0..paths.len())
-        .any(|index| in_world(&index) && !output_is_unanswered(paths[index].output));
-    let release_unanswered_output = has_unanswered_output && has_other_output;
+    let has_tried_output =
+        (0..paths.len()).any(|index| in_world(&index) && output_is_tried(paths[index].output));
+    let has_untried_output =
+        (0..paths.len()).any(|index| in_world(&index) && !output_is_tried(paths[index].output));
+    let release_to_untried_output = has_tried_output && has_untried_output;
     unique_ready((0..paths.len()).filter(in_world).filter(|index| {
         let path = &paths[*index];
         path.return_cause.is_some() && path.return_cause == Some(path.current_cause)
@@ -1499,6 +1499,27 @@ fn choose_ready(
     .map(|winner| ReadyChoice {
         winner,
         basis: ChoiceBasis::CurrentReturn,
+    })
+    .or_else(|| {
+        release_to_untried_output
+            .then(|| {
+                (0..paths.len())
+                    .filter(in_world)
+                    .filter(|index| !output_is_tried(paths[*index].output))
+                    .max_by_key(|index| {
+                        let path = &paths[*index];
+                        (
+                            path.participation,
+                            path.strength,
+                            Reverse(path.stable_order),
+                        )
+                    })
+            })
+            .flatten()
+            .map(|winner| ReadyChoice {
+                winner,
+                basis: ChoiceBasis::UntriedOutputRelease,
+            })
     })
     .or_else(|| {
         unique_latest_ready(paths, worlds, world, true, construction).map(|winner| ReadyChoice {
@@ -1515,9 +1536,6 @@ fn choose_ready(
     .or_else(|| {
         (0..paths.len())
             .filter(in_world)
-            .filter(|index| {
-                !release_unanswered_output || !output_is_unanswered(paths[*index].output)
-            })
             .max_by_key(|index| {
                 let path = &paths[*index];
                 (
@@ -1528,11 +1546,7 @@ fn choose_ready(
             })
             .map(|winner| ReadyChoice {
                 winner,
-                basis: if release_unanswered_output {
-                    ChoiceBasis::UnansweredOutputRelease
-                } else {
-                    ChoiceBasis::ParticipationAndStrength
-                },
+                basis: ChoiceBasis::ParticipationAndStrength,
             })
     })
 }

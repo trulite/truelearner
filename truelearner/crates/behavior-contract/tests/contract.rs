@@ -25,6 +25,7 @@ impl Adapter for Fake {
         Ok(Observation {
             effects: episode.expected.effects.clone(),
             quiet: episode.expected.quiet,
+            trace: Default::default(),
         })
     }
 
@@ -53,6 +54,7 @@ impl Adapter for Noisy {
         Ok(Observation {
             effects: Vec::new(),
             quiet: false,
+            trace: Default::default(),
         })
     }
 

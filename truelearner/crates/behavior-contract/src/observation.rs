@@ -1,4 +1,4 @@
-use crate::MotorId;
+use crate::{LawTrace, MotorId};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Effect {
@@ -12,6 +12,7 @@ pub struct Effect {
 pub struct Observation {
     pub effects: Vec<Effect>,
     pub quiet: bool,
+    pub trace: LawTrace,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -412,12 +412,25 @@ fn an_unanswered_action_gives_an_alternative_the_next_chance() {
     assert_eq!(effect(&next.events, &world.motors), [1]);
     assert!(trace.iter().any(|event| matches!(
         event,
-        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::UnansweredOutputRelease)
+        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::UntriedOutputRelease)
     )));
     assert!(trace.iter().any(|event| matches!(
         event,
         TraceEvent::Candidate(candidate)
             if candidate.path.output == world.motors[0].opportunity && candidate.unanswered
+    )));
+}
+
+#[test]
+fn a_completed_action_gives_an_untried_alternative_the_next_chance() {
+    let mut world = CompetitionWorld::new(false);
+    world.completed_cycle(0, 10, 1);
+
+    let (next, trace) = world.compete_traced(20, 2);
+    assert_eq!(effect(&next.events, &world.motors), [1]);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::UntriedOutputRelease)
     )));
 }
 

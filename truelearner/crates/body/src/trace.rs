@@ -41,7 +41,7 @@ pub enum ChoiceBasis {
     CurrentReturn,
     AvailableOutcome,
     LatestOutcome,
-    UnansweredOutputRelease,
+    UntriedOutputRelease,
     ParticipationAndStrength,
 }
 

@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 use truelearner_behavior_contract::{
-    Adapter, Effect, Episode, InputTarget, Morphology, MotorId, Nearby, Observation, Retention,
-    Sensor, SensorId,
+    Adapter, Effect, Episode, InputTarget, LawTrace, Morphology, MotorId, Nearby, Observation,
+    Retention, Sensor, SensorId, TraceArrow,
 };
 use truelearner_body::{
     harness::{
         attach_outcome_component, attach_sensor as attach_body_sensor, motor as attach_motor,
     },
-    Arrival, Body, Junction, JunctionId, RunError,
+    Arrival, Body, Junction, JunctionId, ReturnDecision, RunError, TraceEvent,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -24,6 +24,7 @@ struct Handles {
     sensors: BTreeMap<SensorId, JunctionId>,
     motors: BTreeMap<MotorId, JunctionId>,
     outward: BTreeMap<JunctionId, MotorId>,
+    nearby: Vec<Nearby>,
 }
 
 #[derive(Clone)]
@@ -48,6 +49,7 @@ impl Adapter for NewBodyAdapter {
 
     fn build(&self, morphology: &Morphology) -> Result<Self::Organism, Self::Error> {
         let mut organism = NewOrganism::default();
+        organism.handles.nearby.clone_from(&morphology.nearby);
         for motor in &morphology.motors {
             organism.attach_motor(motor.id)?;
         }
@@ -96,13 +98,18 @@ impl Adapter for NewBodyAdapter {
             .map_err(|_| NewAdapterError::MomentLimitOverflow)?;
         let outward = &organism.handles.outward;
         let mut raw_effects = Vec::new();
+        let mut raw_trace = Vec::new();
         organism
             .body
-            .run(limit, |event| {
-                if let Some(motor) = outward.get(&event.junction) {
-                    raw_effects.push((event.at, *motor, event.impulse, event.cause));
-                }
-            })
+            .run_traced(
+                limit,
+                |event| {
+                    if let Some(motor) = outward.get(&event.junction) {
+                        raw_effects.push((event.at, *motor, event.impulse, event.cause));
+                    }
+                },
+                |event| raw_trace.push(event),
+            )
             .map_err(NewAdapterError::Run)?;
         let effects = raw_effects
             .into_iter()
@@ -115,9 +122,111 @@ impl Adapter for NewBodyAdapter {
                 })
             })
             .collect::<Result<Vec<_>, NewAdapterError>>()?;
+        let mut trace = LawTrace {
+            arrows: episode
+                .inputs
+                .iter()
+                .map(|input| TraceArrow::Input {
+                    at: input.at,
+                    cause: input.cause,
+                    target: input.target,
+                })
+                .collect(),
+        };
+        for event in &raw_trace {
+            match event {
+                TraceEvent::Candidate(candidate) => {
+                    if let (Some(sensor), Some(motor)) = (
+                        organism.sensor_for(candidate.path.surface),
+                        organism.motor_for(candidate.path.output),
+                    ) {
+                        trace.arrows.push(TraceArrow::Candidate {
+                            at: candidate.at,
+                            cause: candidate.cause,
+                            sensor,
+                            motor,
+                            new_path: candidate.new_path,
+                            participation: candidate.participation,
+                        });
+                    }
+                }
+                TraceEvent::Transition(transition) => {
+                    let Some(sensor) = organism.sensor_for(transition.junction) else {
+                        continue;
+                    };
+                    trace.arrows.extend(
+                        organism
+                            .handles
+                            .nearby
+                            .iter()
+                            .filter(|nearby| nearby.sensor == sensor && nearby.distance <= 2)
+                            .map(|nearby| TraceArrow::Eligible {
+                                at: transition.at,
+                                cause: transition.cause,
+                                sensor,
+                                motor: nearby.motor,
+                            }),
+                    );
+                }
+                TraceEvent::Choice(choice) => {
+                    let Some(winner) = choice.winner else {
+                        continue;
+                    };
+                    let Some(motor) = organism.motor_for(winner.output) else {
+                        continue;
+                    };
+                    let Some(cause) = raw_trace.iter().find_map(|event| match event {
+                        TraceEvent::Candidate(candidate)
+                            if candidate.at == choice.at
+                                && candidate.group == choice.group
+                                && candidate.path == winner =>
+                        {
+                            Some(candidate.cause)
+                        }
+                        _ => None,
+                    }) else {
+                        continue;
+                    };
+                    trace.arrows.push(TraceArrow::Choice {
+                        at: choice.at,
+                        cause,
+                        motor,
+                    });
+                }
+                TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted => {
+                    let Some(path) = returned.path else {
+                        continue;
+                    };
+                    let Some(cause) = returned.return_cause else {
+                        continue;
+                    };
+                    if let Some(motor) = organism.motor_for(path.output) {
+                        trace.arrows.push(TraceArrow::Return {
+                            at: returned.at,
+                            cause,
+                            motor,
+                        });
+                    }
+                }
+                TraceEvent::Strengthened(strengthened) => {
+                    trace.arrows.push(TraceArrow::Strengthen {
+                        at: strengthened.at,
+                    });
+                }
+                _ => {}
+            }
+        }
+        trace
+            .arrows
+            .extend(effects.iter().map(|effect| TraceArrow::Effect {
+                at: effect.at,
+                cause: effect.cause,
+                motor: effect.motor,
+            }));
         Ok(Observation {
             effects,
             quiet: organism.body.is_quiet(),
+            trace,
         })
     }
 
@@ -134,6 +243,20 @@ impl Adapter for NewBodyAdapter {
 }
 
 impl NewOrganism {
+    fn sensor_for(&self, junction: JunctionId) -> Option<SensorId> {
+        self.handles
+            .sensors
+            .iter()
+            .find_map(|(sensor, handle)| (*handle == junction).then_some(*sensor))
+    }
+
+    fn motor_for(&self, opportunity: JunctionId) -> Option<MotorId> {
+        self.handles
+            .motors
+            .iter()
+            .find_map(|(motor, junction)| (*junction == opportunity).then_some(*motor))
+    }
+
     fn attach_motor(&mut self, id: MotorId) -> Result<(), NewAdapterError> {
         let motor = attach_motor(&mut self.body);
         if self.handles.motors.insert(id, motor.opportunity).is_some() {

@@ -4,11 +4,19 @@
 mod new_body;
 
 use new_body::NewBodyAdapter;
-use truelearner_behavior_contract::{properties, run_scenario, scenarios, Scenario};
+use truelearner_behavior_contract::{properties, run_scenario, scenarios, LawTrace, Scenario};
 
 fn assert_scenario(scenario: Scenario) {
-    run_scenario(&NewBodyAdapter, &scenario)
+    let observations = run_scenario(&NewBodyAdapter, &scenario)
         .unwrap_or_else(|error| panic!("{} failed on compact body: {error:?}", scenario.name));
+    let trace = observations
+        .into_iter()
+        .fold(LawTrace::default(), |trace, observation| {
+            trace.then(observation.trace)
+        });
+    trace
+        .verify_composition()
+        .unwrap_or_else(|error| panic!("{} broke trace composition: {error:?}", scenario.name));
 }
 
 #[test]
