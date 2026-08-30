@@ -4,10 +4,6 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-#[cfg(feature = "research")]
-use truelearner_workstation::{
-    ResearchHarnessConfig, ResearchOpportunityIncidence, ResearchVisualComposition,
-};
 use truelearner_workstation::{
     WorkstationHarness, WorkstationRead, WorkstationStepObservation, WorldSample,
 };
@@ -55,66 +51,44 @@ impl WorkstationSession {
         })
     }
 
-    #[cfg(feature = "research")]
-    pub fn new_research(seed: u64, config: ResearchHarnessConfig) -> Result<Self, WorldError> {
-        Self::new_research_with_presentation(seed, config, WorkstationPresentation::default())
-    }
-
-    #[cfg(feature = "research")]
-    pub fn new_research_with_presentation(
-        seed: u64,
-        config: ResearchHarnessConfig,
-        presentation: WorkstationPresentation,
-    ) -> Result<Self, WorldError> {
-        Ok(Self {
-            harness: WorkstationHarness::new_research(seed, config)?,
-            world: WorkstationWorld::new_with_presentation(presentation)?,
-            sequence: 0,
-        })
-    }
-
-    #[cfg(feature = "research")]
-    pub fn new_research_composed_with_presentation(
-        seed: u64,
-        config: ResearchHarnessConfig,
-        visual_composition: ResearchVisualComposition,
-        presentation: WorkstationPresentation,
-    ) -> Result<Self, WorldError> {
-        Ok(Self {
-            harness: WorkstationHarness::new_research_composed(seed, config, visual_composition)?,
-            world: WorkstationWorld::new_with_presentation(presentation)?,
-            sequence: 0,
-        })
-    }
-
     pub fn step(&mut self) -> Result<SessionObservation, WorldError> {
-        let mut next = self.clone();
-        let read = next.harness.read()?;
-        let sample = next.world.sense(&read.state)?;
-        let body = next.harness.step(sample.clone())?;
-        let device_events = next.world.advance(&body.state_before, &body.state_after);
-        let sequence = next.sequence;
-        next.sequence = next.sequence.saturating_add(1);
+        let sample = self.world.sense(self.harness.state())?;
+        let (harness, body) = self.harness.transition(sample.clone())?;
+        let mut world = self.world.clone();
+        let device_events = world.advance(&body.state_before, &body.state_after);
+        let sequence = self.sequence;
+        let next_sequence = self.sequence.saturating_add(1);
+        let world_fingerprint = world.fingerprint()?;
+        let session_fingerprint =
+            composed_session_fingerprint(next_sequence, &body.body_fingerprint, &world_fingerprint);
         let observation = SessionObservation {
             sequence,
             sample,
             body,
             device_events,
-            device_after: next.world.device().clone(),
-            world_fingerprint: next.world.fingerprint()?,
-            session_fingerprint: next.fingerprint()?,
+            device_after: world.device().clone(),
+            world_fingerprint,
+            session_fingerprint,
         };
-        *self = next;
+        *self = Self {
+            harness,
+            world,
+            sequence: next_sequence,
+        };
         Ok(observation)
     }
 
     pub fn read(&self) -> Result<SessionRead, WorldError> {
+        let body = self.harness.read()?;
+        let world_fingerprint = self.world.fingerprint()?;
+        let session_fingerprint =
+            composed_session_fingerprint(self.sequence, &body.body_fingerprint, &world_fingerprint);
         Ok(SessionRead {
             sequence: self.sequence,
-            body: self.harness.read()?,
+            body,
             device: self.world.device().clone(),
-            world_fingerprint: self.world.fingerprint()?,
-            session_fingerprint: self.fingerprint()?,
+            world_fingerprint,
+            session_fingerprint,
         })
     }
 
@@ -152,74 +126,17 @@ impl WorkstationSession {
             sequence: payload.sequence,
         })
     }
+}
 
-    #[cfg(feature = "research")]
-    pub fn restore_research(
-        checkpoint: SessionCheckpoint,
-        opportunity_incidence: ResearchOpportunityIncidence,
-    ) -> Result<Self, WorldError> {
-        let payload = checkpoint.open()?;
-        let harness_checkpoint =
-            truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
-        Ok(Self {
-            harness: WorkstationHarness::restore_research(
-                harness_checkpoint,
-                opportunity_incidence,
-            )?,
-            world: WorkstationWorld::from_parts(
-                payload.device,
-                payload.presentation,
-                payload.asset_digest,
-            )?,
-            sequence: payload.sequence,
-        })
-    }
-
-    #[cfg(feature = "research")]
-    pub fn restore_research_config(
-        checkpoint: SessionCheckpoint,
-        config: ResearchHarnessConfig,
-    ) -> Result<Self, WorldError> {
-        let payload = checkpoint.open()?;
-        let harness_checkpoint =
-            truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
-        Ok(Self {
-            harness: WorkstationHarness::restore_research_config(harness_checkpoint, config)?,
-            world: WorkstationWorld::from_parts(
-                payload.device,
-                payload.presentation,
-                payload.asset_digest,
-            )?,
-            sequence: payload.sequence,
-        })
-    }
-
-    #[cfg(feature = "research")]
-    pub fn restore_research_composed(
-        checkpoint: SessionCheckpoint,
-        config: ResearchHarnessConfig,
-        visual_composition: ResearchVisualComposition,
-    ) -> Result<Self, WorldError> {
-        let payload = checkpoint.open()?;
-        let harness_checkpoint =
-            truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
-        Ok(Self {
-            harness: WorkstationHarness::restore_research_composed(
-                harness_checkpoint,
-                config,
-                visual_composition,
-            )?,
-            world: WorkstationWorld::from_parts(
-                payload.device,
-                payload.presentation,
-                payload.asset_digest,
-            )?,
-            sequence: payload.sequence,
-        })
-    }
-
-    fn fingerprint(&self) -> Result<String, WorldError> {
-        let digest = Sha256::digest(self.save()?.canonical_bytes()?);
-        Ok(digest.iter().map(|byte| format!("{byte:02x}")).collect())
-    }
+fn composed_session_fingerprint(sequence: u64, body: &str, world: &str) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"truelearner-workstation-session-v2");
+    digest.update(sequence.to_le_bytes());
+    digest.update(body.as_bytes());
+    digest.update(world.as_bytes());
+    digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }

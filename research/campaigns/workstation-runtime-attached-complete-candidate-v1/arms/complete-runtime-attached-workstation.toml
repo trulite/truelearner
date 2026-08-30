@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "complete-runtime-attached-workstation"
+campaign = "workstation-runtime-attached-complete-candidate-v1"
+kind = "composition"
+parents = ["body-curried-component-calibration-authority-v3", "workstation-monitor-cue-reuse-v1", "workstation-binocular-stable-fixation-v1", "workstation-focused-sensor-field-v1"]
+imports = ["authoritative generic runtime attachment", "authoritative body-curried calibration", "proper physical key press and monitor consequence", "binocular alignment and physical fixation", "focused complete sensory field", "retinotopic visual choice and reach initiation", "output-specific physical return and first-choice lifetime"]
+mechanism = "Attach anonymous threshold memory for every sparse binocular contact and proprioceptive channel through one constructor, attach body-limit residual tissue through the same path, preserve the existing focused field and causal-return stack, then run ordinary key development and the entire cue-first key-selection ladder as one candidate."
+prediction = "Construction is inert and replayable; every modality participates with honest origins; two ordinary printable key effects develop and release; paired learned cues then climb through render retina learner return choice gaze search reach contact press visible result release and quiet until one exact earliest arrow is absent."
+falsifiers = ["Attachment emits activity before sensing.", "A modality bypasses the shared attachment path or action origin is lost.", "Calibration drives away from body limits or encodes direction.", "Semantic or evaluator data crosses the harness boundary.", "Two proper development outcomes do not complete.", "The compact trace misses an arrow replay differs or a step fails natural quiet."]
+source_revision = "bedcbe54208bd8dc2df9d1bdde976f6c28c4ea7a"
+protocol_sha256 = "031ce98f61ff0dfca5bfa3c427cb82a217e35f6918c8219364bb0a89df03530c"
+budget_minutes = 90
+
+[gates]
+tiny_fixture = "cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib runtime_attached_complete_candidate_retains_first_broken_arrow"
+full_evidence = "cargo run --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --bin runtime_attached_complete_workstation_trace -- research/campaigns/workstation-runtime-attached-complete-candidate-v1/evidence.json 64 64"

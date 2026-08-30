@@ -268,6 +268,11 @@ impl Body {
         self.activity.pending.is_empty()
     }
 
+    /// Last physical moment reached by the body.
+    pub const fn now(&self) -> Time {
+        self.activity.pending.now
+    }
+
     pub(crate) fn attachment_time(&self) -> Time {
         self.activity.pending.now
     }
@@ -325,9 +330,14 @@ impl Body {
             let index = junction.slot();
             let meeting = std::mem::take(&mut self.activity.meetings.states[index]);
             work.meetings += 1;
+            let cause = if meeting.mixed_cause {
+                0
+            } else {
+                meeting.cause
+            };
 
             let slot = self.arena.junction_mut(junction).expect("live junction");
-            let Some((before, after)) = slot.change(at, meeting.impulse) else {
+            let Some((before, after)) = slot.change(at, meeting.impulse, cause) else {
                 continue;
             };
             work.changes += 1;
@@ -338,11 +348,7 @@ impl Body {
                 impulse: meeting.impulse,
                 before,
                 after,
-                cause: if meeting.mixed_cause {
-                    0
-                } else {
-                    meeting.cause
-                },
+                cause,
             };
             let mut boundary = false;
             let mut used = UsedPaths::None;

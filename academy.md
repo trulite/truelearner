@@ -1,18 +1,16 @@
 # Academy
 
 ```text
-person -> Playground -> physical input -> TrueLearner -> physical output
-                           |                    |
-                           +------ Academy -----+
-                              teach, probe,
-                              record, compare
+Academy Body / Workstation -> WorkstationHarness -> truelearner_body::Body
+          |                         |
+          +---- teach, probe -------+
+                record, compare
 ```
 
 ## Purpose
 
-Playground lets people live with the organism. Academy teaches and measures its
-development. TrueLearner remains the physical learner described by
-[arch.md](arch.md).
+Academy teaches and measures development through one production organism path.
+TrueLearner remains the physical learner described by [arch.md](arch.md).
 
 Academy may use meaning. TrueLearner may not receive capability names, expected
 answers, correctness bits, loss, reward, or evaluator state.
@@ -23,16 +21,18 @@ answers, correctness bits, loss, reward, or evaluator state.
   physical time, and durable body state.
 - **Academy** owns teaching cases, probes, capability claims, schedules,
   evidence, and developmental records.
-- **Playground** owns human interaction, rendering, and inspection.
+- **Review tools** own observer-only rendering and inspection.
 
-Keep the runtime dependency direction
-`playground -> academy-core -> truelearner` for live interaction. Keep
-`academy-core` headless. The causally inert episode reviewer instead depends
-only on the portable review catalog:
+Keep the runtime dependency direction:
 
 ```text
-playground -> academy-review <- academy-episodes -> academy-core -> truelearner
+academy-body ---------------------> truelearner-workstation -> truelearner-body
+academy-workstation --------------> truelearner-workstation -> truelearner-body
+academy-workstation-review -> academy-workstation
 ```
+
+The removed core, embodiment, semantic harness, episode runner, and gallery are
+historical only and do not participate in this graph.
 
 ## Development loop
 

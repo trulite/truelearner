@@ -184,7 +184,7 @@ enum RetentionTag {
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct JunctionSlot {
     lifetime: Time,
-    sampled_at: Time,
+    stamp: Time,
     value: Impulse,
     threshold: Impulse,
     pub(crate) outgoing_head: Option<LinkId>,
@@ -200,7 +200,7 @@ impl JunctionSlot {
         };
         Self {
             lifetime,
-            sampled_at: 0,
+            stamp: 0,
             value: 0,
             threshold: law.threshold,
             outgoing_head: None,
@@ -215,15 +215,25 @@ impl JunctionSlot {
 
     pub(crate) fn clear(&mut self) {
         self.value = 0;
+        self.stamp = 0;
         self.sampled_known = false;
     }
 
-    pub(crate) fn change(&mut self, at: Time, impulse: i64) -> Option<(Impulse, Impulse)> {
+    pub(crate) fn change(
+        &mut self,
+        at: Time,
+        impulse: i64,
+        cause: u64,
+    ) -> Option<(Impulse, Impulse)> {
         match self.retention {
             RetentionTag::Integrating => {
+                if self.value != 0 && self.stamp != cause {
+                    self.value = 0;
+                }
                 let before = self.value;
                 let after = clamp_signal(i64::from(before) + impulse);
                 self.value = after;
+                self.stamp = cause;
                 (after >= self.threshold).then(|| {
                     self.value = 0;
                     (before, after)
@@ -231,11 +241,10 @@ impl JunctionSlot {
             }
             RetentionTag::Sampled => {
                 let impulse = clamp_signal(impulse);
-                let before = (self.sampled_known
-                    && at.saturating_sub(self.sampled_at) < self.lifetime)
+                let before = (self.sampled_known && at.saturating_sub(self.stamp) < self.lifetime)
                     .then_some(self.value);
                 self.value = impulse;
-                self.sampled_at = at;
+                self.stamp = at;
                 self.sampled_known = true;
                 before
                     .filter(|before| *before != impulse)

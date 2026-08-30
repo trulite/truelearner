@@ -2,13 +2,13 @@
 
 CORE1 writing follows the small vocabulary in [LANGUAGE.md](LANGUAGE.md).
 
-This branch contains the authoritative Physical Body V1 production organism
-and separates it from its research history.
+This branch contains the compact production organism and separates it from its
+research history.
 
 - `truelearner/` is the complete production Rust workspace.
-- `truelearner/crates/workstation/` is a development-only binocular,
-  one-hand `WorkstationHarness`; it is not accepted-body authority and contains
-  no device meaning.
+- `truelearner/crates/body/` implements the compact physical organism.
+- `truelearner/crates/workstation/` adapts physical worlds to that body while
+  keeping junction handles private and device meaning outside the organism.
 - `experiments/` contains archived research code, protocols, evaluators,
   generated evidence, and audit tooling.
 - `arch.md` is the accepted PXR0/PX-C + Physical Body V1 architectural oracle.
@@ -31,13 +31,10 @@ with `$categorical-rust` as their modeling discipline. Academy work uses
 `$academy`; benchmark families advance through `$benchmark-climb` without
 letting benchmark knowledge enter the organism.
 
-The current pre-release core preserves the accepted physical transitions behind
-a harness: inputs enter, owned observations leave, and the body and resident
-arena remain private. Checkpoints are opaque and carry no public body format.
-Boundary Buffers V1 adds bounded FIFO staging for
-`SpikeInput` and outward `Crossing` values, transactional backpressure, and
-exact buffered live continuation. Cold storage, visual framebuffers, and
-distributed execution remain future successors.
+The current production path is
+`Academy -> WorkstationHarness -> truelearner_body::Body`. Inputs enter as
+ordinary physical sensor events, outward motor effects leave, and all junction
+mapping stays private. Checkpoints remain opaque.
 
 ## Fast Rust development
 

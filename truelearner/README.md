@@ -1,21 +1,21 @@
 # TrueLearner production workspace
 
-`truelearner/` is the only production code surface.
+The production workspace has one organism and one physical-world adapter:
 
-The workspace contains one production package:
+```text
+truelearner-workstation -> truelearner-body
+```
 
-- `truelearner-core`
-  - junction/link state and the transitions in `algo.md`;
-  - private resident execution and stable ID/slot resolution;
-  - the harness boundary for inputs, outputs, observations, and checkpoints.
+- `truelearner-body` owns junctions, arrivals, paths, choice, effects, outcome
+  return, and link memory.
+- `truelearner-workstation` owns the `WorkstationHarness`, physical sensor and
+  motor attachment, private junction handles, external state, and opaque
+  checkpoint replay.
+- `truelearner-behavior-contract` holds the shared black-box scenario format.
+- `truelearner-checkpoint` provides neutral checkpoint envelope mechanics.
 
-The pre-release runtime executes only from explicit mutable RAM. Academy and
-tests cannot access the body or resident arena. They send inputs through the
-harness, read owned junction/link observations, and may save or restore an
-opaque checkpoint. There is no public arena or body persistence format.
+The former core and embodiment crates are not workspace members or production
+dependencies. Research archives may refer to them as historical evidence.
 
-Physical Body V1 authority passed `16/16` fresh roots and `540/540` clauses at
-tag `physical-body-v1-authority-positive-v1`.
-
-Production crates must not depend on anything under `experiments/`.
-Experimental crates may depend on production crates.
+Production crates must not depend on anything under `experiments/` or
+`research/`.

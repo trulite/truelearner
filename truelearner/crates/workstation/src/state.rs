@@ -1,6 +1,5 @@
 use crate::WorkstationError;
 use serde::{Deserialize, Serialize};
-use truelearner_embodiment::OpposedEffort;
 
 pub const BODY_MAX: i16 = 1_023;
 pub const DIGIT_COUNT: usize = 5;
@@ -8,6 +7,29 @@ pub const TOUCH_SITES: usize = DIGIT_COUNT + 1;
 pub const AXIS_COUNT: usize = 15;
 const MAX_PIXELS: usize = 1_048_576;
 const MID: i16 = (BODY_MAX + 1) / 2;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct OpposedEffort {
+    decrease: u16,
+    increase: u16,
+}
+
+impl OpposedEffort {
+    const fn new(decrease: u16, increase: u16) -> Self {
+        Self { decrease, increase }
+    }
+
+    fn combine_bounded(self, other: Self, maximum: u16) -> Self {
+        Self {
+            decrease: self.decrease.saturating_add(other.decrease).min(maximum),
+            increase: self.increase.saturating_add(other.increase).min(maximum),
+        }
+    }
+
+    const fn net(self) -> i32 {
+        self.increase as i32 - self.decrease as i32
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -178,7 +200,6 @@ impl Default for ActuatorFrame {
 }
 
 impl ActuatorFrame {
-    #[cfg(test)]
     pub(crate) fn activate(&mut self, axis: BodyAxis, direction: Direction, impulse: u16) {
         let effort = &mut self.axes[axis.index()];
         let command = match direction {
@@ -238,13 +259,6 @@ impl Point {
         self.y
     }
 
-    pub(crate) fn offset(self, dx: i16, dy: i16) -> Self {
-        Self {
-            x: self.x.saturating_add(dx).clamp(0, BODY_MAX),
-            y: self.y.saturating_add(dy).clamp(0, BODY_MAX),
-        }
-    }
-
     fn validate(self) -> Result<(), WorkstationError> {
         if (0..=BODY_MAX).contains(&self.x) && (0..=BODY_MAX).contains(&self.y) {
             Ok(())
@@ -272,17 +286,6 @@ impl HandPoint {
 
     pub const fn depth(self) -> i16 {
         self.depth
-    }
-
-    fn validate(self) -> Result<(), WorkstationError> {
-        if (0..=BODY_MAX).contains(&self.x)
-            && (0..=BODY_MAX).contains(&self.y)
-            && (0..=BODY_MAX).contains(&self.depth)
-        {
-            Ok(())
-        } else {
-            Err(WorkstationError::InvalidState)
-        }
     }
 }
 
@@ -464,21 +467,6 @@ impl HandState {
             depth: clamp_body(i32::from(self.palm.depth) + flexion / 4 + opposition.abs() / 4),
         }
     }
-
-    fn validate(&self) -> Result<(), WorkstationError> {
-        self.palm.validate()?;
-        if !(-BODY_MAX..=BODY_MAX).contains(&self.wrist)
-            || !(-BODY_MAX..=BODY_MAX).contains(&self.spread)
-            || !(-BODY_MAX..=BODY_MAX).contains(&self.thumb_opposition)
-            || self
-                .digits
-                .iter()
-                .any(|digit| digit.flexion > BODY_MAX as u16)
-        {
-            return Err(WorkstationError::InvalidState);
-        }
-        Ok(())
-    }
 }
 
 impl Default for HandState {
@@ -528,23 +516,6 @@ impl WorkstationState {
                 at_upper_limit,
             }
         })
-    }
-
-    pub(crate) fn validate(&self) -> Result<(), WorkstationError> {
-        for eye in &self.eyes {
-            eye.gaze.validate()?;
-        }
-        self.hand.validate()?;
-        for (index, dynamics) in self.dynamics.iter().enumerate() {
-            let axis = BodyAxis::ALL[index];
-            if dynamics.decrease_effort > BODY_MAX as u16
-                || dynamics.increase_effort > BODY_MAX as u16
-                || dynamics.velocity.unsigned_abs() > axis_velocity_bound(axis)
-            {
-                return Err(WorkstationError::InvalidState);
-            }
-        }
-        Ok(())
     }
 
     pub(crate) fn integrate(&mut self, frame: ActuatorFrame) -> Vec<BodyMovement> {
@@ -718,13 +689,6 @@ const fn axis_step(axis: BodyAxis) -> i32 {
         | BodyAxis::PalmDepth => 16,
         BodyAxis::Wrist | BodyAxis::Spread | BodyAxis::ThumbOpposition => 32,
         BodyAxis::FingerFlexion { .. } => 64,
-    }
-}
-
-const fn axis_velocity_bound(axis: BodyAxis) -> u16 {
-    match axis {
-        BodyAxis::Wrist | BodyAxis::Spread | BodyAxis::ThumbOpposition => BODY_MAX as u16 * 2,
-        _ => BODY_MAX as u16,
     }
 }
 

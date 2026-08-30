@@ -1,0 +1,46 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-compact-body-cutover-candidate.json",
+    "sha256": "11f5ab3ca6976ddd101f22add1adc06da2c8fb291097a581454712aecfdf6e39"
+  },
+  "verdict": "supported",
+  "independent_test_count": 3,
+  "checks": [
+    {
+      "name": "held-out-review",
+      "command": "cargo test --manifest-path academy/Cargo.toml -p academy-workstation-review",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 4.87
+    },
+    {
+      "name": "dependency-audit",
+      "command": "production source and manifest scan for removed crate and research-harness names",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --manifest-path truelearner/Cargo.toml -p truelearner-workstation --lib",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.05
+    }
+  ],
+  "findings": [
+    "Academy and workstation use one direct production dependency path through truelearner-workstation to truelearner-body.",
+    "Black-box learning, exact replay, unchanged Academy controls, and observer-only review all pass.",
+    "No removed core, embodiment, Academy runner, ARC adapter, gallery, or research-harness name remains in production Rust sources, manifests, or lockfiles."
+  ],
+  "residual_uncertainty": [
+    "Workstation checkpoint restore currently rebuilds the compact body by replaying its stored input history, so restore cost grows linearly with history length."
+  ],
+  "artifacts": [
+    {
+      "path": "../../plans/workstation-compact-body-cutover.md",
+      "sha256": "8223e3422d4bdb8331118e461aa4b316faaf0ed9947782947cc743875742c1c5"
+    }
+  ]
+}

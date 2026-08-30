@@ -6,25 +6,14 @@ mod harness;
 mod state;
 
 pub use checkpoint::WorkstationCheckpoint;
-#[cfg(feature = "research")]
 pub use harness::{
-    research_focused_feature_for_origin, research_foveal_reach_retinal_features,
-    research_retinal_features, research_retinotopic_retinal_features,
-    research_wide_retinal_features, ResearchChoiceDiagnostic, ResearchFocusedActionProjection,
-    ResearchFocusedVisionObservation, ResearchHarnessConfig, ResearchOpportunityIncidence,
-    ResearchRetinalLayout, ResearchRetinalSnapshot, ResearchRetinalTransition,
-    ResearchTransitionOpportunity, ResearchVisualComposition, FOCUSED_RECEPTOR_FEATURE_COUNT,
-    RESEARCH_RETINA_FEATURE_COUNT,
+    MotorEffect, StepMetrics, WorkstationHarness, WorkstationRead, WorkstationStepObservation,
 };
-pub use harness::{StepMetrics, WorkstationHarness, WorkstationRead, WorkstationStepObservation};
 pub use state::{
     AxisProprioception, BodyAxis, BodyControl, BodyMovement, ContactSample, Digit, DigitState,
     Direction, Eye, EyeState, HandPoint, HandState, LightField, Point, WorkstationState,
     WorldSample, AXIS_COUNT, BODY_MAX, DIGIT_COUNT, TOUCH_SITES,
 };
-#[cfg(feature = "research")]
-pub use truelearner_core::Protocol;
-
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -41,7 +30,7 @@ pub enum WorkstationError {
     CheckpointChecksum,
     TrailingCheckpointBytes,
     UnknownOutput(u64),
-    CoreCheckpoint(String),
+    Body(String),
 }
 
 impl fmt::Display for WorkstationError {
@@ -78,7 +67,7 @@ impl fmt::Display for WorkstationError {
             Self::UnknownOutput(physical) => {
                 write!(formatter, "unknown outward physical output {physical}")
             }
-            Self::CoreCheckpoint(message) => write!(formatter, "core checkpoint failed: {message}"),
+            Self::Body(message) => write!(formatter, "body failed: {message}"),
         }
     }
 }

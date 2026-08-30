@@ -4,7 +4,10 @@ use crate::{
     arena::Arena, engine::PhysicalMoment, Body, BuildError, Impulse, Junction, JunctionId, Link,
     LinkId, RunError, Time, Trigger,
 };
-use std::{cmp::Reverse, collections::BTreeSet};
+use std::{
+    cmp::Reverse,
+    collections::{BTreeSet, HashMap},
+};
 
 pub type Cause = u64;
 pub type Cohort = u64;
@@ -322,6 +325,55 @@ struct MomentFact {
     had_ready_path: bool,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct ConstructionFact {
+    cause: Cause,
+    junction: JunctionId,
+    consequence: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ConstructionScratch {
+    counts: HashMap<Cause, usize>,
+    passive_counts: HashMap<Cause, usize>,
+    facts: Vec<ConstructionFact>,
+    members: Vec<JunctionId>,
+    consequences: Vec<JunctionId>,
+    candidates: Vec<JunctionId>,
+    stack: Vec<JunctionId>,
+    visited: Vec<JunctionId>,
+    leaves: Vec<JunctionId>,
+    parent_members: Vec<JunctionId>,
+}
+
+impl ConstructionScratch {
+    fn clear(&mut self) {
+        self.counts.clear();
+        self.passive_counts.clear();
+        self.facts.clear();
+        self.members.clear();
+        self.consequences.clear();
+        self.candidates.clear();
+        self.stack.clear();
+        self.visited.clear();
+        self.leaves.clear();
+        self.parent_members.clear();
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct DetectedClosure {
+    at: Time,
+    parent: Option<JunctionId>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MembershipParent {
+    Root,
+    Existing(JunctionId),
+    Ambiguous,
+}
+
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ReactionScratch {
     facts: Vec<MomentFact>,
@@ -329,6 +381,7 @@ pub(crate) struct ReactionScratch {
     connected_outcomes: Vec<JunctionId>,
     worlds: Vec<usize>,
     winners: Vec<usize>,
+    construction: ConstructionScratch,
     pub(crate) change: Change,
     pub(crate) applied: Applied,
 }
@@ -361,6 +414,7 @@ impl ReactionScratch {
         self.connected_outcomes.clear();
         self.worlds.clear();
         self.winners.clear();
+        self.construction.clear();
         self.change.clear();
         self.applied.junctions.clear();
         self.applied.links.clear();
@@ -373,6 +427,16 @@ impl ReactionScratch {
             && self.connected_outcomes.is_empty()
             && self.worlds.is_empty()
             && self.winners.is_empty()
+            && self.construction.counts.is_empty()
+            && self.construction.facts.is_empty()
+            && self.construction.passive_counts.is_empty()
+            && self.construction.members.is_empty()
+            && self.construction.consequences.is_empty()
+            && self.construction.candidates.is_empty()
+            && self.construction.stack.is_empty()
+            && self.construction.visited.is_empty()
+            && self.construction.leaves.is_empty()
+            && self.construction.parent_members.is_empty()
             && self.change.is_empty()
             && self.applied.junctions.is_empty()
             && self.applied.links.is_empty()
@@ -385,10 +449,21 @@ impl ReactionScratch {
 }
 
 pub(crate) fn reaction_needed(body: ReactionView<'_>, moment: &PhysicalMoment) -> bool {
-    moment.changes.iter().any(|recorded| {
-        !matches!(recorded.used, UsedPaths::None)
+    let mut boundary_changes = 0_usize;
+    for recorded in &moment.changes {
+        if !matches!(recorded.used, UsedPaths::None)
             || recorded.boundary && boundary_can_react(body, recorded.event.junction)
-    })
+        {
+            return true;
+        }
+        if recorded.boundary && recorded.event.cause != 0 {
+            boundary_changes += 1;
+            if boundary_changes >= 2 {
+                return true;
+            }
+        }
+    }
+    false
 }
 
 fn boundary_can_react(body: ReactionView<'_>, surface: JunctionId) -> bool {
@@ -414,6 +489,245 @@ fn boundary_can_react(body: ReactionView<'_>, surface: JunctionId) -> bool {
     false
 }
 
+fn is_outcome_source(body: ReactionView<'_>, junction: JunctionId) -> bool {
+    let mut next = body
+        .arena
+        .junction(junction)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(link_id) = next {
+        let link = body.arena.link(link_id).expect("live link");
+        let memory = &body.link_memory[link_id.slot()];
+        if memory.live && memory.role == LinkRole::OutcomeWitness {
+            return true;
+        }
+        next = link.next;
+    }
+    false
+}
+
+fn is_membership_link(body: ReactionView<'_>, link: LinkId) -> bool {
+    body.link_memory[link.slot()].live && body.link_memory[link.slot()].role == LinkRole::Membership
+}
+
+fn has_membership_children(body: ReactionView<'_>, junction: JunctionId) -> bool {
+    let mut next = body
+        .arena
+        .junction(junction)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(link_id) = next {
+        let link = body.arena.link(link_id).expect("live link");
+        if is_membership_link(body, link_id) {
+            return true;
+        }
+        next = link.next;
+    }
+    false
+}
+
+fn member_is_owned(body: ReactionView<'_>, member: JunctionId) -> bool {
+    body.arena
+        .incoming(member)
+        .any(|link| is_membership_link(body, link))
+}
+
+fn append_membership_ancestors(
+    body: ReactionView<'_>,
+    member: JunctionId,
+    candidates: &mut Vec<JunctionId>,
+    stack: &mut Vec<JunctionId>,
+    visited: &mut Vec<JunctionId>,
+) {
+    stack.push(member);
+    while let Some(junction) = stack.pop() {
+        for link_id in body.arena.incoming(junction) {
+            if !is_membership_link(body, link_id) {
+                continue;
+            }
+            let parent = body.arena.link(link_id).expect("live link").from;
+            if visited.contains(&parent) {
+                continue;
+            }
+            visited.push(parent);
+            candidates.push(parent);
+            stack.push(parent);
+        }
+    }
+}
+
+fn collect_membership_leaves(
+    body: ReactionView<'_>,
+    boundary: JunctionId,
+    stack: &mut Vec<JunctionId>,
+    visited: &mut Vec<JunctionId>,
+    leaves: &mut Vec<JunctionId>,
+) {
+    stack.clear();
+    visited.clear();
+    leaves.clear();
+    stack.push(boundary);
+    while let Some(junction) = stack.pop() {
+        if visited.contains(&junction) {
+            continue;
+        }
+        visited.push(junction);
+        let mut next = body
+            .arena
+            .junction(junction)
+            .and_then(|slot| slot.outgoing_head);
+        while let Some(link_id) = next {
+            let link = body.arena.link(link_id).expect("live link");
+            next = link.next;
+            if !is_membership_link(body, link_id) {
+                continue;
+            }
+            if has_membership_children(body, link.to) {
+                stack.push(link.to);
+            } else if !leaves.contains(&link.to) {
+                leaves.push(link.to);
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn resolve_membership_parent(
+    body: ReactionView<'_>,
+    members: &[JunctionId],
+    candidates: &mut Vec<JunctionId>,
+    stack: &mut Vec<JunctionId>,
+    visited: &mut Vec<JunctionId>,
+    leaves: &mut Vec<JunctionId>,
+    parent_members: &mut Vec<JunctionId>,
+) -> MembershipParent {
+    candidates.clear();
+    stack.clear();
+    visited.clear();
+    parent_members.clear();
+    for member in members {
+        append_membership_ancestors(body, *member, candidates, stack, visited);
+    }
+    if candidates.is_empty() {
+        return MembershipParent::Root;
+    }
+
+    let mut best = None;
+    let mut best_size = 0_usize;
+    for candidate in candidates.iter().copied() {
+        collect_membership_leaves(body, candidate, stack, visited, leaves);
+        let complete = leaves.iter().all(|leaf| members.contains(leaf));
+        let contains_owned = members
+            .iter()
+            .all(|member| !member_is_owned(body, *member) || leaves.contains(member));
+        if !complete || !contains_owned {
+            continue;
+        }
+        if leaves.len() < best_size {
+            continue;
+        }
+        if leaves.len() == best_size && best.is_some() && best != Some(candidate) {
+            return MembershipParent::Ambiguous;
+        }
+        best = Some(candidate);
+        best_size = leaves.len();
+        parent_members.clear();
+        parent_members.extend_from_slice(leaves);
+    }
+
+    best.map_or(MembershipParent::Ambiguous, MembershipParent::Existing)
+}
+
+fn detect_closure(
+    body: ReactionView<'_>,
+    moment: &PhysicalMoment,
+    scratch: &mut ConstructionScratch,
+) -> Option<DetectedClosure> {
+    scratch.clear();
+    let mut at = None;
+    for change in &moment.changes {
+        let event = change.event;
+        if !change.boundary || event.cause == 0 {
+            continue;
+        }
+        at = Some(event.at);
+        let consequence = is_outcome_source(body, event.junction);
+        if !consequence {
+            *scratch.counts.entry(event.cause).or_default() += 1;
+            if !boundary_can_react(body, event.junction) {
+                *scratch.passive_counts.entry(event.cause).or_default() += 1;
+            }
+        }
+        scratch.facts.push(ConstructionFact {
+            cause: event.cause,
+            junction: event.junction,
+            consequence,
+        });
+    }
+
+    let mut causes = scratch
+        .counts
+        .iter()
+        .filter(|(cause, count)| {
+            **count >= 2 && scratch.passive_counts.get(cause).copied().unwrap_or(0) > 0
+        })
+        .map(|(cause, _)| *cause);
+    let cause = causes.next()?;
+    if causes.next().is_some() {
+        return None;
+    }
+    for fact in &scratch.facts {
+        if fact.cause != cause {
+            continue;
+        }
+        if fact.consequence {
+            scratch.consequences.push(fact.junction);
+        } else {
+            scratch.members.push(fact.junction);
+        }
+    }
+
+    let parent = resolve_membership_parent(
+        body,
+        &scratch.members,
+        &mut scratch.candidates,
+        &mut scratch.stack,
+        &mut scratch.visited,
+        &mut scratch.leaves,
+        &mut scratch.parent_members,
+    );
+    let parent = match parent {
+        MembershipParent::Root => None,
+        MembershipParent::Existing(parent) => Some(parent),
+        MembershipParent::Ambiguous => return None,
+    };
+    Some(DetectedClosure { at: at?, parent })
+}
+
+fn direct_membership_parent(
+    body: ReactionView<'_>,
+    member: JunctionId,
+) -> Result<Option<JunctionId>, ()> {
+    let mut parent = None;
+    for link_id in body.arena.incoming(member) {
+        if !is_membership_link(body, link_id) {
+            continue;
+        }
+        let found = body.arena.link(link_id).expect("live link").from;
+        if parent.is_some_and(|existing| existing != found) {
+            return Err(());
+        }
+        parent = Some(found);
+    }
+    Ok(parent)
+}
+
+fn path_is_executable(body: ReactionView<'_>, surface: JunctionId, has_outcome: bool) -> bool {
+    match direct_membership_parent(body, surface) {
+        Ok(None) => true,
+        Ok(Some(parent)) => !member_is_owned(body, parent) && has_outcome,
+        Err(()) => false,
+    }
+}
+
 pub(crate) fn react_into(
     body: ReactionView<'_>,
     moment: &PhysicalMoment,
@@ -428,6 +742,7 @@ pub(crate) fn react_into(
             used: recorded.used,
             had_ready_path: false,
         }));
+    let construction = detect_closure(body, moment, &mut scratch.construction);
     form_and_choose(
         body,
         &mut scratch.facts,
@@ -436,9 +751,113 @@ pub(crate) fn react_into(
         &mut scratch.worlds,
         &mut scratch.winners,
         &mut scratch.change,
+        construction.is_some(),
     );
+    if let Some(closure) = construction {
+        construct_membership(
+            closure,
+            &scratch.construction.members,
+            &scratch.construction.parent_members,
+            &mut scratch.change,
+        );
+        remember_construction_outcomes(
+            closure.at,
+            &scratch.construction.members,
+            &scratch.construction.parent_members,
+            &scratch.construction.consequences,
+            &scratch.ready,
+            &scratch.connected_outcomes,
+            &scratch.winners,
+            &mut scratch.change,
+        );
+        return;
+    }
     record_used_outputs(&scratch.facts, &mut scratch.change);
     record_returned_outcomes(body, &scratch.facts, &mut scratch.change);
+}
+
+fn construct_membership(
+    closure: DetectedClosure,
+    members: &[JunctionId],
+    parent_members: &[JunctionId],
+    change: &mut Change,
+) {
+    if members.iter().all(|member| parent_members.contains(member)) {
+        return;
+    }
+    let boundary = change.new_junction();
+    change.push(Edit::AddJunction {
+        new: boundary,
+        spec: Junction::integrating(1),
+    });
+    if let Some(parent) = closure.parent {
+        let membership = change.new_link();
+        change.push(Edit::AddLink {
+            new: membership,
+            from: boundary.into(),
+            to: parent.into(),
+            spec: LinkSpec {
+                delay: 0,
+                impulse: 1,
+                trigger: Trigger::SourceFires,
+                role: LinkRole::Membership,
+            },
+        });
+    }
+    for member in members {
+        if parent_members.contains(member) {
+            continue;
+        }
+        let membership = change.new_link();
+        change.push(Edit::AddLink {
+            new: membership,
+            from: boundary.into(),
+            to: (*member).into(),
+            spec: LinkSpec {
+                delay: 0,
+                impulse: 1,
+                trigger: Trigger::SourceFires,
+                role: LinkRole::Membership,
+            },
+        });
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn remember_construction_outcomes(
+    at: Time,
+    members: &[JunctionId],
+    parent_members: &[JunctionId],
+    consequences: &[JunctionId],
+    ready: &[ReadyPath],
+    connected_outcomes: &[JunctionId],
+    winners: &[usize],
+    change: &mut Change,
+) {
+    if consequences.is_empty() {
+        return;
+    }
+    for winner in winners.iter().map(|winner| &ready[*winner]) {
+        if !members.contains(&winner.surface) || parent_members.contains(&winner.surface) {
+            continue;
+        }
+        let connected = &connected_outcomes[winner.connected_start..winner.connected_end];
+        if !consequences
+            .iter()
+            .any(|consequence| connected.contains(consequence))
+        {
+            continue;
+        }
+        for link in [winner.first, winner.second] {
+            change.push(Edit::ChangeLink {
+                link,
+                change: LinkChange::RememberOutcome {
+                    at,
+                    available_until_choice: true,
+                },
+            });
+        }
+    }
 }
 
 fn record_used_outputs(facts: &[MomentFact], change: &mut Change) {
@@ -482,7 +901,11 @@ fn record_used_outputs(facts: &[MomentFact], change: &mut Change) {
 
 fn record_returned_outcomes(body: ReactionView<'_>, facts: &[MomentFact], change: &mut Change) {
     for fact in facts {
-        if !fact.boundary || fact.had_ready_path || !matches!(fact.used, UsedPaths::None) {
+        if !fact.boundary
+            || fact.had_ready_path
+            || !matches!(fact.used, UsedPaths::None)
+            || !is_outcome_source(body, fact.event.junction)
+        {
             continue;
         }
 
@@ -624,6 +1047,7 @@ pub(crate) fn path_from_drive(body: ReactionView<'_>, second: LinkId) -> Option<
 struct ReadyPath {
     surface: JunctionId,
     first: LinkRef,
+    second: LinkRef,
     at: Time,
     current_cause: Cause,
     return_cause: Option<Cause>,
@@ -633,8 +1057,10 @@ struct ReadyPath {
     participation: u64,
     strength: i64,
     stable_order: u32,
+    executable: bool,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn form_and_choose(
     body: ReactionView<'_>,
     facts: &mut [MomentFact],
@@ -643,6 +1069,7 @@ fn form_and_choose(
     worlds: &mut Vec<usize>,
     winners: &mut Vec<usize>,
     change: &mut Change,
+    construction: bool,
 ) {
     for fact in facts.iter_mut() {
         if !fact.boundary {
@@ -712,6 +1139,7 @@ fn form_and_choose(
                 ready.push(ReadyPath {
                     surface,
                     first: first.into(),
+                    second: second.into(),
                     at: fact.event.at,
                     current_cause: fact.event.cause,
                     return_cause: None,
@@ -723,6 +1151,7 @@ fn form_and_choose(
                     stable_order: u32::try_from(body.arena.link_count())
                         .unwrap_or(u32::MAX)
                         .saturating_add(second.0),
+                    executable: path_is_executable(body, surface, false),
                 });
             }
         }
@@ -731,12 +1160,15 @@ fn form_and_choose(
     fill_ready_worlds(ready, connected_outcomes, worlds);
     for world in 0..ready.len() {
         if worlds[world] == world {
-            if let Some(winner) = choose_ready(ready, worlds, world) {
+            if let Some(winner) = choose_ready(ready, worlds, world, construction) {
                 winners.push(winner);
             }
         }
     }
     winners.sort_by_key(|winner| ready[*winner].surface);
+    if construction {
+        return;
+    }
     for winner in winners.iter().map(|index| &ready[*index]) {
         change.push(Edit::Send {
             through: winner.first,
@@ -785,22 +1217,25 @@ fn append_existing_ready_paths(
                 let connected_start = connected_outcomes.len();
                 append_connected_outcomes(body, first.to, link.to, connected_outcomes);
                 let connected_end = connected_outcomes.len();
+                let outcome = memory.outcome_at.map(|at| Outcome {
+                    at,
+                    caused_transition: true,
+                    available_until_choice: memory.outcome_available,
+                });
                 paths.push(ReadyPath {
                     surface,
                     first: first_id.into(),
+                    second: second_id.into(),
                     at,
                     current_cause,
                     return_cause: (memory.participation > 0).then_some(memory.cause),
                     connected_start,
                     connected_end,
-                    outcome: memory.outcome_at.map(|at| Outcome {
-                        at,
-                        caused_transition: true,
-                        available_until_choice: memory.outcome_available,
-                    }),
+                    outcome,
                     participation: memory.participation,
                     strength: memory.strength,
                     stable_order: second_id.slot() as u32,
+                    executable: path_is_executable(body, surface, outcome.is_some()),
                 });
             }
         }
@@ -836,14 +1271,20 @@ fn ready_path_exists(
     })
 }
 
-fn choose_ready(paths: &[ReadyPath], worlds: &[usize], world: usize) -> Option<usize> {
-    let in_world = |index: &usize| worlds[*index] == world;
+fn choose_ready(
+    paths: &[ReadyPath],
+    worlds: &[usize],
+    world: usize,
+    construction: bool,
+) -> Option<usize> {
+    let in_world =
+        |index: &usize| worlds[*index] == world && (construction || paths[*index].executable);
     unique_ready((0..paths.len()).filter(in_world).filter(|index| {
         let path = &paths[*index];
         path.return_cause.is_some() && path.return_cause == Some(path.current_cause)
     }))
-    .or_else(|| unique_latest_ready(paths, worlds, world, true))
-    .or_else(|| unique_latest_ready(paths, worlds, world, false))
+    .or_else(|| unique_latest_ready(paths, worlds, world, true, construction))
+    .or_else(|| unique_latest_ready(paths, worlds, world, false, construction))
     .or_else(|| {
         (0..paths.len()).filter(in_world).max_by_key(|index| {
             let path = &paths[*index];
@@ -866,9 +1307,10 @@ fn unique_latest_ready(
     worlds: &[usize],
     world: usize,
     available_only: bool,
+    construction: bool,
 ) -> Option<usize> {
     let latest = (0..paths.len())
-        .filter(|index| worlds[*index] == world)
+        .filter(|index| worlds[*index] == world && (construction || paths[*index].executable))
         .filter_map(|index| {
             paths[index]
                 .outcome
@@ -877,7 +1319,7 @@ fn unique_latest_ready(
         .map(|outcome| outcome.at)
         .max()?;
     unique_ready((0..paths.len()).filter(|index| {
-        if worlds[*index] != world {
+        if worlds[*index] != world || (!construction && !paths[*index].executable) {
             return false;
         }
         let path = &paths[*index];
@@ -1596,6 +2038,55 @@ fn unique_latest<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn membership(body: &mut Body, parent: JunctionId, member: JunctionId) {
+        let link = body.add_link(Link::new(parent, member, 0, 1)).unwrap();
+        body.set_link_role(link, LinkRole::Membership).unwrap();
+    }
+
+    #[test]
+    fn membership_parent_resolution_composes_recursively() {
+        let mut body = Body::default();
+        let members: [JunctionId; 4] =
+            std::array::from_fn(|_| body.add_junction(Junction::integrating(1)).unwrap());
+        let root = body.add_junction(Junction::integrating(1)).unwrap();
+        membership(&mut body, root, members[0]);
+        membership(&mut body, root, members[1]);
+        let child = body.add_junction(Junction::integrating(1)).unwrap();
+        membership(&mut body, child, root);
+        membership(&mut body, child, members[2]);
+
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.live_returns);
+        let mut scratch = ConstructionScratch::default();
+        assert_eq!(
+            resolve_membership_parent(
+                view,
+                &members[..2],
+                &mut scratch.candidates,
+                &mut scratch.stack,
+                &mut scratch.visited,
+                &mut scratch.leaves,
+                &mut scratch.parent_members,
+            ),
+            MembershipParent::Existing(root)
+        );
+        assert_eq!(
+            resolve_membership_parent(
+                view,
+                &members[..3],
+                &mut scratch.candidates,
+                &mut scratch.stack,
+                &mut scratch.visited,
+                &mut scratch.leaves,
+                &mut scratch.parent_members,
+            ),
+            MembershipParent::Existing(child)
+        );
+        assert_eq!(scratch.parent_members.len(), 3);
+        assert!(members[..3]
+            .iter()
+            .all(|member| scratch.parent_members.contains(member)));
+    }
 
     #[test]
     fn live_return_index_tracks_roles_order_and_retirement() {

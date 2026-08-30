@@ -1,0 +1,16 @@
+schema = "research-arm/v1"
+id = "attachment-and-firewall-controls"
+campaign = "workstation-runtime-attached-complete-candidate-v1"
+kind = "control"
+parents = ["body-curried-component-calibration-authority-v3", "academy-workstation"]
+imports = ["inert runtime attachment", "body-curried zero identity", "organism sample semantic firewall", "checkpoint replay"]
+mechanism = "Inspect the complete constructor before observation, exercise owned binocular contact and proprioceptive samples, compare interior and limit residuals, audit the organism wire representation, and restore the exact next step without evaluating key-selection success."
+prediction = "Construction leaves state learner output outcome and physical time inert; attached channels cover the declared surfaces; interior calibration is zero and a supplied body limit is nonzero; no semantic field enters the sample; restore reproduces the exact next step."
+falsifiers = ["Construction emits activity.", "A declared sensor surface is absent.", "Interior calibration drives or a body limit stays zero.", "A semantic field enters organism input.", "Checkpoint replay differs."]
+source_revision = "bedcbe54208bd8dc2df9d1bdde976f6c28c4ea7a"
+protocol_sha256 = "031ce98f61ff0dfca5bfa3c427cb82a217e35f6918c8219364bb0a89df03530c"
+budget_minutes = 10
+
+[gates]
+tiny_fixture = "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation --features research runtime_attached_complete_surface_"
+full_evidence = "cargo test --release --locked --manifest-path academy/Cargo.toml -p academy-workstation --features research runtime_attached_complete_session_"

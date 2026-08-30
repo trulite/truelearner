@@ -1,5 +1,13 @@
 #![forbid(unsafe_code)]
 
+mod runtime_attached_complete;
+
+pub use runtime_attached_complete::{
+    RuntimeAttachedCompleteTrace, RuntimeAttachedExecution, RuntimeAttachedProgress,
+    RuntimeAttachedStage, capture_runtime_attached_complete_candidate,
+    capture_runtime_attached_complete_candidate_with_progress,
+};
+
 use academy_workstation::{
     DeviceEvent, KeyId, SessionObservation, WorkstationPresentation, WorkstationSession,
     WorldError, WorldGeometry,

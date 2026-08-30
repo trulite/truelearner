@@ -1,6 +1,6 @@
 [workspace]
-members = ["crates/behavior-contract", "crates/body", "crates/checkpoint", "crates/core", "crates/embodiment", "crates/workstation"]
-default-members = ["crates/body", "crates/checkpoint", "crates/core", "crates/embodiment", "crates/workstation"]
+members = ["crates/behavior-contract", "crates/body", "crates/checkpoint", "crates/workstation"]
+default-members = ["crates/body", "crates/checkpoint", "crates/workstation"]
 resolver = "2"
 
 [profile.test]

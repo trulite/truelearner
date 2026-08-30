@@ -3,11 +3,6 @@ use academy_workstation::{
     KEY_COUNT,
 };
 use truelearner_workstation::Eye;
-#[cfg(feature = "research")]
-use truelearner_workstation::{
-    BodyAxis, Protocol, ResearchFocusedActionProjection, ResearchHarnessConfig,
-    ResearchOpportunityIncidence, ResearchTransitionOpportunity, ResearchVisualComposition,
-};
 
 #[test]
 fn public_session_uses_real_monitor_pixels_and_proper_keyboard_geometry() {
@@ -187,85 +182,4 @@ fn absent_monitor_cue_is_the_exact_default_identity() {
         default_world.sense(&body).unwrap(),
         explicit_world.sense(&body).unwrap()
     );
-}
-
-#[cfg(feature = "research")]
-#[test]
-fn shared_opportunity_wave_exposes_separate_full_morphology_movements() {
-    let config = ResearchHarnessConfig {
-        protocol: Protocol::RecursiveLearnerCausalTopologyProductComposition,
-        opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
-        transition_opportunity: ResearchTransitionOpportunity::GenericOnly,
-    };
-    let mut default_session = WorkstationSession::new(82_001).unwrap();
-    let mut session = WorkstationSession::new_research(82_001, config).unwrap();
-    assert_eq!(
-        default_session.save().unwrap().canonical_bytes().unwrap(),
-        session.save().unwrap().canonical_bytes().unwrap()
-    );
-    let mut isolated_finger_steps = 0_u64;
-    let mut five_finger_steps = 0_u64;
-    let mut moved_digits = Vec::new();
-    for _ in 0..48 {
-        let default_observation = default_session.step().unwrap();
-        let observation = session.step().unwrap();
-        assert!(
-            default_observation == observation,
-            "default behavior diverged from the authorized shared behavior at sequence {}",
-            observation.sequence
-        );
-        let changed_fingers = observation
-            .body
-            .movements
-            .iter()
-            .filter_map(|movement| match movement.axis {
-                BodyAxis::FingerFlexion { digit } if movement.changed => Some(digit),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        if changed_fingers.len() == 1 {
-            isolated_finger_steps += 1;
-            if !moved_digits.contains(&changed_fingers[0]) {
-                moved_digits.push(changed_fingers[0]);
-            }
-        }
-        if changed_fingers.len() == 5 {
-            five_finger_steps += 1;
-        }
-        assert!(observation.body.naturally_quiescent);
-    }
-    assert!(isolated_finger_steps > 0);
-    assert!(moved_digits.len() >= 2, "moved digits: {moved_digits:?}");
-    assert_eq!(five_finger_steps, 0);
-    assert_eq!(default_session.save().unwrap(), session.save().unwrap());
-}
-
-#[cfg(feature = "research")]
-#[test]
-fn focused_action_session_restores_the_exact_next_world_and_body_step() {
-    let config = ResearchHarnessConfig {
-        protocol: Protocol::RecursiveLearnerCausalTopologyProductCompositionOutcomeLifetime,
-        opportunity_incidence: ResearchOpportunityIncidence::SharedWave,
-        transition_opportunity: ResearchTransitionOpportunity::OutputSpecificProprioceptiveSequentialAlignedCausalDeltaPalmComponent,
-    };
-    let visual_composition = ResearchVisualComposition::default()
-        .with_focused_sensor_field(true)
-        .with_focused_action_projection(ResearchFocusedActionProjection::PalmHorizontal);
-    let presentation = WorkstationPresentation::with_illuminated_key(KeyId(26));
-    let mut session = WorkstationSession::new_research_composed_with_presentation(
-        82_002,
-        config,
-        visual_composition,
-        presentation,
-    )
-    .unwrap();
-    session.step().unwrap();
-    let checkpoint = session.save().unwrap();
-    let mut restored =
-        WorkstationSession::restore_research_composed(checkpoint, config, visual_composition)
-            .unwrap();
-
-    assert_eq!(restored.read().unwrap(), session.read().unwrap());
-    assert_eq!(restored.step().unwrap(), session.step().unwrap());
-    assert_eq!(restored.save().unwrap(), session.save().unwrap());
 }

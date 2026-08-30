@@ -618,6 +618,14 @@ applies_when = ["generated diagnostic trace", "repository publication", "oversiz
 research_action = "Keep raw diagnostic recordings local and ignored by default, retain compact causal projections manifests and content digests in Git, and rerun frozen authority whenever cleanup changes the exact promoted commit or tree."
 
 [[lesson]]
+id = "LP-076"
+kind = "research-method"
+statement = "We saw a 64/64 workstation run advertise two small budgets but expand them into at most 416 body transitions, consume 510.23 wall seconds and 467.52 CPU seconds, and produce no evidence before it was stopped. The first boundary-replay repair reduced the maximum to 276 transitions but left the authoritative twelve-transition fixture at 5.61 seconds. Retained profiles then exposed repeated nested transitions and encodings, linear arrival physical-identity and vacant-slot searches, global connected-component reconstruction across disconnected sensor tissue, and serial counterfactual worlds from one frozen checkpoint. The solve was categorical and TAME-consistent: body workstation world and campaign each own one transition; derived indexes group incidences identities and ordered vacancies; competition traverses only requested causal components while charging unchanged complete logical Work; fingerprints compose through the compatible SHA-256 assembly backend; retained observations compare directly for exact replay; and development replay four probes their replay branches and paired invariant reads execute as independent product arrows before deterministic evidence rejoining. Ten consecutive warm runs completed in 0.25 to 0.32 seconds with all twelve transitions binocular vision contact proprioception replay controls quiet and learner physics intact."
+evidence = ["plans/workstation-runtime-attached-complete-candidate.md", "factory/receipts/workstation-runtime-attached-complete-candidate.json"]
+applies_when = ["cost-inadmissible complete candidate", "nested state transition", "derived topology", "counterfactual replay", "categorical composition", "TAME boundary"]
+research_action = "Make every nested scale consume one cause and return one result at its boundary; index mechanical identities outside organism state; preserve logical work exactly; traverse only causal components requested by current candidates; compose fingerprints from owned factors; expose the full execution budget; replay the smallest restoration boundary; and run independent frozen-state branches as a product before deterministic evidence rejoining."
+
+[[lesson]]
 id = "RM-001"
 kind = "research-method"
 statement = "A negative benchmark result does not identify the missing capability."

@@ -23,6 +23,12 @@ Request
 
 ## Boundaries
 
+- For capability work, follow the complete-candidate rule in
+  [`$research-forecast`](.agents/skills/research-forecast/SKILL.md): cover the
+  comprehensive use case with the strongest justified composition of established
+  mechanisms, keep the construction lagom, and use upward rungs to localize the
+  first broken physical transition inside one campaign rather than proposing a
+  sequence of small standalone experiments.
 - Use `uv run` for repository Python, `uv run --with` for ephemeral libraries,
   and `uvx` for packaged Python CLIs; do not use bare `python` or `pip`.
 - Keep category theory in the modeling discipline; emit simple, idiomatic Rust.

@@ -56,9 +56,11 @@ The historical Physical Body V1 production surface was:
 - `truelearner/crates/arena-format/src/lib.rs` at SHA-256
   `8c35c3c07fe95b2cc76cbe9ceb47d83f250c5e0c7c40481e7371583afa48a812`.
 
-The current pre-release workspace contains only `truelearner-core`. The harness
-owns the private body and resident arena; no arena or body persistence schema is
-public.
+The current pre-release production path is
+`truelearner-workstation -> truelearner-body`. `WorkstationHarness` owns the
+compact `Body`; its junction handles and persistence details remain private.
+The historical `truelearner-core` and embodiment layers are no longer workspace
+members or production dependencies.
 
 ## Accepted law
 
@@ -109,11 +111,9 @@ synthesize it.
 
 ## Mechanics
 
-`MechanicalConfig::REFERENCE` remains the permanent correctness oracle.
-
-`MechanicalConfig::PRODUCTION` selects TimingWheel, Adjacency, Frontier, AoS,
-and opportunistic exact batching. These change cost, not physical history.
-Batching must fall back to scalar work when current-tick closure requires it.
+The frozen historical mechanics remain evidence for the accepted law. The
+compact body now implements the production law directly; the removed
+`MechanicalConfig` API is not part of the current surface.
 
 R6 established that partitioning can preserve physical history at zero added
 latency. The pre-release runtime makes no public arena identity or partitioning
@@ -125,7 +125,7 @@ when they preserve the reference result.
 
 ## Boundaries
 
-- Keep Playground and Academy semantics outside the organism.
+- Keep Academy, world, and review semantics outside the organism.
 - Keep evaluator knowledge outside input, outcome, and state.
 - Keep observation causally inert.
 - Keep experimental code out of the production dependency graph.

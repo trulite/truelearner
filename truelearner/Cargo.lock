@@ -185,24 +185,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "truelearner-core"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "serde",
- "sha2",
- "truelearner-behavior-contract",
- "truelearner-body",
-]
-
-[[package]]
-name = "truelearner-embodiment"
-version = "0.1.0"
-dependencies = [
- "truelearner-core",
-]
-
-[[package]]
 name = "truelearner-workstation"
 version = "0.1.0"
 dependencies = [
@@ -210,8 +192,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "truelearner-core",
- "truelearner-embodiment",
+ "truelearner-body",
 ]
 
 [[package]]

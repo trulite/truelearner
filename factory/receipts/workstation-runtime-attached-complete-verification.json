@@ -1,0 +1,158 @@
+{
+  "schema": "rust-verification/v1",
+  "candidate_receipt": {
+    "path": "workstation-runtime-attached-complete-candidate.json",
+    "sha256": "95ce2423fe794a602d85cc9f1306d9916932f4cc4fb7a5dd963871e59a90fdd3"
+  },
+  "verdict": "supported",
+  "independent_test_count": 12,
+  "checks": [
+    {
+      "name": "requested-causal-topology",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core choose::completed_cycle_tests::causal_topology_projection_groups_only_requested_connected_outcomes -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.0
+    },
+    {
+      "name": "owned-bank-atomicity",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core --test runtime_attachment runtime_attachment_bank_matches_ordered_single_attachments_and_is_atomic -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.0
+    },
+    {
+      "name": "action-cause-preservation",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation --features research --test workstation_harness runtime_attached_action_surface_preserves_action_causes -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.09
+    },
+    {
+      "name": "complete-surface-replay",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-workstation --features research --test workstation_harness runtime_attached_complete_surface_is_inert_then_covers_owned_sensors -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.17
+    },
+    {
+      "name": "academy-next-transition-replay",
+      "command": "cargo test --locked --manifest-path academy/Cargo.toml -p academy-workstation --test workstation_world checkpoint_restores_the_exact_next_world_and_body_step -- --exact",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 1.05
+    },
+    {
+      "name": "complete-under-half-second",
+      "command": "cargo test --release --locked --manifest-path research/experiments/workstation-return-bearing-opportunity-composition/Cargo.toml --lib runtime_attached_complete_candidate_retains_first_broken_arrow",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.30
+    },
+    {
+      "name": "plan-lineage",
+      "command": "uv run factory/validators/validate_plan.py --file plans/workstation-runtime-attached-complete-candidate.md",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "protocol-lineage",
+      "command": "uv run research/validators/validate_protocol.py --file research/campaigns/workstation-runtime-attached-complete-candidate-v1/protocol.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "campaign-lineage",
+      "command": "uv run research/validators/validate_campaign.py --file research/campaigns/workstation-runtime-attached-complete-candidate-v1/campaign.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "program-lineage",
+      "command": "uv run research/validators/validate_program.py --file research/programs/learner/program.toml",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "candidate-lineage",
+      "command": "uv run factory/validators/validate_candidate.py --file factory/receipts/workstation-runtime-attached-complete-candidate.json",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.1
+    },
+    {
+      "name": "regression-suite",
+      "command": "cargo test --locked --manifest-path truelearner/Cargo.toml -p truelearner-core -p truelearner-workstation -p truelearner-embodiment",
+      "status": "passed",
+      "exit_code": 0,
+      "duration_seconds": 0.84
+    }
+  ],
+  "findings": [
+    "Runtime attachment now adds a whole sensor bank in one atomic body transition and is exactly equal to the same ordered single attachments, including checkpoint state and rollback on failure.",
+    "Dense incidence, physical-id, and vacant-slot indexes are derived body views: they preserve deterministic ordering, identifiers, observations, checkpoints, and logical Work while avoiding repeated whole-body scans.",
+    "Causal topology is projected only through connected components containing the requested outcome sources. The observable result and complete logical Work charge are unchanged.",
+    "Workstation and Academy checkpoints validate bytes once at the untrusted decode boundary, compose fingerprints without reserializing the owned core, and reproduce the exact next body-and-world transition.",
+    "Action-caused samples retain their action origin, passive or unchanged samples cannot fabricate one, simultaneous sensor incidence remains simultaneous, and construction remains inert.",
+    "Independent worlds from one frozen checkpoint are evaluated as a categorical product: development replay, learned probes, controls, and paired invariants may execute concurrently, then join in the original deterministic evidence order.",
+    "No modality, control, replay boundary, or advertised transition was removed. The full 12-transition release fixture passed in 0.30 seconds internally; the candidate runner measured 0.484 seconds including Cargo process overhead, below the 0.5-second requirement.",
+    "Ten consecutive warm measurements before handoff were 0.25 to 0.32 seconds, and the independent core, embodiment, and workstation regression suite completed in 0.84 seconds.",
+    "The plan, frozen neutral protocol, campaign arms, learner program, candidate receipt, formatting, compilation, and warning-free Clippy checks all validate."
+  ],
+  "residual_uncertainty": [
+    "This receipt verifies the engineering candidate; it is not research authority and does not claim that the organism has completed the keyboard-selection ladder.",
+    "The frozen 64/64 discovery campaign has not been executed after this optimization. It must run once in the required fresh environment rather than using this dirty development tree.",
+    "Wall-clock timing is machine-dependent, so the fixture retains an executable release-only 0.5-second assertion instead of relying only on this receipt.",
+    "Future morphology growth can expose new connected-component or scheduler costs and must be measured from retained traces and Work rather than assumed away."
+  ],
+  "artifacts": [
+    {
+      "path": "plans/workstation-runtime-attached-complete-candidate.md",
+      "sha256": "3e8b8c365d70d4cf32daad974692722de4ab14a8a108bd63dfffdd4fa944c1d8"
+    },
+    {
+      "path": "truelearner/crates/core/src/arena.rs",
+      "sha256": "66d2fe5fdc2ed87438c4a835e19480a4e28be3363fead93c344757ce3146c974"
+    },
+    {
+      "path": "truelearner/crates/core/src/choose.rs",
+      "sha256": "7608cc1a900c9c66f98c938ebaf5c47baffd784603475bc3d4669bcf9cabdc2c"
+    },
+    {
+      "path": "truelearner/crates/core/src/core.rs",
+      "sha256": "2006dc23af878afddb7536392fef46d75a59c35a6345c8286734fad70f540241"
+    },
+    {
+      "path": "truelearner/crates/workstation/src/checkpoint.rs",
+      "sha256": "6a831c4d03d41f63908fa010376cf7604ae2637801fcf5bdc982c76c0988aeb1"
+    },
+    {
+      "path": "truelearner/crates/workstation/src/harness.rs",
+      "sha256": "965f21e63a311651d7c03cf1a75299c34eb67f3c3add1785a09550b42fbdc40e"
+    },
+    {
+      "path": "academy/crates/academy-workstation/src/checkpoint.rs",
+      "sha256": "8a87a9360d50ff9a1c80ba1f79ea6dcf476996d0290c221db6333ba3dcef1b52"
+    },
+    {
+      "path": "academy/crates/academy-workstation/src/session.rs",
+      "sha256": "67b39159da38fb848bd18497cb18a750581a96f4ad673baeb7e7ef7454439bb6"
+    },
+    {
+      "path": "research/experiments/workstation-return-bearing-opportunity-composition/src/runtime_attached_complete.rs",
+      "sha256": "05e765594f8998e07ced6ee59909808b2e58a454e321e873eb7059a0b541a281"
+    },
+    {
+      "path": "research/programs/learner/lessons.toml",
+      "sha256": "51958a2bc8a86f687f98550f5573350af90782089cdb148ce98af812915acfca"
+    },
+    {
+      "path": "research/campaigns/workstation-runtime-attached-complete-candidate-v1/protocol.toml",
+      "sha256": "031ce98f61ff0dfca5bfa3c427cb82a217e35f6918c8219364bb0a89df03530c"
+    }
+  ]
+}
