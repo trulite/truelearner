@@ -20,7 +20,7 @@ pub type Cohort = u64;
 pub type Boundary = u32;
 const LOCAL_RADIUS: i32 = 2;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Path {
     pub surface: JunctionId,
     pub middle: JunctionId,
@@ -232,6 +232,13 @@ pub enum Edit {
         link: LinkRef,
         change: LinkChange,
     },
+    CompleteReturn {
+        source: JunctionId,
+        returned: LinkId,
+        path: Path,
+        exclusive_source: bool,
+        at: Time,
+    },
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -401,19 +408,19 @@ pub(crate) struct ReactionScratch {
 pub(crate) struct ReactionView<'a> {
     arena: &'a Arena,
     link_memory: &'a [LinkMemory],
-    live_returns: &'a [ReturnEntry],
+    returns: &'a ReturnIndex,
 }
 
 impl<'a> ReactionView<'a> {
     pub(crate) const fn new(
         arena: &'a Arena,
         link_memory: &'a [LinkMemory],
-        live_returns: &'a [ReturnEntry],
+        returns: &'a ReturnIndex,
     ) -> Self {
         Self {
             arena,
             link_memory,
-            live_returns,
+            returns,
         }
     }
 }
@@ -478,7 +485,7 @@ pub(crate) fn reaction_needed(body: ReactionView<'_>, moment: &PhysicalMoment) -
 }
 
 fn boundary_can_react(body: ReactionView<'_>, surface: JunctionId) -> bool {
-    if !body.live_returns.is_empty() {
+    if body.returns.live_count != 0 {
         return true;
     }
     let mut next = body
@@ -746,6 +753,10 @@ pub(crate) fn react_into<T: TraceSink>(
     trace: &mut T,
 ) {
     scratch.clear();
+    if let Some(fact) = return_only_fact(body, moment) {
+        record_returned_outcome(body, &fact, &mut scratch.change, trace);
+        return;
+    }
     scratch
         .facts
         .extend(moment.changes.iter().map(|recorded| MomentFact {
@@ -787,6 +798,51 @@ pub(crate) fn react_into<T: TraceSink>(
     }
     record_used_outputs(&scratch.facts, &mut scratch.change);
     record_returned_outcomes(body, &scratch.facts, &mut scratch.change, trace);
+}
+
+fn return_only_fact(body: ReactionView<'_>, moment: &PhysicalMoment) -> Option<MomentFact> {
+    let [recorded] = moment.changes.as_slice() else {
+        return None;
+    };
+    if !recorded.boundary || !matches!(recorded.used, UsedPaths::None) {
+        return None;
+    }
+    let source = recorded.event.junction;
+    if body
+        .returns
+        .by_source
+        .get(source.slot())
+        .is_none_or(Vec::is_empty)
+        || surface_may_choose(body, source)
+    {
+        return None;
+    }
+    Some(MomentFact {
+        event: recorded.event,
+        boundary: true,
+        used: UsedPaths::None,
+        had_ready_path: false,
+    })
+}
+
+fn surface_may_choose(body: ReactionView<'_>, surface: JunctionId) -> bool {
+    let mut next = body
+        .arena
+        .junction(surface)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(link_id) = next {
+        let link = body.arena.link(link_id).expect("live link");
+        let memory = &body.link_memory[link_id.slot()];
+        if (memory.live && memory.role == LinkRole::PathEntry)
+            || (memory.role == LinkRole::Drive
+                && link.impulse == 0
+                && (1..=LOCAL_RADIUS as Time).contains(&link.delay))
+        {
+            return true;
+        }
+        next = link.next;
+    }
+    false
 }
 
 fn construct_membership(
@@ -925,68 +981,84 @@ fn record_returned_outcomes<T: TraceSink>(
         {
             continue;
         }
-        if fact.had_ready_path {
-            if T::ENABLED {
-                trace.record(TraceEvent::Return(ReturnTrace {
-                    at: fact.event.at,
-                    source: fact.event.junction,
-                    incoming_cause: fact.event.cause,
-                    path: None,
-                    return_cause: None,
-                    return_opened_at: None,
-                    open_paths: component_return_count(body, fact.event.junction),
-                    exact_paths: 0,
-                    decision: ReturnDecision::BlockedByReadyPath,
-                }));
-            }
-            continue;
-        }
+        record_returned_outcome(body, fact, change, trace);
+    }
+}
 
-        let selected = scan_live_returns(body, fact.event.junction, fact.event.cause, |link| {
-            change.push(Edit::ChangeLink {
-                link: link.into(),
-                change: LinkChange::Retire,
-            });
-        });
-        let decision = match selected.selected {
-            Some(returned) if returned.opened_at <= fact.event.at => ReturnDecision::Accepted,
-            Some(_) => ReturnDecision::BeforeReturnOpened,
-            None if selected.total == 0 => ReturnDecision::NoOpenPath,
-            None => ReturnDecision::Ambiguous,
-        };
+fn record_returned_outcome<T: TraceSink>(
+    body: ReactionView<'_>,
+    fact: &MomentFact,
+    change: &mut Change,
+    trace: &mut T,
+) {
+    if fact.had_ready_path {
         if T::ENABLED {
             trace.record(TraceEvent::Return(ReturnTrace {
                 at: fact.event.at,
                 source: fact.event.junction,
                 incoming_cause: fact.event.cause,
-                path: selected.selected.map(|returned| returned.path),
-                return_cause: selected.selected.map(|returned| returned.cause),
-                return_opened_at: selected.selected.map(|returned| returned.opened_at),
-                open_paths: selected.total,
-                exact_paths: selected.exact_total,
-                decision,
+                path: None,
+                return_cause: None,
+                return_opened_at: None,
+                open_paths: component_return_count(body, fact.event.junction),
+                exact_paths: 0,
+                decision: ReturnDecision::BlockedByReadyPath,
             }));
         }
-        if let Some(returned) = selected
-            .selected
-            .filter(|returned| returned.opened_at <= fact.event.at)
-        {
-            for link in returned.path.links() {
-                change.push(Edit::ChangeLink {
-                    link: link.into(),
-                    change: LinkChange::LearnOutcome {
-                        at: fact.event.at,
-                        available_until_choice: true,
-                        strength: 1,
-                    },
-                });
-            }
+        return;
+    }
+
+    let selected = scan_live_returns(body, fact.event.junction, fact.event.cause);
+    let decision = match selected.selected {
+        Some(returned) if returned.opened_at <= fact.event.at => ReturnDecision::Accepted,
+        Some(_) => ReturnDecision::BeforeReturnOpened,
+        None if selected.total == 0 => ReturnDecision::NoOpenPath,
+        None => ReturnDecision::Ambiguous,
+    };
+    if T::ENABLED {
+        trace.record(TraceEvent::Return(ReturnTrace {
+            at: fact.event.at,
+            source: fact.event.junction,
+            incoming_cause: fact.event.cause,
+            path: selected.selected.map(|returned| returned.path),
+            return_cause: selected.selected.map(|returned| returned.cause),
+            return_opened_at: selected.selected.map(|returned| returned.opened_at),
+            open_paths: selected.total,
+            exact_paths: selected.exact_total,
+            decision,
+        }));
+    }
+    let accepted = selected
+        .selected
+        .filter(|returned| returned.opened_at <= fact.event.at);
+    for entry in body
+        .returns
+        .by_source
+        .get(fact.event.junction.slot())
+        .into_iter()
+        .flatten()
+        .filter(|entry| open_return(body, **entry).is_some())
+    {
+        if accepted.is_some_and(|returned| returned.link == entry.link) {
+            change.push(Edit::CompleteReturn {
+                source: fact.event.junction,
+                returned: entry.link,
+                path: entry.path,
+                exclusive_source: entry.exclusive_source,
+                at: fact.event.at,
+            });
+        } else {
+            change.push(Edit::ChangeLink {
+                link: entry.link.into(),
+                change: LinkChange::Retire,
+            });
         }
     }
 }
 
 #[derive(Clone, Copy)]
 struct OpenReturn {
+    link: LinkId,
     path: Path,
     cause: Cause,
     opened_at: Time,
@@ -999,24 +1071,22 @@ struct ReturnSelection {
     exact_total: usize,
 }
 
-fn scan_live_returns(
-    body: ReactionView<'_>,
-    source: JunctionId,
-    cause: Cause,
-    mut retire: impl FnMut(LinkId),
-) -> ReturnSelection {
+fn scan_live_returns(body: ReactionView<'_>, source: JunctionId, cause: Cause) -> ReturnSelection {
     let mut only = None;
     let mut total = 0_usize;
     let mut exact = None;
     let mut exact_total = 0_usize;
-    for entry in body.live_returns {
+    let Some(entries) = body.returns.by_source.get(source.slot()) else {
+        return ReturnSelection {
+            selected: None,
+            total: 0,
+            exact_total: 0,
+        };
+    };
+    for entry in entries {
         let Some(returned) = open_return(body, *entry) else {
             continue;
         };
-        if !return_is_connected(body, source, returned) {
-            continue;
-        }
-        retire(entry.link);
         total += 1;
         only = Some(returned);
         if returned.cause == cause {
@@ -1037,27 +1107,13 @@ fn scan_live_returns(
 }
 
 fn component_return_count(body: ReactionView<'_>, source: JunctionId) -> usize {
-    body.live_returns
-        .iter()
+    body.returns
+        .by_source
+        .get(source.slot())
+        .into_iter()
+        .flatten()
         .filter_map(|entry| open_return(body, *entry))
-        .filter(|returned| return_is_connected(body, source, *returned))
         .count()
-}
-
-fn return_is_connected(body: ReactionView<'_>, source: JunctionId, returned: OpenReturn) -> bool {
-    outcome_source_enters(body, source, returned.path.middle)
-        || outcome_source_enters(body, source, returned.path.output)
-}
-
-fn outcome_source_enters(body: ReactionView<'_>, source: JunctionId, junction: JunctionId) -> bool {
-    body.arena.incoming(junction).any(|link| {
-        body.link_memory[link.slot()].live
-            && body.link_memory[link.slot()].role == LinkRole::OutcomeWitness
-            && body
-                .arena
-                .link(link)
-                .is_some_and(|physical| physical.from == source)
-    })
 }
 
 fn open_return(body: ReactionView<'_>, entry: ReturnEntry) -> Option<OpenReturn> {
@@ -1069,14 +1125,9 @@ fn open_return(body: ReactionView<'_>, entry: ReturnEntry) -> Option<OpenReturn>
         return None;
     }
     debug_assert_eq!(cause, entry.cause);
-    let physical = body
-        .arena
-        .link(entry.link)
-        .expect("indexed live return link");
-    let second = outgoing_drive_to(body, physical.to, physical.from)?;
-    let path = path_from_drive(body, second)?;
     Some(OpenReturn {
-        path,
+        link: entry.link,
+        path: entry.path,
         cause,
         opened_at: memory.participated_at,
     })
@@ -1844,16 +1895,14 @@ fn natural_cycle(paths: &[CyclePath]) -> Change {
 pub(crate) struct ReturnEntry {
     pub(crate) cause: Cause,
     pub(crate) link: LinkId,
+    pub(crate) path: Path,
+    pub(crate) exclusive_source: bool,
 }
 
-impl ReturnEntry {
-    fn remapped(self, link_base: usize) -> Self {
-        Self {
-            cause: self.cause,
-            link: LinkId::new(link_base + self.link.slot())
-                .expect("validated attachment return identity"),
-        }
-    }
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ReturnIndex {
+    pub(crate) by_source: Vec<Vec<ReturnEntry>>,
+    pub(crate) live_count: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -1867,6 +1916,13 @@ pub(crate) struct LinkMemory {
     pub(crate) outcome_at: Option<Time>,
     pub(crate) outcome_available: bool,
     pub(crate) strength: i64,
+}
+
+const fn return_topology_role(role: LinkRole) -> bool {
+    matches!(
+        role,
+        LinkRole::Drive | LinkRole::PathEntry | LinkRole::OutcomeWitness
+    )
 }
 
 impl Default for LinkMemory {
@@ -1911,57 +1967,124 @@ pub struct Applied {
 
 impl Body {
     pub(crate) fn rebuild_live_returns(&mut self) {
-        self.live_returns.clear();
-        for (slot, memory) in self.link_memory.iter().enumerate() {
-            let LinkRole::Return { cause, .. } = memory.role else {
+        for returns in &mut self.returns.by_source {
+            returns.clear();
+        }
+        self.returns.live_count = 0;
+        for slot in 0..self.link_memory.len() {
+            let memory = &self.link_memory[slot];
+            let live = memory.live;
+            let role = memory.role;
+            let LinkRole::Return { .. } = role else {
                 continue;
             };
-            if !memory.live {
+            if !live {
                 continue;
             }
-            self.live_returns.push(ReturnEntry {
-                cause,
-                link: LinkId::new(slot).expect("validated checkpoint link identity"),
-            });
+            let link = LinkId::new(slot).expect("validated link identity");
+            self.insert_live_return(link, role);
         }
-        self.live_returns.sort_unstable();
     }
 
     fn insert_live_return(&mut self, link: LinkId, role: LinkRole) {
         let LinkRole::Return { cause, .. } = role else {
             return;
         };
-        let entry = ReturnEntry { cause, link };
-        match self.live_returns.binary_search(&entry) {
-            Ok(_) => {}
-            Err(index) => self.live_returns.insert(index, entry),
+        self.returns.live_count += 1;
+        let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+        let Some(physical) = self.arena.link(link) else {
+            return;
+        };
+        let Some(second) = outgoing_drive_to(view, physical.to, physical.from) else {
+            return;
+        };
+        let Some(path) = path_from_drive(view, second) else {
+            return;
+        };
+        let mut only_source = None;
+        let mut multiple_sources = false;
+        for target in [path.middle, path.output] {
+            for witness in self.arena.incoming(target) {
+                if !self.link_memory[witness.slot()].live
+                    || self.link_memory[witness.slot()].role != LinkRole::OutcomeWitness
+                {
+                    continue;
+                }
+                let source = self.arena.link(witness).expect("live outcome witness").from;
+                if let Some(existing) = only_source {
+                    multiple_sources |= existing != source;
+                } else {
+                    only_source = Some(source);
+                }
+            }
+        }
+        let entry = ReturnEntry {
+            cause,
+            link,
+            path,
+            exclusive_source: only_source.is_some() && !multiple_sources,
+        };
+        let (arena, link_memory, returns_by_source) =
+            (&self.arena, &self.link_memory, &mut self.returns.by_source);
+        for target in [path.middle, path.output] {
+            for witness in arena.incoming(target) {
+                if !link_memory[witness.slot()].live
+                    || link_memory[witness.slot()].role != LinkRole::OutcomeWitness
+                {
+                    continue;
+                }
+                let source = arena.link(witness).expect("live outcome witness").from;
+                let returns = &mut returns_by_source[source.slot()];
+                if let Err(index) = returns.binary_search(&entry) {
+                    returns.insert(index, entry);
+                }
+            }
         }
     }
 
     fn remove_live_return(&mut self, link: LinkId, role: LinkRole) {
-        let LinkRole::Return { cause, .. } = role else {
+        let LinkRole::Return { .. } = role else {
             return;
         };
-        let entry = ReturnEntry { cause, link };
-        if let Ok(index) = self.live_returns.binary_search(&entry) {
-            self.live_returns.remove(index);
-        } else {
-            debug_assert!(false, "live return index drift");
+        let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+        let path = self.arena.link(link).and_then(|physical| {
+            outgoing_drive_to(view, physical.to, physical.from)
+                .and_then(|second| path_from_drive(view, second))
+        });
+        self.remove_live_return_with_path(link, path);
+    }
+
+    fn remove_live_return_with_path(&mut self, link: LinkId, path: Option<Path>) {
+        debug_assert!(self.returns.live_count > 0, "live return count drift");
+        self.returns.live_count -= 1;
+        let (arena, link_memory, returns_by_source) =
+            (&self.arena, &self.link_memory, &mut self.returns.by_source);
+        let Some(path) = path else {
+            for returns in returns_by_source {
+                returns.retain(|entry| entry.link != link);
+            }
+            return;
+        };
+        for target in [path.middle, path.output] {
+            for witness in arena.incoming(target) {
+                if !link_memory[witness.slot()].live
+                    || link_memory[witness.slot()].role != LinkRole::OutcomeWitness
+                {
+                    continue;
+                }
+                let source = arena.link(witness).expect("live outcome witness").from;
+                returns_by_source[source.slot()].retain(|entry| entry.link != link);
+            }
         }
     }
 
-    pub(crate) fn append_live_returns(
-        &mut self,
-        returns: impl IntoIterator<Item = ReturnEntry>,
-        link_base: usize,
-    ) {
-        self.live_returns
-            .extend(returns.into_iter().map(|entry| entry.remapped(link_base)));
-        self.live_returns.sort_unstable();
-        debug_assert!(self
-            .live_returns
-            .windows(2)
-            .all(|entries| entries[0] != entries[1]));
+    fn remove_exclusive_live_return(&mut self, source: JunctionId, link: LinkId) {
+        debug_assert!(self.returns.live_count > 0, "live return count drift");
+        self.returns.live_count -= 1;
+        let returns = &mut self.returns.by_source[source.slot()];
+        let before = returns.len();
+        returns.retain(|entry| entry.link != link);
+        debug_assert_eq!(returns.len() + 1, before, "live return index drift");
     }
 
     pub fn set_link_impulse(&mut self, link: LinkId, impulse: Impulse) -> Result<(), ApplyError> {
@@ -1970,6 +2093,9 @@ impl Body {
             .link_mut(link)
             .ok_or(ApplyError::UnknownLink(link))?;
         physical.impulse = impulse;
+        if self.returns.live_count != 0 {
+            self.rebuild_live_returns();
+        }
         Ok(())
     }
 
@@ -1986,6 +2112,13 @@ impl Body {
         self.link_memory[link.slot()].role = role;
         if live {
             self.insert_live_return(link, role);
+        }
+        if live
+            && self.returns.live_count != 0
+            && previous != role
+            && (return_topology_role(previous) || return_topology_role(role))
+        {
+            self.rebuild_live_returns();
         }
         Ok(())
     }
@@ -2027,6 +2160,12 @@ impl Body {
                 Edit::Send { through, .. } | Edit::ChangeLink { link: through, .. } => {
                     validate_link(self, *through, links)?;
                 }
+                Edit::CompleteReturn { returned, path, .. } => {
+                    validate_link(self, (*returned).into(), links)?;
+                    for link in path.links() {
+                        validate_link(self, link.into(), links)?;
+                    }
+                }
             }
         }
         if !self.arena.has_junction_capacity(junctions) {
@@ -2067,6 +2206,50 @@ impl Body {
                     self.send_through(at, link, cause)
                         .map_err(ApplyError::Run)?;
                 }
+                Edit::CompleteReturn {
+                    source,
+                    returned,
+                    path,
+                    exclusive_source,
+                    at,
+                } => {
+                    let memory = self
+                        .link_memory
+                        .get(returned.slot())
+                        .ok_or(ApplyError::UnknownLink(returned))?;
+                    let was_live = memory.live;
+                    let role = memory.role;
+                    if was_live {
+                        debug_assert!(matches!(role, LinkRole::Return { .. }));
+                        if matches!(role, LinkRole::Return { .. }) {
+                            if exclusive_source {
+                                self.remove_exclusive_live_return(source, returned);
+                            } else {
+                                self.remove_live_return_with_path(returned, Some(path));
+                            }
+                        }
+                        self.link_memory[returned.slot()].live = false;
+                    }
+                    for link in path.links() {
+                        let memory = self
+                            .link_memory
+                            .get_mut(link.slot())
+                            .ok_or(ApplyError::UnknownLink(link))?;
+                        memory.outcome_at = Some(at);
+                        memory.outcome_available = true;
+                        let before = memory.strength;
+                        let after = before.saturating_add(1);
+                        memory.strength = after;
+                        if T::ENABLED {
+                            trace.record(TraceEvent::Strengthened(StrengthTrace {
+                                at,
+                                link,
+                                before,
+                                after,
+                            }));
+                        }
+                    }
+                }
                 Edit::ChangeLink { link, change } => {
                     let link = resolve_link(link, applied)?;
                     if change == LinkChange::Retire {
@@ -2079,6 +2262,9 @@ impl Body {
                         if was_live {
                             self.remove_live_return(link, role);
                             self.link_memory[link.slot()].live = false;
+                            if self.returns.live_count != 0 && return_topology_role(role) {
+                                self.rebuild_live_returns();
+                            }
                         }
                         continue;
                     }
@@ -2316,7 +2502,7 @@ mod tests {
         membership(&mut body, child, root);
         membership(&mut body, child, members[2]);
 
-        let view = ReactionView::new(&body.arena, &body.link_memory, &body.live_returns);
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
         let mut scratch = ConstructionScratch::default();
         assert_eq!(
             resolve_membership_parent(
@@ -2349,7 +2535,7 @@ mod tests {
     }
 
     #[test]
-    fn live_return_index_tracks_roles_order_and_retirement() {
+    fn live_return_count_tracks_roles_and_retirement() {
         let mut body = Body::default();
         let from = body.add_junction(Junction::integrating(1)).unwrap();
         let to = body.add_junction(Junction::integrating(1)).unwrap();
@@ -2382,24 +2568,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(
-            body.live_returns,
-            [
-                ReturnEntry {
-                    cause: 3,
-                    link: first,
-                },
-                ReturnEntry {
-                    cause: 9,
-                    link: second,
-                },
-                ReturnEntry {
-                    cause: 9,
-                    link: third,
-                },
-            ]
-        );
-        assert_eq!(body.clone().live_returns, body.live_returns);
+        assert_eq!(body.returns.live_count, 3);
+        assert_eq!(body.clone().returns.live_count, body.returns.live_count);
 
         let mut change = Change::empty();
         change.push(Edit::ChangeLink {
@@ -2409,13 +2579,89 @@ mod tests {
         body.apply(change).unwrap();
         body.set_link_role(first, LinkRole::Drive).unwrap();
 
-        assert_eq!(
-            body.live_returns,
-            [ReturnEntry {
-                cause: 9,
-                link: third,
-            }]
+        assert_eq!(body.returns.live_count, 1);
+        assert!(body.link_memory[third.slot()].live);
+    }
+
+    #[test]
+    fn live_returns_are_indexed_by_their_own_outcome_source() {
+        let mut body = Body::default();
+        let mut outcomes = Vec::new();
+        for index in 0..2_u64 {
+            let motor = motor(&mut body);
+            let sensor = attach_sensor(
+                &mut body,
+                Junction::integrating(1),
+                &[(motor.opportunity, 1)],
+            );
+            let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+            attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+            schedule(&mut body, index * 4, &[reading(outcome, 0, 0, 0)]);
+            finish(&mut body);
+            schedule(
+                &mut body,
+                1 + index * 4,
+                &[reading(sensor, 0, 1, index + 1)],
+            );
+            schedule(
+                &mut body,
+                2 + index * 4,
+                &[Arrival::caused(motor.opportunity, 1, index + 1)],
+            );
+            finish(&mut body);
+            outcomes.push(outcome);
+        }
+
+        assert_eq!(body.returns.live_count, 2);
+        assert_eq!(body.returns.by_source[outcomes[0].slot()].len(), 1);
+        assert_eq!(body.returns.by_source[outcomes[1].slot()].len(), 1);
+        assert_ne!(
+            body.returns.by_source[outcomes[0].slot()][0].link,
+            body.returns.by_source[outcomes[1].slot()][0].link
         );
+        assert_eq!(
+            body.returns.by_source.iter().map(Vec::len).sum::<usize>(),
+            2
+        );
+    }
+
+    #[test]
+    fn completing_a_shared_return_retires_it_from_every_outcome_source() {
+        let mut body = Body::default();
+        let motor = motor(&mut body);
+        let sensor = attach_sensor(
+            &mut body,
+            Junction::integrating(1),
+            &[(motor.opportunity, 1)],
+        );
+        let outcomes: [JunctionId; 2] = std::array::from_fn(|_| {
+            let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+            attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+            outcome
+        });
+        schedule(
+            &mut body,
+            0,
+            &outcomes.map(|outcome| reading(outcome, 0, 0, 0)),
+        );
+        finish(&mut body);
+        schedule(&mut body, 1, &[reading(sensor, 0, 1, 1)]);
+        schedule(&mut body, 2, &[Arrival::caused(motor.opportunity, 1, 1)]);
+        finish(&mut body);
+
+        assert_eq!(body.returns.live_count, 1);
+        assert!(outcomes.iter().all(|outcome| {
+            let returns = &body.returns.by_source[outcome.slot()];
+            returns.len() == 1 && !returns[0].exclusive_source
+        }));
+
+        schedule(&mut body, 3, &[Arrival::caused(outcomes[0], 1, 2)]);
+        finish(&mut body);
+
+        assert_eq!(body.returns.live_count, 0);
+        assert!(outcomes
+            .iter()
+            .all(|outcome| body.returns.by_source[outcome.slot()].is_empty()));
     }
 
     #[test]

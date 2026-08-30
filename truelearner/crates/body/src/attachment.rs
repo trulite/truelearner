@@ -139,12 +139,11 @@ pub fn attach(
     let at = host.attachment_time().max(part.body.attachment_time());
     let part_arena = std::mem::take(&mut part.body.arena);
     let mut part_link_memory = std::mem::take(&mut part.body.link_memory);
-    let part_live_returns = std::mem::take(&mut part.body.live_returns);
     let (junction_base, link_base) = host.arena.append(part_arena);
     debug_assert_eq!(host.link_memory.len(), link_base);
     host.link_memory.append(&mut part_link_memory);
-    host.append_live_returns(part_live_returns, link_base);
     host.prepare_attachment(part_junctions, at);
+    host.rebuild_live_returns();
 
     let ports = part
         .ports
@@ -203,10 +202,10 @@ fn remap_junction(id: JunctionId, base: usize) -> JunctionId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{core::ReturnEntry, Junction, LinkId, LinkRole};
+    use crate::{Junction, LinkRole};
 
     #[test]
-    fn attachment_remaps_the_live_return_index() {
+    fn attachment_preserves_live_returns_when_rebuilding_the_index() {
         let mut host = Body::default();
         let host_junction = host.add_junction(Junction::integrating(1)).unwrap();
         let host_link = host
@@ -238,19 +237,7 @@ mod tests {
 
         attach(&mut host, part, &[]).unwrap();
 
-        let remapped = LinkId::new(1).unwrap();
-        assert_eq!(
-            host.live_returns,
-            [
-                ReturnEntry {
-                    cause: 3,
-                    link: remapped,
-                },
-                ReturnEntry {
-                    cause: 8,
-                    link: host_link,
-                },
-            ]
-        );
+        assert_eq!(host.returns.live_count, 2);
+        assert!(host.returns.by_source.iter().all(Vec::is_empty));
     }
 }

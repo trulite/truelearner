@@ -1,6 +1,6 @@
 use crate::{
     arena::Arena,
-    core::{LinkMemory, ReactionScratch, ReactionView, ReturnEntry, UsedPaths},
+    core::{LinkMemory, ReactionScratch, ReactionView, ReturnIndex, UsedPaths},
     physics::*,
     trace::{NoTrace, ObserveTrace, TraceArrival, TraceEvent, TraceSink},
 };
@@ -179,13 +179,14 @@ struct Activity {
 pub struct Body {
     pub(crate) arena: Arena,
     pub(crate) link_memory: Vec<LinkMemory>,
-    pub(crate) live_returns: Vec<ReturnEntry>,
+    pub(crate) returns: ReturnIndex,
     activity: Activity,
 }
 
 impl Body {
     pub fn reserve(&mut self, junctions: usize, links: usize) {
         self.arena.reserve(junctions, links);
+        self.returns.by_source.reserve(junctions);
         self.activity.meetings.reserve(junctions);
     }
 
@@ -194,6 +195,7 @@ impl Body {
             return Err(BuildError::NonPositiveThreshold);
         }
         let id = self.arena.add_junction(law)?;
+        self.returns.by_source.push(Vec::new());
         self.activity.meetings.add_junction();
         Ok(id)
     }
@@ -201,6 +203,9 @@ impl Body {
     pub fn add_link(&mut self, law: Link) -> Result<LinkId, BuildError> {
         let id = self.arena.add_link(law)?;
         self.link_memory.push(LinkMemory::default());
+        if self.returns.live_count != 0 {
+            self.rebuild_live_returns();
+        }
         Ok(id)
     }
 
@@ -309,6 +314,7 @@ impl Body {
         debug_assert!(self.is_quiet());
         self.activity.pending.now = at;
         for _ in 0..junctions {
+            self.returns.by_source.push(Vec::new());
             self.activity.meetings.add_junction();
         }
     }
@@ -392,7 +398,7 @@ impl Body {
             let mut used = UsedPaths::None;
             let mut participant_count = 0_u32;
             let mut all_links_exist = true;
-            let body = ReactionView::new(&self.arena, &self.link_memory, &self.live_returns);
+            let body = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
             for participant in self.activity.moment.participants_from(meeting.first) {
                 participant_count += 1;
                 boundary |= participant.via.is_none();
@@ -424,14 +430,14 @@ impl Body {
             self.transmit(recorded.event, work)?;
         }
         let reaction_needed = crate::core::reaction_needed(
-            ReactionView::new(&self.arena, &self.link_memory, &self.live_returns),
+            ReactionView::new(&self.arena, &self.link_memory, &self.returns),
             &self.activity.moment,
         );
         let reaction_result = if !reaction_needed {
             Ok(())
         } else {
             crate::core::react_into(
-                ReactionView::new(&self.arena, &self.link_memory, &self.live_returns),
+                ReactionView::new(&self.arena, &self.link_memory, &self.returns),
                 &self.activity.moment,
                 &mut self.activity.reaction,
                 trace,
