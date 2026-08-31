@@ -121,6 +121,13 @@ hints, episode IDs, evaluator knowledge, special resets, path memory, or
 correct-answer state. Do not patch negative controls or benchmark contracts to
 make a candidate pass.
 
+For software benchmarks, preserve the generic workstation: benchmark output
+enters through its monitor, and only ordinary workstation `DeviceEvent`s leave
+for the external application. Never introduce a benchmark-native body or map
+internal motor activity directly to benchmark actions. If the claim builds on a
+completed body course, load its produced checkpoint; a fresh body is a negative
+control, not the candidate.
+
 Use benchmark families as milestones. State the physical capability gained
 across unseen variants; do not celebrate an individual task number.
 

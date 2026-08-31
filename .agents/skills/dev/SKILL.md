@@ -25,6 +25,21 @@ problem -> compositional physical model -> smallest complete change -> verify
 - Prefer the smallest complete change that preserves existing boundaries and
   black-box behavior.
 
+## Keep the workstation generic
+
+- Run software tasks as applications on the existing workstation: application
+  output reaches the organism through the monitor, and application input comes
+  only from ordinary workstation `DeviceEvent`s such as keys, pointer motion,
+  and clicks.
+- Extend a missing generic monitor or device surface. Never replace the
+  workstation body with a task-native morphology, map `BodyControl` or
+  `MotorEffect` directly to task actions, or let a task's action catalog select
+  or inhibit internal movement.
+- When a claim depends on the completed body course, restore the checkpoint
+  produced by that course. Use a fresh `WorkstationHarness` only as an explicit
+  cold-body negative control. Stop if the checkpoint cannot cross this boundary
+  without adding benchmark knowledge to the organism.
+
 ## Compose causal changes
 
 ```text

@@ -1,4 +1,4 @@
 interface:
   display_name: "Academy"
   short_description: "Develop and evaluate learner capabilities safely"
-  default_prompt: "Use $academy to design or run this Academy curriculum, evidence, or capstone task."
+  default_prompt: "Use $academy to design or run this Academy curriculum, evidence, or capstone task while keeping software benchmarks outside the organism as applications on the generic workstation and using the body-course-produced checkpoint for post-course claims."

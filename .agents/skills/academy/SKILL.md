@@ -6,12 +6,12 @@ description: Design, run, inspect, or change TrueLearner Academy curricula, prob
 # Academy
 
 ```text
-world -> physical input -> Harness -> owned observation -> Academy evidence
-  |                         |                                |
-  +-- evaluator state -----+-----------------------------> claim
-                                                           |
-                                                           v
-                                      optional review or capstone receipt
+external application -> monitor -> Workstation Harness -> DeviceEvent
+          ^                            |                         |
+          +----------------------------+-------------------------+
+                                       |
+                                       v
+                              frozen Academy evidence -> claim
 ```
 
 ## Ground the work
@@ -41,6 +41,23 @@ world -> physical input -> Harness -> owned observation -> Academy evidence
   time and learner state.
 - Stop if Academy supplies an answer, action, route, correctness signal, or
   evaluator knowledge to the learner.
+
+## Put applications on the workstation
+
+- Treat ARC and every other software benchmark as an application attached to
+  the generic workstation. Render application output through the monitor and
+  accept application input only as ordinary workstation `DeviceEvent`s.
+- Keep the application adapter outside the organism. It may translate a key,
+  pointer, or click event into an external action only after that event crosses
+  the harness boundary; it may not translate a `BodyControl`, `MotorEffect`, or
+  arbitrary motor crossing directly.
+- Preserve the workstation body and morphology across applications. Add a
+  generic monitor or device capability when one is missing; do not add a
+  benchmark-native body, sensor, motor, or learner-visible action catalog.
+- Start a post-course capability claim from the body-course-produced checkpoint,
+  not `WorkstationHarness::new()`. A fresh body is only a named negative control.
+  Stop rather than substitute a fresh body when the developed checkpoint cannot
+  yet be loaded into a workstation session.
 
 ## Build capability evidence
 

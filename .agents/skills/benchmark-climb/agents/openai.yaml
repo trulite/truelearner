@@ -1,4 +1,4 @@
 interface:
   display_name: "Benchmark Climb"
   short_description: "Climb complete candidates and ablate benchmark survivors"
-  default_prompt: "Use $benchmark-climb to synthesize the strongest benchmark-blind candidate, test it up the capability ladder, descend to its first physical failure, or climb the downward ablation ladder only after complete success."
+  default_prompt: "Use $benchmark-climb to synthesize the strongest benchmark-blind candidate, preserve the generic workstation boundary and developed-body checkpoint, test it up the capability ladder, descend to its first physical failure, or climb the downward ablation ladder only after complete success."
