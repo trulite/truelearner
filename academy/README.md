@@ -72,8 +72,9 @@ Changed-world transfer and post-learning retention are reported separately:
 retention setup records and exactly replays an external lateral displacement;
 the displacement receives no organism credit, and only the learner's later
 causally parented drag can pass. The bounded course is complete through this
-stability rung. Repeated low-cost automaticity remains a separate future
-contract.
+stability rung. Repeated-use automaticity has separate constructed-body and
+changed-light workstation mechanism evidence, but the course still emits no
+`Automatic` capability receipt.
 
 ## ARC-AGI-3 development probe
 

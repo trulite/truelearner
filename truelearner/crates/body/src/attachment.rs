@@ -139,8 +139,20 @@ pub fn attach(
     let at = host.attachment_time().max(part.body.attachment_time());
     let part_arena = std::mem::take(&mut part.body.arena);
     let mut part_link_memory = std::mem::take(&mut part.body.link_memory);
+    let part_automaticity = std::mem::take(&mut part.body.automaticity);
     let (junction_base, link_base) = host.arena.append(part_arena);
     debug_assert_eq!(host.link_memory.len(), link_base);
+    for memory in &mut part_link_memory {
+        memory.remap_links(link_base);
+    }
+    if let Some(mut part_automaticity) = part_automaticity {
+        part_automaticity.remap_links(link_base);
+        if let Some(host_automaticity) = &mut host.automaticity {
+            host_automaticity.append(*part_automaticity);
+        } else {
+            host.automaticity = Some(part_automaticity);
+        }
+    }
     host.link_memory.append(&mut part_link_memory);
     host.prepare_attachment(part_junctions, at);
     host.rebuild_live_returns();

@@ -49,14 +49,12 @@ pub fn attach_sensor(
 
 pub fn motor(body: &mut Body) -> Motor {
     let opportunity = integrating(body, 2);
-    let mut part = Body::default();
-    let local_effect = integrating(&mut part, 1);
-    let part = OpenBody::new(part, vec![local_effect]).unwrap();
-    let port = part.port(0).unwrap();
-    let effect = attach(body, part, &[Join::into_part(opportunity, port, 0, 1)])
-        .unwrap()
-        .port(port)
-        .unwrap();
+    let effect = integrating(body, 1);
+    let crossing = body
+        .add_link(Link::new(opportunity, effect, 0, 1))
+        .expect("validated motor crossing");
+    body.mark_boundary_drive(crossing)
+        .expect("new motor crossing exists");
     Motor {
         opportunity,
         effect,

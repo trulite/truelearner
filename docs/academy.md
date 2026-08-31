@@ -335,6 +335,121 @@ reference run, all twelve claims are acquired and all three manipulation
 capstones pass both transfer and later retention. The course makes no
 automaticity claim.
 
+### Repeated-use automaticity successor
+
+Automaticity is not merely stronger reuse. It requires the same externally
+observable physical result with less internal physical work after repeated
+closed use. The compact body now establishes the generated evidence ladder in
+constructed worlds: three exact closed uses retain one transparent pair, that
+retained link re-enters the same law to form an eight-link hierarchy, and a
+changed-light workstation probe traverses a retained link while preserving its
+two outward effects and reducing the action wave from `640` to `635` work
+units. Formation, closure maintenance, and reuse are counted separately; the
+eight-link fixture reaches a finite break-even use count and then holds steady
+without further retained growth. The generated body course still issues no
+`Automatic` receipt: this is mechanism and transfer evidence, not yet a body
+capability claim.
+
+Historical experiments constrain the successor:
+
+- RC0b earned one role-relative motif after three successful uses, removed
+  genuine relay and route firings, preserved the complete declared trace, and
+  fell back when a parent or formerly transparent context changed.
+- FFS0 let a learned pair become an ordinary participant in the same pairing
+  law. It produced useful recursive execution depth `0 -> 3 -> 5 -> >=6` as
+  reusable workload depth increased. Its own audit still marked learning,
+  retrieval, and decision as unavailable through that common process.
+- RE0 showed that lower execution work is not yet lower total work. Depending
+  on depth and seed, the old compiled hierarchy needed roughly `1,177` to
+  `90,803` later uses to repay acquisition; shallow compiled runs could cost
+  more than their concrete parents.
+- G2c1 formed reusable temporal chunks and predictive groups, but supplied a
+  boundary rule, maximum chunk length, downstream grouping law, and a
+  discovery/probation split.
+- CORE1 E26 retained re-entry topology that remained behaviorally inert. E27
+  passed only when the retained route also carried enough ordinary signed
+  efficacy to cross its existing local thresholds.
+- FD0, FD1, and CC0 separated traversal, forgetting, and consolidation: use
+  alone did not earn persistence; a local qualified consequence did. The
+  compact body now preserves silent probation, removes it only when a later
+  exact closure exposes invalid local support, and demonstrates bounded steady
+  reuse. General finite-resource forgetting remains a separate question.
+- RI0 found a real numeric-identity and insertion-order leak in an older
+  simultaneous scheduler. Fresh identities, resident-layout shifts, and
+  construction-order products therefore remain mandatory controls rather than
+  cosmetic variants.
+- H0 and I0 showed that separately positive mechanisms were not yet one blank,
+  continuously connected organism. Experiment-built structs, episode
+  boundaries, terminal supervision, and opaque Rust mutation remained between
+  them.
+
+These are historical constraints, not current behavior or authority. The new
+contract must combine their surviving lessons with the current body's exact
+physical return law:
+
+1. Only repeated uniquely attributed returned closure may retain a cheaper
+   route. Wrong, missing, ambiguous, failed, or shuffled return evidence retains
+   none.
+2. A cheaper route may remove only internally transparent propagation. It may
+   not skip a world crossing, ordered external effect, current returned cause,
+   or boundary closure.
+3. Before consolidation, behavior and work remain the ordinary parent route.
+   After consolidation, the complete external trace and physical timing remain
+   equal while measured body work falls.
+4. A changed parent or newly observable intermediate effect invalidates the
+   cheaper route before it fires and exposes the nearest valid parent route.
+   Returning to a compatible context may reuse still-retained history.
+5. A retained composite counts as an ordinary physical participant only when
+   it reaches the same anonymous interface as its parents. No level, macro,
+   routine, task, or capability tag may enter the organism.
+6. Independent components consolidate independently, and renaming junctions,
+   links, insertion order, or resident layout changes no result.
+7. Checkpoint restart preserves the exact retained structure, fallback, work,
+   replay, and natural quiet.
+8. Formation and retention cost are reported separately from cheaper reuse. A
+   lower-cost execution is not an `Automatic` capability until its acquisition
+   cost is physically counted and amortized under fresh workloads.
+
+The generated evidence ladder is:
+
+```text
+exact repeated path
+  -> lower-work reuse
+  -> context invalidation and parent fallback
+  -> two independently learned paths compose through a real world event
+  -> retained composites participate again through the same physical law
+  -> overlapping, branching, and independent composites
+  -> continuous retrieval and action without episode or semantic control
+  -> changed-world workstation transfer
+```
+
+The compact body now has direct tests at every rung of this ladder. Retained
+links carry no level or task tag; the same adjacent-pair law forms two-, four-,
+and eight-link compositions. A visible branch, changed parent, insufficient
+support, or pending input at an omitted interior prevents use before the stale
+composition fires. The real motor crossing and a separately returned world
+intermediate remain explicit. Independent simultaneous components can share
+one cause and still consolidate locally through their participated boundary
+links, with construction-order equality. Checkpoint restart and attachment
+preserve parent identities. Wrong-cause, ambiguous, missing-return, and
+untrained-continuation controls retain nothing. A heterogeneous
+`1,3,2,4,1,2,3,1` delay chain preserves the same nineteen-tick terminal time
+before and after recursive compaction.
+
+The workstation transfer is deliberately smaller than a body-course receipt.
+Seven closed generic workstation experiences produce two retained paths. A
+fresh changed-luminance probe restored from the developed checkpoint traverses
+one retained link, reproduces the same unordered motor effects with the same
+relative timing, uses less work, and exactly replays. Repeating the same
+physical input without returning the motor parent forms no composite. No task,
+action label, expected answer, or evaluator verdict enters the harness.
+
+Each rung uses fresh identities, layouts, timings, delays, and distractors.
+Subthreshold, wrong-cause, ambiguous, missing-return, stale-parent,
+same-endpoint/missing-effect, gapped-chain, and disconnected-product controls
+are mandatory. Stop at the first rung whose required physical transition is
+absent; do not let a later application score hide it.
+
 Eye and hand foundations may develop independently. Coordination and
 manipulation are not reached until their actual capability prerequisites have
 been acquired. A failure closes only its course, so evidence can preserve both
@@ -361,9 +476,11 @@ now has accepted unguided movement separation across all five digits, one
 bounded tap/hold/release sequence, contact dragging, thumb contact, and one
 two-contact object transport that transfers to a different grip digit and
 survives later learning. The bounded body course is complete through the
-defined manipulation stability rung. Repeated low-cost automaticity and richer
-workstation use remain separate future contracts. No general pointing,
-clicking, typing, grasping, or image-use claim follows from these sequences.
+defined manipulation stability rung. Repeated-use automaticity now has separate
+constructed-body and generic-workstation mechanism evidence, but the body
+course still emits no `Automatic` capability receipt. Richer workstation use
+also remains a separate future contract. No general pointing, clicking,
+typing, grasping, or image-use claim follows from these sequences.
 
 ### Generic workstation causality
 

@@ -11,8 +11,8 @@ use truelearner_body::{
         attach_boundary_component, attach_outcome_component, attach_progress_component,
         attach_sensor, motor,
     },
-    Arrival, Body, BodyCheckpoint, BodyCheckpointError, Junction, JunctionId, Run,
-    TraceEvent as BodyTraceEvent, Work,
+    Arrival, AutomaticityWork, Body, BodyCheckpoint, BodyCheckpointError, Junction, JunctionId,
+    Run, TraceEvent as BodyTraceEvent, Work,
 };
 
 const CONTROL_COUNT: usize = AXIS_COUNT * 2;
@@ -377,6 +377,39 @@ impl WorkstationHarness {
         Ok(observation)
     }
 
+    /// Observer-equivalent form of [`Self::settle_with_boundary_parents`] that
+    /// also records the body's physical trace.
+    pub fn settle_traced_with_boundary_parents(
+        &mut self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+    ) -> Result<(WorkstationStepObservation, Vec<BodyTraceEvent>), WorkstationError> {
+        self.settle_traced_with_causal_parents(sample, boundary_parents, &[])
+    }
+
+    /// Observer-equivalent form of [`Self::settle_with_causal_parents`] that
+    /// also records the body's physical trace.
+    pub fn settle_traced_with_causal_parents(
+        &mut self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+        progress_parents: &[MotorEffect],
+    ) -> Result<(WorkstationStepObservation, Vec<BodyTraceEvent>), WorkstationError> {
+        sample.validate()?;
+        let mut next = self.clone();
+        let mut trace = Vec::new();
+        let observation = next.step_in_place_with_trace(
+            sample,
+            boundary_parents,
+            progress_parents,
+            false,
+            false,
+            Some(&mut trace),
+        )?;
+        *self = next;
+        Ok((observation, trace))
+    }
+
     pub fn step_traced(
         &mut self,
         sample: WorldSample,
@@ -690,6 +723,12 @@ impl WorkstationHarness {
             resident_bytes: self.resident_bytes(),
             pending_transitions: self.pending_axes(),
         })
+    }
+
+    /// Observer-only accounting for repeated closed physical composition.
+    /// This value is never fed back into action selection.
+    pub fn automaticity_work(&self) -> AutomaticityWork {
+        self.body.automaticity_work()
     }
 
     /// Maps an observer trace's outward junction back to the physical control
@@ -1314,6 +1353,31 @@ mod tests {
             traced.step(sample()).unwrap()
         );
         assert_eq!(format!("{:?}", plain.body), format!("{:?}", traced.body));
+    }
+
+    #[test]
+    fn traced_settlement_preserves_the_body_and_its_continuation() {
+        let mut plain = WorkstationHarness::new(14).unwrap();
+        let parent = (0..12)
+            .find_map(|_| plain.step(sample()).unwrap().crossings.first().copied())
+            .expect("the generic workstation exposes an outward crossing");
+        let mut traced = plain.clone();
+
+        let plain_observation = plain
+            .settle_with_boundary_parents(sample(), &[parent])
+            .unwrap();
+        let (traced_observation, trace) = traced
+            .settle_traced_with_boundary_parents(sample(), &[parent])
+            .unwrap();
+
+        assert_eq!(plain_observation, traced_observation);
+        assert_eq!(format!("{:?}", plain.body), format!("{:?}", traced.body));
+        assert!(matches!(trace.last(), Some(BodyTraceEvent::Quiet(_))));
+        crate::verify_choice_laws(&trace).unwrap();
+        assert_eq!(
+            plain.step(sample()).unwrap(),
+            traced.step(sample()).unwrap()
+        );
     }
 
     #[test]

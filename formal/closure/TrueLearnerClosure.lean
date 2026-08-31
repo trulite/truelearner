@@ -1,2 +1,3 @@
 import TrueLearnerClosure.Model
 import TrueLearnerClosure.Laws
+import TrueLearnerClosure.Automaticity

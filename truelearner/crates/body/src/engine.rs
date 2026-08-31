@@ -1,6 +1,6 @@
 use crate::{
     arena::Arena,
-    core::{LinkMemory, ReactionScratch, ReactionView, ReturnIndex, UsedPaths},
+    core::{Automaticity, LinkMemory, ReactionScratch, ReactionView, ReturnIndex, UsedPaths},
     physics::*,
     trace::{NoTrace, ObserveTrace, TraceArrival, TraceEvent, TraceSink},
 };
@@ -90,6 +90,13 @@ impl Schedule {
     const fn is_empty(&self) -> bool {
         self.len == 0
     }
+
+    fn reaches_by(&self, target: JunctionId, not_before: Time, not_after: Time) -> bool {
+        let matches = |firing: &Firing| {
+            firing.target == target && (not_before..=not_after).contains(&firing.at)
+        };
+        self.single.as_ref().is_some_and(matches) || self.buckets.iter().flatten().any(matches)
+    }
 }
 
 fn bucket(now: Time, at: Time) -> usize {
@@ -146,6 +153,7 @@ pub(crate) struct MomentChange {
     pub(crate) event: Event,
     pub(crate) boundary: bool,
     pub(crate) used: UsedPaths,
+    predecessor: Option<LinkId>,
     #[cfg(test)]
     first_participant: u32,
 }
@@ -201,6 +209,7 @@ pub struct Body {
     pub(crate) arena: Arena,
     pub(crate) link_memory: Vec<LinkMemory>,
     pub(crate) returns: ReturnIndex,
+    pub(crate) automaticity: Option<Box<Automaticity>>,
     activity: Activity,
 }
 
@@ -457,6 +466,9 @@ impl Body {
                 event: change,
                 boundary,
                 used,
+                predecessor: (meeting.arrivals == 1)
+                    .then(|| self.activity.moment.participants[meeting.first as usize].via)
+                    .flatten(),
                 #[cfg(test)]
                 first_participant: meeting.first,
             });
@@ -467,7 +479,7 @@ impl Body {
             if T::ENABLED {
                 trace.record(TraceEvent::Transition(recorded.event));
             }
-            self.transmit(recorded.event, work)?;
+            self.transmit(recorded.event, recorded.predecessor, work)?;
         }
         let reaction_needed = crate::core::reaction_needed(
             ReactionView::new(&self.arena, &self.link_memory, &self.returns),
@@ -547,7 +559,7 @@ impl Body {
         if T::ENABLED {
             trace.record(TraceEvent::Transition(event));
         }
-        self.transmit(event, work)?;
+        self.transmit(event, firing.via, work)?;
         if firing.via.is_none() && crate::core::try_complete_single_return(self, event, trace) {
             self.activity.moment.changes.clear();
             return Ok(Some(at));
@@ -562,6 +574,7 @@ impl Body {
             event,
             boundary: firing.via.is_none(),
             used,
+            predecessor: firing.via,
             #[cfg(test)]
             first_participant: 0,
         });
@@ -595,7 +608,12 @@ impl Body {
     }
 
     #[inline(always)]
-    fn transmit(&mut self, change: Event, work: &mut Work) -> Result<(), RunError> {
+    fn transmit(
+        &mut self,
+        change: Event,
+        predecessor: Option<LinkId>,
+        work: &mut Work,
+    ) -> Result<(), RunError> {
         let mut next = self
             .arena
             .junction(change.junction)
@@ -607,23 +625,72 @@ impl Body {
             if is_drive {
                 work.link_visits += 1;
                 if opens(link.trigger, change.before, change.after) {
-                    let impulse =
-                        effective_impulse(link.impulse, self.link_memory[link_id.slot()].strength);
+                    let through = if self
+                        .automaticity
+                        .as_ref()
+                        .is_some_and(|automaticity| automaticity.generic_composites)
+                        && !self.link_memory[link_id.slot()].is_boundary_drive()
+                    {
+                        self.preferred_automatic_drive(link_id)
+                    } else {
+                        link_id
+                    };
+                    let through = if through != link_id
+                        && self.automatic_drive_is_interrupted(through, change.at, change.at, 0)
+                    {
+                        link_id
+                    } else {
+                        through
+                    };
+                    let selected = *self.arena.link(through).expect("validated automatic drive");
+                    let impulse = effective_impulse(
+                        selected.impulse,
+                        self.link_memory[through.slot()].strength,
+                    );
                     self.activity.pending.push(Firing {
-                        at: change.at.saturating_add(link.delay),
-                        target: link.to,
+                        at: change.at.saturating_add(selected.delay),
+                        target: selected.to,
                         impulse,
                         cause: change.cause,
-                        via: Some(link_id),
+                        via: Some(through),
                         next_at_junction: NO_PARTICIPANT,
                     })?;
-                    self.link_memory[link_id.slot()].record_transmission(change.cause, change.at);
+                    self.link_memory[through.slot()].record_transmission(change.cause, change.at);
+                    if let Some(first) = predecessor {
+                        self.observe_automatic_pair(first, through, change.cause);
+                    }
                     work.emissions += 1;
                 }
             }
             next = link.next;
         }
         Ok(())
+    }
+
+    fn automatic_drive_is_interrupted(
+        &self,
+        link: LinkId,
+        started_at: Time,
+        segment_started_at: Time,
+        depth: usize,
+    ) -> bool {
+        if depth >= 32 {
+            return true;
+        }
+        let crate::core::LinkRole::Composite { first, second } = self.link_memory[link.slot()].role
+        else {
+            return false;
+        };
+        let Some(first_physical) = self.arena.link(first) else {
+            return true;
+        };
+        let middle_at = segment_started_at.saturating_add(first_physical.delay);
+        self.automatic_drive_is_interrupted(first, started_at, segment_started_at, depth + 1)
+            || self
+                .activity
+                .pending
+                .reaches_by(first_physical.to, started_at, middle_at)
+            || self.automatic_drive_is_interrupted(second, started_at, middle_at, depth + 1)
     }
 
     fn enqueue(

@@ -1,11 +1,11 @@
-use crate::{Body, Junction, Link, LinkMemory};
+use crate::{Automaticity, Body, Junction, Link, LinkMemory};
 use bincode::Options;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt;
 
 const MAGIC: &[u8; 8] = b"TLBODY01";
-const VERSION: u16 = 4;
+const VERSION: u16 = 6;
 const HEADER_LEN: usize = 50;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -27,6 +27,7 @@ struct Payload {
     now: u64,
     junctions: Vec<JunctionRecord>,
     links: Vec<LinkRecord>,
+    automaticity: Option<Box<Automaticity>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -95,6 +96,7 @@ impl Body {
                 now: self.now(),
                 junctions,
                 links,
+                automaticity: self.automaticity.clone(),
             },
         })
     }
@@ -173,6 +175,7 @@ impl BodyCheckpoint {
             body.link_memory[id.slot()] = record.memory;
         }
         body.restore_checkpoint_time(self.payload.now);
+        body.automaticity = self.payload.automaticity;
         body.rebuild_live_returns();
         Ok(body)
     }
