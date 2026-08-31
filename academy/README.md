@@ -15,8 +15,8 @@ Academy Body / Workstation
 ```
 
 There is one production organism path. The former core, embodiment, semantic
-harness, episode runner, ARC adapter, and desktop episode gallery are not part
-of this workspace.
+harness, episode runner, and desktop episode gallery are not part of this
+workspace.
 
 ## Body Discovery
 
@@ -61,6 +61,29 @@ causally parented drag can pass. The bounded course is complete through this
 stability rung. Repeated low-cost automaticity remains a separate future
 contract.
 
+## ARC-AGI-3 development probe
+
+`academy-arc3` attaches the same public `WorkstationHarness` to ARC-AGI-3
+without an ARC-specific learner. The Rust process receives only a 64×64 palette
+frame and the currently legal opaque action shapes. Game identity, score,
+terminal state, action budget, and evaluator data remain in the Python Academy
+adapter. A changed frame returns only through the exact motor crossing used for
+the preceding ARC call.
+
+The frozen protocol runs one named public development environment before any
+learner change and preserves the full physical trace plus an exact fresh-process
+replay. It is diagnostic evidence, not an ARC score claim. Server-selected
+holdouts remain untouched.
+
+```sh
+cargo build --release --locked --manifest-path academy/Cargo.toml \
+  -p academy-arc3 --bin academy-arc3-capstone-agent
+cd academy/capstones/arc3
+uv run capstone.py --mode fixture \
+  --agent ../../target/release/academy-arc3-capstone-agent \
+  --output /tmp/truelearner-arc3-fixture
+```
+
 ## Physical workstation
 
 `academy-workstation` supplies the binocular visual world, one articulated
@@ -81,6 +104,7 @@ The recording and derived frames or video never return to the learner.
 
 ## Crates
 
+- `academy-arc3`: the blind Rust ARC-AGI-3 sensorimotor boundary and trace agent.
 - `academy-body`: Body Discovery development, probes, controls, replay, and evidence.
 - `academy-formal`: offline Rust-to-Lean checking of frozen causal evidence.
 - `academy-workstation`: the headless physical workstation world.
@@ -96,6 +120,7 @@ academy-workstation-review -> academy-workstation
 academy-formal -------------------> truelearner-workstation -> truelearner-body
        |
        +--------------------------> pinned Lean checker (frozen evidence only)
+academy-arc3 ----------------------> truelearner-workstation -> truelearner-body
 ```
 
 Historical research evidence remains under the repository's archive and

@@ -21,7 +21,7 @@ pub type Cohort = u64;
 pub type Boundary = u32;
 const LOCAL_RADIUS: i32 = 2;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct Path {
     pub surface: JunctionId,
     pub middle: JunctionId,
@@ -36,7 +36,7 @@ impl Path {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct Outcome {
     pub at: Time,
     pub caused_transition: bool,
@@ -127,13 +127,13 @@ pub struct Context<'a> {
     pub event: Event<'a>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct NewJunction(u32);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct NewLink(u32);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum JunctionRef {
     Existing(JunctionId),
     New(NewJunction),
@@ -151,7 +151,7 @@ impl From<NewJunction> for JunctionRef {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum LinkRef {
     Existing(LinkId),
     New(NewLink),

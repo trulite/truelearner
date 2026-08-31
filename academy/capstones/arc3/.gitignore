@@ -1,0 +1,4 @@
+.venv/
+__pycache__/
+environment_files/
+recordings/

@@ -1,9 +1,10 @@
 use crate::{
     Cause, JunctionId, JunctionRef, LinkId, LinkRef, Outcome, Path, PhysicalEvent, Run, Time,
 };
+use serde::Serialize;
 use std::{cmp::Reverse, error::Error, fmt};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct TraceArrival {
     pub at: Time,
     pub target: JunctionId,
@@ -12,7 +13,7 @@ pub struct TraceArrival {
     pub via: Option<LinkId>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct TracePath {
     pub surface: JunctionId,
     pub middle: JunctionRef,
@@ -21,14 +22,14 @@ pub struct TracePath {
     pub second: LinkRef,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct FreshOpportunityTrace {
     pub source: JunctionId,
     pub output: JunctionId,
     pub through: LinkId,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct CandidateTrace {
     pub at: Time,
     pub cause: Cause,
@@ -53,7 +54,7 @@ pub struct CandidateTrace {
     pub new_path: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum ChoiceBasis {
     CurrentReturn,
     BoundaryRelease,
@@ -65,7 +66,7 @@ pub enum ChoiceBasis {
     ParticipationStrengthAndDrive,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct ChoiceTrace {
     pub at: Time,
     pub group: usize,
@@ -579,7 +580,7 @@ fn unique_latest<'a>(
     latest_candidates.next().is_none().then_some(candidate)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum ReturnDecision {
     BlockedByReadyPath,
     NoOpenPath,
@@ -588,14 +589,14 @@ pub enum ReturnDecision {
     Accepted,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct ReturnCandidateTrace {
     pub path: Path,
     pub cause: Cause,
     pub opened_at: Time,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ReturnTrace {
     pub at: Time,
     pub source: JunctionId,
@@ -610,7 +611,7 @@ pub struct ReturnTrace {
     pub decision: ReturnDecision,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct StrengthTrace {
     pub at: Time,
     pub link: LinkId,
@@ -618,7 +619,7 @@ pub struct StrengthTrace {
     pub after: i64,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub enum TraceEvent {
     Arrival(TraceArrival),
     Transition(PhysicalEvent),

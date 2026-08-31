@@ -147,7 +147,7 @@ impl Arrival {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct Event {
     pub at: Time,
     pub junction: JunctionId,
@@ -158,7 +158,7 @@ pub struct Event {
     pub cause: u64,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Work {
     pub arrivals: u64,
     pub meetings: u64,
@@ -167,13 +167,13 @@ pub struct Work {
     pub emissions: u64,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Step {
     pub at: Time,
     pub work: Work,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Run {
     pub moments: u64,
     pub work: Work,

@@ -408,24 +408,39 @@ distributed storage, robots, audio, video input, or a large ontology.
 Stop if Academy supplies an answer, action, route, capability, or correctness
 signal to the learner.
 
-## ARC-AGI-3 capstone
+## ARC-AGI-3 development probe
 
-The ARC-AGI-3 capstone is an external capability evaluation, not a teaching
-episode. Its Python adapter owns the official SDK, game identity, score,
-terminal state, action budget, and scorecard. A fresh Rust agent is created for
-every server-selected game and receives only an owned 64×64 palette frame and
-an action catalog derived from the official list of available physical actions.
-The catalog contains only opaque action identities and public argument shapes.
-Complete typed calls may leave the agent; descriptions, active coordinates,
-scores, and evaluator state may not enter it.
+ARC-AGI-3 is first used as an external falsification environment, not a
+teaching episode or an official capability claim. Before the run, Academy pins
+a clean body parent, adapter revision, SDK versions, seed, action budget, and
+one named public development environment. Server-selected holdouts remain
+uninspected.
 
-The Rust agent owns `Arc3Sensorimotor`, which owns the public `Harness`. The
-process boundary exposes no score, game or level identity, expected action,
-babbling, support, settling, action remapping, reset, or diagnostic command.
-Unknown fields and unsupported actuators fail before a Harness transition.
+The Python adapter owns the SDK, game identity, score, terminal state, and
+action budget. A fresh Rust agent receives only an owned 64×64 palette frame
+and an action catalog derived from the official list of available physical
+actions. The catalog contains only opaque action identities and public argument
+shapes. Complete typed calls may leave the agent; descriptions, active
+coordinates, scores, and evaluator state may not enter it.
 
-Official scoring remains entirely in the pinned ARC SDK. Academy records the
-official scorecard beside physical work, outward crossings, learning updates,
-quiescence, body fingerprints, and an exact fresh-process transcript replay.
-The public fixture exercises the same semantic firewall but can never support
-an official capstone claim.
+The Rust agent owns `Arc3Sensorimotor`, which owns the public
+`WorkstationHarness`. The full frame strikes its two light fields; the existing
+body optics reduce that field to the body's fixed retina. Body-control crossings
+have a fixed external actuator interpretation. The catalog can reject an
+unavailable crossing but cannot choose a movement. When the next ARC frame
+changes, the adapter returns that consequence only to the exact preceding
+crossing. An unchanged frame supplies no invented failure signal.
+
+The process boundary exposes no score, game or level identity, expected action,
+babbling, support, settling, reset, or diagnostic command. Unknown fields,
+invalid frames, and unsupported actuators fail before a harness transition.
+Academy records outer episode state separately from the request, the complete
+physical trace, work, crossings, body fingerprints, and an exact fresh-process
+transcript replay.
+
+Diagnosis walks the first failed physical transition in order: perception,
+route genesis, participation, outward consequence, returned ancestry,
+consolidation, and autonomous reuse. A public-game improvement alone cannot
+change learner physics. Any candidate must first survive a benchmark-blind
+fixture, negative controls, transfer, cost gates, and the ordinary production
+regressions.

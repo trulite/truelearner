@@ -3,6 +3,16 @@
 version = 4
 
 [[package]]
+name = "academy-arc3"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "truelearner-workstation",
+]
+
+[[package]]
 name = "academy-body"
 version = "0.1.0"
 dependencies = [
