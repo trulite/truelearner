@@ -3,9 +3,7 @@ use academy_workstation::{
     DeviceEvent, DeviceState, KeyId, Rect, ScreenPoint, WorkstationWorld, WorldError,
     WorldTransition, KEY_COUNT,
 };
-use academy_workstation_course::{
-    ScreenDeviceEvidenceState, WorkstationCourse, WorkstationCourseRun, WorkstationExperience,
-};
+use academy_workstation_course::{WorkstationCourse, WorkstationCourseRun, WorkstationExperience};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -663,16 +661,11 @@ impl BodyCourse {
                             pose,
                         )?
                         .run()?;
-                        if matches!(
-                            run.evidence_state,
-                            ScreenDeviceEvidenceState::Acquired
-                                | ScreenDeviceEvidenceState::General
-                        ) && run.exact_replay
-                        {
-                            self.restore_checkpoint(&run.body_checkpoint)?;
-                        } else {
-                            self.restore_checkpoint(&entry)?;
-                        }
+                        // The workstation curriculum and the remaining body
+                        // curriculum are independent continuations of the same
+                        // TapHoldRelease learner. Preserve both artifacts rather
+                        // than feeding one branch through the other.
+                        self.restore_checkpoint(&entry)?;
                         workstation_course = Some(run);
                     }
                 }
@@ -746,7 +739,7 @@ impl BodyCourse {
                 .as_ref()
                 .is_none_or(|experience| experience.replay_exact);
         Ok(CourseRun {
-            schema_version: 12,
+            schema_version: 13,
             seed: self.seed,
             courses,
             acquired: self.acquired.iter().copied().collect(),

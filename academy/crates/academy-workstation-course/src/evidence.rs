@@ -10,6 +10,7 @@ pub struct WorkstationReceipt {
     pub seed: u64,
     pub capability: String,
     pub evidence_state: crate::ScreenDeviceEvidenceState,
+    pub automaticity: crate::RepeatedUseEvidence,
     pub first_failure: Option<WorkstationFailure>,
     pub experience_count: usize,
     pub exact_replay: bool,
@@ -55,10 +56,11 @@ pub fn write_workstation_evidence(
         ));
     }
     let receipt = WorkstationReceipt {
-        schema: "workstation-course/v1".to_string(),
+        schema: "workstation-course/v2".to_string(),
         seed: run.seed,
         capability: run.capability.clone(),
         evidence_state: run.evidence_state,
+        automaticity: run.automaticity.clone(),
         first_failure: run.first_failure,
         experience_count: run.experiences.len(),
         exact_replay: run.exact_replay,

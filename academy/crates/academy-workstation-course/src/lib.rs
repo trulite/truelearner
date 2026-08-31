@@ -5,8 +5,8 @@ mod course;
 mod evidence;
 
 pub use course::{
-    ScreenDeviceEvidenceState, WorkstationCourse, WorkstationCourseError, WorkstationCourseRun,
-    WorkstationExperience, WorkstationExperienceMode, WorkstationFailure, WorkstationStep,
-    WorkstationVerdict,
+    RepeatedUseEvidence, RepeatedUseEvidenceState, ScreenDeviceEvidenceState, WorkstationCourse,
+    WorkstationCourseError, WorkstationCourseRun, WorkstationExperience, WorkstationExperienceMode,
+    WorkstationFailure, WorkstationStep, WorkstationVerdict,
 };
 pub use evidence::{write_workstation_evidence, WorkstationEvidencePaths, WorkstationReceipt};

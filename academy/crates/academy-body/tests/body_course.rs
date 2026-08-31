@@ -4,8 +4,8 @@ use academy_body::{
 };
 use academy_workstation::DeviceEvent;
 use academy_workstation_course::{
-    ScreenDeviceEvidenceState, WorkstationCourse, WorkstationExperienceMode, WorkstationFailure,
-    WorkstationVerdict,
+    RepeatedUseEvidenceState, ScreenDeviceEvidenceState, WorkstationCourse,
+    WorkstationExperienceMode, WorkstationFailure, WorkstationVerdict,
 };
 use behavior_diagram::BehaviorDiagram;
 use sha2::{Digest, Sha256};
@@ -45,7 +45,10 @@ fn development_commits_but_probe_is_discarded_and_replays_exactly() {
 
 #[test]
 fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels() {
-    let run = BodyCourse::new(31_001).unwrap().run().unwrap();
+    let run = BodyCourse::new(31_001)
+        .unwrap()
+        .run_with_workstation_course()
+        .unwrap();
     for experience in &run.experiences {
         assert_experience_diagram(experience);
     }
@@ -62,7 +65,7 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
     assert!(run.acquired.contains(&BodyCapability::ThumbContact));
     assert!(run.acquired.contains(&BodyCapability::PinchDrag));
     assert_eq!(run.first_failure, None);
-    assert_eq!(run.schema_version, 12);
+    assert_eq!(run.schema_version, 13);
     let completed =
         WorkstationHarness::restore(WorkstationCheckpoint::decode(&run.body_checkpoint).unwrap())
             .unwrap();
@@ -298,15 +301,25 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
             )
         })
         .all(|experience| experience.durable_unchanged));
-    let course = WorkstationCourse::restore(
-        10_031_001,
-        run.workstation_entry_checkpoint.as_ref().unwrap(),
-        run.workstation_pose_checkpoint.as_ref().unwrap(),
-    )
-    .unwrap()
-    .run()
-    .unwrap();
+    let course = run.workstation_course.as_ref().unwrap();
     assert_eq!(course.evidence_state, ScreenDeviceEvidenceState::Acquired);
+    assert_eq!(
+        course.automaticity.state,
+        RepeatedUseEvidenceState::Automatic,
+        "{:#?}",
+        course.automaticity
+    );
+    assert_eq!(course.automaticity.closed_development_uses, 7);
+    assert!(course.automaticity.screen_closed_composites > 0);
+    assert!(course.automaticity.reused_composites > 0);
+    assert!(course.automaticity.saved_physical_work_per_use > 0);
+    assert!(course.automaticity.formation_work > 0);
+    assert!(course.automaticity.break_even_uses <= 1);
+    assert!(course.automaticity.same_external_trace);
+    assert!(course.automaticity.no_return_control);
+    assert!(course.automaticity.interference_survived);
+    assert!(course.automaticity.checkpoint_retained);
+    assert!(course.automaticity.exact_replay);
     assert_eq!(course.first_failure, Some(WorkstationFailure::Transfer));
     assert!(course.exact_replay);
     let experience = |mode| {
@@ -316,6 +329,11 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
             .find(|experience| experience.mode == mode)
             .unwrap()
     };
+    let workstation_demonstration = experience(WorkstationExperienceMode::Demonstration);
+    assert_eq!(
+        workstation_demonstration.automaticity_work_before,
+        workstation_demonstration.automaticity_work_after
+    );
     assert_eq!(
         experience(WorkstationExperienceMode::PassiveProbe).verdict,
         WorkstationVerdict::Failed
@@ -324,10 +342,46 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
         experience(WorkstationExperienceMode::ActionOnlyProbe).verdict,
         WorkstationVerdict::Failed
     );
+    let action_only = experience(WorkstationExperienceMode::ActionOnlyDevelopment);
+    assert_eq!(action_only.screen_changes, 0);
+    assert_eq!(action_only.unique_returned_screen_changes, 0);
+    assert!(action_only.screen_closed_composite_links.is_empty());
     assert_eq!(
         experience(WorkstationExperienceMode::Development).unique_returned_screen_changes,
         1
     );
+    let automaticity_development = course
+        .experiences
+        .iter()
+        .filter(|experience| experience.mode == WorkstationExperienceMode::AutomaticityDevelopment)
+        .collect::<Vec<_>>();
+    assert_eq!(automaticity_development.len(), 7);
+    assert!(automaticity_development.iter().all(|experience| {
+        experience.verdict == WorkstationVerdict::Passed
+            && experience.unique_returned_screen_changes > 0
+            && experience.replay_exact
+            && experience.naturally_quiescent
+    }));
+    assert!(automaticity_development
+        .iter()
+        .any(|experience| !experience.screen_closed_composite_links.is_empty()));
+    let interference = experience(WorkstationExperienceMode::AutomaticityInterference);
+    assert_eq!(interference.verdict, WorkstationVerdict::Presented);
+    assert!(interference.screen_changes > 0);
+    assert_eq!(interference.unique_returned_screen_changes, 0);
+    assert!(interference.screen_closed_composite_links.is_empty());
+    assert_eq!(
+        interference.automaticity_work_before,
+        interference.automaticity_work_after
+    );
+    let automaticity_probe = experience(WorkstationExperienceMode::AutomaticityProbe);
+    assert!(automaticity_probe.mutation_discarded);
+    assert!(!automaticity_probe
+        .retained_composite_links_traversed
+        .is_empty());
+    assert!(!automaticity_probe
+        .retained_composite_traversal_steps
+        .is_empty());
     assert_eq!(
         experience(WorkstationExperienceMode::NormalDepthProbe).verdict,
         WorkstationVerdict::Passed

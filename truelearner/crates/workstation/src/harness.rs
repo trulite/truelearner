@@ -346,9 +346,38 @@ impl WorkstationHarness {
         Ok(observation)
     }
 
-    /// Admits returned boundary and sensory effects without opening a new
-    /// chance to move. This lets an already-caused world return settle before
-    /// a checkpoint is frozen.
+    /// Admits a world sample without opening a fresh chance to move. Existing
+    /// retained paths may still react to the sample through ordinary physics.
+    pub fn observe(
+        &mut self,
+        sample: WorldSample,
+    ) -> Result<WorkstationStepObservation, WorkstationError> {
+        self.observe_with_causal_parents(sample, &[], &[])
+    }
+
+    pub fn observe_with_causal_parents(
+        &mut self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+        progress_parents: &[MotorEffect],
+    ) -> Result<WorkstationStepObservation, WorkstationError> {
+        sample.validate()?;
+        let mut next = self.clone();
+        let observation = next.step_in_place_with_trace(
+            sample,
+            boundary_parents,
+            progress_parents,
+            true,
+            false,
+            None,
+        )?;
+        *self = next;
+        Ok(observation)
+    }
+
+    /// Admits returned boundary effects without ordinary sensory input or a
+    /// fresh chance to move. This lets an already-caused world return settle
+    /// before a checkpoint is frozen.
     pub fn settle_with_boundary_parents(
         &mut self,
         sample: WorldSample,
@@ -1305,6 +1334,16 @@ mod tests {
         let next_expected = candidate.step(sample()).unwrap();
         let mut restored = WorkstationHarness::restore(checkpoint).unwrap();
         assert_eq!(restored.step(sample()).unwrap(), next_expected);
+    }
+
+    #[test]
+    fn observation_admits_sensation_without_a_fresh_opportunity() {
+        let mut harness = WorkstationHarness::new(5).unwrap();
+        let observation = harness.observe(sample()).unwrap();
+
+        assert!(observation.admitted_inputs > 0);
+        assert!(!observation.opportunity_admitted);
+        assert!(observation.naturally_quiescent);
     }
 
     #[test]

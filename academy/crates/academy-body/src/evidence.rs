@@ -26,6 +26,7 @@ pub struct CourseReceipt {
     pub workstation_body_checkpoint_file: Option<String>,
     pub workstation_body_checkpoint_sha256: Option<String>,
     pub workstation_evidence_state: Option<academy_workstation_course::ScreenDeviceEvidenceState>,
+    pub workstation_automaticity: Option<academy_workstation_course::RepeatedUseEvidence>,
     pub workstation_first_failure: Option<academy_workstation_course::WorkstationFailure>,
     pub workstation_retention_verdict: Option<academy_workstation_course::WorkstationVerdict>,
     pub workstation_retention_ladder: Vec<academy_workstation_course::WorkstationVerdict>,
@@ -101,7 +102,7 @@ pub fn write_course_evidence(
         }
     }
     let receipt = CourseReceipt {
-        schema: "body-course/v12".to_string(),
+        schema: "body-course/v13".to_string(),
         seed: run.seed,
         courses: run.courses.clone(),
         acquired: run.acquired.clone(),
@@ -122,6 +123,10 @@ pub fn write_course_evidence(
             .workstation_course
             .as_ref()
             .map(|course| course.evidence_state),
+        workstation_automaticity: run
+            .workstation_course
+            .as_ref()
+            .map(|course| course.automaticity.clone()),
         workstation_first_failure: run
             .workstation_course
             .as_ref()

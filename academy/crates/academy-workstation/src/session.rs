@@ -99,12 +99,12 @@ impl WorkstationSession {
         self.step_internal(true)
     }
 
-    /// Lets an already-caused world return arrive without opening a fresh
-    /// chance to move.
-    pub fn settle(&mut self) -> Result<SessionObservation, WorldError> {
+    /// Presents ordinary workstation input without opening a fresh movement
+    /// opportunity. Any already-retained response remains ordinary output.
+    pub fn observe(&mut self) -> Result<SessionObservation, WorldError> {
         let sample = self.world.sense(self.harness.state())?;
         let mut harness = self.harness.clone();
-        let body = harness.settle_with_causal_parents(
+        let body = harness.observe_with_causal_parents(
             sample.clone(),
             &self.boundary_parents,
             &self.progress_parents,
@@ -134,6 +134,68 @@ impl WorkstationSession {
             progress_parents: transition.progress_parents,
         };
         Ok(observation)
+    }
+
+    /// Lets an already-caused world return arrive without opening a fresh
+    /// chance to move.
+    pub fn settle(&mut self) -> Result<SessionObservation, WorldError> {
+        let (observation, _) = self.settle_internal(false)?;
+        Ok(observation)
+    }
+
+    pub fn settle_traced(
+        &mut self,
+    ) -> Result<(SessionObservation, Vec<BodyTraceEvent>), WorldError> {
+        self.settle_internal(true)
+    }
+
+    fn settle_internal(
+        &mut self,
+        traced: bool,
+    ) -> Result<(SessionObservation, Vec<BodyTraceEvent>), WorldError> {
+        let sample = self.world.sense(self.harness.state())?;
+        let mut harness = self.harness.clone();
+        let (body, trace) = if traced {
+            harness.settle_traced_with_causal_parents(
+                sample.clone(),
+                &self.boundary_parents,
+                &self.progress_parents,
+            )?
+        } else {
+            (
+                harness.settle_with_causal_parents(
+                    sample.clone(),
+                    &self.boundary_parents,
+                    &self.progress_parents,
+                )?,
+                Vec::new(),
+            )
+        };
+        let mut world = self.world.clone();
+        let transition = world.advance_observation(&body);
+        let sequence = self.sequence;
+        let next_sequence = sequence.saturating_add(1);
+        let world_fingerprint = world.fingerprint()?;
+        let session_fingerprint =
+            composed_session_fingerprint(next_sequence, &body.body_fingerprint, &world_fingerprint);
+        let observation = SessionObservation {
+            sequence,
+            sample,
+            body,
+            device_events: transition.events,
+            device_after: world.device().clone(),
+            world_fingerprint,
+            session_fingerprint,
+        };
+        *self = Self {
+            harness,
+            world,
+            sequence: next_sequence,
+            boundary_parents: transition.boundary_parents,
+            application_parents: transition.application_parents,
+            progress_parents: transition.progress_parents,
+        };
+        Ok((observation, trace))
     }
 
     /// Advances a visibly external key transition for an Academy
@@ -337,5 +399,29 @@ mod tests {
             .unwrap();
 
         assert!(session.boundary_parents.is_empty());
+    }
+
+    #[test]
+    fn traced_settlement_is_observer_equivalent() {
+        let mut ordinary = WorkstationSession::new(71_016).unwrap();
+        ordinary.step().unwrap();
+        let mut traced = ordinary.clone();
+
+        let expected = ordinary.settle().unwrap();
+        let (actual, trace) = traced.settle_traced().unwrap();
+
+        assert_eq!(actual, expected);
+        assert_eq!(traced, ordinary);
+        assert!(matches!(trace.last(), Some(BodyTraceEvent::Quiet(_))));
+    }
+
+    #[test]
+    fn observation_presents_the_monitor_without_a_fresh_opportunity() {
+        let mut session = WorkstationSession::new(71_017).unwrap();
+        let observation = session.observe().unwrap();
+
+        assert!(observation.body.admitted_inputs > 0);
+        assert!(!observation.body.opportunity_admitted);
+        assert!(observation.body.naturally_quiescent);
     }
 }

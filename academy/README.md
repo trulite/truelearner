@@ -73,8 +73,11 @@ retention setup records and exactly replays an external lateral displacement;
 the displacement receives no organism credit, and only the learner's later
 causally parented drag can pass. The bounded course is complete through this
 stability rung. Repeated-use automaticity has separate constructed-body and
-changed-light workstation mechanism evidence, but the course still emits no
-`Automatic` capability receipt.
+changed-light workstation mechanism evidence. The course now emits a separate
+automatic repeated-use receipt after seven returned uses, observed retained-link
+reuse at normal depth, equal external behavior, reduced physical work, passive
+interference, controls, checkpoint retention, and exact replay. This does not
+upgrade the twelve body capability states or imply general workstation skill.
 
 ## ARC-AGI-3 development probe
 

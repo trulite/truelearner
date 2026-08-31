@@ -330,10 +330,11 @@ The receipt reports an explicit evidence state rather than collapsing every
 passing lesson into one claim: `Acquired` means development plus a fresh probe,
 `General` additionally requires changed-world transfer, and `Stable`
 additionally requires retention after subsequent committed learning.
-`Automatic` is reserved for a future repeated low-cost-use contract. In the
-reference run, all twelve claims are acquired and all three manipulation
-capstones pass both transfer and later retention. The course makes no
-automaticity claim.
+`Automatic` requires a separate repeated low-cost-use contract. In the
+reference run, all twelve body claims are acquired and all three manipulation
+capstones pass both transfer and later retention. The workstation branch also
+emits a separate `RepeatedUseEvidenceState::Automatic` receipt; it does not
+silently upgrade any body capability.
 
 ### Repeated-use automaticity successor
 
@@ -346,9 +347,21 @@ changed-light workstation probe traverses a retained link while preserving its
 two outward effects and reducing the action wave from `640` to `635` work
 units. Formation, closure maintenance, and reuse are counted separately; the
 eight-link fixture reaches a finite break-even use count and then holds steady
-without further retained growth. The generated body course still issues no
-`Automatic` receipt: this is mechanism and transfer evidence, not yet a body
-capability claim.
+without further retained growth. The generated body mechanism evidence remains
+separate from Academy capability claims.
+
+The reference Body Course now exercises that law through the ordinary generic
+workstation boundary. Seven uniquely returned key-to-screen uses form one
+observed screen-closed composite, and a later normal-depth probe is observed
+traversing it. The exact device-event and returned-parent timeline is unchanged;
+physical work falls from `9,658` to `9,486` units after a passive intervening
+screen disturbance. Formation costs two automaticity-work units, so the
+measured break-even is one later use. Demonstration and action-without-screen
+controls form no such claim. The passive disturbance has no returned screen
+ancestry, creates no composite, changes no automaticity work, and the retained
+link is still traversed afterward. Exact replay and checkpoint-discarded probing
+remain mandatory. This supports the separate repeated-use receipt, not general
+typing, pointing, application understanding, or spontaneous action.
 
 Historical experiments constrain the successor:
 
@@ -477,10 +490,11 @@ bounded tap/hold/release sequence, contact dragging, thumb contact, and one
 two-contact object transport that transfers to a different grip digit and
 survives later learning. The bounded body course is complete through the
 defined manipulation stability rung. Repeated-use automaticity now has separate
-constructed-body and generic-workstation mechanism evidence, but the body
-course still emits no `Automatic` capability receipt. Richer workstation use
-also remains a separate future contract. No general pointing, clicking,
-typing, grasping, or image-use claim follows from these sequences.
+constructed-body and generic-workstation mechanism evidence. The Body Course
+emits a separate automatic repeated-use receipt for the workstation branch;
+the twelve body capability states remain distinct. Richer workstation use also
+remains a separate future contract. No general pointing, clicking, typing,
+grasping, or image-use claim follows from these sequences.
 
 ### Generic workstation causality
 
@@ -500,6 +514,15 @@ The course keeps four separations explicit:
 4. Only self-caused key motion followed by a changed screen may consolidate;
    the returned screen consequence substitutes the exact application parent,
    not every simultaneously moving body axis.
+
+For the repeated-use receipt, the course additionally requires seven closed
+uses, an observed screen-closed composite link, later traversal of that exact
+link at normal key depth, equal external event/ancestry timing, lower physical
+work with finite break-even, survival across an unrelated passive screen
+disturbance, checkpoint retention, and exact replay. The disturbance may
+coincide with body motion, but it must receive no motor ancestry, form no
+composite, and change no automaticity work. This tests causal attribution rather
+than demanding artificial bodily stillness.
 
 The completed cycle is press, changed screen, release, returned release, and a
 settling step with no new opportunity. Reference seed `31_001` learns this at a

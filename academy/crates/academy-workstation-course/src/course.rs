@@ -8,13 +8,15 @@ use std::fmt;
 #[cfg(test)]
 use truelearner_workstation::MotorEffect;
 use truelearner_workstation::{
-    BodyControl, Direction, WorkstationCheckpoint, WorkstationHarness, WorkstationStepObservation,
+    verify_choice_laws, BodyControl, BodyLinkId, BodyTraceEvent, Direction, WorkstationCheckpoint,
+    WorkstationHarness, WorkstationStepObservation,
 };
 
 const PRACTICE_PRESS_DEPTH: i16 = 640;
 const PRACTICE_RELEASE_DEPTH: i16 = 608;
 const DEMONSTRATION_STEPS: usize = 5;
 const EXPERIENCE_STEPS: usize = 16;
+const AUTOMATICITY_DEVELOPMENT_USES: usize = 7;
 const PASSIVE_CHANGE_STEP: usize = 2;
 // One palm-horizontal impulse moves this morphology by 16 coordinate units.
 const TRANSFER_IMPULSE: i16 = 1;
@@ -30,6 +32,10 @@ pub enum WorkstationExperienceMode {
     ActionOnlyDevelopment,
     ActionOnlyProbe,
     Development,
+    AutomaticityBaseline,
+    AutomaticityDevelopment,
+    AutomaticityInterference,
+    AutomaticityProbe,
     NormalDepthProbe,
     Probe,
     Transfer,
@@ -52,6 +58,32 @@ pub enum ScreenDeviceEvidenceState {
     Emerging,
     Acquired,
     General,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepeatedUseEvidenceState {
+    Unknown,
+    Emerging,
+    Automatic,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RepeatedUseEvidence {
+    pub state: RepeatedUseEvidenceState,
+    pub closed_development_uses: usize,
+    pub screen_closed_composites: usize,
+    pub reused_composites: usize,
+    pub baseline_physical_work: u64,
+    pub automatic_physical_work: u64,
+    pub saved_physical_work_per_use: u64,
+    pub formation_work: u64,
+    pub break_even_uses: u64,
+    pub same_external_trace: bool,
+    pub no_return_control: bool,
+    pub interference_survived: bool,
+    pub checkpoint_retained: bool,
+    pub exact_replay: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,6 +132,11 @@ pub struct WorkstationExperience {
     pub physical_work: u64,
     pub plasticity_updates: u64,
     pub naturally_quiescent: bool,
+    pub automaticity_work_before: u64,
+    pub automaticity_work_after: u64,
+    pub screen_closed_composite_links: Vec<BodyLinkId>,
+    pub retained_composite_links_traversed: Vec<BodyLinkId>,
+    pub retained_composite_traversal_steps: Vec<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -108,6 +145,7 @@ pub struct WorkstationCourseRun {
     pub seed: u64,
     pub capability: String,
     pub evidence_state: ScreenDeviceEvidenceState,
+    pub automaticity: RepeatedUseEvidence,
     pub first_failure: Option<WorkstationFailure>,
     pub experiences: Vec<WorkstationExperience>,
     pub exact_replay: bool,
@@ -175,11 +213,12 @@ impl WorkstationCourse {
         )?;
         experiences.push(passive_probe.clone());
 
-        let (action_development, action_body) = self.experience(
+        let (action_development, action_body) = self.experience_observing_automaticity(
             &initial,
             WorkstationExperienceMode::ActionOnlyDevelopment,
             self.seed.saturating_add(5),
             true,
+            &[],
         )?;
         experiences.push(action_development.clone());
         let (action_probe, _) = self.experience(
@@ -202,6 +241,60 @@ impl WorkstationCourse {
             experiences.push(development.clone());
             (Some(development), developed)
         };
+        let automaticity_probe_seed = self.seed.saturating_add(90);
+        let (automaticity_baseline, _) = self.experience_observing_automaticity(
+            &developed,
+            WorkstationExperienceMode::AutomaticityBaseline,
+            automaticity_probe_seed,
+            false,
+            &[],
+        )?;
+        experiences.push(automaticity_baseline.clone());
+
+        let mut repeated = developed;
+        let mut automaticity_development = Vec::with_capacity(AUTOMATICITY_DEVELOPMENT_USES);
+        let mut learned_composite_links = Vec::new();
+        for repetition in 0..AUTOMATICITY_DEVELOPMENT_USES {
+            let (experience, next) = self.experience_observing_automaticity(
+                &repeated,
+                WorkstationExperienceMode::AutomaticityDevelopment,
+                self.seed
+                    .saturating_add(100 + u64::try_from(repetition).unwrap_or_default()),
+                true,
+                &learned_composite_links,
+            )?;
+            for link in &experience.screen_closed_composite_links {
+                if !learned_composite_links.contains(link) {
+                    learned_composite_links.push(*link);
+                }
+            }
+            automaticity_development.push(experience.clone());
+            experiences.push(experience);
+            repeated = next;
+        }
+        let (automaticity_interference, developed) = self.experience(
+            &repeated,
+            WorkstationExperienceMode::AutomaticityInterference,
+            self.seed.saturating_add(180),
+            true,
+        )?;
+        experiences.push(automaticity_interference.clone());
+        let (automaticity_probe, _) = self.experience_observing_automaticity(
+            &developed,
+            WorkstationExperienceMode::AutomaticityProbe,
+            automaticity_probe_seed,
+            false,
+            &learned_composite_links,
+        )?;
+        experiences.push(automaticity_probe.clone());
+        let automaticity = repeated_use_evidence(
+            &automaticity_baseline,
+            &automaticity_development,
+            &automaticity_probe,
+            &automaticity_interference,
+            &action_development,
+            &action_probe,
+        );
         let (normal_depth_probe, _) = self.experience(
             &developed,
             WorkstationExperienceMode::NormalDepthProbe,
@@ -276,10 +369,11 @@ impl WorkstationCourse {
             WorkstationHarness::restore(WorkstationCheckpoint::decode(&final_checkpoint)?)?;
         let final_body_fingerprint = final_harness.read()?.body_fingerprint;
         Ok(WorkstationCourseRun {
-            schema_version: 1,
+            schema_version: 2,
             seed: self.seed,
             capability: "screen_device_screen_contingency".to_string(),
             evidence_state,
+            automaticity,
             first_failure,
             exact_replay: experiences.iter().all(|experience| experience.replay_exact),
             experiences,
@@ -312,10 +406,51 @@ impl WorkstationCourse {
         seed: u64,
         commits_learning: bool,
     ) -> Result<(WorkstationExperience, Vec<u8>), WorkstationCourseError> {
+        self.experience_internal(learned_checkpoint, mode, seed, commits_learning, None)
+    }
+
+    fn experience_observing_automaticity(
+        &self,
+        learned_checkpoint: &[u8],
+        mode: WorkstationExperienceMode,
+        seed: u64,
+        commits_learning: bool,
+        retained_links: &[BodyLinkId],
+    ) -> Result<(WorkstationExperience, Vec<u8>), WorkstationCourseError> {
+        self.experience_internal(
+            learned_checkpoint,
+            mode,
+            seed,
+            commits_learning,
+            Some(retained_links),
+        )
+    }
+
+    fn experience_internal(
+        &self,
+        learned_checkpoint: &[u8],
+        mode: WorkstationExperienceMode,
+        seed: u64,
+        commits_learning: bool,
+        retained_links: Option<&[BodyLinkId]>,
+    ) -> Result<(WorkstationExperience, Vec<u8>), WorkstationCourseError> {
         let (first, replay) = std::thread::scope(|scope| {
-            let replay =
-                scope.spawn(|| execute(learned_checkpoint, &self.pose_checkpoint, mode, seed));
-            let first = execute(learned_checkpoint, &self.pose_checkpoint, mode, seed)?;
+            let replay = scope.spawn(|| {
+                execute(
+                    learned_checkpoint,
+                    &self.pose_checkpoint,
+                    mode,
+                    seed,
+                    retained_links,
+                )
+            });
+            let first = execute(
+                learned_checkpoint,
+                &self.pose_checkpoint,
+                mode,
+                seed,
+                retained_links,
+            )?;
             let replay = replay.join().map_err(|_| {
                 WorkstationCourseError::InvalidEvidence(
                     "workstation replay worker panicked".to_string(),
@@ -345,6 +480,11 @@ struct Execution {
     checkpoint_before: Vec<u8>,
     checkpoint_after: Vec<u8>,
     steps: Vec<WorkstationStep>,
+    automaticity_work_before: u64,
+    automaticity_work_after: u64,
+    screen_closed_composite_links: Vec<BodyLinkId>,
+    retained_composite_links_traversed: Vec<BodyLinkId>,
+    retained_composite_traversal_steps: Vec<usize>,
 }
 
 fn execute(
@@ -352,6 +492,7 @@ fn execute(
     pose_checkpoint: &[u8],
     mode: WorkstationExperienceMode,
     seed: u64,
+    retained_links: Option<&[BodyLinkId]>,
 ) -> Result<Execution, WorkstationCourseError> {
     let external_shift = if mode == WorkstationExperienceMode::Transfer {
         TRANSFER_IMPULSE
@@ -366,14 +507,17 @@ fn execute(
     };
     let (key_press_depth, key_release_depth) = if matches!(
         mode,
-        WorkstationExperienceMode::ActionOnlyDevelopment | WorkstationExperienceMode::Development
+        WorkstationExperienceMode::ActionOnlyDevelopment
+            | WorkstationExperienceMode::Development
+            | WorkstationExperienceMode::AutomaticityDevelopment
     ) {
         (PRACTICE_PRESS_DEPTH, PRACTICE_RELEASE_DEPTH)
     } else {
         (KEY_PRESS_DEPTH, KEY_RELEASE_DEPTH)
     };
     let response = match mode {
-        WorkstationExperienceMode::PassiveDevelopment => Response::Passive,
+        WorkstationExperienceMode::PassiveDevelopment
+        | WorkstationExperienceMode::AutomaticityInterference => Response::Passive,
         WorkstationExperienceMode::ActionOnlyDevelopment => Response::None,
         _ => Response::OnKey,
     };
@@ -397,6 +541,12 @@ fn execute(
     let mut changed = false;
     let mut settle_next = false;
     let mut steps = Vec::with_capacity(step_count);
+    let automaticity_work_before = checkpoint_automaticity_work(&checkpoint_before)?;
+    let mut automaticity_work_after = automaticity_work_before;
+    let mut known_links = retained_links.unwrap_or_default().to_vec();
+    let mut screen_closed_composite_links = Vec::new();
+    let mut retained_composite_links_traversed = Vec::new();
+    let mut retained_composite_traversal_steps = Vec::new();
     if external_shift != 0 {
         let frame_sha256 = digest(current_frame.pixels());
         let observation = session.settle()?;
@@ -405,18 +555,34 @@ fn execute(
     for index in 0..step_count {
         let frame_sha256 = digest(current_frame.pixels());
         let settling = settle_next;
-        let observation = if settling {
-            session.settle()?
+        let (observation, trace) = if retained_links.is_some() {
+            let traced = if settling {
+                session.settle_traced()?
+            } else {
+                session.step_traced()?
+            };
+            verify_choice_laws(&traced.1).map_err(|violation| {
+                WorkstationCourseError::InvalidEvidence(format!(
+                    "automaticity trace violates choice law: {violation:?}"
+                ))
+            })?;
+            traced
+        } else if mode == WorkstationExperienceMode::AutomaticityInterference {
+            (session.observe()?, Vec::new())
+        } else if settling {
+            (session.settle()?, Vec::new())
         } else {
-            match mode {
+            let observation = match mode {
                 WorkstationExperienceMode::Demonstration => {
                     session.step_with_external_key(demonstrator_key, index <= 2)?
                 }
-                WorkstationExperienceMode::PassiveDevelopment => {
+                WorkstationExperienceMode::PassiveDevelopment
+                | WorkstationExperienceMode::AutomaticityInterference => {
                     session.step_with_external_key(demonstrator_key, false)?
                 }
                 _ => session.step()?,
-            }
+            };
+            (observation, Vec::new())
         };
         let key_pressed = observation
             .device_events
@@ -426,7 +592,43 @@ fn execute(
             .device_events
             .iter()
             .any(|event| matches!(event, DeviceEvent::KeyReleased { .. }));
-        steps.push(compact_step(observation, frame_sha256)?);
+        let step = compact_step(observation, frame_sha256)?;
+        let returned_screen = steps
+            .last()
+            .is_some_and(|before| returned_screen_change(before, &step));
+        if retained_links.is_some() {
+            let mut traversed_at_step = false;
+            for event in &trace {
+                let BodyTraceEvent::Arrival(arrival) = event else {
+                    continue;
+                };
+                if let Some(link) = arrival.via {
+                    if known_links.contains(&link)
+                        && !retained_composite_links_traversed.contains(&link)
+                    {
+                        retained_composite_links_traversed.push(link);
+                    }
+                    traversed_at_step |= known_links.contains(&link);
+                }
+            }
+            if traversed_at_step {
+                retained_composite_traversal_steps.push(steps.len());
+            }
+            let work = session_automaticity_work(&session)?;
+            let formed = work.saturating_sub(automaticity_work_after);
+            if returned_screen && formed > 0 {
+                for link in formed_composite_links(&trace, formed)? {
+                    if !screen_closed_composite_links.contains(&link) {
+                        screen_closed_composite_links.push(link);
+                    }
+                    if !known_links.contains(&link) {
+                        known_links.push(link);
+                    }
+                }
+            }
+            automaticity_work_after = work;
+        }
+        steps.push(step);
         if settling {
             break;
         }
@@ -448,11 +650,76 @@ fn execute(
             settle_next = true;
         }
     }
+    let checkpoint_after = session.body_checkpoint()?.canonical_bytes()?;
+    if retained_links.is_none() {
+        automaticity_work_after = checkpoint_automaticity_work(&checkpoint_after)?;
+    }
     Ok(Execution {
         checkpoint_before,
-        checkpoint_after: session.body_checkpoint()?.canonical_bytes()?,
+        checkpoint_after,
         steps,
+        automaticity_work_before,
+        automaticity_work_after,
+        screen_closed_composite_links,
+        retained_composite_links_traversed,
+        retained_composite_traversal_steps,
     })
+}
+
+fn checkpoint_automaticity_work(checkpoint: &[u8]) -> Result<u64, WorkstationCourseError> {
+    let checkpoint = WorkstationCheckpoint::decode(checkpoint)?;
+    Ok(WorkstationHarness::restore(checkpoint)?
+        .automaticity_work()
+        .total())
+}
+
+fn session_automaticity_work(session: &WorkstationSession) -> Result<u64, WorkstationCourseError> {
+    Ok(WorkstationHarness::restore(session.body_checkpoint()?)?
+        .automaticity_work()
+        .total())
+}
+
+fn formed_composite_links(
+    trace: &[BodyTraceEvent],
+    formed: u64,
+) -> Result<Vec<BodyLinkId>, WorkstationCourseError> {
+    let mut parent_links = Vec::new();
+    for event in trace {
+        let BodyTraceEvent::Return(returned) = event else {
+            continue;
+        };
+        if let Some(path) = returned.path {
+            for link in [path.first, path.second] {
+                if !parent_links.contains(&link) {
+                    parent_links.push(link);
+                }
+            }
+        }
+    }
+    let mut candidates = trace
+        .iter()
+        .filter_map(|event| match event {
+            BodyTraceEvent::Strengthened(strengthened)
+                if !parent_links.contains(&strengthened.link) =>
+            {
+                Some(strengthened.link)
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_unstable();
+    candidates.dedup();
+    let formed = usize::try_from(formed).map_err(|_| {
+        WorkstationCourseError::InvalidEvidence(
+            "automaticity formation count does not fit this platform".to_string(),
+        )
+    })?;
+    if candidates.len() < formed {
+        return Err(WorkstationCourseError::InvalidEvidence(
+            "automaticity formation lacks a strengthened retained link".to_string(),
+        ));
+    }
+    Ok(candidates.split_off(candidates.len() - formed))
 }
 
 fn positioned_checkpoint(
@@ -576,6 +843,13 @@ fn assess(
                 WorkstationVerdict::Failed
             }
         }
+        WorkstationExperienceMode::AutomaticityInterference => {
+            if screen_changes > 0 && unique_returned_screen_changes == 0 {
+                WorkstationVerdict::Presented
+            } else {
+                WorkstationVerdict::Failed
+            }
+        }
         WorkstationExperienceMode::ActionOnlyDevelopment => {
             if key_events > 0 && screen_changes == 0 {
                 WorkstationVerdict::Presented
@@ -598,7 +872,9 @@ fn assess(
     }
     let (key_press_depth, key_release_depth) = if matches!(
         mode,
-        WorkstationExperienceMode::ActionOnlyDevelopment | WorkstationExperienceMode::Development
+        WorkstationExperienceMode::ActionOnlyDevelopment
+            | WorkstationExperienceMode::Development
+            | WorkstationExperienceMode::AutomaticityDevelopment
     ) {
         (PRACTICE_PRESS_DEPTH, PRACTICE_RELEASE_DEPTH)
     } else {
@@ -628,7 +904,178 @@ fn assess(
         physical_work,
         plasticity_updates,
         naturally_quiescent,
+        automaticity_work_before: execution.automaticity_work_before,
+        automaticity_work_after: execution.automaticity_work_after,
+        screen_closed_composite_links: execution.screen_closed_composite_links.clone(),
+        retained_composite_links_traversed: execution.retained_composite_links_traversed.clone(),
+        retained_composite_traversal_steps: execution.retained_composite_traversal_steps.clone(),
     })
+}
+
+fn repeated_use_evidence(
+    baseline: &WorkstationExperience,
+    development: &[WorkstationExperience],
+    probe: &WorkstationExperience,
+    interference: &WorkstationExperience,
+    no_return_development: &WorkstationExperience,
+    no_return_probe: &WorkstationExperience,
+) -> RepeatedUseEvidence {
+    let closed_development_uses = development
+        .iter()
+        .filter(|experience| {
+            experience.verdict == WorkstationVerdict::Passed
+                && experience.unique_returned_screen_changes > 0
+                && experience.replay_exact
+                && experience.naturally_quiescent
+        })
+        .count();
+    let mut screen_closed_links = development
+        .iter()
+        .flat_map(|experience| experience.screen_closed_composite_links.iter().copied())
+        .collect::<Vec<_>>();
+    screen_closed_links.sort_unstable();
+    screen_closed_links.dedup();
+    let mut reused_links = probe
+        .retained_composite_links_traversed
+        .iter()
+        .copied()
+        .filter(|link| screen_closed_links.contains(link))
+        .collect::<Vec<_>>();
+    reused_links.sort_unstable();
+    reused_links.dedup();
+    let formation_work = development
+        .first()
+        .zip(development.last())
+        .map_or(0, |(first, last)| {
+            last.automaticity_work_after
+                .saturating_sub(first.automaticity_work_before)
+        });
+    let saved_physical_work_per_use = baseline.physical_work.saturating_sub(probe.physical_work);
+    let break_even_uses = if saved_physical_work_per_use == 0 {
+        u64::MAX
+    } else {
+        formation_work.div_ceil(saved_physical_work_per_use)
+    };
+    let same_external_trace = same_external_trace(baseline, probe);
+    let no_return_control = no_return_development.verdict == WorkstationVerdict::Presented
+        && no_return_development.screen_changes == 0
+        && no_return_development.unique_returned_screen_changes == 0
+        && no_return_development
+            .screen_closed_composite_links
+            .is_empty()
+        && no_return_probe.verdict == WorkstationVerdict::Failed;
+    let interference_survived = interference.verdict == WorkstationVerdict::Presented
+        && interference.screen_changes > 0
+        && interference.unique_returned_screen_changes == 0
+        && interference.screen_closed_composite_links.is_empty()
+        && interference.automaticity_work_before == interference.automaticity_work_after
+        && interference.replay_exact
+        && interference.naturally_quiescent;
+    let exact_replay = baseline.replay_exact
+        && development.iter().all(|experience| experience.replay_exact)
+        && interference.replay_exact
+        && probe.replay_exact;
+    let checkpoint_retained = probe.mutation_discarded && !reused_links.is_empty();
+    let automatic = closed_development_uses == development.len()
+        && !screen_closed_links.is_empty()
+        && !reused_links.is_empty()
+        && probe.verdict == WorkstationVerdict::Passed
+        && probe.naturally_quiescent
+        && same_external_trace
+        && saved_physical_work_per_use > 0
+        && break_even_uses <= 1
+        && no_return_control
+        && interference_survived
+        && checkpoint_retained
+        && exact_replay;
+    let state = if automatic {
+        RepeatedUseEvidenceState::Automatic
+    } else if !screen_closed_links.is_empty() || saved_physical_work_per_use > 0 {
+        RepeatedUseEvidenceState::Emerging
+    } else {
+        RepeatedUseEvidenceState::Unknown
+    };
+    RepeatedUseEvidence {
+        state,
+        closed_development_uses,
+        screen_closed_composites: screen_closed_links.len(),
+        reused_composites: reused_links.len(),
+        baseline_physical_work: baseline.physical_work,
+        automatic_physical_work: probe.physical_work,
+        saved_physical_work_per_use,
+        formation_work,
+        break_even_uses,
+        same_external_trace,
+        no_return_control,
+        interference_survived,
+        checkpoint_retained,
+        exact_replay,
+    }
+}
+
+fn same_external_trace(baseline: &WorkstationExperience, probe: &WorkstationExperience) -> bool {
+    if baseline.steps.len() != probe.steps.len()
+        || baseline.screen_changes != probe.screen_changes
+        || baseline.unique_returned_screen_changes != probe.unique_returned_screen_changes
+    {
+        return false;
+    }
+    let baseline_events = baseline
+        .steps
+        .iter()
+        .enumerate()
+        .flat_map(|(step, observation)| {
+            observation
+                .device_events
+                .iter()
+                .cloned()
+                .map(move |event| (step, event))
+        })
+        .collect::<Vec<_>>();
+    let probe_events = probe
+        .steps
+        .iter()
+        .enumerate()
+        .flat_map(|(step, observation)| {
+            observation
+                .device_events
+                .iter()
+                .cloned()
+                .map(move |event| (step, event))
+        })
+        .collect::<Vec<_>>();
+    if baseline_events != probe_events {
+        return false;
+    }
+    returned_screen_parent_trace(baseline) == returned_screen_parent_trace(probe)
+}
+
+fn returned_screen_parent_trace(
+    experience: &WorkstationExperience,
+) -> Vec<(usize, BodyControl, i32, u64)> {
+    experience
+        .steps
+        .windows(2)
+        .enumerate()
+        .filter_map(|(step, pair)| {
+            let [before, after] = pair else {
+                return None;
+            };
+            if !returned_screen_change(before, after) {
+                return None;
+            }
+            let [parent] = after.body.boundary_parents.as_slice() else {
+                return None;
+            };
+            let origin = before.body.crossings.iter().map(|effect| effect.at).min()?;
+            Some((
+                step,
+                parent.control,
+                parent.impulse,
+                parent.at.saturating_sub(origin),
+            ))
+        })
+        .collect()
 }
 
 fn returned_screen_change(before: &WorkstationStep, after: &WorkstationStep) -> bool {
