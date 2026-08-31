@@ -764,6 +764,26 @@ impl WorkstationHarness {
         Ok(())
     }
 
+    /// Applies a small external displacement to a quiet body. No learner
+    /// output participates, so the next sensory sample witnesses the change
+    /// without attributing it to an organism action.
+    pub fn perturb_body(
+        &mut self,
+        control: BodyControl,
+        impulse: u16,
+    ) -> Result<bool, WorkstationError> {
+        if !self.body.is_quiet() || impulse == 0 {
+            return Err(WorkstationError::InvalidCheckpoint);
+        }
+        let mut frame = ActuatorFrame::default();
+        frame.activate(control.axis(), control.direction(), impulse);
+        Ok(self
+            .state
+            .integrate(frame)
+            .into_iter()
+            .any(|movement| movement.changed))
+    }
+
     fn pending_axes(&self) -> Vec<BodyAxis> {
         BodyAxis::ALL
             .into_iter()
@@ -1246,6 +1266,31 @@ mod tests {
         let next_expected = candidate.step(sample()).unwrap();
         let mut restored = WorkstationHarness::restore(checkpoint).unwrap();
         assert_eq!(restored.step(sample()).unwrap(), next_expected);
+    }
+
+    #[test]
+    fn external_perturbation_changes_pose_without_changing_the_learner() {
+        let mut harness = WorkstationHarness::new(6).unwrap();
+        let before = harness.save().unwrap().open();
+        let x_before = before.state.hand().palm().x();
+
+        assert!(harness
+            .perturb_body(
+                BodyControl::PalmHorizontal {
+                    direction: Direction::Increase,
+                },
+                1,
+            )
+            .unwrap());
+
+        let after = harness.save().unwrap().open();
+        assert_eq!(after.state.hand().palm().x(), x_before + 16);
+        assert_eq!(after.body, before.body);
+        assert_eq!(after.handles, before.handles);
+        assert_eq!(after.sequence, before.sequence);
+        assert_eq!(after.physical_tick, before.physical_tick);
+        assert_eq!(after.pending_transitions, before.pending_transitions);
+        assert_eq!(after.history, before.history);
     }
 
     #[test]

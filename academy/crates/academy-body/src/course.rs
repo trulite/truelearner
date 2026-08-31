@@ -4,10 +4,10 @@ use academy_workstation::{
     WorldTransition, KEY_COUNT,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use truelearner_workstation::{
-    BodyAxis, BodyMovement, Digit, Eye, LightField, MotorEffect, WorkstationError,
+    BodyAxis, BodyControl, BodyMovement, Digit, Eye, LightField, MotorEffect, WorkstationError,
     WorkstationHarness, WorkstationState, WorkstationStepObservation, WorldSample, BODY_MAX,
 };
 
@@ -186,6 +186,12 @@ pub struct BodyCapabilityEvidence {
     pub state: BodyEvidenceState,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BodyPerturbation {
+    pub control: BodyControl,
+    pub impulse: u16,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BodyExperience {
     pub id: String,
@@ -197,6 +203,7 @@ pub struct BodyExperience {
     pub world_observations: Vec<BodyWorldObservation>,
     pub key_press_depth: Option<i16>,
     pub key_release_depth: Option<i16>,
+    pub perturbation: Option<BodyPerturbation>,
     pub checkpoint_before: Vec<u8>,
     pub checkpoint_after: Vec<u8>,
     pub durable_unchanged: bool,
@@ -281,6 +288,27 @@ impl BodyCourse {
         seed: u64,
         key_depths: Option<(i16, i16)>,
     ) -> Result<BodyExperience, BodyCourseError> {
+        self.experience_with_setup(capability, mode, seed, key_depths, None)
+    }
+
+    fn experience_with_perturbation(
+        &mut self,
+        capability: BodyCapability,
+        mode: BodyExperienceMode,
+        seed: u64,
+        perturbation: BodyPerturbation,
+    ) -> Result<BodyExperience, BodyCourseError> {
+        self.experience_with_setup(capability, mode, seed, None, Some(perturbation))
+    }
+
+    fn experience_with_setup(
+        &mut self,
+        capability: BodyCapability,
+        mode: BodyExperienceMode,
+        seed: u64,
+        key_depths: Option<(i16, i16)>,
+        perturbation: Option<BodyPerturbation>,
+    ) -> Result<BodyExperience, BodyCourseError> {
         if !capability
             .prerequisites()
             .iter()
@@ -291,6 +319,13 @@ impl BodyCourse {
         let durable_before = self.checkpoint_bytes()?;
         let checkpoint = truelearner_workstation::WorkstationCheckpoint::decode(&durable_before)?;
         let mut working = WorkstationHarness::restore(checkpoint)?;
+        if let Some(perturbation) = perturbation {
+            if !working.perturb_body(perturbation.control, perturbation.impulse)? {
+                return Err(BodyCourseError::Workstation(
+                    WorkstationError::InvalidCheckpoint,
+                ));
+            }
+        }
         let mut world =
             ExperienceWorld::generated(seed, capability, mode, key_depths, working.state())?;
         let (key_press_depth, key_release_depth) = world.key_depths();
@@ -380,6 +415,7 @@ impl BodyCourse {
             mode,
             seed,
             key_depths,
+            perturbation,
             ReplayEvidence {
                 checkpoint_before: &durable_before,
                 samples: &samples,
@@ -416,6 +452,7 @@ impl BodyCourse {
             world_observations,
             key_press_depth,
             key_release_depth,
+            perturbation,
             checkpoint_before: durable_before,
             checkpoint_after,
             durable_unchanged,
@@ -432,6 +469,7 @@ impl BodyCourse {
     pub fn run(mut self) -> Result<CourseRun, BodyCourseError> {
         let mut first_failure = None;
         let mut courses = Vec::with_capacity(BodyCourseKind::ORDER.len());
+        let mut lesson_references = BTreeMap::new();
         for course in BodyCourseKind::ORDER {
             let mut course_acquired = Vec::with_capacity(course.capabilities().len());
             let mut course_failure = None;
@@ -451,6 +489,7 @@ impl BodyCourse {
                     .expect("course partition contains only ordered capabilities");
                 let development_seed = self.seed.saturating_add(capability_index as u64 * 10 + 1);
                 let checkpoint_before_lesson = self.checkpoint_bytes()?;
+                lesson_references.insert(capability, checkpoint_before_lesson.clone());
                 let mut development_required = true;
                 if capability == BodyCapability::TapHoldRelease {
                     let demonstration = self.experience(
@@ -553,15 +592,32 @@ impl BodyCourse {
                         (BodyCapability::ThumbContact, 3_250_000),
                         (BodyCapability::PinchDrag, 3_500_000),
                     ] {
+                        let lesson_reference = lesson_references
+                            .get(&retained_capability)
+                            .expect("reached capability has a frozen lesson reference");
                         let reference = truelearner_workstation::WorkstationCheckpoint::decode(
-                            &checkpoint_before_lesson,
+                            lesson_reference,
                         )?;
                         self.harness.reposition_from_checkpoint(&reference)?;
-                        let retention = self.experience(
-                            retained_capability,
-                            BodyExperienceMode::Retention,
-                            development_seed.saturating_add(offset),
-                        )?;
+                        let retention = if retained_capability == BodyCapability::ContactDrag {
+                            self.experience_with_perturbation(
+                                retained_capability,
+                                BodyExperienceMode::Retention,
+                                development_seed.saturating_add(offset),
+                                BodyPerturbation {
+                                    control: BodyControl::PalmHorizontal {
+                                        direction: truelearner_workstation::Direction::Increase,
+                                    },
+                                    impulse: 1,
+                                },
+                            )?
+                        } else {
+                            self.experience(
+                                retained_capability,
+                                BodyExperienceMode::Retention,
+                                development_seed.saturating_add(offset),
+                            )?
+                        };
                         debug_assert!(retention.durable_unchanged);
                     }
                 }
@@ -584,7 +640,7 @@ impl BodyCourse {
         }
         let capability_evidence = capability_evidence(&self.experiences, &self.acquired);
         Ok(CourseRun {
-            schema_version: 9,
+            schema_version: 10,
             seed: self.seed,
             courses,
             acquired: self.acquired.iter().copied().collect(),
@@ -914,6 +970,7 @@ fn replay(
     mode: BodyExperienceMode,
     seed: u64,
     key_depths: Option<(i16, i16)>,
+    perturbation: Option<BodyPerturbation>,
     evidence: ReplayEvidence<'_>,
 ) -> Result<bool, BodyCourseError> {
     if evidence.samples.len() != evidence.observations.len()
@@ -924,6 +981,11 @@ fn replay(
     let checkpoint =
         truelearner_workstation::WorkstationCheckpoint::decode(evidence.checkpoint_before)?;
     let mut harness = WorkstationHarness::restore(checkpoint)?;
+    if let Some(perturbation) = perturbation {
+        if !harness.perturb_body(perturbation.control, perturbation.impulse)? {
+            return Ok(false);
+        }
+    }
     let mut world =
         ExperienceWorld::generated(seed, capability, mode, key_depths, harness.state())?;
     let mut boundary_parents = Vec::new();
@@ -1444,6 +1506,11 @@ mod tests {
             truelearner_workstation::WorkstationCheckpoint::decode(&experience.checkpoint_before)
                 .unwrap();
         let mut harness = WorkstationHarness::restore(checkpoint).unwrap();
+        if let Some(perturbation) = experience.perturbation {
+            assert!(harness
+                .perturb_body(perturbation.control, perturbation.impulse)
+                .unwrap());
+        }
         let key_depths = experience.key_press_depth.zip(experience.key_release_depth);
         let mut world = ExperienceWorld::generated(
             experience.seed,
@@ -2376,6 +2443,7 @@ mod tests {
             experience.mode,
             experience.seed,
             None,
+            experience.perturbation,
             ReplayEvidence {
                 checkpoint_before: &experience.checkpoint_before,
                 samples: &experience.samples,

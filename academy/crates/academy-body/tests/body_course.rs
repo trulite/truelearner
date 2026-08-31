@@ -5,6 +5,7 @@ use academy_body::{
 use academy_workstation::DeviceEvent;
 use behavior_diagram::BehaviorDiagram;
 use sha2::{Digest, Sha256};
+use truelearner_workstation::{BodyControl, Direction, WorkstationCheckpoint, WorkstationHarness};
 
 #[path = "../../../tests/support/behavior_diagram.rs"]
 mod behavior_diagram;
@@ -57,7 +58,7 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
     assert!(run.acquired.contains(&BodyCapability::ThumbContact));
     assert!(run.acquired.contains(&BodyCapability::PinchDrag));
     assert_eq!(run.first_failure, None);
-    assert_eq!(run.schema_version, 9);
+    assert_eq!(run.schema_version, 10);
     assert_eq!(run.courses.len(), BodyCourseKind::ORDER.len());
     assert_eq!(run.courses[0].course, BodyCourseKind::EyeControl);
     assert_eq!(run.courses[0].outcome, BodyCourseOutcome::Acquired);
@@ -73,7 +74,7 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
     };
     assert_eq!(
         evidence_state(BodyCapability::ContactDrag),
-        BodyEvidenceState::General
+        BodyEvidenceState::Stable
     );
     assert_eq!(
         evidence_state(BodyCapability::ThumbContact),
@@ -83,10 +84,74 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
         evidence_state(BodyCapability::PinchDrag),
         BodyEvidenceState::Stable
     );
-    assert!(run.experiences.iter().any(|experience| {
-        experience.capability == BodyCapability::ContactDrag
-            && experience.mode == BodyExperienceMode::Retention
-            && experience.verdict == BodyVerdict::Failed
+    for capability in [
+        BodyCapability::ContactDrag,
+        BodyCapability::ThumbContact,
+        BodyCapability::PinchDrag,
+    ] {
+        let lesson = run
+            .experiences
+            .iter()
+            .find(|experience| {
+                experience.capability == capability
+                    && experience.mode == BodyExperienceMode::Development
+            })
+            .unwrap();
+        let retention = run
+            .experiences
+            .iter()
+            .find(|experience| {
+                experience.capability == capability
+                    && experience.mode == BodyExperienceMode::Retention
+            })
+            .unwrap();
+        let lesson_reference = WorkstationHarness::restore(
+            WorkstationCheckpoint::decode(&lesson.checkpoint_before).unwrap(),
+        )
+        .unwrap();
+        let retention_reference = WorkstationHarness::restore(
+            WorkstationCheckpoint::decode(&retention.checkpoint_before).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(lesson_reference.state(), retention_reference.state());
+        assert_eq!(
+            lesson_reference.read().unwrap().body_fingerprint,
+            retention_reference.read().unwrap().body_fingerprint
+        );
+    }
+    let contact_retention = run
+        .experiences
+        .iter()
+        .find(|experience| {
+            experience.capability == BodyCapability::ContactDrag
+                && experience.mode == BodyExperienceMode::Retention
+        })
+        .unwrap();
+    assert_eq!(contact_retention.verdict, BodyVerdict::Passed);
+    assert!(contact_retention.replay_exact);
+    assert!(contact_retention.durable_unchanged);
+    let perturbation = contact_retention.perturbation.unwrap();
+    assert_eq!(
+        perturbation.control,
+        BodyControl::PalmHorizontal {
+            direction: Direction::Increase,
+        }
+    );
+    assert_eq!(perturbation.impulse, 1);
+    let checkpoint = WorkstationCheckpoint::decode(&contact_retention.checkpoint_before).unwrap();
+    let unperturbed = WorkstationHarness::restore(checkpoint).unwrap();
+    assert_eq!(
+        contact_retention.observations[0]
+            .state_before
+            .hand()
+            .palm()
+            .x(),
+        unperturbed.state().hand().palm().x() + 16
+    );
+    assert!(run.experiences.iter().all(|experience| {
+        experience.perturbation.is_none()
+            || (experience.capability == BodyCapability::ContactDrag
+                && experience.mode == BodyExperienceMode::Retention)
     }));
     let contact_probe = run
         .experiences
@@ -252,15 +317,42 @@ fn assert_experience_diagram(experience: &BodyExperience) {
     let mut diagram = BehaviorDiagram::new(&experience.id);
     let before = checkpoint_node("checkpoint before", &experience.checkpoint_before);
     let after = checkpoint_node("checkpoint after", &experience.checkpoint_after);
+    let prepared = experience
+        .perturbation
+        .map(|perturbation| {
+            format!(
+                "prepared {:?} impulse {}",
+                perturbation.control, perturbation.impulse
+            )
+        })
+        .unwrap_or_else(|| before.clone());
     let replay_after = if experience.replay_exact {
         after.clone()
     } else {
         "checkpoint replay diverged".to_string()
     };
 
-    diagram.arrow("live", &before, "recorded experience", &after);
-    diagram.arrow("replay", &before, "exact replay", replay_after);
-    diagram.assert_commutes(&["live"], &["replay"]);
+    if experience.perturbation.is_some() {
+        diagram.arrow(
+            "live setup",
+            &before,
+            "recorded external perturbation",
+            &prepared,
+        );
+        diagram.arrow(
+            "replay setup",
+            &before,
+            "same external perturbation",
+            &prepared,
+        );
+    }
+    diagram.arrow("live", &prepared, "recorded experience", &after);
+    diagram.arrow("replay", &prepared, "exact replay", replay_after);
+    if experience.perturbation.is_some() {
+        diagram.assert_commutes(&["live setup", "live"], &["replay setup", "replay"]);
+    } else {
+        diagram.assert_commutes(&["live"], &["replay"]);
+    }
 
     if !matches!(
         experience.mode,
@@ -275,7 +367,11 @@ fn assert_experience_diagram(experience: &BodyExperience) {
         };
         diagram.arrow("discard", &after, "discard probe mutation", durable_after);
         diagram.arrow("durable identity", &before, "read unchanged body", &before);
-        diagram.assert_commutes(&["live", "discard"], &["durable identity"]);
+        if experience.perturbation.is_some() {
+            diagram.assert_commutes(&["live setup", "live", "discard"], &["durable identity"]);
+        } else {
+            diagram.assert_commutes(&["live", "discard"], &["durable identity"]);
+        }
     }
 
     assert_eq!(experience.samples.len(), experience.observations.len());

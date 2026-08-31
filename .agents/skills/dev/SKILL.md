@@ -64,6 +64,11 @@ Rust physical trace -> structure-preserving projection -> Lean claim check
   preloaded contact, timers, counters, or an episode-length continuation rule.
   Restore only the frozen external pose for a fresh probe; retain learned
   topology and discard probe mutation.
+- Do not diagnose forgetting from an unchanged retention context that gives the
+  body no physical occasion to act. If a probe needs an external perturbation,
+  freeze the checkpoint before setup, record and exactly replay the
+  perturbation, prove it changes pose without changing learner topology, causal
+  time, or history, and give it no organism parent or credit.
 - Test identity at quiet, renaming invariance, and product independence in
   addition to the smallest positive and killing negative fixtures.
 

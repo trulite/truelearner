@@ -166,8 +166,8 @@ neither the horizon nor the verdict. For deterministic reference seed `31_001`,
 all twelve bounded Body Discovery claims are acquired and there is no
 acquisition failure. Acquisition is not treated as the end of the evidence
 ladder: changed-world transfer and retention after later committed learning are
-recorded separately. `ContactDrag` is currently `General`; `ThumbContact` and
-`PinchDrag` are `Stable`.
+recorded separately. `ContactDrag`, `ThumbContact`, and `PinchDrag` are
+`Stable`.
 That lesson retains the course's compact visual field while using the physical
 workstation's key geometry, contact threshold, press/release hysteresis, and
 device events. A key held for two physical steps now produces one visible
@@ -318,15 +318,22 @@ restores only the external pose and probes the still-current learner. Lean
 checks the already-general unique/ambiguous closure law on frozen Rust evidence;
 no theorem or receipt enters the learner.
 
+ContactDrag retention also records a one-step external lateral displacement
+before the immutable probe. The pre-setup checkpoint remains the durable
+reference, replay applies the same displacement, and the displacement changes
+only the physical pose: it does not change learned topology, causal time, or
+history. Because it is not learner output, it receives no motor parent or
+credit. The retention claim still requires a later organism-caused lateral
+crossing, cursor progress with that exact parent, and terminal drag closure.
+
 The receipt reports an explicit evidence state rather than collapsing every
 passing lesson into one claim: `Acquired` means development plus a fresh probe,
 `General` additionally requires changed-world transfer, and `Stable`
 additionally requires retention after subsequent committed learning.
 `Automatic` is reserved for a future repeated low-cost-use contract. In the
-reference run, all twelve claims are acquired, ContactDrag transfers but fails
-the later retention probe, and ThumbContact and PinchDrag pass both transfer and
-retention. That failure remains visible evidence rather than being reclassified
-as a PinchDrag acquisition failure.
+reference run, all twelve claims are acquired and all three manipulation
+capstones pass both transfer and later retention. The course makes no
+automaticity claim.
 
 Eye and hand foundations may develop independently. Coordination and
 manipulation are not reached until their actual capability prerequisites have
@@ -353,9 +360,10 @@ visible cursor and text, binocular scene rendering, and physical collision. It
 now has accepted unguided movement separation across all five digits, one
 bounded tap/hold/release sequence, contact dragging, thumb contact, and one
 two-contact object transport that transfers to a different grip digit and
-survives later learning. The bounded acquisition course is complete; durable
-ContactDrag retention is the next evidence frontier. No general pointing,
-clicking, typing, grasping, or image-use claim follows from those sequences.
+survives later learning. The bounded body course is complete through the
+defined manipulation stability rung. Repeated low-cost automaticity and richer
+workstation use remain separate future contracts. No general pointing,
+clicking, typing, grasping, or image-use claim follows from these sequences.
 
 ## First curriculum
 

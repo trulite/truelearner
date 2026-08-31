@@ -54,9 +54,12 @@ palm-transport parent cannot pass.
 
 Reference seed `31_001` now acquires all twelve bounded Body Discovery claims.
 Changed-world transfer and post-learning retention are reported separately:
-`ContactDrag` is `General`, while `ThumbContact` and `PinchDrag` are `Stable`.
-The acquisition ladder is closed; the next honest evidence frontier is durable
-ContactDrag retention, not another hidden success condition.
+`ContactDrag`, `ThumbContact`, and `PinchDrag` are `Stable`. ContactDrag's
+retention setup records and exactly replays an external lateral displacement;
+the displacement receives no organism credit, and only the learner's later
+causally parented drag can pass. The bounded course is complete through this
+stability rung. Repeated low-cost automaticity remains a separate future
+contract.
 
 ## Physical workstation
 
