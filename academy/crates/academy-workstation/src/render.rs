@@ -2,6 +2,7 @@ use crate::{DeviceState, Rect, WorkstationPresentation, WorldError, WorldGeometr
 use font8x8::{UnicodeFonts, BASIC_FONTS};
 use image::imageops::FilterType;
 use sha2::{Digest, Sha256};
+use std::sync::{Arc, OnceLock};
 use truelearner_workstation::{Digit, Eye, HandPoint, LightField, WorkstationState, BODY_MAX};
 
 const WIDTH: usize = 640;
@@ -10,7 +11,7 @@ const ASSET: &[u8] = include_bytes!("../assets/coastal-monitor.png");
 
 #[derive(Clone, Debug)]
 pub(crate) struct SceneRenderer {
-    photo: Vec<u8>,
+    photo: Arc<[u8]>,
     photo_width: usize,
     photo_height: usize,
     asset_digest: [u8; 32],
@@ -18,12 +19,17 @@ pub(crate) struct SceneRenderer {
 
 impl SceneRenderer {
     pub(crate) fn new() -> Result<Self, WorldError> {
+        static RENDERER: OnceLock<Result<SceneRenderer, WorldError>> = OnceLock::new();
+        RENDERER.get_or_init(Self::decode).clone()
+    }
+
+    fn decode() -> Result<Self, WorldError> {
         let decoded = image::load_from_memory(ASSET).map_err(|_| WorldError::AssetDecode)?;
         let resized = decoded
             .resize_exact(760, 465, FilterType::Triangle)
             .to_luma8();
         Ok(Self {
-            photo: resized.as_raw().clone(),
+            photo: Arc::from(resized.as_raw().clone()),
             photo_width: usize::try_from(resized.width()).map_err(|_| WorldError::AssetDecode)?,
             photo_height: usize::try_from(resized.height()).map_err(|_| WorldError::AssetDecode)?,
             asset_digest: Sha256::digest(ASSET).into(),
@@ -47,6 +53,18 @@ impl SceneRenderer {
         self.draw_photo(&mut raster, geometry.screen);
         if device.selected() {
             raster.stroke_rect(scale_rect(geometry.screen), 250);
+        }
+        if device.long_pressed_keys().next().is_some() {
+            let screen = scale_rect(geometry.screen);
+            raster.fill_rect(
+                PixelRect {
+                    x: screen.x + screen.width - 30,
+                    y: screen.y + 8,
+                    width: 18,
+                    height: 18,
+                },
+                250,
+            );
         }
         draw_text(
             &mut raster,

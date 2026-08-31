@@ -33,11 +33,22 @@ behavior. Development may commit learning; probes use cloned checkpoints and
 cannot teach the durable organism. Output is an immutable receipt plus a
 content-addressed transcript.
 
+TapHoldRelease development records a cause-tagged external demonstration,
+tests unaided imitation, and, when needed, restores the pre-demonstration body
+for a non-learning press-depth ladder before self-caused practice on a softer
+key. Each ladder rung clones the same checkpoint, changes only the external
+press threshold, and stops at the first missing press. Contact continuation
+requires an exact motor parent supplied by the world transition; boundary
+completion releases only the antagonist in the same actuator component. Only
+organism-caused events can satisfy the subsequent normal-key probe.
+
 ## Physical workstation
 
 `academy-workstation` supplies the binocular visual world, one articulated
 hand, keyboard, touchpad, monitor, collision, and exact world-plus-organism
-replay. It talks only to `truelearner-workstation`.
+replay. Keys expose physical press/release hysteresis and one visible
+long-press consequence after two held steps. It talks only to
+`truelearner-workstation`.
 
 Record and render an observer-only workstation run with:
 
@@ -59,8 +70,9 @@ The recording and derived frames or video never return to the learner.
 The runtime dependency direction is:
 
 ```text
-academy-body ---------------------> truelearner-workstation -> truelearner-body
-academy-workstation --------------> truelearner-workstation -> truelearner-body
+academy-body ----------> academy-workstation
+      |                         |
+      +-------------------------+--> truelearner-workstation -> truelearner-body
 academy-workstation-review -> academy-workstation
 academy-formal -------------------> truelearner-workstation -> truelearner-body
        |

@@ -77,6 +77,36 @@ pub fn attach_outcome_component(
     }
 }
 
+pub fn attach_boundary_component(
+    body: &mut Body,
+    source: JunctionId,
+    motor_opportunities: impl IntoIterator<Item = JunctionId>,
+) {
+    for opportunity in motor_opportunities {
+        let link = body
+            .add_link(Link::new(source, opportunity, 0, 1))
+            .expect("validated boundary component");
+        body.set_link_role(link, LinkRole::BoundaryWitness)
+            .expect("new boundary link exists");
+    }
+}
+
+/// Attaches a physical progress source to candidate motor outputs without
+/// making that source capable of closing their temporary return paths.
+pub fn attach_progress_component(
+    body: &mut Body,
+    source: JunctionId,
+    motor_opportunities: impl IntoIterator<Item = JunctionId>,
+) {
+    for opportunity in motor_opportunities {
+        let link = body
+            .add_link(Link::new(source, opportunity, 0, 1))
+            .expect("validated progress component");
+        body.set_link_role(link, LinkRole::ProgressWitness)
+            .expect("new progress link exists");
+    }
+}
+
 pub fn schedule(body: &mut Body, at: u64, arrivals: &[Arrival]) {
     body.inputs(at, arrivals).unwrap();
 }

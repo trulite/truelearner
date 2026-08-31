@@ -7,7 +7,10 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use truelearner_body::{
-    harness::{attach_outcome_component, attach_sensor, motor},
+    harness::{
+        attach_boundary_component, attach_outcome_component, attach_progress_component,
+        attach_sensor, motor,
+    },
     Arrival, Body, BodyCheckpoint, BodyCheckpointError, Junction, JunctionId, Run,
     TraceEvent as BodyTraceEvent, Work,
 };
@@ -36,6 +39,7 @@ pub(crate) struct Handles {
     pub(crate) proprioception: [[JunctionId; PROPRIOCEPTIVE_FIELDS]; AXIS_COUNT],
     pub(crate) competition_outcomes: [JunctionId; COMPETITION_COMPONENTS],
     pub(crate) outcomes: [JunctionId; OUTCOME_COMPONENTS],
+    pub(crate) resisted_progress: [JunctionId; AXIS_COUNT],
     pub(crate) opportunities: Vec<JunctionId>,
     #[serde(with = "outward_checkpoint")]
     pub(crate) outward: Vec<(JunctionId, BodyControl)>,
@@ -70,6 +74,7 @@ impl Handles {
                 .chain(self.proprioception.iter().flatten())
                 .chain(&self.competition_outcomes)
                 .chain(&self.outcomes)
+                .chain(&self.resisted_progress)
                 .chain(&self.opportunities)
                 .chain(self.outward.iter().map(|(junction, _)| junction))
                 .all(|junction| body.held(*junction).is_some())
@@ -165,6 +170,9 @@ pub struct WorkstationStepObservation {
     pub state_after: WorkstationState,
     pub pose_changed: bool,
     pub admitted_inputs: usize,
+    pub opportunity_admitted: bool,
+    pub boundary_parents: Vec<MotorEffect>,
+    pub progress_parents: Vec<MotorEffect>,
     pub crossings: Vec<MotorEffect>,
     pub movements: Vec<BodyMovement>,
     pub returned_transitions: Vec<BodyAxis>,
@@ -216,7 +224,11 @@ impl WorkstationHarness {
     fn fresh() -> Result<Self, WorkstationError> {
         let mut body = Body::default();
         body.reserve(
-            COMPETITION_COMPONENTS + OUTCOME_COMPONENTS + SENSOR_COUNT + CONTROL_COUNT * 2,
+            COMPETITION_COMPONENTS
+                + OUTCOME_COMPONENTS
+                + AXIS_COUNT
+                + SENSOR_COUNT
+                + CONTROL_COUNT * 2,
             1_024,
         );
         let mut opportunities = Vec::with_capacity(CONTROL_COUNT);
@@ -265,7 +277,7 @@ impl WorkstationHarness {
         .into_iter()
         .enumerate()
         {
-            attach_outcome_component(
+            attach_boundary_component(
                 &mut body,
                 competition_outcomes[component],
                 motors.iter().copied(),
@@ -281,6 +293,16 @@ impl WorkstationHarness {
                 opportunities[start..start + 2].iter().copied(),
             );
         }
+        let resisted_progress =
+            std::array::from_fn(|_| attach_sensor(&mut body, Junction::integrating(1), &[]));
+        for axis in BodyAxis::ALL {
+            let start = axis.index() * 2;
+            attach_progress_component(
+                &mut body,
+                resisted_progress[axis.index()],
+                opportunities[start..start + 2].iter().copied(),
+            );
+        }
         body.inputs(0, &prime).map_err(body_error)?;
         body.run(MOMENT_LIMIT, |_| {}).map_err(body_error)?;
         Ok(Self {
@@ -291,6 +313,7 @@ impl WorkstationHarness {
                 proprioception,
                 competition_outcomes,
                 outcomes,
+                resisted_progress,
                 opportunities,
                 outward,
             },
@@ -306,7 +329,56 @@ impl WorkstationHarness {
         &mut self,
         sample: WorldSample,
     ) -> Result<WorkstationStepObservation, WorkstationError> {
-        let (next, observation) = self.transition(sample)?;
+        self.step_with_boundary_parents(sample, &[])
+    }
+
+    pub fn step_with_boundary_parents(
+        &mut self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+    ) -> Result<WorkstationStepObservation, WorkstationError> {
+        self.step_with_causal_parents(sample, boundary_parents, &[])
+    }
+
+    pub fn step_with_causal_parents(
+        &mut self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+        progress_parents: &[MotorEffect],
+    ) -> Result<WorkstationStepObservation, WorkstationError> {
+        let (next, observation) =
+            self.transition_with_causal_parents(sample, boundary_parents, progress_parents)?;
+        *self = next;
+        Ok(observation)
+    }
+
+    /// Admits returned boundary and sensory effects without opening a new
+    /// chance to move. This lets an already-caused world return settle before
+    /// a checkpoint is frozen.
+    pub fn settle_with_boundary_parents(
+        &mut self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+    ) -> Result<WorkstationStepObservation, WorkstationError> {
+        self.settle_with_causal_parents(sample, boundary_parents, &[])
+    }
+
+    pub fn settle_with_causal_parents(
+        &mut self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+        progress_parents: &[MotorEffect],
+    ) -> Result<WorkstationStepObservation, WorkstationError> {
+        sample.validate()?;
+        let mut next = self.clone();
+        let observation = next.step_in_place_with_trace(
+            sample,
+            boundary_parents,
+            progress_parents,
+            false,
+            false,
+            None,
+        )?;
         *self = next;
         Ok(observation)
     }
@@ -315,10 +387,34 @@ impl WorkstationHarness {
         &mut self,
         sample: WorldSample,
     ) -> Result<(WorkstationStepObservation, Vec<BodyTraceEvent>), WorkstationError> {
+        self.step_traced_with_boundary_parents(sample, &[])
+    }
+
+    pub fn step_traced_with_boundary_parents(
+        &mut self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+    ) -> Result<(WorkstationStepObservation, Vec<BodyTraceEvent>), WorkstationError> {
+        self.step_traced_with_causal_parents(sample, boundary_parents, &[])
+    }
+
+    pub fn step_traced_with_causal_parents(
+        &mut self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+        progress_parents: &[MotorEffect],
+    ) -> Result<(WorkstationStepObservation, Vec<BodyTraceEvent>), WorkstationError> {
         sample.validate()?;
         let mut next = self.clone();
         let mut trace = Vec::new();
-        let observation = next.step_in_place_with_trace(sample, Some(&mut trace))?;
+        let observation = next.step_in_place_with_trace(
+            sample,
+            boundary_parents,
+            progress_parents,
+            true,
+            true,
+            Some(&mut trace),
+        )?;
         *self = next;
         Ok((observation, trace))
     }
@@ -327,30 +423,69 @@ impl WorkstationHarness {
         &self,
         sample: WorldSample,
     ) -> Result<(Self, WorkstationStepObservation), WorkstationError> {
+        self.transition_with_boundary_parents(sample, &[])
+    }
+
+    pub fn transition_with_boundary_parents(
+        &self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+    ) -> Result<(Self, WorkstationStepObservation), WorkstationError> {
+        self.transition_with_causal_parents(sample, boundary_parents, &[])
+    }
+
+    pub fn transition_with_causal_parents(
+        &self,
+        sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+        progress_parents: &[MotorEffect],
+    ) -> Result<(Self, WorkstationStepObservation), WorkstationError> {
         sample.validate()?;
         let mut next = self.clone();
-        let observation = next.step_in_place(sample)?;
+        let observation = next.step_in_place(sample, boundary_parents, progress_parents)?;
         Ok((next, observation))
     }
 
     fn step_in_place(
         &mut self,
         sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+        progress_parents: &[MotorEffect],
     ) -> Result<WorkstationStepObservation, WorkstationError> {
-        self.step_in_place_with_trace(sample, None)
+        self.step_in_place_with_trace(sample, boundary_parents, progress_parents, true, true, None)
     }
 
     fn step_in_place_with_trace(
         &mut self,
         sample: WorldSample,
+        boundary_parents: &[MotorEffect],
+        progress_parents: &[MotorEffect],
+        admit_sensory: bool,
+        admit_opportunity: bool,
         trace: Option<&mut Vec<BodyTraceEvent>>,
     ) -> Result<WorkstationStepObservation, WorkstationError> {
         sample.validate()?;
         let state_before = self.state.clone();
-        let returned_transitions = self.pending_axes();
+        let returned_transitions = if admit_sensory {
+            self.pending_axes()
+        } else {
+            Vec::new()
+        };
         let cause = self.sequence.saturating_add(1);
         let at = self.physical_tick.saturating_add(1);
-        let mut first_wave = self.sensory_wave(&sample, cause);
+        let boundary_wave = self.boundary_wave(boundary_parents);
+        let sensory_at = at.saturating_add(u64::from(!boundary_wave.is_empty()));
+        if !boundary_wave.is_empty() {
+            self.body.inputs(at, &boundary_wave).map_err(body_error)?;
+        }
+        let mut first_wave = if admit_sensory {
+            self.sensory_wave(&sample, cause)
+        } else {
+            Vec::new()
+        };
+        if admit_sensory {
+            first_wave.extend(self.resisted_progress_wave(progress_parents));
+        }
         let mut returned_components = [false; OUTCOME_COMPONENTS];
         for axis in &returned_transitions {
             returned_components[outcome_component(*axis)] = true;
@@ -360,18 +495,27 @@ impl WorkstationHarness {
                 first_wave.push(Arrival::caused(self.handles.outcomes[component], 1, cause));
             }
         }
-        self.body.inputs(at, &first_wave).map_err(body_error)?;
-        let opportunity_at = at.saturating_add(1);
-        let opportunity_wave = self
-            .handles
-            .opportunities
-            .iter()
-            .copied()
-            .map(|target| Arrival::caused(target, 1, cause))
-            .collect::<Vec<_>>();
-        self.body
-            .inputs(opportunity_at, &opportunity_wave)
-            .map_err(body_error)?;
+        if !first_wave.is_empty() {
+            self.body
+                .inputs(sensory_at, &first_wave)
+                .map_err(body_error)?;
+        }
+        let opportunity_at = sensory_at.saturating_add(1);
+        let opportunity_wave = if admit_opportunity {
+            self.handles
+                .opportunities
+                .iter()
+                .copied()
+                .map(|target| Arrival::caused(target, 1, cause))
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
+        if !opportunity_wave.is_empty() {
+            self.body
+                .inputs(opportunity_at, &opportunity_wave)
+                .map_err(body_error)?;
+        }
 
         let outward = &self.handles.outward;
         let mut crossings = Vec::new();
@@ -420,7 +564,9 @@ impl WorkstationHarness {
         let pose_changed = !self.state.same_pose(&state_before);
         let sequence = self.sequence;
         self.sequence = self.sequence.saturating_add(1);
-        self.history.push(sample);
+        if admit_sensory {
+            self.history.push(sample);
+        }
         let resident_bytes = self.resident_bytes();
         let body_fingerprint = self.fingerprint()?;
         let metrics = StepMetrics::from_run(
@@ -433,7 +579,13 @@ impl WorkstationHarness {
             state_before,
             state_after: self.state.clone(),
             pose_changed,
-            admitted_inputs: first_wave.len().saturating_add(opportunity_wave.len()),
+            admitted_inputs: boundary_wave
+                .len()
+                .saturating_add(first_wave.len())
+                .saturating_add(opportunity_wave.len()),
+            opportunity_admitted: admit_opportunity,
+            boundary_parents: boundary_parents.to_vec(),
+            progress_parents: progress_parents.to_vec(),
             crossings,
             movements,
             returned_transitions,
@@ -443,6 +595,57 @@ impl WorkstationHarness {
             body_fingerprint,
             physical_tick: i64::try_from(self.physical_tick).unwrap_or(i64::MAX),
         })
+    }
+
+    fn boundary_wave(&self, parents: &[MotorEffect]) -> Vec<Arrival> {
+        let mut causes: [Vec<u64>; COMPETITION_COMPONENTS] = std::array::from_fn(|_| Vec::new());
+        for parent in parents {
+            let component = competition_component(parent.control.axis());
+            if !causes[component].contains(&parent.cause) {
+                causes[component].push(parent.cause);
+            }
+        }
+        causes
+            .into_iter()
+            .enumerate()
+            .filter_map(|(component, causes)| {
+                let cause = match causes.as_slice() {
+                    [] => return None,
+                    [cause] => *cause,
+                    _ => 0,
+                };
+                Some(Arrival::caused(
+                    self.handles.competition_outcomes[component],
+                    1,
+                    cause,
+                ))
+            })
+            .collect()
+    }
+
+    fn resisted_progress_wave(&self, parents: &[MotorEffect]) -> Vec<Arrival> {
+        BodyAxis::ALL
+            .into_iter()
+            .filter_map(|axis| {
+                let mut cause = 0;
+                for parent in parents
+                    .iter()
+                    .filter(|parent| parent.control.axis() == axis)
+                {
+                    if cause == 0 {
+                        cause = parent.cause;
+                    } else if cause != parent.cause {
+                        return None;
+                    }
+                }
+                (cause != 0).then_some(())?;
+                Some(Arrival::caused(
+                    self.handles.resisted_progress[axis.index()],
+                    1,
+                    cause,
+                ))
+            })
+            .collect()
     }
 
     fn sensory_wave(&self, sample: &WorldSample, cause: u64) -> Vec<Arrival> {
@@ -496,6 +699,22 @@ impl WorkstationHarness {
         })
     }
 
+    /// Maps an observer trace's outward junction back to the physical control
+    /// owned by this harness. It does not change the body or admit input.
+    pub fn control_for_trace_output(&self, output: JunctionId) -> Option<BodyControl> {
+        self.handles
+            .opportunities
+            .iter()
+            .position(|junction| *junction == output)
+            .and_then(|index| self.handles.outward.get(index).map(|(_, control)| *control))
+            .or_else(|| {
+                self.handles
+                    .outward
+                    .iter()
+                    .find_map(|(junction, control)| (*junction == output).then_some(*control))
+            })
+    }
+
     pub fn save(&self) -> Result<WorkstationCheckpoint, WorkstationError> {
         if !self.body.is_quiet() {
             return Err(WorkstationError::InvalidCheckpoint);
@@ -533,6 +752,23 @@ impl WorkstationHarness {
             pending_transitions: payload.pending_transitions,
             history: payload.history,
         })
+    }
+
+    /// Repositions the physical workstation body to a frozen reference pose
+    /// while preserving the learned body, causal time, and durable topology.
+    /// The next admitted sample makes the intervention physically observable.
+    pub fn reposition_from_checkpoint(
+        &mut self,
+        checkpoint: &WorkstationCheckpoint,
+    ) -> Result<(), WorkstationError> {
+        if !self.body.is_quiet() {
+            return Err(WorkstationError::InvalidCheckpoint);
+        }
+        let reference = checkpoint.clone().open();
+        self.state = reference.state;
+        self.pending_transitions = reference.pending_transitions;
+        self.history = reference.history;
+        Ok(())
     }
 
     fn pending_axes(&self) -> Vec<BodyAxis> {
@@ -584,6 +820,22 @@ const fn control(axis: BodyAxis, direction: Direction) -> BodyControl {
 
 const fn outcome_component(axis: BodyAxis) -> usize {
     axis.index()
+}
+
+const fn competition_component(axis: BodyAxis) -> usize {
+    match axis {
+        BodyAxis::EyeHorizontal { eye: Eye::Left } | BodyAxis::EyeVertical { eye: Eye::Left } => 0,
+        BodyAxis::EyeHorizontal { eye: Eye::Right } | BodyAxis::EyeVertical { eye: Eye::Right } => {
+            1
+        }
+        BodyAxis::PalmHorizontal
+        | BodyAxis::PalmVertical
+        | BodyAxis::PalmDepth
+        | BodyAxis::Wrist
+        | BodyAxis::Spread
+        | BodyAxis::ThumbOpposition
+        | BodyAxis::FingerFlexion { .. } => 2,
+    }
 }
 
 const fn total_work(work: Work) -> u64 {
@@ -789,6 +1041,38 @@ mod tests {
             .filter_map(|(index, (left, right))| (left != right).then_some(index))
             .collect::<Vec<_>>();
         assert_eq!(differences, [RECEPTORS_PER_EYE / 2]);
+    }
+
+    #[test]
+    fn progress_requires_one_explicit_causal_parent_per_axis() {
+        let harness = WorkstationHarness::new(1).unwrap();
+        let parent = MotorEffect {
+            at: 7,
+            control: BodyControl::PalmDepth {
+                direction: Direction::Increase,
+            },
+            impulse: 1,
+            cause: 41,
+        };
+
+        assert_eq!(
+            harness.resisted_progress_wave(&[parent]),
+            [Arrival::caused(
+                harness.handles.resisted_progress[BodyAxis::PalmDepth.index()],
+                1,
+                41,
+            )]
+        );
+        assert!(harness
+            .resisted_progress_wave(&[
+                parent,
+                MotorEffect {
+                    cause: 42,
+                    ..parent
+                },
+            ])
+            .is_empty());
+        assert!(harness.resisted_progress_wave(&[]).is_empty());
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use crate::course::{BodyCapability, BodyCourseError};
 use truelearner_workstation::{
-    ContactSample, Digit, Eye, HandPoint, HandState, LightField, Point, WorkstationRead,
-    WorldSample, BODY_MAX, TOUCH_SITES,
+    BodyAxis, ContactSample, Digit, Eye, HandPoint, HandState, LightField, MotorEffect, Point,
+    WorkstationRead, WorkstationStepObservation, WorldSample, BODY_MAX, TOUCH_SITES,
 };
 
 const SIDE: u16 = 9;
@@ -113,6 +113,37 @@ impl FlatWorld {
         let contacts = contacts(self.capability, self.seed, self.step, body)?;
         self.step = self.step.saturating_add(1);
         Ok(WorldSample::new([left, right], contacts)?)
+    }
+
+    pub(crate) fn progress_parents(
+        &self,
+        observation: &WorkstationStepObservation,
+    ) -> Vec<MotorEffect> {
+        if self.capability < BodyCapability::Contact {
+            return Vec::new();
+        }
+        let before = pose_contact_pressures(observation.state_before.hand());
+        let after = pose_contact_pressures(observation.state_after.hand());
+        let changed_axes = observation
+            .movements
+            .iter()
+            .filter(|movement| movement.changed)
+            .filter_map(|movement| match movement.axis {
+                BodyAxis::PalmDepth if before != after => Some(movement.axis),
+                BodyAxis::FingerFlexion { digit }
+                    if before[digit_index(digit) + 1] != after[digit_index(digit) + 1] =>
+                {
+                    Some(movement.axis)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        observation
+            .crossings
+            .iter()
+            .copied()
+            .filter(|crossing| changed_axes.contains(&crossing.control.axis()))
+            .collect()
     }
 
     fn fixed_stereo_targets(&mut self, gazes: [Point; 2]) -> [ScenePoint; 2] {
@@ -285,6 +316,20 @@ fn contacts(
 fn contact_pressure(depth: i16) -> u16 {
     let excess = depth.saturating_sub(CONTACT_DEPTH).unsigned_abs();
     96_u16.saturating_add(excess / 4).min(BODY_MAX as u16)
+}
+
+fn pose_contact_pressures(hand: &HandState) -> [u16; TOUCH_SITES] {
+    let mut pressures = [0; TOUCH_SITES];
+    if hand.palm().depth() >= CONTACT_DEPTH {
+        pressures[0] = contact_pressure(hand.palm().depth());
+    }
+    for digit in Digit::ALL {
+        let depth = hand.fingertip(digit).depth();
+        if depth >= CONTACT_DEPTH {
+            pressures[digit_index(digit) + 1] = contact_pressure(depth);
+        }
+    }
+    pressures
 }
 
 const fn digit_index(digit: Digit) -> usize {

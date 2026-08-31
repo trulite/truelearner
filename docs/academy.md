@@ -26,8 +26,9 @@ answers, correctness bits, loss, reward, or evaluator state.
 Keep the runtime dependency direction:
 
 ```text
-academy-body ---------------------> truelearner-workstation -> truelearner-body
-academy-workstation --------------> truelearner-workstation -> truelearner-body
+academy-body ----------> academy-workstation
+      |                         |
+      +-------------------------+--> truelearner-workstation -> truelearner-body
 academy-workstation-review -> academy-workstation
 academy-formal -------------------> truelearner-workstation -> truelearner-body
        |
@@ -134,6 +135,10 @@ Academy arranges only light and contact worlds. It never chooses or injects a
 gaze, hand, finger, direction, pressure, or action output. If ordinary sensory
 experience produces no unguided outward exploration, the course preserves
 `MissingExploration` as its first failure instead of teaching an action route.
+Development may include a visible external demonstrator acting on a separate
+world object. The demonstrator never moves the learner's body. Its events carry
+external causal ancestry, cannot satisfy a learner capability claim, and are
+absent from fresh probes.
 Opposing outputs are combined by the body's fixed force law, and Academy counts
 only the resulting net pose change as movement.
 `GazeContingency` additionally requires repeated net gaze changes that change
@@ -154,8 +159,117 @@ Body Discovery experiences contain twelve ordinary world steps by default.
 reach the external surface in twelve; this is an Academy exposure horizon, not
 an action, direction, or success signal supplied to the organism. Extending all
 capabilities to sixteen is rejected because it changes earlier binocular
-evidence. For the deterministic reference seed `31_001`, Contact and
-`VisualReach` are acquired and the current first failure is `TapHoldRelease`.
+evidence. For the deterministic reference seed `31_001`, Contact,
+`VisualReach`, and `TapHoldRelease` are acquired and the current first failure
+is `DragOpposition`.
+That lesson retains the course's compact visual field while using the physical
+workstation's key geometry, contact threshold, press/release hysteresis, and
+device events. A key held for two physical steps now produces one visible
+`LongPressActivated` world event. The capability requires an organism-caused
+press, that held consequence, and release of the same key. Contact, depth
+motion, or a demonstrated event alone cannot pass. Exact replay regenerates the
+sensory samples, causal event origins, device events, and world fingerprint.
+
+The TapHoldRelease lesson separates demonstration, imitation, boundary
+diagnosis, shaped practice, and transfer. First, a separate external finger
+visibly presses, holds until the consequence appears, and releases; an unaided
+normal-key control then tests observational imitation. If that control fails,
+Academy restores the exact pre-demonstration checkpoint and runs a causally
+inert press-depth ladder. Every rung clones that same checkpoint, uses the same
+world seed and fixed release depth `608`, changes only the press depth through
+`640, 656, 672, 688, 704, 720`, and stops at the first missing organism-caused
+press. A rung records evidence but cannot mutate the durable learner or satisfy
+the capability. Academy then restores the same lesson checkpoint for
+self-caused practice on the `640/608` key, followed by a fresh normal-key probe
+at `720/660`.
+
+For reference seed `31_001`, all six frozen depth controls now pass from the
+same pre-practice checkpoint. The ladder shows the same retained palm-depth
+increase composing through contact at `640, 656, 672, 688, 704, 720`; its seven
+steps are exposure time, not a desired-action hint. Self-caused practice on the
+`640/608` key closes press, holds through the distinct long-press event, and
+releases. After repositioning only the external body pose to the frozen lesson
+pose, a fresh normal `720/660` probe performs the same sequence and replays
+exactly. The demonstration remains insufficient by itself, the immediate
+imitation control remains failed, and every capability event must still have
+organism ancestry.
+
+The decisive separation is now explicit. Ordinary proprioceptive movement may
+close an ordinary movement return without claiming that the world boundary is
+finished. Fresh contact progress continues only when the world supplies the
+exact motor parent and the retained path's boundary instance remains open. A
+press or release event closes that boundary instance, clears transient action
+recency, and inhibits the completed output. Morphological competition then
+releases only inside the same actuator's ordinary outcome component, so
+palm-depth increase yields to palm-depth decrease instead of an unrelated
+finger. If ancestry or locality is ambiguous, no continuation or local release
+claim is made.
+
+### TapHoldRelease implementation contract
+
+This is the accepted TapHoldRelease mechanism for the current Academy evidence.
+Preserve the complete boundary square:
+
+```text
+motor crossing ---------> world consequence
+      |                          |
+      | opens witness            | retains causal parents
+      v                          v
+open return path -------> closed / ambiguous / no claim
+```
+
+Implement and test it in this order:
+
+1. Let the world retain zero, one, or several exact motor-crossing parents for
+   both boundary consequences and contact progress. A demonstrator has external
+   ancestry and no organism parent. Time adjacency alone supplies no parent.
+2. Return only the opaque crossing and cause through the workstation boundary.
+   Do not expose device event, key identity, threshold, capability, direction
+   target, or verdict to the organism.
+3. Close one live boundary instance only when exactly one witnessed crossing
+   explains the consequence. Missing ancestry makes no claim; several live
+   explanations are ambiguous and strengthen nothing. Ordinary movement
+   closure does not mark the boundary instance closed.
+4. Before `UntriedOutputRelease`, continue only one executable, retained,
+   boundary-open path carrying fresh world-witnessed progress from its own
+   motor cause. Recompute this condition at every choice; do not store a
+   permanent continue command.
+5. Boundary closure clears transient outcome selection and inhibits the exact
+   completed output. The next release is confined to the same ordinary outcome
+   component; an unrelated finger or eye cannot win that local reversal.
+6. Remove continuation after closure, absent progress, ambiguity, physical
+   limit, or expiry. Commanded movement with no world-witnessed consequence is
+   no progress.
+
+Keep implementation ownership separated:
+
+- `academy-workstation` derives boundary and progress parents from one physical
+  before/after world transition;
+- `truelearner-workstation` maps returned opaque parents to existing boundary,
+  progress, and ordinary outcome incidence;
+- `truelearner-body` resolves instance closure, retained progress, and local
+  antagonist release;
+- `academy-body` owns only the paired discriminator and capability evidence;
+- `academy-formal` projects explicit frozen arrows, and `formal/closure` proves
+  the claimed closure resolution; Rust's frozen verifier checks choice laws.
+
+The paired discriminator remains mandatory. With the same checkpoint, a deeper
+world must compose the progressing palm path until its own boundary closes,
+while a shallower world must return press ancestry, close that instance, and
+release to the local antagonist. Core controls establish retained open progress,
+no progress, boundary-closed progress, ambiguous progress ancestry, local
+release, and simultaneous-component ambiguity before the normal-depth lesson.
+
+Category theory specifies the composition boundary: objects are crossings,
+world effects, witnesses, and resolutions; arrows are act, affect, return,
+close, and continue. Identity is natural quiet, independent body/world parts
+compose as products, and renaming physical identities must not change
+resolution. Rust must record the actual arrows. The frozen-trace projector must
+reject an absent parent rather than manufacture one. Lean proves that one
+explanation closes exactly one witness and several explanations persist
+nothing; Rust's frozen choice verifier checks retained progress and local
+release. Lean remains observer-only and its receipt never enters the learner or
+the hot path.
 
 Eye and hand foundations may develop independently. Coordination and
 manipulation are not reached until their actual capability prerequisites have
@@ -179,10 +293,10 @@ quiescence, unchanged negative controls, and bounded physical work.
 The headless `academy-workstation` world now supplies the next external surface:
 a standard ANSI 104-key keyboard, continuous touchpad, monitor photograph,
 visible cursor and text, binocular scene rendering, and physical collision. It
-now has accepted unguided movement separation across all five digits. The next
-capability frontier is local surface-contact contingency and then
-contact-directed control; no pointing, clicking, typing, or image-use claim
-follows from separate movement alone.
+now has accepted unguided movement separation across all five digits and one
+bounded tap/hold/release sequence. The current body-course frontier is
+`DragOpposition`; no general pointing, clicking, typing, or image-use claim
+follows from that sequence.
 
 ## First curriculum
 

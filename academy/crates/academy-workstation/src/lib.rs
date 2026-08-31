@@ -13,7 +13,8 @@ pub use geometry::{Key, KeyId, Rect, WorldGeometry, KEY_COUNT};
 pub use recording::{RecordedStep, WorkstationRecording, MAX_RECORDING_STEPS};
 pub use session::{SessionObservation, SessionRead, WorkstationSession};
 pub use world::{
-    DeviceEvent, DeviceState, ScreenPoint, WorkstationPresentation, WorkstationWorld, CONTACT_DEPTH,
+    DeviceEvent, DeviceState, ScreenPoint, WorkstationPresentation, WorkstationWorld,
+    WorldTransition, CONTACT_DEPTH, KEY_PRESS_DEPTH, KEY_RELEASE_DEPTH, LONG_PRESS_STEPS,
 };
 
 use std::fmt;
@@ -24,6 +25,7 @@ pub enum WorldError {
     AssetDigest,
     InvalidGeometry,
     InvalidPresentation,
+    InvalidKeyDepths,
     InvalidState,
     InvalidCheckpoint,
     TruncatedCheckpoint,
@@ -49,6 +51,7 @@ impl fmt::Display for WorldError {
             Self::AssetDigest => formatter.write_str("monitor image digest differs"),
             Self::InvalidGeometry => formatter.write_str("workstation geometry is invalid"),
             Self::InvalidPresentation => formatter.write_str("workstation presentation is invalid"),
+            Self::InvalidKeyDepths => formatter.write_str("workstation key depths are invalid"),
             Self::InvalidState => formatter.write_str("workstation device state is invalid"),
             Self::InvalidCheckpoint => formatter.write_str("workstation checkpoint is invalid"),
             Self::TruncatedCheckpoint => formatter.write_str("workstation checkpoint is truncated"),

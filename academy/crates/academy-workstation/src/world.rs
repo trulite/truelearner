@@ -3,14 +3,16 @@ use crate::render::SceneRenderer;
 use crate::{WorldError, KEY_COUNT};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use truelearner_workstation::{
-    ContactSample, Digit, Eye, HandPoint, WorkstationState, WorldSample, BODY_MAX, TOUCH_SITES,
+    BodyAxis, ContactSample, Digit, Eye, HandPoint, MotorEffect, WorkstationState,
+    WorkstationStepObservation, WorldSample, BODY_MAX, TOUCH_SITES,
 };
 
 pub const CONTACT_DEPTH: i16 = 600;
-const PRESS_DEPTH: i16 = 720;
-const RELEASE_DEPTH: i16 = 660;
+pub const KEY_PRESS_DEPTH: i16 = 720;
+pub const KEY_RELEASE_DEPTH: i16 = 660;
+pub const LONG_PRESS_STEPS: u64 = 2;
 const MAX_TEXT: usize = 64;
 const MAX_TAP_STEPS: u64 = 5;
 const MAX_TAP_TRAVEL: u32 = 28;
@@ -75,6 +77,8 @@ struct TouchTrack {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceState {
     keys_down: BTreeSet<u16>,
+    key_started_at: BTreeMap<u16, u64>,
+    long_pressed: BTreeSet<u16>,
     cursor: ScreenPoint,
     touch: Option<TouchTrack>,
     text: String,
@@ -86,6 +90,8 @@ impl Default for DeviceState {
     fn default() -> Self {
         Self {
             keys_down: BTreeSet::new(),
+            key_started_at: BTreeMap::new(),
+            long_pressed: BTreeSet::new(),
             cursor: ScreenPoint { x: 512, y: 512 },
             touch: None,
             text: String::new(),
@@ -98,6 +104,10 @@ impl Default for DeviceState {
 impl DeviceState {
     pub fn keys_down(&self) -> impl Iterator<Item = KeyId> + '_ {
         self.keys_down.iter().copied().map(KeyId)
+    }
+
+    pub fn long_pressed_keys(&self) -> impl Iterator<Item = KeyId> + '_ {
+        self.long_pressed.iter().copied().map(KeyId)
     }
 
     pub const fn cursor(&self) -> ScreenPoint {
@@ -125,6 +135,18 @@ impl DeviceState {
             .keys_down
             .iter()
             .any(|key| usize::from(*key) >= KEY_COUNT)
+            || self
+                .key_started_at
+                .keys()
+                .any(|key| !self.keys_down.contains(key))
+            || self
+                .keys_down
+                .iter()
+                .any(|key| !self.key_started_at.contains_key(key))
+            || self
+                .long_pressed
+                .iter()
+                .any(|key| !self.key_started_at.contains_key(key))
             || !(0..=BODY_MAX).contains(&self.cursor.x)
             || !(0..=BODY_MAX).contains(&self.cursor.y)
             || self.text.chars().count() > MAX_TEXT
@@ -139,10 +161,28 @@ impl DeviceState {
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum DeviceEvent {
     KeyPressed { key: u16 },
+    LongPressActivated { key: u16 },
     KeyReleased { key: u16 },
     TextChanged,
     CursorMoved { from: ScreenPoint, to: ScreenPoint },
     Clicked { selected: bool },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorldTransition {
+    pub events: Vec<DeviceEvent>,
+    pub boundary_parents: Vec<MotorEffect>,
+    pub progress_parents: Vec<MotorEffect>,
+}
+
+impl WorldTransition {
+    pub fn external(events: Vec<DeviceEvent>) -> Self {
+        Self {
+            events,
+            boundary_parents: Vec::new(),
+            progress_parents: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -183,6 +223,8 @@ pub struct WorkstationWorld {
     device: DeviceState,
     presentation: WorkstationPresentation,
     renderer: SceneRenderer,
+    key_press_depth: i16,
+    key_release_depth: i16,
 }
 
 impl PartialEq for WorkstationWorld {
@@ -190,6 +232,8 @@ impl PartialEq for WorkstationWorld {
         self.geometry == other.geometry
             && self.device == other.device
             && self.presentation == other.presentation
+            && self.key_press_depth == other.key_press_depth
+            && self.key_release_depth == other.key_release_depth
             && self.renderer.asset_digest() == other.renderer.asset_digest()
     }
 }
@@ -201,16 +245,42 @@ impl WorkstationWorld {
         Self::new_with_presentation(WorkstationPresentation::default())
     }
 
+    pub fn new_with_key_depths(
+        key_press_depth: i16,
+        key_release_depth: i16,
+    ) -> Result<Self, WorldError> {
+        Self::new_with_presentation_and_key_depths(
+            WorkstationPresentation::default(),
+            key_press_depth,
+            key_release_depth,
+        )
+    }
+
     pub fn new_with_presentation(
         presentation: WorkstationPresentation,
     ) -> Result<Self, WorldError> {
+        Self::new_with_presentation_and_key_depths(presentation, KEY_PRESS_DEPTH, KEY_RELEASE_DEPTH)
+    }
+
+    fn new_with_presentation_and_key_depths(
+        presentation: WorkstationPresentation,
+        key_press_depth: i16,
+        key_release_depth: i16,
+    ) -> Result<Self, WorldError> {
         let geometry = WorldGeometry::standard_ansi_104()?;
         presentation.validate(&geometry)?;
+        if !(CONTACT_DEPTH..key_press_depth).contains(&key_release_depth)
+            || key_press_depth > BODY_MAX
+        {
+            return Err(WorldError::InvalidKeyDepths);
+        }
         Ok(Self {
             geometry,
             device: DeviceState::default(),
             presentation,
             renderer: SceneRenderer::new()?,
+            key_press_depth,
+            key_release_depth,
         })
     }
 
@@ -239,8 +309,16 @@ impl WorkstationWorld {
         self.renderer.asset_digest()
     }
 
+    pub const fn key_press_depth(&self) -> i16 {
+        self.key_press_depth
+    }
+
+    pub const fn key_release_depth(&self) -> i16 {
+        self.key_release_depth
+    }
+
     pub fn sense(&self, body: &WorkstationState) -> Result<WorldSample, WorldError> {
-        let contacts = self.contacts(SurfaceFrame::from_body(body))?;
+        let contacts = self.contact_samples(body)?;
         let eyes = [
             self.renderer.render(
                 &self.geometry,
@@ -260,6 +338,13 @@ impl WorkstationWorld {
         Ok(WorldSample::new(eyes, contacts)?)
     }
 
+    pub fn contact_samples(
+        &self,
+        body: &WorkstationState,
+    ) -> Result<[ContactSample; TOUCH_SITES], WorldError> {
+        self.contacts(SurfaceFrame::from_body(body))
+    }
+
     pub fn advance(
         &mut self,
         before: &WorkstationState,
@@ -271,12 +356,92 @@ impl WorkstationWorld {
         )
     }
 
+    pub fn advance_observation(
+        &mut self,
+        observation: &WorkstationStepObservation,
+    ) -> WorldTransition {
+        let contact_change = match (
+            self.contact_samples(&observation.state_before),
+            self.contact_samples(&observation.state_after),
+        ) {
+            (Ok(before), Ok(after)) => Some((before, after)),
+            _ => None,
+        };
+        let events = self.advance(&observation.state_before, &observation.state_after);
+        let has_direct_boundary_effect = events
+            .iter()
+            .any(|event| !matches!(event, DeviceEvent::LongPressActivated { .. }));
+        let changed_axes = observation
+            .movements
+            .iter()
+            .filter(|movement| movement.changed)
+            .map(|movement| movement.axis)
+            .filter(|axis| is_hand_axis(*axis))
+            .collect::<Vec<_>>();
+        let boundary_parents = if has_direct_boundary_effect {
+            observation
+                .crossings
+                .iter()
+                .copied()
+                .filter(|crossing| changed_axes.contains(&crossing.control.axis()))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let progress_axes = contact_change
+            .map(|(before, after)| {
+                changed_axes
+                    .iter()
+                    .copied()
+                    .filter(|axis| affected_contact_changed(*axis, &before, &after))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let progress_parents = observation
+            .crossings
+            .iter()
+            .copied()
+            .filter(|crossing| progress_axes.contains(&crossing.control.axis()))
+            .collect();
+        WorldTransition {
+            events,
+            boundary_parents,
+            progress_parents,
+        }
+    }
+
+    pub fn advance_external_key(
+        &mut self,
+        key: KeyId,
+        pressed_before: bool,
+        pressed_after: bool,
+    ) -> Result<Vec<DeviceEvent>, WorldError> {
+        let key = self.geometry.key(key).ok_or(WorldError::InvalidGeometry)?;
+        let frame = |pressed| {
+            let mut frame = SurfaceFrame {
+                palm: SurfacePoint::default(),
+                tips: [SurfacePoint::default(); 5],
+            };
+            if pressed {
+                frame.tips[0] = SurfacePoint {
+                    x: key.rect.x + key.rect.width / 2,
+                    y: key.rect.y + key.rect.height / 2,
+                    depth: self.key_press_depth,
+                };
+            }
+            frame
+        };
+        Ok(self.advance_frames(frame(pressed_before), frame(pressed_after)))
+    }
+
     pub fn fingerprint(&self) -> Result<String, WorldError> {
         self.device.validate()?;
         let bytes = bincode::serialize(&self.device).map_err(|_| WorldError::InvalidState)?;
         let mut digest = Sha256::new();
-        digest.update(b"truelearner-workstation-world-v1");
+        digest.update(b"truelearner-workstation-world-v2");
         digest.update(self.renderer.asset_digest());
+        digest.update(self.key_press_depth.to_le_bytes());
+        digest.update(self.key_release_depth.to_le_bytes());
         digest
             .update(bincode::serialize(&self.presentation).map_err(|_| WorldError::InvalidState)?);
         digest.update(bytes);
@@ -334,19 +499,22 @@ impl WorkstationWorld {
 
     fn advance_frames(&mut self, before: SurfaceFrame, after: SurfaceFrame) -> Vec<DeviceEvent> {
         let mut events = Vec::new();
-        let pressed = self.keys_at_depth(after, PRESS_DEPTH);
-        let pressed_before = self.keys_at_depth(before, PRESS_DEPTH);
-        let held = self.keys_at_depth(after, RELEASE_DEPTH);
+        let pressed = self.keys_at_depth(after, self.key_press_depth);
+        let pressed_before = self.keys_at_depth(before, self.key_press_depth);
+        let held = self.keys_at_depth(after, self.key_release_depth);
         let prior = self.device.keys_down.clone();
         let mut next = prior.intersection(&held).copied().collect::<BTreeSet<_>>();
         next.extend(pressed.difference(&pressed_before).copied());
 
         for key in prior.difference(&next).copied().collect::<Vec<_>>() {
             events.push(DeviceEvent::KeyReleased { key });
+            self.device.key_started_at.remove(&key);
+            self.device.long_pressed.remove(&key);
         }
         let newly_pressed = next.difference(&prior).copied().collect::<Vec<_>>();
         for key in &newly_pressed {
             events.push(DeviceEvent::KeyPressed { key: *key });
+            self.device.key_started_at.insert(*key, self.device.step);
         }
         self.device.keys_down = next;
         let shifted = self.device.keys_down.iter().any(|id| {
@@ -362,6 +530,17 @@ impl WorkstationWorld {
         }
         if text_changed {
             events.push(DeviceEvent::TextChanged);
+        }
+        for key in &self.device.keys_down {
+            let held_steps = self
+                .device
+                .key_started_at
+                .get(key)
+                .map(|started| self.device.step.saturating_sub(*started))
+                .unwrap_or_default();
+            if held_steps >= LONG_PRESS_STEPS && self.device.long_pressed.insert(*key) {
+                events.push(DeviceEvent::LongPressActivated { key: *key });
+            }
         }
 
         let touch = after
@@ -443,6 +622,31 @@ impl WorkstationWorld {
     }
 }
 
+const fn is_hand_axis(axis: BodyAxis) -> bool {
+    !matches!(
+        axis,
+        BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. }
+    )
+}
+
+fn affected_contact_changed(
+    axis: BodyAxis,
+    before: &[ContactSample; TOUCH_SITES],
+    after: &[ContactSample; TOUCH_SITES],
+) -> bool {
+    let changed = |site: usize| before[site] != after[site];
+    match axis {
+        BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. } => false,
+        BodyAxis::PalmHorizontal | BodyAxis::PalmVertical | BodyAxis::PalmDepth => before != after,
+        BodyAxis::Wrist | BodyAxis::Spread => (1..TOUCH_SITES).any(changed),
+        BodyAxis::ThumbOpposition => changed(1),
+        BodyAxis::FingerFlexion { digit } => Digit::ALL
+            .iter()
+            .position(|candidate| *candidate == digit)
+            .is_some_and(|index| changed(index + 1)),
+    }
+}
+
 fn contact_sample(depth: i16, slip: i16) -> Result<ContactSample, WorldError> {
     let pressure = depth
         .saturating_sub(CONTACT_DEPTH)
@@ -496,6 +700,36 @@ mod tests {
     }
 
     #[test]
+    fn contact_progress_factorizes_by_the_actuator_component() {
+        let before = [ContactSample::default(); TOUCH_SITES];
+        let mut palm_after = before;
+        palm_after[0] = ContactSample::new(1, 0).unwrap();
+        assert!(affected_contact_changed(
+            BodyAxis::PalmDepth,
+            &before,
+            &palm_after
+        ));
+        assert!(!affected_contact_changed(
+            BodyAxis::FingerFlexion { digit: Digit::Ring },
+            &before,
+            &palm_after
+        ));
+
+        let mut thumb_after = before;
+        thumb_after[1] = ContactSample::new(1, 0).unwrap();
+        assert!(affected_contact_changed(
+            BodyAxis::ThumbOpposition,
+            &before,
+            &thumb_after
+        ));
+        assert!(!affected_contact_changed(
+            BodyAxis::FingerFlexion { digit: Digit::Ring },
+            &before,
+            &thumb_after
+        ));
+    }
+
+    #[test]
     fn hovering_does_not_press_but_crossing_depth_does() {
         let mut world = WorkstationWorld::new().unwrap();
         let key = world
@@ -508,18 +742,64 @@ mod tests {
         hover.tips[1] = SurfacePoint {
             x: key.rect.x + 2,
             y: key.rect.y + 2,
-            depth: PRESS_DEPTH - 1,
+            depth: KEY_PRESS_DEPTH - 1,
         };
         assert!(world
             .advance_surface_for_test(empty_frame(), hover)
             .is_empty());
         let mut pressed = hover;
-        pressed.tips[1].depth = PRESS_DEPTH;
+        pressed.tips[1].depth = KEY_PRESS_DEPTH;
         let events = world.advance_surface_for_test(hover, pressed);
         assert!(events
             .iter()
             .any(|event| matches!(event, DeviceEvent::KeyPressed { .. })));
         assert_eq!(world.device().text(), "a");
+    }
+
+    #[test]
+    fn softer_key_changes_only_the_external_crossing_depth() {
+        let key = WorldGeometry::standard_ansi_104()
+            .unwrap()
+            .keys()
+            .iter()
+            .find(|key| key.label == "A")
+            .unwrap()
+            .clone();
+        let mut frame = empty_frame();
+        frame.tips[0] = SurfacePoint {
+            x: key.rect.x + 2,
+            y: key.rect.y + 2,
+            depth: 640,
+        };
+        let mut standard = WorkstationWorld::new().unwrap();
+        assert!(standard
+            .advance_surface_for_test(empty_frame(), frame)
+            .iter()
+            .all(|event| !matches!(event, DeviceEvent::KeyPressed { .. })));
+
+        let mut practice = WorkstationWorld::new_with_key_depths(640, 608).unwrap();
+        assert!(practice
+            .advance_surface_for_test(empty_frame(), frame)
+            .iter()
+            .any(|event| matches!(event, DeviceEvent::KeyPressed { .. })));
+        assert_eq!(practice.key_press_depth(), 640);
+        assert_eq!(practice.key_release_depth(), 608);
+        assert_ne!(
+            practice.fingerprint().unwrap(),
+            standard.fingerprint().unwrap()
+        );
+    }
+
+    #[test]
+    fn invalid_key_depths_fail_closed() {
+        assert_eq!(
+            WorkstationWorld::new_with_key_depths(CONTACT_DEPTH, CONTACT_DEPTH).unwrap_err(),
+            WorldError::InvalidKeyDepths
+        );
+        assert_eq!(
+            WorkstationWorld::new_with_key_depths(BODY_MAX + 1, KEY_RELEASE_DEPTH).unwrap_err(),
+            WorldError::InvalidKeyDepths
+        );
     }
 
     #[test]
@@ -535,21 +815,80 @@ mod tests {
         pressed.tips[0] = SurfacePoint {
             x: key.rect.x + 2,
             y: key.rect.y + 2,
-            depth: PRESS_DEPTH,
+            depth: KEY_PRESS_DEPTH,
         };
         world.advance_surface_for_test(empty_frame(), pressed);
         let mut held = pressed;
-        held.tips[0].depth = RELEASE_DEPTH;
+        held.tips[0].depth = KEY_RELEASE_DEPTH;
         assert!(world
             .advance_surface_for_test(pressed, held)
             .iter()
             .all(|event| !matches!(event, DeviceEvent::KeyReleased { .. })));
         let mut released = held;
-        released.tips[0].depth = RELEASE_DEPTH - 1;
+        released.tips[0].depth = KEY_RELEASE_DEPTH - 1;
         assert!(world
             .advance_surface_for_test(held, released)
             .iter()
             .any(|event| matches!(event, DeviceEvent::KeyReleased { .. })));
+    }
+
+    #[test]
+    fn external_key_contact_uses_the_same_long_press_law() {
+        let mut world = WorkstationWorld::new().unwrap();
+        let key = world
+            .geometry()
+            .keys()
+            .iter()
+            .find(|key| key.label == "A")
+            .unwrap()
+            .id;
+
+        let pressed = world.advance_external_key(key, false, true).unwrap();
+        assert!(pressed.iter().any(
+            |event| matches!(event, DeviceEvent::KeyPressed { key: pressed } if *pressed == key.0)
+        ));
+        let first_hold = world.advance_external_key(key, true, true).unwrap();
+        assert!(first_hold
+            .iter()
+            .all(|event| !matches!(event, DeviceEvent::LongPressActivated { .. })));
+        let activated = world.advance_external_key(key, true, true).unwrap();
+        assert!(activated.iter().any(
+            |event| matches!(event, DeviceEvent::LongPressActivated { key: activated } if *activated == key.0)
+        ));
+        assert_eq!(
+            world.device().long_pressed_keys().collect::<Vec<_>>(),
+            [key]
+        );
+
+        let released = world.advance_external_key(key, true, false).unwrap();
+        assert!(released
+            .iter()
+            .any(|event| matches!(event, DeviceEvent::KeyReleased { key: released } if *released == key.0)));
+        assert!(world.device().keys_down().next().is_none());
+        assert!(world.device().long_pressed_keys().next().is_none());
+    }
+
+    #[test]
+    fn long_press_activation_changes_visible_world_state() {
+        let mut world = WorkstationWorld::new().unwrap();
+        let key = world
+            .geometry()
+            .keys()
+            .iter()
+            .find(|key| key.label == "A")
+            .unwrap()
+            .id;
+        let body = WorkstationState::default();
+
+        world.advance_external_key(key, false, true).unwrap();
+        world.advance_external_key(key, true, true).unwrap();
+        let held = world.sense(&body).unwrap();
+        world.advance_external_key(key, true, true).unwrap();
+        let activated = world.sense(&body).unwrap();
+
+        for eye in Eye::ALL {
+            assert_ne!(held.eye(eye), activated.eye(eye));
+        }
     }
 
     #[test]
@@ -560,7 +899,7 @@ mod tests {
         let point = |key: &crate::Key| SurfacePoint {
             x: key.rect.x + 2,
             y: key.rect.y + 2,
-            depth: PRESS_DEPTH,
+            depth: KEY_PRESS_DEPTH,
         };
         let mut first_frame = empty_frame();
         first_frame.tips[0] = point(a);
@@ -592,7 +931,7 @@ mod tests {
         pressed.tips[0] = SurfacePoint {
             x: key.rect.x + 2,
             y: key.rect.y + 2,
-            depth: PRESS_DEPTH,
+            depth: KEY_PRESS_DEPTH,
         };
         world.advance_surface_for_test(empty_frame(), pressed);
         let after = world.sense(&body).unwrap();

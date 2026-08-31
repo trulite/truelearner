@@ -23,6 +23,7 @@ const NO_PARTICIPANT: u32 = u32::MAX;
 struct Schedule {
     now: Time,
     len: usize,
+    single: Option<Firing>,
     buckets: [Vec<Firing>; 65],
 }
 
@@ -31,12 +32,14 @@ impl Default for Schedule {
         Self {
             now: 0,
             len: 0,
+            single: None,
             buckets: std::array::from_fn(|_| Vec::new()),
         }
     }
 }
 
 impl Schedule {
+    #[inline(always)]
     fn push(&mut self, firing: Firing) -> Result<(), RunError> {
         if firing.at < self.now {
             return Err(RunError::TimeWentBackward {
@@ -44,14 +47,32 @@ impl Schedule {
                 requested: firing.at,
             });
         }
+        if self.len == 0 {
+            debug_assert!(self.single.is_none());
+            debug_assert!(self.buckets.iter().all(Vec::is_empty));
+            self.single = Some(firing);
+            self.len = 1;
+            return Ok(());
+        }
+        if let Some(single) = self.single.take() {
+            self.buckets[bucket(self.now, single.at)].push(single);
+        }
         self.buckets[bucket(self.now, firing.at)].push(firing);
         self.len += 1;
         Ok(())
     }
 
+    #[inline(always)]
     fn pop_into(&mut self, output: &mut Vec<Firing>) -> Option<Time> {
         if self.len == 0 {
             return None;
+        }
+        if let Some(firing) = self.single.take() {
+            self.now = firing.at;
+            self.len = 0;
+            output.clear();
+            output.push(firing);
+            return Some(self.now);
         }
         if self.buckets[0].is_empty() {
             let source = (1..self.buckets.len()).find(|index| !self.buckets[*index].is_empty())?;
@@ -337,6 +358,20 @@ impl Body {
         else {
             return Ok(None);
         };
+        if self.activity.moment.participants.len() == 1 {
+            return self.step_single(at, work, observe, trace);
+        }
+        self.step_multiple(at, work, observe, trace)
+    }
+
+    #[inline(never)]
+    fn step_multiple<T: TraceSink>(
+        &mut self,
+        at: Time,
+        work: &mut Work,
+        observe: &mut impl FnMut(Event),
+        trace: &mut T,
+    ) -> Result<Option<Time>, RunError> {
         self.activity.moment.changes.clear();
         let wave_arrivals = u32::try_from(self.activity.moment.participants.len())
             .map_err(|_| RunError::WaveTooLarge)?;
@@ -471,6 +506,95 @@ impl Body {
         Ok(Some(at))
     }
 
+    fn step_single<T: TraceSink>(
+        &mut self,
+        at: Time,
+        work: &mut Work,
+        observe: &mut impl FnMut(Event),
+        trace: &mut T,
+    ) -> Result<Option<Time>, RunError> {
+        let firing = self.activity.moment.participants[0];
+        work.arrivals += 1;
+        if T::ENABLED {
+            trace.record(TraceEvent::Arrival(TraceArrival {
+                at: firing.at,
+                target: firing.target,
+                impulse: firing.impulse,
+                cause: firing.cause,
+                via: firing.via,
+            }));
+        }
+        work.meetings += 1;
+        let Some((before, after)) = self
+            .arena
+            .junction_mut(firing.target)
+            .expect("live junction")
+            .change(at, i64::from(firing.impulse), firing.cause)
+        else {
+            return Ok(Some(at));
+        };
+        work.changes += 1;
+        let event = Event {
+            at,
+            junction: firing.target,
+            arrivals: 1,
+            impulse: i64::from(firing.impulse),
+            before,
+            after,
+            cause: firing.cause,
+        };
+        observe(event);
+        if T::ENABLED {
+            trace.record(TraceEvent::Transition(event));
+        }
+        self.transmit(event, work)?;
+        if firing.via.is_none() && crate::core::try_complete_single_return(self, event, trace) {
+            self.activity.moment.changes.clear();
+            return Ok(Some(at));
+        }
+        let body = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+        let used = firing
+            .via
+            .and_then(|link| crate::core::path_from_drive(body, link))
+            .map_or(UsedPaths::None, UsedPaths::One);
+        self.activity.moment.changes.clear();
+        self.activity.moment.changes.push(MomentChange {
+            event,
+            boundary: firing.via.is_none(),
+            used,
+            #[cfg(test)]
+            first_participant: 0,
+        });
+        if crate::core::reaction_needed(
+            ReactionView::new(&self.arena, &self.link_memory, &self.returns),
+            &self.activity.moment,
+        ) {
+            crate::core::react_into(
+                ReactionView::new(&self.arena, &self.link_memory, &self.returns),
+                &self.activity.moment,
+                &mut self.activity.reaction,
+                trace,
+            );
+            if !self.activity.reaction.change.is_empty() {
+                let mut change = std::mem::take(&mut self.activity.reaction.change);
+                let mut applied = std::mem::take(&mut self.activity.reaction.applied);
+                self.apply_reusing(&mut change, &mut applied, at, trace)
+                    .map_err(|error| match error {
+                        crate::core::ApplyError::Build(BuildError::CapacityExhausted) => {
+                            RunError::CapacityExhausted
+                        }
+                        crate::core::ApplyError::Run(error) => error,
+                        _ => RunError::InvalidReaction,
+                    })?;
+                self.activity.reaction.change = change;
+                self.activity.reaction.applied = applied;
+            }
+            self.activity.reaction.clear();
+        }
+        Ok(Some(at))
+    }
+
+    #[inline(always)]
     fn transmit(&mut self, change: Event, work: &mut Work) -> Result<(), RunError> {
         let mut next = self
             .arena
@@ -478,27 +602,24 @@ impl Body {
             .and_then(|slot| slot.outgoing_head);
         while let Some(link_id) = next {
             let link = *self.arena.link(link_id).expect("live link");
-            if self.link_memory[link_id.slot()].live
-                && self.link_memory[link_id.slot()].role == crate::core::LinkRole::Drive
-            {
+            let is_drive = self.link_memory[link_id.slot()].live
+                && self.link_memory[link_id.slot()].role == crate::core::LinkRole::Drive;
+            if is_drive {
                 work.link_visits += 1;
-            }
-            if self.link_memory[link_id.slot()].live
-                && self.link_memory[link_id.slot()].role == crate::core::LinkRole::Drive
-                && opens(link.trigger, change.before, change.after)
-            {
-                let impulse =
-                    effective_impulse(link.impulse, self.link_memory[link_id.slot()].strength);
-                self.activity.pending.push(Firing {
-                    at: change.at.saturating_add(link.delay),
-                    target: link.to,
-                    impulse,
-                    cause: change.cause,
-                    via: Some(link_id),
-                    next_at_junction: NO_PARTICIPANT,
-                })?;
-                self.link_memory[link_id.slot()].record_transmission(change.cause, change.at);
-                work.emissions += 1;
+                if opens(link.trigger, change.before, change.after) {
+                    let impulse =
+                        effective_impulse(link.impulse, self.link_memory[link_id.slot()].strength);
+                    self.activity.pending.push(Firing {
+                        at: change.at.saturating_add(link.delay),
+                        target: link.to,
+                        impulse,
+                        cause: change.cause,
+                        via: Some(link_id),
+                        next_at_junction: NO_PARTICIPANT,
+                    })?;
+                    self.link_memory[link_id.slot()].record_transmission(change.cause, change.at);
+                    work.emissions += 1;
+                }
             }
             next = link.next;
         }

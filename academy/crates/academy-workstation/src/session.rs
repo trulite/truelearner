@@ -5,7 +5,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use truelearner_workstation::{
-    WorkstationHarness, WorkstationRead, WorkstationStepObservation, WorldSample,
+    MotorEffect, WorkstationHarness, WorkstationRead, WorkstationStepObservation, WorldSample,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +33,8 @@ pub struct WorkstationSession {
     harness: WorkstationHarness,
     world: WorkstationWorld,
     sequence: u64,
+    boundary_parents: Vec<MotorEffect>,
+    progress_parents: Vec<MotorEffect>,
 }
 
 impl WorkstationSession {
@@ -48,14 +50,20 @@ impl WorkstationSession {
             harness: WorkstationHarness::new(seed)?,
             world: WorkstationWorld::new_with_presentation(presentation)?,
             sequence: 0,
+            boundary_parents: Vec::new(),
+            progress_parents: Vec::new(),
         })
     }
 
     pub fn step(&mut self) -> Result<SessionObservation, WorldError> {
         let sample = self.world.sense(self.harness.state())?;
-        let (harness, body) = self.harness.transition(sample.clone())?;
+        let (harness, body) = self.harness.transition_with_causal_parents(
+            sample.clone(),
+            &self.boundary_parents,
+            &self.progress_parents,
+        )?;
         let mut world = self.world.clone();
-        let device_events = world.advance(&body.state_before, &body.state_after);
+        let transition = world.advance_observation(&body);
         let sequence = self.sequence;
         let next_sequence = self.sequence.saturating_add(1);
         let world_fingerprint = world.fingerprint()?;
@@ -65,7 +73,7 @@ impl WorkstationSession {
             sequence,
             sample,
             body,
-            device_events,
+            device_events: transition.events,
             device_after: world.device().clone(),
             world_fingerprint,
             session_fingerprint,
@@ -74,6 +82,8 @@ impl WorkstationSession {
             harness,
             world,
             sequence: next_sequence,
+            boundary_parents: transition.boundary_parents,
+            progress_parents: transition.progress_parents,
         };
         Ok(observation)
     }
@@ -109,6 +119,8 @@ impl WorkstationSession {
             self.world.presentation(),
             self.sequence,
             self.world.asset_digest(),
+            self.boundary_parents.clone(),
+            self.progress_parents.clone(),
         ))
     }
 
@@ -124,13 +136,15 @@ impl WorkstationSession {
                 payload.asset_digest,
             )?,
             sequence: payload.sequence,
+            boundary_parents: payload.boundary_parents,
+            progress_parents: payload.progress_parents,
         })
     }
 }
 
 fn composed_session_fingerprint(sequence: u64, body: &str, world: &str) -> String {
     let mut digest = Sha256::new();
-    digest.update(b"truelearner-workstation-session-v2");
+    digest.update(b"truelearner-workstation-session-v3");
     digest.update(sequence.to_le_bytes());
     digest.update(body.as_bytes());
     digest.update(world.as_bytes());

@@ -180,6 +180,12 @@ pub enum LinkRole {
     },
     OutcomeWitness,
     Membership,
+    /// Incidence from a physical progress source to an output. Unlike an
+    /// outcome witness, this can identify an open path without closing it.
+    ProgressWitness,
+    /// A world-boundary return can close and strengthen a path, but does not
+    /// itself offer that path as the next action.
+    BoundaryWitness,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -206,6 +212,9 @@ pub enum LinkChange {
         strength: i32,
     },
     ConsumeOutcome,
+    ClearOutcomeSelection,
+    InhibitBoundaryChoice,
+    ConsumeBoundaryInhibition,
     Strengthen {
         amount: i32,
     },
@@ -238,6 +247,7 @@ pub enum Edit {
         returned: LinkId,
         path: Path,
         exclusive_source: bool,
+        offers_choice: bool,
         at: Time,
     },
 }
@@ -517,12 +527,33 @@ fn is_outcome_source(body: ReactionView<'_>, junction: JunctionId) -> bool {
     while let Some(link_id) = next {
         let link = body.arena.link(link_id).expect("live link");
         let memory = &body.link_memory[link_id.slot()];
-        if memory.live && memory.role == LinkRole::OutcomeWitness {
+        if memory.live && closes_return(memory.role) {
             return true;
         }
         next = link.next;
     }
     false
+}
+
+fn is_progress_source(body: ReactionView<'_>, junction: JunctionId) -> bool {
+    let mut next = body
+        .arena
+        .junction(junction)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(link) = next {
+        let physical = body.arena.link(link).expect("live progress incidence");
+        next = physical.next;
+        if body.link_memory[link.slot()].live
+            && body.link_memory[link.slot()].role == LinkRole::ProgressWitness
+        {
+            return true;
+        }
+    }
+    false
+}
+
+const fn closes_return(role: LinkRole) -> bool {
+    matches!(role, LinkRole::OutcomeWitness | LinkRole::BoundaryWitness)
 }
 
 fn is_membership_link(body: ReactionView<'_>, link: LinkId) -> bool {
@@ -836,6 +867,7 @@ fn event_drive(body: ReactionView<'_>, event: crate::physics::Event) -> u16 {
         .drive(event.before, event.after)
 }
 
+#[inline(always)]
 fn surface_may_choose(body: ReactionView<'_>, surface: JunctionId) -> bool {
     let mut next = body
         .arena
@@ -1012,6 +1044,7 @@ fn record_returned_outcome<T: TraceSink>(
                 path: None,
                 return_cause: None,
                 return_opened_at: None,
+                offers_choice: None,
                 open_paths: candidates.len(),
                 exact_paths: 0,
                 candidates,
@@ -1037,6 +1070,7 @@ fn record_returned_outcome<T: TraceSink>(
             path: selected.selected.map(|returned| returned.path),
             return_cause: selected.selected.map(|returned| returned.cause),
             return_opened_at: selected.selected.map(|returned| returned.opened_at),
+            offers_choice: selected.selected.map(|returned| returned.offers_choice),
             open_paths: selected.total,
             exact_paths: selected.exact_total,
             candidates,
@@ -1046,6 +1080,9 @@ fn record_returned_outcome<T: TraceSink>(
     let accepted = selected
         .selected
         .filter(|returned| returned.opened_at <= fact.event.at);
+    if let Some(returned) = accepted.filter(|returned| !returned.offers_choice) {
+        clear_output_selection(body, returned.path.output, change);
+    }
     for entry in body
         .returns
         .by_source
@@ -1060,6 +1097,7 @@ fn record_returned_outcome<T: TraceSink>(
                 returned: entry.link,
                 path: entry.path,
                 exclusive_source: entry.exclusive_source,
+                offers_choice: entry.offers_choice,
                 at: fact.event.at,
             });
         } else {
@@ -1071,12 +1109,143 @@ fn record_returned_outcome<T: TraceSink>(
     }
 }
 
+#[inline(always)]
+pub(crate) fn try_complete_single_return<T: TraceSink>(
+    body: &mut Body,
+    event: crate::physics::Event,
+    trace: &mut T,
+) -> bool {
+    let source = event.junction;
+    let Some([entry]) = body.returns.by_source.get(source.slot()).map(Vec::as_slice) else {
+        return false;
+    };
+    let entry = *entry;
+    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    if surface_may_choose(view, source) {
+        return false;
+    }
+    let Some(returned) = open_return(view, entry) else {
+        return false;
+    };
+    if returned.opened_at > event.at {
+        return false;
+    }
+    debug_assert!(body.arena.link(returned.link).is_some());
+    debug_assert!(returned
+        .path
+        .links()
+        .into_iter()
+        .all(|link| body.arena.link(link).is_some()));
+    if T::ENABLED {
+        trace.record(TraceEvent::Return(ReturnTrace {
+            at: event.at,
+            source,
+            incoming_cause: event.cause,
+            path: Some(returned.path),
+            return_cause: Some(returned.cause),
+            return_opened_at: Some(returned.opened_at),
+            offers_choice: Some(returned.offers_choice),
+            open_paths: 1,
+            exact_paths: usize::from(returned.cause == event.cause),
+            candidates: vec![ReturnCandidateTrace {
+                path: returned.path,
+                cause: returned.cause,
+                opened_at: returned.opened_at,
+            }],
+            decision: ReturnDecision::Accepted,
+        }));
+    }
+    if !returned.offers_choice {
+        clear_output_selection_direct(body, returned.path.output);
+    }
+    if entry.exclusive_source {
+        body.returns.live_count -= 1;
+        body.returns.by_source[source.slot()].clear();
+    } else {
+        body.remove_live_return_with_path(returned.link, Some(returned.path));
+    }
+    body.link_memory[returned.link.slot()].live = false;
+    for link in returned.path.links() {
+        let memory = &mut body.link_memory[link.slot()];
+        memory.outcome_at = returned.offers_choice.then_some(event.at);
+        memory.outcome_available = returned.offers_choice;
+        memory.boundary_closed |= !returned.offers_choice;
+        let before = memory.strength;
+        let after = before.saturating_add(1);
+        memory.strength = after;
+        if T::ENABLED {
+            trace.record(TraceEvent::Strengthened(StrengthTrace {
+                at: event.at,
+                link,
+                before,
+                after,
+            }));
+        }
+    }
+    true
+}
+
+fn clear_output_selection_direct(body: &mut Body, output: JunctionId) {
+    let (arena, link_memory) = (&body.arena, &mut body.link_memory);
+    for second in arena.incoming(output) {
+        let physical = arena.link(second).expect("live output incidence");
+        let memory = &mut link_memory[second.slot()];
+        if !memory.live || memory.role != LinkRole::Drive || physical.impulse == 0 {
+            continue;
+        }
+        memory.outcome_at = None;
+        memory.outcome_available = false;
+        memory.boundary_inhibited = true;
+        for first in arena.incoming(physical.from) {
+            let memory = &mut link_memory[first.slot()];
+            if memory.live && memory.role == LinkRole::PathEntry {
+                memory.outcome_at = None;
+                memory.outcome_available = false;
+                memory.boundary_inhibited = true;
+            }
+        }
+    }
+}
+
+fn clear_output_selection(body: ReactionView<'_>, output: JunctionId, change: &mut Change) {
+    for second in body.arena.incoming(output) {
+        let physical = body.arena.link(second).expect("live output incidence");
+        let memory = &body.link_memory[second.slot()];
+        if !memory.live || memory.role != LinkRole::Drive || physical.impulse == 0 {
+            continue;
+        }
+        change.push(Edit::ChangeLink {
+            link: second.into(),
+            change: LinkChange::ClearOutcomeSelection,
+        });
+        change.push(Edit::ChangeLink {
+            link: second.into(),
+            change: LinkChange::InhibitBoundaryChoice,
+        });
+        for first in body.arena.incoming(physical.from) {
+            if body.link_memory[first.slot()].live
+                && body.link_memory[first.slot()].role == LinkRole::PathEntry
+            {
+                change.push(Edit::ChangeLink {
+                    link: first.into(),
+                    change: LinkChange::ClearOutcomeSelection,
+                });
+                change.push(Edit::ChangeLink {
+                    link: first.into(),
+                    change: LinkChange::InhibitBoundaryChoice,
+                });
+            }
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct OpenReturn {
     link: LinkId,
     path: Path,
     cause: Cause,
     opened_at: Time,
+    offers_choice: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -1139,6 +1308,7 @@ fn trace_return_candidates(
         .collect()
 }
 
+#[inline(always)]
 fn open_return(body: ReactionView<'_>, entry: ReturnEntry) -> Option<OpenReturn> {
     let memory = body.link_memory.get(entry.link.slot())?;
     let LinkRole::Return { cause, .. } = memory.role else {
@@ -1153,6 +1323,7 @@ fn open_return(body: ReactionView<'_>, entry: ReturnEntry) -> Option<OpenReturn>
         path: entry.path,
         cause,
         opened_at: memory.participated_at,
+        offers_choice: entry.offers_choice,
     })
 }
 
@@ -1215,6 +1386,11 @@ struct ReadyPath {
     outcome: Option<Outcome>,
     participation: u64,
     output_participated: bool,
+    outcome_source: Option<JunctionId>,
+    progress_source: Option<JunctionId>,
+    resisted_progress: bool,
+    boundary_open: bool,
+    boundary_inhibited: bool,
     strength: i64,
     drive: u16,
     stable_order: u32,
@@ -1258,12 +1434,17 @@ fn form_and_choose<T: TraceSink>(
         }
 
         let surface = fact.event.junction;
+        let current_cause = if is_progress_source(body, surface) {
+            0
+        } else {
+            fact.event.cause
+        };
         let ready_start = ready.len();
         append_existing_ready_paths(
             body,
             surface,
             fact.event.at,
-            fact.event.cause,
+            current_cause,
             fact.drive,
             ready,
             connected_outcomes,
@@ -1325,7 +1506,7 @@ fn form_and_choose<T: TraceSink>(
                     first: first.into(),
                     second: second.into(),
                     at: fact.event.at,
-                    current_cause: fact.event.cause,
+                    current_cause,
                     return_cause: None,
                     unanswered: false,
                     connected_start,
@@ -1333,6 +1514,19 @@ fn form_and_choose<T: TraceSink>(
                     outcome: None,
                     participation: 0,
                     output_participated: false,
+                    outcome_source: unique_witness_source(
+                        body,
+                        morphology.to,
+                        LinkRole::OutcomeWitness,
+                    ),
+                    progress_source: unique_witness_source(
+                        body,
+                        morphology.to,
+                        LinkRole::ProgressWitness,
+                    ),
+                    resisted_progress: false,
+                    boundary_open: false,
+                    boundary_inhibited: false,
                     strength: 1,
                     drive: fact.drive,
                     stable_order: u32::try_from(body.arena.link_count())
@@ -1350,7 +1544,12 @@ fn form_and_choose<T: TraceSink>(
     for world in 0..ready.len() {
         if worlds[world] == world {
             if let Some(mut choice) = choose_ready(ready, worlds, world, construction) {
-                if !matches!(choice.basis, ChoiceBasis::CurrentReturn) {
+                if !matches!(
+                    choice.basis,
+                    ChoiceBasis::CurrentReturn
+                        | ChoiceBasis::BoundaryRelease
+                        | ChoiceBasis::RetainedProgress
+                ) {
                     if let Some((donor, fresh)) = fresh_opportunity(
                         body,
                         ready,
@@ -1385,6 +1584,11 @@ fn form_and_choose<T: TraceSink>(
                 outcome: candidate.outcome,
                 participation: candidate.participation,
                 output_participated: candidate.output_participated,
+                outcome_source: candidate.outcome_source,
+                progress_source: candidate.progress_source,
+                resisted_progress: candidate.resisted_progress,
+                boundary_open: candidate.boundary_open,
+                boundary_inhibited: candidate.boundary_inhibited,
                 strength: candidate.strength,
                 drive: candidate.drive,
                 stable_order: candidate.stable_order,
@@ -1429,6 +1633,17 @@ fn form_and_choose<T: TraceSink>(
             at: winner.at,
             cause: winner.current_cause,
         });
+        for (index, candidate) in ready.iter().enumerate() {
+            if worlds[index] != worlds[choice.winner] || !candidate.boundary_inhibited {
+                continue;
+            }
+            for link in [candidate.first, candidate.second] {
+                change.push(Edit::ChangeLink {
+                    link,
+                    change: LinkChange::ConsumeBoundaryInhibition,
+                });
+            }
+        }
         if winner.fresh_opportunity.is_none()
             && winner
                 .outcome
@@ -1493,6 +1708,15 @@ fn append_existing_ready_paths(
                     outcome,
                     participation: memory.participation,
                     output_participated: false,
+                    outcome_source: unique_witness_source(body, link.to, LinkRole::OutcomeWitness),
+                    progress_source: unique_witness_source(
+                        body,
+                        link.to,
+                        LinkRole::ProgressWitness,
+                    ),
+                    resisted_progress: false,
+                    boundary_open: memory.participation > 0 && !memory.boundary_closed,
+                    boundary_inhibited: memory.boundary_inhibited,
                     strength: memory.strength,
                     drive,
                     stable_order: second_id.slot() as u32,
@@ -1520,13 +1744,40 @@ fn mark_current_returns(
                 .filter(|returned| returned.opened_at <= fact.event.at)
                 .map(|returned| returned.path.output)
         });
+        let progress_output = unique_progress_output(paths, source, fact.event.cause);
         for path in paths.iter_mut() {
             let connected = &connected_outcomes[path.connected_start..path.connected_end];
             if connected.contains(&source) {
                 path.output_participated |= output == Some(path.output);
             }
+            if path.progress_source == Some(source) {
+                path.resisted_progress |= progress_output == Some(path.output);
+            }
         }
     }
+}
+
+fn unique_progress_output(
+    paths: &[ReadyPath],
+    source: JunctionId,
+    cause: Cause,
+) -> Option<JunctionId> {
+    if cause == 0 {
+        return None;
+    }
+    let mut output = None;
+    for path in paths.iter().filter(|path| {
+        path.progress_source == Some(source)
+            && path.return_cause == Some(cause)
+            && path.participation > 0
+    }) {
+        match output {
+            None => output = Some(path.output),
+            Some(existing) if existing != path.output => return None,
+            Some(_) => {}
+        }
+    }
+    output
 }
 
 fn latest_fresh_output(body: ReactionView<'_>, source: JunctionId) -> Option<JunctionId> {
@@ -1541,7 +1792,7 @@ fn latest_fresh_output(body: ReactionView<'_>, source: JunctionId) -> Option<Jun
         let link = body.arena.link(witness).expect("live link");
         next = link.next;
         let memory = &body.link_memory[witness.slot()];
-        if !memory.live || memory.role != LinkRole::OutcomeWitness {
+        if !memory.live || !closes_return(memory.role) {
             continue;
         }
         if memory.transmitted {
@@ -1594,12 +1845,15 @@ fn fresh_opportunity(
     let strongest_drive = paths
         .iter()
         .enumerate()
-        .filter(|(index, path)| worlds[*index] == world && path.executable)
+        .filter(|(index, path)| {
+            worlds[*index] == world && path.executable && !path.boundary_inhibited
+        })
         .map(|(_, path)| path.drive)
         .max()?;
     let mut donors = paths.iter().enumerate().filter(|(index, path)| {
         worlds[*index] == world
             && path.executable
+            && !path.boundary_inhibited
             && path.drive == strongest_drive
             && path.unanswered
             && path.participation > 0
@@ -1612,6 +1866,7 @@ fn fresh_opportunity(
     if paths.iter().enumerate().any(|(index, path)| {
         worlds[index] == world
             && path.executable
+            && !path.boundary_inhibited
             && path.drive == strongest_drive
             && path.surface != donor.surface
     }) {
@@ -1628,10 +1883,13 @@ fn fresh_opportunity(
             next = link.next;
             let memory = &body.link_memory[witness.slot()];
             if !memory.live
-                || memory.role != LinkRole::OutcomeWitness
+                || !closes_return(memory.role)
                 || link.to == donor.output
                 || paths.iter().enumerate().any(|(index, path)| {
-                    worlds[index] == world && path.executable && path.output == link.to
+                    worlds[index] == world
+                        && path.executable
+                        && !path.boundary_inhibited
+                        && path.output == link.to
                 })
                 || !outputs_are_local(body, donor.output, link.to)
             {
@@ -1718,8 +1976,34 @@ fn choose_ready(
     world: usize,
     construction: bool,
 ) -> Option<ReadyChoice> {
-    let eligible =
-        |index: &usize| worlds[*index] == world && (construction || paths[*index].executable);
+    if !construction {
+        let mut inhibited = (0..paths.len()).filter(|index| {
+            worlds[*index] == world && paths[*index].executable && paths[*index].boundary_inhibited
+        });
+        if let Some(first) = inhibited.next() {
+            let source = paths[first].outcome_source?;
+            if inhibited.any(|index| paths[index].outcome_source != Some(source)) {
+                return None;
+            }
+            return unique_output(
+                (0..paths.len()).filter(|index| {
+                    worlds[*index] == world
+                        && paths[*index].executable
+                        && !paths[*index].boundary_inhibited
+                        && paths[*index].outcome_source == Some(source)
+                }),
+                paths,
+            )
+            .map(|winner| ReadyChoice {
+                winner,
+                basis: ChoiceBasis::BoundaryRelease,
+            });
+        }
+    }
+    let eligible = |index: &usize| {
+        worlds[*index] == world
+            && (construction || (paths[*index].executable && !paths[*index].boundary_inhibited))
+    };
     let strongest_drive = (0..paths.len())
         .filter(eligible)
         .map(|index| paths[index].drive)
@@ -1744,6 +2028,12 @@ fn choose_ready(
     .map(|winner| ReadyChoice {
         winner,
         basis: ChoiceBasis::CurrentReturn,
+    })
+    .or_else(|| {
+        unique_retained_progress((0..paths.len()).filter(active), paths).map(|winner| ReadyChoice {
+            winner,
+            basis: ChoiceBasis::RetainedProgress,
+        })
     })
     .or_else(|| {
         release_to_untried_output
@@ -1812,9 +2102,16 @@ fn unique_returned_output(
     paths: impl Iterator<Item = usize>,
     ready: &[ReadyPath],
 ) -> Option<usize> {
+    unique_output(
+        paths.filter(|index| ready[*index].output_participated),
+        ready,
+    )
+}
+
+fn unique_output(paths: impl Iterator<Item = usize>, ready: &[ReadyPath]) -> Option<usize> {
     let mut output: Option<JunctionId> = None;
     let mut winner: Option<usize> = None;
-    for index in paths.filter(|index| ready[*index].output_participated) {
+    for index in paths {
         match output {
             None => output = Some(ready[index].output),
             Some(current) if current != ready[index].output => return None,
@@ -1839,6 +2136,42 @@ fn unique_returned_output(
         }
     }
     winner
+}
+
+fn unique_retained_progress(
+    paths: impl Iterator<Item = usize>,
+    ready: &[ReadyPath],
+) -> Option<usize> {
+    unique_output(
+        paths.filter(|index| {
+            ready[*index].resisted_progress
+                && ready[*index].boundary_open
+                && ready[*index].strength > 1
+                && ready[*index].participation > 0
+        }),
+        ready,
+    )
+}
+
+fn unique_witness_source(
+    body: ReactionView<'_>,
+    junction: JunctionId,
+    role: LinkRole,
+) -> Option<JunctionId> {
+    let mut source = None;
+    for witness in body.arena.incoming(junction) {
+        let memory = &body.link_memory[witness.slot()];
+        if !memory.live || memory.role != role {
+            continue;
+        }
+        let candidate = body.arena.link(witness).expect("live witness").from;
+        match source {
+            None => source = Some(candidate),
+            Some(existing) if existing != candidate => return None,
+            Some(_) => {}
+        }
+    }
+    source
 }
 
 fn path_has_open_return(body: ReactionView<'_>, middle: JunctionId, output: JunctionId) -> bool {
@@ -1919,7 +2252,7 @@ fn append_outcome_sources(
             .incoming(junction)
             .filter(|link| {
                 body.link_memory[link.slot()].live
-                    && body.link_memory[link.slot()].role == LinkRole::OutcomeWitness
+                    && closes_return(body.link_memory[link.slot()].role)
             })
             .filter_map(|link| body.arena.link(link).map(|physical| physical.from)),
     );
@@ -2209,6 +2542,7 @@ pub(crate) struct ReturnEntry {
     pub(crate) link: LinkId,
     pub(crate) path: Path,
     pub(crate) exclusive_source: bool,
+    pub(crate) offers_choice: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -2227,13 +2561,18 @@ pub(crate) struct LinkMemory {
     pub(crate) participated_at: Time,
     pub(crate) outcome_at: Option<Time>,
     pub(crate) outcome_available: bool,
+    pub(crate) boundary_closed: bool,
+    pub(crate) boundary_inhibited: bool,
     pub(crate) strength: i64,
 }
 
 const fn return_topology_role(role: LinkRole) -> bool {
     matches!(
         role,
-        LinkRole::Drive | LinkRole::PathEntry | LinkRole::OutcomeWitness
+        LinkRole::Drive
+            | LinkRole::PathEntry
+            | LinkRole::OutcomeWitness
+            | LinkRole::BoundaryWitness
     )
 }
 
@@ -2248,6 +2587,8 @@ impl Default for LinkMemory {
             participated_at: 0,
             outcome_at: None,
             outcome_available: false,
+            boundary_closed: false,
+            boundary_inhibited: false,
             strength: 1,
         }
     }
@@ -2318,7 +2659,7 @@ impl Body {
         for target in [path.middle, path.output] {
             for witness in self.arena.incoming(target) {
                 if !self.link_memory[witness.slot()].live
-                    || self.link_memory[witness.slot()].role != LinkRole::OutcomeWitness
+                    || !closes_return(self.link_memory[witness.slot()].role)
                 {
                     continue;
                 }
@@ -2330,22 +2671,23 @@ impl Body {
                 }
             }
         }
-        let entry = ReturnEntry {
-            cause,
-            link,
-            path,
-            exclusive_source: only_source.is_some() && !multiple_sources,
-        };
+        let exclusive_source = only_source.is_some() && !multiple_sources;
         let (arena, link_memory, returns_by_source) =
             (&self.arena, &self.link_memory, &mut self.returns.by_source);
         for target in [path.middle, path.output] {
             for witness in arena.incoming(target) {
-                if !link_memory[witness.slot()].live
-                    || link_memory[witness.slot()].role != LinkRole::OutcomeWitness
-                {
+                let role = link_memory[witness.slot()].role;
+                if !link_memory[witness.slot()].live || !closes_return(role) {
                     continue;
                 }
                 let source = arena.link(witness).expect("live outcome witness").from;
+                let entry = ReturnEntry {
+                    cause,
+                    link,
+                    path,
+                    exclusive_source,
+                    offers_choice: role == LinkRole::OutcomeWitness,
+                };
                 let returns = &mut returns_by_source[source.slot()];
                 if let Err(index) = returns.binary_search(&entry) {
                     returns.insert(index, entry);
@@ -2380,7 +2722,7 @@ impl Body {
         for target in [path.middle, path.output] {
             for witness in arena.incoming(target) {
                 if !link_memory[witness.slot()].live
-                    || link_memory[witness.slot()].role != LinkRole::OutcomeWitness
+                    || !closes_return(link_memory[witness.slot()].role)
                 {
                     continue;
                 }
@@ -2523,6 +2865,7 @@ impl Body {
                     returned,
                     path,
                     exclusive_source,
+                    offers_choice,
                     at,
                 } => {
                     let memory = self
@@ -2547,8 +2890,9 @@ impl Body {
                             .link_memory
                             .get_mut(link.slot())
                             .ok_or(ApplyError::UnknownLink(link))?;
-                        memory.outcome_at = Some(at);
-                        memory.outcome_available = true;
+                        memory.outcome_at = offers_choice.then_some(at);
+                        memory.outcome_available = offers_choice;
+                        memory.boundary_closed |= !offers_choice;
                         let before = memory.strength;
                         let after = before.saturating_add(1);
                         memory.strength = after;
@@ -2589,6 +2933,7 @@ impl Body {
                             memory.participation = memory.participation.saturating_add(1);
                             memory.cause = cause;
                             memory.participated_at = at;
+                            memory.boundary_closed = false;
                         }
                         LinkChange::RememberOutcome {
                             at,
@@ -2617,6 +2962,16 @@ impl Body {
                             }
                         }
                         LinkChange::ConsumeOutcome => memory.outcome_available = false,
+                        LinkChange::ClearOutcomeSelection => {
+                            memory.outcome_at = None;
+                            memory.outcome_available = false;
+                        }
+                        LinkChange::InhibitBoundaryChoice => {
+                            memory.boundary_inhibited = true;
+                        }
+                        LinkChange::ConsumeBoundaryInhibition => {
+                            memory.boundary_inhibited = false;
+                        }
                         LinkChange::Strengthen { amount } => {
                             let before = memory.strength;
                             let after = before.saturating_add(i64::from(amount));
@@ -2816,6 +3171,11 @@ mod tests {
             outcome: None,
             participation: 0,
             output_participated: false,
+            outcome_source: None,
+            progress_source: None,
+            resisted_progress: false,
+            boundary_open: false,
+            boundary_inhibited: false,
             strength: 1,
             drive,
             stable_order,
@@ -2867,6 +3227,118 @@ mod tests {
 
         assert_eq!(choice.winner, 0);
         assert_eq!(choice.basis, ChoiceBasis::CurrentReturn);
+    }
+
+    #[test]
+    fn one_retained_progressing_output_precedes_untried_release() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].resisted_progress = true;
+        paths[0].boundary_open = true;
+        paths[0].participation = 1;
+        paths[0].strength = 2;
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 0);
+        assert_eq!(choice.basis, ChoiceBasis::RetainedProgress);
+    }
+
+    #[test]
+    fn unanswered_without_fresh_progress_releases_to_the_untried_output() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].unanswered = true;
+        paths[0].participation = 1;
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 1);
+        assert_eq!(choice.basis, ChoiceBasis::UntriedOutputRelease);
+    }
+
+    #[test]
+    fn unclosed_exploration_cannot_claim_continuation() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].unanswered = true;
+        paths[0].resisted_progress = true;
+        paths[0].boundary_open = true;
+        paths[0].participation = 1;
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 1);
+        assert_eq!(choice.basis, ChoiceBasis::UntriedOutputRelease);
+    }
+
+    #[test]
+    fn retained_output_with_fresh_progress_continues_after_ordinary_outcome() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].resisted_progress = true;
+        paths[0].boundary_open = true;
+        paths[0].participation = 1;
+        paths[0].strength = 2;
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 0);
+        assert_eq!(choice.basis, ChoiceBasis::RetainedProgress);
+    }
+
+    #[test]
+    fn several_progressing_outputs_receive_no_continuation_precedence() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        for path in &mut paths {
+            path.unanswered = true;
+            path.resisted_progress = true;
+            path.boundary_open = true;
+            path.participation = 1;
+            path.strength = 2;
+        }
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_ne!(choice.basis, ChoiceBasis::RetainedProgress);
+    }
+
+    #[test]
+    fn boundary_closed_output_cannot_claim_progress_continuation() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].resisted_progress = true;
+        paths[0].participation = 1;
+        paths[0].strength = 2;
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 1);
+        assert_ne!(choice.basis, ChoiceBasis::RetainedProgress);
+    }
+
+    #[test]
+    fn boundary_completion_releases_only_the_local_antagonist() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1), ready_path(900, 2)];
+        let local = JunctionId::new(20).unwrap();
+        paths[0].outcome_source = Some(local);
+        paths[0].boundary_inhibited = true;
+        paths[1].outcome_source = Some(local);
+        paths[2].outcome_source = Some(JunctionId::new(21).unwrap());
+        paths[2].participation = 100;
+        paths[2].strength = 100;
+
+        let choice = choose_ready(&paths, &[0, 0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 1);
+        assert_eq!(choice.basis, ChoiceBasis::BoundaryRelease);
+    }
+
+    #[test]
+    fn simultaneous_boundary_components_make_no_local_release_claim() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1), ready_path(512, 2)];
+        paths[0].outcome_source = Some(JunctionId::new(20).unwrap());
+        paths[0].boundary_inhibited = true;
+        paths[1].outcome_source = Some(JunctionId::new(21).unwrap());
+        paths[1].boundary_inhibited = true;
+        paths[2].outcome_source = Some(JunctionId::new(20).unwrap());
+
+        assert!(choose_ready(&paths, &[0, 0, 0], 0, false).is_none());
     }
 
     #[test]
@@ -2970,6 +3442,11 @@ mod tests {
                 outcome: path.outcome,
                 participation: path.participation,
                 output_participated: path.output_participated,
+                outcome_source: path.outcome_source,
+                progress_source: path.progress_source,
+                resisted_progress: path.resisted_progress,
+                boundary_open: path.boundary_open,
+                boundary_inhibited: path.boundary_inhibited,
                 strength: path.strength,
                 drive: path.drive,
                 stable_order: path.stable_order,

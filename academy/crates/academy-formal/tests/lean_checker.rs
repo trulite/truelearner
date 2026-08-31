@@ -1,6 +1,6 @@
 use academy_formal::{
-    project_ambiguous_return, project_closed_return, CausalCheckRequest, CausalClaim, CausalEvent,
-    ClosureWitness, LeanChecker,
+    project_ambiguous_return, project_closed_boundary_return, project_closed_return,
+    CausalCheckRequest, CausalClaim, CausalEvent, ClosureWitness, LeanChecker,
 };
 use truelearner_workstation::{
     BodyJunctionId, BodyLinkId, BodyPath, BodyPhysicalEvent, BodyReturnCandidateTrace,
@@ -46,6 +46,32 @@ fn frozen_trace_with_closed_return() -> (Vec<BodyTraceEvent>, usize) {
         }
     }
     panic!("workstation episode produced no accepted return: {frozen:#?}");
+}
+
+fn frozen_trace_with_boundary_return() -> (Vec<BodyTraceEvent>, usize) {
+    let mut harness = WorkstationHarness::new(92).unwrap();
+    let mut frozen = Vec::new();
+    let mut parents = Vec::new();
+    for _ in 0..12 {
+        let (observation, step) = harness
+            .step_traced_with_boundary_parents(physical_sample(), &parents)
+            .unwrap();
+        let return_in_step = step.iter().position(|event| {
+            matches!(
+                event,
+                BodyTraceEvent::Return(returned)
+                    if returned.decision == BodyReturnDecision::Accepted
+                        && returned.offers_choice == Some(false)
+            )
+        });
+        let offset = frozen.len();
+        frozen.extend(step);
+        if let Some(return_in_step) = return_in_step {
+            return (frozen, offset + return_in_step);
+        }
+        parents = observation.crossings.first().copied().into_iter().collect();
+    }
+    panic!("workstation episode produced no accepted boundary return: {frozen:#?}");
 }
 
 fn body_junction(id: u32) -> BodyJunctionId {
@@ -97,6 +123,7 @@ fn retained_ambiguous_trace_shape() -> (Vec<BodyTraceEvent>, usize) {
             path: None,
             return_cause: None,
             return_opened_at: None,
+            offers_choice: None,
             open_paths: 2,
             exact_paths: 2,
             candidates: vec![
@@ -302,6 +329,18 @@ fn actual_workstation_trace_is_accepted_by_lean() {
     assert!(receipt.accepted);
     assert_eq!(receipt.resolution, "closed");
     assert_eq!(receipt.persistent_links, [1, 2]);
+}
+
+#[test]
+fn actual_boundary_return_is_projected_as_closed_observer_evidence() {
+    let (trace, returned) = frozen_trace_with_boundary_return();
+    let projection = project_closed_boundary_return(&trace, returned).unwrap();
+
+    assert_eq!(projection.request.claim.resolution, "closed");
+    assert_eq!(projection.request.events[1].parents, [1]);
+    if let Some(checker) = checker() {
+        assert!(checker.check(&projection.request).unwrap().accepted);
+    }
 }
 
 #[test]

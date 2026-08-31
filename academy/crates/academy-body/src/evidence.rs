@@ -37,7 +37,7 @@ pub fn write_course_evidence(
     let transcript_sha256 = hex(&Sha256::digest(&transcript));
     let transcript_file = format!("transcript-{transcript_sha256}.json");
     let receipt = CourseReceipt {
-        schema: "body-course/v2".to_string(),
+        schema: "body-course/v6".to_string(),
         seed: run.seed,
         courses: run.courses.clone(),
         acquired: run.acquired.clone(),

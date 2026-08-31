@@ -1,6 +1,6 @@
 ---
 name: dev
-description: Develop, debug, review, or change TrueLearner code. Apply category-theory and TAME lenses, keep the implementation lagom, preserve black-box behavior, and keep representative warm wave time strictly under 25 ns unless the user expressly approves otherwise.
+description: Develop, debug, review, formalize, or change TrueLearner code. Apply category-theory and TAME lenses, compose Rust physical evidence with observer-only Lean checks, keep the implementation lagom, preserve black-box behavior, and keep representative warm wave time strictly under 25 ns unless the user expressly approves otherwise.
 ---
 
 # Development
@@ -24,6 +24,36 @@ problem -> compositional physical model -> smallest complete change -> verify
   benchmark, answer, or semantic knowledge into the organism.
 - Prefer the smallest complete change that preserves existing boundaries and
   black-box behavior.
+
+## Compose causal changes
+
+```text
+Rust physical trace -> structure-preserving projection -> Lean claim check
+        |                                                        |
+        +-------------- learner never receives -----------------+
+```
+
+- Draw the commuting square before changing a causal handoff. Name the physical
+  objects and the arrows that act, cross a boundary, return, close, and persist.
+- Make Rust witness every premise. Retain zero, one, or several causal parents;
+  never let an observer projection invent ancestry discarded at runtime.
+- Use Lean only on frozen evidence to prove the resolver and choice claim. Keep
+  the checker, receipt, formal names, and theorem results out of organism input,
+  checkpoints, choice, and the warm path.
+- Model temporary witnesses as open, closed, ambiguous, or expired historical
+  instances. Closure may preserve witnessed support; ambiguity and no claim
+  preserve none.
+- Give continuation precedence only to a unique executable, retained,
+  boundary-open path with fresh progress carrying its exact physical motor
+  parent. Timing after movement is not ancestry. Recompute the condition at
+  every choice and remove it after closure, absent progress, ambiguity,
+  physical limit, or expiry.
+- Treat boundary completion as local inhibition, not a global action command.
+  Release only to an uninhibited antagonist in the same ordinary outcome
+  component; independent components remain a product, and simultaneous
+  components make no arbitrary local claim.
+- Test identity at quiet, renaming invariance, and product independence in
+  addition to the smallest positive and killing negative fixtures.
 
 ## Verify
 

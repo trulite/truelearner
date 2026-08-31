@@ -2,10 +2,11 @@ use crate::{DeviceState, WorkstationPresentation, WorldError};
 use bincode::Options;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use truelearner_workstation::MotorEffect;
 
 const MAGIC: &[u8; 8] = b"TLWSES02";
-const VERSION: u16 = 1;
-const LAYOUT_VERSION: u16 = 1;
+const VERSION: u16 = 3;
+const LAYOUT_VERSION: u16 = 3;
 const HEADER_LEN: usize = 50;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,6 +16,8 @@ pub(crate) struct CheckpointPayload {
     pub presentation: WorkstationPresentation,
     pub sequence: u64,
     pub asset_digest: [u8; 32],
+    pub boundary_parents: Vec<MotorEffect>,
+    pub progress_parents: Vec<MotorEffect>,
     pub layout_version: u16,
 }
 
@@ -30,6 +33,8 @@ impl SessionCheckpoint {
         presentation: WorkstationPresentation,
         sequence: u64,
         asset_digest: [u8; 32],
+        boundary_parents: Vec<MotorEffect>,
+        progress_parents: Vec<MotorEffect>,
     ) -> Self {
         Self {
             payload: CheckpointPayload {
@@ -38,6 +43,8 @@ impl SessionCheckpoint {
                 presentation,
                 sequence,
                 asset_digest,
+                boundary_parents,
+                progress_parents,
                 layout_version: LAYOUT_VERSION,
             },
         }

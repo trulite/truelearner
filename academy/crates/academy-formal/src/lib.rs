@@ -4,7 +4,8 @@
 mod trace_projection;
 
 pub use trace_projection::{
-    project_ambiguous_return, project_closed_return, ClosureProjection, TraceProjectionError,
+    project_ambiguous_return, project_closed_boundary_return, project_closed_return,
+    ClosureProjection, TraceProjectionError,
 };
 
 use serde::{Deserialize, Serialize};

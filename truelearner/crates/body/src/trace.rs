@@ -41,6 +41,11 @@ pub struct CandidateTrace {
     pub outcome: Option<Outcome>,
     pub participation: u64,
     pub output_participated: bool,
+    pub outcome_source: Option<JunctionId>,
+    pub progress_source: Option<JunctionId>,
+    pub resisted_progress: bool,
+    pub boundary_open: bool,
+    pub boundary_inhibited: bool,
     pub strength: i64,
     pub drive: u16,
     pub stable_order: u32,
@@ -51,6 +56,8 @@ pub struct CandidateTrace {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ChoiceBasis {
     CurrentReturn,
+    BoundaryRelease,
+    RetainedProgress,
     FreshOpportunity,
     AvailableOutcome,
     LatestOutcome,
@@ -74,6 +81,8 @@ pub enum ChoiceLaw {
     CandidateAccounting,
     Eligibility,
     CurrentReturn,
+    BoundaryRelease,
+    RetainedProgress,
     CurrentSurfaceLocality,
     FreshOpportunity,
     UntriedOutputRelease,
@@ -304,7 +313,10 @@ fn verify_choice(
             });
         }
         (Some(expected), Some(observed)) => {
-            if expected.law != ChoiceLaw::CurrentReturn {
+            if !matches!(
+                expected.law,
+                ChoiceLaw::CurrentReturn | ChoiceLaw::BoundaryRelease
+            ) {
                 let strongest_drive = candidates
                     .iter()
                     .copied()
@@ -369,10 +381,36 @@ fn expected_choice<'a>(
     candidates: &'a [&'a CandidateTrace],
     construction: bool,
 ) -> Option<ExpectedChoice<'a>> {
+    if !construction {
+        let mut inhibited = candidates
+            .iter()
+            .copied()
+            .filter(|candidate| candidate.executable && candidate.boundary_inhibited);
+        if let Some(first) = inhibited.next() {
+            let source = first.outcome_source?;
+            if inhibited.any(|candidate| candidate.outcome_source != Some(source)) {
+                return None;
+            }
+            let local = candidates
+                .iter()
+                .copied()
+                .filter(|candidate| {
+                    candidate.executable
+                        && !candidate.boundary_inhibited
+                        && candidate.outcome_source == Some(source)
+                })
+                .collect::<Vec<_>>();
+            return unique_output(&local).map(|candidate| ExpectedChoice {
+                candidate,
+                basis: ChoiceBasis::BoundaryRelease,
+                law: ChoiceLaw::BoundaryRelease,
+            });
+        }
+    }
     let eligible = candidates
         .iter()
         .copied()
-        .filter(|candidate| construction || candidate.executable)
+        .filter(|candidate| construction || (candidate.executable && !candidate.boundary_inhibited))
         .collect::<Vec<_>>();
     let exact_returns = eligible
         .iter()
@@ -405,6 +443,13 @@ fn expected_choice<'a>(
             candidate,
             basis: ChoiceBasis::FreshOpportunity,
             law: ChoiceLaw::FreshOpportunity,
+        });
+    }
+    if let Some(candidate) = unique_retained_progress(&active) {
+        return Some(ExpectedChoice {
+            candidate,
+            basis: ChoiceBasis::RetainedProgress,
+            law: ChoiceLaw::RetainedProgress,
         });
     }
     let output_is_tried = |output| {
@@ -464,13 +509,19 @@ fn expected_choice<'a>(
 }
 
 fn unique_returned_output<'a>(candidates: &[&'a CandidateTrace]) -> Option<&'a CandidateTrace> {
+    unique_output(
+        &candidates
+            .iter()
+            .copied()
+            .filter(|candidate| candidate.output_participated)
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn unique_output<'a>(candidates: &[&'a CandidateTrace]) -> Option<&'a CandidateTrace> {
     let mut output: Option<JunctionId> = None;
     let mut winner: Option<&CandidateTrace> = None;
-    for candidate in candidates
-        .iter()
-        .copied()
-        .filter(|candidate| candidate.output_participated)
-    {
+    for candidate in candidates.iter().copied() {
         match output {
             None => output = Some(candidate.path.output),
             Some(current) if current != candidate.path.output => return None,
@@ -481,6 +532,20 @@ fn unique_returned_output<'a>(candidates: &[&'a CandidateTrace]) -> Option<&'a C
         }
     }
     winner
+}
+
+fn unique_retained_progress<'a>(candidates: &[&'a CandidateTrace]) -> Option<&'a CandidateTrace> {
+    let progressing = candidates
+        .iter()
+        .copied()
+        .filter(|candidate| {
+            candidate.resisted_progress
+                && candidate.boundary_open
+                && candidate.strength > 1
+                && candidate.participation > 0
+        })
+        .collect::<Vec<_>>();
+    unique_output(&progressing)
 }
 
 fn preference(candidate: &CandidateTrace) -> (u64, i64, u16, Reverse<u32>) {
@@ -538,6 +603,7 @@ pub struct ReturnTrace {
     pub path: Option<Path>,
     pub return_cause: Option<Cause>,
     pub return_opened_at: Option<Time>,
+    pub offers_choice: Option<bool>,
     pub open_paths: usize,
     pub exact_paths: usize,
     pub candidates: Vec<ReturnCandidateTrace>,
@@ -621,6 +687,11 @@ mod tests {
             outcome: None,
             participation: 0,
             output_participated: false,
+            outcome_source: None,
+            progress_source: None,
+            resisted_progress: false,
+            boundary_open: false,
+            boundary_inhibited: false,
             strength: 1,
             drive,
             stable_order: index as u32,
@@ -648,6 +719,34 @@ mod tests {
         ];
 
         assert_eq!(verify_choice_laws(&events), Ok(()));
+    }
+
+    #[test]
+    fn offline_verifier_accepts_local_boundary_release() {
+        let local = JunctionId::new(30).unwrap();
+        let mut completed = candidate(0, 512);
+        completed.outcome_source = Some(local);
+        completed.boundary_inhibited = true;
+        let mut antagonist = candidate(1, 1);
+        antagonist.outcome_source = Some(local);
+        let mut unrelated = candidate(2, 1_023);
+        unrelated.outcome_source = Some(JunctionId::new(31).unwrap());
+        let events = [
+            TraceEvent::Candidate(completed),
+            TraceEvent::Candidate(antagonist.clone()),
+            TraceEvent::Candidate(unrelated),
+            TraceEvent::Choice(ChoiceTrace {
+                at: 7,
+                group: 0,
+                alternatives: 3,
+                winner: Some(antagonist.path),
+                basis: Some(ChoiceBasis::BoundaryRelease),
+                construction: false,
+                sent: true,
+            }),
+        ];
+
+        verify_choice_laws(&events).unwrap();
     }
 
     #[test]

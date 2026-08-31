@@ -131,6 +131,21 @@ pub fn project_closed_return(
     })
 }
 
+/// Projects an accepted world-boundary return. Ordinary movement outcomes are
+/// rejected so the formal receipt cannot be mistaken for action recency.
+pub fn project_closed_boundary_return(
+    events: &[BodyTraceEvent],
+    return_event_index: usize,
+) -> Result<ClosureProjection, TraceProjectionError> {
+    let returned = validated_return(events, return_event_index)?;
+    if returned.offers_choice != Some(false) {
+        return Err(TraceProjectionError::ReturnIsNotBoundary(
+            return_event_index,
+        ));
+    }
+    project_closed_return(events, return_event_index)
+}
+
 /// Projects every causally eligible contender of one ambiguous return.
 ///
 /// A same-tick contender is admitted only when its output transition occurs
@@ -305,6 +320,7 @@ pub enum TraceProjectionError {
         event: usize,
         decision: BodyReturnDecision,
     },
+    ReturnIsNotBoundary(usize),
     CandidateCount {
         event: usize,
         recorded: usize,
@@ -361,6 +377,9 @@ impl fmt::Display for TraceProjectionError {
             ),
             Self::ReturnNotAmbiguous { event, decision } => {
                 write!(formatter, "return {event} is {decision:?}, not ambiguous")
+            }
+            Self::ReturnIsNotBoundary(event) => {
+                write!(formatter, "return {event} is an ordinary choice-bearing outcome")
             }
             Self::CandidateCount {
                 event,
