@@ -8,6 +8,8 @@ pub mod core;
 mod engine;
 pub mod harness;
 mod physics;
+#[cfg(test)]
+mod planning_goal_laws;
 mod timeline;
 mod trace;
 

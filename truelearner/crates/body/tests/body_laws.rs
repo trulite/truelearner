@@ -422,6 +422,48 @@ fn an_unanswered_action_gives_an_alternative_the_next_chance() {
 }
 
 #[test]
+fn a_previously_successful_action_without_a_new_return_releases_to_an_alternative() {
+    let mut world = CompetitionWorld::new(false);
+    world.completed_cycle(0, 10, 1);
+    assert_eq!(effect(&world.act(1, 20, 2).events, &world.motors), [1]);
+
+    let (first, first_trace) = world.compete_traced(30, 3);
+    assert_eq!(effect(&first.events, &world.motors), [0]);
+    assert!(first_trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::AvailableOutcome)
+    )));
+
+    let (next, trace) = world.compete_traced(40, 4);
+    let choices = trace
+        .iter()
+        .filter_map(|event| match event {
+            TraceEvent::Choice(choice) => Some(choice),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        effect(&next.events, &world.motors),
+        [1],
+        "first={:#?}\nnext={choices:#?}",
+        first_trace
+            .iter()
+            .filter_map(|event| match event {
+                TraceEvent::Candidate(candidate) => Some(candidate),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    );
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Choice(choice)
+            if choice.basis == Some(ChoiceBasis::UnansweredOutputRelease)
+    )));
+    verify_choice_laws(&first_trace).unwrap();
+    verify_choice_laws(&trace).unwrap();
+}
+
+#[test]
 fn a_completed_action_gives_an_untried_alternative_the_next_chance() {
     let mut world = CompetitionWorld::new(false);
     world.completed_cycle(0, 10, 1);

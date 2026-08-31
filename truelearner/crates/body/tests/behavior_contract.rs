@@ -55,6 +55,14 @@ fn an_unanswered_output_releases_on_the_compact_body() {
 }
 
 #[test]
+fn a_changed_contingency_releases_relearns_and_replays_on_the_compact_body() {
+    let base = scenarios::changed_contingency_releases_and_relearns();
+    assert_scenario(base.clone());
+    assert_scenario(properties::reversed_construction(base.clone()));
+    assert_scenario(properties::with_dormant_sensors(base, 128));
+}
+
+#[test]
 fn deterministic_variants_are_the_same_on_the_compact_body() {
     let base = scenarios::local_action(1, 7);
     let failures = [

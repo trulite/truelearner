@@ -173,6 +173,52 @@ pub fn unanswered_output_releases() -> Scenario {
     }
 }
 
+pub fn changed_contingency_releases_and_relearns() -> Scenario {
+    let surfaces = [SensorId(30), SensorId(31)];
+    let outcome = SensorId(32);
+    let motors = [MotorId(30), MotorId(31)];
+    Scenario {
+        name: "changed-contingency-releases-and-relearns",
+        morphology: Morphology {
+            sensors: surfaces
+                .into_iter()
+                .chain([outcome])
+                .map(|id| integrating_sensor(id, 1))
+                .collect(),
+            motors: motors.map(|id| Motor { id }).to_vec(),
+            nearby: surfaces
+                .into_iter()
+                .zip(motors)
+                .map(|(sensor, motor)| Nearby {
+                    sensor,
+                    motor,
+                    distance: 1,
+                })
+                .collect(),
+            outcome_components: vec![OutcomeComponent {
+                source: outcome,
+                motors: motors.to_vec(),
+            }],
+        },
+        steps: vec![
+            actions(0, 1, &[surfaces[0]], &[motors[0]], &[motors[0]]),
+            returned_outcome(2, 1, outcome),
+            actions(10, 2, &[surfaces[1]], &[motors[1]], &[motors[1]]),
+            actions(20, 3, &surfaces, &motors, &[motors[0]]),
+            actions(30, 4, &surfaces, &motors, &[motors[1]]),
+            returned_outcome(32, 4, outcome),
+            Step::Save {
+                checkpoint: "switched",
+            },
+            actions(40, 5, &surfaces, &motors, &[motors[1]]),
+            Step::Restore {
+                checkpoint: "switched",
+            },
+            actions(40, 5, &surfaces, &motors, &[motors[1]]),
+        ],
+    }
+}
+
 fn actions(
     at: u64,
     cause: u64,

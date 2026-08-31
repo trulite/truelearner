@@ -41,6 +41,7 @@ pub struct CandidateTrace {
     pub unanswered: bool,
     pub outcome: Option<Outcome>,
     pub participation: u64,
+    pub participated_at: Time,
     pub output_participated: bool,
     pub outcome_source: Option<JunctionId>,
     pub progress_source: Option<JunctionId>,
@@ -61,6 +62,7 @@ pub enum ChoiceBasis {
     RetainedProgress,
     FreshOpportunity,
     AvailableOutcome,
+    UnansweredOutputRelease,
     LatestOutcome,
     UntriedOutputRelease,
     ParticipationStrengthAndDrive,
@@ -88,6 +90,7 @@ pub enum ChoiceLaw {
     FreshOpportunity,
     UntriedOutputRelease,
     AvailableOutcome,
+    UnansweredOutputRelease,
     LatestOutcome,
     ParticipationStrengthAndDrive,
     Delivery,
@@ -491,6 +494,21 @@ fn expected_choice<'a>(
             law: ChoiceLaw::AvailableOutcome,
         });
     }
+    let latest_unanswered = latest_unanswered_output(&active);
+    if let Some(unanswered) = latest_unanswered {
+        if let Some(candidate) = active
+            .iter()
+            .copied()
+            .filter(|candidate| candidate.path.output != unanswered)
+            .max_by_key(|candidate| preference(candidate))
+        {
+            return Some(ExpectedChoice {
+                candidate,
+                basis: ChoiceBasis::UnansweredOutputRelease,
+                law: ChoiceLaw::UnansweredOutputRelease,
+            });
+        }
+    }
     if let Some(candidate) = unique_latest(&active, false) {
         return Some(ExpectedChoice {
             candidate,
@@ -507,6 +525,40 @@ fn expected_choice<'a>(
             basis: ChoiceBasis::ParticipationStrengthAndDrive,
             law: ChoiceLaw::ParticipationStrengthAndDrive,
         })
+}
+
+fn latest_unanswered_output(candidates: &[&CandidateTrace]) -> Option<JunctionId> {
+    let mut latest = None;
+    let mut output = None;
+    let mut ambiguous = false;
+    for candidate in candidates
+        .iter()
+        .copied()
+        .filter(|candidate| candidate.unanswered && candidate.participation > 0)
+    {
+        match latest {
+            None => {
+                latest = Some(candidate.participated_at);
+                output = Some(candidate.path.output);
+            }
+            Some(at) if candidate.participated_at > at => {
+                latest = Some(candidate.participated_at);
+                output = Some(candidate.path.output);
+                ambiguous = false;
+            }
+            Some(at)
+                if candidate.participated_at == at && output != Some(candidate.path.output) =>
+            {
+                ambiguous = true;
+            }
+            Some(_) => {}
+        }
+    }
+    if ambiguous {
+        None
+    } else {
+        output
+    }
 }
 
 fn unique_returned_output<'a>(candidates: &[&'a CandidateTrace]) -> Option<&'a CandidateTrace> {
@@ -687,6 +739,7 @@ mod tests {
             unanswered: false,
             outcome: None,
             participation: 0,
+            participated_at: 0,
             output_participated: false,
             outcome_source: None,
             progress_source: None,
@@ -720,6 +773,47 @@ mod tests {
         ];
 
         assert_eq!(verify_choice_laws(&events), Ok(()));
+    }
+
+    #[test]
+    fn offline_verifier_checks_unanswered_output_release() {
+        let mut unanswered = candidate(0, 512);
+        unanswered.at = 30;
+        unanswered.participation = 2;
+        unanswered.participated_at = 20;
+        unanswered.unanswered = true;
+        unanswered.strength = 3;
+        unanswered.outcome = Some(Outcome {
+            at: 10,
+            caused_transition: true,
+            available_until_choice: false,
+        });
+        let mut alternative = candidate(1, 512);
+        alternative.at = 30;
+        alternative.participation = 1;
+        alternative.participated_at = 15;
+        let mut events = vec![
+            TraceEvent::Candidate(unanswered),
+            TraceEvent::Candidate(alternative.clone()),
+            TraceEvent::Choice(ChoiceTrace {
+                at: 30,
+                group: 0,
+                alternatives: 2,
+                winner: Some(alternative.path),
+                basis: Some(ChoiceBasis::UnansweredOutputRelease),
+                construction: false,
+                sent: true,
+            }),
+        ];
+
+        verify_choice_laws(&events).unwrap();
+
+        let TraceEvent::Choice(choice) = events.last_mut().unwrap() else {
+            unreachable!()
+        };
+        choice.basis = Some(ChoiceBasis::LatestOutcome);
+        let failure = verify_choice_laws(&events).unwrap_err();
+        assert_eq!(failure.law(), ChoiceLaw::UnansweredOutputRelease);
     }
 
     #[test]

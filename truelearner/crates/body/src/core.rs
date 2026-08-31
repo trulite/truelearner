@@ -2209,6 +2209,7 @@ struct ReadyPath {
     connected_end: usize,
     outcome: Option<Outcome>,
     participation: u64,
+    participated_at: Time,
     output_participated: bool,
     outcome_source: Option<JunctionId>,
     progress_source: Option<JunctionId>,
@@ -2337,6 +2338,7 @@ fn form_and_choose<T: TraceSink>(
                     connected_end,
                     outcome: None,
                     participation: 0,
+                    participated_at: 0,
                     output_participated: false,
                     outcome_source: unique_witness_source(
                         body,
@@ -2407,6 +2409,7 @@ fn form_and_choose<T: TraceSink>(
                 unanswered: candidate.unanswered,
                 outcome: candidate.outcome,
                 participation: candidate.participation,
+                participated_at: candidate.participated_at,
                 output_participated: candidate.output_participated,
                 outcome_source: candidate.outcome_source,
                 progress_source: candidate.progress_source,
@@ -2549,6 +2552,7 @@ fn append_existing_ready_paths(
                     connected_end,
                     outcome,
                     participation: memory.participation,
+                    participated_at: memory.participated_at,
                     output_participated: false,
                     outcome_source: unique_witness_source(body, link.to, LinkRole::OutcomeWitness),
                     progress_source: unique_witness_source(
@@ -2851,6 +2855,7 @@ fn choose_ready(
         .map(|index| paths[index].drive)
         .max()?;
     let active = |index: &usize| eligible(index) && paths[*index].drive == strongest_drive;
+    let latest_unanswered = latest_unanswered_output((0..paths.len()).filter(active), paths);
     let output_is_tried = |output| {
         (0..paths.len()).any(|index| {
             active(&index)
@@ -2914,6 +2919,25 @@ fn choose_ready(
         )
     })
     .or_else(|| {
+        let unanswered = latest_unanswered?;
+        (0..paths.len())
+            .filter(active)
+            .filter(|index| paths[*index].output != unanswered)
+            .max_by_key(|index| {
+                let path = &paths[*index];
+                (
+                    path.participation,
+                    path.strength,
+                    path.drive,
+                    Reverse(path.stable_order),
+                )
+            })
+            .map(|winner| ReadyChoice {
+                winner,
+                basis: ChoiceBasis::UnansweredOutputRelease,
+            })
+    })
+    .or_else(|| {
         unique_latest_ready(paths, worlds, world, strongest_drive, false, construction).map(
             |winner| ReadyChoice {
                 winner,
@@ -2948,6 +2972,38 @@ fn unique_returned_output(
         paths.filter(|index| ready[*index].output_participated),
         ready,
     )
+}
+
+fn latest_unanswered_output(
+    paths: impl Iterator<Item = usize>,
+    ready: &[ReadyPath],
+) -> Option<JunctionId> {
+    let mut latest = None;
+    let mut output = None;
+    let mut ambiguous = false;
+    for index in paths.filter(|index| ready[*index].unanswered && ready[*index].participation > 0) {
+        let path = &ready[index];
+        match latest {
+            None => {
+                latest = Some(path.participated_at);
+                output = Some(path.output);
+            }
+            Some(at) if path.participated_at > at => {
+                latest = Some(path.participated_at);
+                output = Some(path.output);
+                ambiguous = false;
+            }
+            Some(at) if path.participated_at == at && output != Some(path.output) => {
+                ambiguous = true;
+            }
+            Some(_) => {}
+        }
+    }
+    if ambiguous {
+        None
+    } else {
+        output
+    }
 }
 
 fn unique_output(paths: impl Iterator<Item = usize>, ready: &[ReadyPath]) -> Option<usize> {
@@ -4069,6 +4125,7 @@ mod tests {
             connected_end: 0,
             outcome: None,
             participation: 0,
+            participated_at: 0,
             output_participated: false,
             outcome_source: None,
             progress_source: None,
@@ -4152,6 +4209,81 @@ mod tests {
 
         assert_eq!(choice.winner, 1);
         assert_eq!(choice.basis, ChoiceBasis::UntriedOutputRelease);
+    }
+
+    #[test]
+    fn a_newer_unanswered_reuse_releases_an_older_success_to_a_tried_alternative() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].participation = 2;
+        paths[0].participated_at = 20;
+        paths[0].unanswered = true;
+        paths[0].outcome = Some(Outcome {
+            at: 10,
+            caused_transition: true,
+            available_until_choice: false,
+        });
+        paths[0].strength = 3;
+        paths[1].participation = 1;
+        paths[1].participated_at = 15;
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 1);
+        assert_eq!(choice.basis, ChoiceBasis::UnansweredOutputRelease);
+    }
+
+    #[test]
+    fn an_exact_return_precedes_unanswered_output_release() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].participation = 2;
+        paths[0].participated_at = 20;
+        paths[0].unanswered = true;
+        paths[0].return_cause = Some(paths[0].current_cause);
+        paths[0].outcome = Some(Outcome {
+            at: 10,
+            caused_transition: true,
+            available_until_choice: false,
+        });
+        paths[1].participation = 1;
+        paths[1].participated_at = 15;
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 0);
+        assert_eq!(choice.basis, ChoiceBasis::CurrentReturn);
+    }
+
+    #[test]
+    fn a_lone_unanswered_output_does_not_invent_an_alternative() {
+        let mut path = ready_path(512, 0);
+        path.participation = 2;
+        path.participated_at = 20;
+        path.unanswered = true;
+        path.outcome = Some(Outcome {
+            at: 10,
+            caused_transition: true,
+            available_until_choice: false,
+        });
+
+        let choice = choose_ready(&[path], &[0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 0);
+        assert_eq!(choice.basis, ChoiceBasis::LatestOutcome);
+    }
+
+    #[test]
+    fn simultaneous_unanswered_outputs_make_no_unique_release_claim() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        for path in &mut paths {
+            path.participation = 1;
+            path.participated_at = 20;
+            path.unanswered = true;
+        }
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 0);
+        assert_eq!(choice.basis, ChoiceBasis::ParticipationStrengthAndDrive);
     }
 
     #[test]
@@ -4292,6 +4424,10 @@ mod tests {
             right_drive in 0_u16..=1_023,
             left_participation in 0_u64..4,
             right_participation in 0_u64..4,
+            left_participated_at in 0_u64..4,
+            right_participated_at in 0_u64..4,
+            left_unanswered in any::<bool>(),
+            right_unanswered in any::<bool>(),
             left_output_participated in any::<bool>(),
             right_output_participated in any::<bool>(),
             left_strength in -2_i64..=2,
@@ -4309,6 +4445,10 @@ mod tests {
             let mut paths = [ready_path(left_drive, 0), ready_path(right_drive, 1)];
             paths[0].participation = left_participation;
             paths[1].participation = right_participation;
+            paths[0].participated_at = left_participated_at;
+            paths[1].participated_at = right_participated_at;
+            paths[0].unanswered = left_unanswered;
+            paths[1].unanswered = right_unanswered;
             paths[0].output_participated = left_output_participated;
             paths[1].output_participated = right_output_participated;
             paths[0].strength = left_strength;
@@ -4340,6 +4480,7 @@ mod tests {
                 unanswered: path.unanswered,
                 outcome: path.outcome,
                 participation: path.participation,
+                participated_at: path.participated_at,
                 output_participated: path.output_participated,
                 outcome_source: path.outcome_source,
                 progress_source: path.progress_source,
