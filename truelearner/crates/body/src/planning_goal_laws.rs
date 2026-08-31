@@ -5,9 +5,10 @@
 //! episode verdict, or evaluator state to the learner.
 
 use crate::{
+    attach,
     harness::{attach_outcome_component, attach_sensor, effect, motor, reading, schedule, Motor},
-    verify_choice_laws, Arrival, Body, Junction, JunctionId, PhysicalEvent, ReturnDecision,
-    TraceEvent,
+    verify_choice_laws, Arrival, Body, BodyCheckpoint, ChoiceBasis, Junction, JunctionId, Link,
+    LinkId, LinkRole, OpenBody, PhysicalEvent, ReturnDecision, TraceEvent,
 };
 
 fn run(body: &mut Body) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
@@ -20,6 +21,7 @@ fn run(body: &mut Body) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
     (events, trace)
 }
 
+#[derive(Clone)]
 struct PlanningWorld {
     body: Body,
     starts: [JunctionId; 2],
@@ -27,10 +29,10 @@ struct PlanningWorld {
     dead_end: JunctionId,
     closure: JunctionId,
     motors: [Motor; 3],
+    outcome_witnesses: [LinkId; 3],
     route_value: i32,
     dead_end_value: i32,
-    closure_value: i32,
-    condition_open: bool,
+    condition_value: i32,
 }
 
 impl PlanningWorld {
@@ -41,7 +43,16 @@ impl PlanningWorld {
     const SHARED_START: usize = 1;
 
     fn new() -> Self {
+        Self::with_dormant_prefix(false)
+    }
+
+    fn with_dormant_prefix(prefix: bool) -> Self {
         let mut body = Body::default();
+        if prefix {
+            let from = body.add_junction(Junction::integrating(1)).unwrap();
+            let to = body.add_junction(Junction::integrating(1)).unwrap();
+            body.add_link(Link::new(from, to, 1, 1)).unwrap();
+        }
         let motors = std::array::from_fn(|_| motor(&mut body));
         let starts = [
             attach_sensor(
@@ -65,9 +76,11 @@ impl PlanningWorld {
         );
         let dead_end = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
         let closure = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
-        attach_outcome_component(&mut body, route, [motors[Self::ROUTE].opportunity]);
-        attach_outcome_component(&mut body, dead_end, [motors[Self::DEAD_END].opportunity]);
-        attach_outcome_component(&mut body, closure, [motors[Self::TERMINAL].opportunity]);
+        let outcome_witnesses = [
+            outcome_witness(&mut body, route, motors[Self::ROUTE].opportunity),
+            outcome_witness(&mut body, dead_end, motors[Self::DEAD_END].opportunity),
+            outcome_witness(&mut body, closure, motors[Self::TERMINAL].opportunity),
+        ];
         schedule(
             &mut body,
             0,
@@ -85,10 +98,10 @@ impl PlanningWorld {
             dead_end,
             closure,
             motors,
+            outcome_witnesses,
             route_value: 0,
             dead_end_value: 0,
-            closure_value: 0,
-            condition_open: false,
+            condition_value: 0,
         }
     }
 
@@ -103,7 +116,11 @@ impl PlanningWorld {
             at + 1,
             &[Arrival::caused(self.motors[output].opportunity, 1, cause)],
         );
-        assert_eq!(effect(&run(&mut self.body).0, &self.motors), [output]);
+        assert_eq!(
+            effect(&run(&mut self.body).0, &self.motors),
+            [output],
+            "start={start} output={output} at={at} cause={cause}"
+        );
     }
 
     fn return_route(&mut self, at: u64, cause: u64) -> Vec<PhysicalEvent> {
@@ -117,7 +134,8 @@ impl PlanningWorld {
     }
 
     fn return_dead_end(&mut self, at: u64, cause: u64) {
-        assert!(self.condition_open);
+        let condition = self.body.held(self.closure).unwrap();
+        assert_ne!(condition, 0);
         self.dead_end_value += 1;
         schedule(
             &mut self.body,
@@ -132,16 +150,15 @@ impl PlanningWorld {
                     && returned.source == self.dead_end
                     && returned.return_cause == Some(cause)
         )));
-        assert!(self.condition_open);
+        assert_eq!(self.body.held(self.closure), Some(condition));
     }
 
     fn return_closure(&mut self, at: u64, cause: u64) {
-        assert!(self.condition_open);
-        self.closure_value += 1;
+        assert_ne!(self.body.held(self.closure), Some(0));
         schedule(
             &mut self.body,
             at,
-            &[reading(self.closure, 0, self.closure_value, cause)],
+            &[Arrival::caused(self.closure, 0, cause)],
         );
         let (_, trace) = run(&mut self.body);
         assert!(trace.iter().any(|event| matches!(
@@ -151,15 +168,16 @@ impl PlanningWorld {
                     && returned.source == self.closure
                     && returned.return_cause == Some(cause)
         )));
-        self.condition_open = false;
+        self.condition_value = 0;
+        assert_eq!(self.body.held(self.closure), Some(0));
     }
 
     fn open_condition(&mut self, at: u64, cause: u64) {
-        self.closure_value += 1;
+        self.condition_value = if self.condition_value == 1 { 2 } else { 1 };
         schedule(
             &mut self.body,
             at,
-            &[reading(self.closure, 0, self.closure_value, cause)],
+            &[Arrival::caused(self.closure, self.condition_value, cause)],
         );
         let (events, trace) = run(&mut self.body);
         assert!(effect(&events, &self.motors).is_empty());
@@ -167,7 +185,7 @@ impl PlanningWorld {
             event,
             TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted
         )));
-        self.condition_open = true;
+        assert_eq!(self.body.held(self.closure), Some(self.condition_value));
     }
 
     fn teach_route(&mut self, at: u64, cause: u64) {
@@ -215,6 +233,32 @@ impl PlanningWorld {
         run(&mut self.body)
     }
 
+    fn probe_shared_with_present_condition(
+        &mut self,
+        at: u64,
+        cause: u64,
+        condition_cause: u64,
+    ) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
+        self.condition_value = if self.condition_value == 1 { 2 } else { 1 };
+        schedule(
+            &mut self.body,
+            at,
+            &[
+                reading(self.starts[Self::SHARED_START], 0, 1, cause),
+                Arrival::caused(self.closure, self.condition_value, condition_cause),
+            ],
+        );
+        schedule(
+            &mut self.body,
+            at + 1,
+            &[
+                Arrival::caused(self.motors[Self::ROUTE].opportunity, 1, cause),
+                Arrival::caused(self.motors[Self::DEAD_END].opportunity, 1, cause),
+            ],
+        );
+        run(&mut self.body)
+    }
+
     fn probe_learned_route(&mut self, at: u64, cause: u64) -> Vec<PhysicalEvent> {
         schedule(
             &mut self.body,
@@ -223,6 +267,13 @@ impl PlanningWorld {
         );
         run(&mut self.body).0
     }
+}
+
+fn outcome_witness(body: &mut Body, source: JunctionId, output: JunctionId) -> LinkId {
+    let witness = body.add_link(Link::new(source, output, 0, 1)).unwrap();
+    body.set_link_role(witness, LinkRole::OutcomeWitness)
+        .unwrap();
+    witness
 }
 
 #[test]
@@ -240,7 +291,6 @@ fn separately_closed_steps_compose_only_after_the_real_intermediate_returns() {
 }
 
 #[test]
-#[ignore = "frontier: an open condition does not yet select its learned multi-step route"]
 fn an_open_condition_selects_the_learned_route_that_can_close_it() {
     let mut world = PlanningWorld::new();
     world.open_condition(5, 90);
@@ -255,8 +305,7 @@ fn an_open_condition_selects_the_learned_route_that_can_close_it() {
     assert_eq!(effect(&dead_end, &world.motors), [PlanningWorld::DEAD_END]);
     world.return_dead_end(36, 3);
 
-    world.open_condition(39, 92);
-    let (first, trace) = world.probe_shared(40, 4);
+    let (first, trace) = world.probe_shared_with_present_condition(40, 4, 92);
     assert_eq!(
         effect(&first, &world.motors),
         [PlanningWorld::ROUTE],
@@ -266,11 +315,451 @@ fn an_open_condition_selects_the_learned_route_that_can_close_it() {
             .filter(|event| matches!(event, TraceEvent::Choice(_)))
             .collect::<Vec<_>>()
     );
+    let reentry = trace.iter().find_map(|event| match event {
+        TraceEvent::Candidate(candidate) if candidate.reentries.len() == 1 => {
+            Some(&candidate.reentries[0])
+        }
+        _ => None,
+    });
+    let reentry = reentry.expect("one executable continuation reaches the present condition");
+    assert_eq!(reentry.condition, world.closure);
+    assert_eq!(reentry.steps.len(), 2);
+    assert_eq!(reentry.steps[0].returned_source, world.route);
+    assert_eq!(reentry.steps[1].returned_source, world.closure);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::UniqueReentry)
+    )));
+    assert!(!trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted
+    ) || matches!(event, TraceEvent::Strengthened(_))));
+    assert_eq!(world.body.reentry_state().closed_steps, 3);
+    assert_eq!(world.body.returns.live_count, 1);
 
     let terminal = world.return_route(44, 4);
     assert_eq!(effect(&terminal, &world.motors), [PlanningWorld::TERMINAL]);
     world.return_closure(48, 4);
-    assert!(!world.condition_open);
+    assert_eq!(world.body.held(world.closure), Some(0));
+}
+
+fn prepare_route(world: &mut PlanningWorld) {
+    world.open_condition(5, 90);
+    world.teach_start(PlanningWorld::SHARED_START, PlanningWorld::ROUTE, 10, 1);
+    assert!(effect(&world.return_route(14, 1), &world.motors).is_empty());
+    world.teach_terminal(20, 2);
+    world.open_condition(30, 91);
+    world.teach_start(PlanningWorld::SHARED_START, PlanningWorld::DEAD_END, 32, 3);
+    world.return_dead_end(36, 3);
+}
+
+fn chosen_basis(trace: &[TraceEvent]) -> Option<ChoiceBasis> {
+    trace.iter().find_map(|event| match event {
+        TraceEvent::Choice(choice) if choice.sent => choice.basis,
+        _ => None,
+    })
+}
+
+#[test]
+fn reentry_crosses_no_downstream_motor_and_opens_only_the_actual_return() {
+    let mut world = PlanningWorld::new();
+    prepare_route(&mut world);
+    let strengths = world
+        .outcome_witnesses
+        .map(|link| world.body.link_memory[link.slot()].strength);
+
+    let (events, trace) = world.probe_shared_with_present_condition(40, 4, 92);
+
+    assert_eq!(effect(&events, &world.motors), [PlanningWorld::ROUTE]);
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(world.body.returns.live_count, 1);
+    assert_eq!(
+        world
+            .outcome_witnesses
+            .map(|link| world.body.link_memory[link.slot()].strength),
+        strengths
+    );
+    assert!(!trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted
+    ) || matches!(event, TraceEvent::Strengthened(_))));
+}
+
+#[test]
+fn unclosed_and_wrong_cause_steps_retain_no_reentry() {
+    let mut unclosed = PlanningWorld::new();
+    unclosed.teach_start(PlanningWorld::SHARED_START, PlanningWorld::ROUTE, 10, 1);
+    assert_eq!(unclosed.body.reentry_state().closed_steps, 0);
+
+    let mut wrong = PlanningWorld::new();
+    wrong.teach_start(PlanningWorld::SHARED_START, PlanningWorld::ROUTE, 10, 1);
+    wrong.return_route(14, 99);
+    assert_eq!(wrong.body.reentry_state().closed_steps, 0);
+}
+
+#[test]
+fn passive_timing_and_ambiguous_support_retain_no_reentry() {
+    let mut passive = PlanningWorld::new();
+    passive.teach_start(PlanningWorld::SHARED_START, PlanningWorld::ROUTE, 10, 1);
+    passive.return_route(14, 0);
+    assert_eq!(passive.body.reentry_state().closed_steps, 0);
+
+    let mut ambiguous = PlanningWorld::new();
+    outcome_witness(
+        &mut ambiguous.body,
+        ambiguous.route,
+        ambiguous.motors[PlanningWorld::ROUTE].opportunity,
+    );
+    ambiguous.teach_start(PlanningWorld::SHARED_START, PlanningWorld::ROUTE, 10, 1);
+    ambiguous.return_route(14, 1);
+    assert_eq!(ambiguous.body.reentry_state().closed_steps, 0);
+}
+
+#[test]
+fn ambiguous_returns_retain_no_reentry() {
+    let mut world = PlanningWorld::new();
+    world.teach_start(PlanningWorld::ROUTE_START, PlanningWorld::ROUTE, 10, 1);
+    world.teach_start(PlanningWorld::ROUTE_START, PlanningWorld::ROUTE, 14, 2);
+    world.route_value += 1;
+    schedule(
+        &mut world.body,
+        18,
+        &[reading(world.route, 0, world.route_value, 99)],
+    );
+    let (_, trace) = run(&mut world.body);
+
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned)
+            if returned.decision == ReturnDecision::Ambiguous && returned.open_paths == 2
+    )));
+    assert_eq!(world.body.reentry_state().closed_steps, 0);
+}
+
+#[test]
+fn changed_support_invalidates_reentry_before_choice() {
+    let mut world = PlanningWorld::new();
+    prepare_route(&mut world);
+    assert!(world.body.reentry_state().closed_steps > 0);
+    world
+        .body
+        .set_link_role(world.outcome_witnesses[2], LinkRole::BoundaryWitness)
+        .unwrap();
+    assert_eq!(world.body.reentry_state().closed_steps, 2);
+
+    let (events, trace) = world.probe_shared_with_present_condition(40, 4, 92);
+
+    assert_eq!(effect(&events, &world.motors), [PlanningWorld::DEAD_END]);
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+}
+
+#[test]
+fn two_reaching_candidates_make_no_reentry_claim() {
+    let mut world = PlanningWorld::new();
+    prepare_route(&mut world);
+    world
+        .body
+        .set_link_role(
+            world.outcome_witnesses[PlanningWorld::DEAD_END],
+            LinkRole::Drive,
+        )
+        .unwrap();
+    outcome_witness(
+        &mut world.body,
+        world.closure,
+        world.motors[PlanningWorld::DEAD_END].opportunity,
+    );
+    world.teach_start(PlanningWorld::SHARED_START, PlanningWorld::DEAD_END, 40, 5);
+    world.return_closure(44, 5);
+    assert_eq!(world.body.reentry_state().closed_steps, 3);
+
+    let (events, trace) = world.probe_shared_with_present_condition(50, 6, 92);
+
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(effect(&events, &world.motors).len(), 1);
+    verify_choice_laws(&trace).unwrap();
+}
+
+fn prepare_shortcut_route(world: &mut PlanningWorld) {
+    world.open_condition(5, 90);
+    world.teach_start(PlanningWorld::SHARED_START, PlanningWorld::ROUTE, 10, 1);
+    world.return_route(14, 1);
+    for (at, cause, condition_cause) in [(20, 2, 90), (40, 3, 91), (60, 4, 92)] {
+        if at != 20 {
+            world.open_condition(at - 2, condition_cause);
+        }
+        world.teach_terminal(at, cause);
+    }
+    world.open_condition(70, 94);
+    world.teach_start(PlanningWorld::SHARED_START, PlanningWorld::DEAD_END, 72, 5);
+    world.return_dead_end(76, 5);
+}
+
+fn composites(body: &Body) -> Vec<LinkId> {
+    (0..body.arena.link_count())
+        .filter_map(LinkId::new)
+        .filter(|link| {
+            matches!(
+                body.link_memory[link.slot()].role,
+                LinkRole::Composite { .. }
+            )
+        })
+        .collect()
+}
+
+fn selected_reentry_work(trace: &[TraceEvent]) -> u16 {
+    trace
+        .iter()
+        .find_map(|event| match event {
+            TraceEvent::Candidate(candidate) if candidate.reentries.len() == 1 => {
+                Some(candidate.reentry_incidence_visits)
+            }
+            _ => None,
+        })
+        .expect("the selected candidate has one witnessed continuation")
+}
+
+#[test]
+fn an_existing_valid_shortcut_is_reused_without_changing_choice() {
+    let mut shortcut = PlanningWorld::new();
+    prepare_shortcut_route(&mut shortcut);
+    let shortcut_links = composites(&shortcut.body);
+    assert!(!shortcut_links.is_empty());
+    let mut full = shortcut.clone();
+    for link in composites(&full.body) {
+        full.body.set_link_impulse(link, 0).unwrap();
+    }
+
+    let (full_events, full_trace) = full.probe_shared_with_present_condition(80, 6, 95);
+    let (shortcut_events, shortcut_trace) = shortcut.probe_shared_with_present_condition(80, 6, 95);
+
+    assert_eq!(effect(&full_events, &full.motors), [PlanningWorld::ROUTE]);
+    assert_eq!(
+        effect(&shortcut_events, &shortcut.motors),
+        [PlanningWorld::ROUTE]
+    );
+    assert_eq!(chosen_basis(&full_trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(
+        chosen_basis(&shortcut_trace),
+        Some(ChoiceBasis::UniqueReentry)
+    );
+    full.route_value += 1;
+    schedule(
+        &mut full.body,
+        84,
+        &[reading(full.route, 0, full.route_value, 6)],
+    );
+    let (full_return, full_reuse_trace) = run(&mut full.body);
+    shortcut.route_value += 1;
+    schedule(
+        &mut shortcut.body,
+        84,
+        &[reading(shortcut.route, 0, shortcut.route_value, 6)],
+    );
+    let (shortcut_return, shortcut_reuse_trace) = run(&mut shortcut.body);
+    assert_eq!(
+        effect(&full_return, &full.motors),
+        [PlanningWorld::TERMINAL]
+    );
+    assert_eq!(
+        effect(&shortcut_return, &shortcut.motors),
+        [PlanningWorld::TERMINAL]
+    );
+    assert!(full_reuse_trace.iter().all(|event| !matches!(
+        event,
+        TraceEvent::Arrival(arrival) if arrival.via.is_some_and(|via| shortcut_links.contains(&via))
+    )));
+    assert!(shortcut_reuse_trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Arrival(arrival) if arrival.via.is_some_and(|via| shortcut_links.contains(&via))
+    )));
+}
+
+#[test]
+fn many_disconnected_retained_histories_do_not_change_choice_or_local_reentry_work() {
+    let mut plain = PlanningWorld::new();
+    prepare_route(&mut plain);
+    let mut product = plain.clone();
+    for _ in 0..24 {
+        let mut dormant = PlanningWorld::new();
+        prepare_route(&mut dormant);
+        let part = OpenBody::new(dormant.body, Vec::new()).unwrap();
+        attach(&mut product.body, part, &[]).unwrap();
+    }
+
+    let (plain_events, plain_trace) = plain.probe_shared_with_present_condition(40, 4, 92);
+    let (product_events, product_trace) = product.probe_shared_with_present_condition(40, 4, 92);
+
+    assert_eq!(effect(&plain_events, &plain.motors), [PlanningWorld::ROUTE]);
+    assert_eq!(
+        effect(&product_events, &product.motors),
+        [PlanningWorld::ROUTE]
+    );
+    assert_eq!(chosen_basis(&plain_trace), chosen_basis(&product_trace));
+    assert_eq!(
+        selected_reentry_work(&plain_trace),
+        selected_reentry_work(&product_trace)
+    );
+}
+
+#[test]
+fn reentry_neither_creates_nor_repairs_a_shortcut() {
+    let mut world = PlanningWorld::new();
+    prepare_shortcut_route(&mut world);
+    let composite = composites(&world.body)[0];
+    world.body.set_link_impulse(composite, 0).unwrap();
+    let formed = world.body.automaticity_work().composites_formed;
+
+    let (_, trace) = world.probe_shared_with_present_condition(80, 6, 95);
+
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(world.body.automaticity_work().composites_formed, formed);
+    assert_eq!(world.body.arena.link(composite).unwrap().impulse, 0);
+}
+
+#[test]
+fn reentry_choice_is_invariant_to_renaming_and_independent_construction_order() {
+    let mut semantic_first = PlanningWorld::new();
+    prepare_route(&mut semantic_first);
+    let dormant_from = semantic_first
+        .body
+        .add_junction(Junction::integrating(1))
+        .unwrap();
+    let dormant_to = semantic_first
+        .body
+        .add_junction(Junction::integrating(1))
+        .unwrap();
+    semantic_first
+        .body
+        .add_link(Link::new(dormant_from, dormant_to, 1, 1))
+        .unwrap();
+
+    let mut independent_first = PlanningWorld::with_dormant_prefix(true);
+    prepare_route(&mut independent_first);
+
+    let (left_events, left_trace) = semantic_first.probe_shared_with_present_condition(40, 4, 92);
+    let (right_events, right_trace) =
+        independent_first.probe_shared_with_present_condition(40, 4, 92);
+
+    assert_eq!(
+        effect(&left_events, &semantic_first.motors),
+        effect(&right_events, &independent_first.motors)
+    );
+    assert_eq!(chosen_basis(&left_trace), chosen_basis(&right_trace));
+    assert_eq!(
+        semantic_first.body.reentry_state(),
+        independent_first.body.reentry_state()
+    );
+}
+
+#[test]
+fn checkpoint_replays_the_exact_reentry_choice_and_trace() {
+    let mut world = PlanningWorld::new();
+    prepare_route(&mut world);
+    let bytes = world.body.checkpoint().unwrap().canonical_bytes().unwrap();
+    let restored = BodyCheckpoint::decode(&bytes).unwrap().restore().unwrap();
+    let mut replay = world.clone();
+    replay.body = restored;
+
+    let plain = world.probe_shared_with_present_condition(40, 4, 92);
+    let repeated = replay.probe_shared_with_present_condition(40, 4, 92);
+
+    assert_eq!(plain, repeated);
+    assert_eq!(
+        world.body.checkpoint().unwrap().canonical_bytes().unwrap(),
+        replay.body.checkpoint().unwrap().canonical_bytes().unwrap()
+    );
+}
+
+#[derive(Clone, Copy)]
+struct AttachedPlanning {
+    shared: JunctionId,
+    condition: JunctionId,
+    route_opportunity: JunctionId,
+    dead_opportunity: JunctionId,
+    route_effect: JunctionId,
+    dead_effect: JunctionId,
+}
+
+fn attach_planning(host: &mut Body, world: PlanningWorld) -> AttachedPlanning {
+    let ids = [
+        world.starts[PlanningWorld::SHARED_START],
+        world.closure,
+        world.motors[PlanningWorld::ROUTE].opportunity,
+        world.motors[PlanningWorld::DEAD_END].opportunity,
+        world.motors[PlanningWorld::ROUTE].effect,
+        world.motors[PlanningWorld::DEAD_END].effect,
+    ];
+    let part = OpenBody::new(world.body, ids.to_vec()).unwrap();
+    let ports = std::array::from_fn::<_, 6, _>(|index| part.port(index).unwrap());
+    let attached = attach(host, part, &[]).unwrap();
+    let ids = ports.map(|port| attached.port(port).unwrap());
+    AttachedPlanning {
+        shared: ids[0],
+        condition: ids[1],
+        route_opportunity: ids[2],
+        dead_opportunity: ids[3],
+        route_effect: ids[4],
+        dead_effect: ids[5],
+    }
+}
+
+#[test]
+fn attachment_remaps_reentry_support_and_independent_parts_remain_a_product() {
+    let mut first = PlanningWorld::new();
+    prepare_route(&mut first);
+    let mut second = PlanningWorld::new();
+    prepare_route(&mut second);
+    let mut host = Body::default();
+    let left = attach_planning(&mut host, first);
+    let right = attach_planning(&mut host, second);
+    assert_eq!(host.reentry_state().closed_steps, 6);
+
+    schedule(
+        &mut host,
+        40,
+        &[
+            reading(left.shared, 0, 1, 4),
+            Arrival::caused(left.condition, 2, 92),
+            reading(right.shared, 0, 1, 5),
+            Arrival::caused(right.condition, 2, 93),
+        ],
+    );
+    schedule(
+        &mut host,
+        41,
+        &[
+            Arrival::caused(left.route_opportunity, 1, 4),
+            Arrival::caused(left.dead_opportunity, 1, 4),
+            Arrival::caused(right.route_opportunity, 1, 5),
+            Arrival::caused(right.dead_opportunity, 1, 5),
+        ],
+    );
+    let (events, trace) = run(&mut host);
+
+    assert!(events
+        .iter()
+        .any(|event| event.junction == left.route_effect));
+    assert!(events
+        .iter()
+        .any(|event| event.junction == right.route_effect));
+    assert!(!events
+        .iter()
+        .any(|event| event.junction == left.dead_effect));
+    assert!(!events
+        .iter()
+        .any(|event| event.junction == right.dead_effect));
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|event| matches!(
+                event,
+                TraceEvent::Choice(choice)
+                    if choice.basis == Some(ChoiceBasis::UniqueReentry)
+            ))
+            .count(),
+        2
+    );
 }
 
 struct ClosureWorld {

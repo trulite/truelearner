@@ -4,9 +4,9 @@ use crate::{
     arena::Arena,
     engine::PhysicalMoment,
     trace::{
-        CandidateTrace, ChoiceBasis, ChoiceTrace, FreshOpportunityTrace, NoTrace,
-        ReturnCandidateTrace, ReturnDecision, ReturnTrace, StrengthTrace, TraceEvent, TracePath,
-        TraceSink,
+        CandidateTrace, ChoiceBasis, ChoiceTrace, FreshOpportunityTrace, NoTrace, ReentryStepTrace,
+        ReentryTrace, ReturnCandidateTrace, ReturnDecision, ReturnTrace, StrengthTrace, TraceEvent,
+        TracePath, TraceSink,
     },
     Body, BuildError, Impulse, Junction, JunctionId, Link, LinkId, Retention, RunError, Time,
     Trigger,
@@ -22,6 +22,8 @@ pub type Cohort = u64;
 pub type Boundary = u32;
 const LOCAL_RADIUS: i32 = 2;
 const AUTOMATIC_AFTER_EXACT_CLOSURES: u8 = 3;
+const MAX_REENTRY_DEPTH: usize = 16;
+const MAX_REENTRY_INCIDENCE_VISITS: u16 = 256;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Path {
@@ -141,6 +143,19 @@ impl Path {
     const fn links(self) -> [LinkId; 2] {
         [self.first, self.second]
     }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ReentryState {
+    pub closed_steps: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ClosedStep {
+    link: LinkId,
+    path: Path,
+    returned_source: JunctionId,
+    outcome_witness: LinkId,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -360,6 +375,7 @@ pub enum Edit {
         source: JunctionId,
         returned: LinkId,
         path: Path,
+        outcome_witness: Option<LinkId>,
         exact: bool,
         exclusive_source: bool,
         offers_choice: bool,
@@ -491,6 +507,31 @@ struct ConstructionScratch {
     parent_members: Vec<JunctionId>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ReentryContinuation {
+    path: Path,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ReentryScratch {
+    present: Vec<JunctionId>,
+    steps: Vec<ReentryStepTrace>,
+    continuations: Vec<ReentryContinuation>,
+}
+
+impl ReentryScratch {
+    fn clear(&mut self) {
+        self.present.clear();
+        self.steps.clear();
+        self.continuations.clear();
+    }
+
+    fn clear_search(&mut self) {
+        self.steps.clear();
+        self.continuations.clear();
+    }
+}
+
 impl ConstructionScratch {
     fn clear(&mut self) {
         self.counts.clear();
@@ -526,6 +567,7 @@ pub(crate) struct ReactionScratch {
     connected_outcomes: Vec<JunctionId>,
     worlds: Vec<usize>,
     winners: Vec<ReadyChoice>,
+    reentry: ReentryScratch,
     construction: ConstructionScratch,
     pub(crate) change: Change,
     pub(crate) applied: Applied,
@@ -559,6 +601,7 @@ impl ReactionScratch {
         self.connected_outcomes.clear();
         self.worlds.clear();
         self.winners.clear();
+        self.reentry.clear();
         self.construction.clear();
         self.change.clear();
         self.applied.junctions.clear();
@@ -922,6 +965,7 @@ pub(crate) fn react_into<T: TraceSink>(
         &mut scratch.connected_outcomes,
         &mut scratch.worlds,
         &mut scratch.winners,
+        &mut scratch.reentry,
         &mut scratch.change,
         construction.is_some(),
         trace,
@@ -1214,6 +1258,8 @@ fn record_returned_outcome<T: TraceSink>(
                 source: fact.event.junction,
                 returned: entry.link,
                 path: entry.path,
+                outcome_witness: unique_outcome_witness(body, fact.event.junction, entry.path)
+                    .map(|(witness, _)| witness),
                 exact: returned.cause == fact.event.cause,
                 exclusive_source: entry.exclusive_source,
                 offers_choice: entry.offers_choice,
@@ -1282,6 +1328,71 @@ fn retain_composite_after_return(
 const MAX_AUTOMATIC_COMPOSITE_DEPTH: usize = 32;
 
 impl Body {
+    pub fn reentry_state(&self) -> ReentryState {
+        ReentryState {
+            closed_steps: self
+                .link_memory
+                .iter()
+                .filter(|memory| memory.closed_support().is_some())
+                .count(),
+        }
+    }
+
+    fn invalidate_closed_step(&mut self, path: Path) {
+        let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+        let invalid = closed_steps(view)
+            .filter(|step| step.path == path)
+            .map(|step| step.link)
+            .collect::<Vec<_>>();
+        for link in invalid {
+            self.link_memory[link.slot()].outcome_available = false;
+        }
+    }
+
+    #[inline(always)]
+    fn retain_closed_step(
+        &mut self,
+        returned: LinkId,
+        source: JunctionId,
+        path: Path,
+        outcome_witness: Option<LinkId>,
+        exact: bool,
+        replaces_existing: bool,
+    ) {
+        if !exact {
+            if replaces_existing {
+                self.invalidate_closed_step(path);
+            }
+            self.link_memory[returned.slot()].outcome_available = false;
+            return;
+        }
+        let Some(outcome_witness) = outcome_witness else {
+            if replaces_existing {
+                self.invalidate_closed_step(path);
+            }
+            self.link_memory[returned.slot()].outcome_available = false;
+            return;
+        };
+        let support = (source, outcome_witness);
+        if replaces_existing {
+            self.invalidate_closed_step(path);
+        }
+        if self.link_memory[returned.slot()].stored_support() != Some(support) {
+            self.link_memory[returned.slot()].remember_closed_support(source, outcome_witness);
+        }
+    }
+
+    fn prune_reentry(&mut self) {
+        let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+        let invalid = closed_steps(view)
+            .filter(|step| closed_step_is_valid(view, *step).is_none())
+            .map(|step| step.link)
+            .collect::<Vec<_>>();
+        for link in invalid {
+            self.link_memory[link.slot()].outcome_available = false;
+        }
+    }
+
     fn automaticity_mut(&mut self) -> &mut Automaticity {
         self.automaticity
             .get_or_insert_with(|| Box::new(Automaticity::default()))
@@ -1838,6 +1949,19 @@ pub(crate) fn try_complete_single_return<T: TraceSink>(
             }));
         }
     }
+    if !exact || exact_closures > 1 {
+        let support = body.link_memory[returned.link.slot()].stored_support();
+        body.retain_closed_step(
+            returned.link,
+            source,
+            returned.path,
+            support
+                .filter(|(support_source, _)| *support_source == source)
+                .map(|(_, witness)| witness),
+            exact,
+            exact_closures > u8::from(exact),
+        );
+    }
     if exact_closures >= AUTOMATIC_AFTER_EXACT_CLOSURES {
         retain_composite_direct(body, returned.path, event.at, trace);
     }
@@ -2220,6 +2344,9 @@ struct ReadyPath {
     drive: u16,
     stable_order: u32,
     fresh_opportunity: Option<FreshOpportunityTrace>,
+    reentries: Vec<ReentryTrace>,
+    reentry_incidence_visits: u16,
+    reentry_failed: bool,
     executable: bool,
 }
 
@@ -2249,6 +2376,7 @@ fn form_and_choose<T: TraceSink>(
     connected_outcomes: &mut Vec<JunctionId>,
     worlds: &mut Vec<usize>,
     winners: &mut Vec<ReadyChoice>,
+    reentry: &mut ReentryScratch,
     change: &mut Change,
     construction: bool,
     trace: &mut T,
@@ -2359,6 +2487,9 @@ fn form_and_choose<T: TraceSink>(
                         .unwrap_or(u32::MAX)
                         .saturating_add(second.0),
                     fresh_opportunity: None,
+                    reentries: Vec::new(),
+                    reentry_incidence_visits: 0,
+                    reentry_failed: false,
                     executable: path_is_executable(body, surface, false),
                 });
             }
@@ -2366,6 +2497,7 @@ fn form_and_choose<T: TraceSink>(
     }
 
     mark_current_returns(body, facts, ready, connected_outcomes);
+    mark_reentries(body, facts, ready, reentry, construction);
     fill_ready_worlds(ready, connected_outcomes, worlds);
     for world in 0..ready.len() {
         if worlds[world] == world {
@@ -2375,6 +2507,7 @@ fn form_and_choose<T: TraceSink>(
                     ChoiceBasis::CurrentReturn
                         | ChoiceBasis::BoundaryRelease
                         | ChoiceBasis::RetainedProgress
+                        | ChoiceBasis::UniqueReentry
                 ) {
                     if let Some((donor, fresh)) = fresh_opportunity(
                         body,
@@ -2420,6 +2553,10 @@ fn form_and_choose<T: TraceSink>(
                 drive: candidate.drive,
                 stable_order: candidate.stable_order,
                 fresh_opportunity: candidate.fresh_opportunity,
+                present_sources: reentry.present.clone(),
+                reentries: candidate.reentries.clone(),
+                reentry_incidence_visits: candidate.reentry_incidence_visits,
+                reentry_failed: candidate.reentry_failed,
                 new_path: matches!(candidate.first, LinkRef::New(_)),
             }));
         }
@@ -2567,11 +2704,353 @@ fn append_existing_ready_paths(
                     drive,
                     stable_order: second_id.slot() as u32,
                     fresh_opportunity: None,
+                    reentries: Vec::new(),
+                    reentry_incidence_visits: 0,
+                    reentry_failed: false,
                     executable: path_is_executable(body, surface, outcome.is_some()),
                 });
             }
         }
     }
+}
+
+fn mark_reentries(
+    body: ReactionView<'_>,
+    facts: &[MomentFact],
+    paths: &mut [ReadyPath],
+    scratch: &mut ReentryScratch,
+    construction: bool,
+) {
+    if construction {
+        return;
+    }
+    scratch.present.extend(
+        facts
+            .iter()
+            .filter(|fact| {
+                fact.boundary && matches!(fact.used, UsedPaths::None) && !fact.had_ready_path
+            })
+            .map(|fact| fact.event.junction),
+    );
+    if scratch.present.is_empty() {
+        return;
+    }
+    for candidate in paths.iter_mut().filter(|candidate| candidate.executable) {
+        let (JunctionRef::Existing(middle), LinkRef::Existing(first), LinkRef::Existing(second)) =
+            (candidate.middle, candidate.first, candidate.second)
+        else {
+            continue;
+        };
+        let path = Path {
+            surface: candidate.surface,
+            middle,
+            output: candidate.output,
+            first,
+            second,
+        };
+        scratch.clear_search();
+        let mut visits = 0;
+        match find_reentries(
+            body,
+            path,
+            &scratch.present,
+            &mut scratch.steps,
+            &mut scratch.continuations,
+            &mut visits,
+        ) {
+            Ok(found) => candidate.reentries = found,
+            Err(()) => candidate.reentry_failed = true,
+        }
+        candidate.reentry_incidence_visits = visits;
+    }
+}
+
+fn find_reentries(
+    body: ReactionView<'_>,
+    path: Path,
+    present: &[JunctionId],
+    steps: &mut Vec<ReentryStepTrace>,
+    continuations: &mut Vec<ReentryContinuation>,
+    incidence_visits: &mut u16,
+) -> Result<Vec<ReentryTrace>, ()> {
+    let mut search = ReentrySearch {
+        body,
+        present,
+        steps,
+        continuations,
+        incidence_visits,
+        found: Vec::new(),
+    };
+    search.search(path, 0)?;
+    Ok(search.found)
+}
+
+struct ReentrySearch<'body, 'scratch> {
+    body: ReactionView<'body>,
+    present: &'scratch [JunctionId],
+    steps: &'scratch mut Vec<ReentryStepTrace>,
+    continuations: &'scratch mut Vec<ReentryContinuation>,
+    incidence_visits: &'scratch mut u16,
+    found: Vec<ReentryTrace>,
+}
+
+impl ReentrySearch<'_, '_> {
+    fn search(&mut self, path: Path, depth: usize) -> Result<(), ()> {
+        if depth >= MAX_REENTRY_DEPTH || self.steps.iter().any(|step| step.path == path) {
+            return Err(());
+        }
+        let mut next = self
+            .body
+            .arena
+            .junction(path.output)
+            .and_then(|junction| junction.outgoing_head);
+        while let Some(link) = next {
+            visit_reentry_incidence(self.incidence_visits)?;
+            let physical = *self.body.arena.link(link).expect("live retained incidence");
+            next = physical.next;
+            if physical.to != path.middle {
+                continue;
+            }
+            let Some((returned_source, outcome_witness)) =
+                self.body.link_memory[link.slot()].closed_support()
+            else {
+                continue;
+            };
+            let retained = ClosedStep {
+                link,
+                path,
+                returned_source,
+                outcome_witness,
+            };
+            let Some(outcome_target) =
+                closed_step_is_valid_for_reentry(self.body, retained, self.incidence_visits)?
+            else {
+                return Err(());
+            };
+            self.steps.push(ReentryStepTrace {
+                path,
+                returned_source,
+                outcome_witness,
+                outcome_target,
+            });
+            if self.present.contains(&returned_source) {
+                self.found.push(ReentryTrace {
+                    condition: returned_source,
+                    steps: self.steps.clone(),
+                });
+            } else {
+                let start = self.continuations.len();
+                append_reentry_continuations(
+                    self.body,
+                    returned_source,
+                    self.continuations,
+                    self.incidence_visits,
+                )?;
+                let end = self.continuations.len();
+                for index in start..end {
+                    let continuation = self.continuations[index];
+                    self.search(continuation.path, depth + 1)?;
+                }
+                self.continuations.truncate(start);
+            }
+            self.steps.pop();
+        }
+        Ok(())
+    }
+}
+
+fn visit_reentry_incidence(incidence_visits: &mut u16) -> Result<(), ()> {
+    if *incidence_visits >= MAX_REENTRY_INCIDENCE_VISITS {
+        return Err(());
+    }
+    *incidence_visits += 1;
+    Ok(())
+}
+
+fn append_reentry_continuations(
+    body: ReactionView<'_>,
+    surface: JunctionId,
+    continuations: &mut Vec<ReentryContinuation>,
+    incidence_visits: &mut u16,
+) -> Result<(), ()> {
+    let start = continuations.len();
+    let mut next = body
+        .arena
+        .junction(surface)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(first_id) = next {
+        visit_reentry_incidence(incidence_visits)?;
+        let first = *body.arena.link(first_id).expect("live path incidence");
+        next = first.next;
+        let first_memory = &body.link_memory[first_id.slot()];
+        if !first_memory.live || first_memory.role != LinkRole::PathEntry {
+            continue;
+        }
+        let mut second = body
+            .arena
+            .junction(first.to)
+            .and_then(|junction| junction.outgoing_head);
+        while let Some(second_id) = second {
+            visit_reentry_incidence(incidence_visits)?;
+            let drive = *body.arena.link(second_id).expect("live drive incidence");
+            second = drive.next;
+            let memory = &body.link_memory[second_id.slot()];
+            if !memory.live || memory.role != LinkRole::Drive || drive.impulse == 0 {
+                continue;
+            }
+            let path = Path {
+                surface,
+                middle: first.to,
+                output: drive.to,
+                first: first_id,
+                second: second_id,
+            };
+            if path_from_links(body, first_id, second_id) != Some(path)
+                || continuations[start..]
+                    .iter()
+                    .any(|continuation| continuation.path == path)
+            {
+                continue;
+            }
+            continuations.push(ReentryContinuation { path });
+        }
+    }
+    Ok(())
+}
+
+fn closed_step_is_valid_for_reentry(
+    body: ReactionView<'_>,
+    step: ClosedStep,
+    incidence_visits: &mut u16,
+) -> Result<Option<JunctionId>, ()> {
+    if path_from_links(body, step.path.first, step.path.second) != Some(step.path)
+        || body.link_memory[step.path.first.slot()].participation == 0
+        || body.link_memory[step.path.second.slot()].participation == 0
+        || !path_is_executable_for_reentry(body, step.path.surface, incidence_visits)?
+    {
+        return Ok(None);
+    }
+    let Some((witness, target)) = unique_outcome_witness_for_reentry(
+        body,
+        step.returned_source,
+        step.path,
+        incidence_visits,
+    )?
+    else {
+        return Ok(None);
+    };
+    Ok((witness == step.outcome_witness).then_some(target))
+}
+
+fn path_is_executable_for_reentry(
+    body: ReactionView<'_>,
+    surface: JunctionId,
+    incidence_visits: &mut u16,
+) -> Result<bool, ()> {
+    let mut parent = None;
+    for link in body.arena.incoming(surface) {
+        visit_reentry_incidence(incidence_visits)?;
+        if !is_membership_link(body, link) {
+            continue;
+        }
+        let found = body
+            .arena
+            .link(link)
+            .expect("live membership incidence")
+            .from;
+        if parent.is_some_and(|existing| existing != found) {
+            return Ok(false);
+        }
+        parent = Some(found);
+    }
+    let Some(parent) = parent else {
+        return Ok(true);
+    };
+    for link in body.arena.incoming(parent) {
+        visit_reentry_incidence(incidence_visits)?;
+        if is_membership_link(body, link) {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn unique_outcome_witness_for_reentry(
+    body: ReactionView<'_>,
+    source: JunctionId,
+    path: Path,
+    incidence_visits: &mut u16,
+) -> Result<Option<(LinkId, JunctionId)>, ()> {
+    let mut selected = None;
+    for target in [path.middle, path.output] {
+        for witness in body.arena.incoming(target) {
+            visit_reentry_incidence(incidence_visits)?;
+            let physical = body.arena.link(witness).expect("live outcome incidence");
+            let memory = &body.link_memory[witness.slot()];
+            if !memory.live || memory.role != LinkRole::OutcomeWitness || physical.from != source {
+                continue;
+            }
+            if selected.is_some() {
+                return Ok(None);
+            }
+            selected = Some((witness, target));
+        }
+    }
+    Ok(selected)
+}
+
+fn closed_steps(body: ReactionView<'_>) -> impl Iterator<Item = ClosedStep> + '_ {
+    (0..body.link_memory.len()).filter_map(move |slot| {
+        let link = LinkId::new(slot)?;
+        closed_step(body, link)
+    })
+}
+
+fn closed_step(body: ReactionView<'_>, link: LinkId) -> Option<ClosedStep> {
+    let (returned_source, outcome_witness) = body.link_memory.get(link.slot())?.closed_support()?;
+    let physical = body.arena.link(link)?;
+    let second = outgoing_drive_to(body, physical.to, physical.from)?;
+    let path = path_from_drive(body, second)?;
+    (path.middle == physical.to && path.output == physical.from).then_some(ClosedStep {
+        link,
+        path,
+        returned_source,
+        outcome_witness,
+    })
+}
+
+fn closed_step_is_valid(body: ReactionView<'_>, step: ClosedStep) -> Option<JunctionId> {
+    if path_from_links(body, step.path.first, step.path.second) != Some(step.path)
+        || body.link_memory[step.path.first.slot()].participation == 0
+        || body.link_memory[step.path.second.slot()].participation == 0
+        || !path_is_executable(body, step.path.surface, true)
+    {
+        return None;
+    }
+    let (witness, target) = unique_outcome_witness(body, step.returned_source, step.path)?;
+    (witness == step.outcome_witness).then_some(target)
+}
+
+fn unique_outcome_witness(
+    body: ReactionView<'_>,
+    source: JunctionId,
+    path: Path,
+) -> Option<(LinkId, JunctionId)> {
+    let mut selected = None;
+    for target in [path.middle, path.output] {
+        for witness in body.arena.incoming(target) {
+            let physical = body.arena.link(witness).expect("live outcome support");
+            let memory = &body.link_memory[witness.slot()];
+            if !memory.live || memory.role != LinkRole::OutcomeWitness || physical.from != source {
+                continue;
+            }
+            if selected.is_some() {
+                return None;
+            }
+            selected = Some((witness, target));
+        }
+    }
+    selected
 }
 
 fn mark_current_returns(
@@ -2911,6 +3390,12 @@ fn choose_ready(
         })
     })
     .or_else(|| {
+        unique_reentry((0..paths.len()).filter(active), paths).map(|winner| ReadyChoice {
+            winner,
+            basis: ChoiceBasis::UniqueReentry,
+        })
+    })
+    .or_else(|| {
         unique_latest_ready(paths, worlds, world, strongest_drive, true, construction).map(
             |winner| ReadyChoice {
                 winner,
@@ -2962,6 +3447,21 @@ fn choose_ready(
                 basis: ChoiceBasis::ParticipationStrengthAndDrive,
             })
     })
+}
+
+fn unique_reentry(paths: impl Iterator<Item = usize>, ready: &[ReadyPath]) -> Option<usize> {
+    let candidates = paths.collect::<Vec<_>>();
+    if candidates
+        .iter()
+        .any(|index| ready[*index].reentry_failed || ready[*index].reentries.len() > 1)
+    {
+        return None;
+    }
+    unique_ready(
+        candidates
+            .into_iter()
+            .filter(|index| ready[*index].reentries.len() == 1),
+    )
 }
 
 fn unique_returned_output(
@@ -3510,12 +4010,48 @@ impl LinkMemory {
     pub(crate) fn remap_links(&mut self, base: usize) {
         if let LinkRole::Composite { first, second } = self.role {
             self.role = LinkRole::Composite {
-                first: LinkId::new(base + first.slot())
-                    .expect("validated attachment link identity"),
-                second: LinkId::new(base + second.slot())
-                    .expect("validated attachment link identity"),
+                first: remap_link(first, base),
+                second: remap_link(second, base),
             };
         }
+        if let Some((source, witness)) = self.closed_support() {
+            self.remember_closed_support(source, remap_link(witness, base));
+        }
+    }
+
+    pub(crate) fn remap_junctions(&mut self, base: usize) {
+        if let Some((source, witness)) = self.closed_support() {
+            let source = JunctionId::new(base + source.slot())
+                .expect("validated attachment junction identity");
+            self.remember_closed_support(source, witness);
+        }
+    }
+
+    #[inline(always)]
+    fn remember_closed_support(&mut self, source: JunctionId, witness: LinkId) {
+        // A retired Return link no longer uses strength or outcome availability.
+        // Reuse those cold fields for its sparse exact support instead of adding
+        // state to every hot drive link.
+        let source = u32::try_from(source.slot()).expect("junction identity fits in u32");
+        let witness = u32::try_from(witness.slot()).expect("link identity fits in u32");
+        self.strength = ((u64::from(source) << 32) | u64::from(witness)) as i64;
+        self.outcome_available = true;
+    }
+
+    #[inline(always)]
+    fn stored_support(&self) -> Option<(JunctionId, LinkId)> {
+        if !self.outcome_available || !matches!(self.role, LinkRole::Return { .. }) {
+            return None;
+        }
+        let packed = self.strength as u64;
+        let source = JunctionId::new((packed >> 32) as usize)?;
+        let witness = LinkId::new((packed as u32) as usize)?;
+        Some((source, witness))
+    }
+
+    #[inline(always)]
+    fn closed_support(&self) -> Option<(JunctionId, LinkId)> {
+        (!self.live).then(|| self.stored_support()).flatten()
     }
 }
 
@@ -3589,26 +4125,37 @@ impl Body {
             }
         }
         let exclusive_source = only_source.is_some() && !multiple_sources;
-        let (arena, link_memory, returns_by_source) =
-            (&self.arena, &self.link_memory, &mut self.returns.by_source);
+        let mut sources = Vec::new();
         for target in [path.middle, path.output] {
-            for witness in arena.incoming(target) {
-                let role = link_memory[witness.slot()].role;
-                if !link_memory[witness.slot()].live || !closes_return(role) {
+            for witness in self.arena.incoming(target) {
+                let role = self.link_memory[witness.slot()].role;
+                if !self.link_memory[witness.slot()].live || !closes_return(role) {
                     continue;
                 }
-                let source = arena.link(witness).expect("live outcome witness").from;
-                let entry = ReturnEntry {
-                    cause,
-                    link,
-                    path,
-                    exclusive_source,
-                    offers_choice: role == LinkRole::OutcomeWitness,
-                };
-                let returns = &mut returns_by_source[source.slot()];
-                if let Err(index) = returns.binary_search(&entry) {
-                    returns.insert(index, entry);
-                }
+                let source = self.arena.link(witness).expect("live outcome witness").from;
+                sources.push((source, role));
+            }
+        }
+        let prepared = only_source.and_then(|source| {
+            let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+            unique_outcome_witness(view, source, path).map(|(witness, _)| (source, witness))
+        });
+        if let Some((source, witness)) = prepared {
+            self.link_memory[link.slot()].remember_closed_support(source, witness);
+        } else {
+            self.link_memory[link.slot()].outcome_available = false;
+        }
+        for (source, role) in sources {
+            let entry = ReturnEntry {
+                cause,
+                link,
+                path,
+                exclusive_source,
+                offers_choice: role == LinkRole::OutcomeWitness,
+            };
+            let returns = &mut self.returns.by_source[source.slot()];
+            if let Err(index) = returns.binary_search(&entry) {
+                returns.insert(index, entry);
             }
         }
     }
@@ -3628,6 +4175,9 @@ impl Body {
 
     fn remove_live_return_with_path(&mut self, link: LinkId, path: Option<Path>) {
         self.expire_automatic_witness(link);
+        if let Some(path) = path {
+            self.invalidate_closed_step(path);
+        }
         debug_assert!(self.returns.live_count > 0, "live return count drift");
         self.returns.live_count -= 1;
         let (arena, link_memory, returns_by_source) =
@@ -3670,6 +4220,7 @@ impl Body {
         if self.returns.live_count != 0 {
             self.rebuild_live_returns();
         }
+        self.prune_reentry();
         Ok(())
     }
 
@@ -3717,6 +4268,10 @@ impl Body {
             && (return_topology_role(previous) || return_topology_role(role))
         {
             self.rebuild_live_returns();
+        }
+        if !matches!(previous, LinkRole::Return { .. }) || !matches!(role, LinkRole::Return { .. })
+        {
+            self.prune_reentry();
         }
         Ok(())
     }
@@ -3808,6 +4363,7 @@ impl Body {
                     source,
                     returned,
                     path,
+                    outcome_witness,
                     exact,
                     exclusive_source,
                     offers_choice,
@@ -3833,12 +4389,14 @@ impl Body {
                         }
                         self.link_memory[returned.slot()].live = false;
                     }
+                    let mut exact_closures = self.link_memory[path.first.slot()].exact_closures;
                     if exact {
                         let memory = self
                             .link_memory
                             .get_mut(path.first.slot())
                             .ok_or(ApplyError::UnknownLink(path.first))?;
                         memory.exact_closures = memory.exact_closures.saturating_add(1);
+                        exact_closures = memory.exact_closures;
                     }
                     for link in path.links() {
                         let memory = self
@@ -3860,6 +4418,14 @@ impl Body {
                             }));
                         }
                     }
+                    self.retain_closed_step(
+                        returned,
+                        source,
+                        path,
+                        outcome_witness,
+                        exact,
+                        exclusive_source && exact_closures > u8::from(exact),
+                    );
                 }
                 Edit::ChangeLink { link, change } => {
                     let link = resolve_link(link, applied)?;
@@ -3873,6 +4439,7 @@ impl Body {
                         if was_live {
                             self.remove_live_return(link, role);
                             self.link_memory[link.slot()].live = false;
+                            self.link_memory[link.slot()].outcome_available = false;
                             if self.returns.live_count != 0 && return_topology_role(role) {
                                 self.rebuild_live_returns();
                             }
@@ -4136,6 +4703,9 @@ mod tests {
             drive,
             stable_order,
             fresh_opportunity: None,
+            reentries: Vec::new(),
+            reentry_incidence_visits: 0,
+            reentry_failed: false,
             executable: true,
         }
     }
@@ -4148,6 +4718,183 @@ mod tests {
 
         assert_eq!(choice.winner, 1);
         assert_eq!(choice.basis, ChoiceBasis::ParticipationStrengthAndDrive);
+    }
+
+    fn witnessed_reentry(path: &ReadyPath, condition: JunctionId) -> ReentryTrace {
+        let (JunctionRef::Existing(middle), LinkRef::Existing(first), LinkRef::Existing(second)) =
+            (path.middle, path.first, path.second)
+        else {
+            unreachable!()
+        };
+        ReentryTrace {
+            condition,
+            steps: vec![ReentryStepTrace {
+                path: Path {
+                    surface: path.surface,
+                    middle,
+                    output: path.output,
+                    first,
+                    second,
+                },
+                returned_source: condition,
+                outcome_witness: LinkId::new(20).unwrap(),
+                outcome_target: path.output,
+            }],
+        }
+    }
+
+    #[test]
+    fn actual_current_return_precedes_unique_reentry() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].reentries = vec![witnessed_reentry(&paths[0], JunctionId::new(20).unwrap())];
+        paths[1].return_cause = Some(paths[1].current_cause);
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 1);
+        assert_eq!(choice.basis, ChoiceBasis::CurrentReturn);
+    }
+
+    #[test]
+    fn actual_retained_progress_precedes_unique_reentry() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].reentries = vec![witnessed_reentry(&paths[0], JunctionId::new(20).unwrap())];
+        paths[1].resisted_progress = true;
+        paths[1].boundary_open = true;
+        paths[1].strength = 2;
+        paths[1].participation = 1;
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 1);
+        assert_eq!(choice.basis, ChoiceBasis::RetainedProgress);
+    }
+
+    #[test]
+    fn current_choice_surface_is_not_a_present_reentry_condition() {
+        let mut body = Body::default();
+        let surface = body.add_junction(Junction::integrating(1)).unwrap();
+        let middle = body.add_junction(Junction::integrating(1)).unwrap();
+        let output = body.add_junction(Junction::integrating(1)).unwrap();
+        let first = body.add_link(Link::new(surface, middle, 1, 1)).unwrap();
+        body.set_link_role(first, LinkRole::PathEntry).unwrap();
+        let second = body.add_link(Link::new(middle, output, 1, 1)).unwrap();
+        body.link_memory[first.slot()].participation = 1;
+        body.link_memory[second.slot()].participation = 1;
+        let witness = body.add_link(Link::new(surface, output, 0, 1)).unwrap();
+        body.set_link_role(witness, LinkRole::OutcomeWitness)
+            .unwrap();
+        let returned = body.add_link(Link::new(output, middle, 0, 0)).unwrap();
+        body.set_link_role(
+            returned,
+            LinkRole::Return {
+                cause: 1,
+                cohort: 1,
+            },
+        )
+        .unwrap();
+        body.link_memory[returned.slot()].live = false;
+        body.link_memory[returned.slot()].remember_closed_support(surface, witness);
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+        let mut paths = Vec::new();
+        let mut connected = Vec::new();
+        append_existing_ready_paths(view, surface, 7, 1, 1, &mut paths, &mut connected);
+        let facts = [MomentFact {
+            event: crate::physics::Event {
+                at: 7,
+                junction: surface,
+                arrivals: 1,
+                impulse: 1,
+                before: 0,
+                after: 1,
+                cause: 1,
+            },
+            drive: 1,
+            boundary: true,
+            used: UsedPaths::None,
+            had_ready_path: true,
+        }];
+
+        mark_reentries(
+            view,
+            &facts,
+            &mut paths,
+            &mut ReentryScratch::default(),
+            false,
+        );
+
+        assert!(paths.iter().all(|path| path.reentries.is_empty()));
+    }
+
+    #[test]
+    fn cyclic_closed_steps_fail_reentry_closed() {
+        let mut body = Body::default();
+        let surfaces = [
+            body.add_junction(Junction::integrating(1)).unwrap(),
+            body.add_junction(Junction::integrating(1)).unwrap(),
+        ];
+        let middles = [
+            body.add_junction(Junction::integrating(1)).unwrap(),
+            body.add_junction(Junction::integrating(1)).unwrap(),
+        ];
+        let outputs = [
+            body.add_junction(Junction::integrating(1)).unwrap(),
+            body.add_junction(Junction::integrating(1)).unwrap(),
+        ];
+        let mut paths = Vec::new();
+        for index in 0..2 {
+            let first = body
+                .add_link(Link::new(surfaces[index], middles[index], 1, 1))
+                .unwrap();
+            body.set_link_role(first, LinkRole::PathEntry).unwrap();
+            let second = body
+                .add_link(Link::new(middles[index], outputs[index], 1, 1))
+                .unwrap();
+            body.link_memory[first.slot()].participation = 1;
+            body.link_memory[second.slot()].participation = 1;
+            let witness = body
+                .add_link(Link::new(surfaces[1 - index], outputs[index], 0, 1))
+                .unwrap();
+            body.set_link_role(witness, LinkRole::OutcomeWitness)
+                .unwrap();
+            let returned = body
+                .add_link(Link::new(outputs[index], middles[index], 0, 0))
+                .unwrap();
+            body.set_link_role(
+                returned,
+                LinkRole::Return {
+                    cause: 1,
+                    cohort: 1,
+                },
+            )
+            .unwrap();
+            body.link_memory[returned.slot()].live = false;
+            body.link_memory[returned.slot()].remember_closed_support(surfaces[1 - index], witness);
+            paths.push(Path {
+                surface: surfaces[index],
+                middle: middles[index],
+                output: outputs[index],
+                first,
+                second,
+            });
+        }
+        let present = body.add_junction(Junction::integrating(1)).unwrap();
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+
+        let mut steps = Vec::new();
+        let mut continuations = Vec::new();
+        let mut incidence_visits = 0;
+        assert_eq!(
+            find_reentries(
+                view,
+                paths[0],
+                &[present],
+                &mut steps,
+                &mut continuations,
+                &mut incidence_visits,
+            ),
+            Err(())
+        );
     }
 
     #[test]
@@ -4491,6 +5238,10 @@ mod tests {
                 drive: path.drive,
                 stable_order: path.stable_order,
                 fresh_opportunity: path.fresh_opportunity,
+                present_sources: Vec::new(),
+                reentries: path.reentries.clone(),
+                reentry_incidence_visits: path.reentry_incidence_visits,
+                reentry_failed: path.reentry_failed,
                 new_path: false,
             });
             let mut events = candidates.map(TraceEvent::Candidate).collect::<Vec<_>>();

@@ -144,6 +144,7 @@ pub fn attach(
     debug_assert_eq!(host.link_memory.len(), link_base);
     for memory in &mut part_link_memory {
         memory.remap_links(link_base);
+        memory.remap_junctions(junction_base);
     }
     if let Some(mut part_automaticity) = part_automaticity {
         part_automaticity.remap_links(link_base);

@@ -29,6 +29,20 @@ pub struct FreshOpportunityTrace {
     pub through: LinkId,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct ReentryStepTrace {
+    pub path: Path,
+    pub returned_source: JunctionId,
+    pub outcome_witness: LinkId,
+    pub outcome_target: JunctionId,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ReentryTrace {
+    pub condition: JunctionId,
+    pub steps: Vec<ReentryStepTrace>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct CandidateTrace {
     pub at: Time,
@@ -52,6 +66,11 @@ pub struct CandidateTrace {
     pub drive: u16,
     pub stable_order: u32,
     pub fresh_opportunity: Option<FreshOpportunityTrace>,
+    pub present_sources: Vec<JunctionId>,
+    pub reentries: Vec<ReentryTrace>,
+    /// Local graph incidences actually examined by the bounded reentry resolver.
+    pub reentry_incidence_visits: u16,
+    pub reentry_failed: bool,
     pub new_path: bool,
 }
 
@@ -61,6 +80,7 @@ pub enum ChoiceBasis {
     BoundaryRelease,
     RetainedProgress,
     FreshOpportunity,
+    UniqueReentry,
     AvailableOutcome,
     UnansweredOutputRelease,
     LatestOutcome,
@@ -88,6 +108,7 @@ pub enum ChoiceLaw {
     RetainedProgress,
     CurrentSurfaceLocality,
     FreshOpportunity,
+    UniqueReentry,
     UntriedOutputRelease,
     AvailableOutcome,
     UnansweredOutputRelease,
@@ -242,7 +263,10 @@ struct ExpectedChoice<'a> {
     law: ChoiceLaw,
 }
 
-/// Verifies recorded choice decisions without running or changing the body.
+/// Verifies recorded choice decisions and receipt shape without changing the body.
+///
+/// Historical exact-return support is established by the body before projection;
+/// this observer has no retained topology from which to reconstruct that ancestry.
 pub fn verify_choice_laws(events: &[TraceEvent]) -> Result<(), ChoiceLawViolation> {
     let mut pending = Vec::<&CandidateTrace>::new();
     for event in events {
@@ -487,6 +511,13 @@ fn expected_choice<'a>(
             law: ChoiceLaw::CurrentReturn,
         });
     }
+    if let Some(candidate) = unique_reentry(&active) {
+        return Some(ExpectedChoice {
+            candidate,
+            basis: ChoiceBasis::UniqueReentry,
+            law: ChoiceLaw::UniqueReentry,
+        });
+    }
     if let Some(candidate) = unique_latest(&active, true) {
         return Some(ExpectedChoice {
             candidate,
@@ -525,6 +556,58 @@ fn expected_choice<'a>(
             basis: ChoiceBasis::ParticipationStrengthAndDrive,
             law: ChoiceLaw::ParticipationStrengthAndDrive,
         })
+}
+
+fn unique_reentry<'a>(candidates: &[&'a CandidateTrace]) -> Option<&'a CandidateTrace> {
+    if candidates.iter().copied().any(|candidate| {
+        candidate.reentry_failed
+            || candidate.reentries.len() > 1
+            || candidate
+                .reentries
+                .iter()
+                .any(|reentry| !valid_reentry(candidate, reentry))
+    }) {
+        return None;
+    }
+    let mut reaching = candidates
+        .iter()
+        .copied()
+        .filter(|candidate| candidate.reentries.len() == 1);
+    let candidate = reaching.next()?;
+    reaching.next().is_none().then_some(candidate)
+}
+
+fn valid_reentry(candidate: &CandidateTrace, reentry: &ReentryTrace) -> bool {
+    let Some(first) = reentry.steps.first() else {
+        return false;
+    };
+    if candidate.path
+        != (TracePath {
+            surface: first.path.surface,
+            middle: first.path.middle.into(),
+            output: first.path.output,
+            first: first.path.first.into(),
+            second: first.path.second.into(),
+        })
+        || !candidate.present_sources.contains(&reentry.condition)
+        || reentry.steps.last().map(|step| step.returned_source) != Some(reentry.condition)
+    {
+        return false;
+    }
+    for (index, step) in reentry.steps.iter().enumerate() {
+        if step.outcome_target != step.path.middle && step.outcome_target != step.path.output {
+            return false;
+        }
+        if index > 0 && step.path.surface != reentry.steps[index - 1].returned_source {
+            return false;
+        }
+        if reentry.steps[..index].iter().any(|earlier| {
+            earlier.path == step.path || earlier.outcome_witness == step.outcome_witness
+        }) {
+            return false;
+        }
+    }
+    candidate.reentry_incidence_visits > 0
 }
 
 fn latest_unanswered_output(candidates: &[&CandidateTrace]) -> Option<JunctionId> {
@@ -750,6 +833,10 @@ mod tests {
             drive,
             stable_order: index as u32,
             fresh_opportunity: None,
+            present_sources: Vec::new(),
+            reentries: Vec::new(),
+            reentry_incidence_visits: 0,
+            reentry_failed: false,
             new_path: false,
         }
     }
@@ -773,6 +860,63 @@ mod tests {
         ];
 
         assert_eq!(verify_choice_laws(&events), Ok(()));
+    }
+
+    #[test]
+    fn offline_verifier_checks_unique_reentry_receipt_shape() {
+        let condition = JunctionId::new(30).unwrap();
+        let mut reaching = candidate(0, 512);
+        let (JunctionRef::Existing(middle), LinkRef::Existing(first), LinkRef::Existing(second)) = (
+            reaching.path.middle,
+            reaching.path.first,
+            reaching.path.second,
+        ) else {
+            unreachable!()
+        };
+        reaching.present_sources.push(condition);
+        reaching.reentries.push(ReentryTrace {
+            condition,
+            steps: vec![ReentryStepTrace {
+                path: Path {
+                    surface: reaching.path.surface,
+                    middle,
+                    output: reaching.path.output,
+                    first,
+                    second,
+                },
+                returned_source: condition,
+                outcome_witness: LinkId::new(40).unwrap(),
+                outcome_target: reaching.path.output,
+            }],
+        });
+        reaching.reentry_incidence_visits = 1;
+        reaching.outcome = Some(Outcome {
+            at: 5,
+            caused_transition: true,
+            available_until_choice: true,
+        });
+        let stale = candidate(1, 512);
+        let mut events = vec![
+            TraceEvent::Candidate(reaching.clone()),
+            TraceEvent::Candidate(stale),
+            TraceEvent::Choice(ChoiceTrace {
+                at: 7,
+                group: 0,
+                alternatives: 2,
+                winner: Some(reaching.path),
+                basis: Some(ChoiceBasis::UniqueReentry),
+                construction: false,
+                sent: true,
+            }),
+        ];
+
+        verify_choice_laws(&events).unwrap();
+
+        let TraceEvent::Candidate(candidate) = &mut events[0] else {
+            unreachable!()
+        };
+        candidate.reentries[0].steps[0].outcome_target = JunctionId::new(99).unwrap();
+        assert!(verify_choice_laws(&events).is_err());
     }
 
     #[test]
