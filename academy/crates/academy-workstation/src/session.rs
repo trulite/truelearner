@@ -1,6 +1,6 @@
 use crate::{
-    DeviceEvent, DeviceState, SessionCheckpoint, WorkstationPresentation, WorkstationWorld,
-    WorldError,
+    checkpoint::CheckpointParents, DeviceEvent, DeviceState, KeyId, SessionCheckpoint,
+    WorkstationPresentation, WorkstationWorld, WorldError, WorldTransition,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -35,6 +35,7 @@ pub struct WorkstationSession {
     world: WorkstationWorld,
     sequence: u64,
     boundary_parents: Vec<MotorEffect>,
+    application_parents: Vec<MotorEffect>,
     progress_parents: Vec<MotorEffect>,
 }
 
@@ -52,6 +53,7 @@ impl WorkstationSession {
             world: WorkstationWorld::new_with_presentation(presentation)?,
             sequence: 0,
             boundary_parents: Vec::new(),
+            application_parents: Vec::new(),
             progress_parents: Vec::new(),
         })
     }
@@ -60,11 +62,30 @@ impl WorkstationSession {
         checkpoint: WorkstationCheckpoint,
         presentation: WorkstationPresentation,
     ) -> Result<Self, WorldError> {
+        Self::from_body_checkpoint_with_key_depths(
+            checkpoint,
+            presentation,
+            crate::KEY_PRESS_DEPTH,
+            crate::KEY_RELEASE_DEPTH,
+        )
+    }
+
+    pub fn from_body_checkpoint_with_key_depths(
+        checkpoint: WorkstationCheckpoint,
+        presentation: WorkstationPresentation,
+        key_press_depth: i16,
+        key_release_depth: i16,
+    ) -> Result<Self, WorldError> {
         Ok(Self {
             harness: WorkstationHarness::restore(checkpoint)?,
-            world: WorkstationWorld::new_with_presentation(presentation)?,
+            world: WorkstationWorld::new_with_presentation_and_key_depths(
+                presentation,
+                key_press_depth,
+                key_release_depth,
+            )?,
             sequence: 0,
             boundary_parents: Vec::new(),
+            application_parents: Vec::new(),
             progress_parents: Vec::new(),
         })
     }
@@ -76,6 +97,87 @@ impl WorkstationSession {
 
     pub fn step_traced(&mut self) -> Result<(SessionObservation, Vec<BodyTraceEvent>), WorldError> {
         self.step_internal(true)
+    }
+
+    /// Lets an already-caused world return arrive without opening a fresh
+    /// chance to move.
+    pub fn settle(&mut self) -> Result<SessionObservation, WorldError> {
+        let sample = self.world.sense(self.harness.state())?;
+        let mut harness = self.harness.clone();
+        let body = harness.settle_with_causal_parents(
+            sample.clone(),
+            &self.boundary_parents,
+            &self.progress_parents,
+        )?;
+        let mut world = self.world.clone();
+        let transition = world.advance_observation(&body);
+        let sequence = self.sequence;
+        let next_sequence = sequence.saturating_add(1);
+        let world_fingerprint = world.fingerprint()?;
+        let session_fingerprint =
+            composed_session_fingerprint(next_sequence, &body.body_fingerprint, &world_fingerprint);
+        let observation = SessionObservation {
+            sequence,
+            sample,
+            body,
+            device_events: transition.events,
+            device_after: world.device().clone(),
+            world_fingerprint,
+            session_fingerprint,
+        };
+        *self = Self {
+            harness,
+            world,
+            sequence: next_sequence,
+            boundary_parents: transition.boundary_parents,
+            application_parents: transition.application_parents,
+            progress_parents: transition.progress_parents,
+        };
+        Ok(observation)
+    }
+
+    /// Advances a visibly external key transition for an Academy
+    /// demonstration. The learner's simultaneous motor output does not cause
+    /// this device event, so the transition returns with no motor parent.
+    pub fn step_with_external_key(
+        &mut self,
+        key: KeyId,
+        pressed_after: bool,
+    ) -> Result<SessionObservation, WorldError> {
+        let sample = self.world.sense(self.harness.state())?;
+        let mut harness = self.harness.clone();
+        let body = harness.step_with_causal_parents(
+            sample.clone(),
+            &self.boundary_parents,
+            &self.progress_parents,
+        )?;
+        let mut world = self.world.clone();
+        let pressed_before = world.device().keys_down().any(|candidate| candidate == key);
+        let events = world.advance_external_key(key, pressed_before, pressed_after)?;
+        let transition = WorldTransition::external(events);
+        let sequence = self.sequence;
+        let next_sequence = sequence.saturating_add(1);
+        let world_fingerprint = world.fingerprint()?;
+        let session_fingerprint =
+            composed_session_fingerprint(next_sequence, &body.body_fingerprint, &world_fingerprint);
+        let observation = SessionObservation {
+            sequence,
+            sample,
+            body,
+            device_events: transition.events,
+            device_after: world.device().clone(),
+            world_fingerprint,
+            session_fingerprint,
+        };
+        *self = Self {
+            harness,
+            world,
+            sequence: next_sequence,
+            boundary_parents: transition.boundary_parents,
+            application_parents: transition.application_parents,
+            progress_parents: transition.progress_parents,
+        };
+        Ok(observation)
     }
 
     fn step_internal(
@@ -121,6 +223,7 @@ impl WorkstationSession {
             world,
             sequence: next_sequence,
             boundary_parents: transition.boundary_parents,
+            application_parents: transition.application_parents,
             progress_parents: transition.progress_parents,
         };
         Ok((observation, trace))
@@ -145,7 +248,12 @@ impl WorkstationSession {
         presentation: WorkstationPresentation,
     ) -> Result<(), WorldError> {
         let mut next = self.clone();
+        let changed = next.world.presentation() != &presentation;
         next.world.set_presentation(presentation)?;
+        if changed {
+            next.boundary_parents.clone_from(&next.application_parents);
+        }
+        next.application_parents.clear();
         *self = next;
         Ok(())
     }
@@ -155,10 +263,14 @@ impl WorkstationSession {
             self.harness.save()?.canonical_bytes()?,
             self.world.device_clone(),
             self.world.presentation().clone(),
+            (self.world.key_press_depth(), self.world.key_release_depth()),
             self.sequence,
             self.world.asset_digest(),
-            self.boundary_parents.clone(),
-            self.progress_parents.clone(),
+            CheckpointParents {
+                boundary: self.boundary_parents.clone(),
+                application: self.application_parents.clone(),
+                progress: self.progress_parents.clone(),
+            },
         ))
     }
 
@@ -171,18 +283,25 @@ impl WorkstationSession {
             world: WorkstationWorld::from_parts(
                 payload.device,
                 payload.presentation,
+                payload.key_press_depth,
+                payload.key_release_depth,
                 payload.asset_digest,
             )?,
             sequence: payload.sequence,
             boundary_parents: payload.boundary_parents,
+            application_parents: payload.application_parents,
             progress_parents: payload.progress_parents,
         })
+    }
+
+    pub fn body_checkpoint(&self) -> Result<WorkstationCheckpoint, WorldError> {
+        Ok(self.harness.save()?)
     }
 }
 
 fn composed_session_fingerprint(sequence: u64, body: &str, world: &str) -> String {
     let mut digest = Sha256::new();
-    digest.update(b"truelearner-workstation-session-v5");
+    digest.update(b"truelearner-workstation-session-v7");
     digest.update(sequence.to_le_bytes());
     digest.update(body.as_bytes());
     digest.update(world.as_bytes());
@@ -191,4 +310,32 @@ fn composed_session_fingerprint(sequence: u64, body: &str, world: &str) -> Strin
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::MonitorFrame;
+    use truelearner_workstation::{BodyControl, Direction};
+
+    #[test]
+    fn presentation_change_clears_stale_ancestry_when_no_exact_parent_exists() {
+        let mut session = WorkstationSession::new(71_015).unwrap();
+        session.boundary_parents.push(MotorEffect {
+            at: 1,
+            control: BodyControl::PalmDepth {
+                direction: Direction::Increase,
+            },
+            impulse: 16,
+            cause: 2,
+        });
+
+        session
+            .set_presentation(WorkstationPresentation::with_monitor_frame(
+                MonitorFrame::new(8, 8, vec![177; 64]).unwrap(),
+            ))
+            .unwrap();
+
+        assert!(session.boundary_parents.is_empty());
+    }
 }

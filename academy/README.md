@@ -25,13 +25,27 @@ Run the headless body course from the repository root:
 ```sh
 cargo run --locked --manifest-path academy/Cargo.toml \
   -p academy-body --bin academy-body-course -- \
-  --seed 31001 --output output/body-course
+  --seed 31001 --with-workstation --output output/body-course
 ```
 
 The course develops and probes eye, hand, eye-hand, and workstation-contact
 behavior. Development may commit learning; probes use cloned checkpoints and
 cannot teach the durable organism. Output is an immutable receipt plus a
 content-addressed transcript and the opaque completed-body checkpoint.
+
+With `--with-workstation`, the course also branches from the post-TapHoldRelease
+checkpoint into a generic workstation lesson. An external demonstration alone,
+a passive screen change, and key motion without a screen response are separate
+controls. Development is credited only when an organism-caused key event is
+followed by a changed monitor frame returning through that exact crossing. The
+learned branch passes fresh and normal-depth probes, but not a shifted-hand
+transfer, so its state is `Acquired`, not `General`.
+
+The receipt emits both artifacts: `body-checkpoint-*` is the body that completes
+all twelve Body Discovery claims, while `workstation-body-checkpoint-*` is the
+branch that acquired device-to-screen causality. Later ContactDrag learning
+currently makes the key path inaccessible; the retention ladder records that
+failure rather than claiming that the two branches have composed.
 
 TapHoldRelease development records a cause-tagged external demonstration,
 tests unaided imitation, and, when needed, restores the pre-demonstration body
@@ -64,7 +78,7 @@ contract.
 ## ARC-AGI-3 development probe
 
 `academy-arc3` runs ARC-AGI-3 as an application on the same physical
-workstation used by Body Discovery. The completed body-course checkpoint sees
+workstation used by Body Discovery. The taught workstation-course checkpoint sees
 the 64×64 frame only as pixels on the generic monitor. ARC receives input only
 after the workstation emits an ordinary arrow-key, Space, Escape, or touchpad
 click `DeviceEvent`; no body control or motor crossing maps directly to ARC.
@@ -83,7 +97,7 @@ cargo build --release --locked --manifest-path academy/Cargo.toml \
 cd academy/capstones/arc3
 uv run capstone.py --mode fixture \
   --agent ../../target/release/academy-arc3-capstone-agent \
-  --body-checkpoint ../../../output/body-course/body-checkpoint-<sha256>.bin \
+  --workstation-checkpoint ../../../output/body-course/workstation-body-checkpoint-<sha256>.bin \
   --output /tmp/truelearner-arc3-fixture
 ```
 
@@ -111,14 +125,15 @@ The recording and derived frames or video never return to the learner.
 - `academy-body`: Body Discovery development, probes, controls, replay, and evidence.
 - `academy-formal`: offline Rust-to-Lean checking of frozen causal evidence.
 - `academy-workstation`: the headless physical workstation world.
+- `academy-workstation-course`: device-to-screen development and falsification controls.
 - `academy-workstation-review`: causally inert rendering of frozen workstation recordings.
 
 The runtime dependency direction is:
 
 ```text
-academy-body ----------> academy-workstation
-      |                         |
-      +-------------------------+--> truelearner-workstation -> truelearner-body
+academy-body ----------> academy-workstation-course -> academy-workstation
+      |                                                   |
+      +---------------------------------------------------+--> truelearner-workstation -> truelearner-body
 academy-workstation-review -> academy-workstation
 academy-formal -------------------> truelearner-workstation -> truelearner-body
        |

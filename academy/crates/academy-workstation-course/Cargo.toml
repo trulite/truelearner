@@ -1,12 +1,13 @@
 [package]
-name = "academy-arc3"
+name = "academy-workstation-course"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
-description = "ARC-AGI-3 workstation application and evidence boundary for TrueLearner Academy"
+description = "Generic screen-device-screen development course for TrueLearner Academy"
 
 [dependencies]
 academy-workstation.workspace = true
+bincode = "1"
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -16,5 +17,5 @@ truelearner-workstation.workspace = true
 path = "src/lib.rs"
 
 [[bin]]
-name = "academy-arc3-capstone-agent"
+name = "academy-workstation-course"
 path = "src/main.rs"

@@ -26,9 +26,9 @@ answers, correctness bits, loss, reward, or evaluator state.
 Keep the runtime dependency direction:
 
 ```text
-academy-body ----------> academy-workstation
-      |                         |
-      +-------------------------+--> truelearner-workstation -> truelearner-body
+academy-body ----------> academy-workstation-course -> academy-workstation
+      |                                                   |
+      +---------------------------------------------------+--> truelearner-workstation -> truelearner-body
 academy-workstation-review -> academy-workstation
 academy-formal -------------------> truelearner-workstation -> truelearner-body
        |
@@ -365,6 +365,41 @@ defined manipulation stability rung. Repeated low-cost automaticity and richer
 workstation use remain separate future contracts. No general pointing,
 clicking, typing, grasping, or image-use claim follows from these sequences.
 
+### Generic workstation causality
+
+`academy-workstation-course` asks one smaller question before any application
+benchmark: can an organism-caused workstation device event be followed by a
+changed monitor presentation through the same witnessed causal boundary? The
+application frames are arbitrary generated luminance patterns. No application
+identity, correct action, task rule, score, or semantic label enters the body.
+
+The course keeps four separations explicit:
+
+1. An external key-to-screen demonstration is visible but has no organism
+   parent and cannot establish the claim.
+2. A passive screen change cannot produce later device use.
+3. Self-caused key motion without a screen response cannot produce later
+   screen-directed use.
+4. Only self-caused key motion followed by a changed screen may consolidate;
+   the returned screen consequence substitutes the exact application parent,
+   not every simultaneously moving body axis.
+
+The completed cycle is press, changed screen, release, returned release, and a
+settling step with no new opportunity. Reference seed `31_001` learns this at a
+shallower key depth and passes fresh normal-depth probes with new generated
+frames. A one-step horizontal pose transfer fails, so the evidence is
+`Acquired`, not `General`.
+
+This lesson branches from the checkpoint immediately after TapHoldRelease,
+where the keyboard path is still physically accessible. The ordinary body
+course continues separately and still acquires all twelve body claims. Its
+retention ladder shows that ContactDrag and later manipulation learning make
+the screen-taught key path inaccessible. Academy therefore emits two opaque
+artifacts instead of pretending they are one body: the all-claims
+`body-checkpoint-*` and the causally taught
+`workstation-body-checkpoint-*`. Recombining those branches is a future
+compositional-retention problem.
+
 ## First curriculum
 
 Start with a small set that can be inspected completely:
@@ -418,8 +453,9 @@ uninspected.
 
 The Python adapter owns the SDK, game identity, score, terminal state, action
 budget, and official action catalog. Before the run it loads the opaque
-checkpoint emitted by the completed Body Discovery course. A fresh body is a
-negative control and cannot support a post-course claim.
+`workstation-body-checkpoint-*` emitted by the generic workstation course. The
+protocol rejects initialization as an ordinary body-course checkpoint. A fresh
+body is a negative control and cannot support a post-course claim.
 
 The Rust process owns `Arc3Sensorimotor`, which attaches that developed body to
 an ordinary `WorkstationSession`. The 64×64 palette frame is converted to
@@ -439,7 +475,7 @@ adapter.
 
 The process boundary exposes no score, game or level identity, expected action,
 babbling, support, settling, reset, or diagnostic command. Unknown fields,
-invalid frames, unsupported application actions, and corrupt body checkpoints
+invalid frames, unsupported application actions, and corrupt workstation checkpoints
 fail before a harness transition.
 Academy records outer episode state separately from the request, the complete
 physical trace, work, crossings, body fingerprints, and an exact fresh-process

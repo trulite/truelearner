@@ -217,3 +217,69 @@ fn session_can_attach_a_new_world_to_an_existing_body_checkpoint() {
 
     assert_eq!(session.read().unwrap().body, body_before);
 }
+
+#[test]
+fn shaped_key_depths_and_body_checkpoint_restore_exactly() {
+    let harness = WorkstationHarness::new(71_011).unwrap();
+    let checkpoint = harness.save().unwrap();
+    let mut session = WorkstationSession::from_body_checkpoint_with_key_depths(
+        checkpoint,
+        WorkstationPresentation::default(),
+        640,
+        608,
+    )
+    .unwrap();
+    session.step().unwrap();
+    let body = session.body_checkpoint().unwrap();
+    assert_eq!(
+        WorkstationHarness::restore(body).unwrap().read().unwrap(),
+        session.read().unwrap().body
+    );
+
+    let checkpoint = session.save().unwrap();
+    let mut restored = WorkstationSession::restore(checkpoint).unwrap();
+    assert_eq!(restored.read().unwrap(), session.read().unwrap());
+    assert_eq!(restored.step().unwrap(), session.step().unwrap());
+}
+
+#[test]
+fn external_key_demonstration_has_no_organism_parent_and_replays() {
+    let mut session = WorkstationSession::new(71_012).unwrap();
+    let event = session.step_with_external_key(KeyId(17), true).unwrap();
+    assert!(event.device_events.iter().any(|candidate| matches!(
+        candidate,
+        academy_workstation::DeviceEvent::KeyPressed { key: 17 }
+    )));
+
+    let checkpoint = session.save().unwrap();
+    let mut restored = WorkstationSession::restore(checkpoint).unwrap();
+    let observed = session.step_with_external_key(KeyId(17), false).unwrap();
+    let replayed = restored.step_with_external_key(KeyId(17), false).unwrap();
+    assert_eq!(replayed, observed);
+    assert!(observed.body.boundary_parents.is_empty());
+}
+
+#[test]
+fn settling_a_return_does_not_open_another_movement_opportunity() {
+    let mut session = WorkstationSession::new(71_013).unwrap();
+    session.step().unwrap();
+    let checkpoint = session.save().unwrap();
+    let mut restored = WorkstationSession::restore(checkpoint).unwrap();
+    let observed = session.settle().unwrap();
+    let replayed = restored.settle().unwrap();
+    assert_eq!(replayed, observed);
+    assert!(!observed.body.opportunity_admitted);
+    assert!(observed.body.crossings.is_empty());
+}
+
+#[test]
+fn passive_presentation_change_has_no_invented_motor_parent() {
+    let mut session = WorkstationSession::new(71_014).unwrap();
+    session
+        .set_presentation(WorkstationPresentation::with_monitor_frame(
+            MonitorFrame::new(8, 8, vec![177; 64]).unwrap(),
+        ))
+        .unwrap();
+    let observed = session.settle().unwrap();
+    assert!(observed.body.boundary_parents.is_empty());
+}

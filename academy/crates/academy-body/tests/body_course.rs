@@ -3,6 +3,10 @@ use academy_body::{
     BodyExperience, BodyExperienceMode, BodyVerdict, BodyWorldCause,
 };
 use academy_workstation::DeviceEvent;
+use academy_workstation_course::{
+    ScreenDeviceEvidenceState, WorkstationCourse, WorkstationExperienceMode, WorkstationFailure,
+    WorkstationVerdict,
+};
 use behavior_diagram::BehaviorDiagram;
 use sha2::{Digest, Sha256};
 use truelearner_workstation::{BodyControl, Direction, WorkstationCheckpoint, WorkstationHarness};
@@ -58,7 +62,7 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
     assert!(run.acquired.contains(&BodyCapability::ThumbContact));
     assert!(run.acquired.contains(&BodyCapability::PinchDrag));
     assert_eq!(run.first_failure, None);
-    assert_eq!(run.schema_version, 11);
+    assert_eq!(run.schema_version, 12);
     let completed =
         WorkstationHarness::restore(WorkstationCheckpoint::decode(&run.body_checkpoint).unwrap())
             .unwrap();
@@ -294,6 +298,59 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
             )
         })
         .all(|experience| experience.durable_unchanged));
+    let course = WorkstationCourse::restore(
+        10_031_001,
+        run.workstation_entry_checkpoint.as_ref().unwrap(),
+        run.workstation_pose_checkpoint.as_ref().unwrap(),
+    )
+    .unwrap()
+    .run()
+    .unwrap();
+    assert_eq!(course.evidence_state, ScreenDeviceEvidenceState::Acquired);
+    assert_eq!(course.first_failure, Some(WorkstationFailure::Transfer));
+    assert!(course.exact_replay);
+    let experience = |mode| {
+        course
+            .experiences
+            .iter()
+            .find(|experience| experience.mode == mode)
+            .unwrap()
+    };
+    assert_eq!(
+        experience(WorkstationExperienceMode::PassiveProbe).verdict,
+        WorkstationVerdict::Failed
+    );
+    assert_eq!(
+        experience(WorkstationExperienceMode::ActionOnlyProbe).verdict,
+        WorkstationVerdict::Failed
+    );
+    assert_eq!(
+        experience(WorkstationExperienceMode::Development).unique_returned_screen_changes,
+        1
+    );
+    assert_eq!(
+        experience(WorkstationExperienceMode::NormalDepthProbe).verdict,
+        WorkstationVerdict::Passed
+    );
+    assert_eq!(
+        experience(WorkstationExperienceMode::Probe).verdict,
+        WorkstationVerdict::Passed
+    );
+    let final_retention = WorkstationCourse::retention_probe(
+        11_031_001,
+        &run.body_checkpoint,
+        run.workstation_pose_checkpoint.as_ref().unwrap(),
+    )
+    .unwrap();
+    assert_eq!(final_retention.verdict, WorkstationVerdict::Failed);
+    let workstation = WorkstationHarness::restore(
+        WorkstationCheckpoint::decode(&course.body_checkpoint).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        workstation.read().unwrap().body_fingerprint,
+        course.final_body_fingerprint
+    );
 }
 
 #[test]

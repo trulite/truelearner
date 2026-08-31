@@ -3,6 +3,9 @@ use academy_workstation::{
     DeviceEvent, DeviceState, KeyId, Rect, ScreenPoint, WorkstationWorld, WorldError,
     WorldTransition, KEY_COUNT,
 };
+use academy_workstation_course::{
+    ScreenDeviceEvidenceState, WorkstationCourse, WorkstationCourseRun, WorkstationExperience,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -246,8 +249,19 @@ pub struct CourseRun {
     pub experiences: Vec<BodyExperience>,
     pub exact_replay: bool,
     pub final_body_fingerprint: String,
+    pub workstation_course: Option<WorkstationCourseRun>,
+    pub workstation_retention_ladder: Vec<WorkstationExperience>,
+    pub workstation_retention: Option<WorkstationExperience>,
     #[serde(skip)]
     pub body_checkpoint: Vec<u8>,
+    /// An opaque earlier checkpoint used only as a frozen external workstation
+    /// pose. Its learner topology is never restored over the completed body.
+    #[serde(skip)]
+    pub workstation_pose_checkpoint: Option<Vec<u8>>,
+    /// The completed learner immediately after TapHoldRelease, before later
+    /// manipulation lessons can interfere with its executable key path.
+    #[serde(skip)]
+    pub workstation_entry_checkpoint: Option<Vec<u8>>,
 }
 
 pub struct BodyCourse {
@@ -469,10 +483,21 @@ impl BodyCourse {
         Ok(experience)
     }
 
-    pub fn run(mut self) -> Result<CourseRun, BodyCourseError> {
+    pub fn run(self) -> Result<CourseRun, BodyCourseError> {
+        self.run_internal(false)
+    }
+
+    pub fn run_with_workstation_course(self) -> Result<CourseRun, BodyCourseError> {
+        self.run_internal(true)
+    }
+
+    fn run_internal(mut self, teach_workstation: bool) -> Result<CourseRun, BodyCourseError> {
         let mut first_failure = None;
         let mut courses = Vec::with_capacity(BodyCourseKind::ORDER.len());
         let mut lesson_references = BTreeMap::new();
+        let mut workstation_entry_checkpoint = None;
+        let mut workstation_course = None;
+        let mut workstation_retention_ladder = Vec::new();
         for course in BodyCourseKind::ORDER {
             let mut course_acquired = Vec::with_capacity(course.capabilities().len());
             let mut course_failure = None;
@@ -625,6 +650,55 @@ impl BodyCourse {
                     }
                 }
                 self.acquired.insert(capability);
+                if capability == BodyCapability::TapHoldRelease {
+                    let entry = self.checkpoint_bytes()?;
+                    workstation_entry_checkpoint = Some(entry.clone());
+                    if teach_workstation {
+                        let pose = lesson_references
+                            .get(&BodyCapability::TapHoldRelease)
+                            .expect("TapHoldRelease has a frozen lesson reference");
+                        let run = WorkstationCourse::restore(
+                            self.seed.saturating_add(10_000_000),
+                            &entry,
+                            pose,
+                        )?
+                        .run()?;
+                        if matches!(
+                            run.evidence_state,
+                            ScreenDeviceEvidenceState::Acquired
+                                | ScreenDeviceEvidenceState::General
+                        ) && run.exact_replay
+                        {
+                            self.restore_checkpoint(&run.body_checkpoint)?;
+                        } else {
+                            self.restore_checkpoint(&entry)?;
+                        }
+                        workstation_course = Some(run);
+                    }
+                }
+                if teach_workstation
+                    && workstation_course.is_some()
+                    && matches!(
+                        capability,
+                        BodyCapability::ContactDrag
+                            | BodyCapability::ThumbContact
+                            | BodyCapability::PinchDrag
+                    )
+                {
+                    let pose = lesson_references
+                        .get(&BodyCapability::TapHoldRelease)
+                        .expect("workstation course has a frozen TapHoldRelease pose");
+                    workstation_retention_ladder.push(WorkstationCourse::retention_probe(
+                        self.seed.saturating_add(
+                            10_250_000
+                                + u64::try_from(workstation_retention_ladder.len())
+                                    .unwrap_or_default()
+                                    * 250_000,
+                        ),
+                        &self.checkpoint_bytes()?,
+                        pose,
+                    )?);
+                }
                 course_acquired.push(capability);
             }
             let outcome = if course_blocked {
@@ -641,23 +715,52 @@ impl BodyCourse {
                 outcome,
             });
         }
+        let workstation_pose_checkpoint = lesson_references
+            .get(&BodyCapability::TapHoldRelease)
+            .cloned();
         let capability_evidence = capability_evidence(&self.experiences, &self.acquired);
         let body_checkpoint = self.checkpoint_bytes()?;
+        let workstation_retention = match (
+            workstation_course.as_ref(),
+            workstation_pose_checkpoint.as_ref(),
+        ) {
+            (Some(_), Some(pose)) => Some(WorkstationCourse::retention_probe(
+                self.seed.saturating_add(11_000_000),
+                &body_checkpoint,
+                pose,
+            )?),
+            _ => None,
+        };
         let final_body_fingerprint = self.harness.read()?.body_fingerprint;
+        let exact_replay = self
+            .experiences
+            .iter()
+            .all(|experience| experience.replay_exact)
+            && workstation_course
+                .as_ref()
+                .is_none_or(|course| course.exact_replay)
+            && workstation_retention_ladder
+                .iter()
+                .all(|experience| experience.replay_exact)
+            && workstation_retention
+                .as_ref()
+                .is_none_or(|experience| experience.replay_exact);
         Ok(CourseRun {
-            schema_version: 11,
+            schema_version: 12,
             seed: self.seed,
             courses,
             acquired: self.acquired.iter().copied().collect(),
             capability_evidence,
             first_failure,
-            exact_replay: self
-                .experiences
-                .iter()
-                .all(|experience| experience.replay_exact),
+            exact_replay,
             experiences: self.experiences,
             final_body_fingerprint,
+            workstation_course,
+            workstation_retention_ladder,
+            workstation_retention,
             body_checkpoint,
+            workstation_pose_checkpoint,
+            workstation_entry_checkpoint,
         })
     }
 
@@ -1451,6 +1554,7 @@ fn opposing_horizontal_eye_movement(movements: &[BodyMovement]) -> bool {
 #[derive(Debug)]
 pub enum BodyCourseError {
     Workstation(WorkstationError),
+    WorkstationCourse(String),
     ExternalWorld(WorldError),
     Prerequisite(BodyCapability),
     Io(String),
@@ -1462,6 +1566,9 @@ impl fmt::Display for BodyCourseError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Workstation(error) => write!(formatter, "workstation Harness failed: {error}"),
+            Self::WorkstationCourse(message) => {
+                write!(formatter, "workstation course failed: {message}")
+            }
             Self::ExternalWorld(error) => write!(formatter, "external world failed: {error}"),
             Self::Prerequisite(capability) => {
                 write!(
@@ -1491,6 +1598,12 @@ impl From<WorkstationError> for BodyCourseError {
 impl From<WorldError> for BodyCourseError {
     fn from(value: WorldError) -> Self {
         Self::ExternalWorld(value)
+    }
+}
+
+impl From<academy_workstation_course::WorkstationCourseError> for BodyCourseError {
+    fn from(value: academy_workstation_course::WorkstationCourseError) -> Self {
+        Self::WorkstationCourse(value.to_string())
     }
 }
 

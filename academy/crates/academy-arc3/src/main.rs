@@ -16,13 +16,13 @@ fn write_response(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
-    if arguments.len() != 2 || arguments[0] != "--body-checkpoint" {
-        return Err("usage: academy-arc3-capstone-agent --body-checkpoint PATH".into());
+    if arguments.len() != 2 || arguments[0] != "--workstation-checkpoint" {
+        return Err("usage: academy-arc3-capstone-agent --workstation-checkpoint PATH".into());
     }
     let checkpoint_path = PathBuf::from(&arguments[1]);
     let checkpoint = std::fs::read(&checkpoint_path).map_err(|error| {
         format!(
-            "could not read body checkpoint {}: {error}",
+            "could not read workstation checkpoint {}: {error}",
             checkpoint_path.display()
         )
     })?;

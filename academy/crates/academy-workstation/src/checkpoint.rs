@@ -5,8 +5,8 @@ use sha2::{Digest, Sha256};
 use truelearner_workstation::MotorEffect;
 
 const MAGIC: &[u8; 8] = b"TLWSES03";
-const VERSION: u16 = 5;
-const LAYOUT_VERSION: u16 = 5;
+const VERSION: u16 = 7;
+const LAYOUT_VERSION: u16 = 7;
 const HEADER_LEN: usize = 50;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,11 +14,20 @@ pub(crate) struct CheckpointPayload {
     pub harness: Vec<u8>,
     pub device: DeviceState,
     pub presentation: WorkstationPresentation,
+    pub key_press_depth: i16,
+    pub key_release_depth: i16,
     pub sequence: u64,
     pub asset_digest: [u8; 32],
     pub boundary_parents: Vec<MotorEffect>,
+    pub application_parents: Vec<MotorEffect>,
     pub progress_parents: Vec<MotorEffect>,
     pub layout_version: u16,
+}
+
+pub(crate) struct CheckpointParents {
+    pub boundary: Vec<MotorEffect>,
+    pub application: Vec<MotorEffect>,
+    pub progress: Vec<MotorEffect>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -31,20 +40,23 @@ impl SessionCheckpoint {
         harness: Vec<u8>,
         device: DeviceState,
         presentation: WorkstationPresentation,
+        key_depths: (i16, i16),
         sequence: u64,
         asset_digest: [u8; 32],
-        boundary_parents: Vec<MotorEffect>,
-        progress_parents: Vec<MotorEffect>,
+        parents: CheckpointParents,
     ) -> Self {
         Self {
             payload: CheckpointPayload {
                 harness,
                 device,
                 presentation,
+                key_press_depth: key_depths.0,
+                key_release_depth: key_depths.1,
                 sequence,
                 asset_digest,
-                boundary_parents,
-                progress_parents,
+                boundary_parents: parents.boundary,
+                application_parents: parents.application,
+                progress_parents: parents.progress,
                 layout_version: LAYOUT_VERSION,
             },
         }
@@ -110,6 +122,10 @@ fn validate_payload(payload: &CheckpointPayload) -> Result<(), WorldError> {
     payload
         .presentation
         .validate(&crate::WorldGeometry::standard_ansi_104()?)?;
+    crate::WorkstationWorld::validate_key_depths(
+        payload.key_press_depth,
+        payload.key_release_depth,
+    )?;
     truelearner_workstation::WorkstationCheckpoint::decode(&payload.harness)?;
     Ok(())
 }

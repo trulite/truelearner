@@ -6,7 +6,6 @@ version = 4
 name = "academy-arc3"
 version = "0.1.0"
 dependencies = [
- "academy-body",
  "academy-workstation",
  "serde",
  "serde_json",
@@ -19,6 +18,7 @@ name = "academy-body"
 version = "0.1.0"
 dependencies = [
  "academy-workstation",
+ "academy-workstation-course",
  "serde",
  "serde_json",
  "sha2",
@@ -42,6 +42,18 @@ dependencies = [
  "flate2",
  "font8x8",
  "image",
+ "serde",
+ "serde_json",
+ "sha2",
+ "truelearner-workstation",
+]
+
+[[package]]
+name = "academy-workstation-course"
+version = "0.1.0"
+dependencies = [
+ "academy-workstation",
+ "bincode",
  "serde",
  "serde_json",
  "sha2",

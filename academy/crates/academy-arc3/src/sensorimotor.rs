@@ -347,32 +347,27 @@ fn scale_point(value: i16) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::OnceLock;
 
-    fn completed_body_checkpoint() -> Vec<u8> {
-        static CHECKPOINT: OnceLock<Vec<u8>> = OnceLock::new();
-        CHECKPOINT
-            .get_or_init(|| {
-                academy_body::BodyCourse::new(31_001)
-                    .unwrap()
-                    .run()
-                    .unwrap()
-                    .body_checkpoint
-            })
-            .clone()
+    fn sensorimotor_checkpoint() -> Vec<u8> {
+        truelearner_workstation::WorkstationHarness::new(31_001)
+            .unwrap()
+            .save()
+            .unwrap()
+            .canonical_bytes()
+            .unwrap()
     }
 
     #[test]
     fn invalid_frame_is_atomic() {
-        let mut sensorimotor = Arc3Sensorimotor::restore(&completed_body_checkpoint()).unwrap();
+        let mut sensorimotor = Arc3Sensorimotor::restore(&sensorimotor_checkpoint()).unwrap();
         let before = sensorimotor.snapshot().unwrap();
         assert!(sensorimotor.observe(vec![16; ARC3_FRAME_PIXELS]).is_err());
         assert_eq!(sensorimotor.snapshot().unwrap(), before);
     }
 
     #[test]
-    fn frozen_requests_replay_exactly_from_the_completed_body() {
-        let checkpoint = completed_body_checkpoint();
+    fn frozen_requests_replay_exactly_from_a_checkpoint() {
+        let checkpoint = sensorimotor_checkpoint();
         let mut first = Arc3Sensorimotor::restore(&checkpoint).unwrap();
         let mut replay = Arc3Sensorimotor::restore(&checkpoint).unwrap();
         let mut frame = vec![0; ARC3_FRAME_PIXELS];

@@ -248,6 +248,7 @@ pub enum DeviceEvent {
 pub struct WorldTransition {
     pub events: Vec<DeviceEvent>,
     pub boundary_parents: Vec<MotorEffect>,
+    pub application_parents: Vec<MotorEffect>,
     pub progress_parents: Vec<MotorEffect>,
 }
 
@@ -256,6 +257,7 @@ impl WorldTransition {
         Self {
             events,
             boundary_parents: Vec::new(),
+            application_parents: Vec::new(),
             progress_parents: Vec::new(),
         }
     }
@@ -477,6 +479,8 @@ impl WorkstationWorld {
         let thumb = body.hand().fingertip(Digit::Thumb);
         let finger = body.hand().fingertip(grip_digit);
         let thumb_zone = Rect {
+            // Coherent palm transport completes the second contact before it
+            // can carry the supported object. The thumb starts just outside.
             x: thumb.x().saturating_sub(48),
             y: thumb.y().saturating_sub(24),
             width: 48,
@@ -526,18 +530,14 @@ impl WorkstationWorld {
         Self::new_with_presentation_and_key_depths(presentation, KEY_PRESS_DEPTH, KEY_RELEASE_DEPTH)
     }
 
-    fn new_with_presentation_and_key_depths(
+    pub fn new_with_presentation_and_key_depths(
         presentation: WorkstationPresentation,
         key_press_depth: i16,
         key_release_depth: i16,
     ) -> Result<Self, WorldError> {
         let geometry = WorldGeometry::standard_ansi_104()?;
         presentation.validate(&geometry)?;
-        if !(CONTACT_DEPTH..key_press_depth).contains(&key_release_depth)
-            || key_press_depth > BODY_MAX
-        {
-            return Err(WorldError::InvalidKeyDepths);
-        }
+        Self::validate_key_depths(key_press_depth, key_release_depth)?;
         Ok(Self {
             touchpad: geometry.touchpad,
             touchpad_contact_depth: CONTACT_DEPTH,
@@ -551,6 +551,19 @@ impl WorkstationWorld {
             key_press_depth,
             key_release_depth,
         })
+    }
+
+    pub(crate) fn validate_key_depths(
+        key_press_depth: i16,
+        key_release_depth: i16,
+    ) -> Result<(), WorldError> {
+        if !(CONTACT_DEPTH..key_press_depth).contains(&key_release_depth)
+            || key_press_depth > BODY_MAX
+        {
+            Err(WorldError::InvalidKeyDepths)
+        } else {
+            Ok(())
+        }
     }
 
     pub fn geometry(&self) -> &WorldGeometry {
@@ -643,6 +656,8 @@ impl WorkstationWorld {
         &mut self,
         observation: &WorkstationStepObservation,
     ) -> WorldTransition {
+        let before_frame = SurfaceFrame::from_body(&observation.state_before);
+        let after_frame = SurfaceFrame::from_body(&observation.state_after);
         let contact_change = match (
             self.contact_samples(&observation.state_before),
             self.contact_samples(&observation.state_after),
@@ -652,7 +667,7 @@ impl WorkstationWorld {
         };
         let ending_drag_parent = self.device.touch.and_then(|touch| touch.drag_parent);
         let ending_pinch_parent = self.pinch_object.and_then(|object| object.drag_parent);
-        let events = self.advance(&observation.state_before, &observation.state_after);
+        let events = self.advance_frames(before_frame, after_frame);
         let has_direct_boundary_effect = events.iter().any(|event| {
             matches!(
                 event,
@@ -685,6 +700,17 @@ impl WorkstationWorld {
             .map(|movement| movement.axis)
             .filter(|axis| is_hand_axis(*axis))
             .collect::<Vec<_>>();
+        let boundary_axes = exact_boundary_axes(
+            &events,
+            &self.geometry,
+            self.touchpad,
+            self.touchpad_contact_depth,
+            self.key_press_depth,
+            self.key_release_depth,
+            before_frame,
+            after_frame,
+            &changed_axes,
+        );
         let transport_parents = observation
             .crossings
             .iter()
@@ -768,9 +794,16 @@ impl WorkstationWorld {
             .copied()
             .filter(|crossing| progress_axes.contains(&crossing.control.axis()))
             .collect();
+        let application_parents = observation
+            .crossings
+            .iter()
+            .copied()
+            .filter(|crossing| boundary_axes.contains(&crossing.control.axis()))
+            .collect();
         WorldTransition {
             events,
             boundary_parents,
+            application_parents,
             progress_parents,
         }
     }
@@ -848,10 +881,16 @@ impl WorkstationWorld {
     pub(crate) fn from_parts(
         device: DeviceState,
         presentation: WorkstationPresentation,
+        key_press_depth: i16,
+        key_release_depth: i16,
         expected_asset_digest: [u8; 32],
     ) -> Result<Self, WorldError> {
         device.validate()?;
-        let world = Self::new_with_presentation(presentation)?;
+        let world = Self::new_with_presentation_and_key_depths(
+            presentation,
+            key_press_depth,
+            key_release_depth,
+        )?;
         if world.asset_digest() != expected_asset_digest {
             return Err(WorldError::AssetDigest);
         }
@@ -1110,6 +1149,103 @@ fn affected_contact_changed(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+fn exact_boundary_axes(
+    events: &[DeviceEvent],
+    geometry: &WorldGeometry,
+    touchpad: Rect,
+    touchpad_contact_depth: i16,
+    key_press_depth: i16,
+    key_release_depth: i16,
+    before: SurfaceFrame,
+    after: SurfaceFrame,
+    changed_axes: &[BodyAxis],
+) -> Vec<BodyAxis> {
+    let mut axes = Vec::new();
+    for event in events {
+        let crossed_digits = match event {
+            DeviceEvent::KeyPressed { key } => geometry
+                .key(KeyId(*key))
+                .map(|key| {
+                    digits_crossing(
+                        before,
+                        after,
+                        |tip| key.rect.contains_xy(tip.x, tip.y) && tip.depth >= key_press_depth,
+                        true,
+                    )
+                })
+                .unwrap_or_default(),
+            DeviceEvent::KeyReleased { key } => geometry
+                .key(KeyId(*key))
+                .map(|key| {
+                    digits_crossing(
+                        before,
+                        after,
+                        |tip| key.rect.contains_xy(tip.x, tip.y) && tip.depth >= key_release_depth,
+                        false,
+                    )
+                })
+                .unwrap_or_default(),
+            DeviceEvent::Clicked { .. } => digits_crossing(
+                before,
+                after,
+                |tip| touchpad.contains_xy(tip.x, tip.y) && tip.depth >= touchpad_contact_depth,
+                false,
+            ),
+            _ => Vec::new(),
+        };
+        for digit in crossed_digits {
+            for axis in changed_axes.iter().copied() {
+                if axis_could_move_tip(axis, digit, before, after) && !axes.contains(&axis) {
+                    axes.push(axis);
+                }
+            }
+        }
+    }
+    axes
+}
+
+fn digits_crossing(
+    before: SurfaceFrame,
+    after: SurfaceFrame,
+    within: impl Fn(SurfacePoint) -> bool,
+    entering: bool,
+) -> Vec<Digit> {
+    Digit::ALL
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, digit)| {
+            let was_within = within(before.tips[index]);
+            let is_within = within(after.tips[index]);
+            (was_within != is_within && is_within == entering).then_some(digit)
+        })
+        .collect()
+}
+
+fn axis_could_move_tip(
+    axis: BodyAxis,
+    digit: Digit,
+    before: SurfaceFrame,
+    after: SurfaceFrame,
+) -> bool {
+    let index = digit_index(digit);
+    let before = before.tips[index];
+    let after = after.tips[index];
+    match axis {
+        BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. } | BodyAxis::Wrist => false,
+        BodyAxis::PalmHorizontal => before.x != after.x,
+        BodyAxis::PalmVertical => before.y != after.y,
+        BodyAxis::PalmDepth => before.depth != after.depth,
+        BodyAxis::Spread => digit != Digit::Middle && before.x != after.x,
+        BodyAxis::ThumbOpposition => {
+            digit == Digit::Thumb && (before.x != after.x || before.depth != after.depth)
+        }
+        BodyAxis::FingerFlexion { digit: moved } => {
+            moved == digit && (before.y != after.y || before.depth != after.depth)
+        }
+    }
+}
+
 fn contact_sample(depth: i16, slip: i16) -> Result<ContactSample, WorldError> {
     let pressure = depth
         .saturating_sub(CONTACT_DEPTH)
@@ -1260,6 +1396,87 @@ mod tests {
         assert_ne!(
             practice.fingerprint().unwrap(),
             standard.fingerprint().unwrap()
+        );
+    }
+
+    #[test]
+    fn key_ancestry_excludes_a_simultaneous_uninvolved_thumb_crossing() {
+        let geometry = WorldGeometry::standard_ansi_104().unwrap();
+        let key = geometry.keys().iter().find(|key| key.label == "A").unwrap();
+        let mut before = empty_frame();
+        let mut after = empty_frame();
+        let ring = digit_index(Digit::Ring);
+        before.tips[ring] = SurfacePoint {
+            x: key.rect.x + 2,
+            y: key.rect.y + 2,
+            depth: 639,
+        };
+        after.tips[ring] = SurfacePoint {
+            depth: 640,
+            ..before.tips[ring]
+        };
+        let thumb = digit_index(Digit::Thumb);
+        before.tips[thumb] = SurfacePoint {
+            x: 900,
+            y: 900,
+            depth: 500,
+        };
+        after.tips[thumb] = SurfacePoint {
+            x: 884,
+            depth: 508,
+            ..before.tips[thumb]
+        };
+        let axes = exact_boundary_axes(
+            &[DeviceEvent::KeyPressed { key: key.id.0 }],
+            &geometry,
+            geometry.touchpad,
+            CONTACT_DEPTH,
+            640,
+            608,
+            before,
+            after,
+            &[BodyAxis::PalmDepth, BodyAxis::ThumbOpposition],
+        );
+        assert_eq!(axes, [BodyAxis::PalmDepth]);
+    }
+
+    #[test]
+    fn key_ancestry_preserves_real_same_digit_ambiguity() {
+        let geometry = WorldGeometry::standard_ansi_104().unwrap();
+        let key = geometry.keys().iter().find(|key| key.label == "A").unwrap();
+        let mut before = empty_frame();
+        let mut after = empty_frame();
+        let ring = digit_index(Digit::Ring);
+        before.tips[ring] = SurfacePoint {
+            x: key.rect.x + 2,
+            y: key.rect.y + 3,
+            depth: 639,
+        };
+        after.tips[ring] = SurfacePoint {
+            y: key.rect.y + 2,
+            depth: 640,
+            ..before.tips[ring]
+        };
+        let axes = exact_boundary_axes(
+            &[DeviceEvent::KeyPressed { key: key.id.0 }],
+            &geometry,
+            geometry.touchpad,
+            CONTACT_DEPTH,
+            640,
+            608,
+            before,
+            after,
+            &[
+                BodyAxis::PalmDepth,
+                BodyAxis::FingerFlexion { digit: Digit::Ring },
+            ],
+        );
+        assert_eq!(
+            axes,
+            [
+                BodyAxis::PalmDepth,
+                BodyAxis::FingerFlexion { digit: Digit::Ring }
+            ]
         );
     }
 

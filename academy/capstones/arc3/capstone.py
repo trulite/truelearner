@@ -54,6 +54,7 @@ def load_protocol(path: Path) -> dict[str, Any]:
         "public_game",
         "initialization",
         "body_course_seed",
+        "workstation_course_seed",
         "environment_seed",
         "max_actions_per_game",
         "workstation_steps_per_observation",
@@ -72,8 +73,8 @@ def load_protocol(path: Path) -> dict[str, Any]:
         raise CapstoneError("protocol changes the external application request")
     if data["supported_actions"] != [1, 2, 3, 4, 5, 6, 7]:
         raise CapstoneError("protocol changes the frozen ARC application actions")
-    if data["initialization"] != "body-course-checkpoint":
-        raise CapstoneError("protocol does not require the developed body checkpoint")
+    if data["initialization"] != "workstation-course-checkpoint":
+        raise CapstoneError("protocol does not require the taught workstation checkpoint")
     if data["workstation_steps_per_observation"] != 32:
         raise CapstoneError("protocol changes the generic workstation input horizon")
     if data["device_action_bindings"] != [
@@ -142,9 +143,9 @@ class AgentProcess:
     ready: dict[str, object]
 
     @classmethod
-    def start(cls, executable: Path, body_checkpoint: Path) -> AgentProcess:
+    def start(cls, executable: Path, workstation_checkpoint: Path) -> AgentProcess:
         process = subprocess.Popen(
-            [str(executable), "--body-checkpoint", str(body_checkpoint)],
+            [str(executable), "--workstation-checkpoint", str(workstation_checkpoint)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -475,8 +476,9 @@ def _receipt(
         "toolkit_source_revision": protocol["toolkit_source_revision"],
         "sdk_versions": _versions(protocol),
         "body_course_seed": int(protocol["body_course_seed"]),
+        "workstation_course_seed": int(protocol["workstation_course_seed"]),
         "environment_seed": int(protocol["environment_seed"]),
-        "body_checkpoint_sha256": sha256_file(body_checkpoint),
+        "workstation_checkpoint_sha256": sha256_file(body_checkpoint),
         "suite_selection": protocol["official_selection"],
         "holdout_policy": protocol["holdout_policy"],
         "games": [summary],
@@ -597,7 +599,7 @@ def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=("fixture", "public"), required=True)
     parser.add_argument("--agent", type=Path, required=True)
-    parser.add_argument("--body-checkpoint", type=Path, required=True)
+    parser.add_argument("--workstation-checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--game", default="ls20")
     return parser.parse_args()
@@ -609,11 +611,11 @@ def main() -> int:
     repository = script.parents[3]
     protocol_path = script.with_name("protocol.toml")
     agent_path = args.agent.resolve()
-    body_checkpoint = args.body_checkpoint.resolve()
+    body_checkpoint = args.workstation_checkpoint.resolve()
     if not agent_path.is_file():
         raise CapstoneError(f"agent does not exist: {agent_path}")
     if not body_checkpoint.is_file():
-        raise CapstoneError(f"body checkpoint does not exist: {body_checkpoint}")
+        raise CapstoneError(f"workstation checkpoint does not exist: {body_checkpoint}")
     if args.mode == "fixture":
         receipt = run_fixture(
             repository,
