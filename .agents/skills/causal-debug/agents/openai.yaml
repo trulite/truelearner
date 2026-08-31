@@ -1,4 +1,4 @@
 interface:
   display_name: "Causal Debug"
   short_description: "Debug physical arrows from retained traces"
-  default_prompt: "Use $causal-debug to compose the retained trace, locate the first non-commuting physical square, and continue through the next minimal solve without broad diagnostic reruns."
+  default_prompt: "Use $causal-debug to run the offline choice-law verifier, draw paired physical-event and commuting diagrams from the retained trace, locate the first failed arrow, and continue through the next minimal solve without broad diagnostic reruns."

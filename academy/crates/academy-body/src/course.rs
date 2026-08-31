@@ -8,6 +8,7 @@ use truelearner_workstation::{
 };
 
 const STEPS_PER_EXPERIENCE: usize = 12;
+const CONTACT_STEPS_PER_EXPERIENCE: usize = 16;
 const PHYSICAL_WORK_BOUND: u64 = 2_000_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -199,13 +200,14 @@ impl BodyCourse {
         let checkpoint = truelearner_workstation::WorkstationCheckpoint::decode(&durable_before)?;
         let mut working = WorkstationHarness::restore(checkpoint)?;
         let mut world = FlatWorld::generated(seed, capability);
-        let mut samples = Vec::with_capacity(STEPS_PER_EXPERIENCE);
-        let mut observations = Vec::with_capacity(STEPS_PER_EXPERIENCE);
+        let steps = steps_per_experience(capability);
+        let mut samples = Vec::with_capacity(steps);
+        let mut observations = Vec::with_capacity(steps);
         let mut physical_work = 0_u64;
         let mut plasticity_updates = 0_u64;
         let mut naturally_quiescent = true;
         let mut budget_exceeded = false;
-        for _ in 0..STEPS_PER_EXPERIENCE {
+        for _ in 0..steps {
             let sample = world.sample(&working.read()?)?;
             let observation = working.step(sample.clone())?;
             physical_work = physical_work.saturating_add(observation.metrics.physical_work);
@@ -346,6 +348,14 @@ impl BodyCourse {
         let checkpoint = truelearner_workstation::WorkstationCheckpoint::decode(bytes)?;
         self.harness = WorkstationHarness::restore(checkpoint)?;
         Ok(())
+    }
+}
+
+const fn steps_per_experience(capability: BodyCapability) -> usize {
+    if matches!(capability, BodyCapability::Contact) {
+        CONTACT_STEPS_PER_EXPERIENCE
+    } else {
+        STEPS_PER_EXPERIENCE
     }
 }
 
@@ -658,6 +668,7 @@ impl From<WorkstationError> for BodyCourseError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use truelearner_workstation::verify_choice_laws;
 
     #[test]
     fn prerequisites_are_external_and_acyclic() {
@@ -667,6 +678,87 @@ mod tests {
                 .iter()
                 .all(|required| { BodyCapability::ORDER[..index].contains(required) }));
         }
+    }
+
+    #[test]
+    fn contact_trace_preserves_every_choice_arrow() {
+        let seed = 31_001;
+        let mut course = BodyCourse::new(seed).unwrap();
+        for capability in BodyCapability::ORDER[..6].iter().copied() {
+            let capability_index = BodyCapability::ORDER
+                .iter()
+                .position(|candidate| *candidate == capability)
+                .unwrap();
+            let development_seed = seed + capability_index as u64 * 10 + 1;
+            let development = course
+                .experience(
+                    capability,
+                    BodyExperienceMode::Development,
+                    development_seed,
+                )
+                .unwrap();
+            assert_ne!(development.verdict, BodyVerdict::MissingExploration);
+            let probe = course
+                .experience(
+                    capability,
+                    BodyExperienceMode::Probe,
+                    development_seed + 1_000_000,
+                )
+                .unwrap();
+            assert_eq!(
+                probe.verdict,
+                BodyVerdict::Passed,
+                "candidate regressed {capability:?}"
+            );
+            course.acquired.insert(capability);
+        }
+
+        let checkpoint = truelearner_workstation::WorkstationCheckpoint::decode(
+            &course.checkpoint_bytes().unwrap(),
+        )
+        .unwrap();
+        let mut harness = WorkstationHarness::restore(checkpoint).unwrap();
+        let mut world = FlatWorld::generated(seed + 61, BodyCapability::Contact);
+        let contact_steps = steps_per_experience(BodyCapability::Contact);
+        let mut steps = Vec::with_capacity(contact_steps);
+        for _ in 0..contact_steps {
+            let sample = world.sample(&harness.read().unwrap()).unwrap();
+            let (observation, trace) = harness.step_traced(sample).unwrap();
+            verify_choice_laws(&trace).unwrap();
+            steps.push((observation, trace));
+        }
+
+        assert_eq!(steps.len(), contact_steps);
+        assert!(steps.iter().all(|(observation, _)| {
+            observation.movements.iter().any(|movement| {
+                movement.axis == BodyAxis::PalmDepth && movement.changed && movement.net_impulse > 0
+            })
+        }));
+
+        let development = course
+            .experience(
+                BodyCapability::Contact,
+                BodyExperienceMode::Development,
+                seed + 61,
+            )
+            .unwrap();
+        assert_ne!(development.verdict, BodyVerdict::MissingExploration);
+        let probe = course
+            .experience(
+                BodyCapability::Contact,
+                BodyExperienceMode::Probe,
+                seed + 1_000_061,
+            )
+            .unwrap();
+        assert_eq!(probe.samples.len(), CONTACT_STEPS_PER_EXPERIENCE);
+        assert_eq!(probe.verdict, BodyVerdict::Passed);
+        assert!(probe.durable_unchanged);
+        assert!(probe.replay_exact);
+        assert!(probe.naturally_quiescent);
+        assert!(probe.samples.iter().any(|sample| sample
+            .contacts()
+            .iter()
+            .any(|contact| contact.pressure() > 0)));
     }
 
     #[test]

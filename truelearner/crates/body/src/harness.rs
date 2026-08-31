@@ -70,7 +70,7 @@ pub fn attach_outcome_component(
 ) {
     for opportunity in motor_opportunities {
         let link = body
-            .add_link(Link::new(source, opportunity, 0, 0))
+            .add_link(Link::new(source, opportunity, 0, 1))
             .expect("validated outcome component");
         body.set_link_role(link, LinkRole::OutcomeWitness)
             .expect("new outcome link exists");

@@ -22,11 +22,14 @@ evaluator knowledge never enters the organism.
 - `truelearner-behavior-contract`: shared black-box scenarios used to verify
   behavior independently of an adapter.
 
-`academy/` contains three crates:
+`academy/` contains four crates:
 
 - `academy-body`: development courses, probes, controls, and evidence.
+- `academy-formal`: offline Rust-to-Lean checks over frozen causal evidence.
 - `academy-workstation`: the headless physical workstation world.
 - `academy-workstation-review`: causally inert review of frozen recordings.
+
+`formal/` contains pinned Lean projects used by those observer-side checks.
 
 ## Development
 

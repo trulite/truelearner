@@ -13,6 +13,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "academy-formal"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "truelearner-workstation",
+]
+
+[[package]]
 name = "academy-workstation"
 version = "0.1.0"
 dependencies = [

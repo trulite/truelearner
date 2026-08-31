@@ -25,7 +25,8 @@ const SENSOR_PRIME: i32 = i32::MIN;
 const LIGHT_RANGE: u32 = u8::MAX as u32;
 const BODY_RANGE: u32 = BODY_MAX as u32;
 const SIGNED_BODY_RANGE: u32 = BODY_RANGE * 2;
-const OUTCOME_COMPONENTS: usize = 3;
+const COMPETITION_COMPONENTS: usize = 3;
+const OUTCOME_COMPONENTS: usize = AXIS_COUNT;
 const MOMENT_LIMIT: usize = 512;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -33,6 +34,7 @@ pub(crate) struct Handles {
     pub(crate) vision: [Vec<JunctionId>; 2],
     pub(crate) contacts: [[JunctionId; CONTACT_FIELDS]; TOUCH_SITES],
     pub(crate) proprioception: [[JunctionId; PROPRIOCEPTIVE_FIELDS]; AXIS_COUNT],
+    pub(crate) competition_outcomes: [JunctionId; COMPETITION_COMPONENTS],
     pub(crate) outcomes: [JunctionId; OUTCOME_COMPONENTS],
     pub(crate) opportunities: Vec<JunctionId>,
     #[serde(with = "outward_checkpoint")]
@@ -66,6 +68,7 @@ impl Handles {
                 .flatten()
                 .chain(self.contacts.iter().flatten())
                 .chain(self.proprioception.iter().flatten())
+                .chain(&self.competition_outcomes)
                 .chain(&self.outcomes)
                 .chain(&self.opportunities)
                 .chain(self.outward.iter().map(|(junction, _)| junction))
@@ -212,7 +215,10 @@ impl WorkstationHarness {
 
     fn fresh() -> Result<Self, WorkstationError> {
         let mut body = Body::default();
-        body.reserve(OUTCOME_COMPONENTS + SENSOR_COUNT + CONTROL_COUNT * 2, 1_024);
+        body.reserve(
+            COMPETITION_COMPONENTS + OUTCOME_COMPONENTS + SENSOR_COUNT + CONTROL_COUNT * 2,
+            1_024,
+        );
         let mut opportunities = Vec::with_capacity(CONTROL_COUNT);
         let mut outward = Vec::with_capacity(CONTROL_COUNT);
         for axis in BodyAxis::ALL {
@@ -249,7 +255,7 @@ impl WorkstationHarness {
                 attach_sampled_sensor(&mut body, 1, &nearby, &mut prime),
             ]
         });
-        let outcomes =
+        let competition_outcomes =
             std::array::from_fn(|_| attach_sensor(&mut body, Junction::integrating(1), &[]));
         for (component, motors) in [
             &opportunities[..4],
@@ -259,7 +265,21 @@ impl WorkstationHarness {
         .into_iter()
         .enumerate()
         {
-            attach_outcome_component(&mut body, outcomes[component], motors.iter().copied());
+            attach_outcome_component(
+                &mut body,
+                competition_outcomes[component],
+                motors.iter().copied(),
+            );
+        }
+        let outcomes =
+            std::array::from_fn(|_| attach_sensor(&mut body, Junction::integrating(1), &[]));
+        for axis in BodyAxis::ALL {
+            let start = axis.index() * 2;
+            attach_outcome_component(
+                &mut body,
+                outcomes[axis.index()],
+                opportunities[start..start + 2].iter().copied(),
+            );
         }
         body.inputs(0, &prime).map_err(body_error)?;
         body.run(MOMENT_LIMIT, |_| {}).map_err(body_error)?;
@@ -269,6 +289,7 @@ impl WorkstationHarness {
                 vision,
                 contacts,
                 proprioception,
+                competition_outcomes,
                 outcomes,
                 opportunities,
                 outward,
@@ -562,13 +583,7 @@ const fn control(axis: BodyAxis, direction: Direction) -> BodyControl {
 }
 
 const fn outcome_component(axis: BodyAxis) -> usize {
-    match axis {
-        BodyAxis::EyeHorizontal { eye: Eye::Left } | BodyAxis::EyeVertical { eye: Eye::Left } => 0,
-        BodyAxis::EyeHorizontal { eye: Eye::Right } | BodyAxis::EyeVertical { eye: Eye::Right } => {
-            1
-        }
-        _ => 2,
-    }
+    axis.index()
 }
 
 const fn total_work(work: Work) -> u64 {
@@ -898,5 +913,48 @@ mod tests {
             traced.step(sample()).unwrap()
         );
         assert_eq!(format!("{:?}", plain.body), format!("{:?}", traced.body));
+    }
+
+    #[test]
+    fn returned_movement_fires_only_its_exact_axis_witness() {
+        let mut harness = WorkstationHarness::new(5).unwrap();
+        let mut outward = harness.step(sample()).unwrap();
+        for _ in 0..3 {
+            if !outward.pending_transitions.is_empty() {
+                break;
+            }
+            outward = harness.step(sample()).unwrap();
+        }
+        assert!(!outward.pending_transitions.is_empty());
+
+        let expected_axes = outward.pending_transitions;
+        let (returned, trace) = harness.step_traced(sample()).unwrap();
+        assert_eq!(returned.returned_transitions, expected_axes);
+
+        let transitioned = trace
+            .iter()
+            .filter_map(|event| match event {
+                BodyTraceEvent::Transition(event) => Some(event.junction),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let expected_witnesses = expected_axes
+            .iter()
+            .map(|axis| harness.handles.outcomes[axis.index()])
+            .collect::<Vec<_>>();
+        let observed_witnesses = harness
+            .handles
+            .outcomes
+            .iter()
+            .copied()
+            .filter(|witness| transitioned.contains(witness))
+            .collect::<Vec<_>>();
+
+        assert_eq!(observed_witnesses, expected_witnesses);
+        assert!(harness
+            .handles
+            .competition_outcomes
+            .iter()
+            .all(|witness| !transitioned.contains(witness)));
     }
 }

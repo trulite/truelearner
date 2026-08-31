@@ -21,6 +21,13 @@ pub struct TracePath {
     pub second: LinkRef,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FreshOpportunityTrace {
+    pub source: JunctionId,
+    pub output: JunctionId,
+    pub through: LinkId,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CandidateTrace {
     pub at: Time,
@@ -33,15 +40,18 @@ pub struct CandidateTrace {
     pub unanswered: bool,
     pub outcome: Option<Outcome>,
     pub participation: u64,
+    pub output_participated: bool,
     pub strength: i64,
     pub drive: u16,
     pub stable_order: u32,
+    pub fresh_opportunity: Option<FreshOpportunityTrace>,
     pub new_path: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ChoiceBasis {
     CurrentReturn,
+    FreshOpportunity,
     AvailableOutcome,
     LatestOutcome,
     UntriedOutputRelease,
@@ -65,6 +75,7 @@ pub enum ChoiceLaw {
     Eligibility,
     CurrentReturn,
     CurrentSurfaceLocality,
+    FreshOpportunity,
     UntriedOutputRelease,
     AvailableOutcome,
     LatestOutcome,
@@ -384,10 +395,23 @@ fn expected_choice<'a>(
         .copied()
         .filter(|candidate| candidate.drive == strongest_drive)
         .collect::<Vec<_>>();
+    let fresh = eligible
+        .iter()
+        .copied()
+        .filter(|candidate| candidate.fresh_opportunity.is_some())
+        .collect::<Vec<_>>();
+    if let [candidate] = fresh.as_slice() {
+        return Some(ExpectedChoice {
+            candidate,
+            basis: ChoiceBasis::FreshOpportunity,
+            law: ChoiceLaw::FreshOpportunity,
+        });
+    }
     let output_is_tried = |output| {
-        active
-            .iter()
-            .any(|candidate| candidate.path.output == output && candidate.participation > 0)
+        active.iter().any(|candidate| {
+            candidate.path.output == output
+                && (candidate.participation > 0 || candidate.output_participated)
+        })
     };
     let has_tried_output = active
         .iter()
@@ -405,6 +429,13 @@ fn expected_choice<'a>(
             candidate,
             basis: ChoiceBasis::UntriedOutputRelease,
             law: ChoiceLaw::UntriedOutputRelease,
+        });
+    }
+    if let Some(candidate) = unique_returned_output(&active) {
+        return Some(ExpectedChoice {
+            candidate,
+            basis: ChoiceBasis::CurrentReturn,
+            law: ChoiceLaw::CurrentReturn,
         });
     }
     if let Some(candidate) = unique_latest(&active, true) {
@@ -430,6 +461,26 @@ fn expected_choice<'a>(
             basis: ChoiceBasis::ParticipationStrengthAndDrive,
             law: ChoiceLaw::ParticipationStrengthAndDrive,
         })
+}
+
+fn unique_returned_output<'a>(candidates: &[&'a CandidateTrace]) -> Option<&'a CandidateTrace> {
+    let mut output: Option<JunctionId> = None;
+    let mut winner: Option<&CandidateTrace> = None;
+    for candidate in candidates
+        .iter()
+        .copied()
+        .filter(|candidate| candidate.output_participated)
+    {
+        match output {
+            None => output = Some(candidate.path.output),
+            Some(current) if current != candidate.path.output => return None,
+            Some(_) => {}
+        }
+        if winner.is_none_or(|selected| preference(candidate) > preference(selected)) {
+            winner = Some(candidate);
+        }
+    }
+    winner
 }
 
 fn preference(candidate: &CandidateTrace) -> (u64, i64, u16, Reverse<u32>) {
@@ -473,6 +524,13 @@ pub enum ReturnDecision {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ReturnCandidateTrace {
+    pub path: Path,
+    pub cause: Cause,
+    pub opened_at: Time,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReturnTrace {
     pub at: Time,
     pub source: JunctionId,
@@ -482,6 +540,7 @@ pub struct ReturnTrace {
     pub return_opened_at: Option<Time>,
     pub open_paths: usize,
     pub exact_paths: usize,
+    pub candidates: Vec<ReturnCandidateTrace>,
     pub decision: ReturnDecision,
 }
 
@@ -561,9 +620,11 @@ mod tests {
             unanswered: false,
             outcome: None,
             participation: 0,
+            output_participated: false,
             strength: 1,
             drive,
             stable_order: index as u32,
+            fresh_opportunity: None,
             new_path: false,
         }
     }

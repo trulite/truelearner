@@ -42,6 +42,11 @@ Use evidence in this order:
 3. pure offline projections joining existing events;
 4. new causally inert instrumentation only for a genuinely absent fact.
 
+When the trace contains choices, run `verify_choice_laws` before interpreting
+them. Stop at its first violation. If it passes, treat the choice arrow as
+commuting and continue to output, world effect, return, and strengthening.
+A pass does not verify sensor calibration or world morphology.
+
 When instrumentation is missing, add the complete reusable diagnostic surface,
 prove traced and untraced histories equal, run once, and answer later questions
 offline. Do not add a succession of narrow print statements or broad reruns.
@@ -50,6 +55,23 @@ offline. Do not add a succession of narrow print statements or broad reruns.
 
 Use `$dev` for the category-theory and TAME modeling lenses and ordinary domain
 words in code.
+
+Draw the same failure in two paired views:
+
+```text
+physical event view                 composition view
+signal ──●──▶ choice                source ──▶ intermediate
+         │                             │             │
+         ▼                             ▼             ▼
+       effect                       witness ──▶ observed
+```
+
+- Use the Feynman-style event view to show what physically travelled, met,
+  acted, changed the world, and returned over time.
+- Use the commuting view to compare that physical route with the candidate,
+  choice, effect, return, and learning projection.
+- The first fact present on the physical route but absent or changed on the
+  projected route is the first failed arrow.
 
 1. Name the objects: physical states, junctions, paths, outputs, and outcomes.
 2. Name the arrows: fire, choose, move, return, strengthen, and reuse.

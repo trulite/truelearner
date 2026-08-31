@@ -1,0 +1,10 @@
+name = "truelearner-closure"
+version = "0.1.0"
+defaultTargets = ["TrueLearnerClosure", "truelearner-closure-check"]
+
+[[lean_lib]]
+name = "TrueLearnerClosure"
+
+[[lean_exe]]
+name = "truelearner-closure-check"
+root = "Main"

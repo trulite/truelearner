@@ -29,6 +29,9 @@ Keep the runtime dependency direction:
 academy-body ---------------------> truelearner-workstation -> truelearner-body
 academy-workstation --------------> truelearner-workstation -> truelearner-body
 academy-workstation-review -> academy-workstation
+academy-formal -------------------> truelearner-workstation -> truelearner-body
+       |
+       +--------------------------> pinned Lean checker (frozen evidence only)
 ```
 
 The removed core, embodiment, semantic harness, episode runner, and gallery are
@@ -49,6 +52,35 @@ For each external capability claim:
 Separate teaching, probing, and transfer. A probe must not teach unless its
 protocol says so. Regenerate identities, positions, timing, context, and
 distractors so fixture memory cannot pass.
+
+## Formal checks
+
+Academy may submit a frozen, versioned causal trace to the pinned Lean checker
+after an episode. Lean checks whether the claimed closure resolution follows
+from the explicit causal ancestry in that trace and returns an immutable
+receipt. A theorem or receipt is observer evidence, never organism input.
+
+```text
+headless run -> frozen evidence -> capability receipt
+                    |
+                    +-----------> Lean receipt
+                    |
+                    +-----------> optional render
+```
+
+The checker may accept or falsify an Academy claim. It cannot create missing
+causal ancestry, choose an action, alter a checkpoint, or return any result to
+the learner. The ordinary Academy and production paths therefore do not depend
+on Lean at runtime.
+
+The closed-return projector accepts only a complete frozen chain: verified
+choices, the physical output transition, the accepted return naming its
+resolved path, both path-link strengthening events, and natural quiet. The body
+trace also retains every live contender of an ambiguous return. Academy can
+project ambiguity only when every contender has its own earlier output event in
+trace order and none was strengthened. Lean then proves that the competing
+explanations persist nothing. Explicit ancestry can order an output and return
+inside one body tick; equal timestamps alone still establish no causal relation.
 
 ## Capability evidence
 
@@ -116,6 +148,14 @@ Body Discovery is split into four courses:
 3. Eye-Hand Coordination: distinguishing and coordinating self and world.
 4. Workstation Contact: visual reach, touch/withdraw, tap/hold/release, drag,
    thumb opposition, and later keyboard, touchpad, and monitor interaction.
+
+Body Discovery experiences contain twelve ordinary world steps by default.
+`Contact` contains sixteen because its observed physical displacement cannot
+reach the external surface in twelve; this is an Academy exposure horizon, not
+an action, direction, or success signal supplied to the organism. Extending all
+capabilities to sixteen is rejected because it changes earlier binocular
+evidence. For the deterministic reference seed `31_001`, Contact and
+`VisualReach` are acquired and the current first failure is `TapHoldRelease`.
 
 Eye and hand foundations may develop independently. Coordination and
 manipulation are not reached until their actual capability prerequisites have

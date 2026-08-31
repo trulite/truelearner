@@ -52,15 +52,19 @@ The recording and derived frames or video never return to the learner.
 ## Crates
 
 - `academy-body`: Body Discovery development, probes, controls, replay, and evidence.
+- `academy-formal`: offline Rust-to-Lean checking of frozen causal evidence.
 - `academy-workstation`: the headless physical workstation world.
 - `academy-workstation-review`: causally inert rendering of frozen workstation recordings.
 
-All three use this dependency direction:
+The runtime dependency direction is:
 
 ```text
 academy-body ---------------------> truelearner-workstation -> truelearner-body
 academy-workstation --------------> truelearner-workstation -> truelearner-body
 academy-workstation-review -> academy-workstation
+academy-formal -------------------> truelearner-workstation -> truelearner-body
+       |
+       +--------------------------> pinned Lean checker (frozen evidence only)
 ```
 
 Historical research evidence remains under the repository's archive and

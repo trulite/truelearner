@@ -1,6 +1,6 @@
 use truelearner_body::{
-    attach, harness::*, Arrival, Body, ChoiceBasis, Join, Junction, JunctionId, Link, OpenBody,
-    ReturnDecision, TraceEvent, Work,
+    attach, harness::*, verify_choice_laws, Arrival, Body, ChoiceBasis, Join, Junction, JunctionId,
+    Link, OpenBody, ReturnDecision, TraceEvent, Work,
 };
 
 struct LocalWorld {
@@ -435,6 +435,140 @@ fn a_completed_action_gives_an_untried_alternative_the_next_chance() {
 }
 
 #[test]
+fn a_fresh_return_preserves_the_acted_output_for_untried_release() {
+    let mut body = Body::default();
+    let motors: [Motor; 3] = std::array::from_fn(|_| motor(&mut body));
+    let surface = attach_sensor(
+        &mut body,
+        Junction::integrating(1),
+        &[(motors[0].opportunity, 1)],
+    );
+    let local_bridge = attach_sensor(
+        &mut body,
+        Junction::integrating(1),
+        &[(motors[0].opportunity, 1), (motors[1].opportunity, 1)],
+    );
+    let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+    attach_outcome_component(&mut body, outcome, motors.map(|motor| motor.opportunity));
+    schedule(&mut body, 0, &[reading(outcome, 0, 0, 0)]);
+    finish(&mut body);
+
+    schedule(&mut body, 10, &[reading(surface, 0, 1, 1)]);
+    schedule(
+        &mut body,
+        11,
+        &[Arrival::caused(motors[0].opportunity, 1, 1)],
+    );
+    assert_eq!(effect(&finish(&mut body).events, &motors), [0]);
+
+    schedule(&mut body, 20, &[reading(surface, 0, 1, 2)]);
+    schedule(
+        &mut body,
+        21,
+        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 2)),
+    );
+    let mut events = Vec::new();
+    let mut trace = Vec::new();
+    body.run_traced(256, |event| events.push(event), |event| trace.push(event))
+        .unwrap();
+
+    assert_eq!(effect(&events, &motors), [1]);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Candidate(candidate)
+            if candidate.fresh_opportunity.is_some_and(|fresh| {
+                fresh.output == motors[1].opportunity
+            })
+    )));
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::FreshOpportunity)
+    )));
+    verify_choice_laws(&trace).unwrap();
+
+    schedule(
+        &mut body,
+        30,
+        &[reading(local_bridge, 0, 1, 3), reading(outcome, 0, 1, 3)],
+    );
+    schedule(
+        &mut body,
+        31,
+        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 3)),
+    );
+    let mut events = Vec::new();
+    let mut trace = Vec::new();
+    body.run_traced(256, |event| events.push(event), |event| trace.push(event))
+        .unwrap();
+
+    assert_eq!(effect(&events, &motors), [0]);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Candidate(candidate)
+            if candidate.path.output == motors[1].opportunity
+                && candidate.output_participated
+    )));
+    assert!(trace.iter().all(|event| !matches!(
+        event,
+        TraceEvent::Candidate(candidate)
+            if candidate.path.output != motors[1].opportunity
+                && candidate.output_participated
+    )));
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Choice(choice)
+            if choice.basis == Some(ChoiceBasis::UntriedOutputRelease)
+    )));
+    verify_choice_laws(&trace).unwrap();
+}
+
+#[test]
+fn a_unique_ordinary_return_continues_after_both_outputs_were_tried() {
+    let mut world = CompetitionWorld::new(false);
+    world.completed_cycle(0, 10, 1);
+    world.completed_cycle(1, 20, 2);
+    assert_eq!(effect(&world.act(1, 30, 3).events, &world.motors), [1]);
+
+    world.consequence_value += 1;
+    schedule(
+        &mut world.body,
+        40,
+        &[
+            reading(world.consequence, 0, world.consequence_value, 3),
+            reading(world.surfaces[0], 0, 1, 4),
+            reading(world.surfaces[1], 0, 1, 4),
+        ],
+    );
+    schedule(
+        &mut world.body,
+        41,
+        &world
+            .motors
+            .map(|motor| Arrival::caused(motor.opportunity, 1, 4)),
+    );
+    let mut events = Vec::new();
+    let mut trace = Vec::new();
+    world
+        .body
+        .run_traced(256, |event| events.push(event), |event| trace.push(event))
+        .unwrap();
+
+    assert_eq!(effect(&events, &world.motors), [1]);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Candidate(candidate)
+            if candidate.path.output == world.motors[1].opportunity
+                && candidate.output_participated
+    )));
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Choice(choice)
+            if choice.basis == Some(ChoiceBasis::CurrentReturn)
+    )));
+    verify_choice_laws(&trace).unwrap();
+}
+
+#[test]
 fn a_fresh_external_opportunity_crosses_only_into_the_root_learner() {
     let mut root = LearnerWorld::new();
     root.close(2, 10, 1, true);
@@ -670,10 +804,26 @@ fn an_ambiguous_return_does_not_strengthen_a_path() {
         .run_traced(256, |_| {}, |event| trace.push(event))
         .unwrap();
 
-    assert!(trace.iter().any(|event| matches!(
-        event,
-        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Ambiguous
-    )));
+    let returned = trace
+        .iter()
+        .find_map(|event| match event {
+            TraceEvent::Return(returned) if returned.decision == ReturnDecision::Ambiguous => {
+                Some(returned)
+            }
+            _ => None,
+        })
+        .expect("the return is physically ambiguous");
+    assert_eq!(returned.open_paths, 2);
+    assert_eq!(returned.exact_paths, 2);
+    assert_eq!(returned.candidates.len(), 2);
+    assert!(
+        returned
+            .candidates
+            .iter()
+            .all(|candidate| candidate.cause == 7 && candidate.opened_at <= returned.at),
+        "{returned:#?}"
+    );
+    assert_ne!(returned.candidates[0].path, returned.candidates[1].path);
     assert!(!trace
         .iter()
         .any(|event| matches!(event, TraceEvent::Strengthened(_))));

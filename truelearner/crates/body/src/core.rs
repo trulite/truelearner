@@ -4,8 +4,9 @@ use crate::{
     arena::Arena,
     engine::PhysicalMoment,
     trace::{
-        CandidateTrace, ChoiceBasis, ChoiceTrace, NoTrace, ReturnDecision, ReturnTrace,
-        StrengthTrace, TraceEvent, TracePath, TraceSink,
+        CandidateTrace, ChoiceBasis, ChoiceTrace, FreshOpportunityTrace, NoTrace,
+        ReturnCandidateTrace, ReturnDecision, ReturnTrace, StrengthTrace, TraceEvent, TracePath,
+        TraceSink,
     },
     Body, BuildError, Impulse, Junction, JunctionId, Link, LinkId, RunError, Time, Trigger,
 };
@@ -1003,6 +1004,7 @@ fn record_returned_outcome<T: TraceSink>(
 ) {
     if fact.had_ready_path {
         if T::ENABLED {
+            let candidates = trace_return_candidates(body, fact.event.junction);
             trace.record(TraceEvent::Return(ReturnTrace {
                 at: fact.event.at,
                 source: fact.event.junction,
@@ -1010,8 +1012,9 @@ fn record_returned_outcome<T: TraceSink>(
                 path: None,
                 return_cause: None,
                 return_opened_at: None,
-                open_paths: component_return_count(body, fact.event.junction),
+                open_paths: candidates.len(),
                 exact_paths: 0,
+                candidates,
                 decision: ReturnDecision::BlockedByReadyPath,
             }));
         }
@@ -1026,6 +1029,7 @@ fn record_returned_outcome<T: TraceSink>(
         None => ReturnDecision::Ambiguous,
     };
     if T::ENABLED {
+        let candidates = trace_return_candidates(body, fact.event.junction);
         trace.record(TraceEvent::Return(ReturnTrace {
             at: fact.event.at,
             source: fact.event.junction,
@@ -1035,6 +1039,7 @@ fn record_returned_outcome<T: TraceSink>(
             return_opened_at: selected.selected.map(|returned| returned.opened_at),
             open_paths: selected.total,
             exact_paths: selected.exact_total,
+            candidates,
             decision,
         }));
     }
@@ -1116,14 +1121,22 @@ fn scan_live_returns(body: ReactionView<'_>, source: JunctionId, cause: Cause) -
     }
 }
 
-fn component_return_count(body: ReactionView<'_>, source: JunctionId) -> usize {
+fn trace_return_candidates(
+    body: ReactionView<'_>,
+    source: JunctionId,
+) -> Vec<ReturnCandidateTrace> {
     body.returns
         .by_source
         .get(source.slot())
         .into_iter()
         .flatten()
         .filter_map(|entry| open_return(body, *entry))
-        .count()
+        .map(|returned| ReturnCandidateTrace {
+            path: returned.path,
+            cause: returned.cause,
+            opened_at: returned.opened_at,
+        })
+        .collect()
 }
 
 fn open_return(body: ReactionView<'_>, entry: ReturnEntry) -> Option<OpenReturn> {
@@ -1201,9 +1214,11 @@ struct ReadyPath {
     connected_end: usize,
     outcome: Option<Outcome>,
     participation: u64,
+    output_participated: bool,
     strength: i64,
     drive: u16,
     stable_order: u32,
+    fresh_opportunity: Option<FreshOpportunityTrace>,
     executable: bool,
 }
 
@@ -1317,22 +1332,39 @@ fn form_and_choose<T: TraceSink>(
                     connected_end,
                     outcome: None,
                     participation: 0,
+                    output_participated: false,
                     strength: 1,
                     drive: fact.drive,
                     stable_order: u32::try_from(body.arena.link_count())
                         .unwrap_or(u32::MAX)
                         .saturating_add(second.0),
+                    fresh_opportunity: None,
                     executable: path_is_executable(body, surface, false),
                 });
             }
         }
     }
 
+    mark_current_returns(body, facts, ready, connected_outcomes);
     fill_ready_worlds(ready, connected_outcomes, worlds);
     for world in 0..ready.len() {
         if worlds[world] == world {
-            if let Some(winner) = choose_ready(ready, worlds, world, construction) {
-                winners.push(winner);
+            if let Some(mut choice) = choose_ready(ready, worlds, world, construction) {
+                if !matches!(choice.basis, ChoiceBasis::CurrentReturn) {
+                    if let Some((donor, fresh)) = fresh_opportunity(
+                        body,
+                        ready,
+                        connected_outcomes,
+                        worlds,
+                        world,
+                        construction,
+                    ) {
+                        ready[donor].fresh_opportunity = Some(fresh);
+                        choice.winner = donor;
+                        choice.basis = ChoiceBasis::FreshOpportunity;
+                    }
+                }
+                winners.push(choice);
             }
         }
     }
@@ -1352,9 +1384,11 @@ fn form_and_choose<T: TraceSink>(
                 unanswered: candidate.unanswered,
                 outcome: candidate.outcome,
                 participation: candidate.participation,
+                output_participated: candidate.output_participated,
                 strength: candidate.strength,
                 drive: candidate.drive,
                 stable_order: candidate.stable_order,
+                fresh_opportunity: candidate.fresh_opportunity,
                 new_path: matches!(candidate.first, LinkRef::New(_)),
             }));
         }
@@ -1385,15 +1419,20 @@ fn form_and_choose<T: TraceSink>(
     if construction {
         return;
     }
-    for winner in winners.iter().map(|choice| &ready[choice.winner]) {
+    for choice in winners.iter() {
+        let winner = &ready[choice.winner];
+        let through = winner
+            .fresh_opportunity
+            .map_or(winner.first, |fresh| fresh.through.into());
         change.push(Edit::Send {
-            through: winner.first,
+            through,
             at: winner.at,
             cause: winner.current_cause,
         });
-        if winner
-            .outcome
-            .is_some_and(|outcome| outcome.available_until_choice)
+        if winner.fresh_opportunity.is_none()
+            && winner
+                .outcome
+                .is_some_and(|outcome| outcome.available_until_choice)
         {
             if let LinkRef::Existing(first) = winner.first {
                 consume_path_outcome(body, change, first);
@@ -1453,14 +1492,195 @@ fn append_existing_ready_paths(
                     connected_end,
                     outcome,
                     participation: memory.participation,
+                    output_participated: false,
                     strength: memory.strength,
                     drive,
                     stable_order: second_id.slot() as u32,
+                    fresh_opportunity: None,
                     executable: path_is_executable(body, surface, outcome.is_some()),
                 });
             }
         }
     }
+}
+
+fn mark_current_returns(
+    body: ReactionView<'_>,
+    facts: &[MomentFact],
+    paths: &mut [ReadyPath],
+    connected_outcomes: &[JunctionId],
+) {
+    for fact in facts.iter().filter(|fact| {
+        fact.boundary && matches!(fact.used, UsedPaths::None) && !fact.had_ready_path
+    }) {
+        let source = fact.event.junction;
+        let output = latest_fresh_output(body, source).or_else(|| {
+            scan_live_returns(body, source, fact.event.cause)
+                .selected
+                .filter(|returned| returned.opened_at <= fact.event.at)
+                .map(|returned| returned.path.output)
+        });
+        for path in paths.iter_mut() {
+            let connected = &connected_outcomes[path.connected_start..path.connected_end];
+            if connected.contains(&source) {
+                path.output_participated |= output == Some(path.output);
+            }
+        }
+    }
+}
+
+fn latest_fresh_output(body: ReactionView<'_>, source: JunctionId) -> Option<JunctionId> {
+    let mut latest_fresh = None;
+    let mut fresh_ambiguous = false;
+    let mut latest_drive = None;
+    let mut next = body
+        .arena
+        .junction(source)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(witness) = next {
+        let link = body.arena.link(witness).expect("live link");
+        next = link.next;
+        let memory = &body.link_memory[witness.slot()];
+        if !memory.live || memory.role != LinkRole::OutcomeWitness {
+            continue;
+        }
+        if memory.transmitted {
+            match latest_fresh {
+                None => latest_fresh = Some((memory.participated_at, link.to)),
+                Some((at, _)) if memory.participated_at > at => {
+                    latest_fresh = Some((memory.participated_at, link.to));
+                    fresh_ambiguous = false;
+                }
+                Some((at, output)) if memory.participated_at == at && link.to != output => {
+                    fresh_ambiguous = true;
+                }
+                Some(_) => {}
+            }
+        }
+        for drive in body.arena.incoming(link.to) {
+            let physical = body.arena.link(drive).expect("live link");
+            let memory = &body.link_memory[drive.slot()];
+            if memory.live
+                && memory.role == LinkRole::Drive
+                && physical.impulse != 0
+                && memory.participation > 0
+            {
+                latest_drive = Some(latest_drive.map_or(memory.participated_at, |at: Time| {
+                    at.max(memory.participated_at)
+                }));
+            }
+        }
+    }
+    if fresh_ambiguous {
+        return None;
+    }
+    let (fresh_at, output) = latest_fresh?;
+    latest_drive
+        .is_none_or(|drive_at| fresh_at > drive_at)
+        .then_some(output)
+}
+
+fn fresh_opportunity(
+    body: ReactionView<'_>,
+    paths: &[ReadyPath],
+    connected_outcomes: &[JunctionId],
+    worlds: &[usize],
+    world: usize,
+    construction: bool,
+) -> Option<(usize, FreshOpportunityTrace)> {
+    if construction {
+        return None;
+    }
+    let strongest_drive = paths
+        .iter()
+        .enumerate()
+        .filter(|(index, path)| worlds[*index] == world && path.executable)
+        .map(|(_, path)| path.drive)
+        .max()?;
+    let mut donors = paths.iter().enumerate().filter(|(index, path)| {
+        worlds[*index] == world
+            && path.executable
+            && path.drive == strongest_drive
+            && path.unanswered
+            && path.participation > 0
+            && path.current_cause != 0
+    });
+    let (donor_index, donor) = donors.next()?;
+    if donors.next().is_some() {
+        return None;
+    }
+    if paths.iter().enumerate().any(|(index, path)| {
+        worlds[index] == world
+            && path.executable
+            && path.drive == strongest_drive
+            && path.surface != donor.surface
+    }) {
+        return None;
+    }
+    let mut selected = None;
+    for source in &connected_outcomes[donor.connected_start..donor.connected_end] {
+        let mut next = body
+            .arena
+            .junction(*source)
+            .and_then(|junction| junction.outgoing_head);
+        while let Some(witness) = next {
+            let link = body.arena.link(witness).expect("live link");
+            next = link.next;
+            let memory = &body.link_memory[witness.slot()];
+            if !memory.live
+                || memory.role != LinkRole::OutcomeWitness
+                || link.to == donor.output
+                || paths.iter().enumerate().any(|(index, path)| {
+                    worlds[index] == world && path.executable && path.output == link.to
+                })
+                || !outputs_are_local(body, donor.output, link.to)
+            {
+                continue;
+            }
+            let fresh = FreshOpportunityTrace {
+                source: *source,
+                output: link.to,
+                through: witness,
+            };
+            if selected.is_none_or(|current: FreshOpportunityTrace| witness < current.through) {
+                selected = Some(fresh);
+            }
+        }
+    }
+    selected.map(|fresh| (donor_index, fresh))
+}
+
+fn outputs_are_local(body: ReactionView<'_>, left: JunctionId, right: JunctionId) -> bool {
+    body.arena.incoming(left).any(|incidence| {
+        let link = body.arena.link(incidence).expect("live link");
+        let memory = &body.link_memory[incidence.slot()];
+        memory.live
+            && memory.role == LinkRole::Drive
+            && link.impulse == 0
+            && (1..=LOCAL_RADIUS as Time).contains(&link.delay)
+            && surface_reaches(body, link.from, right)
+    })
+}
+
+fn surface_reaches(body: ReactionView<'_>, surface: JunctionId, output: JunctionId) -> bool {
+    let mut next = body
+        .arena
+        .junction(surface)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(incidence) = next {
+        let link = body.arena.link(incidence).expect("live link");
+        next = link.next;
+        let memory = &body.link_memory[incidence.slot()];
+        if memory.live
+            && memory.role == LinkRole::Drive
+            && link.to == output
+            && link.impulse == 0
+            && (1..=LOCAL_RADIUS as Time).contains(&link.delay)
+        {
+            return true;
+        }
+    }
+    false
 }
 
 fn ready_path_exists(
@@ -1507,7 +1727,9 @@ fn choose_ready(
     let active = |index: &usize| eligible(index) && paths[*index].drive == strongest_drive;
     let output_is_tried = |output| {
         (0..paths.len()).any(|index| {
-            active(&index) && paths[index].output == output && paths[index].participation > 0
+            active(&index)
+                && paths[index].output == output
+                && (paths[index].participation > 0 || paths[index].output_participated)
         })
     };
     let has_tried_output =
@@ -1546,6 +1768,12 @@ fn choose_ready(
             })
     })
     .or_else(|| {
+        unique_returned_output((0..paths.len()).filter(active), paths).map(|winner| ReadyChoice {
+            winner,
+            basis: ChoiceBasis::CurrentReturn,
+        })
+    })
+    .or_else(|| {
         unique_latest_ready(paths, worlds, world, strongest_drive, true, construction).map(
             |winner| ReadyChoice {
                 winner,
@@ -1578,6 +1806,39 @@ fn choose_ready(
                 basis: ChoiceBasis::ParticipationStrengthAndDrive,
             })
     })
+}
+
+fn unique_returned_output(
+    paths: impl Iterator<Item = usize>,
+    ready: &[ReadyPath],
+) -> Option<usize> {
+    let mut output: Option<JunctionId> = None;
+    let mut winner: Option<usize> = None;
+    for index in paths.filter(|index| ready[*index].output_participated) {
+        match output {
+            None => output = Some(ready[index].output),
+            Some(current) if current != ready[index].output => return None,
+            Some(_) => {}
+        }
+        if winner.is_none_or(|current| {
+            let path = &ready[index];
+            let selected = &ready[current];
+            (
+                path.participation,
+                path.strength,
+                path.drive,
+                Reverse(path.stable_order),
+            ) > (
+                selected.participation,
+                selected.strength,
+                selected.drive,
+                Reverse(selected.stable_order),
+            )
+        }) {
+            winner = Some(index);
+        }
+    }
+    winner
 }
 
 fn path_has_open_return(body: ReactionView<'_>, middle: JunctionId, output: JunctionId) -> bool {
@@ -2554,9 +2815,11 @@ mod tests {
             connected_end: 0,
             outcome: None,
             participation: 0,
+            output_participated: false,
             strength: 1,
             drive,
             stable_order,
+            fresh_opportunity: None,
             executable: true,
         }
     }
@@ -2594,6 +2857,61 @@ mod tests {
         assert_eq!(choice.winner, 0);
     }
 
+    #[test]
+    fn a_participating_output_continues_its_current_return_after_both_outputs_were_tried() {
+        let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+        paths[0].output_participated = true;
+        paths[1].participation = 1;
+
+        let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+
+        assert_eq!(choice.winner, 0);
+        assert_eq!(choice.basis, ChoiceBasis::CurrentReturn);
+    }
+
+    #[test]
+    fn a_later_path_action_supersedes_a_stale_fresh_witness() {
+        let mut body = Body::default();
+        let source = body.add_junction(Junction::integrating(1)).unwrap();
+        let middle = body.add_junction(Junction::integrating(1)).unwrap();
+        let outputs: [JunctionId; 2] =
+            std::array::from_fn(|_| body.add_junction(Junction::integrating(1)).unwrap());
+        let witnesses = outputs.map(|output| {
+            let witness = body.add_link(Link::new(source, output, 0, 1)).unwrap();
+            body.set_link_role(witness, LinkRole::OutcomeWitness)
+                .unwrap();
+            witness
+        });
+        let drive = body.add_link(Link::new(middle, outputs[0], 1, 1)).unwrap();
+        body.link_memory[drive.slot()].participation = 1;
+        body.link_memory[drive.slot()].participated_at = 10;
+        body.link_memory[witnesses[1].slot()].record_transmission(2, 20);
+
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+        assert_eq!(latest_fresh_output(view, source), Some(outputs[1]));
+
+        body.link_memory[drive.slot()].participated_at = 21;
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+        assert_eq!(latest_fresh_output(view, source), None);
+    }
+
+    #[test]
+    fn simultaneous_fresh_outputs_claim_no_single_return() {
+        let mut body = Body::default();
+        let source = body.add_junction(Junction::integrating(1)).unwrap();
+        let outputs: [JunctionId; 2] =
+            std::array::from_fn(|_| body.add_junction(Junction::integrating(1)).unwrap());
+        for output in outputs {
+            let witness = body.add_link(Link::new(source, output, 0, 1)).unwrap();
+            body.set_link_role(witness, LinkRole::OutcomeWitness)
+                .unwrap();
+            body.link_memory[witness.slot()].record_transmission(1, 20);
+        }
+
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+        assert_eq!(latest_fresh_output(view, source), None);
+    }
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(64))]
 
@@ -2603,6 +2921,8 @@ mod tests {
             right_drive in 0_u16..=1_023,
             left_participation in 0_u64..4,
             right_participation in 0_u64..4,
+            left_output_participated in any::<bool>(),
+            right_output_participated in any::<bool>(),
             left_strength in -2_i64..=2,
             right_strength in -2_i64..=2,
             left_outcome_at in prop::option::of(0_u64..4),
@@ -2618,6 +2938,8 @@ mod tests {
             let mut paths = [ready_path(left_drive, 0), ready_path(right_drive, 1)];
             paths[0].participation = left_participation;
             paths[1].participation = right_participation;
+            paths[0].output_participated = left_output_participated;
+            paths[1].output_participated = right_output_participated;
             paths[0].strength = left_strength;
             paths[1].strength = right_strength;
             paths[0].outcome = left_outcome_at.map(|at| Outcome {
@@ -2647,9 +2969,11 @@ mod tests {
                 unanswered: path.unanswered,
                 outcome: path.outcome,
                 participation: path.participation,
+                output_participated: path.output_participated,
                 strength: path.strength,
                 drive: path.drive,
                 stable_order: path.stable_order,
+                fresh_opportunity: path.fresh_opportunity,
                 new_path: false,
             });
             let mut events = candidates.map(TraceEvent::Candidate).collect::<Vec<_>>();

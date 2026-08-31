@@ -38,7 +38,7 @@ fn development_commits_but_probe_is_discarded_and_replays_exactly() {
 }
 
 #[test]
-fn generated_course_preserves_first_failure_instead_of_teaching_around_it() {
+fn generated_course_advances_contact_without_teaching_around_the_next_failure() {
     let run = BodyCourse::new(31_001).unwrap().run().unwrap();
     for experience in &run.experiences {
         assert_experience_diagram(experience);
@@ -49,8 +49,10 @@ fn generated_course_preserves_first_failure_instead_of_teaching_around_it() {
     assert!(run.acquired.contains(&BodyCapability::HandContingency));
     assert!(run.acquired.contains(&BodyCapability::DigitSeparation));
     assert!(run.acquired.contains(&BodyCapability::SelfWorld));
-    assert!(!run.acquired.contains(&BodyCapability::Contact));
-    assert_eq!(run.first_failure, Some(BodyCapability::Contact));
+    assert!(run.acquired.contains(&BodyCapability::Contact));
+    assert!(run.acquired.contains(&BodyCapability::VisualReach));
+    assert!(!run.acquired.contains(&BodyCapability::TapHoldRelease));
+    assert_eq!(run.first_failure, Some(BodyCapability::TapHoldRelease));
     assert_eq!(run.courses.len(), BodyCourseKind::ORDER.len());
     assert_eq!(run.courses[0].course, BodyCourseKind::EyeControl);
     assert_eq!(run.courses[0].outcome, BodyCourseOutcome::Acquired);
@@ -58,7 +60,7 @@ fn generated_course_preserves_first_failure_instead_of_teaching_around_it() {
     assert_eq!(run.courses[2].outcome, BodyCourseOutcome::Acquired);
     assert_eq!(
         run.courses[3].outcome,
-        BodyCourseOutcome::Failed(BodyCapability::Contact)
+        BodyCourseOutcome::Failed(BodyCapability::TapHoldRelease)
     );
     let contact_probe = run
         .experiences
@@ -68,7 +70,8 @@ fn generated_course_preserves_first_failure_instead_of_teaching_around_it() {
                 && experience.mode == BodyExperienceMode::Probe
         })
         .unwrap();
-    assert_ne!(contact_probe.verdict, BodyVerdict::Passed);
+    assert_eq!(contact_probe.verdict, BodyVerdict::Passed);
+    assert_eq!(contact_probe.samples.len(), 16);
     assert!(run
         .experiences
         .iter()
