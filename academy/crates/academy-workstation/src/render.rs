@@ -44,36 +44,40 @@ impl SceneRenderer {
         &self,
         geometry: &WorldGeometry,
         device: &DeviceState,
-        presentation: WorkstationPresentation,
+        presentation: &WorkstationPresentation,
         body: &WorkstationState,
         eye: Eye,
     ) -> Result<LightField, WorldError> {
         let mut raster = Raster::new(48);
         raster.fill_rect(scale_rect(geometry.monitor), 18);
-        self.draw_photo(&mut raster, geometry.screen);
-        if device.selected() {
-            raster.stroke_rect(scale_rect(geometry.screen), 250);
-        }
-        if device.long_pressed_keys().next().is_some() {
-            let screen = scale_rect(geometry.screen);
-            raster.fill_rect(
-                PixelRect {
-                    x: screen.x + screen.width - 30,
-                    y: screen.y + 8,
-                    width: 18,
-                    height: 18,
-                },
-                250,
+        if let Some(frame) = presentation.monitor_frame() {
+            draw_monitor_frame(&mut raster, geometry.screen, frame);
+        } else {
+            self.draw_photo(&mut raster, geometry.screen);
+            if device.selected() {
+                raster.stroke_rect(scale_rect(geometry.screen), 250);
+            }
+            if device.long_pressed_keys().next().is_some() {
+                let screen = scale_rect(geometry.screen);
+                raster.fill_rect(
+                    PixelRect {
+                        x: screen.x + screen.width - 30,
+                        y: screen.y + 8,
+                        width: 18,
+                        height: 18,
+                    },
+                    250,
+                );
+            }
+            draw_text(
+                &mut raster,
+                scale_x(geometry.screen.x + 18),
+                scale_y(geometry.screen.y + 18),
+                device.text(),
+                245,
+                40,
             );
         }
-        draw_text(
-            &mut raster,
-            scale_x(geometry.screen.x + 18),
-            scale_y(geometry.screen.y + 18),
-            device.text(),
-            245,
-            40,
-        );
         if let Some(glyph) = presentation.monitor_glyph() {
             let cue_x = scale_x(geometry.screen.right() - 118);
             let cue_y = scale_y(geometry.screen.y + 34);
@@ -181,6 +185,26 @@ impl SceneRenderer {
                 175,
             );
             raster.circle(scale_x(tip.0), scale_y(tip.1), 4, 245);
+        }
+    }
+}
+
+fn draw_monitor_frame(raster: &mut Raster, destination: Rect, frame: &crate::MonitorFrame) {
+    let rect = scale_rect(destination);
+    let width = usize::try_from(rect.width.max(1)).unwrap_or(1);
+    let height = usize::try_from(rect.height.max(1)).unwrap_or(1);
+    let source_width = usize::from(frame.width());
+    let source_height = usize::from(frame.height());
+    for dy in 0..height {
+        let source_y = dy.saturating_mul(source_height) / height;
+        for dx in 0..width {
+            let source_x = dx.saturating_mul(source_width) / width;
+            let value = frame.pixels()[source_y.saturating_mul(source_width) + source_x];
+            raster.set(
+                rect.x + i32::try_from(dx).unwrap_or(0),
+                rect.y + i32::try_from(dy).unwrap_or(0),
+                value,
+            );
         }
     }
 }
@@ -390,7 +414,7 @@ mod tests {
             .render(
                 &geometry,
                 &DeviceState::default(),
-                WorkstationPresentation::default(),
+                &WorkstationPresentation::default(),
                 &body,
                 Eye::Left,
             )
@@ -399,7 +423,7 @@ mod tests {
             .render(
                 &geometry,
                 &DeviceState::default(),
-                WorkstationPresentation::default(),
+                &WorkstationPresentation::default(),
                 &body,
                 Eye::Right,
             )

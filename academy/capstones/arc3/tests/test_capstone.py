@@ -49,7 +49,7 @@ def observation(**overrides: object) -> SimpleNamespace:
 
 
 class ProjectionTests(unittest.TestCase):
-    def test_evaluator_fields_cannot_reach_agent_request(self) -> None:
+    def test_evaluator_fields_cannot_reach_application_request(self) -> None:
         left = capstone.project_observation(observation(game_id="one", score=0.0))
         right = capstone.project_observation(observation(game_id="two", score=1.0))
         self.assertEqual(left, right)
@@ -79,7 +79,7 @@ class ExecutionTests(unittest.TestCase):
         summary, transcript = capstone.run_game(
             "fixture", capstone.FixtureWorld(), agent, 4
         )
-        self.assertEqual(summary["stop_reason"], "no_outward_crossing")
+        self.assertEqual(summary["stop_reason"], "no_device_input")
         self.assertEqual(len(transcript), 1)
         self.assertEqual(set(agent.requests[0]), {"command", "frame", "actions"})
         self.assertNotIn("state", agent.requests[0])

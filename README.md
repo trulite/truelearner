@@ -24,7 +24,7 @@ evaluator knowledge never enters the organism.
 
 `academy/` contains five crates:
 
-- `academy-arc3`: blind ARC-AGI-3 sensorimotor attachment and trace evidence.
+- `academy-arc3`: ARC-AGI-3 workstation application adapter and trace evidence.
 - `academy-body`: development courses, probes, controls, and evidence.
 - `academy-formal`: offline Rust-to-Lean checks over frozen causal evidence.
 - `academy-workstation`: the headless physical workstation world.

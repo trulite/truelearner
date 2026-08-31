@@ -13,7 +13,7 @@ pub use geometry::{Key, KeyId, Rect, WorldGeometry, KEY_COUNT};
 pub use recording::{RecordedStep, WorkstationRecording, MAX_RECORDING_STEPS};
 pub use session::{SessionObservation, SessionRead, WorkstationSession};
 pub use world::{
-    DeviceEvent, DeviceState, ScreenPoint, WorkstationPresentation, WorkstationWorld,
+    DeviceEvent, DeviceState, MonitorFrame, ScreenPoint, WorkstationPresentation, WorkstationWorld,
     WorldTransition, CONTACT_DEPTH, KEY_PRESS_DEPTH, KEY_RELEASE_DEPTH, LONG_PRESS_STEPS,
 };
 

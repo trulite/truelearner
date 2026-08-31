@@ -31,7 +31,7 @@ cargo run --locked --manifest-path academy/Cargo.toml \
 The course develops and probes eye, hand, eye-hand, and workstation-contact
 behavior. Development may commit learning; probes use cloned checkpoints and
 cannot teach the durable organism. Output is an immutable receipt plus a
-content-addressed transcript.
+content-addressed transcript and the opaque completed-body checkpoint.
 
 TapHoldRelease development records a cause-tagged external demonstration,
 tests unaided imitation, and, when needed, restores the pre-demonstration body
@@ -63,12 +63,14 @@ contract.
 
 ## ARC-AGI-3 development probe
 
-`academy-arc3` attaches the same public `WorkstationHarness` to ARC-AGI-3
-without an ARC-specific learner. The Rust process receives only a 64×64 palette
-frame and the currently legal opaque action shapes. Game identity, score,
-terminal state, action budget, and evaluator data remain in the Python Academy
-adapter. A changed frame returns only through the exact motor crossing used for
-the preceding ARC call.
+`academy-arc3` runs ARC-AGI-3 as an application on the same physical
+workstation used by Body Discovery. The completed body-course checkpoint sees
+the 64×64 frame only as pixels on the generic monitor. ARC receives input only
+after the workstation emits an ordinary arrow-key, Space, Escape, or touchpad
+click `DeviceEvent`; no body control or motor crossing maps directly to ARC.
+The legal-action catalog remains in the external application adapter and cannot
+choose or inhibit body movement. Game identity, score, terminal state, action
+budget, and evaluator data remain in Python.
 
 The frozen protocol runs one named public development environment before any
 learner change and preserves the full physical trace plus an exact fresh-process
@@ -81,6 +83,7 @@ cargo build --release --locked --manifest-path academy/Cargo.toml \
 cd academy/capstones/arc3
 uv run capstone.py --mode fixture \
   --agent ../../target/release/academy-arc3-capstone-agent \
+  --body-checkpoint ../../../output/body-course/body-checkpoint-<sha256>.bin \
   --output /tmp/truelearner-arc3-fixture
 ```
 
@@ -120,7 +123,7 @@ academy-workstation-review -> academy-workstation
 academy-formal -------------------> truelearner-workstation -> truelearner-body
        |
        +--------------------------> pinned Lean checker (frozen evidence only)
-academy-arc3 ----------------------> truelearner-workstation -> truelearner-body
+academy-arc3 ----------> academy-workstation -> truelearner-workstation -> truelearner-body
 ```
 
 Historical research evidence remains under the repository's archive and

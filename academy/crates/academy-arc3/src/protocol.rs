@@ -1,4 +1,7 @@
-use crate::{Arc3Error, Arc3Sensorimotor, Arc3SensorimotorObservation, Arc3SensorimotorSnapshot};
+use crate::{
+    Arc3ActionWitness, Arc3Error, Arc3Sensorimotor, Arc3SensorimotorObservation,
+    Arc3SensorimotorSnapshot,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -92,6 +95,8 @@ pub enum Arc3CapstoneCommand {
 pub struct Arc3CapstoneObservation {
     #[serde(flatten)]
     pub organism: Arc3SensorimotorObservation,
+    pub action_witnesses: Vec<Arc3ActionWitness>,
+    pub call: Option<Arc3ActionCall>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -107,9 +112,9 @@ pub struct Arc3CapstoneAgent {
 }
 
 impl Arc3CapstoneAgent {
-    pub fn new(seed: u64) -> Result<Self, Arc3Error> {
+    pub fn restore(body_checkpoint: &[u8]) -> Result<Self, Arc3Error> {
         Ok(Self {
-            organism: Arc3Sensorimotor::new(seed)?,
+            organism: Arc3Sensorimotor::restore(body_checkpoint)?,
         })
     }
 
@@ -122,8 +127,26 @@ impl Arc3CapstoneAgent {
         frame: Vec<u8>,
         actions: Arc3ActionCatalog,
     ) -> Result<Arc3CapstoneObservation, Arc3Error> {
-        let organism = self.organism.observe(frame, &actions)?;
-        Ok(Arc3CapstoneObservation { organism })
+        actions.validate()?;
+        let organism = self.organism.observe(frame)?;
+        let action_witnesses = organism
+            .application_input
+            .iter()
+            .map(|input| Arc3ActionWitness {
+                event: input.event.clone(),
+                call: input.call,
+                offered: actions.contains(input.call.id),
+            })
+            .collect::<Vec<_>>();
+        let call = action_witnesses
+            .first()
+            .filter(|witness| witness.offered)
+            .map(|witness| witness.call);
+        Ok(Arc3CapstoneObservation {
+            organism,
+            action_witnesses,
+            call,
+        })
     }
 
     pub fn handle(
@@ -165,6 +188,15 @@ mod tests {
         }
     }
 
+    fn cold_body_negative_checkpoint() -> Vec<u8> {
+        truelearner_workstation::WorkstationHarness::new(205)
+            .unwrap()
+            .save()
+            .unwrap()
+            .canonical_bytes()
+            .unwrap()
+    }
+
     #[test]
     fn evaluator_and_teaching_fields_are_unrepresentable() {
         for forbidden in [
@@ -178,7 +210,7 @@ mod tests {
 
     #[test]
     fn invalid_catalog_fails_before_body_mutation() {
-        let mut agent = Arc3CapstoneAgent::new(205).unwrap();
+        let mut agent = Arc3CapstoneAgent::restore(&cold_body_negative_checkpoint()).unwrap();
         let before = agent.snapshot().unwrap();
         let error = agent
             .observe(vec![0; ARC3_FRAME_PIXELS], catalog(&[1, 99]))
@@ -188,15 +220,17 @@ mod tests {
     }
 
     #[test]
-    fn catalog_order_does_not_choose_the_action() {
-        let mut left = Arc3CapstoneAgent::new(205).unwrap();
-        let mut right = Arc3CapstoneAgent::new(205).unwrap();
+    fn catalog_cannot_change_physical_workstation_steps() {
+        let checkpoint = cold_body_negative_checkpoint();
+        let mut left = Arc3CapstoneAgent::restore(&checkpoint).unwrap();
+        let mut right = Arc3CapstoneAgent::restore(&checkpoint).unwrap();
         let left = left
-            .observe(vec![0; ARC3_FRAME_PIXELS], catalog(&[1, 2, 3, 4, 5, 6, 7]))
+            .observe(vec![0; ARC3_FRAME_PIXELS], catalog(&[1]))
             .unwrap();
         let right = right
-            .observe(vec![0; ARC3_FRAME_PIXELS], catalog(&[7, 6, 5, 4, 3, 2, 1]))
+            .observe(vec![0; ARC3_FRAME_PIXELS], catalog(&[7]))
             .unwrap();
-        assert_eq!(left, right);
+        assert_eq!(left.organism.steps, right.organism.steps);
+        assert_eq!(left.organism.device_events, right.organism.device_events);
     }
 }

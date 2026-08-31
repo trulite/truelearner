@@ -58,7 +58,14 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
     assert!(run.acquired.contains(&BodyCapability::ThumbContact));
     assert!(run.acquired.contains(&BodyCapability::PinchDrag));
     assert_eq!(run.first_failure, None);
-    assert_eq!(run.schema_version, 10);
+    assert_eq!(run.schema_version, 11);
+    let completed =
+        WorkstationHarness::restore(WorkstationCheckpoint::decode(&run.body_checkpoint).unwrap())
+            .unwrap();
+    assert_eq!(
+        completed.read().unwrap().body_fingerprint,
+        run.final_body_fingerprint
+    );
     assert_eq!(run.courses.len(), BodyCourseKind::ORDER.len());
     assert_eq!(run.courses[0].course, BodyCourseKind::EyeControl);
     assert_eq!(run.courses[0].outcome, BodyCourseOutcome::Acquired);

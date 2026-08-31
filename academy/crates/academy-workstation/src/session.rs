@@ -5,7 +5,8 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use truelearner_workstation::{
-    MotorEffect, WorkstationHarness, WorkstationRead, WorkstationStepObservation, WorldSample,
+    BodyTraceEvent, MotorEffect, WorkstationCheckpoint, WorkstationHarness, WorkstationRead,
+    WorkstationStepObservation, WorldSample,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,13 +56,50 @@ impl WorkstationSession {
         })
     }
 
+    pub fn from_body_checkpoint(
+        checkpoint: WorkstationCheckpoint,
+        presentation: WorkstationPresentation,
+    ) -> Result<Self, WorldError> {
+        Ok(Self {
+            harness: WorkstationHarness::restore(checkpoint)?,
+            world: WorkstationWorld::new_with_presentation(presentation)?,
+            sequence: 0,
+            boundary_parents: Vec::new(),
+            progress_parents: Vec::new(),
+        })
+    }
+
     pub fn step(&mut self) -> Result<SessionObservation, WorldError> {
+        let (observation, _) = self.step_internal(false)?;
+        Ok(observation)
+    }
+
+    pub fn step_traced(&mut self) -> Result<(SessionObservation, Vec<BodyTraceEvent>), WorldError> {
+        self.step_internal(true)
+    }
+
+    fn step_internal(
+        &mut self,
+        traced: bool,
+    ) -> Result<(SessionObservation, Vec<BodyTraceEvent>), WorldError> {
         let sample = self.world.sense(self.harness.state())?;
-        let (harness, body) = self.harness.transition_with_causal_parents(
-            sample.clone(),
-            &self.boundary_parents,
-            &self.progress_parents,
-        )?;
+        let mut harness = self.harness.clone();
+        let (body, trace) = if traced {
+            harness.step_traced_with_causal_parents(
+                sample.clone(),
+                &self.boundary_parents,
+                &self.progress_parents,
+            )?
+        } else {
+            (
+                harness.step_with_causal_parents(
+                    sample.clone(),
+                    &self.boundary_parents,
+                    &self.progress_parents,
+                )?,
+                Vec::new(),
+            )
+        };
         let mut world = self.world.clone();
         let transition = world.advance_observation(&body);
         let sequence = self.sequence;
@@ -85,7 +123,7 @@ impl WorkstationSession {
             boundary_parents: transition.boundary_parents,
             progress_parents: transition.progress_parents,
         };
-        Ok(observation)
+        Ok((observation, trace))
     }
 
     pub fn read(&self) -> Result<SessionRead, WorldError> {
@@ -116,7 +154,7 @@ impl WorkstationSession {
         Ok(SessionCheckpoint::new(
             self.harness.save()?.canonical_bytes()?,
             self.world.device_clone(),
-            self.world.presentation(),
+            self.world.presentation().clone(),
             self.sequence,
             self.world.asset_digest(),
             self.boundary_parents.clone(),
@@ -144,7 +182,7 @@ impl WorkstationSession {
 
 fn composed_session_fingerprint(sequence: u64, body: &str, world: &str) -> String {
     let mut digest = Sha256::new();
-    digest.update(b"truelearner-workstation-session-v4");
+    digest.update(b"truelearner-workstation-session-v5");
     digest.update(sequence.to_le_bytes());
     digest.update(body.as_bytes());
     digest.update(world.as_bytes());

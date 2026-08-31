@@ -416,24 +416,31 @@ a clean body parent, adapter revision, SDK versions, seed, action budget, and
 one named public development environment. Server-selected holdouts remain
 uninspected.
 
-The Python adapter owns the SDK, game identity, score, terminal state, and
-action budget. A fresh Rust agent receives only an owned 64×64 palette frame
-and an action catalog derived from the official list of available physical
-actions. The catalog contains only opaque action identities and public argument
-shapes. Complete typed calls may leave the agent; descriptions, active
-coordinates, scores, and evaluator state may not enter it.
+The Python adapter owns the SDK, game identity, score, terminal state, action
+budget, and official action catalog. Before the run it loads the opaque
+checkpoint emitted by the completed Body Discovery course. A fresh body is a
+negative control and cannot support a post-course claim.
 
-The Rust agent owns `Arc3Sensorimotor`, which owns the public
-`WorkstationHarness`. The full frame strikes its two light fields; the existing
-body optics reduce that field to the body's fixed retina. Body-control crossings
-have a fixed external actuator interpretation. The catalog can reject an
-unavailable crossing but cannot choose a movement. When the next ARC frame
-changes, the adapter returns that consequence only to the exact preceding
-crossing. An unchanged frame supplies no invented failure signal.
+The Rust process owns `Arc3Sensorimotor`, which attaches that developed body to
+an ordinary `WorkstationSession`. The 64×64 palette frame is converted to
+distinct monitor luminances and rendered inside the workstation scene; it does
+not replace the body's optics or enter as a benchmark-native sensor. The
+workstation may take up to 32 ordinary physical steps while the external
+application is paused. ARC receives a call only from an arrow-key, Space,
+Escape, or touchpad-click `DeviceEvent`. The action catalog can reject that
+external application input, but it cannot choose, suppress, or reinterpret an
+internal movement.
+
+The workstation retains the exact motor parent of each device event. The next
+ARC frame is installed before the following workstation step, so its displayed
+consequence composes through that retained physical return path. No
+`BodyControl`, `MotorEffect`, or arbitrary crossing is visible to the ARC
+adapter.
 
 The process boundary exposes no score, game or level identity, expected action,
 babbling, support, settling, reset, or diagnostic command. Unknown fields,
-invalid frames, and unsupported actuators fail before a harness transition.
+invalid frames, unsupported application actions, and corrupt body checkpoints
+fail before a harness transition.
 Academy records outer episode state separately from the request, the complete
 physical trace, work, crossings, body fingerprints, and an exact fresh-process
 transcript replay.

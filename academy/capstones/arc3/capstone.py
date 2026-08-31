@@ -52,22 +52,40 @@ def load_protocol(path: Path) -> dict[str, Any]:
         "arcengine_version",
         "official_selection",
         "public_game",
-        "organism_seed",
+        "initialization",
+        "body_course_seed",
+        "environment_seed",
         "max_actions_per_game",
+        "workstation_steps_per_observation",
         "frame_side",
         "palette_size",
         "supported_actions",
-        "agent_request_fields",
+        "application_request_fields",
+        "device_action_bindings",
         "replay_required",
         "holdout_policy",
     }
     missing = sorted(required - data.keys())
     if missing:
         raise CapstoneError(f"protocol is missing fields: {', '.join(missing)}")
-    if data["agent_request_fields"] != ["command", "frame", "actions"]:
-        raise CapstoneError("protocol changes the organism-visible projection")
+    if data["application_request_fields"] != ["command", "frame", "actions"]:
+        raise CapstoneError("protocol changes the external application request")
     if data["supported_actions"] != [1, 2, 3, 4, 5, 6, 7]:
-        raise CapstoneError("protocol changes the frozen physical actuators")
+        raise CapstoneError("protocol changes the frozen ARC application actions")
+    if data["initialization"] != "body-course-checkpoint":
+        raise CapstoneError("protocol does not require the developed body checkpoint")
+    if data["workstation_steps_per_observation"] != 32:
+        raise CapstoneError("protocol changes the generic workstation input horizon")
+    if data["device_action_bindings"] != [
+        "Up:1",
+        "Down:2",
+        "Left:3",
+        "Right:4",
+        "Space:5",
+        "TouchpadClick:6",
+        "Esc:7",
+    ]:
+        raise CapstoneError("protocol changes the workstation application bindings")
     return data
 
 
@@ -82,7 +100,7 @@ def _flatten(values: Any) -> Iterable[Any]:
 
 
 def project_observation(observation: Any) -> dict[str, object]:
-    """The complete organism-visible interface: pixels and legal action shapes."""
+    """Project evaluator state into the external workstation application request."""
     frames = observation.frame
     if not frames:
         raise CapstoneError("official observation contains no frame")
@@ -124,9 +142,9 @@ class AgentProcess:
     ready: dict[str, object]
 
     @classmethod
-    def start(cls, executable: Path, seed: int) -> AgentProcess:
+    def start(cls, executable: Path, body_checkpoint: Path) -> AgentProcess:
         process = subprocess.Popen(
-            [str(executable), str(seed)],
+            [str(executable), "--body-checkpoint", str(body_checkpoint)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -254,7 +272,13 @@ def run_game(
 ) -> tuple[dict[str, object], list[dict[str, object]]]:
     observation = world.reset()
     transcript: list[dict[str, object]] = []
-    totals = {"outward_crossings": 0, "plasticity_updates": 0, "physical_work": 0}
+    totals = {
+        "outward_crossings": 0,
+        "plasticity_updates": 0,
+        "physical_work": 0,
+        "workstation_steps": 0,
+        "device_events": 0,
+    }
     stop_reason = "action_budget"
     first_failure: str | None = None
 
@@ -285,16 +309,25 @@ def run_game(
             stop_reason = "protocol_failure"
             first_failure = f"unexpected response {response.get('response')!r}"
             break
-        for name in totals:
+        for name in ("outward_crossings", "plasticity_updates", "physical_work", "workstation_steps"):
             totals[name] += int(response.get(name, 0))
+        events = response.get("device_events", [])
+        if not isinstance(events, list):
+            stop_reason = "protocol_failure"
+            first_failure = "agent emitted non-list device events"
+            break
+        totals["device_events"] += len(events)
         if not bool(response.get("naturally_quiescent", False)):
             stop_reason = "non_quiescent"
             first_failure = "agent transition did not reach natural quiescence"
             break
         call = response.get("call")
         if call is None:
-            stop_reason = "no_outward_crossing"
-            first_failure = "no mapped offered motor crossing survived competition"
+            stop_reason = "no_device_input"
+            first_failure = (
+                "no mapped offered workstation DeviceEvent reached the application "
+                "within the fixed physical horizon"
+            )
             break
         if not isinstance(call, dict):
             stop_reason = "protocol_failure"
@@ -428,6 +461,7 @@ def _receipt(
     summary: dict[str, object],
     replay: dict[str, object],
     wall_seconds: float,
+    body_checkpoint: Path,
 ) -> dict[str, object]:
     return {
         "schema_version": int(protocol["receipt_schema_version"]),
@@ -440,7 +474,9 @@ def _receipt(
         "agent_sha256": sha256_file(agent_path),
         "toolkit_source_revision": protocol["toolkit_source_revision"],
         "sdk_versions": _versions(protocol),
-        "organism_seed": int(protocol["organism_seed"]),
+        "body_course_seed": int(protocol["body_course_seed"]),
+        "environment_seed": int(protocol["environment_seed"]),
+        "body_checkpoint_sha256": sha256_file(body_checkpoint),
         "suite_selection": protocol["official_selection"],
         "holdout_policy": protocol["holdout_policy"],
         "games": [summary],
@@ -452,6 +488,8 @@ def _receipt(
                 "outward_crossings",
                 "plasticity_updates",
                 "physical_work",
+                "workstation_steps",
+                "device_events",
             )
         },
         "first_failure": summary["first_failure"],
@@ -462,17 +500,22 @@ def _receipt(
 
 
 def run_fixture(
-    repository: Path, protocol_path: Path, agent_path: Path, output: Path
+    repository: Path,
+    protocol_path: Path,
+    agent_path: Path,
+    body_checkpoint: Path,
+    output: Path,
 ) -> dict[str, object]:
     protocol = load_protocol(protocol_path)
-    seed = int(protocol["organism_seed"])
     started = time.monotonic()
-    agent = AgentProcess.start(agent_path, seed)
+    agent = AgentProcess.start(agent_path, body_checkpoint)
     try:
         summary, transcript = run_game("public-fixture", FixtureWorld(), agent, 4)
     finally:
         agent.close()
-    replay = replay_transcript(transcript, lambda: AgentProcess.start(agent_path, seed))
+    replay = replay_transcript(
+        transcript, lambda: AgentProcess.start(agent_path, body_checkpoint)
+    )
     revision = _default_git(["git", "rev-parse", "HEAD"], repository)
     return write_evidence(
         output,
@@ -485,6 +528,7 @@ def run_fixture(
             summary,
             replay,
             time.monotonic() - started,
+            body_checkpoint,
         ),
         transcript,
     )
@@ -494,6 +538,7 @@ def run_public(
     repository: Path,
     protocol_path: Path,
     agent_path: Path,
+    body_checkpoint: Path,
     output: Path,
     game: str,
 ) -> dict[str, object]:
@@ -501,7 +546,7 @@ def run_public(
     protocol = load_protocol(protocol_path)
     if game != protocol["public_game"]:
         raise CapstoneError(f"public game must remain frozen as {protocol['public_game']}")
-    seed = int(protocol["organism_seed"])
+    seed = int(protocol["environment_seed"])
     started = time.monotonic()
 
     from arc_agi import Arcade, OperationMode
@@ -521,14 +566,16 @@ def run_public(
     )
     if environment is None:
         raise CapstoneError(f"public SDK could not create {game}")
-    agent = AgentProcess.start(agent_path, seed)
+    agent = AgentProcess.start(agent_path, body_checkpoint)
     try:
         summary, transcript = run_game(
             game, OfficialWorld(environment), agent, int(protocol["max_actions_per_game"])
         )
     finally:
         agent.close()
-    replay = replay_transcript(transcript, lambda: AgentProcess.start(agent_path, seed))
+    replay = replay_transcript(
+        transcript, lambda: AgentProcess.start(agent_path, body_checkpoint)
+    )
     return write_evidence(
         output,
         _receipt(
@@ -540,6 +587,7 @@ def run_public(
             summary,
             replay,
             time.monotonic() - started,
+            body_checkpoint,
         ),
         transcript,
     )
@@ -549,6 +597,7 @@ def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=("fixture", "public"), required=True)
     parser.add_argument("--agent", type=Path, required=True)
+    parser.add_argument("--body-checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--game", default="ls20")
     return parser.parse_args()
@@ -560,13 +609,27 @@ def main() -> int:
     repository = script.parents[3]
     protocol_path = script.with_name("protocol.toml")
     agent_path = args.agent.resolve()
+    body_checkpoint = args.body_checkpoint.resolve()
     if not agent_path.is_file():
         raise CapstoneError(f"agent does not exist: {agent_path}")
+    if not body_checkpoint.is_file():
+        raise CapstoneError(f"body checkpoint does not exist: {body_checkpoint}")
     if args.mode == "fixture":
-        receipt = run_fixture(repository, protocol_path, agent_path, args.output.resolve())
+        receipt = run_fixture(
+            repository,
+            protocol_path,
+            agent_path,
+            body_checkpoint,
+            args.output.resolve(),
+        )
     else:
         receipt = run_public(
-            repository, protocol_path, agent_path, args.output.resolve(), args.game
+            repository,
+            protocol_path,
+            agent_path,
+            body_checkpoint,
+            args.output.resolve(),
+            args.game,
         )
     print(
         "ARC3_DEVELOPMENT_PROBE_COMPLETE "

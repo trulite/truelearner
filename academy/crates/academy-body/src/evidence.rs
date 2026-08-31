@@ -16,6 +16,9 @@ pub struct CourseReceipt {
     pub first_failure: Option<BodyCapability>,
     pub experience_count: usize,
     pub exact_replay: bool,
+    pub final_body_fingerprint: String,
+    pub body_checkpoint_file: String,
+    pub body_checkpoint_sha256: String,
     pub physical_work: u64,
     pub plasticity_updates: u64,
     pub transcript_file: String,
@@ -26,6 +29,7 @@ pub struct CourseReceipt {
 pub struct EvidencePaths {
     pub receipt: PathBuf,
     pub transcript: PathBuf,
+    pub body_checkpoint: PathBuf,
 }
 
 pub fn write_course_evidence(
@@ -39,8 +43,18 @@ pub fn write_course_evidence(
         .map_err(|error| BodyCourseError::Serialization(error.to_string()))?;
     let transcript_sha256 = hex(&Sha256::digest(&transcript));
     let transcript_file = format!("transcript-{transcript_sha256}.json");
+    let checkpoint_sha256 = hex(&Sha256::digest(&run.body_checkpoint));
+    let checkpoint_file = format!("body-checkpoint-{checkpoint_sha256}.bin");
+    let restored = truelearner_workstation::WorkstationHarness::restore(
+        truelearner_workstation::WorkstationCheckpoint::decode(&run.body_checkpoint)?,
+    )?;
+    if restored.read()?.body_fingerprint != run.final_body_fingerprint {
+        return Err(BodyCourseError::Serialization(
+            "final body checkpoint fingerprint differs".to_string(),
+        ));
+    }
     let receipt = CourseReceipt {
-        schema: "body-course/v9".to_string(),
+        schema: "body-course/v10".to_string(),
         seed: run.seed,
         courses: run.courses.clone(),
         acquired: run.acquired.clone(),
@@ -48,6 +62,9 @@ pub fn write_course_evidence(
         first_failure: run.first_failure,
         experience_count: run.experiences.len(),
         exact_replay: run.exact_replay,
+        final_body_fingerprint: run.final_body_fingerprint.clone(),
+        body_checkpoint_file: checkpoint_file.clone(),
+        body_checkpoint_sha256: checkpoint_sha256,
         physical_work: run.experiences.iter().fold(0, |sum, experience| {
             sum.saturating_add(experience.physical_work)
         }),
@@ -72,12 +89,15 @@ pub fn write_course_evidence(
     fs::create_dir(&temporary).map_err(|error| BodyCourseError::Io(error.to_string()))?;
     fs::write(temporary.join(&transcript_file), &transcript)
         .map_err(|error| BodyCourseError::Io(error.to_string()))?;
+    fs::write(temporary.join(&checkpoint_file), &run.body_checkpoint)
+        .map_err(|error| BodyCourseError::Io(error.to_string()))?;
     fs::write(temporary.join("receipt.json"), receipt_bytes)
         .map_err(|error| BodyCourseError::Io(error.to_string()))?;
     fs::rename(&temporary, output).map_err(|error| BodyCourseError::Io(error.to_string()))?;
     Ok(EvidencePaths {
         receipt: output.join("receipt.json"),
         transcript: output.join(transcript_file),
+        body_checkpoint: output.join(checkpoint_file),
     })
 }
 

@@ -2,6 +2,7 @@
 
 use academy_arc3::{Arc3CapstoneAgent, Arc3CapstoneCommand, Arc3CapstoneResponse};
 use std::io::{self, BufRead, Write};
+use std::path::PathBuf;
 
 fn write_response(
     stdout: &mut impl Write,
@@ -15,16 +16,18 @@ fn write_response(
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
-    let seed = arguments
-        .first()
-        .map(|value| value.parse::<u64>())
-        .transpose()?
-        .unwrap_or(205);
-    if let Some(argument) = arguments.get(1) {
-        return Err(format!("unexpected argument {argument:?}").into());
+    if arguments.len() != 2 || arguments[0] != "--body-checkpoint" {
+        return Err("usage: academy-arc3-capstone-agent --body-checkpoint PATH".into());
     }
+    let checkpoint_path = PathBuf::from(&arguments[1]);
+    let checkpoint = std::fs::read(&checkpoint_path).map_err(|error| {
+        format!(
+            "could not read body checkpoint {}: {error}",
+            checkpoint_path.display()
+        )
+    })?;
 
-    let mut agent = Arc3CapstoneAgent::new(seed)?;
+    let mut agent = Arc3CapstoneAgent::restore(&checkpoint)?;
     let stdin = io::stdin();
     let mut stdout = io::stdout().lock();
     write_response(&mut stdout, &Arc3CapstoneResponse::Ready(agent.snapshot()?))?;

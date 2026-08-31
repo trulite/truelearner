@@ -1,8 +1,8 @@
 use academy_workstation::{
-    KeyId, SessionCheckpoint, WorkstationPresentation, WorkstationSession, WorkstationWorld,
-    KEY_COUNT,
+    KeyId, MonitorFrame, SessionCheckpoint, WorkstationPresentation, WorkstationSession,
+    WorkstationWorld, KEY_COUNT,
 };
-use truelearner_workstation::Eye;
+use truelearner_workstation::{Eye, WorkstationHarness};
 
 #[test]
 fn public_session_uses_real_monitor_pixels_and_proper_keyboard_geometry() {
@@ -182,4 +182,38 @@ fn absent_monitor_cue_is_the_exact_default_identity() {
         default_world.sense(&body).unwrap(),
         explicit_world.sense(&body).unwrap()
     );
+}
+
+#[test]
+fn application_raster_reaches_the_monitor_and_restores_exactly() {
+    let mut pixels = vec![0; 64 * 64];
+    pixels[32 * 64 + 32] = 255;
+    let presentation =
+        WorkstationPresentation::with_monitor_frame(MonitorFrame::new(64, 64, pixels).unwrap());
+    let mut session = WorkstationSession::new_with_presentation(71_009, presentation).unwrap();
+    let checkpoint = session.save().unwrap();
+    let mut restored = WorkstationSession::restore(checkpoint).unwrap();
+
+    assert_eq!(restored.read().unwrap(), session.read().unwrap());
+    assert_eq!(restored.step().unwrap(), session.step().unwrap());
+}
+
+#[test]
+fn invalid_application_raster_fails_before_a_world_exists() {
+    assert_eq!(
+        MonitorFrame::new(64, 64, vec![0; 63 * 64]).unwrap_err(),
+        academy_workstation::WorldError::InvalidPresentation
+    );
+}
+
+#[test]
+fn session_can_attach_a_new_world_to_an_existing_body_checkpoint() {
+    let harness = WorkstationHarness::new(71_010).unwrap();
+    let body_before = harness.read().unwrap();
+    let checkpoint = harness.save().unwrap();
+    let session =
+        WorkstationSession::from_body_checkpoint(checkpoint, WorkstationPresentation::default())
+            .unwrap();
+
+    assert_eq!(session.read().unwrap().body, body_before);
 }

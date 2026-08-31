@@ -17,43 +17,114 @@ const MAX_TEXT: usize = 64;
 const MAX_TAP_STEPS: u64 = 5;
 const MAX_TAP_TRAVEL: u32 = 28;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+const MAX_MONITOR_PIXELS: usize = 640 * 360;
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MonitorFrame {
+    width: u16,
+    height: u16,
+    pixels: Vec<u8>,
+}
+
+impl MonitorFrame {
+    pub fn new(width: u16, height: u16, pixels: Vec<u8>) -> Result<Self, WorldError> {
+        let expected = usize::from(width)
+            .checked_mul(usize::from(height))
+            .ok_or(WorldError::InvalidPresentation)?;
+        if width == 0 || height == 0 || expected > MAX_MONITOR_PIXELS || pixels.len() != expected {
+            return Err(WorldError::InvalidPresentation);
+        }
+        Ok(Self {
+            width,
+            height,
+            pixels,
+        })
+    }
+
+    pub const fn width(&self) -> u16 {
+        self.width
+    }
+
+    pub const fn height(&self) -> u16 {
+        self.height
+    }
+
+    pub fn pixels(&self) -> &[u8] {
+        &self.pixels
+    }
+
+    fn valid(&self) -> bool {
+        usize::from(self.width)
+            .checked_mul(usize::from(self.height))
+            .is_some_and(|expected| {
+                self.width > 0
+                    && self.height > 0
+                    && expected <= MAX_MONITOR_PIXELS
+                    && self.pixels.len() == expected
+            })
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorkstationPresentation {
     illuminated_key: Option<KeyId>,
     monitor_glyph: Option<char>,
+    monitor_frame: Option<MonitorFrame>,
 }
 
 impl WorkstationPresentation {
-    pub const fn with_illuminated_key(key: KeyId) -> Self {
+    pub fn with_illuminated_key(key: KeyId) -> Self {
         Self {
             illuminated_key: Some(key),
             monitor_glyph: None,
+            monitor_frame: None,
         }
     }
 
-    pub const fn with_monitor_glyph(glyph: char) -> Self {
+    pub fn with_monitor_glyph(glyph: char) -> Self {
         Self {
             illuminated_key: None,
             monitor_glyph: Some(glyph),
+            monitor_frame: None,
         }
     }
 
-    pub const fn illuminated_key(self) -> Option<KeyId> {
+    pub fn with_monitor_frame(frame: MonitorFrame) -> Self {
+        Self {
+            illuminated_key: None,
+            monitor_glyph: None,
+            monitor_frame: Some(frame),
+        }
+    }
+
+    pub const fn illuminated_key(&self) -> Option<KeyId> {
         self.illuminated_key
     }
 
-    pub const fn monitor_glyph(self) -> Option<char> {
+    pub const fn monitor_glyph(&self) -> Option<char> {
         self.monitor_glyph
     }
 
-    pub(crate) fn validate(self, geometry: &WorldGeometry) -> Result<(), WorldError> {
+    pub const fn monitor_frame(&self) -> Option<&MonitorFrame> {
+        self.monitor_frame.as_ref()
+    }
+
+    pub(crate) fn validate(&self, geometry: &WorldGeometry) -> Result<(), WorldError> {
         let invalid_key = self
             .illuminated_key
             .is_some_and(|key| geometry.key(key).is_none());
         let invalid_glyph = self
             .monitor_glyph
             .is_some_and(|glyph| !glyph.is_ascii_graphic());
-        if invalid_key || invalid_glyph {
+        let invalid_frame = self
+            .monitor_frame
+            .as_ref()
+            .is_some_and(|frame| !frame.valid());
+        if invalid_key
+            || invalid_glyph
+            || invalid_frame
+            || self.monitor_glyph.is_some() && self.monitor_frame.is_some()
+        {
             Err(WorldError::InvalidPresentation)
         } else {
             Ok(())
@@ -490,8 +561,8 @@ impl WorkstationWorld {
         &self.device
     }
 
-    pub const fn presentation(&self) -> WorkstationPresentation {
-        self.presentation
+    pub const fn presentation(&self) -> &WorkstationPresentation {
+        &self.presentation
     }
 
     pub fn set_presentation(
@@ -535,14 +606,14 @@ impl WorkstationWorld {
             self.renderer.render(
                 &self.geometry,
                 &self.device,
-                self.presentation,
+                &self.presentation,
                 body,
                 Eye::Left,
             )?,
             self.renderer.render(
                 &self.geometry,
                 &self.device,
-                self.presentation,
+                &self.presentation,
                 body,
                 Eye::Right,
             )?,
@@ -732,7 +803,7 @@ impl WorkstationWorld {
         self.device.validate()?;
         let bytes = bincode::serialize(&self.device).map_err(|_| WorldError::InvalidState)?;
         let mut digest = Sha256::new();
-        digest.update(b"truelearner-workstation-world-v3");
+        digest.update(b"truelearner-workstation-world-v4");
         digest.update(self.renderer.asset_digest());
         digest.update(self.touchpad.x.to_le_bytes());
         digest.update(self.touchpad.y.to_le_bytes());

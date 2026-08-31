@@ -245,6 +245,9 @@ pub struct CourseRun {
     pub first_failure: Option<BodyCapability>,
     pub experiences: Vec<BodyExperience>,
     pub exact_replay: bool,
+    pub final_body_fingerprint: String,
+    #[serde(skip)]
+    pub body_checkpoint: Vec<u8>,
 }
 
 pub struct BodyCourse {
@@ -639,8 +642,10 @@ impl BodyCourse {
             });
         }
         let capability_evidence = capability_evidence(&self.experiences, &self.acquired);
+        let body_checkpoint = self.checkpoint_bytes()?;
+        let final_body_fingerprint = self.harness.read()?.body_fingerprint;
         Ok(CourseRun {
-            schema_version: 10,
+            schema_version: 11,
             seed: self.seed,
             courses,
             acquired: self.acquired.iter().copied().collect(),
@@ -651,6 +656,8 @@ impl BodyCourse {
                 .iter()
                 .all(|experience| experience.replay_exact),
             experiences: self.experiences,
+            final_body_fingerprint,
+            body_checkpoint,
         })
     }
 

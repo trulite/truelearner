@@ -29,11 +29,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let run = BodyCourse::new(seed)?.run()?;
     let paths = write_course_evidence(&output, &run)?;
     println!(
-        "BODY_COURSE_OK acquired={} first_failure={:?} exact_replay={} receipt={}",
+        "BODY_COURSE_OK acquired={} first_failure={:?} exact_replay={} receipt={} checkpoint={}",
         run.acquired.len(),
         run.first_failure,
         run.exact_replay,
-        paths.receipt.display()
+        paths.receipt.display(),
+        paths.body_checkpoint.display()
     );
     Ok(())
 }

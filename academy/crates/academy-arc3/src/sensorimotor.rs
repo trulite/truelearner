@@ -1,17 +1,20 @@
-use crate::{Arc3ActionArguments, Arc3ActionCall, Arc3ActionCatalog};
+use crate::{Arc3ActionArguments, Arc3ActionCall};
+use academy_workstation::{
+    DeviceEvent, DeviceState, MonitorFrame, SessionObservation, WorkstationPresentation,
+    WorkstationSession, WorldError, WorldGeometry,
+};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fmt;
 use truelearner_workstation::{
-    verify_choice_laws, BodyControl, BodyTraceEvent, ContactSample, Digit, Direction, LightField,
-    MotorEffect, Point, WorkstationError, WorkstationHarness, WorkstationStepObservation,
-    WorldSample, BODY_MAX, TOUCH_SITES,
+    verify_choice_laws, BodyTraceEvent, Eye, WorkstationCheckpoint, WorkstationError,
+    WorkstationStepObservation, WorldSample,
 };
 
 pub const ARC3_FRAME_SIDE: usize = 64;
 pub const ARC3_FRAME_PIXELS: usize = ARC3_FRAME_SIDE * ARC3_FRAME_SIDE;
 pub const ARC3_PALETTE_SIZE: u8 = 16;
-const RETINA_SIDE: usize = 9;
+pub const WORKSTATION_STEPS_PER_OBSERVATION: usize = 32;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Arc3Error(String);
@@ -30,17 +33,41 @@ impl fmt::Display for Arc3Error {
 
 impl std::error::Error for Arc3Error {}
 
+impl From<WorldError> for Arc3Error {
+    fn from(value: WorldError) -> Self {
+        Self(format!("workstation application failed: {value}"))
+    }
+}
+
 impl From<WorkstationError> for Arc3Error {
     fn from(value: WorkstationError) -> Self {
         Self(format!("workstation Harness failed: {value}"))
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Arc3ActionWitness {
-    pub crossing: MotorEffect,
-    pub action: u8,
+    pub event: DeviceEvent,
+    pub call: Arc3ActionCall,
     pub offered: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Arc3DeviceInput {
+    pub event: DeviceEvent,
+    pub call: Arc3ActionCall,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Arc3PhysicalStep {
+    pub sequence: u64,
+    pub sample_sha256: String,
+    pub body: WorkstationStepObservation,
+    pub device_events: Vec<DeviceEvent>,
+    pub device_after: DeviceState,
+    pub world_fingerprint: String,
+    pub session_fingerprint: String,
+    pub trace: Vec<BodyTraceEvent>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -48,153 +75,146 @@ pub struct Arc3SensorimotorObservation {
     pub sequence: u64,
     pub frame_sha256: String,
     pub frame_changed: Option<bool>,
-    pub retina: Vec<u8>,
-    pub retina_changed: Option<bool>,
-    pub returned_previous_action: bool,
+    pub returned_previous_device_input: bool,
+    pub workstation_steps: usize,
     pub admitted_inputs: usize,
     pub outward_crossings: usize,
-    pub action_witnesses: Vec<Arc3ActionWitness>,
-    pub call: Option<Arc3ActionCall>,
+    pub device_events: Vec<DeviceEvent>,
+    pub application_input: Option<Arc3DeviceInput>,
     pub physical_work: u64,
     pub plasticity_updates: u64,
     pub resident_bytes: usize,
     pub naturally_quiescent: bool,
     pub body_fingerprint: String,
+    pub session_fingerprint: String,
     pub physical_tick: i64,
-    pub observation: WorkstationStepObservation,
-    pub trace: Vec<BodyTraceEvent>,
+    pub steps: Vec<Arc3PhysicalStep>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Arc3SensorimotorSnapshot {
     pub sequence: u64,
     pub body_fingerprint: String,
+    pub session_fingerprint: String,
     pub physical_tick: i64,
     pub resident_bytes: usize,
     pub previous_frame_sha256: Option<String>,
-    pub pending_action: Option<MotorEffect>,
+    pub pending_device_input: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Arc3Sensorimotor {
-    harness: WorkstationHarness,
+    session: WorkstationSession,
     sequence: u64,
     previous_frame: Option<Vec<u8>>,
-    previous_retina: Option<Vec<u8>>,
-    previous_action: Option<MotorEffect>,
+    previous_device_input: bool,
 }
 
 impl Arc3Sensorimotor {
-    pub fn new(seed: u64) -> Result<Self, Arc3Error> {
+    pub fn restore(body_checkpoint: &[u8]) -> Result<Self, Arc3Error> {
+        let checkpoint = WorkstationCheckpoint::decode(body_checkpoint)?;
         Ok(Self {
-            harness: WorkstationHarness::new(seed)?,
+            session: WorkstationSession::from_body_checkpoint(
+                checkpoint,
+                WorkstationPresentation::default(),
+            )?,
             sequence: 0,
             previous_frame: None,
-            previous_retina: None,
-            previous_action: None,
+            previous_device_input: false,
         })
     }
 
     pub fn snapshot(&self) -> Result<Arc3SensorimotorSnapshot, Arc3Error> {
-        let read = self.harness.read()?;
+        let read = self.session.read()?;
         Ok(Arc3SensorimotorSnapshot {
             sequence: self.sequence,
-            body_fingerprint: checkpoint_fingerprint(&self.harness)?,
-            physical_tick: read.physical_tick,
-            resident_bytes: read.resident_bytes,
+            body_fingerprint: read.body.body_fingerprint,
+            session_fingerprint: read.session_fingerprint,
+            physical_tick: read.body.physical_tick,
+            resident_bytes: read.body.resident_bytes,
             previous_frame_sha256: self.previous_frame.as_deref().map(frame_fingerprint),
-            pending_action: self.previous_action,
+            pending_device_input: self.previous_device_input,
         })
     }
 
-    pub fn observe(
-        &mut self,
-        frame: Vec<u8>,
-        actions: &Arc3ActionCatalog,
-    ) -> Result<Arc3SensorimotorObservation, Arc3Error> {
+    pub fn observe(&mut self, frame: Vec<u8>) -> Result<Arc3SensorimotorObservation, Arc3Error> {
         validate_frame(&frame)?;
-        actions.validate()?;
-        let field = LightField::new(64, 64, frame.clone())?;
-        let retina = retinal_samples(&field);
-        let sample = WorldSample::new(
-            [field.clone(), field],
-            [ContactSample::default(); TOUCH_SITES],
-        )?;
+        let presentation = WorkstationPresentation::with_monitor_frame(MonitorFrame::new(
+            ARC3_FRAME_SIDE as u16,
+            ARC3_FRAME_SIDE as u16,
+            frame.iter().copied().map(palette_luminance).collect(),
+        )?);
         let frame_changed = self
             .previous_frame
             .as_ref()
             .map(|previous| previous != &frame);
-        let retina_changed = self
-            .previous_retina
-            .as_ref()
-            .map(|previous| previous != &retina);
-        let boundary_parents = if frame_changed == Some(true) {
-            self.previous_action.iter().copied().collect::<Vec<_>>()
-        } else {
-            Vec::new()
-        };
 
-        let mut next = self.harness.clone();
-        let (observation, trace) =
-            next.step_traced_with_boundary_parents(sample, &boundary_parents)?;
-        verify_choice_laws(&trace)
-            .map_err(|error| Arc3Error::boundary(format!("choice trace failed: {error}")))?;
-        let action_witnesses = observation
-            .crossings
-            .iter()
-            .filter_map(|crossing| {
-                physical_action(crossing.control).map(|action| Arc3ActionWitness {
-                    crossing: *crossing,
-                    action,
-                    offered: actions.contains(action),
-                })
-            })
-            .collect::<Vec<_>>();
-        let offered = action_witnesses
-            .iter()
-            .filter(|witness| witness.offered)
-            .collect::<Vec<_>>();
-        let call = match offered.as_slice() {
-            [] => None,
-            [witness] => Some(action_call(witness.action, &observation)),
-            _ => {
-                return Err(Arc3Error::boundary(
-                    "several physical ARC actuators crossed in one turn",
-                ))
+        let mut next = self.clone();
+        next.session.set_presentation(presentation)?;
+        let mut steps = Vec::with_capacity(WORKSTATION_STEPS_PER_OBSERVATION);
+        let mut device_events = Vec::new();
+        let mut application_input = None;
+        let mut admitted_inputs = 0_usize;
+        let mut outward_crossings = 0_usize;
+        let mut physical_work = 0_u64;
+        let mut plasticity_updates = 0_u64;
+        let mut naturally_quiescent = true;
+
+        for _ in 0..WORKSTATION_STEPS_PER_OBSERVATION {
+            let (session, trace) = next.session.step_traced()?;
+            verify_choice_laws(&trace)
+                .map_err(|error| Arc3Error::boundary(format!("choice trace failed: {error}")))?;
+            admitted_inputs = admitted_inputs.saturating_add(session.body.admitted_inputs);
+            outward_crossings = outward_crossings.saturating_add(session.body.crossings.len());
+            physical_work = physical_work.saturating_add(session.body.metrics.physical_work);
+            plasticity_updates =
+                plasticity_updates.saturating_add(session.body.metrics.plasticity_updates);
+            naturally_quiescent &= session.body.naturally_quiescent;
+            device_events.extend(session.device_events.iter().cloned());
+            let inputs = application_inputs_for(&session.device_events, &session.device_after)?;
+            steps.push(compact_step(session, trace));
+            match inputs.as_slice() {
+                [] => {}
+                [input] => {
+                    application_input = Some(input.clone());
+                    break;
+                }
+                _ => {
+                    return Err(Arc3Error::boundary(
+                        "several workstation device inputs reached the application together",
+                    ))
+                }
             }
-        };
-        let next_parent = call.and_then(|call| {
-            offered
-                .iter()
-                .find(|witness| witness.action == call.id)
-                .map(|witness| witness.crossing)
-        });
-        let body_fingerprint = checkpoint_fingerprint(&next)?;
+        }
+
+        let read = next.session.read()?;
+        let returned_previous_device_input = next.previous_device_input
+            && steps
+                .first()
+                .is_some_and(|step| !step.body.boundary_parents.is_empty());
         let result = Arc3SensorimotorObservation {
             sequence: self.sequence,
             frame_sha256: frame_fingerprint(&frame),
             frame_changed,
-            retina,
-            retina_changed,
-            returned_previous_action: !boundary_parents.is_empty(),
-            admitted_inputs: observation.admitted_inputs,
-            outward_crossings: observation.crossings.len(),
-            action_witnesses,
-            call,
-            physical_work: observation.metrics.physical_work,
-            plasticity_updates: observation.metrics.plasticity_updates,
-            resident_bytes: observation.metrics.resident_bytes,
-            naturally_quiescent: observation.naturally_quiescent,
-            body_fingerprint,
-            physical_tick: observation.physical_tick,
-            observation,
-            trace,
+            returned_previous_device_input,
+            workstation_steps: steps.len(),
+            admitted_inputs,
+            outward_crossings,
+            device_events,
+            application_input,
+            physical_work,
+            plasticity_updates,
+            resident_bytes: read.body.resident_bytes,
+            naturally_quiescent,
+            body_fingerprint: read.body.body_fingerprint,
+            session_fingerprint: read.session_fingerprint,
+            physical_tick: read.body.physical_tick,
+            steps,
         };
-        self.harness = next;
-        self.sequence = self.sequence.saturating_add(1);
-        self.previous_frame = Some(frame);
-        self.previous_retina = Some(result.retina.clone());
-        self.previous_action = next_parent;
+        next.sequence = next.sequence.saturating_add(1);
+        next.previous_frame = Some(frame);
+        next.previous_device_input = result.application_input.is_some();
+        *self = next;
         Ok(result)
     }
 }
@@ -214,14 +234,41 @@ fn validate_frame(frame: &[u8]) -> Result<(), Arc3Error> {
     Ok(())
 }
 
+fn palette_luminance(value: u8) -> u8 {
+    value.saturating_mul(17)
+}
+
 fn frame_fingerprint(frame: &[u8]) -> String {
     hex_digest(Sha256::digest(frame))
 }
 
-fn checkpoint_fingerprint(harness: &WorkstationHarness) -> Result<String, Arc3Error> {
-    Ok(hex_digest(Sha256::digest(
-        harness.save()?.canonical_bytes()?,
-    )))
+fn sample_fingerprint(sample: &WorldSample) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"truelearner-workstation-application-sample-v1");
+    for eye in Eye::ALL {
+        let field = sample.eye(eye);
+        digest.update(field.width().to_le_bytes());
+        digest.update(field.height().to_le_bytes());
+        digest.update(field.pixels());
+    }
+    for contact in sample.contacts() {
+        digest.update(contact.pressure().to_le_bytes());
+        digest.update(contact.slip().to_le_bytes());
+    }
+    hex_digest(digest.finalize())
+}
+
+fn compact_step(session: SessionObservation, trace: Vec<BodyTraceEvent>) -> Arc3PhysicalStep {
+    Arc3PhysicalStep {
+        sequence: session.sequence,
+        sample_sha256: sample_fingerprint(&session.sample),
+        body: session.body,
+        device_events: session.device_events,
+        device_after: session.device_after,
+        world_fingerprint: session.world_fingerprint,
+        session_fingerprint: session.session_fingerprint,
+        trace,
+    }
 }
 
 fn hex_digest(digest: impl AsRef<[u8]>) -> String {
@@ -232,178 +279,134 @@ fn hex_digest(digest: impl AsRef<[u8]>) -> String {
         .collect()
 }
 
-fn retinal_samples(field: &LightField) -> Vec<u8> {
-    (0..RETINA_SIDE)
-        .flat_map(|row| {
-            (0..RETINA_SIDE).map(move |column| {
-                let coordinate = |index: usize| {
-                    let numerator = index * BODY_MAX as usize + RETINA_SIDE - 2;
-                    i16::try_from(numerator / (RETINA_SIDE - 1))
-                        .expect("retinal coordinate is bounded")
-                };
-                field.sample(
-                    Point::new(coordinate(column), coordinate(row))
-                        .expect("retinal point is bounded"),
-                )
+fn application_inputs_for(
+    events: &[DeviceEvent],
+    device: &DeviceState,
+) -> Result<Vec<Arc3DeviceInput>, Arc3Error> {
+    events
+        .iter()
+        .filter_map(|event| {
+            action_call_for(event, device)
+                .transpose()
+                .map(|call| call.map(|call| (event, call)))
+        })
+        .map(|result| {
+            let (event, call) = result?;
+            Ok(Arc3DeviceInput {
+                event: event.clone(),
+                call,
             })
         })
         .collect()
 }
 
-fn physical_action(control: BodyControl) -> Option<u8> {
-    match control {
-        BodyControl::PalmVertical {
-            direction: Direction::Decrease,
-        }
-        | BodyControl::Wrist {
-            direction: Direction::Decrease,
-        } => Some(1),
-        BodyControl::PalmVertical {
-            direction: Direction::Increase,
-        }
-        | BodyControl::Wrist {
-            direction: Direction::Increase,
-        } => Some(2),
-        BodyControl::PalmHorizontal {
-            direction: Direction::Decrease,
-        }
-        | BodyControl::Spread {
-            direction: Direction::Decrease,
-        } => Some(3),
-        BodyControl::PalmHorizontal {
-            direction: Direction::Increase,
-        }
-        | BodyControl::Spread {
-            direction: Direction::Increase,
-        } => Some(4),
-        BodyControl::FingerFlexion {
-            digit: Digit::Index | Digit::Middle | Digit::Ring | Digit::Little,
-            direction: Direction::Increase,
-        } => Some(5),
-        BodyControl::PalmDepth {
-            direction: Direction::Increase,
-        } => Some(6),
-        BodyControl::PalmDepth {
-            direction: Direction::Decrease,
-        }
-        | BodyControl::FingerFlexion {
-            digit: Digit::Index | Digit::Middle | Digit::Ring | Digit::Little,
-            direction: Direction::Decrease,
-        } => Some(7),
-        BodyControl::EyeHorizontal { .. }
-        | BodyControl::EyeVertical { .. }
-        | BodyControl::ThumbOpposition { .. }
-        | BodyControl::FingerFlexion {
-            digit: Digit::Thumb,
-            ..
-        } => None,
-    }
+fn action_call_for(
+    event: &DeviceEvent,
+    device: &DeviceState,
+) -> Result<Option<Arc3ActionCall>, Arc3Error> {
+    let id = match event {
+        DeviceEvent::KeyPressed { key } => key_action(*key)?,
+        DeviceEvent::Clicked { .. } => Some(6),
+        _ => None,
+    };
+    Ok(id.map(|id| Arc3ActionCall {
+        id,
+        arguments: if id == 6 {
+            let cursor = device.cursor();
+            Arc3ActionArguments::Point {
+                x: scale_point(cursor.x),
+                y: scale_point(cursor.y),
+            }
+        } else {
+            Arc3ActionArguments::Unit
+        },
+    }))
 }
 
-fn action_call(action: u8, observation: &WorkstationStepObservation) -> Arc3ActionCall {
-    let arguments = if action == 6 {
-        let palm = observation.state_after.hand().palm();
-        Arc3ActionArguments::Point {
-            x: scale_point(palm.x()),
-            y: scale_point(palm.y()),
-        }
-    } else {
-        Arc3ActionArguments::Unit
-    };
-    Arc3ActionCall {
-        id: action,
-        arguments,
-    }
+fn key_action(key: u16) -> Result<Option<u8>, Arc3Error> {
+    let geometry = WorldGeometry::standard_ansi_104()?;
+    let key = geometry
+        .key(academy_workstation::KeyId(key))
+        .ok_or_else(|| Arc3Error::boundary("workstation emitted an unknown key"))?;
+    Ok(match key.label.as_str() {
+        "Up" => Some(1),
+        "Down" => Some(2),
+        "Left" => Some(3),
+        "Right" => Some(4),
+        "Space" => Some(5),
+        "Esc" => Some(7),
+        _ => None,
+    })
 }
 
 fn scale_point(value: i16) -> u8 {
-    let scaled = i32::from(value) * 63 / i32::from(BODY_MAX);
+    let scaled = i32::from(value) * 63 / i32::from(truelearner_workstation::BODY_MAX);
     u8::try_from(scaled).unwrap_or(63).min(63)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Arc3ActionOffer, Arc3ActionSchema};
+    use std::sync::OnceLock;
 
-    fn catalog() -> Arc3ActionCatalog {
-        Arc3ActionCatalog {
-            offers: (1..=7)
-                .map(|id| Arc3ActionOffer {
-                    id,
-                    schema: if id == 6 {
-                        Arc3ActionSchema::Point {
-                            width: 64,
-                            height: 64,
-                        }
-                    } else {
-                        Arc3ActionSchema::Unit
-                    },
-                })
-                .collect(),
-        }
+    fn completed_body_checkpoint() -> Vec<u8> {
+        static CHECKPOINT: OnceLock<Vec<u8>> = OnceLock::new();
+        CHECKPOINT
+            .get_or_init(|| {
+                academy_body::BodyCourse::new(31_001)
+                    .unwrap()
+                    .run()
+                    .unwrap()
+                    .body_checkpoint
+            })
+            .clone()
     }
 
     #[test]
     fn invalid_frame_is_atomic() {
-        let mut sensorimotor = Arc3Sensorimotor::new(205).unwrap();
+        let mut sensorimotor = Arc3Sensorimotor::restore(&completed_body_checkpoint()).unwrap();
         let before = sensorimotor.snapshot().unwrap();
-        assert!(sensorimotor
-            .observe(vec![16; ARC3_FRAME_PIXELS], &catalog())
-            .is_err());
+        assert!(sensorimotor.observe(vec![16; ARC3_FRAME_PIXELS]).is_err());
         assert_eq!(sensorimotor.snapshot().unwrap(), before);
     }
 
     #[test]
-    fn frozen_requests_replay_exactly() {
-        let mut first = Arc3Sensorimotor::new(205).unwrap();
-        let mut replay = Arc3Sensorimotor::new(205).unwrap();
-        let mut frames = vec![vec![0; ARC3_FRAME_PIXELS]; 3];
-        frames[1][32 * ARC3_FRAME_SIDE + 32] = 9;
-        frames[2][32 * ARC3_FRAME_SIDE + 40] = 5;
-        for frame in frames {
-            assert_eq!(
-                first.observe(frame.clone(), &catalog()).unwrap(),
-                replay.observe(frame, &catalog()).unwrap()
-            );
-        }
+    fn frozen_requests_replay_exactly_from_the_completed_body() {
+        let checkpoint = completed_body_checkpoint();
+        let mut first = Arc3Sensorimotor::restore(&checkpoint).unwrap();
+        let mut replay = Arc3Sensorimotor::restore(&checkpoint).unwrap();
+        let mut frame = vec![0; ARC3_FRAME_PIXELS];
+        frame[32 * ARC3_FRAME_SIDE + 32] = 9;
+        assert_eq!(
+            first.observe(frame.clone()).unwrap(),
+            replay.observe(frame).unwrap()
+        );
         assert_eq!(first.snapshot().unwrap(), replay.snapshot().unwrap());
     }
 
     #[test]
-    fn sampled_retina_is_an_explicit_projection_of_the_full_frame() {
-        let mut frame = vec![0; ARC3_FRAME_PIXELS];
-        frame[63 * ARC3_FRAME_SIDE + 63] = 15;
-        let field = LightField::new(64, 64, frame).unwrap();
-        let retina = retinal_samples(&field);
-        assert_eq!(retina.len(), RETINA_SIDE * RETINA_SIDE);
-        assert_eq!(retina[RETINA_SIDE * RETINA_SIDE - 1], 15);
-    }
-
-    #[test]
-    fn changed_frame_returns_only_to_the_actual_previous_arc_crossing() {
-        let mut sensorimotor = Arc3Sensorimotor::new(205).unwrap();
-        let first = sensorimotor
-            .observe(vec![0; ARC3_FRAME_PIXELS], &catalog())
-            .unwrap();
-        let call = first
-            .call
-            .expect("the frozen body emits one offered action");
-        let parent = first
-            .action_witnesses
+    fn only_device_events_can_form_application_calls() {
+        let geometry = WorldGeometry::standard_ansi_104().unwrap();
+        let up = geometry
+            .keys()
             .iter()
-            .find(|witness| witness.action == call.id)
-            .expect("the call has a physical crossing witness")
-            .crossing;
-
-        let mut changed = vec![0; ARC3_FRAME_PIXELS];
-        changed[ARC3_FRAME_PIXELS / 2] = 1;
-        let returned = sensorimotor.observe(changed.clone(), &catalog()).unwrap();
-        assert!(returned.returned_previous_action);
-        assert_eq!(returned.observation.boundary_parents, vec![parent]);
-
-        let repeated = sensorimotor.observe(changed, &catalog()).unwrap();
-        assert!(!repeated.returned_previous_action);
-        assert!(repeated.observation.boundary_parents.is_empty());
+            .find(|key| key.label == "Up")
+            .unwrap();
+        let call = action_call_for(
+            &DeviceEvent::KeyPressed { key: up.id.0 },
+            &DeviceState::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            call,
+            Some(Arc3ActionCall {
+                id: 1,
+                arguments: Arc3ActionArguments::Unit,
+            })
+        );
+        assert_eq!(
+            action_call_for(&DeviceEvent::TextChanged, &DeviceState::default()).unwrap(),
+            None
+        );
     }
 }
