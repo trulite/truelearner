@@ -208,6 +208,18 @@ impl ActuatorFrame {
         };
         *effort = effort.combine_bounded(command, BODY_MAX as u16);
     }
+
+    /// Adds only enough external reaction to cancel inward effort. A supporting
+    /// surface cannot pull the body outward, and it does not oppose another
+    /// axis such as a sideways slip.
+    pub(crate) fn resist_increase(&mut self, axis: BodyAxis, resistance: u16) {
+        let effort = &mut self.axes[axis.index()];
+        let unmatched = effort.increase.saturating_sub(effort.decrease);
+        effort.decrease = effort
+            .decrease
+            .saturating_add(unmatched.min(resistance))
+            .min(BODY_MAX as u16);
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -727,6 +739,26 @@ mod tests {
         assert!(state.same_pose(&before));
         assert_eq!(sense.decrease_effort, 3);
         assert_eq!(sense.increase_effort, 3);
+    }
+
+    #[test]
+    fn surface_resistance_cancels_inward_effort_without_causing_withdrawal() {
+        let axis = BodyAxis::PalmDepth;
+        let mut state = WorkstationState::default();
+        let before = state.clone();
+        let mut frame = ActuatorFrame::default();
+        frame.activate(axis, Direction::Increase, 7);
+        frame.resist_increase(axis, BODY_MAX as u16);
+
+        let movement = state.integrate(frame);
+
+        assert_eq!(movement.len(), 1);
+        assert_eq!(movement[0].axis, axis);
+        assert_eq!(movement[0].decrease_effort, 7);
+        assert_eq!(movement[0].increase_effort, 7);
+        assert_eq!(movement[0].net_impulse, 0);
+        assert!(!movement[0].changed);
+        assert!(state.same_pose(&before));
     }
 
     #[test]

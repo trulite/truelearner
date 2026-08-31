@@ -144,7 +144,7 @@ impl WorkstationSession {
 
 fn composed_session_fingerprint(sequence: u64, body: &str, world: &str) -> String {
     let mut digest = Sha256::new();
-    digest.update(b"truelearner-workstation-session-v3");
+    digest.update(b"truelearner-workstation-session-v4");
     digest.update(sequence.to_le_bytes());
     digest.update(body.as_bytes());
     digest.update(world.as_bytes());

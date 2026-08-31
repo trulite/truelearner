@@ -151,17 +151,23 @@ Body Discovery is split into four courses:
 1. Eye Control: gaze contingency, gaze control, and binocular depth.
 2. Hand and Finger Control: hand contingency and independent digits.
 3. Eye-Hand Coordination: distinguishing and coordinating self and world.
-4. Workstation Contact: visual reach, touch/withdraw, tap/hold/release, drag,
-   thumb opposition, and later keyboard, touchpad, and monitor interaction.
+4. Workstation Contact: visual reach, touch/withdraw, tap/hold/release,
+   contact drag, thumb contact, pinch drag, and later keyboard, touchpad, and
+   monitor interaction.
 
 Body Discovery experiences contain twelve ordinary world steps by default.
 `Contact` contains sixteen because its observed physical displacement cannot
 reach the external surface in twelve; this is an Academy exposure horizon, not
 an action, direction, or success signal supplied to the organism. Extending all
 capabilities to sixteen is rejected because it changes earlier binocular
-evidence. For the deterministic reference seed `31_001`, Contact,
-`VisualReach`, and `TapHoldRelease` are acquired and the current first failure
-is `DragOpposition`.
+evidence. `ContactDrag` contains thirty-two steps so the same uninterrupted
+physical contact can include motion and its eventual release; the learner sees
+neither the horizon nor the verdict. For deterministic reference seed `31_001`,
+all twelve bounded Body Discovery claims are acquired and there is no
+acquisition failure. Acquisition is not treated as the end of the evidence
+ladder: changed-world transfer and retention after later committed learning are
+recorded separately. `ContactDrag` is currently `General`; `ThumbContact` and
+`PinchDrag` are `Stable`.
 That lesson retains the course's compact visual field while using the physical
 workstation's key geometry, contact threshold, press/release hysteresis, and
 device events. A key held for two physical steps now produces one visible
@@ -271,6 +277,57 @@ nothing; Rust's frozen choice verifier checks retained progress and local
 release. Lean remains observer-only and its receipt never enters the learner or
 the hot path.
 
+### ContactDrag, ThumbContact, and PinchDrag implementation contract
+
+The former `DragOpposition` label is three separate falsifiable claims:
+
+1. `ContactDrag`: organism-caused lateral motion during contact moves the
+   cursor. A cursor change is ongoing progress, not boundary completion. When
+   the drag ends, the terminal event closes only its exact current lateral
+   crossing; a stale earlier crossing is not acceptable.
+2. `ThumbContact`: a real thumb-opposition crossing changes the thumb from no
+   contact to contact. Passive contact, another digit, palm motion, missing
+   ancestry, or several possible parents cannot establish the claim.
+3. `PinchDrag`: thumb and another digit must jointly maintain contact while an
+   object moves. The object's thumb and finger surfaces translate only when both
+   contacted tips undergo the same nonzero horizontal, vertical, or depth
+   displacement. Squeezing changes their separation and therefore cannot move
+   the object. An organism-caused object move counts only with one exact
+   palm-transport parent and maintained joint contact in the adjoining samples.
+
+The Academy world supplies two distinct physical surfaces. A rigid horizontal
+pad produces maximal support pressure; workstation morphology converts that
+pressure into an equal and opposite palm-depth reaction, canceling only inward
+effort. It cannot pull the hand outward or stop lateral motion. A light vertical
+patch begins immediately beside the current thumb, is insensitive to palm
+depth, and produces contact only after the thumb crosses into it. The pinch
+object begins with a selected non-thumb digit already on its own firm surface
+and the thumb immediately outside its light surface. After the thumb makes real
+contact, coherent hand transport moves the two surfaces and the visible object
+together. The thumb and its flexion form one local competition component; the
+rest of the hand remains independent. This is morphology, not a desired
+movement or reward.
+
+Development and probes begin from the same frozen external pose while retaining
+only development's learned topology. All three claims must pass a fresh
+immutable probe, exact replay, choice-law verification, natural quiet, and
+negative controls. Transfer changes only an external relation: ContactDrag uses
+a smaller shifted pad, ThumbContact a smaller side patch, and PinchDrag a
+different ordinary grip digit. After later committed body experience, retention
+restores only the external pose and probes the still-current learner. Lean
+checks the already-general unique/ambiguous closure law on frozen Rust evidence;
+no theorem or receipt enters the learner.
+
+The receipt reports an explicit evidence state rather than collapsing every
+passing lesson into one claim: `Acquired` means development plus a fresh probe,
+`General` additionally requires changed-world transfer, and `Stable`
+additionally requires retention after subsequent committed learning.
+`Automatic` is reserved for a future repeated low-cost-use contract. In the
+reference run, all twelve claims are acquired, ContactDrag transfers but fails
+the later retention probe, and ThumbContact and PinchDrag pass both transfer and
+retention. That failure remains visible evidence rather than being reclassified
+as a PinchDrag acquisition failure.
+
 Eye and hand foundations may develop independently. Coordination and
 manipulation are not reached until their actual capability prerequisites have
 been acquired. A failure closes only its course, so evidence can preserve both
@@ -293,10 +350,12 @@ quiescence, unchanged negative controls, and bounded physical work.
 The headless `academy-workstation` world now supplies the next external surface:
 a standard ANSI 104-key keyboard, continuous touchpad, monitor photograph,
 visible cursor and text, binocular scene rendering, and physical collision. It
-now has accepted unguided movement separation across all five digits and one
-bounded tap/hold/release sequence. The current body-course frontier is
-`DragOpposition`; no general pointing, clicking, typing, or image-use claim
-follows from that sequence.
+now has accepted unguided movement separation across all five digits, one
+bounded tap/hold/release sequence, contact dragging, thumb contact, and one
+two-contact object transport that transfers to a different grip digit and
+survives later learning. The bounded acquisition course is complete; durable
+ContactDrag retention is the next evidence frontier. No general pointing,
+clicking, typing, grasping, or image-use claim follows from those sequences.
 
 ## First curriculum
 

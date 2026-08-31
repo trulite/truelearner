@@ -1,4 +1,4 @@
-use crate::geometry::{KeyEffect, KeyId, WorldGeometry};
+use crate::geometry::{KeyEffect, KeyId, Rect, WorldGeometry};
 use crate::render::SceneRenderer;
 use crate::{WorldError, KEY_COUNT};
 use serde::{Deserialize, Serialize};
@@ -72,6 +72,7 @@ struct TouchTrack {
     point: ScreenPoint,
     started_at: u64,
     travel: u32,
+    drag_parent: Option<MotorEffect>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -165,6 +166,10 @@ pub enum DeviceEvent {
     KeyReleased { key: u16 },
     TextChanged,
     CursorMoved { from: ScreenPoint, to: ScreenPoint },
+    DragEnded,
+    ObjectMoved { from: ScreenPoint, to: ScreenPoint },
+    ObjectDepthMoved { from: i16, to: i16 },
+    PinchReleased,
     Clicked { selected: bool },
 }
 
@@ -208,6 +213,115 @@ struct SurfaceFrame {
     tips: [SurfacePoint; 5],
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PinchObject {
+    grip_digit: Digit,
+    thumb_zone: Rect,
+    finger_zone: Rect,
+    position: ScreenPoint,
+    depth: i16,
+    drag_parent: Option<MotorEffect>,
+}
+
+impl PinchObject {
+    fn contact_site(self, digit: Digit, point: SurfacePoint) -> bool {
+        match digit {
+            Digit::Thumb => self.thumb_zone.contains_xy(point.x, point.y),
+            candidate if candidate == self.grip_digit => {
+                self.finger_zone.contains_xy(point.x, point.y)
+            }
+            _ => false,
+        }
+    }
+
+    fn contact_pressure(self, digit: Digit, point: SurfacePoint) -> Option<u16> {
+        self.contact_site(digit, point)
+            .then_some(if digit == Digit::Thumb {
+                1
+            } else {
+                BODY_MAX as u16
+            })
+    }
+
+    fn grip_point(self, frame: SurfaceFrame) -> Option<ScreenPoint> {
+        let thumb = frame.tips[digit_index(Digit::Thumb)];
+        let finger = frame.tips[digit_index(self.grip_digit)];
+        (self.contact_site(Digit::Thumb, thumb) && self.contact_site(self.grip_digit, finger))
+            .then_some(ScreenPoint {
+                x: midpoint(thumb.x, finger.x),
+                y: midpoint(thumb.y, finger.y),
+            })
+    }
+
+    fn advance(&mut self, before: SurfaceFrame, after: SurfaceFrame) -> Vec<DeviceEvent> {
+        match (self.grip_point(before), self.grip_point(after)) {
+            (Some(_), Some(_)) => {
+                let before_thumb = before.tips[digit_index(Digit::Thumb)];
+                let after_thumb = after.tips[digit_index(Digit::Thumb)];
+                let before_finger = before.tips[digit_index(self.grip_digit)];
+                let after_finger = after.tips[digit_index(self.grip_digit)];
+                let thumb_delta = (
+                    after_thumb.x.saturating_sub(before_thumb.x),
+                    after_thumb.y.saturating_sub(before_thumb.y),
+                    after_thumb.depth.saturating_sub(before_thumb.depth),
+                );
+                let finger_delta = (
+                    after_finger.x.saturating_sub(before_finger.x),
+                    after_finger.y.saturating_sub(before_finger.y),
+                    after_finger.depth.saturating_sub(before_finger.depth),
+                );
+                if thumb_delta != finger_delta || thumb_delta == (0, 0, 0) {
+                    return Vec::new();
+                }
+                let (dx, dy, depth_delta) = thumb_delta;
+                let actual_dx = bounded_translation(
+                    dx,
+                    self.thumb_zone.x.min(self.finger_zone.x),
+                    self.thumb_zone.right().max(self.finger_zone.right()),
+                );
+                let actual_dy = bounded_translation(
+                    dy,
+                    self.thumb_zone.y.min(self.finger_zone.y),
+                    self.thumb_zone.bottom().max(self.finger_zone.bottom()),
+                );
+                let actual_depth = depth_delta.clamp(
+                    self.depth.saturating_neg(),
+                    BODY_MAX.saturating_sub(self.depth),
+                );
+                if actual_dx == 0 && actual_dy == 0 && actual_depth == 0 {
+                    return Vec::new();
+                }
+                let from = self.position;
+                let from_depth = self.depth;
+                translate_rect(&mut self.thumb_zone, actual_dx, actual_dy);
+                translate_rect(&mut self.finger_zone, actual_dx, actual_dy);
+                self.position.x = self.position.x.saturating_add(actual_dx);
+                self.position.y = self.position.y.saturating_add(actual_dy);
+                self.depth = self.depth.saturating_add(actual_depth);
+                let mut events = Vec::with_capacity(2);
+                if from != self.position {
+                    events.push(DeviceEvent::ObjectMoved {
+                        from,
+                        to: self.position,
+                    });
+                }
+                if from_depth != self.depth {
+                    events.push(DeviceEvent::ObjectDepthMoved {
+                        from: from_depth,
+                        to: self.depth,
+                    });
+                }
+                events
+            }
+            (Some(_), None) => {
+                self.drag_parent = None;
+                vec![DeviceEvent::PinchReleased]
+            }
+            _ => Vec::new(),
+        }
+    }
+}
+
 impl SurfaceFrame {
     fn from_body(body: &WorkstationState) -> Self {
         Self {
@@ -220,6 +334,11 @@ impl SurfaceFrame {
 #[derive(Clone, Debug)]
 pub struct WorkstationWorld {
     geometry: WorldGeometry,
+    touchpad: Rect,
+    touchpad_contact_depth: i16,
+    touchpad_fixed_pressure: Option<u16>,
+    keyboard_enabled: bool,
+    pinch_object: Option<PinchObject>,
     device: DeviceState,
     presentation: WorkstationPresentation,
     renderer: SceneRenderer,
@@ -230,6 +349,11 @@ pub struct WorkstationWorld {
 impl PartialEq for WorkstationWorld {
     fn eq(&self, other: &Self) -> bool {
         self.geometry == other.geometry
+            && self.touchpad == other.touchpad
+            && self.touchpad_contact_depth == other.touchpad_contact_depth
+            && self.touchpad_fixed_pressure == other.touchpad_fixed_pressure
+            && self.keyboard_enabled == other.keyboard_enabled
+            && self.pinch_object == other.pinch_object
             && self.device == other.device
             && self.presentation == other.presentation
             && self.key_press_depth == other.key_press_depth
@@ -256,6 +380,75 @@ impl WorkstationWorld {
         )
     }
 
+    /// Builds the same physical device with one uninterrupted contact pad and
+    /// no active keys. Academy uses this to present contact motion without a
+    /// button consequence repeatedly closing the preceding depth path.
+    pub fn new_with_contact_pad(touchpad: Rect) -> Result<Self, WorldError> {
+        Self::new_with_contact_patch(touchpad, CONTACT_DEPTH, BODY_MAX as u16)
+    }
+
+    /// Builds a light vertical touch patch. Crossing its x/y boundary produces
+    /// tactile contact without pretending that it supports palm depth.
+    pub fn new_with_side_contact_patch(touchpad: Rect) -> Result<Self, WorldError> {
+        Self::new_with_contact_patch(touchpad, 0, 1)
+    }
+
+    /// Builds a supported movable object whose two independent contact zones
+    /// can be held only by the thumb and one other digit. The thumb begins just
+    /// outside its zone, so a real opposition crossing must complete the grip.
+    pub fn new_with_pinch_object(
+        body: &WorkstationState,
+        grip_digit: Digit,
+    ) -> Result<Self, WorldError> {
+        if grip_digit == Digit::Thumb {
+            return Err(WorldError::InvalidGeometry);
+        }
+        let thumb = body.hand().fingertip(Digit::Thumb);
+        let finger = body.hand().fingertip(grip_digit);
+        let thumb_zone = Rect {
+            x: thumb.x().saturating_sub(48),
+            y: thumb.y().saturating_sub(24),
+            width: 48,
+            height: 48,
+        };
+        let finger_zone = centered_rect(finger.x(), finger.y(), 32, 32)?;
+        if !thumb_zone.valid() || !finger_zone.valid() {
+            return Err(WorldError::InvalidGeometry);
+        }
+        let mut world = Self::new_with_contact_patch(finger_zone, 0, BODY_MAX as u16)?;
+        world.pinch_object = Some(PinchObject {
+            grip_digit,
+            thumb_zone,
+            finger_zone,
+            position: ScreenPoint {
+                x: midpoint(thumb_zone.x + thumb_zone.width / 2, finger.x()),
+                y: midpoint(thumb.y(), finger.y()),
+            },
+            depth: midpoint(thumb.depth(), finger.depth()),
+            drag_parent: None,
+        });
+        Ok(world)
+    }
+
+    fn new_with_contact_patch(
+        touchpad: Rect,
+        contact_depth: i16,
+        contact_pressure: u16,
+    ) -> Result<Self, WorldError> {
+        if !touchpad.valid() {
+            return Err(WorldError::InvalidGeometry);
+        }
+        if !(0..=BODY_MAX).contains(&contact_depth) {
+            return Err(WorldError::InvalidGeometry);
+        }
+        let mut world = Self::new()?;
+        world.touchpad = touchpad;
+        world.touchpad_contact_depth = contact_depth;
+        world.touchpad_fixed_pressure = Some(contact_pressure);
+        world.keyboard_enabled = false;
+        Ok(world)
+    }
+
     pub fn new_with_presentation(
         presentation: WorkstationPresentation,
     ) -> Result<Self, WorldError> {
@@ -275,6 +468,11 @@ impl WorkstationWorld {
             return Err(WorldError::InvalidKeyDepths);
         }
         Ok(Self {
+            touchpad: geometry.touchpad,
+            touchpad_contact_depth: CONTACT_DEPTH,
+            touchpad_fixed_pressure: None,
+            keyboard_enabled: true,
+            pinch_object: None,
             geometry,
             device: DeviceState::default(),
             presentation,
@@ -315,6 +513,20 @@ impl WorkstationWorld {
 
     pub const fn key_release_depth(&self) -> i16 {
         self.key_release_depth
+    }
+
+    pub const fn pinch_object_position(&self) -> Option<ScreenPoint> {
+        match self.pinch_object {
+            Some(object) => Some(object.position),
+            None => None,
+        }
+    }
+
+    pub const fn pinch_object_depth(&self) -> Option<i16> {
+        match self.pinch_object {
+            Some(object) => Some(object.depth),
+            None => None,
+        }
     }
 
     pub fn sense(&self, body: &WorkstationState) -> Result<WorldSample, WorldError> {
@@ -367,10 +579,34 @@ impl WorkstationWorld {
             (Ok(before), Ok(after)) => Some((before, after)),
             _ => None,
         };
+        let ending_drag_parent = self.device.touch.and_then(|touch| touch.drag_parent);
+        let ending_pinch_parent = self.pinch_object.and_then(|object| object.drag_parent);
         let events = self.advance(&observation.state_before, &observation.state_after);
-        let has_direct_boundary_effect = events
+        let has_direct_boundary_effect = events.iter().any(|event| {
+            matches!(
+                event,
+                DeviceEvent::KeyPressed { .. }
+                    | DeviceEvent::KeyReleased { .. }
+                    | DeviceEvent::TextChanged
+                    | DeviceEvent::PinchReleased
+                    | DeviceEvent::Clicked { .. }
+            )
+        });
+        let cursor_moved = events
             .iter()
-            .any(|event| !matches!(event, DeviceEvent::LongPressActivated { .. }));
+            .any(|event| matches!(event, DeviceEvent::CursorMoved { .. }));
+        let drag_ended = events
+            .iter()
+            .any(|event| matches!(event, DeviceEvent::DragEnded));
+        let object_moved = events.iter().any(|event| {
+            matches!(
+                event,
+                DeviceEvent::ObjectMoved { .. } | DeviceEvent::ObjectDepthMoved { .. }
+            )
+        });
+        let pinch_released = events
+            .iter()
+            .any(|event| matches!(event, DeviceEvent::PinchReleased));
         let changed_axes = observation
             .movements
             .iter()
@@ -378,7 +614,30 @@ impl WorkstationWorld {
             .map(|movement| movement.axis)
             .filter(|axis| is_hand_axis(*axis))
             .collect::<Vec<_>>();
-        let boundary_parents = if has_direct_boundary_effect {
+        let transport_parents = observation
+            .crossings
+            .iter()
+            .copied()
+            .filter(|crossing| {
+                changed_axes.contains(&crossing.control.axis())
+                    && matches!(
+                        crossing.control.axis(),
+                        BodyAxis::PalmHorizontal | BodyAxis::PalmVertical | BodyAxis::PalmDepth
+                    )
+            })
+            .collect::<Vec<_>>();
+        let lateral_parents = transport_parents
+            .iter()
+            .copied()
+            .filter(|parent| {
+                matches!(
+                    parent.control.axis(),
+                    BodyAxis::PalmHorizontal | BodyAxis::PalmVertical
+                )
+            })
+            .collect::<Vec<_>>();
+        let depth_sensitive = self.touchpad_contact_depth > 0 || self.keyboard_enabled;
+        let mut boundary_parents = if has_direct_boundary_effect {
             observation
                 .crossings
                 .iter()
@@ -388,15 +647,50 @@ impl WorkstationWorld {
         } else {
             Vec::new()
         };
-        let progress_axes = contact_change
+        if drag_ended {
+            boundary_parents = match lateral_parents.as_slice() {
+                [parent] => vec![*parent],
+                _ => ending_drag_parent.into_iter().collect(),
+            };
+        } else if pinch_released {
+            boundary_parents = match transport_parents.as_slice() {
+                [parent] => vec![*parent],
+                _ => ending_pinch_parent.into_iter().collect(),
+            };
+        }
+        let mut progress_axes = contact_change
             .map(|(before, after)| {
                 changed_axes
                     .iter()
                     .copied()
-                    .filter(|axis| affected_contact_changed(*axis, &before, &after))
+                    .filter(|axis| {
+                        affected_contact_changed(*axis, &before, &after, depth_sensitive)
+                    })
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+        if cursor_moved || object_moved {
+            progress_axes.extend(changed_axes.iter().copied().filter(|axis| {
+                matches!(
+                    axis,
+                    BodyAxis::PalmHorizontal | BodyAxis::PalmVertical | BodyAxis::PalmDepth
+                )
+            }));
+            if cursor_moved {
+                if let [parent] = lateral_parents.as_slice() {
+                    if let Some(touch) = &mut self.device.touch {
+                        touch.drag_parent = Some(*parent);
+                    }
+                }
+            }
+            if object_moved {
+                if let [parent] = transport_parents.as_slice() {
+                    if let Some(object) = &mut self.pinch_object {
+                        object.drag_parent = Some(*parent);
+                    }
+                }
+            }
+        }
         let progress_parents = observation
             .crossings
             .iter()
@@ -438,8 +732,36 @@ impl WorkstationWorld {
         self.device.validate()?;
         let bytes = bincode::serialize(&self.device).map_err(|_| WorldError::InvalidState)?;
         let mut digest = Sha256::new();
-        digest.update(b"truelearner-workstation-world-v2");
+        digest.update(b"truelearner-workstation-world-v3");
         digest.update(self.renderer.asset_digest());
+        digest.update(self.touchpad.x.to_le_bytes());
+        digest.update(self.touchpad.y.to_le_bytes());
+        digest.update(self.touchpad.width.to_le_bytes());
+        digest.update(self.touchpad.height.to_le_bytes());
+        digest.update(self.touchpad_contact_depth.to_le_bytes());
+        digest.update([u8::from(self.touchpad_fixed_pressure.is_some())]);
+        digest.update(self.touchpad_fixed_pressure.unwrap_or(0).to_le_bytes());
+        digest.update([u8::from(self.keyboard_enabled)]);
+        if let Some(object) = self.pinch_object {
+            digest.update([
+                1,
+                u8::try_from(digit_index(object.grip_digit)).unwrap_or(u8::MAX),
+            ]);
+            for rect in [object.thumb_zone, object.finger_zone] {
+                digest.update(rect.x.to_le_bytes());
+                digest.update(rect.y.to_le_bytes());
+                digest.update(rect.width.to_le_bytes());
+                digest.update(rect.height.to_le_bytes());
+            }
+            digest.update(object.position.x.to_le_bytes());
+            digest.update(object.position.y.to_le_bytes());
+            digest.update(object.depth.to_le_bytes());
+            digest.update(
+                bincode::serialize(&object.drag_parent).map_err(|_| WorldError::InvalidState)?,
+            );
+        } else {
+            digest.update([0]);
+        }
         digest.update(self.key_press_depth.to_le_bytes());
         digest.update(self.key_release_depth.to_le_bytes());
         digest
@@ -472,29 +794,49 @@ impl WorkstationWorld {
     fn contacts(&self, frame: SurfaceFrame) -> Result<[ContactSample; TOUCH_SITES], WorldError> {
         let mut contacts = [ContactSample::default(); TOUCH_SITES];
         if self.on_surface(frame.palm) {
-            contacts[0] = contact_sample(frame.palm.depth, 0)?;
+            contacts[0] = self.contact_at(frame.palm, 0)?;
         }
         for (index, tip) in frame.tips.into_iter().enumerate() {
+            let digit = Digit::ALL[index];
+            if let Some(pressure) = self
+                .pinch_object
+                .and_then(|object| object.contact_pressure(digit, tip))
+            {
+                contacts[index + 1] = ContactSample::new(pressure, 0)?;
+                continue;
+            }
             if self.on_surface(tip) {
                 let slip = self
                     .device
                     .touch
                     .map(|touch| tip.x.saturating_sub(touch.point.x))
                     .unwrap_or(0);
-                contacts[index + 1] = contact_sample(tip.depth, slip)?;
+                contacts[index + 1] = self.contact_at(tip, slip)?;
             }
         }
         Ok(contacts)
     }
 
     fn on_surface(&self, point: SurfacePoint) -> bool {
-        point.depth >= CONTACT_DEPTH
-            && (self.geometry.touchpad.contains_xy(point.x, point.y)
-                || self
+        (point.depth >= self.touchpad_contact_depth && self.touchpad.contains_xy(point.x, point.y))
+            || (point.depth >= CONTACT_DEPTH
+                && self.keyboard_enabled
+                && self
                     .geometry
                     .keys()
                     .iter()
                     .any(|key| key.rect.contains_xy(point.x, point.y)))
+    }
+
+    fn contact_at(&self, point: SurfacePoint, slip: i16) -> Result<ContactSample, WorldError> {
+        if self.touchpad.contains_xy(point.x, point.y) {
+            if let Some(pressure) = self.touchpad_fixed_pressure {
+                return ContactSample::new(pressure, slip.clamp(-BODY_MAX, BODY_MAX))
+                    .map_err(WorldError::from);
+            }
+            return contact_sample(point.depth, slip);
+        }
+        contact_sample(point.depth, slip)
     }
 
     fn advance_frames(&mut self, before: SurfaceFrame, after: SurfaceFrame) -> Vec<DeviceEvent> {
@@ -543,56 +885,67 @@ impl WorkstationWorld {
             }
         }
 
-        let touch = after
-            .tips
-            .into_iter()
-            .find(|tip| {
-                tip.depth >= CONTACT_DEPTH && self.geometry.touchpad.contains_xy(tip.x, tip.y)
-            })
-            .map(|tip| ScreenPoint { x: tip.x, y: tip.y });
-        match (self.device.touch, touch) {
-            (None, Some(point)) => {
-                self.device.touch = Some(TouchTrack {
-                    point,
-                    started_at: self.device.step,
-                    travel: 0,
-                });
-            }
-            (Some(mut track), Some(point)) => {
-                let dx = point.x.saturating_sub(track.point.x);
-                let dy = point.y.saturating_sub(track.point.y);
-                let distance =
-                    u32::from(dx.unsigned_abs()).saturating_add(u32::from(dy.unsigned_abs()));
-                track.travel = track.travel.saturating_add(distance);
-                if dx != 0 || dy != 0 {
-                    let from = self.device.cursor;
-                    self.device.cursor.x = add_screen(self.device.cursor.x, i32::from(dx) * 2);
-                    self.device.cursor.y = add_screen(self.device.cursor.y, i32::from(dy) * 2);
-                    events.push(DeviceEvent::CursorMoved {
-                        from,
-                        to: self.device.cursor,
+        if let Some(object) = &mut self.pinch_object {
+            events.extend(object.advance(before, after));
+        } else {
+            let touch = after
+                .tips
+                .into_iter()
+                .find(|tip| {
+                    tip.depth >= self.touchpad_contact_depth
+                        && self.touchpad.contains_xy(tip.x, tip.y)
+                })
+                .map(|tip| ScreenPoint { x: tip.x, y: tip.y });
+            match (self.device.touch, touch) {
+                (None, Some(point)) => {
+                    self.device.touch = Some(TouchTrack {
+                        point,
+                        started_at: self.device.step,
+                        travel: 0,
+                        drag_parent: None,
                     });
                 }
-                track.point = point;
-                self.device.touch = Some(track);
-            }
-            (Some(track), None) => {
-                let duration = self.device.step.saturating_sub(track.started_at);
-                if duration <= MAX_TAP_STEPS && track.travel <= MAX_TAP_TRAVEL {
-                    self.device.selected = !self.device.selected;
-                    events.push(DeviceEvent::Clicked {
-                        selected: self.device.selected,
-                    });
+                (Some(mut track), Some(point)) => {
+                    let dx = point.x.saturating_sub(track.point.x);
+                    let dy = point.y.saturating_sub(track.point.y);
+                    let distance =
+                        u32::from(dx.unsigned_abs()).saturating_add(u32::from(dy.unsigned_abs()));
+                    track.travel = track.travel.saturating_add(distance);
+                    if dx != 0 || dy != 0 {
+                        let from = self.device.cursor;
+                        self.device.cursor.x = add_screen(self.device.cursor.x, i32::from(dx) * 2);
+                        self.device.cursor.y = add_screen(self.device.cursor.y, i32::from(dy) * 2);
+                        events.push(DeviceEvent::CursorMoved {
+                            from,
+                            to: self.device.cursor,
+                        });
+                    }
+                    track.point = point;
+                    self.device.touch = Some(track);
                 }
-                self.device.touch = None;
+                (Some(track), None) => {
+                    let duration = self.device.step.saturating_sub(track.started_at);
+                    if duration <= MAX_TAP_STEPS && track.travel <= MAX_TAP_TRAVEL {
+                        self.device.selected = !self.device.selected;
+                        events.push(DeviceEvent::Clicked {
+                            selected: self.device.selected,
+                        });
+                    } else if track.travel > MAX_TAP_TRAVEL {
+                        events.push(DeviceEvent::DragEnded);
+                    }
+                    self.device.touch = None;
+                }
+                (None, None) => {}
             }
-            (None, None) => {}
         }
         self.device.step = self.device.step.saturating_add(1);
         events
     }
 
     fn keys_at_depth(&self, frame: SurfaceFrame, depth: i16) -> BTreeSet<u16> {
+        if !self.keyboard_enabled {
+            return BTreeSet::new();
+        }
         frame
             .tips
             .into_iter()
@@ -622,6 +975,43 @@ impl WorkstationWorld {
     }
 }
 
+fn digit_index(digit: Digit) -> usize {
+    Digit::ALL
+        .iter()
+        .position(|candidate| *candidate == digit)
+        .expect("digit belongs to the fixed hand")
+}
+
+fn centered_rect(x: i16, y: i16, width: i16, height: i16) -> Result<Rect, WorldError> {
+    let maximum_x = BODY_MAX + 1 - width;
+    let maximum_y = BODY_MAX + 1 - height;
+    let rect = Rect {
+        x: x.saturating_sub(width / 2).clamp(0, maximum_x),
+        y: y.saturating_sub(height / 2).clamp(0, maximum_y),
+        width,
+        height,
+    };
+    rect.valid()
+        .then_some(rect)
+        .ok_or(WorldError::InvalidGeometry)
+}
+
+fn midpoint(left: i16, right: i16) -> i16 {
+    i16::try_from((i32::from(left) + i32::from(right)) / 2).unwrap_or(left)
+}
+
+fn bounded_translation(delta: i16, minimum: i16, maximum: i16) -> i16 {
+    delta.clamp(
+        minimum.saturating_neg(),
+        (BODY_MAX + 1).saturating_sub(maximum),
+    )
+}
+
+fn translate_rect(rect: &mut Rect, dx: i16, dy: i16) {
+    rect.x = rect.x.saturating_add(dx);
+    rect.y = rect.y.saturating_add(dy);
+}
+
 const fn is_hand_axis(axis: BodyAxis) -> bool {
     !matches!(
         axis,
@@ -633,11 +1023,13 @@ fn affected_contact_changed(
     axis: BodyAxis,
     before: &[ContactSample; TOUCH_SITES],
     after: &[ContactSample; TOUCH_SITES],
+    depth_sensitive: bool,
 ) -> bool {
     let changed = |site: usize| before[site] != after[site];
     match axis {
         BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. } => false,
-        BodyAxis::PalmHorizontal | BodyAxis::PalmVertical | BodyAxis::PalmDepth => before != after,
+        BodyAxis::PalmHorizontal | BodyAxis::PalmVertical => before != after,
+        BodyAxis::PalmDepth => depth_sensitive && before != after,
         BodyAxis::Wrist | BodyAxis::Spread => (1..TOUCH_SITES).any(changed),
         BodyAxis::ThumbOpposition => changed(1),
         BodyAxis::FingerFlexion { digit } => Digit::ALL
@@ -707,12 +1099,14 @@ mod tests {
         assert!(affected_contact_changed(
             BodyAxis::PalmDepth,
             &before,
-            &palm_after
+            &palm_after,
+            true,
         ));
         assert!(!affected_contact_changed(
             BodyAxis::FingerFlexion { digit: Digit::Ring },
             &before,
-            &palm_after
+            &palm_after,
+            true,
         ));
 
         let mut thumb_after = before;
@@ -720,12 +1114,20 @@ mod tests {
         assert!(affected_contact_changed(
             BodyAxis::ThumbOpposition,
             &before,
-            &thumb_after
+            &thumb_after,
+            false,
         ));
         assert!(!affected_contact_changed(
             BodyAxis::FingerFlexion { digit: Digit::Ring },
             &before,
-            &thumb_after
+            &thumb_after,
+            false,
+        ));
+        assert!(!affected_contact_changed(
+            BodyAxis::PalmDepth,
+            &before,
+            &thumb_after,
+            false,
         ));
     }
 
@@ -961,6 +1363,121 @@ mod tests {
     }
 
     #[test]
+    fn academy_contact_patches_preserve_their_distinct_physics() {
+        let patch = Rect {
+            x: 300,
+            y: 600,
+            width: 80,
+            height: 80,
+        };
+        let mut frame = empty_frame();
+        frame.tips[0] = SurfacePoint {
+            x: patch.x + 1,
+            y: patch.y + 1,
+            depth: CONTACT_DEPTH,
+        };
+
+        let rigid = WorkstationWorld::new_with_contact_pad(patch).unwrap();
+        assert_eq!(
+            rigid.contacts(frame).unwrap()[1].pressure(),
+            BODY_MAX as u16
+        );
+
+        frame.tips[0].depth = 0;
+        let side = WorkstationWorld::new_with_side_contact_patch(patch).unwrap();
+        assert_eq!(side.contacts(frame).unwrap()[1].pressure(), 1);
+        assert_ne!(rigid.fingerprint().unwrap(), side.fingerprint().unwrap());
+
+        let key = rigid
+            .geometry()
+            .keys()
+            .iter()
+            .find(|key| key.label == "A")
+            .unwrap();
+        let mut key_frame = empty_frame();
+        key_frame.tips[0] = SurfacePoint {
+            x: key.rect.x + 1,
+            y: key.rect.y + 1,
+            depth: KEY_PRESS_DEPTH,
+        };
+        let mut isolated = rigid;
+        assert!(isolated
+            .advance_surface_for_test(empty_frame(), key_frame)
+            .iter()
+            .all(|event| !matches!(event, DeviceEvent::KeyPressed { .. })));
+    }
+
+    #[test]
+    fn pinch_object_requires_two_contacts_and_coherent_transport() {
+        let body = WorkstationState::default();
+        let mut world = WorkstationWorld::new_with_pinch_object(&body, Digit::Ring).unwrap();
+        let finger_only = SurfaceFrame::from_body(&body);
+        let object = world.pinch_object.unwrap();
+        assert!(!object.contact_site(Digit::Thumb, finger_only.tips[0]));
+        assert!(object.contact_site(Digit::Ring, finger_only.tips[3]));
+
+        let mut gripped = finger_only;
+        gripped.tips[0].x = gripped.tips[0].x.saturating_sub(2);
+        let contacts = world.contacts(gripped).unwrap();
+        assert_eq!(contacts[1].pressure(), 1);
+        assert_eq!(contacts[4].pressure(), BODY_MAX as u16);
+        assert!(world
+            .advance_frames(finger_only, gripped)
+            .iter()
+            .all(|event| !matches!(
+                event,
+                DeviceEvent::ObjectMoved { .. } | DeviceEvent::ObjectDepthMoved { .. }
+            )));
+
+        let mut carried = gripped;
+        carried.tips[0].depth = carried.tips[0].depth.saturating_sub(16);
+        carried.tips[3].depth = carried.tips[3].depth.saturating_sub(16);
+        assert!(world.advance_frames(gripped, carried).iter().any(
+            |event| matches!(event, DeviceEvent::ObjectDepthMoved { from, to } if from != to)
+        ));
+
+        let mut one_contact = carried;
+        one_contact.tips[3].x = object.finger_zone.right().saturating_add(1);
+        let mut one_contact_moved = one_contact;
+        one_contact_moved.tips[0].depth = one_contact_moved.tips[0].depth.saturating_sub(16);
+        one_contact_moved.tips[3].depth = one_contact_moved.tips[3].depth.saturating_sub(16);
+        assert!(world
+            .advance_frames(one_contact, one_contact_moved)
+            .iter()
+            .all(|event| !matches!(
+                event,
+                DeviceEvent::ObjectMoved { .. } | DeviceEvent::ObjectDepthMoved { .. }
+            )));
+    }
+
+    #[test]
+    fn thumb_alone_cannot_be_the_second_pinch_contact() {
+        assert_eq!(
+            WorkstationWorld::new_with_pinch_object(&WorkstationState::default(), Digit::Thumb)
+                .unwrap_err(),
+            WorldError::InvalidGeometry
+        );
+    }
+
+    #[test]
+    fn invalid_academy_contact_patch_fails_closed() {
+        let invalid = Rect {
+            x: BODY_MAX,
+            y: BODY_MAX,
+            width: 2,
+            height: 2,
+        };
+        assert_eq!(
+            WorkstationWorld::new_with_contact_pad(invalid).unwrap_err(),
+            WorldError::InvalidGeometry
+        );
+        assert_eq!(
+            WorkstationWorld::new_with_side_contact_patch(invalid).unwrap_err(),
+            WorldError::InvalidGeometry
+        );
+    }
+
+    #[test]
     fn short_stationary_release_clicks_but_drag_release_does_not() {
         let pad = WorkstationWorld::new().unwrap().geometry().touchpad;
         let mut contact = empty_frame();
@@ -985,6 +1502,9 @@ mod tests {
         assert!(!events
             .iter()
             .any(|event| matches!(event, DeviceEvent::Clicked { .. })));
+        assert!(events
+            .iter()
+            .any(|event| matches!(event, DeviceEvent::DragEnded)));
     }
 
     #[test]

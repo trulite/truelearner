@@ -28,7 +28,7 @@ const SENSOR_PRIME: i32 = i32::MIN;
 const LIGHT_RANGE: u32 = u8::MAX as u32;
 const BODY_RANGE: u32 = BODY_MAX as u32;
 const SIGNED_BODY_RANGE: u32 = BODY_RANGE * 2;
-const COMPETITION_COMPONENTS: usize = 3;
+const COMPETITION_COMPONENTS: usize = 4;
 const OUTCOME_COMPONENTS: usize = AXIS_COUNT;
 const MOMENT_LIMIT: usize = 512;
 
@@ -269,18 +269,12 @@ impl WorkstationHarness {
         });
         let competition_outcomes =
             std::array::from_fn(|_| attach_sensor(&mut body, Junction::integrating(1), &[]));
-        for (component, motors) in [
-            &opportunities[..4],
-            &opportunities[4..8],
-            &opportunities[8..],
-        ]
-        .into_iter()
-        .enumerate()
-        {
+        for axis in BodyAxis::ALL {
+            let start = axis.index() * 2;
             attach_boundary_component(
                 &mut body,
-                competition_outcomes[component],
-                motors.iter().copied(),
+                competition_outcomes[competition_component(axis)],
+                opportunities[start..start + 2].iter().copied(),
             );
         }
         let outcomes =
@@ -483,9 +477,7 @@ impl WorkstationHarness {
         } else {
             Vec::new()
         };
-        if admit_sensory {
-            first_wave.extend(self.resisted_progress_wave(progress_parents));
-        }
+        first_wave.extend(self.resisted_progress_wave(progress_parents));
         let mut returned_components = [false; OUTCOME_COMPONENTS];
         for axis in &returned_transitions {
             returned_components[outcome_component(*axis)] = true;
@@ -554,6 +546,7 @@ impl WorkstationHarness {
                 .min(u32::from(BODY_MAX as u16)) as u16;
             frame.activate(effect.control.axis(), effect.control.direction(), effort);
         }
+        apply_contact_reaction(&sample, &mut frame);
         let movements = self.state.integrate(frame);
         self.pending_transitions = std::array::from_fn(|index| {
             movements
@@ -804,6 +797,16 @@ impl WorkstationHarness {
     }
 }
 
+fn apply_contact_reaction(sample: &WorldSample, frame: &mut ActuatorFrame) {
+    if sample
+        .contacts()
+        .iter()
+        .any(|contact| contact.pressure() == BODY_MAX as u16)
+    {
+        frame.resist_increase(BodyAxis::PalmDepth, BODY_MAX as u16);
+    }
+}
+
 const fn control(axis: BodyAxis, direction: Direction) -> BodyControl {
     match axis {
         BodyAxis::EyeHorizontal { eye } => BodyControl::EyeHorizontal { eye, direction },
@@ -833,8 +836,13 @@ const fn competition_component(axis: BodyAxis) -> usize {
         | BodyAxis::PalmDepth
         | BodyAxis::Wrist
         | BodyAxis::Spread
-        | BodyAxis::ThumbOpposition
-        | BodyAxis::FingerFlexion { .. } => 2,
+        | BodyAxis::FingerFlexion {
+            digit: Digit::Index | Digit::Middle | Digit::Ring | Digit::Little,
+        } => 2,
+        BodyAxis::ThumbOpposition
+        | BodyAxis::FingerFlexion {
+            digit: Digit::Thumb,
+        } => 3,
     }
 }
 
@@ -928,11 +936,11 @@ fn contact_nearness(opportunities: &[JunctionId], site: usize) -> Vec<(JunctionI
         ]
     } else {
         let digit = Digit::ALL[site - 1];
-        let mut axes = vec![BodyAxis::PalmDepth, BodyAxis::FingerFlexion { digit }];
         if digit == Digit::Thumb {
-            axes.push(BodyAxis::ThumbOpposition);
+            vec![BodyAxis::ThumbOpposition, BodyAxis::FingerFlexion { digit }]
+        } else {
+            vec![BodyAxis::PalmDepth, BodyAxis::FingerFlexion { digit }]
         }
-        axes
     };
     axes.into_iter()
         .flat_map(|axis| axis_nearness(opportunities, axis))
@@ -1006,6 +1014,30 @@ mod tests {
     }
 
     #[test]
+    fn only_maximal_support_pressure_cancels_inward_depth() {
+        let axis = BodyAxis::PalmDepth;
+        let movement_at_pressure = |pressure| {
+            let mut contacts = [ContactSample::default(); TOUCH_SITES];
+            contacts[1] = ContactSample::new(pressure, 0).unwrap();
+            let sample = with_fields(field(0), field(0), contacts);
+            let mut frame = ActuatorFrame::default();
+            frame.activate(axis, Direction::Increase, 7);
+            apply_contact_reaction(&sample, &mut frame);
+            WorkstationState::default().integrate(frame)
+        };
+
+        let soft = movement_at_pressure(1);
+        assert!(soft[0].changed);
+        assert_eq!(soft[0].net_impulse, 7);
+
+        let rigid = movement_at_pressure(BODY_MAX as u16);
+        assert!(!rigid[0].changed);
+        assert_eq!(rigid[0].decrease_effort, 7);
+        assert_eq!(rigid[0].increase_effort, 7);
+        assert_eq!(rigid[0].net_impulse, 0);
+    }
+
+    #[test]
     fn target_intensity_is_an_ordinary_local_reading() {
         let harness = WorkstationHarness::new(1).unwrap();
         let high = harness.sensory_wave(
@@ -1073,6 +1105,46 @@ mod tests {
             ])
             .is_empty());
         assert!(harness.resisted_progress_wave(&[]).is_empty());
+    }
+
+    #[test]
+    fn thumb_contact_is_a_local_hand_component() {
+        assert_eq!(competition_component(BodyAxis::PalmDepth), 2);
+        assert_eq!(
+            competition_component(BodyAxis::FingerFlexion {
+                digit: Digit::Index
+            }),
+            2
+        );
+        assert_eq!(competition_component(BodyAxis::ThumbOpposition), 3);
+        assert_eq!(
+            competition_component(BodyAxis::FingerFlexion {
+                digit: Digit::Thumb
+            }),
+            3
+        );
+
+        let harness = WorkstationHarness::new(1).unwrap();
+        let nearby = contact_nearness(&harness.handles.opportunities, 1);
+        let nearby_junctions = nearby
+            .iter()
+            .map(|(junction, _)| *junction)
+            .collect::<Vec<_>>();
+        for axis in [
+            BodyAxis::ThumbOpposition,
+            BodyAxis::FingerFlexion {
+                digit: Digit::Thumb,
+            },
+        ] {
+            let start = axis.index() * 2;
+            assert!(harness.handles.opportunities[start..start + 2]
+                .iter()
+                .all(|junction| nearby_junctions.contains(junction)));
+        }
+        let palm_start = BodyAxis::PalmDepth.index() * 2;
+        assert!(harness.handles.opportunities[palm_start..palm_start + 2]
+            .iter()
+            .all(|junction| !nearby_junctions.contains(junction)));
     }
 
     #[test]

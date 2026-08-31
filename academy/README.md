@@ -42,6 +42,22 @@ requires an exact motor parent supplied by the world transition; boundary
 completion releases only the antagonist in the same actuator component. Only
 organism-caused events can satisfy the subsequent normal-key probe.
 
+The workstation manipulation rung is split into `ContactDrag`, `ThumbContact`,
+and `PinchDrag`. Rigid contact cancels only inward palm-depth effort and leaves
+lateral slip free. Cursor motion is progress; drag release is terminal closure
+with the exact current lateral parent. A separate light side patch begins just
+outside the thumb, so actual thumb opposition must cross from no contact into
+contact. PinchDrag adds a two-contact object: thumb and a selected ordinary
+digit must remain in contact and undergo the same physical translation before
+the object moves. Squeezing alone, one contact, or motion without one exact
+palm-transport parent cannot pass.
+
+Reference seed `31_001` now acquires all twelve bounded Body Discovery claims.
+Changed-world transfer and post-learning retention are reported separately:
+`ContactDrag` is `General`, while `ThumbContact` and `PinchDrag` are `Stable`.
+The acquisition ladder is closed; the next honest evidence frontier is durable
+ContactDrag retention, not another hidden success condition.
+
 ## Physical workstation
 
 `academy-workstation` supplies the binocular visual world, one articulated

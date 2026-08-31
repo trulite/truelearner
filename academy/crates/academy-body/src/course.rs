@@ -1,17 +1,19 @@
 use crate::world::FlatWorld;
 use academy_workstation::{
-    DeviceEvent, DeviceState, KeyId, WorkstationWorld, WorldError, WorldTransition, KEY_COUNT,
+    DeviceEvent, DeviceState, KeyId, Rect, ScreenPoint, WorkstationWorld, WorldError,
+    WorldTransition, KEY_COUNT,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::fmt;
 use truelearner_workstation::{
-    BodyAxis, BodyMovement, Eye, LightField, MotorEffect, WorkstationError, WorkstationHarness,
-    WorkstationStepObservation, WorldSample,
+    BodyAxis, BodyMovement, Digit, Eye, LightField, MotorEffect, WorkstationError,
+    WorkstationHarness, WorkstationState, WorkstationStepObservation, WorldSample, BODY_MAX,
 };
 
 const STEPS_PER_EXPERIENCE: usize = 12;
 const CONTACT_STEPS_PER_EXPERIENCE: usize = 16;
+const CONTACT_DRAG_STEPS_PER_EXPERIENCE: usize = 32;
 const DEMONSTRATION_STEPS_PER_EXPERIENCE: usize = 5;
 const IMITATION_STEPS_PER_EXPERIENCE: usize = 6;
 // The deepest diagnostic rung needs seven ordinary 16-unit palm steps from
@@ -22,6 +24,20 @@ const PRACTICE_KEY_RELEASE_DEPTH: i16 = 608;
 const DEPTH_CONTROL_PRESS_DEPTHS: [i16; 6] = [640, 656, 672, 688, 704, 720];
 const DEPTH_CONTROL_RELEASE_DEPTH: i16 = 608;
 const PHYSICAL_WORK_BOUND: u64 = 2_000_000;
+const CONTACT_PAD: Rect = Rect {
+    x: 320,
+    y: 620,
+    width: 320,
+    height: 280,
+};
+const CONTACT_TRANSFER_PAD: Rect = Rect {
+    x: 352,
+    y: 652,
+    width: 256,
+    height: 208,
+};
+const THUMB_PAD_SIZE: i16 = 48;
+const THUMB_TRANSFER_PAD_SIZE: i16 = 32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -35,11 +51,13 @@ pub enum BodyCapability {
     Contact,
     VisualReach,
     TapHoldRelease,
-    DragOpposition,
+    ContactDrag,
+    ThumbContact,
+    PinchDrag,
 }
 
 impl BodyCapability {
-    pub const ORDER: [Self; 10] = [
+    pub const ORDER: [Self; 12] = [
         Self::GazeContingency,
         Self::GazeControl,
         Self::BinocularDepth,
@@ -49,7 +67,9 @@ impl BodyCapability {
         Self::Contact,
         Self::VisualReach,
         Self::TapHoldRelease,
-        Self::DragOpposition,
+        Self::ContactDrag,
+        Self::ThumbContact,
+        Self::PinchDrag,
     ];
 
     pub fn prerequisites(self) -> &'static [Self] {
@@ -62,7 +82,9 @@ impl BodyCapability {
             Self::Contact => &[Self::SelfWorld],
             Self::VisualReach => &[Self::Contact],
             Self::TapHoldRelease => &[Self::VisualReach],
-            Self::DragOpposition => &[Self::TapHoldRelease],
+            Self::ContactDrag => &[Self::TapHoldRelease],
+            Self::ThumbContact => &[Self::ContactDrag],
+            Self::PinchDrag => &[Self::ContactDrag, Self::ThumbContact],
         }
     }
 }
@@ -100,7 +122,9 @@ impl BodyCourseKind {
                 BodyCapability::Contact,
                 BodyCapability::VisualReach,
                 BodyCapability::TapHoldRelease,
-                BodyCapability::DragOpposition,
+                BodyCapability::ContactDrag,
+                BodyCapability::ThumbContact,
+                BodyCapability::PinchDrag,
             ],
         }
     }
@@ -129,6 +153,7 @@ pub enum BodyExperienceMode {
     DepthControl,
     Probe,
     Transfer,
+    Interference,
     Retention,
     Control,
 }
@@ -142,6 +167,23 @@ pub enum BodyVerdict {
     MissingExploration,
     BudgetExceeded,
     NotReached,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BodyEvidenceState {
+    Unknown,
+    Emerging,
+    Acquired,
+    General,
+    Stable,
+    Automatic,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BodyCapabilityEvidence {
+    pub capability: BodyCapability,
+    pub state: BodyEvidenceState,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -192,6 +234,7 @@ pub struct CourseRun {
     pub seed: u64,
     pub courses: Vec<BodyCourseProgress>,
     pub acquired: Vec<BodyCapability>,
+    pub capability_evidence: Vec<BodyCapabilityEvidence>,
     pub first_failure: Option<BodyCapability>,
     pub experiences: Vec<BodyExperience>,
     pub exact_replay: bool,
@@ -248,7 +291,8 @@ impl BodyCourse {
         let durable_before = self.checkpoint_bytes()?;
         let checkpoint = truelearner_workstation::WorkstationCheckpoint::decode(&durable_before)?;
         let mut working = WorkstationHarness::restore(checkpoint)?;
-        let mut world = ExperienceWorld::generated(seed, capability, mode, key_depths)?;
+        let mut world =
+            ExperienceWorld::generated(seed, capability, mode, key_depths, working.state())?;
         let (key_press_depth, key_release_depth) = world.key_depths();
         let steps = steps_per_experience(capability, mode);
         let mut samples = Vec::with_capacity(steps);
@@ -294,9 +338,20 @@ impl BodyCourse {
             if settling {
                 break;
             }
-            settle_next = capability == BodyCapability::TapHoldRelease
+            settle_next = (capability == BodyCapability::TapHoldRelease
                 && mode == BodyExperienceMode::Development
-                && tap_hold_release_completed(&world_observations, BodyWorldCause::Organism);
+                && tap_hold_release_completed(&world_observations, BodyWorldCause::Organism))
+                || (capability == BodyCapability::ThumbContact
+                    && matches!(
+                        mode,
+                        BodyExperienceMode::Development | BodyExperienceMode::Probe
+                    )
+                    && world_observations.last().is_some_and(|observation| {
+                        matches!(
+                            observation.progress_parents.as_slice(),
+                            [parent] if parent.control.axis() == BodyAxis::ThumbOpposition
+                        )
+                    }));
         }
         let checkpoint_after = working.save()?.canonical_bytes()?;
         let mut verdict = if mode == BodyExperienceMode::Demonstration {
@@ -445,7 +500,13 @@ impl BodyCourse {
                         break;
                     }
                 }
-                if capability == BodyCapability::TapHoldRelease {
+                if matches!(
+                    capability,
+                    BodyCapability::TapHoldRelease
+                        | BodyCapability::ContactDrag
+                        | BodyCapability::ThumbContact
+                        | BodyCapability::PinchDrag
+                ) {
                     let reference = truelearner_workstation::WorkstationCheckpoint::decode(
                         &checkpoint_before_lesson,
                     )?;
@@ -460,6 +521,49 @@ impl BodyCourse {
                     self.restore_checkpoint(&checkpoint_before_lesson)?;
                     course_failure = Some(capability);
                     break;
+                }
+                if matches!(
+                    capability,
+                    BodyCapability::ContactDrag
+                        | BodyCapability::ThumbContact
+                        | BodyCapability::PinchDrag
+                ) {
+                    self.experience(
+                        capability,
+                        BodyExperienceMode::Transfer,
+                        development_seed.saturating_add(2_000_000),
+                    )?;
+                }
+                if capability == BodyCapability::PinchDrag {
+                    let interference = self.experience(
+                        BodyCapability::GazeContingency,
+                        BodyExperienceMode::Interference,
+                        development_seed.saturating_add(2_500_000),
+                    )?;
+                    if !interference.replay_exact
+                        || !interference.naturally_quiescent
+                        || interference.physical_work == 0
+                    {
+                        self.restore_checkpoint(&checkpoint_before_lesson)?;
+                        course_failure = Some(capability);
+                        break;
+                    }
+                    for (retained_capability, offset) in [
+                        (BodyCapability::ContactDrag, 3_000_000),
+                        (BodyCapability::ThumbContact, 3_250_000),
+                        (BodyCapability::PinchDrag, 3_500_000),
+                    ] {
+                        let reference = truelearner_workstation::WorkstationCheckpoint::decode(
+                            &checkpoint_before_lesson,
+                        )?;
+                        self.harness.reposition_from_checkpoint(&reference)?;
+                        let retention = self.experience(
+                            retained_capability,
+                            BodyExperienceMode::Retention,
+                            development_seed.saturating_add(offset),
+                        )?;
+                        debug_assert!(retention.durable_unchanged);
+                    }
                 }
                 self.acquired.insert(capability);
                 course_acquired.push(capability);
@@ -478,11 +582,13 @@ impl BodyCourse {
                 outcome,
             });
         }
+        let capability_evidence = capability_evidence(&self.experiences, &self.acquired);
         Ok(CourseRun {
-            schema_version: 7,
+            schema_version: 9,
             seed: self.seed,
             courses,
             acquired: self.acquired.iter().copied().collect(),
+            capability_evidence,
             first_failure,
             exact_replay: self
                 .experiences
@@ -520,17 +626,51 @@ impl ExperienceWorld {
         capability: BodyCapability,
         mode: BodyExperienceMode,
         key_depths: Option<(i16, i16)>,
+        body: &WorkstationState,
     ) -> Result<Self, BodyCourseError> {
-        if capability == BodyCapability::TapHoldRelease {
-            let device = match key_depths {
-                Some((press, release)) => WorkstationWorld::new_with_key_depths(press, release)?,
-                None if mode == BodyExperienceMode::Development => {
+        if matches!(
+            capability,
+            BodyCapability::TapHoldRelease
+                | BodyCapability::ContactDrag
+                | BodyCapability::ThumbContact
+                | BodyCapability::PinchDrag
+        ) {
+            let device = match (capability, key_depths) {
+                (BodyCapability::ContactDrag, _) => WorkstationWorld::new_with_contact_pad(
+                    if mode == BodyExperienceMode::Transfer {
+                        CONTACT_TRANSFER_PAD
+                    } else {
+                        CONTACT_PAD
+                    },
+                )?,
+                (BodyCapability::ThumbContact, _) => {
+                    WorkstationWorld::new_with_side_contact_patch(thumb_contact_patch(
+                        body,
+                        if mode == BodyExperienceMode::Transfer {
+                            THUMB_TRANSFER_PAD_SIZE
+                        } else {
+                            THUMB_PAD_SIZE
+                        },
+                    ))?
+                }
+                (BodyCapability::PinchDrag, _) => WorkstationWorld::new_with_pinch_object(
+                    body,
+                    if mode == BodyExperienceMode::Transfer {
+                        Digit::Middle
+                    } else {
+                        Digit::Ring
+                    },
+                )?,
+                (_, Some((press, release))) => {
+                    WorkstationWorld::new_with_key_depths(press, release)?
+                }
+                (_, None) if mode == BodyExperienceMode::Development => {
                     WorkstationWorld::new_with_key_depths(
                         PRACTICE_KEY_PRESS_DEPTH,
                         PRACTICE_KEY_RELEASE_DEPTH,
                     )?
                 }
-                None => WorkstationWorld::new()?,
+                _ => WorkstationWorld::new()?,
             };
             Ok(Self::Workstation {
                 visual: FlatWorld::generated(seed, capability),
@@ -562,6 +702,9 @@ impl ExperienceWorld {
                     &visual_sample,
                     device.device(),
                     demonstrator.as_ref().map(|actor| actor.pressed),
+                    device
+                        .pinch_object_position()
+                        .zip(device.pinch_object_depth()),
                 )?;
                 let contacts = if demonstrator.is_some() {
                     *visual_sample.contacts()
@@ -630,14 +773,40 @@ impl ExperienceWorld {
     }
 }
 
+fn thumb_contact_patch(body: &WorkstationState, size: i16) -> Rect {
+    let tip = body.hand().fingertip(truelearner_workstation::Digit::Thumb);
+    let half = size / 2;
+    let maximum_origin = BODY_MAX + 1 - size;
+    Rect {
+        // Put a vertical patch immediately on the opposition side of the
+        // thumb. The initial sample is open; an actual opposition movement
+        // must cross into it before contact can be witnessed.
+        x: tip.x().saturating_sub(size).clamp(0, maximum_origin),
+        y: tip.y().saturating_sub(half).clamp(0, maximum_origin),
+        width: size,
+        height: size,
+    }
+}
+
 fn compact_button_fields(
     sample: &WorldSample,
     device: &DeviceState,
     demonstrator_pressed: Option<bool>,
+    pinch_object: Option<(ScreenPoint, i16)>,
 ) -> Result<[LightField; 2], BodyCourseError> {
     Ok([
-        compact_button_field(sample.eye(Eye::Left), device, demonstrator_pressed)?,
-        compact_button_field(sample.eye(Eye::Right), device, demonstrator_pressed)?,
+        compact_button_field(
+            sample.eye(Eye::Left),
+            device,
+            demonstrator_pressed,
+            pinch_object,
+        )?,
+        compact_button_field(
+            sample.eye(Eye::Right),
+            device,
+            demonstrator_pressed,
+            pinch_object,
+        )?,
     ])
 }
 
@@ -645,6 +814,7 @@ fn compact_button_field(
     base: &LightField,
     device: &DeviceState,
     demonstrator_pressed: Option<bool>,
+    pinch_object: Option<(ScreenPoint, i16)>,
 ) -> Result<LightField, BodyCourseError> {
     let width = usize::from(base.width());
     let height = usize::from(base.height());
@@ -664,13 +834,48 @@ fn compact_button_field(
         let finger_y = if down { height - 2 } else { height - 4 };
         pixels[finger_y * width + center] = 240;
     }
+    let cursor = device.cursor();
+    let cursor_x = usize::try_from(
+        i32::from(cursor.x) * i32::try_from(width - 1).unwrap_or(0)
+            / i32::from(truelearner_workstation::BODY_MAX),
+    )
+    .unwrap_or(0)
+    .min(width - 1);
+    let cursor_y = usize::try_from(
+        i32::from(cursor.y) * i32::try_from(height - 1).unwrap_or(0)
+            / i32::from(truelearner_workstation::BODY_MAX),
+    )
+    .unwrap_or(0)
+    .min(height - 1);
+    pixels[cursor_y * width + cursor_x] = 224;
+    if let Some((object, depth)) = pinch_object {
+        let object_x = usize::try_from(
+            i32::from(object.x) * i32::try_from(width - 1).unwrap_or(0)
+                / i32::from(truelearner_workstation::BODY_MAX),
+        )
+        .unwrap_or(0)
+        .min(width - 1);
+        let object_y = usize::try_from(
+            i32::from(object.y) * i32::try_from(height - 1).unwrap_or(0)
+                / i32::from(truelearner_workstation::BODY_MAX),
+        )
+        .unwrap_or(0)
+        .min(height - 1);
+        let depth_light = u8::try_from(
+            64 + i32::from(depth) * 144 / i32::from(truelearner_workstation::BODY_MAX),
+        )
+        .unwrap_or(208);
+        pixels[object_y * width + object_x] = depth_light;
+    }
     Ok(LightField::new(base.width(), base.height(), pixels)?)
 }
 
 const fn commits_learning(mode: BodyExperienceMode) -> bool {
     matches!(
         mode,
-        BodyExperienceMode::Demonstration | BodyExperienceMode::Development
+        BodyExperienceMode::Demonstration
+            | BodyExperienceMode::Development
+            | BodyExperienceMode::Interference
     )
 }
 
@@ -686,6 +891,11 @@ const fn steps_per_experience(capability: BodyCapability, mode: BodyExperienceMo
         IMITATION_STEPS_PER_EXPERIENCE
     } else if matches!(capability, BodyCapability::Contact) {
         CONTACT_STEPS_PER_EXPERIENCE
+    } else if matches!(
+        capability,
+        BodyCapability::ContactDrag | BodyCapability::PinchDrag
+    ) {
+        CONTACT_DRAG_STEPS_PER_EXPERIENCE
     } else {
         STEPS_PER_EXPERIENCE
     }
@@ -714,7 +924,8 @@ fn replay(
     let checkpoint =
         truelearner_workstation::WorkstationCheckpoint::decode(evidence.checkpoint_before)?;
     let mut harness = WorkstationHarness::restore(checkpoint)?;
-    let mut world = ExperienceWorld::generated(seed, capability, mode, key_depths)?;
+    let mut world =
+        ExperienceWorld::generated(seed, capability, mode, key_depths, harness.state())?;
     let mut boundary_parents = Vec::new();
     let mut progress_parents = Vec::new();
     for ((expected_sample, expected_observation), expected_world_observation) in evidence
@@ -820,10 +1031,6 @@ fn evaluate_physical(
         .iter()
         .filter(|movement| !is_gaze(movement.axis))
         .count();
-    let fingers = movements
-        .iter()
-        .filter(|movement| matches!(movement.axis, BodyAxis::FingerFlexion { .. }))
-        .count();
     let palm = movements
         .iter()
         .filter(|movement| {
@@ -855,13 +1062,126 @@ fn evaluate_physical(
         BodyCapability::TapHoldRelease => {
             tap_hold_release_completed(world_observations, BodyWorldCause::Organism)
         }
-        BodyCapability::DragOpposition => contact && palm >= 1 && fingers >= 1 && opposition >= 1,
+        BodyCapability::ContactDrag => contact_drag_completed(world_observations),
+        BodyCapability::ThumbContact => {
+            contact && opposition >= 1 && thumb_contact_witnessed(samples, world_observations)
+        }
+        BodyCapability::PinchDrag => pinch_drag_completed(samples, world_observations),
     };
     if passed {
         BodyVerdict::Passed
     } else {
         BodyVerdict::Failed
     }
+}
+
+fn contact_drag_completed(world_observations: &[BodyWorldObservation]) -> bool {
+    world_observations.iter().any(|observation| {
+        observation.events.iter().any(|event| {
+            event.cause == BodyWorldCause::Organism
+                && matches!(event.event, DeviceEvent::CursorMoved { from, to } if from != to)
+        }) && matches!(
+            observation.progress_parents.as_slice(),
+            [parent]
+                if matches!(
+                    parent.control.axis(),
+                    BodyAxis::PalmHorizontal | BodyAxis::PalmVertical
+                )
+        )
+    })
+}
+
+fn pinch_drag_completed(
+    samples: &[WorldSample],
+    world_observations: &[BodyWorldObservation],
+) -> bool {
+    world_observations
+        .iter()
+        .enumerate()
+        .any(|(step, observation)| {
+            let moved = observation.events.iter().any(|event| {
+                event.cause == BodyWorldCause::Organism
+                    && (matches!(event.event, DeviceEvent::ObjectMoved { from, to } if from != to)
+                        || matches!(event.event, DeviceEvent::ObjectDepthMoved { from, to } if from != to))
+            });
+            moved
+                && matches!(
+                    observation.progress_parents.as_slice(),
+                    [parent]
+                        if matches!(
+                            parent.control.axis(),
+                            BodyAxis::PalmHorizontal
+                                | BodyAxis::PalmVertical
+                                | BodyAxis::PalmDepth
+                        )
+                )
+                && samples.get(step).is_some_and(joint_digit_contact)
+                && samples
+                    .get(step.saturating_add(1))
+                    .is_some_and(joint_digit_contact)
+        })
+}
+
+fn joint_digit_contact(sample: &WorldSample) -> bool {
+    sample.contacts()[1].pressure() > 0
+        && sample.contacts()[2..]
+            .iter()
+            .any(|contact| contact.pressure() > 0)
+}
+
+fn capability_evidence(
+    experiences: &[BodyExperience],
+    acquired: &BTreeSet<BodyCapability>,
+) -> Vec<BodyCapabilityEvidence> {
+    BodyCapability::ORDER
+        .into_iter()
+        .map(|capability| {
+            let passed = |mode| {
+                experiences.iter().any(|experience| {
+                    experience.capability == capability
+                        && experience.mode == mode
+                        && experience.verdict == BodyVerdict::Passed
+                        && experience.replay_exact
+                        && experience.naturally_quiescent
+                        && (commits_learning(mode) || experience.durable_unchanged)
+                })
+            };
+            let state = if acquired.contains(&capability) {
+                if passed(BodyExperienceMode::Transfer) && passed(BodyExperienceMode::Retention) {
+                    BodyEvidenceState::Stable
+                } else if passed(BodyExperienceMode::Transfer) {
+                    BodyEvidenceState::General
+                } else {
+                    BodyEvidenceState::Acquired
+                }
+            } else if passed(BodyExperienceMode::Development) {
+                BodyEvidenceState::Emerging
+            } else {
+                BodyEvidenceState::Unknown
+            };
+            BodyCapabilityEvidence { capability, state }
+        })
+        .collect()
+}
+
+fn thumb_contact_witnessed(
+    samples: &[WorldSample],
+    world_observations: &[BodyWorldObservation],
+) -> bool {
+    world_observations
+        .iter()
+        .enumerate()
+        .any(|(step, observation)| {
+            matches!(
+                observation.progress_parents.as_slice(),
+                [parent] if parent.control.axis() == BodyAxis::ThumbOpposition
+            ) && samples
+                .get(step)
+                .is_some_and(|sample| sample.contacts()[1].pressure() == 0)
+                && samples
+                    .get(step.saturating_add(1))
+                    .is_some_and(|sample| sample.contacts()[1].pressure() > 0)
+        })
 }
 
 fn tap_hold_release_completed(
@@ -976,23 +1296,32 @@ fn target_alignment_improved(before: &LightField, after: &LightField) -> bool {
 }
 
 fn has_digit_separation<'a>(steps: impl IntoIterator<Item = &'a [BodyMovement]>) -> bool {
-    let mut isolated = Vec::with_capacity(2);
+    let mut histories: [Vec<bool>; 5] = std::array::from_fn(|_| Vec::new());
     for movements in steps {
-        let fingers = movements
-            .iter()
-            .filter(|movement| movement.changed)
-            .filter_map(|movement| match movement.axis {
-                axis @ BodyAxis::FingerFlexion { .. } => Some(axis),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        if let [finger] = fingers.as_slice() {
-            if !isolated.contains(finger) {
-                isolated.push(*finger);
+        let mut changed = [false; 5];
+        for movement in movements.iter().filter(|movement| movement.changed) {
+            if let BodyAxis::FingerFlexion { digit } = movement.axis {
+                if let Some(index) = truelearner_workstation::Digit::ALL
+                    .iter()
+                    .position(|candidate| *candidate == digit)
+                {
+                    changed[index] = true;
+                }
             }
         }
+        for (history, changed) in histories.iter_mut().zip(changed) {
+            history.push(changed);
+        }
     }
-    isolated.len() >= 2
+    let mut distinct_moving_histories: Vec<&[bool]> = Vec::with_capacity(2);
+    for history in &histories {
+        if history.iter().any(|changed| *changed)
+            && !distinct_moving_histories.contains(&history.as_slice())
+        {
+            distinct_moving_histories.push(history);
+        }
+    }
+    distinct_moving_histories.len() >= 2
 }
 
 fn gaze_visual_consequences(
@@ -1100,8 +1429,272 @@ impl From<WorldError> for BodyCourseError {
 mod tests {
     use super::*;
     use truelearner_workstation::{
-        verify_choice_laws, BodyControl, BodyTraceEvent, ChoiceBasis, Digit, Direction,
+        verify_choice_laws, BodyControl, BodyTraceEvent, ChoiceBasis, ContactSample, Digit,
+        Direction, TOUCH_SITES,
     };
+
+    fn traced_replay(
+        experience: &BodyExperience,
+    ) -> Vec<(
+        WorkstationStepObservation,
+        BodyWorldObservation,
+        Vec<BodyTraceEvent>,
+    )> {
+        let checkpoint =
+            truelearner_workstation::WorkstationCheckpoint::decode(&experience.checkpoint_before)
+                .unwrap();
+        let mut harness = WorkstationHarness::restore(checkpoint).unwrap();
+        let key_depths = experience.key_press_depth.zip(experience.key_release_depth);
+        let mut world = ExperienceWorld::generated(
+            experience.seed,
+            experience.capability,
+            experience.mode,
+            key_depths,
+            harness.state(),
+        )
+        .unwrap();
+        let mut boundary_parents = Vec::new();
+        let mut progress_parents = Vec::new();
+        experience
+            .observations
+            .iter()
+            .map(|expected| {
+                let sample = world.sample(&harness.read().unwrap()).unwrap();
+                let (observation, trace) = if expected.opportunity_admitted {
+                    harness
+                        .step_traced_with_causal_parents(
+                            sample,
+                            &boundary_parents,
+                            &progress_parents,
+                        )
+                        .unwrap()
+                } else {
+                    let observation = harness
+                        .settle_with_causal_parents(sample, &boundary_parents, &progress_parents)
+                        .unwrap();
+                    (observation, Vec::new())
+                };
+                verify_choice_laws(&trace).unwrap();
+                assert_eq!(&observation, expected);
+                let world_observation = world.advance(&observation).unwrap();
+                boundary_parents.clone_from(&world_observation.boundary_parents);
+                progress_parents.clone_from(&world_observation.progress_parents);
+                (observation, world_observation, trace)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn manipulation_claims_preserve_exact_physical_ancestry() {
+        let run = BodyCourse::new(31_001).unwrap().run().unwrap();
+        assert!(run.acquired.contains(&BodyCapability::ContactDrag));
+        assert!(run.acquired.contains(&BodyCapability::ThumbContact));
+        assert!(run.acquired.contains(&BodyCapability::PinchDrag));
+        assert_eq!(run.first_failure, None);
+
+        for experience in run.experiences.iter().filter(|experience| {
+            matches!(
+                experience.capability,
+                BodyCapability::ContactDrag
+                    | BodyCapability::ThumbContact
+                    | BodyCapability::PinchDrag
+            )
+        }) {
+            let traced = traced_replay(experience);
+            assert_eq!(
+                traced
+                    .iter()
+                    .map(|(observation, _, _)| observation)
+                    .collect::<Vec<_>>(),
+                experience.observations.iter().collect::<Vec<_>>()
+            );
+            assert_eq!(
+                traced.iter().map(|(_, world, _)| world).collect::<Vec<_>>(),
+                experience.world_observations.iter().collect::<Vec<_>>()
+            );
+
+            match experience.capability {
+                BodyCapability::ContactDrag => {
+                    assert!(experience.samples.iter().any(|sample| sample
+                        .contacts()
+                        .iter()
+                        .any(|contact| contact.pressure() == BODY_MAX as u16)));
+                    if experience.mode == BodyExperienceMode::Development {
+                        assert!(experience
+                            .observations
+                            .iter()
+                            .flat_map(|observation| &observation.movements)
+                            .any(|movement| {
+                                movement.axis == BodyAxis::PalmDepth
+                                    && movement.decrease_effort == movement.increase_effort
+                                    && movement.net_impulse == 0
+                                    && !movement.changed
+                            }));
+                    }
+
+                    let mut cursor_progress = 0;
+                    let mut drag_closures = 0;
+                    for (observation, world) in experience
+                        .observations
+                        .iter()
+                        .zip(&experience.world_observations)
+                    {
+                        if world.events.iter().any(|event| {
+                            event.cause == BodyWorldCause::Organism
+                                && matches!(event.event, DeviceEvent::CursorMoved { .. })
+                        }) {
+                            assert!(world.boundary_parents.is_empty());
+                            assert_eq!(world.progress_parents.len(), 1);
+                            let parent = world.progress_parents[0];
+                            assert!(matches!(
+                                parent.control.axis(),
+                                BodyAxis::PalmHorizontal | BodyAxis::PalmVertical
+                            ));
+                            assert!(observation.crossings.contains(&parent));
+                            cursor_progress += 1;
+                        }
+                        if world
+                            .events
+                            .iter()
+                            .any(|event| matches!(event.event, DeviceEvent::DragEnded))
+                        {
+                            assert_eq!(world.boundary_parents.len(), 1);
+                            let parent = world.boundary_parents[0];
+                            assert!(matches!(
+                                parent.control.axis(),
+                                BodyAxis::PalmHorizontal | BodyAxis::PalmVertical
+                            ));
+                            assert!(observation.crossings.contains(&parent));
+                            drag_closures += 1;
+                        }
+                    }
+                    if experience.verdict == BodyVerdict::Passed {
+                        assert!(cursor_progress > 0);
+                        assert!(drag_closures > 0);
+                    } else {
+                        assert_eq!(experience.mode, BodyExperienceMode::Retention);
+                    }
+                }
+                BodyCapability::ThumbContact => {
+                    assert_eq!(experience.samples[0].contacts()[1].pressure(), 0);
+                    let crossing =
+                        experience
+                            .samples
+                            .windows(2)
+                            .enumerate()
+                            .find_map(|(step, samples)| {
+                                (samples[0].contacts()[1].pressure() == 0
+                                    && samples[1].contacts()[1].pressure() > 0)
+                                    .then_some(step)
+                            });
+                    let step = crossing.expect("thumb opposition crosses into contact");
+                    let observation = &experience.observations[step];
+                    let world = &experience.world_observations[step];
+                    assert!(world.boundary_parents.is_empty());
+                    assert_eq!(world.progress_parents.len(), 1);
+                    let parent = world.progress_parents[0];
+                    assert_eq!(parent.control.axis(), BodyAxis::ThumbOpposition);
+                    assert!(observation.crossings.contains(&parent));
+                }
+                BodyCapability::PinchDrag => {
+                    assert!(experience.samples.iter().any(joint_digit_contact));
+                    let mut moved = 0;
+                    for (step, (observation, world)) in experience
+                        .observations
+                        .iter()
+                        .zip(&experience.world_observations)
+                        .enumerate()
+                    {
+                        if world.events.iter().any(|event| {
+                            event.cause == BodyWorldCause::Organism
+                                && matches!(
+                                    event.event,
+                                    DeviceEvent::ObjectMoved { .. }
+                                        | DeviceEvent::ObjectDepthMoved { .. }
+                                )
+                        }) {
+                            assert!(experience
+                                .samples
+                                .get(step)
+                                .is_some_and(joint_digit_contact));
+                            assert_eq!(world.progress_parents.len(), 1);
+                            let parent = world.progress_parents[0];
+                            assert!(matches!(
+                                parent.control.axis(),
+                                BodyAxis::PalmHorizontal
+                                    | BodyAxis::PalmVertical
+                                    | BodyAxis::PalmDepth
+                            ));
+                            assert!(observation.crossings.contains(&parent));
+                            if experience
+                                .samples
+                                .get(step.saturating_add(1))
+                                .is_some_and(joint_digit_contact)
+                            {
+                                moved += 1;
+                            } else {
+                                assert_eq!(step.saturating_add(1), experience.samples.len());
+                            }
+                        }
+                    }
+                    assert!(moved > 0);
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    #[test]
+    fn pinch_claim_rejects_missing_ancestry_and_one_contact() {
+        let fields = [
+            LightField::filled(3, 3, 0).unwrap(),
+            LightField::filled(3, 3, 0).unwrap(),
+        ];
+        let mut joint = [ContactSample::default(); TOUCH_SITES];
+        joint[1] = ContactSample::new(1, 0).unwrap();
+        joint[4] = ContactSample::new(BODY_MAX as u16, 0).unwrap();
+        let samples = [
+            WorldSample::new(fields.clone(), joint).unwrap(),
+            WorldSample::new(fields.clone(), joint).unwrap(),
+        ];
+        let event = BodyWorldEvent {
+            cause: BodyWorldCause::Organism,
+            event: DeviceEvent::ObjectDepthMoved { from: 500, to: 484 },
+        };
+        let missing_parent = BodyWorldObservation {
+            events: vec![event.clone()],
+            boundary_parents: Vec::new(),
+            progress_parents: Vec::new(),
+            fingerprint: None,
+        };
+        assert!(!pinch_drag_completed(&samples, &[missing_parent]));
+
+        let parent = MotorEffect {
+            at: 7,
+            control: BodyControl::PalmDepth {
+                direction: Direction::Decrease,
+            },
+            impulse: 1,
+            cause: 11,
+        };
+        let witnessed = BodyWorldObservation {
+            events: vec![event],
+            boundary_parents: Vec::new(),
+            progress_parents: vec![parent],
+            fingerprint: None,
+        };
+        let mut thumb_only = joint;
+        thumb_only[4] = ContactSample::default();
+        let thumb_only_samples = [
+            WorldSample::new(fields.clone(), thumb_only).unwrap(),
+            WorldSample::new(fields, thumb_only).unwrap(),
+        ];
+        assert!(!pinch_drag_completed(
+            &thumb_only_samples,
+            std::slice::from_ref(&witnessed)
+        ));
+        assert!(pinch_drag_completed(&samples, &[witnessed]));
+    }
 
     #[test]
     fn prerequisites_are_external_and_acyclic() {
@@ -1246,6 +1839,7 @@ mod tests {
             BodyCapability::TapHoldRelease,
             BodyExperienceMode::DepthControl,
             Some((640, DEPTH_CONTROL_RELEASE_DEPTH)),
+            soft_harness.state(),
         )
         .unwrap();
         let mut soft_closed = false;
@@ -1338,6 +1932,7 @@ mod tests {
             BodyCapability::TapHoldRelease,
             BodyExperienceMode::DepthControl,
             Some((656, DEPTH_CONTROL_RELEASE_DEPTH)),
+            harness.state(),
         )
         .unwrap();
 
@@ -1552,6 +2147,101 @@ mod tests {
         caused_world_observation(BodyWorldCause::Organism, events)
     }
 
+    fn effect(control: BodyControl) -> MotorEffect {
+        MotorEffect {
+            at: 1,
+            control,
+            impulse: 1,
+            cause: 1,
+        }
+    }
+
+    fn sample_with_contact(site: usize, pressure: u16) -> WorldSample {
+        let field = LightField::new(1, 1, vec![0]).unwrap();
+        let mut contacts = [ContactSample::default(); TOUCH_SITES];
+        contacts[site] = ContactSample::new(pressure, 0).unwrap();
+        WorldSample::new([field.clone(), field], contacts).unwrap()
+    }
+
+    #[test]
+    fn contact_drag_rejects_external_unparented_and_ambiguous_motion() {
+        let moved = DeviceEvent::CursorMoved {
+            from: academy_workstation::ScreenPoint { x: 10, y: 10 },
+            to: academy_workstation::ScreenPoint { x: 20, y: 10 },
+        };
+        let lateral = effect(BodyControl::PalmHorizontal {
+            direction: Direction::Increase,
+        });
+        let thumb = effect(BodyControl::ThumbOpposition {
+            direction: Direction::Decrease,
+        });
+        let mut witnessed = world_observation(vec![moved.clone()]);
+        witnessed.progress_parents = vec![lateral];
+        assert!(contact_drag_completed(&[witnessed.clone()]));
+
+        let mut external = caused_world_observation(BodyWorldCause::Demonstrator, vec![moved]);
+        external.progress_parents = vec![lateral];
+        assert!(!contact_drag_completed(&[external]));
+
+        let mut unparented = witnessed.clone();
+        unparented.progress_parents.clear();
+        assert!(!contact_drag_completed(&[unparented]));
+
+        let mut wrong_parent = witnessed.clone();
+        wrong_parent.progress_parents = vec![thumb];
+        assert!(!contact_drag_completed(&[wrong_parent]));
+
+        let mut ambiguous = witnessed;
+        ambiguous.progress_parents.push(thumb);
+        assert!(!contact_drag_completed(&[ambiguous]));
+    }
+
+    #[test]
+    fn thumb_contact_requires_a_unique_thumb_parent_and_later_contact() {
+        let open = sample_with_contact(1, 0);
+        let contact = sample_with_contact(1, 1);
+        let thumb = effect(BodyControl::ThumbOpposition {
+            direction: Direction::Decrease,
+        });
+        let palm = effect(BodyControl::PalmDepth {
+            direction: Direction::Decrease,
+        });
+        let mut witnessed = world_observation(Vec::new());
+        witnessed.progress_parents = vec![thumb];
+        assert!(thumb_contact_witnessed(
+            &[open.clone(), contact.clone()],
+            &[witnessed.clone()]
+        ));
+
+        let passive = world_observation(Vec::new());
+        assert!(!thumb_contact_witnessed(
+            &[open.clone(), contact.clone()],
+            &[passive]
+        ));
+
+        let mut wrong_parent = witnessed.clone();
+        wrong_parent.progress_parents = vec![palm];
+        assert!(!thumb_contact_witnessed(
+            &[open.clone(), contact.clone()],
+            &[wrong_parent]
+        ));
+
+        let mut ambiguous = witnessed.clone();
+        ambiguous.progress_parents.push(palm);
+        assert!(!thumb_contact_witnessed(
+            &[open.clone(), contact.clone()],
+            &[ambiguous]
+        ));
+        assert!(!thumb_contact_witnessed(
+            &[open.clone(), open],
+            &[witnessed.clone()]
+        ));
+        assert!(!thumb_contact_witnessed(
+            &[contact.clone(), contact],
+            &[witnessed]
+        ));
+    }
+
     #[test]
     fn tap_hold_release_requires_an_intervening_held_step() {
         let completed = [
@@ -1742,7 +2432,7 @@ mod tests {
     }
 
     #[test]
-    fn digit_separation_requires_two_distinct_isolated_fingers() {
+    fn digit_separation_requires_two_distinct_movement_histories() {
         let all_together = truelearner_workstation::Digit::ALL
             .into_iter()
             .map(|digit| changed(BodyAxis::FingerFlexion { digit }))
@@ -1761,6 +2451,19 @@ mod tests {
 
         let two_together = [thumb, index];
         assert!(!has_digit_separation([two_together.as_slice()]));
+
+        let little = changed(BodyAxis::FingerFlexion {
+            digit: truelearner_workstation::Digit::Little,
+        });
+        let ring = changed(BodyAxis::FingerFlexion {
+            digit: truelearner_workstation::Digit::Ring,
+        });
+        let thumb_and_little = [thumb, little];
+        let thumb_and_ring = [thumb, ring];
+        assert!(has_digit_separation([
+            thumb_and_little.as_slice(),
+            thumb_and_ring.as_slice(),
+        ]));
     }
 
     #[test]

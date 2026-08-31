@@ -1,6 +1,6 @@
 use academy_body::{
-    BodyCapability, BodyCourse, BodyCourseKind, BodyCourseOutcome, BodyExperience,
-    BodyExperienceMode, BodyVerdict, BodyWorldCause,
+    BodyCapability, BodyCourse, BodyCourseKind, BodyCourseOutcome, BodyEvidenceState,
+    BodyExperience, BodyExperienceMode, BodyVerdict, BodyWorldCause,
 };
 use academy_workstation::DeviceEvent;
 use behavior_diagram::BehaviorDiagram;
@@ -39,7 +39,7 @@ fn development_commits_but_probe_is_discarded_and_replays_exactly() {
 }
 
 #[test]
-fn generated_course_acquires_tap_without_teaching_around_drag() {
+fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels() {
     let run = BodyCourse::new(31_001).unwrap().run().unwrap();
     for experience in &run.experiences {
         assert_experience_diagram(experience);
@@ -53,18 +53,41 @@ fn generated_course_acquires_tap_without_teaching_around_drag() {
     assert!(run.acquired.contains(&BodyCapability::Contact));
     assert!(run.acquired.contains(&BodyCapability::VisualReach));
     assert!(run.acquired.contains(&BodyCapability::TapHoldRelease));
-    assert!(!run.acquired.contains(&BodyCapability::DragOpposition));
-    assert_eq!(run.first_failure, Some(BodyCapability::DragOpposition));
-    assert_eq!(run.schema_version, 7);
+    assert!(run.acquired.contains(&BodyCapability::ContactDrag));
+    assert!(run.acquired.contains(&BodyCapability::ThumbContact));
+    assert!(run.acquired.contains(&BodyCapability::PinchDrag));
+    assert_eq!(run.first_failure, None);
+    assert_eq!(run.schema_version, 9);
     assert_eq!(run.courses.len(), BodyCourseKind::ORDER.len());
     assert_eq!(run.courses[0].course, BodyCourseKind::EyeControl);
     assert_eq!(run.courses[0].outcome, BodyCourseOutcome::Acquired);
     assert_eq!(run.courses[1].outcome, BodyCourseOutcome::Acquired);
     assert_eq!(run.courses[2].outcome, BodyCourseOutcome::Acquired);
+    assert_eq!(run.courses[3].outcome, BodyCourseOutcome::Acquired);
+    let evidence_state = |capability| {
+        run.capability_evidence
+            .iter()
+            .find(|evidence| evidence.capability == capability)
+            .unwrap()
+            .state
+    };
     assert_eq!(
-        run.courses[3].outcome,
-        BodyCourseOutcome::Failed(BodyCapability::DragOpposition)
+        evidence_state(BodyCapability::ContactDrag),
+        BodyEvidenceState::General
     );
+    assert_eq!(
+        evidence_state(BodyCapability::ThumbContact),
+        BodyEvidenceState::Stable
+    );
+    assert_eq!(
+        evidence_state(BodyCapability::PinchDrag),
+        BodyEvidenceState::Stable
+    );
+    assert!(run.experiences.iter().any(|experience| {
+        experience.capability == BodyCapability::ContactDrag
+            && experience.mode == BodyExperienceMode::Retention
+            && experience.verdict == BodyVerdict::Failed
+    }));
     let contact_probe = run
         .experiences
         .iter()
@@ -193,10 +216,36 @@ fn generated_course_acquires_tap_without_teaching_around_drag() {
         .filter(|experience| {
             !matches!(
                 experience.mode,
-                BodyExperienceMode::Demonstration | BodyExperienceMode::Development
+                BodyExperienceMode::Demonstration
+                    | BodyExperienceMode::Development
+                    | BodyExperienceMode::Interference
             )
         })
         .all(|experience| experience.durable_unchanged));
+}
+
+#[test]
+fn held_out_earlier_frontier_matches_the_frozen_parent() {
+    let run = BodyCourse::new(31_002).unwrap().run().unwrap();
+
+    assert!(run.exact_replay);
+    assert_eq!(
+        run.acquired,
+        [
+            BodyCapability::GazeContingency,
+            BodyCapability::GazeControl,
+            BodyCapability::HandContingency,
+            BodyCapability::DigitSeparation,
+        ]
+    );
+    assert_eq!(run.first_failure, Some(BodyCapability::BinocularDepth));
+    assert_eq!(
+        run.courses[0].outcome,
+        BodyCourseOutcome::Failed(BodyCapability::BinocularDepth)
+    );
+    assert_eq!(run.courses[1].outcome, BodyCourseOutcome::Acquired);
+    assert_eq!(run.courses[2].outcome, BodyCourseOutcome::NotReached);
+    assert_eq!(run.courses[3].outcome, BodyCourseOutcome::NotReached);
 }
 
 fn assert_experience_diagram(experience: &BodyExperience) {
@@ -215,7 +264,9 @@ fn assert_experience_diagram(experience: &BodyExperience) {
 
     if !matches!(
         experience.mode,
-        BodyExperienceMode::Demonstration | BodyExperienceMode::Development
+        BodyExperienceMode::Demonstration
+            | BodyExperienceMode::Development
+            | BodyExperienceMode::Interference
     ) {
         let durable_after = if experience.durable_unchanged {
             before.clone()

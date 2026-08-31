@@ -35,7 +35,7 @@ impl Rect {
         self.contains_xy(point.x(), point.y())
     }
 
-    fn valid(self) -> bool {
+    pub(crate) fn valid(self) -> bool {
         self.x >= 0
             && self.y >= 0
             && self.width > 0

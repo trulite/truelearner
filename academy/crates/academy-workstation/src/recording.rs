@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
 
 const MAGIC: &[u8; 8] = b"TLWREC01";
-const VERSION: u16 = 3;
+const VERSION: u16 = 4;
 const HEADER_LEN: usize = 50;
 pub const MAX_RECORDING_STEPS: usize = 120;
 const MAX_DECODED_BYTES: u64 = 256 * 1024 * 1024;

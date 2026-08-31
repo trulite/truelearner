@@ -52,6 +52,18 @@ Rust physical trace -> structure-preserving projection -> Lean claim check
   Release only to an uninhibited antagonist in the same ordinary outcome
   component; independent components remain a product, and simultaneous
   components make no arbitrary local claim.
+- Distinguish ongoing world progress from terminal boundary closure. Persist a
+  current exact parent through the interaction, close with that parent rather
+  than a stale predecessor, and treat several simultaneous parents as
+  ambiguity.
+- Model support as one-sided external reaction: cancel only inward effort along
+  the surface normal. Never let contact pull outward or inhibit a tangential
+  axis. Keep tactile incidence morphologically local; a thumb surface should
+  not reopen every historical hand action.
+- Prefer a physically open neighboring surface and a real crossing over
+  preloaded contact, timers, counters, or an episode-length continuation rule.
+  Restore only the frozen external pose for a fresh probe; retain learned
+  topology and discard probe mutation.
 - Test identity at quiet, renaming invariance, and product independence in
   addition to the smallest positive and killing negative fixtures.
 
