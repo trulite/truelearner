@@ -1,6 +1,6 @@
 
 #[derive(Clone, Debug)]
-struct ReadyPath {
+struct CandidatePath {
     surface: JunctionId,
     middle: JunctionRef,
     output: JunctionId,
@@ -25,6 +25,12 @@ struct ReadyPath {
     strength: i64,
     drive: u16,
     stable_order: u32,
+    continuation: ContinuationResult,
+    executable: bool,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ContinuationResult {
     fresh_opportunity: Option<FreshOpportunityTrace>,
     reentries: Vec<ReentryTrace>,
     motif_reentries: Vec<MotifReentryTrace>,
@@ -33,7 +39,6 @@ struct ReadyPath {
     reentry_shortcut_hits: u16,
     reentry_failed: bool,
     motif_route_failed: bool,
-    executable: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,7 +55,7 @@ struct PathForm {
     second: LinkForm,
 }
 
-impl ReadyPath {
+impl CandidatePath {
     const fn trace_path(&self) -> TracePath {
         TracePath {
             surface: self.surface,
@@ -72,7 +77,7 @@ struct ReadyChoice {
 fn form_and_choose<T: TraceSink>(
     body: ReactionView<'_>,
     facts: &mut [MomentFact],
-    ready: &mut Vec<ReadyPath>,
+    ready: &mut Vec<CandidatePath>,
     connected_outcomes: &mut Vec<JunctionId>,
     worlds: &mut Vec<usize>,
     winners: &mut Vec<ReadyChoice>,
@@ -110,7 +115,7 @@ fn form_and_choose<T: TraceSink>(
             let morphology = *body.arena.link(morphology_id).expect("live link");
             next = morphology.next;
             if morphology.impulse != 0
-                || body.link_memory[morphology_id.slot()].role != LinkRole::Drive
+                || !body.arrows[morphology_id.slot()].is_drive()
                 || !(1..=LOCAL_RADIUS as Time).contains(&morphology.delay)
             {
                 continue;
@@ -119,41 +124,33 @@ fn form_and_choose<T: TraceSink>(
                 if ready_path_exists(body, &ready[ready_start..], morphology.to, sign) {
                     continue;
                 }
-                let middle = change.new_junction();
-                change.push(Edit::AddJunction {
-                    new: middle,
-                    spec: Junction::integrating(1),
-                });
+                let middle = change.add_junction(Junction::integrating(1));
                 let entry_trigger =
                     path_entry_trigger(body, surface, fact.event.before, fact.event.after);
-                let first = change.new_link();
-                change.push(Edit::AddLink {
-                    new: first,
-                    from: surface.into(),
-                    to: middle.into(),
-                    spec: LinkSpec {
+                let first = change.add_link(
+                    surface.into(),
+                    middle.into(),
+                    LinkSpec {
                         delay: morphology.delay,
                         impulse: 1,
                         trigger: entry_trigger,
-                        role: LinkRole::PathEntry,
+                        state: ArrowState::entry(),
                     },
-                });
-                let second = change.new_link();
-                change.push(Edit::AddLink {
-                    new: second,
-                    from: middle.into(),
-                    to: morphology.to.into(),
-                    spec: LinkSpec {
+                );
+                let second = change.add_link(
+                    middle.into(),
+                    morphology.to.into(),
+                    LinkSpec {
                         delay: morphology.delay,
                         impulse: i32::from(sign),
                         trigger: Trigger::SourceFires,
-                        role: LinkRole::Drive,
+                        state: ArrowState::drive(),
                     },
-                });
+                );
                 let connected_start = connected_outcomes.len();
                 append_outcome_sources(body, morphology.to, connected_outcomes);
                 let connected_end = connected_outcomes.len();
-                ready.push(ReadyPath {
+                ready.push(CandidatePath {
                     surface,
                     middle: middle.into(),
                     output: morphology.to,
@@ -189,12 +186,14 @@ fn form_and_choose<T: TraceSink>(
                     outcome_source: unique_witness_source(
                         body,
                         morphology.to,
-                        LinkRole::OutcomeWitness,
+                        WitnessKind::Closure {
+                            offers_choice: true,
+                        },
                     ),
                     progress_source: unique_witness_source(
                         body,
                         morphology.to,
-                        LinkRole::ProgressWitness,
+                        WitnessKind::Progress,
                     ),
                     resisted_progress: false,
                     boundary_open: false,
@@ -204,14 +203,7 @@ fn form_and_choose<T: TraceSink>(
                     stable_order: u32::try_from(body.arena.link_count())
                         .unwrap_or(u32::MAX)
                         .saturating_add(second.0),
-                    fresh_opportunity: None,
-                    reentries: Vec::new(),
-                    motif_reentries: Vec::new(),
-                    motif_routes: None,
-                    reentry_incidence_visits: 0,
-                    reentry_shortcut_hits: 0,
-                    reentry_failed: false,
-                    motif_route_failed: false,
+                    continuation: ContinuationResult::default(),
                     executable: path_is_executable(body, surface, false),
                 });
             }
@@ -241,7 +233,7 @@ fn form_and_choose<T: TraceSink>(
                         world,
                         construction,
                     ) {
-                        ready[donor].fresh_opportunity = Some(fresh);
+                        ready[donor].continuation.fresh_opportunity = Some(fresh);
                         choice.winner = donor;
                         choice.basis = ChoiceBasis::FreshOpportunity;
                     }
@@ -276,19 +268,19 @@ fn form_and_choose<T: TraceSink>(
                 strength: candidate.strength,
                 drive: candidate.drive,
                 stable_order: candidate.stable_order,
-                fresh_opportunity: candidate.fresh_opportunity,
+                fresh_opportunity: candidate.continuation.fresh_opportunity,
                 present_sources: reentry.present.clone(),
-                reentries: candidate.reentries.clone(),
-                motif_reentries: candidate.motif_reentries.clone(),
+                reentries: candidate.continuation.reentries.clone(),
+                motif_reentries: candidate.continuation.motif_reentries.clone(),
                 motif_routes: candidate
-                    .motif_routes
+                    .continuation.motif_routes
                     .as_deref()
                     .unwrap_or_default()
                     .to_vec(),
-                reentry_incidence_visits: candidate.reentry_incidence_visits,
-                reentry_shortcut_hits: candidate.reentry_shortcut_hits,
-                reentry_failed: candidate.reentry_failed,
-                motif_route_failed: candidate.motif_route_failed,
+                reentry_incidence_visits: candidate.continuation.reentry_incidence_visits,
+                reentry_shortcut_hits: candidate.continuation.reentry_shortcut_hits,
+                reentry_failed: candidate.continuation.reentry_failed,
+                motif_route_failed: candidate.continuation.motif_route_failed,
                 new_path: matches!(candidate.first, LinkRef::New(_)),
             }));
         }
@@ -321,7 +313,7 @@ fn form_and_choose<T: TraceSink>(
     }
     for choice in winners.iter() {
         let winner = &ready[choice.winner];
-        let through = winner.fresh_opportunity.map_or_else(
+        let through = winner.continuation.fresh_opportunity.map_or_else(
             || {
                 let path = match (winner.middle, winner.first, winner.second) {
                     (
@@ -342,23 +334,16 @@ fn form_and_choose<T: TraceSink>(
             },
             |fresh| fresh.through.into(),
         );
-        change.push(Edit::Send {
-            through,
-            at: winner.at,
-            cause: winner.current_cause,
-        });
+        change.send(through, winner.at, winner.current_cause);
         for (index, candidate) in ready.iter().enumerate() {
             if worlds[index] != worlds[choice.winner] || !candidate.boundary_inhibited {
                 continue;
             }
             for link in [candidate.first, candidate.second] {
-                change.push(Edit::ChangeLink {
-                    link,
-                    change: LinkChange::ConsumeBoundaryInhibition,
-                });
+                change.change_link(link, LinkChange::ConsumeBoundaryInhibition);
             }
         }
-        if winner.fresh_opportunity.is_none()
+        if winner.continuation.fresh_opportunity.is_none()
             && winner
                 .outcome
                 .is_some_and(|outcome| outcome.available_until_choice)
@@ -375,7 +360,7 @@ fn append_existing_ready_paths(
     event: crate::physics::Event,
     current_cause: Cause,
     drive: u16,
-    paths: &mut Vec<ReadyPath>,
+    paths: &mut Vec<CandidatePath>,
     connected_outcomes: &mut Vec<JunctionId>,
 ) {
     let surface = event.junction;
@@ -386,9 +371,8 @@ fn append_existing_ready_paths(
     while let Some(first_id) = next {
         let first = *body.arena.link(first_id).expect("live link");
         next = first.next;
-        let first_memory = &body.link_memory[first_id.slot()];
-        if !first_memory.live
-            || first_memory.role != LinkRole::PathEntry
+        let first_memory = &body.arrows[first_id.slot()];
+        if !first_memory.is_entry()
             || !opens(first.trigger, event.before, event.after)
         {
             continue;
@@ -400,17 +384,14 @@ fn append_existing_ready_paths(
         while let Some(second_id) = second {
             let link = *body.arena.link(second_id).expect("live link");
             second = link.next;
-            let memory = &body.link_memory[second_id.slot()];
-            if memory.live && memory.role == LinkRole::Drive && link.impulse != 0 {
+            let memory = &body.arrows[second_id.slot()];
+            if memory.is_drive() && memory.factors().is_none() && link.impulse != 0 {
                 let connected_start = connected_outcomes.len();
                 append_connected_outcomes(body, first.to, link.to, connected_outcomes);
                 let connected_end = connected_outcomes.len();
-                let outcome = memory.outcome_at.map(|at| Outcome {
-                    at,
-                    caused_transition: true,
-                    available_until_choice: memory.outcome_available,
-                });
-                paths.push(ReadyPath {
+                let outcome = memory.outcome();
+                let occurrence = memory.occurrence();
+                paths.push(CandidatePath {
                     surface,
                     middle: first.to.into(),
                     output: link.to,
@@ -435,34 +416,33 @@ fn append_existing_ready_paths(
                     },
                     at: event.at,
                     current_cause,
-                    return_cause: (memory.participation > 0).then_some(memory.cause),
+                    return_cause: occurrence.map(|occurrence| occurrence.cause),
                     unanswered: path_has_open_return(body, first.to, link.to),
                     connected_start,
                     connected_end,
                     outcome,
-                    participation: memory.participation,
-                    participated_at: memory.participated_at,
+                    participation: memory.participation(),
+                    participated_at: occurrence.map_or(0, |occurrence| occurrence.at),
                     output_participated: false,
-                    outcome_source: unique_witness_source(body, link.to, LinkRole::OutcomeWitness),
+                    outcome_source: unique_witness_source(
+                        body,
+                        link.to,
+                        WitnessKind::Closure {
+                            offers_choice: true,
+                        },
+                    ),
                     progress_source: unique_witness_source(
                         body,
                         link.to,
-                        LinkRole::ProgressWitness,
+                        WitnessKind::Progress,
                     ),
                     resisted_progress: false,
-                    boundary_open: memory.participation > 0 && !memory.boundary_closed,
-                    boundary_inhibited: memory.boundary_inhibited,
-                    strength: memory.strength,
+                    boundary_open: memory.participation() > 0 && !memory.boundary_closed(),
+                    boundary_inhibited: memory.boundary_inhibited(),
+                    strength: memory.strength(),
                     drive,
                     stable_order: second_id.slot() as u32,
-                    fresh_opportunity: None,
-                    reentries: Vec::new(),
-                    motif_reentries: Vec::new(),
-                    motif_routes: None,
-                    reentry_incidence_visits: 0,
-                    reentry_shortcut_hits: 0,
-                    reentry_failed: false,
-                    motif_route_failed: false,
+                    continuation: ContinuationResult::default(),
                     executable: path_is_executable(body, surface, outcome.is_some()),
                 });
             }
@@ -496,7 +476,7 @@ fn path_entry_trigger(
 fn mark_reentries(
     body: ReactionView<'_>,
     facts: &[MomentFact],
-    paths: &mut [ReadyPath],
+    paths: &mut [CandidatePath],
     scratch: &mut ReentryScratch,
     change: &mut Change,
     construction: bool,
@@ -543,18 +523,18 @@ fn mark_reentries(
         ) {
             Ok(found) => {
                 for rehearsal in &scratch.compilation.rehearsals {
-                    change.push(Edit::RehearseReentry {
-                        start: rehearsal.start,
-                        condition: rehearsal.condition,
-                        routes: rehearsal.routes.clone(),
-                        dependencies: rehearsal.dependencies.clone(),
-                    });
+                    change.rehearse_reentry(
+                        rehearsal.start,
+                        rehearsal.condition,
+                        rehearsal.routes.clone(),
+                        rehearsal.dependencies.clone(),
+                    );
                 }
-                candidate.reentries = found;
+                candidate.continuation.reentries = found;
             }
-            Err(()) => candidate.reentry_failed = true,
+            Err(()) => candidate.continuation.reentry_failed = true,
         }
-        candidate.reentry_incidence_visits = visits;
-        candidate.reentry_shortcut_hits = shortcut_hits;
+        candidate.continuation.reentry_incidence_visits = visits;
+        candidate.continuation.reentry_shortcut_hits = shortcut_hits;
     }
 }

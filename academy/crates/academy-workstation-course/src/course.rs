@@ -733,13 +733,14 @@ fn positioned_checkpoint(
     harness.reposition_from_checkpoint(&pose)?;
     if horizontal_shift != 0
         && !harness.perturb_body(
-            BodyControl::PalmHorizontal {
-                direction: if horizontal_shift.is_positive() {
+            BodyControl::new(
+                truelearner_workstation::BodyAxis::PalmHorizontal,
+                if horizontal_shift.is_positive() {
                     Direction::Increase
                 } else {
                     Direction::Decrease
                 },
-            },
+            ),
             horizontal_shift.unsigned_abs(),
         )?
     {
@@ -1147,9 +1148,10 @@ mod tests {
     fn returned_screen_change_requires_the_exact_preceding_crossing() {
         let parent = MotorEffect {
             at: 1,
-            control: BodyControl::PalmDepth {
-                direction: Direction::Increase,
-            },
+            control: BodyControl::new(
+                truelearner_workstation::BodyAxis::PalmDepth,
+                Direction::Increase,
+            ),
             impulse: 16,
             cause: 2,
         };

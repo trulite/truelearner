@@ -6,6 +6,7 @@ pub(crate) struct ReturnEntry {
     pub(crate) path: Path,
     pub(crate) exclusive_source: bool,
     pub(crate) offers_choice: bool,
+    pub(crate) outcome_witness: Option<LinkId>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -14,154 +15,11 @@ pub(crate) struct ReturnIndex {
     pub(crate) live_count: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct LinkMemory {
-    pub(crate) live: bool,
-    pub(crate) transmitted: bool,
-    pub(crate) role: LinkRole,
-    pub(crate) participation: u64,
-    pub(crate) cause: Cause,
-    pub(crate) participated_at: Time,
-    pub(crate) outcome_at: Option<Time>,
-    pub(crate) outcome_available: bool,
-    pub(crate) boundary_closed: bool,
-    pub(crate) boundary_inhibited: bool,
-    pub(crate) boundary_drive: bool,
-    pub(crate) exact_closures: u8,
-    pub(crate) strength: i64,
-}
-
-const fn return_topology_role(role: LinkRole) -> bool {
-    matches!(
-        role,
-        LinkRole::Drive
-            | LinkRole::PathEntry
-            | LinkRole::OutcomeWitness
-            | LinkRole::BoundaryWitness
-    )
-}
-
-impl Default for LinkMemory {
-    fn default() -> Self {
-        Self {
-            live: true,
-            transmitted: false,
-            role: LinkRole::Drive,
-            participation: 0,
-            cause: 0,
-            participated_at: 0,
-            outcome_at: None,
-            outcome_available: false,
-            boundary_closed: false,
-            boundary_inhibited: false,
-            boundary_drive: false,
-            exact_closures: 0,
-            strength: 1,
-        }
-    }
-}
-
-impl LinkMemory {
-    pub(crate) const fn is_boundary_drive(&self) -> bool {
-        self.boundary_drive
-    }
-
-    pub(crate) fn record_transmission(&mut self, cause: Cause, at: Time) {
-        self.transmitted = true;
-        self.cause = cause;
-        self.participated_at = at;
-    }
-
-    pub(crate) fn remap_links(&mut self, base: usize) {
-        let motif_parent = self.motif_parent();
-        let switched_from = self.switched_from();
-        if let LinkRole::Composite { first, second } = self.role {
-            self.role = LinkRole::Composite {
-                first: remap_link(first, base),
-                second: remap_link(second, base),
-            };
-        }
-        if let Some((source, witness)) = self.closed_support() {
-            self.remember_closed_support(source, remap_link(witness, base));
-        }
-        if let Some(parent) = motif_parent {
-            self.remember_motif_parent(remap_link(parent, base));
-        }
-        if let Some(prior) = switched_from {
-            self.remember_switched_from(remap_link(prior, base));
-        }
-    }
-
-    pub(crate) fn remap_junctions(&mut self, base: usize) {
-        if let Some((source, witness)) = self.closed_support() {
-            let source = JunctionId::new(base + source.slot())
-                .expect("validated attachment junction identity");
-            self.remember_closed_support(source, witness);
-        }
-    }
-
-    #[inline(always)]
-    fn remember_closed_support(&mut self, source: JunctionId, witness: LinkId) {
-        // A retired Return link no longer uses strength or outcome availability.
-        // Reuse those cold fields for its sparse exact support instead of adding
-        // state to every hot drive link.
-        let source = u32::try_from(source.slot()).expect("junction identity fits in u32");
-        let witness = u32::try_from(witness.slot()).expect("link identity fits in u32");
-        self.strength = ((u64::from(source) << 32) | u64::from(witness)) as i64;
-        self.outcome_available = true;
-    }
-
-    #[inline(always)]
-    fn stored_support(&self) -> Option<(JunctionId, LinkId)> {
-        if !self.outcome_available || !matches!(self.role, LinkRole::Return { .. }) {
-            return None;
-        }
-        let packed = self.strength as u64;
-        let source = JunctionId::new((packed >> 32) as usize)?;
-        let witness = LinkId::new((packed as u32) as usize)?;
-        Some((source, witness))
-    }
-
-    #[inline(always)]
-    fn closed_support(&self) -> Option<(JunctionId, LinkId)> {
-        (!self.live).then(|| self.stored_support()).flatten()
-    }
-
-    fn remember_motif_parent(&mut self, parent: LinkId) {
-        debug_assert!(!self.live && matches!(self.role, LinkRole::Return { .. }));
-        self.participation = parent.slot() as u64;
-        self.boundary_inhibited = true;
-    }
-
-    pub(crate) fn motif_parent(&self) -> Option<LinkId> {
-        if self.closed_support().is_none() || !self.boundary_inhibited {
-            return None;
-        }
-        usize::try_from(self.participation)
-            .ok()
-            .and_then(LinkId::new)
-    }
-
-    fn remember_switched_from(&mut self, prior: LinkId) {
-        debug_assert!(self.live && matches!(self.role, LinkRole::Return { .. }));
-        self.participation = prior.slot() as u64;
-        self.boundary_inhibited = true;
-    }
-
-    fn switched_from(&self) -> Option<LinkId> {
-        if !self.live || !matches!(self.role, LinkRole::Return { .. }) || !self.boundary_inhibited {
-            return None;
-        }
-        usize::try_from(self.participation)
-            .ok()
-            .and_then(LinkId::new)
-    }
-
-    fn clear_switched_from(&mut self) {
-        if self.live && matches!(self.role, LinkRole::Return { .. }) {
-            self.boundary_inhibited = false;
-        }
-    }
+const fn touches_reentry(state: &ArrowState) -> bool {
+    state.is_entry()
+        || state.is_drive()
+        || state.is_membership()
+        || matches!(state.witness_kind(), Some(WitnessKind::Closure { offers_choice: true }))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -175,7 +33,7 @@ pub enum ApplyError {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Applied {
+pub(crate) struct Applied {
     pub junctions: Vec<JunctionId>,
     pub links: Vec<LinkId>,
 }
@@ -186,43 +44,25 @@ impl Body {
             returns.clear();
         }
         self.returns.live_count = 0;
-        for slot in 0..self.link_memory.len() {
-            let memory = &self.link_memory[slot];
-            let live = memory.live;
-            let role = memory.role;
-            let LinkRole::Return { .. } = role else {
-                continue;
-            };
-            if !live {
+        for slot in 0..self.arrows.len() {
+            if self.arrows[slot].open_return_data().is_none() {
                 continue;
             }
             let link = LinkId::new(slot).expect("validated link identity");
-            self.insert_live_return(link, role);
+            self.insert_live_return(link);
         }
     }
 
-    fn insert_live_return(&mut self, link: LinkId, role: LinkRole) {
-        let LinkRole::Return { cause, .. } = role else {
+    fn insert_live_return(&mut self, link: LinkId) {
+        let Some((path, cause, _, _)) = self.arrows[link.slot()].open_return_data() else {
             return;
         };
         self.returns.live_count += 1;
-        let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
-        let Some(physical) = self.arena.link(link) else {
-            return;
-        };
-        let Some(second) = outgoing_drive_to(view, physical.to, physical.from) else {
-            return;
-        };
-        let Some(path) = path_from_drive(view, second) else {
-            return;
-        };
         let mut only_source = None;
         let mut multiple_sources = false;
         for target in [path.middle, path.output] {
             for witness in self.arena.incoming(target) {
-                if !self.link_memory[witness.slot()].live
-                    || !closes_return(self.link_memory[witness.slot()].role)
-                {
+                if !closes_return(&self.arrows[witness.slot()]) {
                     continue;
                 }
                 let source = self.arena.link(witness).expect("live outcome witness").from;
@@ -237,30 +77,24 @@ impl Body {
         let mut sources = Vec::new();
         for target in [path.middle, path.output] {
             for witness in self.arena.incoming(target) {
-                let role = self.link_memory[witness.slot()].role;
-                if !self.link_memory[witness.slot()].live || !closes_return(role) {
+                let state = &self.arrows[witness.slot()];
+                let Some(WitnessKind::Closure { offers_choice }) = state.witness_kind() else {
                     continue;
-                }
+                };
                 let source = self.arena.link(witness).expect("live outcome witness").from;
-                sources.push((source, role));
+                sources.push((source, offers_choice));
             }
         }
-        let prepared = only_source.and_then(|source| {
-            let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
-            unique_outcome_witness(view, source, path).map(|(witness, _)| (source, witness))
-        });
-        if let Some((source, witness)) = prepared {
-            self.link_memory[link.slot()].remember_closed_support(source, witness);
-        } else {
-            self.link_memory[link.slot()].outcome_available = false;
-        }
-        for (source, role) in sources {
+        for (source, offers_choice) in sources {
+            let view = ReactionView::new(&self.arena, &self.arrows, &self.returns);
             let entry = ReturnEntry {
                 cause,
                 link,
                 path,
                 exclusive_source,
-                offers_choice: role == LinkRole::OutcomeWitness,
+                offers_choice,
+                outcome_witness: unique_outcome_witness(view, source, path)
+                    .map(|(witness, _)| witness),
             };
             let returns = &mut self.returns.by_source[source.slot()];
             if let Err(index) = returns.binary_search(&entry) {
@@ -269,17 +103,12 @@ impl Body {
         }
     }
 
-    fn remove_live_return(&mut self, link: LinkId, role: LinkRole) {
-        let LinkRole::Return { .. } = role else {
+    fn remove_live_return(&mut self, link: LinkId) {
+        let Some((path, _, _, _)) = self.arrows[link.slot()].open_return_data() else {
             return;
         };
         self.expire_automatic_witness(link);
-        let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
-        let path = self.arena.link(link).and_then(|physical| {
-            outgoing_drive_to(view, physical.to, physical.from)
-                .and_then(|second| path_from_drive(view, second))
-        });
-        self.remove_live_return_with_path(link, path);
+        self.remove_live_return_with_path(link, Some(path));
     }
 
     fn remove_live_return_with_path(&mut self, link: LinkId, path: Option<Path>) {
@@ -289,8 +118,8 @@ impl Body {
         }
         debug_assert!(self.returns.live_count > 0, "live return count drift");
         self.returns.live_count -= 1;
-        let (arena, link_memory, returns_by_source) =
-            (&self.arena, &self.link_memory, &mut self.returns.by_source);
+        let (arena, arrows, returns_by_source) =
+            (&self.arena, &self.arrows, &mut self.returns.by_source);
         let Some(path) = path else {
             for returns in returns_by_source {
                 returns.retain(|entry| entry.link != link);
@@ -299,9 +128,7 @@ impl Body {
         };
         for target in [path.middle, path.output] {
             for witness in arena.incoming(target) {
-                if !link_memory[witness.slot()].live
-                    || !closes_return(link_memory[witness.slot()].role)
-                {
+                if !closes_return(&arrows[witness.slot()]) {
                     continue;
                 }
                 let source = arena.link(witness).expect("live outcome witness").from;
@@ -324,14 +151,14 @@ impl Body {
         let (from, to, changed, relevant) = {
             let physical = self.arena.link(link).ok_or(ApplyError::UnknownLink(link))?;
             let memory = self
-                .link_memory
+                .arrows
                 .get(link.slot())
                 .ok_or(ApplyError::UnknownLink(link))?;
             (
                 physical.from,
                 physical.to,
                 physical.impulse != impulse,
-                matches!(memory.role, LinkRole::PathEntry | LinkRole::Drive),
+                memory.is_entry() || memory.is_drive(),
             )
         };
         let physical = self
@@ -354,72 +181,78 @@ impl Body {
     /// it or compose across it.
     pub(crate) fn mark_boundary_drive(&mut self, link: LinkId) -> Result<(), ApplyError> {
         let memory = self
-            .link_memory
+            .arrows
             .get_mut(link.slot())
             .ok_or(ApplyError::UnknownLink(link))?;
-        memory.boundary_drive = true;
+        memory.mark_boundary_crossing();
         Ok(())
     }
 
-    pub fn set_link_role(&mut self, link: LinkId, role: LinkRole) -> Result<(), ApplyError> {
-        let memory = self
-            .link_memory
+    pub(crate) fn replace_arrow_state(
+        &mut self,
+        link: LinkId,
+        state: ArrowState,
+    ) -> Result<(), ApplyError> {
+        let previous = *self
+            .arrows
             .get(link.slot())
             .ok_or(ApplyError::UnknownLink(link))?;
-        let live = memory.live;
-        let previous = memory.role;
         let physical = *self.arena.link(link).ok_or(ApplyError::UnknownLink(link))?;
-        if live {
-            self.remove_live_return(link, previous);
+        if previous.open_return_data().is_some() {
+            self.remove_live_return(link);
         }
-        self.link_memory[link.slot()].role = role;
-        let transient_return =
-            matches!(role, LinkRole::Return { .. }) && physical.delay == 0 && physical.impulse == 0;
-        let reentry_role = |role| {
-            matches!(
-                role,
-                LinkRole::PathEntry
-                    | LinkRole::Drive
-                    | LinkRole::OutcomeWitness
-                    | LinkRole::Membership
-            )
-        };
-        if previous != role && !transient_return && (reentry_role(previous) || reentry_role(role)) {
+        self.arrows[link.slot()] = state;
+        let transient_return = state.open_return_data().is_some()
+            && physical.delay == 0
+            && physical.impulse == 0;
+        if previous != state
+            && !transient_return
+            && (touches_reentry(&previous) || touches_reentry(&state))
+        {
             self.touch_reentry_junctions([physical.from, physical.to]);
         }
-        if previous != role && (previous == LinkRole::Membership || role == LinkRole::Membership) {
+        if previous != state && (previous.is_membership() || state.is_membership()) {
             self.touch_path_entries_from(physical.to);
         }
-        if !matches!(previous, LinkRole::Composite { .. })
-            && matches!(role, LinkRole::Composite { .. })
-        {
-            let automaticity = self.automaticity_mut();
-            automaticity.work.composites_formed =
-                automaticity.work.composites_formed.saturating_add(1);
+        if previous.factors().is_none() && state.factors().is_some() {
+            let consolidation = self.consolidation_mut();
+            consolidation.work.composites_formed =
+                consolidation.work.composites_formed.saturating_add(1);
             if automatic_leftmost(self, link, 0)
-                .is_some_and(|root| self.link_memory[root.slot()].role == LinkRole::Drive)
+                .is_some_and(|root| self.arrows[root.slot()].is_drive())
             {
-                self.automaticity_mut().generic_composites = true;
+                self.has_composites = true;
             }
         }
-        if live {
-            self.insert_live_return(link, role);
+        if state.open_return_data().is_some() {
+            self.insert_live_return(link);
         }
-        if live
-            && self.returns.live_count != 0
-            && previous != role
-            && (return_topology_role(previous) || return_topology_role(role))
+        if self.returns.live_count != 0
+            && previous != state
+            && (touches_reentry(&previous) || touches_reentry(&state))
         {
             self.rebuild_live_returns();
         }
-        if !matches!(previous, LinkRole::Return { .. }) || !matches!(role, LinkRole::Return { .. })
-        {
+        if previous.open_return_data().is_none() || state.open_return_data().is_none() {
             self.prune_reentry();
         }
         Ok(())
     }
 
-    pub fn apply(&mut self, mut change: Change) -> Result<Applied, ApplyError> {
+    pub fn mark_path_entry(&mut self, link: LinkId) -> Result<(), ApplyError> {
+        self.replace_arrow_state(link, ArrowState::entry())
+    }
+
+    pub(crate) fn mark_witness(
+        &mut self,
+        link: LinkId,
+        kind: WitnessKind,
+    ) -> Result<(), ApplyError> {
+        self.replace_arrow_state(link, ArrowState::witness(kind))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn apply(&mut self, mut change: Change) -> Result<Applied, ApplyError> {
         let mut applied = Applied::default();
         let at = self.now();
         self.apply_reusing(&mut change, &mut applied, at, &mut NoTrace)?;
@@ -549,8 +382,8 @@ impl Body {
                             Link::new(from, to, spec.delay, spec.impulse).when(spec.trigger),
                         )
                         .map_err(ApplyError::Build)?;
-                    self.set_link_role(id, spec.role)?;
-                    if spec.role == LinkRole::Drive {
+                    self.replace_arrow_state(id, spec.state)?;
+                    if spec.state.is_drive() && spec.state.factors().is_none() {
                         self.touch_reentry_junctions([from, to]);
                     }
                     applied.links.push(id);
@@ -571,47 +404,34 @@ impl Body {
                     offers_choice,
                     at,
                 } => {
-                    let memory = self
-                        .link_memory
+                    let was_open = self
+                        .arrows
                         .get(returned.slot())
-                        .ok_or(ApplyError::UnknownLink(returned))?;
-                    let was_live = memory.live;
-                    let role = memory.role;
+                        .ok_or(ApplyError::UnknownLink(returned))?
+                        .open_return_data()
+                        .is_some();
                     if self.needs_automatic_closure() {
                         self.complete_automatic_witness(returned, path, exact);
                     }
-                    if was_live {
-                        debug_assert!(matches!(role, LinkRole::Return { .. }));
-                        if matches!(role, LinkRole::Return { .. }) {
-                            if exclusive_source {
-                                self.remove_exclusive_live_return(source, returned);
-                            } else {
-                                self.remove_live_return_with_path(returned, Some(path));
-                            }
+                    if was_open {
+                        if exclusive_source {
+                            self.remove_exclusive_live_return(source, returned);
+                        } else {
+                            self.remove_live_return_with_path(returned, Some(path));
                         }
-                        self.link_memory[returned.slot()].clear_switched_from();
-                        self.link_memory[returned.slot()].live = false;
                     }
-                    let mut exact_closures = self.link_memory[path.first.slot()].exact_closures;
-                    if exact {
+                    let mut exact_closures = self.arrows[path.first.slot()].exact_closures();
+                    for (index, link) in path.links().into_iter().enumerate() {
                         let memory = self
-                            .link_memory
-                            .get_mut(path.first.slot())
-                            .ok_or(ApplyError::UnknownLink(path.first))?;
-                        memory.exact_closures = memory.exact_closures.saturating_add(1);
-                        exact_closures = memory.exact_closures;
-                    }
-                    for link in path.links() {
-                        let memory = self
-                            .link_memory
+                            .arrows
                             .get_mut(link.slot())
                             .ok_or(ApplyError::UnknownLink(link))?;
-                        memory.outcome_at = offers_choice.then_some(at);
-                        memory.outcome_available = offers_choice;
-                        memory.boundary_closed |= !offers_choice;
-                        let before = memory.strength;
-                        let after = before.saturating_add(1);
-                        memory.strength = after;
+                        let (closures, before, after) = memory
+                            .learn_closure(at, offers_choice, exact && index == 0)
+                            .unwrap_or((0, 1, 1));
+                        if index == 0 {
+                            exact_closures = closures;
+                        }
                         if T::ENABLED {
                             trace.record(TraceEvent::Strengthened(StrengthTrace {
                                 at,
@@ -621,48 +441,58 @@ impl Body {
                             }));
                         }
                     }
-                    self.retain_closed_step(
+                    if let Some(support) = self.retained_closed_support(
                         returned,
                         source,
                         path,
                         outcome_witness,
                         exact,
                         exclusive_source && exact_closures > u8::from(exact),
-                    );
-                    if self.link_memory[returned.slot()].closed_support().is_some() {
-                        if let Some(parent) = motif_parent {
-                            self.link_memory[returned.slot()].remember_motif_parent(parent);
-                        }
+                    ) {
+                        self.arrows[returned.slot()].close_return(at, support, motif_parent);
                     }
                 }
                 Edit::ChangeLink { link, change } => {
                     let link = resolve_link(link, applied)?;
+                    if let LinkChange::MarkAmbiguous { at } = change {
+                        let was_open = self
+                            .arrows
+                            .get(link.slot())
+                            .ok_or(ApplyError::UnknownLink(link))?
+                            .open_return_data()
+                            .is_some();
+                        if was_open {
+                            self.remove_live_return(link);
+                            self.arrows[link.slot()].mark_ambiguous(at);
+                        }
+                        continue;
+                    }
                     if change == LinkChange::Retire {
                         let memory = self
-                            .link_memory
+                            .arrows
                             .get(link.slot())
                             .ok_or(ApplyError::UnknownLink(link))?;
-                        let was_live = memory.live;
-                        let role = memory.role;
+                        let was_active = memory.active();
+                        let was_open = memory.open_return_data().is_some();
+                        let touched_reentry = touches_reentry(memory);
+                        let was_membership = memory.is_membership();
                         let physical =
                             *self.arena.link(link).ok_or(ApplyError::UnknownLink(link))?;
-                        if was_live {
-                            self.remove_live_return(link, role);
-                            self.link_memory[link.slot()].live = false;
-                            self.link_memory[link.slot()].outcome_available = false;
-                            if self.returns.live_count != 0 && return_topology_role(role) {
+                        if was_active {
+                            if was_open {
+                                self.remove_live_return(link);
+                                self.arrows[link.slot()].expire_return();
+                            } else {
+                                self.arrows[link.slot()].deactivate();
+                                self.arrows[link.slot()].clear_outcome();
+                            }
+                            if self.returns.live_count != 0 && touched_reentry {
                                 self.rebuild_live_returns();
                             }
-                            if matches!(
-                                role,
-                                LinkRole::PathEntry
-                                    | LinkRole::Drive
-                                    | LinkRole::OutcomeWitness
-                                    | LinkRole::Membership
-                            ) {
+                            if touched_reentry {
                                 self.touch_reentry_junctions([physical.from, physical.to]);
                             }
-                            if role == LinkRole::Membership {
+                            if was_membership {
                                 self.touch_path_entries_from(physical.to);
                             }
                         }
@@ -671,58 +501,39 @@ impl Body {
                     let physical = *self.arena.link(link).ok_or(ApplyError::UnknownLink(link))?;
                     let mut touch_reentry = false;
                     let memory = self
-                        .link_memory
+                        .arrows
                         .get_mut(link.slot())
                         .ok_or(ApplyError::UnknownLink(link))?;
                     match change {
                         LinkChange::Participated { cause, at } => {
-                            touch_reentry = memory.participation == 0;
-                            memory.participation = memory.participation.saturating_add(1);
-                            memory.cause = cause;
-                            memory.participated_at = at;
-                            memory.boundary_closed = false;
+                            touch_reentry = memory.participate(Occurrence { cause, at });
                         }
                         LinkChange::RememberOutcome {
                             at,
                             available_until_choice,
                         } => {
-                            memory.outcome_at = Some(at);
-                            memory.outcome_available = available_until_choice;
+                            memory.remember_outcome(Outcome {
+                                at,
+                                caused_transition: false,
+                                available_until_choice,
+                            });
                         }
-                        LinkChange::LearnOutcome {
-                            at,
-                            available_until_choice,
-                            strength,
-                        } => {
-                            memory.outcome_at = Some(at);
-                            memory.outcome_available = available_until_choice;
-                            let before = memory.strength;
-                            let after = before.saturating_add(i64::from(strength));
-                            memory.strength = after;
-                            if T::ENABLED {
-                                trace.record(TraceEvent::Strengthened(StrengthTrace {
-                                    at,
-                                    link,
-                                    before,
-                                    after,
-                                }));
-                            }
+                        LinkChange::ConsumeOutcome => {
+                            memory.consume_outcome();
                         }
-                        LinkChange::ConsumeOutcome => memory.outcome_available = false,
                         LinkChange::ClearOutcomeSelection => {
-                            memory.outcome_at = None;
-                            memory.outcome_available = false;
+                            memory.clear_outcome();
                         }
                         LinkChange::InhibitBoundaryChoice => {
-                            memory.boundary_inhibited = true;
+                            memory.inhibit_boundary();
                         }
                         LinkChange::ConsumeBoundaryInhibition => {
-                            memory.boundary_inhibited = false;
+                            memory.consume_boundary_inhibition();
                         }
                         LinkChange::Strengthen { amount } => {
-                            let before = memory.strength;
-                            let after = before.saturating_add(i64::from(amount));
-                            memory.strength = after;
+                            let (before, after) = memory
+                                .strengthen(i64::from(amount))
+                                .unwrap_or((1, 1));
                             if T::ENABLED {
                                 trace.record(TraceEvent::Strengthened(StrengthTrace {
                                     at,
@@ -734,6 +545,9 @@ impl Body {
                         }
                         LinkChange::RememberSwitchedFrom { prior } => {
                             memory.remember_switched_from(prior);
+                        }
+                        LinkChange::MarkAmbiguous { .. } => {
+                            unreachable!("ambiguity handled before ordinary mutation")
                         }
                         LinkChange::Retire => unreachable!("retirement handled before mutation"),
                     }

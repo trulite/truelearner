@@ -26,16 +26,20 @@ fn frontier_preserves_boundary_and_link_participants() {
     body.step(|_| {}).unwrap();
     assert_eq!(body.activity.moment.changes[0].event.cause, 7);
     assert_eq!(participant_links(&body, 0), [None, None]);
-    assert!(body.link_memory[first.slot()].transmitted);
-    assert_eq!(body.link_memory[first.slot()].cause, 7);
-    assert_eq!(body.link_memory[first.slot()].participated_at, 3);
+    assert!(body.arrows[first.slot()].transmitted());
+    assert_eq!(
+        body.arrows[first.slot()].last_transmission(),
+        Some(crate::core::Occurrence { cause: 7, at: 3 })
+    );
 
     body.step(|_| {}).unwrap();
     assert_eq!(body.activity.moment.changes[0].event.junction, middle);
     assert_eq!(participant_links(&body, 0), [Some(first)]);
-    assert!(body.link_memory[second.slot()].transmitted);
-    assert_eq!(body.link_memory[second.slot()].cause, 7);
-    assert_eq!(body.link_memory[second.slot()].participated_at, 4);
+    assert!(body.arrows[second.slot()].transmitted());
+    assert_eq!(
+        body.arrows[second.slot()].last_transmission(),
+        Some(crate::core::Occurrence { cause: 7, at: 4 })
+    );
 
     body.step(|_| {}).unwrap();
     assert_eq!(body.activity.moment.changes[0].event.junction, target);
@@ -65,12 +69,11 @@ fn boundary_input_and_failed_enqueue_record_no_link_transmission() {
     let target = body.add_junction(Junction::integrating(1)).unwrap();
     let clock = body.add_junction(Junction::integrating(1)).unwrap();
     let link = body.add_link(Link::new(source, target, 0, 1)).unwrap();
-    body.set_link_role(link, crate::core::LinkRole::PathEntry)
-        .unwrap();
+    body.mark_path_entry(link).unwrap();
 
     body.input(10, clock, 1).unwrap();
     body.step(|_| {}).unwrap();
-    assert!(!body.link_memory[link.slot()].transmitted);
+    assert!(!body.arrows[link.slot()].transmitted());
 
     assert_eq!(
         body.send_through(9, link, 3),
@@ -79,7 +82,7 @@ fn boundary_input_and_failed_enqueue_record_no_link_transmission() {
             requested: 9,
         })
     );
-    assert!(!body.link_memory[link.slot()].transmitted);
+    assert!(!body.arrows[link.slot()].transmitted());
 }
 
 #[test]

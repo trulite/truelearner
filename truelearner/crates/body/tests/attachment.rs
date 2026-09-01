@@ -1,6 +1,4 @@
-use truelearner_body::{
-    attach, Arrival, AttachError, Body, Join, Junction, Link, LinkRole, OpenBody,
-};
+use truelearner_body::{attach, Arrival, AttachError, Body, Join, Junction, Link, OpenBody};
 
 fn events(body: &mut Body) -> Vec<truelearner_body::PhysicalEvent> {
     let mut events = Vec::new();
@@ -22,9 +20,7 @@ fn inward_attachment_preserves_memory_links_time_and_cause() {
     let blocked = sensor.add_junction(Junction::integrating(1)).unwrap();
     sensor.add_link(Link::new(sample, local, 0, 1)).unwrap();
     let blocked_link = sensor.add_link(Link::new(sample, blocked, 0, 1)).unwrap();
-    sensor
-        .set_link_role(blocked_link, LinkRole::PathEntry)
-        .unwrap();
+    sensor.mark_path_entry(blocked_link).unwrap();
     sensor.input(1, sample, 7).unwrap();
     events(&mut sensor);
     let sensor = OpenBody::new(sensor, vec![sample, blocked]).unwrap();

@@ -9,6 +9,10 @@ description: Develop, debug, review, formalize, or change TrueLearner code. Appl
 problem -> compositional physical model -> smallest complete change -> verify
                |                                  |                 |
         category theory + TAME              simple code       warm wave < 25 ns
+                                                  |
+                               new type or elaborate mechanism
+                                                  |
+                         concept audit -> propose -> user confirms -> edit
                                                                     |
                                                     slower -> ask user to approve
 ```
@@ -24,6 +28,51 @@ problem -> compositional physical model -> smallest complete change -> verify
   benchmark, answer, or semantic knowledge into the organism.
 - Prefer the smallest complete change that preserves existing boundaries and
   black-box behavior.
+
+## Confirm new mechanisms
+
+- Before editing code to introduce a new struct or an elaborate mechanism,
+  stop and propose the design to the user.
+- Show why existing types are insufficient, the exact new state and arrows,
+  the smaller alternatives considered, and the tests and cost boundary.
+- Proceed only after the user explicitly confirms that proposed design.
+- Do not treat a request to investigate, fix, or continue as confirmation of a
+  design the user has not yet seen.
+
+## Enforce conceptual parsimony
+
+```text
+proposed concept
+      |
+      v
+distinct physical fact + one owner + distinct legal transitions?
+      | no                         | yes
+      v                            v
+reuse or compose existing      fit it on the structures page
+concepts                       and its law on the laws page
+                                    |
+                                    v
+                           propose exact concept delta
+```
+
+- Inventory the affected persistent structs, enums, roles, and laws before
+  adding one. State the concept delta: names added, names removed, owner, and
+  why a product or composition of existing concepts is insufficient.
+- Add a type only when it owns a distinct invariant or lifecycle. Do not create
+  aliases, manager/context/info bags, parallel representations, or a new enum
+  variant when an existing product, arrow, state, or derived view suffices.
+- Give one concept one production name and one authority for changing it.
+  Separate persistent evidence, transient computation, observer projection,
+  and test fixtures.
+- Update `docs/body-structures.md` and `docs/body-laws.md` in the same change as
+  persistent state or learner-law edits. Stop and simplify if the new concept
+  cannot be defined in one sentence or the two sheets cease to be concise.
+- TrueLearner is prerelease: delete compatibility-only vocabulary, duplicate
+  wire representations, and migration paths. Bump the current schema version,
+  regenerate fixtures, and reject old artifacts. Add compatibility only after
+  explicit user approval.
+- Before handoff, search for duplicate/dead concepts and obsolete names, run
+  clippy with warnings denied, and report the final concept delta.
 
 ## Keep the workstation generic
 

@@ -208,7 +208,7 @@ fn a_wrong_cause_cannot_close_a_step_while_starting_the_next() {
     assert!(trace.iter().any(|event| matches!(
         event,
         TraceEvent::Return(returned)
-            if returned.decision == ReturnDecision::BlockedByReadyPath
+            if returned.decision == ReturnDecision::BlockedByCandidatePath
                 && returned.source == world.intermediate
                 && returned.exact_paths == 0
     )));

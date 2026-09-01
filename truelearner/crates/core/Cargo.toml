@@ -1,0 +1,12 @@
+[package]
+name = "truelearner-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Executable physical laws and state identities for TrueLearner"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

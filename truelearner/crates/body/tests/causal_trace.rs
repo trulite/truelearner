@@ -140,7 +140,7 @@ fn trace_records_a_real_rejected_return_reason() {
         rejected.iter().any(|event| matches!(
             event,
             TraceEvent::Return(returned)
-                if returned.decision == ReturnDecision::BlockedByReadyPath
+                if returned.decision == ReturnDecision::BlockedByCandidatePath
         )),
         "{rejected:#?}"
     );

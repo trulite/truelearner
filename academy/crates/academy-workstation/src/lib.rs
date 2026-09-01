@@ -41,7 +41,7 @@ pub enum WorldError {
     RecordingChecksum,
     TrailingRecordingBytes,
     RecordingReplayDiverged(u64),
-    Body(String),
+    Body(truelearner_workstation::WorkstationError),
 }
 
 impl fmt::Display for WorldError {
@@ -94,7 +94,7 @@ impl fmt::Display for WorldError {
                     "workstation recording diverged at sequence {sequence}"
                 )
             }
-            Self::Body(message) => write!(formatter, "workstation body failed: {message}"),
+            Self::Body(error) => write!(formatter, "workstation body failed: {error}"),
         }
     }
 }
@@ -103,6 +103,6 @@ impl std::error::Error for WorldError {}
 
 impl From<truelearner_workstation::WorkstationError> for WorldError {
     fn from(value: truelearner_workstation::WorkstationError) -> Self {
-        Self::Body(value.to_string())
+        Self::Body(value)
     }
 }

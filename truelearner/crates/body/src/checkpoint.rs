@@ -1,12 +1,11 @@
-use crate::{Automaticity, AutomaticityV7, Body, Junction, Link, LinkMemory};
+use crate::{ArrowState, Body, Consolidation, Junction, Link, ReentryCache};
 use bincode::Options;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt;
 
 const MAGIC: &[u8; 8] = b"TLBODY01";
-const VERSION: u16 = 8;
-const PREVIOUS_VERSION: u16 = 7;
+const VERSION: u16 = 9;
 const HEADER_LEN: usize = 50;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,7 +19,7 @@ struct JunctionRecord {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct LinkRecord {
     law: Link,
-    memory: LinkMemory,
+    memory: ArrowState,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,28 +27,9 @@ struct Payload {
     now: u64,
     junctions: Vec<JunctionRecord>,
     links: Vec<LinkRecord>,
-    automaticity: Option<Box<Automaticity>>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct PayloadV7 {
-    now: u64,
-    junctions: Vec<JunctionRecord>,
-    links: Vec<LinkRecord>,
-    automaticity: Option<Box<AutomaticityV7>>,
-}
-
-impl From<PayloadV7> for Payload {
-    fn from(previous: PayloadV7) -> Self {
-        Self {
-            now: previous.now,
-            junctions: previous.junctions,
-            links: previous.links,
-            automaticity: previous
-                .automaticity
-                .map(|automaticity| Box::new((*automaticity).into())),
-        }
-    }
+    consolidation: Option<Box<Consolidation>>,
+    reentry: Option<Box<ReentryCache>>,
+    has_composites: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -107,10 +87,10 @@ impl Body {
         let links = self
             .arena
             .links()
-            .zip(&self.link_memory)
+            .zip(&self.arrows)
             .map(|(slot, memory)| LinkRecord {
                 law: slot.checkpoint_law(),
-                memory: memory.clone(),
+                memory: *memory,
             })
             .collect();
         Ok(BodyCheckpoint {
@@ -118,7 +98,9 @@ impl Body {
                 now: self.now(),
                 junctions,
                 links,
-                automaticity: self.automaticity.clone(),
+                consolidation: self.consolidation.clone(),
+                reentry: self.reentry.clone(),
+                has_composites: self.has_composites,
             },
         })
     }
@@ -151,7 +133,7 @@ impl BodyCheckpoint {
                 .try_into()
                 .map_err(|_| BodyCheckpointError::Invalid)?,
         );
-        if version != VERSION && version != PREVIOUS_VERSION {
+        if version != VERSION {
             return Err(BodyCheckpointError::UnsupportedVersion(version));
         }
         let length = usize::try_from(u64::from_le_bytes(
@@ -172,16 +154,9 @@ impl BodyCheckpoint {
         if Sha256::digest(payload).as_slice() != &bytes[18..HEADER_LEN] {
             return Err(BodyCheckpointError::Checksum);
         }
-        let payload = if version == VERSION {
-            options()
-                .deserialize(payload)
-                .map_err(|_| BodyCheckpointError::Invalid)?
-        } else {
-            let previous: PayloadV7 = options()
-                .deserialize(payload)
-                .map_err(|_| BodyCheckpointError::Invalid)?;
-            previous.into()
-        };
+        let payload = options()
+            .deserialize(payload)
+            .map_err(|_| BodyCheckpointError::Invalid)?;
         Ok(Self { payload })
     }
 
@@ -201,10 +176,12 @@ impl BodyCheckpoint {
             let id = body
                 .add_link(record.law)
                 .map_err(|_| BodyCheckpointError::Invalid)?;
-            body.link_memory[id.slot()] = record.memory;
+            body.arrows[id.slot()] = record.memory;
         }
         body.restore_checkpoint_time(self.payload.now);
-        body.automaticity = self.payload.automaticity;
+        body.consolidation = self.payload.consolidation;
+        body.reentry = self.payload.reentry;
+        body.has_composites = self.payload.has_composites;
         body.rebuild_live_returns();
         Ok(body)
     }

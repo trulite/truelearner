@@ -37,7 +37,8 @@ pub enum WorkstationError {
     TrailingCheckpointBytes,
     CheckpointIo,
     UnknownOutput(u64),
-    Body(String),
+    BodyRun(truelearner_body::RunError),
+    BodyCheckpoint(truelearner_body::BodyCheckpointError),
 }
 
 impl fmt::Display for WorkstationError {
@@ -75,9 +76,22 @@ impl fmt::Display for WorkstationError {
             Self::UnknownOutput(physical) => {
                 write!(formatter, "unknown outward physical output {physical}")
             }
-            Self::Body(message) => write!(formatter, "body failed: {message}"),
+            Self::BodyRun(error) => write!(formatter, "body run failed: {error:?}"),
+            Self::BodyCheckpoint(error) => write!(formatter, "body checkpoint failed: {error}"),
         }
     }
 }
 
 impl std::error::Error for WorkstationError {}
+
+impl From<truelearner_body::RunError> for WorkstationError {
+    fn from(error: truelearner_body::RunError) -> Self {
+        Self::BodyRun(error)
+    }
+}
+
+impl From<truelearner_body::BodyCheckpointError> for WorkstationError {
+    fn from(error: truelearner_body::BodyCheckpointError) -> Self {
+        Self::BodyCheckpoint(error)
+    }
+}

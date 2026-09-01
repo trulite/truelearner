@@ -41,7 +41,6 @@ pub(crate) struct Handles {
     pub(crate) outcomes: [JunctionId; OUTCOME_COMPONENTS],
     pub(crate) resisted_progress: [JunctionId; AXIS_COUNT],
     pub(crate) opportunities: Vec<JunctionId>,
-    #[serde(with = "outward_checkpoint")]
     pub(crate) outward: Vec<(JunctionId, BodyControl)>,
 }
 
@@ -78,53 +77,6 @@ impl Handles {
                 .chain(&self.opportunities)
                 .chain(self.outward.iter().map(|(junction, _)| junction))
                 .all(|junction| body.held(*junction).is_some())
-    }
-}
-
-mod outward_checkpoint {
-    use super::{control, BodyAxis, BodyControl, Direction, JunctionId, CONTROL_COUNT};
-    use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
-
-    pub fn serialize<S>(
-        outward: &[(JunctionId, BodyControl)],
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        outward
-            .iter()
-            .map(|(junction, body_control)| {
-                let axis = body_control.axis().index();
-                let direction = usize::from(body_control.direction() == Direction::Increase);
-                (
-                    *junction,
-                    u16::try_from(axis * 2 + direction).unwrap_or(u16::MAX),
-                )
-            })
-            .collect::<Vec<_>>()
-            .serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<(JunctionId, BodyControl)>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Vec::<(JunctionId, u16)>::deserialize(deserializer)?
-            .into_iter()
-            .map(|(junction, encoded)| {
-                let encoded = usize::from(encoded);
-                if encoded >= CONTROL_COUNT {
-                    return Err(D::Error::custom("invalid checkpoint body control"));
-                }
-                let direction = if encoded % 2 == 0 {
-                    Direction::Decrease
-                } else {
-                    Direction::Increase
-                };
-                Ok((junction, control(BodyAxis::ALL[encoded / 2], direction)))
-            })
-            .collect()
     }
 }
 
@@ -896,17 +848,7 @@ fn apply_contact_reaction(sample: &WorldSample, frame: &mut ActuatorFrame) {
 }
 
 const fn control(axis: BodyAxis, direction: Direction) -> BodyControl {
-    match axis {
-        BodyAxis::EyeHorizontal { eye } => BodyControl::EyeHorizontal { eye, direction },
-        BodyAxis::EyeVertical { eye } => BodyControl::EyeVertical { eye, direction },
-        BodyAxis::PalmHorizontal => BodyControl::PalmHorizontal { direction },
-        BodyAxis::PalmVertical => BodyControl::PalmVertical { direction },
-        BodyAxis::PalmDepth => BodyControl::PalmDepth { direction },
-        BodyAxis::Wrist => BodyControl::Wrist { direction },
-        BodyAxis::Spread => BodyControl::Spread { direction },
-        BodyAxis::ThumbOpposition => BodyControl::ThumbOpposition { direction },
-        BodyAxis::FingerFlexion { digit } => BodyControl::FingerFlexion { digit, direction },
-    }
+    BodyControl::new(axis, direction)
 }
 
 const fn outcome_component(axis: BodyAxis) -> usize {
@@ -943,11 +885,11 @@ const fn total_work(work: Work) -> u64 {
 }
 
 fn body_error(error: truelearner_body::RunError) -> WorkstationError {
-    WorkstationError::Body(format!("{error:?}"))
+    error.into()
 }
 
 fn body_checkpoint_error(error: BodyCheckpointError) -> WorkstationError {
-    WorkstationError::Body(error.to_string())
+    error.into()
 }
 
 fn attach_sampled_sensor(
@@ -1177,9 +1119,7 @@ mod tests {
         let harness = WorkstationHarness::new(1).unwrap();
         let parent = MotorEffect {
             at: 7,
-            control: BodyControl::PalmDepth {
-                direction: Direction::Increase,
-            },
+            control: BodyControl::new(BodyAxis::PalmDepth, Direction::Increase),
             impulse: 1,
             cause: 41,
         };
@@ -1358,9 +1298,7 @@ mod tests {
 
         assert!(harness
             .perturb_body(
-                BodyControl::PalmHorizontal {
-                    direction: Direction::Increase,
-                },
+                BodyControl::new(BodyAxis::PalmHorizontal, Direction::Increase),
                 1,
             )
             .unwrap());

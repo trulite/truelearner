@@ -3,10 +3,34 @@ use crate::harness::{attach_outcome_component, attach_sensor, finish, motor, rea
 use crate::{verify_choice_laws, Arrival};
 use proptest::prelude::*;
 
-fn ready_path(drive: u16, stable_order: u32) -> ReadyPath {
+fn participate_arrow(state: &mut ArrowState, times: u64, cause: Cause, at: Time) {
+    for _ in 0..times {
+        state.participate(Occurrence { cause, at });
+    }
+}
+
+fn confirm_arrow(state: &mut ArrowState, times: u8) {
+    for _ in 0..times {
+        state.increment_exact_closures();
+    }
+}
+
+fn close_arrow(
+    body: &mut Body,
+    returned: LinkId,
+    path: Path,
+    cause: Cause,
+    source: JunctionId,
+    witness: LinkId,
+) {
+    body.arrows[returned.slot()] = ArrowState::open_return(path, cause, 0);
+    assert!(body.arrows[returned.slot()].close_return(0, ClosedSupport { source, witness }, None,));
+}
+
+fn candidate_path(drive: u16, stable_order: u32) -> CandidatePath {
     let surface = JunctionId::new(0).unwrap();
     let output = JunctionId::new(stable_order as usize + 1).unwrap();
-    ReadyPath {
+    CandidatePath {
         surface,
         middle: JunctionId::new(stable_order as usize + 3).unwrap().into(),
         output,
@@ -43,21 +67,14 @@ fn ready_path(drive: u16, stable_order: u32) -> ReadyPath {
         strength: 1,
         drive,
         stable_order,
-        fresh_opportunity: None,
-        reentries: Vec::new(),
-        motif_reentries: Vec::new(),
-        motif_routes: None,
-        reentry_incidence_visits: 0,
-        reentry_shortcut_hits: 0,
-        reentry_failed: false,
-        motif_route_failed: false,
+        continuation: ContinuationResult::default(),
         executable: true,
     }
 }
 
 #[test]
 fn current_normalized_drive_breaks_an_unlearned_choice_tie() {
-    let paths = [ready_path(512, 0), ready_path(513, 1)];
+    let paths = [candidate_path(512, 0), candidate_path(513, 1)];
 
     let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
 
@@ -65,7 +82,7 @@ fn current_normalized_drive_breaks_an_unlearned_choice_tie() {
     assert_eq!(choice.basis, ChoiceBasis::ParticipationStrengthAndDrive);
 }
 
-fn witnessed_reentry(path: &ReadyPath, condition: JunctionId) -> ReentryTrace {
+fn witnessed_reentry(path: &CandidatePath, condition: JunctionId) -> ReentryTrace {
     let (JunctionRef::Existing(middle), LinkRef::Existing(first), LinkRef::Existing(second)) =
         (path.middle, path.first, path.second)
     else {
@@ -106,33 +123,30 @@ fn closed_reentry_chain(length: usize, dormant_prefix: bool) -> (Body, Vec<Path>
         let first = body
             .add_link(Link::new(surfaces[index], middle, 1, 1))
             .unwrap();
-        body.set_link_role(first, LinkRole::PathEntry).unwrap();
+        body.mark_path_entry(first).unwrap();
         let second = body.add_link(Link::new(middle, output, 1, 1)).unwrap();
-        body.link_memory[first.slot()].participation = 1;
-        body.link_memory[second.slot()].participation = 1;
+        participate_arrow(&mut body.arrows[first.slot()], 1, 1, 0);
+        participate_arrow(&mut body.arrows[second.slot()], 1, 1, 0);
         let witness = body
             .add_link(Link::new(surfaces[index + 1], output, 0, 1))
             .unwrap();
-        body.set_link_role(witness, LinkRole::OutcomeWitness)
-            .unwrap();
-        let returned = body.add_link(Link::new(output, middle, 0, 0)).unwrap();
-        body.set_link_role(
-            returned,
-            LinkRole::Return {
-                cause: 1,
-                cohort: 1,
+        body.mark_witness(
+            witness,
+            WitnessKind::Closure {
+                offers_choice: true,
             },
         )
         .unwrap();
-        body.link_memory[returned.slot()].live = false;
-        body.link_memory[returned.slot()].remember_closed_support(surfaces[index + 1], witness);
-        paths.push(Path {
+        let returned = body.add_link(Link::new(output, middle, 0, 0)).unwrap();
+        let path = Path {
             surface: surfaces[index],
             middle,
             output,
             first,
             second,
-        });
+        };
+        close_arrow(&mut body, returned, path, 1, surfaces[index + 1], witness);
+        paths.push(path);
     }
     (body, paths, surfaces[length])
 }
@@ -140,14 +154,20 @@ fn closed_reentry_chain(length: usize, dormant_prefix: bool) -> (Body, Vec<Path>
 fn retain_confirmed_shortcuts(body: &mut Body, paths: &[Path]) -> Vec<LinkId> {
     let mut trace = NoTrace;
     for path in paths {
-        body.link_memory[path.first.slot()].exact_closures = AUTOMATIC_AFTER_EXACT_CLOSURES;
-        body.link_memory[path.second.slot()].exact_closures = AUTOMATIC_AFTER_EXACT_CLOSURES;
+        confirm_arrow(
+            &mut body.arrows[path.first.slot()],
+            AUTOMATIC_AFTER_EXACT_CLOSURES,
+        );
+        confirm_arrow(
+            &mut body.arrows[path.second.slot()],
+            AUTOMATIC_AFTER_EXACT_CLOSURES,
+        );
         retain_composite_direct(body, *path, 1, &mut trace);
     }
     paths
         .iter()
         .map(|path| {
-            let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+            let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
             usable_composite(view, *path).expect("confirmed path has a valid shortcut")
         })
         .collect()
@@ -158,7 +178,7 @@ fn inspect_reentry(
     first: Path,
     present: JunctionId,
 ) -> (Result<Vec<ReentryTrace>, ()>, u16) {
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
     let mut steps = Vec::new();
     let mut continuations = Vec::new();
     let mut compilation = ReentryCompilationScratch::default();
@@ -185,43 +205,40 @@ fn append_closed_reentry_step(
     let middle = body.add_junction(Junction::integrating(1)).unwrap();
     let output = body.add_junction(Junction::integrating(1)).unwrap();
     let first = body.add_link(Link::new(surface, middle, 1, 1)).unwrap();
-    body.set_link_role(first, LinkRole::PathEntry).unwrap();
+    body.mark_path_entry(first).unwrap();
     let second = body.add_link(Link::new(middle, output, 1, 1)).unwrap();
-    body.link_memory[first.slot()].participation = 1;
-    body.link_memory[second.slot()].participation = 1;
+    participate_arrow(&mut body.arrows[first.slot()], 1, 1, 0);
+    participate_arrow(&mut body.arrows[second.slot()], 1, 1, 0);
     let witness = body
         .add_link(Link::new(returned_source, output, 0, 1))
         .unwrap();
-    body.set_link_role(witness, LinkRole::OutcomeWitness)
-        .unwrap();
-    let returned = body.add_link(Link::new(output, middle, 0, 0)).unwrap();
-    body.set_link_role(
-        returned,
-        LinkRole::Return {
-            cause: 1,
-            cohort: 1,
+    body.mark_witness(
+        witness,
+        WitnessKind::Closure {
+            offers_choice: true,
         },
     )
     .unwrap();
-    body.link_memory[returned.slot()].live = false;
-    body.link_memory[returned.slot()].remember_closed_support(returned_source, witness);
-    Path {
+    let returned = body.add_link(Link::new(output, middle, 0, 0)).unwrap();
+    let path = Path {
         surface,
         middle,
         output,
         first,
         second,
-    }
+    };
+    close_arrow(body, returned, path, 1, returned_source, witness);
+    path
 }
 
 fn append_unclosed_reentry_step(body: &mut Body, surface: JunctionId) -> Path {
     let middle = body.add_junction(Junction::integrating(1)).unwrap();
     let output = body.add_junction(Junction::integrating(1)).unwrap();
     let first = body.add_link(Link::new(surface, middle, 1, 1)).unwrap();
-    body.set_link_role(first, LinkRole::PathEntry).unwrap();
+    body.mark_path_entry(first).unwrap();
     let second = body.add_link(Link::new(middle, output, 1, 1)).unwrap();
-    body.link_memory[first.slot()].participation = 1;
-    body.link_memory[second.slot()].participation = 1;
+    participate_arrow(&mut body.arrows[first.slot()], 1, 1, 0);
+    participate_arrow(&mut body.arrows[second.slot()], 1, 1, 0);
     Path {
         surface,
         middle,
@@ -237,11 +254,11 @@ fn think_reentry(
     present: JunctionId,
 ) -> (Result<Vec<ReentryTrace>, ()>, u16, u16) {
     let (found, rehearsals, visits, shortcut_hits) = {
-        let view = ReactionView::with_automaticity(
+        let view = ReactionView::with_reentry(
             &body.arena,
-            &body.link_memory,
+            &body.arrows,
             &body.returns,
-            body.automaticity.as_deref(),
+            body.reentry.as_deref(),
         );
         let mut steps = Vec::new();
         let mut continuations = Vec::new();
@@ -268,12 +285,12 @@ fn think_reentry(
     if found.is_ok() {
         let mut change = Change::empty();
         for rehearsal in rehearsals {
-            change.push(Edit::RehearseReentry {
-                start: rehearsal.start,
-                condition: rehearsal.condition,
-                routes: rehearsal.routes,
-                dependencies: rehearsal.dependencies,
-            });
+            change.rehearse_reentry(
+                rehearsal.start,
+                rehearsal.condition,
+                rehearsal.routes,
+                rehearsal.dependencies,
+            );
         }
         body.apply(change).unwrap();
     }
@@ -286,11 +303,11 @@ fn rehearse_through_reaction(
     present: JunctionId,
 ) -> (Vec<ReentryTrace>, u16, u16) {
     let (routes, visits, shortcut_hits, change) = {
-        let view = ReactionView::with_automaticity(
+        let view = ReactionView::with_reentry(
             &body.arena,
-            &body.link_memory,
+            &body.arrows,
             &body.returns,
-            body.automaticity.as_deref(),
+            body.reentry.as_deref(),
         );
         let event = crate::physics::Event {
             at: 7,
@@ -328,9 +345,9 @@ fn rehearse_through_reaction(
             .find(|candidate| candidate.first == first.first.into())
             .unwrap();
         (
-            path.reentries,
-            path.reentry_incidence_visits,
-            path.reentry_shortcut_hits,
+            path.continuation.reentries,
+            path.continuation.reentry_incidence_visits,
+            path.continuation.reentry_shortcut_hits,
             change,
         )
     };
@@ -340,8 +357,9 @@ fn rehearse_through_reaction(
 
 #[test]
 fn actual_current_return_precedes_unique_reentry() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
-    paths[0].reentries = vec![witnessed_reentry(&paths[0], JunctionId::new(20).unwrap())];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
+    paths[0].continuation.reentries =
+        vec![witnessed_reentry(&paths[0], JunctionId::new(20).unwrap())];
     paths[1].return_cause = Some(paths[1].current_cause);
 
     let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
@@ -352,8 +370,9 @@ fn actual_current_return_precedes_unique_reentry() {
 
 #[test]
 fn actual_retained_progress_precedes_unique_reentry() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
-    paths[0].reentries = vec![witnessed_reentry(&paths[0], JunctionId::new(20).unwrap())];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
+    paths[0].continuation.reentries =
+        vec![witnessed_reentry(&paths[0], JunctionId::new(20).unwrap())];
     paths[1].resisted_progress = true;
     paths[1].boundary_open = true;
     paths[1].strength = 2;
@@ -372,25 +391,34 @@ fn current_choice_surface_is_not_a_present_reentry_condition() {
     let middle = body.add_junction(Junction::integrating(1)).unwrap();
     let output = body.add_junction(Junction::integrating(1)).unwrap();
     let first = body.add_link(Link::new(surface, middle, 1, 1)).unwrap();
-    body.set_link_role(first, LinkRole::PathEntry).unwrap();
+    body.mark_path_entry(first).unwrap();
     let second = body.add_link(Link::new(middle, output, 1, 1)).unwrap();
-    body.link_memory[first.slot()].participation = 1;
-    body.link_memory[second.slot()].participation = 1;
+    participate_arrow(&mut body.arrows[first.slot()], 1, 1, 0);
+    participate_arrow(&mut body.arrows[second.slot()], 1, 1, 0);
     let witness = body.add_link(Link::new(surface, output, 0, 1)).unwrap();
-    body.set_link_role(witness, LinkRole::OutcomeWitness)
-        .unwrap();
-    let returned = body.add_link(Link::new(output, middle, 0, 0)).unwrap();
-    body.set_link_role(
-        returned,
-        LinkRole::Return {
-            cause: 1,
-            cohort: 1,
+    body.mark_witness(
+        witness,
+        WitnessKind::Closure {
+            offers_choice: true,
         },
     )
     .unwrap();
-    body.link_memory[returned.slot()].live = false;
-    body.link_memory[returned.slot()].remember_closed_support(surface, witness);
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    let returned = body.add_link(Link::new(output, middle, 0, 0)).unwrap();
+    close_arrow(
+        &mut body,
+        returned,
+        Path {
+            surface,
+            middle,
+            output,
+            first,
+            second,
+        },
+        1,
+        surface,
+        witness,
+    );
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
     let mut paths = Vec::new();
     let mut connected = Vec::new();
     let event = crate::physics::Event {
@@ -420,7 +448,9 @@ fn current_choice_surface_is_not_a_present_reentry_condition() {
         false,
     );
 
-    assert!(paths.iter().all(|path| path.reentries.is_empty()));
+    assert!(paths
+        .iter()
+        .all(|path| path.continuation.reentries.is_empty()));
 }
 
 #[test]
@@ -443,40 +473,37 @@ fn cyclic_closed_steps_fail_reentry_closed() {
         let first = body
             .add_link(Link::new(surfaces[index], middles[index], 1, 1))
             .unwrap();
-        body.set_link_role(first, LinkRole::PathEntry).unwrap();
+        body.mark_path_entry(first).unwrap();
         let second = body
             .add_link(Link::new(middles[index], outputs[index], 1, 1))
             .unwrap();
-        body.link_memory[first.slot()].participation = 1;
-        body.link_memory[second.slot()].participation = 1;
+        participate_arrow(&mut body.arrows[first.slot()], 1, 1, 0);
+        participate_arrow(&mut body.arrows[second.slot()], 1, 1, 0);
         let witness = body
             .add_link(Link::new(surfaces[1 - index], outputs[index], 0, 1))
             .unwrap();
-        body.set_link_role(witness, LinkRole::OutcomeWitness)
-            .unwrap();
-        let returned = body
-            .add_link(Link::new(outputs[index], middles[index], 0, 0))
-            .unwrap();
-        body.set_link_role(
-            returned,
-            LinkRole::Return {
-                cause: 1,
-                cohort: 1,
+        body.mark_witness(
+            witness,
+            WitnessKind::Closure {
+                offers_choice: true,
             },
         )
         .unwrap();
-        body.link_memory[returned.slot()].live = false;
-        body.link_memory[returned.slot()].remember_closed_support(surfaces[1 - index], witness);
-        paths.push(Path {
+        let returned = body
+            .add_link(Link::new(outputs[index], middles[index], 0, 0))
+            .unwrap();
+        let path = Path {
             surface: surfaces[index],
             middle: middles[index],
             output: outputs[index],
             first,
             second,
-        });
+        };
+        close_arrow(&mut body, returned, path, 1, surfaces[1 - index], witness);
+        paths.push(path);
     }
     let present = body.add_junction(Junction::integrating(1)).unwrap();
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
 
     let mut steps = Vec::new();
     let mut continuations = Vec::new();
@@ -540,10 +567,7 @@ fn unconfirmed_inspection_never_creates_its_own_foresight() {
         body.checkpoint().unwrap().canonical_bytes().unwrap(),
         before
     );
-    assert!(body
-        .link_memory
-        .iter()
-        .all(|memory| !matches!(memory.role, LinkRole::Composite { .. })));
+    assert!(body.arrows.iter().all(|memory| memory.factors().is_none()));
 }
 
 #[test]
@@ -552,9 +576,9 @@ fn repeated_thought_permanently_compiles_without_inventing_causal_evidence() {
     let closed_before = body.reentry_state().closed_steps;
     let link_count_before = body.arena.link_count();
     let strengths_before = body
-        .link_memory
+        .arrows
         .iter()
-        .map(|memory| memory.strength)
+        .map(ArrowState::strength)
         .collect::<Vec<_>>();
 
     let (expected, full_visits, first_hits) = think_reentry(&mut body, paths[0], present);
@@ -574,9 +598,9 @@ fn repeated_thought_permanently_compiles_without_inventing_causal_evidence() {
     assert_eq!(body.reentry_state().closed_steps, closed_before);
     assert_eq!(body.arena.link_count(), link_count_before);
     assert_eq!(
-        body.link_memory
+        body.arrows
             .iter()
-            .map(|memory| memory.strength)
+            .map(ArrowState::strength)
             .collect::<Vec<_>>(),
         strengths_before
     );
@@ -705,14 +729,19 @@ fn changed_causal_support_invalidates_only_the_dependent_compiled_thought() {
     for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
         assert!(think_reentry(&mut body, paths[0], present).0.is_ok());
     }
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
     let witness = closed_steps(view)
         .find(|step| step.path == paths[2])
         .unwrap()
         .outcome_witness;
 
-    body.set_link_role(witness, LinkRole::BoundaryWitness)
-        .unwrap();
+    body.mark_witness(
+        witness,
+        WitnessKind::Closure {
+            offers_choice: false,
+        },
+    )
+    .unwrap();
     let (found, _, shortcut_hits) = think_reentry(&mut body, paths[0], present);
 
     assert_eq!(shortcut_hits, 0);
@@ -733,7 +762,7 @@ fn changed_membership_invalidates_the_path_whose_executability_it_changes() {
     let membership = body
         .add_link(Link::new(parent, paths[0].surface, 0, 1))
         .unwrap();
-    body.set_link_role(membership, LinkRole::Membership)
+    body.replace_arrow_state(membership, ArrowState::membership())
         .unwrap();
     assert_eq!(body.reentry_state().thought_shortcuts, paths.len() - 1);
     let (found, visits, shortcut_hits) = think_reentry(&mut body, paths[0], present);
@@ -747,10 +776,7 @@ fn changed_membership_invalidates_the_path_whose_executability_it_changes() {
     assert_eq!(think_reentry(&mut body, paths[0], present).2, 1);
 
     let mut change = Change::empty();
-    change.push(Edit::ChangeLink {
-        link: membership.into(),
-        change: LinkChange::Retire,
-    });
+    change.change_link(membership.into(), LinkChange::Retire);
     body.apply(change).unwrap();
     assert_eq!(body.reentry_state().thought_shortcuts, paths.len() - 1);
     let (found, visits, shortcut_hits) = think_reentry(&mut body, paths[0], present);
@@ -767,30 +793,19 @@ fn repeated_real_confirmation_of_the_same_support_keeps_compiled_thought() {
         assert!(think_reentry(&mut body, paths[0], present).0.is_ok());
     }
     let confirmed = {
-        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+        let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
         closed_steps(view)
             .find(|step| step.path == paths[1])
             .unwrap()
     };
-    let epochs_before = body.automaticity.as_ref().unwrap().reentry_epochs.clone();
+    let epochs_before = body.reentry.as_ref().unwrap().epochs.clone();
     let returned = body
         .add_link_untracked(Link::new(paths[1].output, paths[1].middle, 0, 0))
         .unwrap();
-    body.set_link_role(
-        returned,
-        LinkRole::Return {
-            cause: 9,
-            cohort: 9,
-        },
-    )
-    .unwrap();
-    body.link_memory[returned.slot()].live = false;
-    assert_eq!(
-        body.automaticity.as_ref().unwrap().reentry_epochs,
-        epochs_before
-    );
+    body.arrows[returned.slot()] = ArrowState::open_return(paths[1], 9, 0);
+    assert_eq!(body.reentry.as_ref().unwrap().epochs, epochs_before);
 
-    body.retain_closed_step(
+    let support = body.retained_closed_support(
         returned,
         confirmed.returned_source,
         confirmed.path,
@@ -798,10 +813,8 @@ fn repeated_real_confirmation_of_the_same_support_keeps_compiled_thought() {
         true,
         true,
     );
-    assert_eq!(
-        body.automaticity.as_ref().unwrap().reentry_epochs,
-        epochs_before
-    );
+    body.arrows[returned.slot()].close_return(1, support.unwrap(), None);
+    assert_eq!(body.reentry.as_ref().unwrap().epochs, epochs_before);
     let (found, _, shortcut_hits) = think_reentry(&mut body, paths[0], present);
 
     assert_eq!(shortcut_hits, 1);
@@ -904,7 +917,7 @@ fn changing_one_confirmed_parent_falls_back_to_detailed_foresight() {
     assert!(inspect_reentry(&body, paths[0], present)
         .0
         .is_ok_and(|found| found.len() == 1));
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
     assert!(usable_composite(view, paths[changed]).is_none());
 }
 
@@ -913,14 +926,19 @@ fn changing_an_intermediate_consequence_stops_compressed_foresight() {
     let (mut body, paths, present) = closed_reentry_chain(MAX_REENTRY_DEPTH + 1, false);
     retain_confirmed_shortcuts(&mut body, &paths);
     let changed = MAX_REENTRY_DEPTH / 2;
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
     let witness = closed_steps(view)
         .find(|step| step.path == paths[changed])
         .expect("changed step has exact retained support")
         .outcome_witness;
 
-    body.set_link_role(witness, LinkRole::BoundaryWitness)
-        .unwrap();
+    body.mark_witness(
+        witness,
+        WitnessKind::Closure {
+            offers_choice: false,
+        },
+    )
+    .unwrap();
 
     assert!(inspect_reentry(&body, paths[0], present)
         .0
@@ -961,7 +979,7 @@ fn confirmed_compression_never_removes_the_incidence_safety_ceiling() {
 
 #[test]
 fn old_outcome_cannot_override_a_stronger_current_surface() {
-    let mut paths = [ready_path(44, 0), ready_path(1_023, 1)];
+    let mut paths = [candidate_path(44, 0), candidate_path(1_023, 1)];
     paths[0].outcome = Some(Outcome {
         at: 1,
         caused_transition: true,
@@ -975,7 +993,7 @@ fn old_outcome_cannot_override_a_stronger_current_surface() {
 
 #[test]
 fn equal_current_drive_preserves_physical_stable_order() {
-    let paths = [ready_path(512, 0), ready_path(512, 1)];
+    let paths = [candidate_path(512, 0), candidate_path(512, 1)];
 
     let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
 
@@ -984,7 +1002,7 @@ fn equal_current_drive_preserves_physical_stable_order() {
 
 #[test]
 fn a_participating_output_continues_its_current_return_after_both_outputs_were_tried() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     paths[0].output_participated = true;
     paths[1].participation = 1;
 
@@ -996,7 +1014,7 @@ fn a_participating_output_continues_its_current_return_after_both_outputs_were_t
 
 #[test]
 fn one_retained_progressing_output_precedes_untried_release() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     paths[0].resisted_progress = true;
     paths[0].boundary_open = true;
     paths[0].participation = 1;
@@ -1010,7 +1028,7 @@ fn one_retained_progressing_output_precedes_untried_release() {
 
 #[test]
 fn unanswered_without_fresh_progress_releases_to_the_untried_output() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     paths[0].unanswered = true;
     paths[0].participation = 1;
 
@@ -1022,7 +1040,7 @@ fn unanswered_without_fresh_progress_releases_to_the_untried_output() {
 
 #[test]
 fn a_newer_unanswered_reuse_releases_an_older_success_to_a_tried_alternative() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     paths[0].participation = 2;
     paths[0].participated_at = 20;
     paths[0].unanswered = true;
@@ -1043,7 +1061,7 @@ fn a_newer_unanswered_reuse_releases_an_older_success_to_a_tried_alternative() {
 
 #[test]
 fn an_exact_return_precedes_unanswered_output_release() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     paths[0].participation = 2;
     paths[0].participated_at = 20;
     paths[0].unanswered = true;
@@ -1064,7 +1082,7 @@ fn an_exact_return_precedes_unanswered_output_release() {
 
 #[test]
 fn a_lone_unanswered_output_does_not_invent_an_alternative() {
-    let mut path = ready_path(512, 0);
+    let mut path = candidate_path(512, 0);
     path.participation = 2;
     path.participated_at = 20;
     path.unanswered = true;
@@ -1082,7 +1100,7 @@ fn a_lone_unanswered_output_does_not_invent_an_alternative() {
 
 #[test]
 fn simultaneous_unanswered_outputs_make_no_unique_release_claim() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     for path in &mut paths {
         path.participation = 1;
         path.participated_at = 20;
@@ -1097,7 +1115,7 @@ fn simultaneous_unanswered_outputs_make_no_unique_release_claim() {
 
 #[test]
 fn unclosed_exploration_cannot_claim_continuation() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     paths[0].unanswered = true;
     paths[0].resisted_progress = true;
     paths[0].boundary_open = true;
@@ -1111,7 +1129,7 @@ fn unclosed_exploration_cannot_claim_continuation() {
 
 #[test]
 fn retained_output_with_fresh_progress_continues_after_ordinary_outcome() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     paths[0].resisted_progress = true;
     paths[0].boundary_open = true;
     paths[0].participation = 1;
@@ -1125,7 +1143,7 @@ fn retained_output_with_fresh_progress_continues_after_ordinary_outcome() {
 
 #[test]
 fn several_progressing_outputs_receive_no_continuation_precedence() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     for path in &mut paths {
         path.unanswered = true;
         path.resisted_progress = true;
@@ -1141,7 +1159,7 @@ fn several_progressing_outputs_receive_no_continuation_precedence() {
 
 #[test]
 fn boundary_closed_output_cannot_claim_progress_continuation() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1)];
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
     paths[0].resisted_progress = true;
     paths[0].participation = 1;
     paths[0].strength = 2;
@@ -1154,7 +1172,11 @@ fn boundary_closed_output_cannot_claim_progress_continuation() {
 
 #[test]
 fn boundary_completion_releases_only_the_local_antagonist() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1), ready_path(900, 2)];
+    let mut paths = [
+        candidate_path(512, 0),
+        candidate_path(512, 1),
+        candidate_path(900, 2),
+    ];
     let local = JunctionId::new(20).unwrap();
     paths[0].outcome_source = Some(local);
     paths[0].boundary_inhibited = true;
@@ -1171,7 +1193,11 @@ fn boundary_completion_releases_only_the_local_antagonist() {
 
 #[test]
 fn simultaneous_boundary_components_make_no_local_release_claim() {
-    let mut paths = [ready_path(512, 0), ready_path(512, 1), ready_path(512, 2)];
+    let mut paths = [
+        candidate_path(512, 0),
+        candidate_path(512, 1),
+        candidate_path(512, 2),
+    ];
     paths[0].outcome_source = Some(JunctionId::new(20).unwrap());
     paths[0].boundary_inhibited = true;
     paths[1].outcome_source = Some(JunctionId::new(21).unwrap());
@@ -1190,20 +1216,24 @@ fn a_later_path_action_supersedes_a_stale_fresh_witness() {
         std::array::from_fn(|_| body.add_junction(Junction::integrating(1)).unwrap());
     let witnesses = outputs.map(|output| {
         let witness = body.add_link(Link::new(source, output, 0, 1)).unwrap();
-        body.set_link_role(witness, LinkRole::OutcomeWitness)
-            .unwrap();
+        body.mark_witness(
+            witness,
+            WitnessKind::Closure {
+                offers_choice: true,
+            },
+        )
+        .unwrap();
         witness
     });
     let drive = body.add_link(Link::new(middle, outputs[0], 1, 1)).unwrap();
-    body.link_memory[drive.slot()].participation = 1;
-    body.link_memory[drive.slot()].participated_at = 10;
-    body.link_memory[witnesses[1].slot()].record_transmission(2, 20);
+    participate_arrow(&mut body.arrows[drive.slot()], 1, 1, 10);
+    body.arrows[witnesses[1].slot()].record_transmission(Occurrence { cause: 2, at: 20 });
 
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
     assert_eq!(latest_fresh_output(view, source), Some(outputs[1]));
 
-    body.link_memory[drive.slot()].participated_at = 21;
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    participate_arrow(&mut body.arrows[drive.slot()], 1, 1, 21);
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
     assert_eq!(latest_fresh_output(view, source), None);
 }
 
@@ -1215,12 +1245,17 @@ fn simultaneous_fresh_outputs_claim_no_single_return() {
         std::array::from_fn(|_| body.add_junction(Junction::integrating(1)).unwrap());
     for output in outputs {
         let witness = body.add_link(Link::new(source, output, 0, 1)).unwrap();
-        body.set_link_role(witness, LinkRole::OutcomeWitness)
-            .unwrap();
-        body.link_memory[witness.slot()].record_transmission(1, 20);
+        body.mark_witness(
+            witness,
+            WitnessKind::Closure {
+                offers_choice: true,
+            },
+        )
+        .unwrap();
+        body.arrows[witness.slot()].record_transmission(Occurrence { cause: 1, at: 20 });
     }
 
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
     assert_eq!(latest_fresh_output(view, source), None);
 }
 
@@ -1251,7 +1286,7 @@ proptest! {
         right_executable in any::<bool>(),
         construction in any::<bool>(),
     ) {
-        let mut paths = [ready_path(left_drive, 0), ready_path(right_drive, 1)];
+        let mut paths = [candidate_path(left_drive, 0), candidate_path(right_drive, 1)];
         paths[0].participation = left_participation;
         paths[1].participation = right_participation;
         paths[0].participated_at = left_participated_at;
@@ -1299,19 +1334,19 @@ proptest! {
             strength: path.strength,
             drive: path.drive,
             stable_order: path.stable_order,
-            fresh_opportunity: path.fresh_opportunity,
+            fresh_opportunity: path.continuation.fresh_opportunity,
             present_sources: Vec::new(),
-            reentries: path.reentries.clone(),
-            motif_reentries: path.motif_reentries.clone(),
+            reentries: path.continuation.reentries.clone(),
+            motif_reentries: path.continuation.motif_reentries.clone(),
             motif_routes: path
-                .motif_routes
+                .continuation.motif_routes
                 .as_deref()
                 .unwrap_or_default()
                 .to_vec(),
-            reentry_incidence_visits: path.reentry_incidence_visits,
-            reentry_shortcut_hits: path.reentry_shortcut_hits,
-            reentry_failed: path.reentry_failed,
-            motif_route_failed: path.motif_route_failed,
+            reentry_incidence_visits: path.continuation.reentry_incidence_visits,
+            reentry_shortcut_hits: path.continuation.reentry_shortcut_hits,
+            reentry_failed: path.continuation.reentry_failed,
+            motif_route_failed: path.continuation.motif_route_failed,
             new_path: false,
         });
         let mut events = candidates.map(TraceEvent::Candidate).collect::<Vec<_>>();
@@ -1331,7 +1366,8 @@ proptest! {
 
 fn membership(body: &mut Body, parent: JunctionId, member: JunctionId) {
     let link = body.add_link(Link::new(parent, member, 0, 1)).unwrap();
-    body.set_link_role(link, LinkRole::Membership).unwrap();
+    body.replace_arrow_state(link, ArrowState::membership())
+        .unwrap();
 }
 
 #[test]
@@ -1346,7 +1382,7 @@ fn membership_parent_resolution_composes_recursively() {
     membership(&mut body, child, root);
     membership(&mut body, child, members[2]);
 
-    let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
     let mut scratch = ConstructionScratch::default();
     assert_eq!(
         resolve_membership_parent(
@@ -1379,7 +1415,7 @@ fn membership_parent_resolution_composes_recursively() {
 }
 
 #[test]
-fn live_return_count_tracks_roles_and_retirement() {
+fn live_return_count_tracks_open_returns_and_retirement() {
     let mut body = Body::default();
     let from = body.add_junction(Junction::integrating(1)).unwrap();
     let to = body.add_junction(Junction::integrating(1)).unwrap();
@@ -1387,44 +1423,31 @@ fn live_return_count_tracks_roles_and_retirement() {
     let second = body.add_link(Link::new(from, to, 0, 0)).unwrap();
     let third = body.add_link(Link::new(from, to, 0, 0)).unwrap();
 
-    body.set_link_role(
-        second,
-        LinkRole::Return {
-            cause: 9,
-            cohort: 9,
-        },
-    )
-    .unwrap();
-    body.set_link_role(
+    let path = Path {
+        surface: from,
+        middle: to,
+        output: from,
         first,
-        LinkRole::Return {
-            cause: 3,
-            cohort: 3,
-        },
-    )
-    .unwrap();
-    body.set_link_role(
-        third,
-        LinkRole::Return {
-            cause: 9,
-            cohort: 9,
-        },
-    )
-    .unwrap();
+        second,
+    };
+    body.replace_arrow_state(second, ArrowState::open_return(path, 9, 0))
+        .unwrap();
+    body.replace_arrow_state(first, ArrowState::open_return(path, 3, 0))
+        .unwrap();
+    body.replace_arrow_state(third, ArrowState::open_return(path, 9, 0))
+        .unwrap();
 
     assert_eq!(body.returns.live_count, 3);
     assert_eq!(body.clone().returns.live_count, body.returns.live_count);
 
     let mut change = Change::empty();
-    change.push(Edit::ChangeLink {
-        link: second.into(),
-        change: LinkChange::Retire,
-    });
+    change.change_link(second.into(), LinkChange::Retire);
     body.apply(change).unwrap();
-    body.set_link_role(first, LinkRole::Drive).unwrap();
+    body.replace_arrow_state(first, ArrowState::drive())
+        .unwrap();
 
     assert_eq!(body.returns.live_count, 1);
-    assert!(body.link_memory[third.slot()].live);
+    assert!(body.arrows[third.slot()].active());
 }
 
 #[test]

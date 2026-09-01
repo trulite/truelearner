@@ -27,8 +27,8 @@ fn is_outcome_source(body: ReactionView<'_>, junction: JunctionId) -> bool {
         .and_then(|junction| junction.outgoing_head);
     while let Some(link_id) = next {
         let link = body.arena.link(link_id).expect("live link");
-        let memory = &body.link_memory[link_id.slot()];
-        if memory.live && closes_return(memory.role) {
+        let memory = &body.arrows[link_id.slot()];
+        if closes_return(memory) {
             return true;
         }
         next = link.next;
@@ -44,21 +44,19 @@ fn is_progress_source(body: ReactionView<'_>, junction: JunctionId) -> bool {
     while let Some(link) = next {
         let physical = body.arena.link(link).expect("live progress incidence");
         next = physical.next;
-        if body.link_memory[link.slot()].live
-            && body.link_memory[link.slot()].role == LinkRole::ProgressWitness
-        {
+        if body.arrows[link.slot()].witness_kind() == Some(WitnessKind::Progress) {
             return true;
         }
     }
     false
 }
 
-const fn closes_return(role: LinkRole) -> bool {
-    matches!(role, LinkRole::OutcomeWitness | LinkRole::BoundaryWitness)
+const fn closes_return(state: &ArrowState) -> bool {
+    matches!(state.witness_kind(), Some(WitnessKind::Closure { .. }))
 }
 
 fn is_membership_link(body: ReactionView<'_>, link: LinkId) -> bool {
-    body.link_memory[link.slot()].live && body.link_memory[link.slot()].role == LinkRole::Membership
+    body.arrows[link.slot()].is_membership()
 }
 
 fn has_membership_children(body: ReactionView<'_>, junction: JunctionId) -> bool {
@@ -385,9 +383,9 @@ fn surface_may_choose(body: ReactionView<'_>, surface: JunctionId) -> bool {
         .and_then(|junction| junction.outgoing_head);
     while let Some(link_id) = next {
         let link = body.arena.link(link_id).expect("live link");
-        let memory = &body.link_memory[link_id.slot()];
-        if (memory.live && memory.role == LinkRole::PathEntry)
-            || (memory.role == LinkRole::Drive
+        let memory = &body.arrows[link_id.slot()];
+        if memory.is_entry()
+            || (memory.is_drive()
                 && link.impulse == 0
                 && (1..=LOCAL_RADIUS as Time).contains(&link.delay))
         {
@@ -407,48 +405,40 @@ fn construct_membership(
     if members.iter().all(|member| parent_members.contains(member)) {
         return;
     }
-    let boundary = change.new_junction();
-    change.push(Edit::AddJunction {
-        new: boundary,
-        spec: Junction::integrating(1),
-    });
+    let boundary = change.add_junction(Junction::integrating(1));
     if let Some(parent) = closure.parent {
-        let membership = change.new_link();
-        change.push(Edit::AddLink {
-            new: membership,
-            from: boundary.into(),
-            to: parent.into(),
-            spec: LinkSpec {
+        change.add_link(
+            boundary.into(),
+            parent.into(),
+            LinkSpec {
                 delay: 0,
                 impulse: 1,
                 trigger: Trigger::SourceFires,
-                role: LinkRole::Membership,
+                state: ArrowState::membership(),
             },
-        });
+        );
     }
     for member in members {
         if parent_members.contains(member) {
             continue;
         }
-        let membership = change.new_link();
-        change.push(Edit::AddLink {
-            new: membership,
-            from: boundary.into(),
-            to: (*member).into(),
-            spec: LinkSpec {
+        change.add_link(
+            boundary.into(),
+            (*member).into(),
+            LinkSpec {
                 delay: 0,
                 impulse: 1,
                 trigger: Trigger::SourceFires,
-                role: LinkRole::Membership,
+                state: ArrowState::membership(),
             },
-        });
+        );
     }
 }
 
 fn construct_caused_reentry_memberships(
     body: ReactionView<'_>,
     facts: &[MomentFact],
-    ready: &[ReadyPath],
+    ready: &[CandidatePath],
     winners: &[ReadyChoice],
     scratch: &mut ConstructionScratch,
     change: &mut Change,
@@ -458,7 +448,7 @@ fn construct_caused_reentry_memberships(
         .filter(|choice| choice.basis == ChoiceBasis::UniqueReentry)
     {
         let candidate = &ready[choice.winner];
-        let [reentry] = candidate.reentries.as_slice() else {
+        let [reentry] = candidate.continuation.reentries.as_slice() else {
             continue;
         };
         let mut returning = facts.iter().filter(|fact| {
@@ -539,7 +529,7 @@ fn remember_construction_outcomes(
     members: &[JunctionId],
     parent_members: &[JunctionId],
     consequences: &[JunctionId],
-    ready: &[ReadyPath],
+    ready: &[CandidatePath],
     connected_outcomes: &[JunctionId],
     winners: &[ReadyChoice],
     change: &mut Change,
@@ -559,13 +549,13 @@ fn remember_construction_outcomes(
             continue;
         }
         for link in [winner.first, winner.second] {
-            change.push(Edit::ChangeLink {
+            change.change_link(
                 link,
-                change: LinkChange::RememberOutcome {
+                LinkChange::RememberOutcome {
                     at,
                     available_until_choice: true,
                 },
-            });
+            );
         }
     }
 }
@@ -576,43 +566,38 @@ fn record_used_outputs(body: ReactionView<'_>, facts: &[MomentFact], change: &mu
             continue;
         };
         for link in path.links() {
-            change.push(Edit::ChangeLink {
-                link: link.into(),
-                change: LinkChange::Participated {
+            change.change_link(
+                link.into(),
+                LinkChange::Participated {
                     cause: fact.event.cause,
                     at: fact.event.at,
                 },
-            });
+            );
         }
-        let returned = change.new_link();
-        change.push(Edit::AddLink {
-            new: returned,
-            from: path.output.into(),
-            to: path.middle.into(),
-            spec: LinkSpec {
+        let returned = change.add_link(
+            path.output.into(),
+            path.middle.into(),
+            LinkSpec {
                 delay: 0,
                 impulse: 0,
                 trigger: Trigger::SourceFires,
-                role: LinkRole::Return {
-                    cause: fact.event.cause,
-                    cohort: fact.event.cause,
-                },
+                state: ArrowState::open_return(path, fact.event.cause, fact.event.at),
             },
-        });
-        change.push(Edit::ChangeLink {
-            link: returned.into(),
-            change: LinkChange::Participated {
+        );
+        change.change_link(
+            returned.into(),
+            LinkChange::Participated {
                 cause: fact.event.cause,
                 at: fact.event.at,
             },
-        });
+        );
         if let Some(prior) = unique_prior_unclosed_sibling_before(body, path, fact.event.at) {
-            change.push(Edit::ChangeLink {
-                link: returned.into(),
-                change: LinkChange::RememberSwitchedFrom {
+            change.change_link(
+                returned.into(),
+                LinkChange::RememberSwitchedFrom {
                     prior: prior.second,
                 },
-            });
+            );
         }
     }
 }
@@ -657,7 +642,7 @@ fn record_returned_outcome<T: TraceSink>(
                 open_paths: selected.total,
                 exact_paths: selected.exact_total,
                 candidates,
-                decision: ReturnDecision::BlockedByReadyPath,
+                decision: ReturnDecision::BlockedByCandidatePath,
             }));
         }
         return;
@@ -690,7 +675,7 @@ fn record_returned_outcome<T: TraceSink>(
         .filter(|returned| returned.opened_at <= fact.event.at);
     let motif_parent = accepted
         .filter(|returned| returned.cause == fact.event.cause)
-        .filter(|returned| body.link_memory[returned.link.slot()].boundary_inhibited)
+        .filter(|returned| body.arrows[returned.link.slot()].switched_from().is_some())
         .and_then(|returned| matching_return_motif(body, returned, fact.event.junction))
         .map(|closed| closed.link);
     if let Some(returned) = accepted.filter(|returned| !returned.offers_choice) {
@@ -706,18 +691,17 @@ fn record_returned_outcome<T: TraceSink>(
     {
         if accepted.is_some_and(|returned| returned.link == entry.link) {
             let returned = accepted.expect("selected accepted return exists");
-            change.push(Edit::CompleteReturn {
-                source: fact.event.junction,
-                returned: entry.link,
-                path: entry.path,
-                outcome_witness: unique_outcome_witness(body, fact.event.junction, entry.path)
-                    .map(|(witness, _)| witness),
+            change.complete_return(
+                fact.event.junction,
+                entry.link,
+                entry.path,
+                entry.outcome_witness,
                 motif_parent,
-                exact: returned.cause == fact.event.cause,
-                exclusive_source: entry.exclusive_source,
-                offers_choice: entry.offers_choice,
-                at: fact.event.at,
-            });
+                returned.cause == fact.event.cause,
+                entry.exclusive_source,
+                entry.offers_choice,
+                fact.event.at,
+            );
             retain_composite_after_return(
                 body,
                 entry.path,
@@ -725,10 +709,14 @@ fn record_returned_outcome<T: TraceSink>(
                 change,
             );
         } else {
-            change.push(Edit::ChangeLink {
-                link: entry.link.into(),
-                change: LinkChange::Retire,
-            });
+            change.change_link(
+                entry.link.into(),
+                if decision == ReturnDecision::Ambiguous {
+                    LinkChange::MarkAmbiguous { at: fact.event.at }
+                } else {
+                    LinkChange::Retire
+                },
+            );
         }
     }
 }
@@ -740,13 +728,10 @@ fn retain_composite_after_return(
     change: &mut Change,
 ) {
     if let Some(composite) = composite_with_parents(body, path) {
-        change.push(Edit::ChangeLink {
-            link: composite.into(),
-            change: LinkChange::Strengthen { amount: 1 },
-        });
+        change.change_link(composite.into(), LinkChange::Strengthen { amount: 1 });
         return;
     }
-    let exact_closures = body.link_memory[path.first.slot()].exact_closures;
+    let exact_closures = body.arrows[path.first.slot()].exact_closures();
     if !exact
         || exact_closures.saturating_add(1) < AUTOMATIC_AFTER_EXACT_CLOSURES
         || !path_can_be_composed(body, path)
@@ -755,25 +740,22 @@ fn retain_composite_after_return(
     }
     let first = body.arena.link(path.first).expect("validated path entry");
     let second = body.arena.link(path.second).expect("validated path drive");
-    let composite = change.new_link();
-    change.push(Edit::AddLink {
-        new: composite,
-        from: path.surface.into(),
-        to: path.output.into(),
-        spec: LinkSpec {
+    let composite = change.add_link(
+        path.surface.into(),
+        path.output.into(),
+        LinkSpec {
             delay: first.delay + second.delay,
             impulse: second.impulse,
             trigger: first.trigger,
-            role: LinkRole::Composite {
-                first: path.first,
-                second: path.second,
+            state: {
+                let mut state = ArrowState::drive();
+                let retained = state.retain_factors([path.first, path.second]);
+                debug_assert!(retained);
+                state
             },
         },
-    });
-    let parent_strength = body.link_memory[path.second.slot()].strength;
+    );
+    let parent_strength = body.arrows[path.second.slot()].strength();
     let amount = i32::try_from(parent_strength).unwrap_or(i32::MAX);
-    change.push(Edit::ChangeLink {
-        link: composite.into(),
-        change: LinkChange::Strengthen { amount },
-    });
+    change.change_link(composite.into(), LinkChange::Strengthen { amount });
 }

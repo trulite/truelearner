@@ -4,17 +4,17 @@ impl Body {
     pub fn reentry_state(&self) -> ReentryState {
         ReentryState {
             closed_steps: self
-                .link_memory
+                .arrows
                 .iter()
                 .filter(|memory| memory.closed_support().is_some())
                 .count(),
-            thought_shortcuts: self.automaticity.as_ref().map_or(0, |automaticity| {
-                automaticity
-                    .thought_shortcuts
+            thought_shortcuts: self.reentry.as_ref().map_or(0, |reentry| {
+                reentry
+                    .shortcuts
                     .iter()
                     .filter(|shortcut| {
                         shortcut.rehearsals >= THOUGHT_SHORTCUT_AFTER_REHEARSALS
-                            && automaticity.shortcut_is_current(shortcut)
+                            && reentry.shortcut_is_current(shortcut)
                     })
                     .count()
             }),
@@ -25,11 +25,11 @@ impl Body {
         &mut self,
         junctions: impl IntoIterator<Item = JunctionId>,
     ) {
-        let Some(automaticity) = &mut self.automaticity else {
+        let Some(reentry) = &mut self.reentry else {
             return;
         };
         for junction in junctions {
-            automaticity.touch_reentry(junction);
+            reentry.touch_reentry(junction);
         }
     }
 
@@ -42,9 +42,7 @@ impl Body {
         while let Some(link) = next {
             let physical = self.arena.link(link).expect("live path incidence");
             next = physical.next;
-            if self.link_memory[link.slot()].live
-                && self.link_memory[link.slot()].role == LinkRole::PathEntry
-            {
+            if self.arrows[link.slot()].is_entry() {
                 middles.push(physical.to);
             }
         }
@@ -60,23 +58,22 @@ impl Body {
     ) {
         dependencies.sort_unstable();
         dependencies.dedup();
-        let automaticity = self.automaticity_mut();
+        let reentry = self.reentry_mut();
         let captured = dependencies
             .into_iter()
             .map(|junction| ReentryDependency {
                 junction,
-                epoch: automaticity.reentry_epoch(junction),
+                epoch: reentry.reentry_epoch(junction),
             })
             .collect::<Vec<_>>();
-        match automaticity
-            .thought_shortcuts
+        match reentry
+            .shortcuts
             .binary_search_by_key(&(start, condition), |shortcut| {
                 (shortcut.start, shortcut.condition)
             }) {
             Ok(index) => {
-                let current =
-                    automaticity.shortcut_is_current(&automaticity.thought_shortcuts[index]);
-                let shortcut = &mut automaticity.thought_shortcuts[index];
+                let current = reentry.shortcut_is_current(&reentry.shortcuts[index]);
+                let shortcut = &mut reentry.shortcuts[index];
                 let same_dependencies = shortcut
                     .dependencies
                     .iter()
@@ -90,7 +87,7 @@ impl Body {
                     shortcut.rehearsals = 1;
                 }
             }
-            Err(index) => automaticity.thought_shortcuts.insert(
+            Err(index) => reentry.shortcuts.insert(
                 index,
                 ThoughtShortcut {
                     start,
@@ -108,13 +105,13 @@ impl Body {
     }
 
     fn invalidate_closed_step_with_epoch(&mut self, path: Path, touch_epoch: bool) {
-        let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+        let view = ReactionView::new(&self.arena, &self.arrows, &self.returns);
         let invalid = closed_steps(view)
             .filter(|step| step.path == path)
             .map(|step| step.link)
             .collect::<Vec<_>>();
         for link in invalid {
-            self.link_memory[link.slot()].outcome_available = false;
+            self.arrows[link.slot()].deactivate();
         }
         if touch_epoch {
             self.touch_reentry_junctions([path.surface, path.middle, path.output]);
@@ -122,7 +119,7 @@ impl Body {
     }
 
     #[inline(always)]
-    fn retain_closed_step(
+    fn retained_closed_support(
         &mut self,
         returned: LinkId,
         source: JunctionId,
@@ -130,27 +127,33 @@ impl Body {
         outcome_witness: Option<LinkId>,
         exact: bool,
         replaces_existing: bool,
-    ) {
+    ) -> Option<ClosedSupport> {
         if !exact {
             if replaces_existing {
                 self.invalidate_closed_step(path);
             }
-            self.link_memory[returned.slot()].outcome_available = false;
-            return;
+            self.arrows[returned.slot()].expire_return();
+            return None;
         }
         let Some(outcome_witness) = outcome_witness else {
             if replaces_existing {
                 self.invalidate_closed_step(path);
             }
-            self.link_memory[returned.slot()].outcome_available = false;
-            return;
+            self.arrows[returned.slot()].expire_return();
+            return None;
         };
-        let support = (source, outcome_witness);
+        let support = ClosedSupport {
+            source,
+            witness: outcome_witness,
+        };
         let same_existing_support = if replaces_existing {
-            let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+            let view = ReactionView::new(&self.arena, &self.arrows, &self.returns);
             let mut matching = closed_steps(view)
                 .filter(|step| step.path == path)
-                .map(|step| (step.returned_source, step.outcome_witness));
+                .map(|step| ClosedSupport {
+                    source: step.returned_source,
+                    witness: step.outcome_witness,
+                });
             matching.next() == Some(support) && matching.all(|existing| existing == support)
         } else {
             false
@@ -158,38 +161,41 @@ impl Body {
         if replaces_existing {
             self.invalidate_closed_step_with_epoch(path, !same_existing_support);
         }
-        if self.link_memory[returned.slot()].stored_support() != Some(support) {
-            self.link_memory[returned.slot()].remember_closed_support(source, outcome_witness);
-            if !same_existing_support {
-                let witness = self.arena.link(outcome_witness).copied();
-                self.touch_reentry_junctions(
-                    [path.surface, path.middle, path.output, source]
-                        .into_iter()
-                        .chain(witness.into_iter().flat_map(|link| [link.from, link.to])),
-                );
-            }
+        if !same_existing_support && self.reentry.is_some() {
+            let witness = self.arena.link(outcome_witness).copied();
+            self.touch_reentry_junctions(
+                [path.surface, path.middle, path.output, source]
+                    .into_iter()
+                    .chain(witness.into_iter().flat_map(|link| [link.from, link.to])),
+            );
         }
+        Some(support)
     }
 
     fn prune_reentry(&mut self) {
-        let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+        let view = ReactionView::new(&self.arena, &self.arrows, &self.returns);
         let invalid = closed_steps(view)
             .filter(|step| closed_step_is_valid(view, *step).is_none())
             .map(|step| (step.link, step.path))
             .collect::<Vec<_>>();
         for (link, path) in invalid {
-            self.link_memory[link.slot()].outcome_available = false;
+            self.arrows[link.slot()].deactivate();
             self.touch_reentry_junctions([path.surface, path.middle, path.output]);
         }
     }
 
-    fn automaticity_mut(&mut self) -> &mut Automaticity {
-        self.automaticity
-            .get_or_insert_with(|| Box::new(Automaticity::default()))
+    fn consolidation_mut(&mut self) -> &mut Consolidation {
+        self.consolidation
+            .get_or_insert_with(|| Box::new(Consolidation::default()))
+    }
+
+    fn reentry_mut(&mut self) -> &mut ReentryCache {
+        self.reentry
+            .get_or_insert_with(|| Box::new(ReentryCache::default()))
     }
 
     pub fn automaticity_work(&self) -> AutomaticityWork {
-        self.automaticity
+        self.consolidation
             .as_ref()
             .map_or(AutomaticityWork::default(), |automaticity| {
                 automaticity.work
@@ -197,26 +203,26 @@ impl Body {
     }
 
     pub fn automaticity_state(&self) -> AutomaticityState {
-        self.automaticity
+        self.consolidation
             .as_ref()
             .map_or(AutomaticityState::default(), |automaticity| {
                 AutomaticityState {
                     open_witnesses: automaticity.witnesses.len(),
                     candidate_pairs: automaticity.evidence.len(),
-                    has_recursive_composites: automaticity.generic_composites,
+                    has_recursive_composites: self.has_composites,
                 }
             })
     }
 
     #[inline(always)]
     fn needs_automatic_closure(&self) -> bool {
-        self.automaticity
+        self.consolidation
             .as_ref()
             .is_some_and(|automaticity| automaticity.closure_maintenance)
     }
 
     fn refresh_automatic_closure(&mut self) {
-        if let Some(automaticity) = &mut self.automaticity {
+        if let Some(automaticity) = &mut self.consolidation {
             automaticity.closure_maintenance =
                 !automaticity.witnesses.is_empty() || !automaticity.evidence.is_empty();
         }
@@ -234,7 +240,7 @@ impl Body {
             return;
         };
         let index = self
-            .automaticity
+            .consolidation
             .as_ref()
             .and_then(|automaticity| {
                 automaticity
@@ -243,7 +249,7 @@ impl Body {
                     .position(|witness| witness.returned == returned)
             })
             .unwrap_or_else(|| {
-                let automaticity = self.automaticity_mut();
+                let automaticity = self.consolidation_mut();
                 let index = automaticity.witnesses.len();
                 automaticity.witnesses.push(AutomaticWitness {
                     returned,
@@ -254,7 +260,7 @@ impl Body {
                 automaticity.closure_maintenance = true;
                 index
             });
-        let automaticity = self.automaticity_mut();
+        let automaticity = self.consolidation_mut();
         let witness = &mut automaticity.witnesses[index];
         if witness.pairs.contains(&pair) {
             return;
@@ -268,7 +274,7 @@ impl Body {
         pair: AutomaticPair,
         cause: Cause,
     ) -> Option<(LinkId, Path)> {
-        if let Some(automaticity) = &self.automaticity {
+        if let Some(automaticity) = &self.consolidation {
             let mut continuing = automaticity.witnesses.iter().filter(|witness| {
                 witness.cause == cause
                     && (witness.pairs.contains(&pair)
@@ -286,7 +292,7 @@ impl Body {
         }
 
         let root = self.arena.link(pair.first)?.from;
-        let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+        let view = ReactionView::new(&self.arena, &self.arrows, &self.returns);
         let mut roots = self.returns.by_source.iter().flatten().filter_map(|entry| {
             let returned = open_return(view, *entry)?;
             (returned.cause == cause
@@ -306,17 +312,18 @@ impl Body {
         output == root
             || self.arena.incoming(root).any(|link| {
                 let physical = self.arena.link(link).expect("live boundary incidence");
-                let memory = &self.link_memory[link.slot()];
+                let memory = &self.arrows[link.slot()];
                 physical.from == output
-                    && memory.live
-                    && memory.is_boundary_drive()
-                    && memory.transmitted
-                    && memory.cause == cause
+                    && memory.active()
+                    && memory.boundary_crossing()
+                    && memory
+                        .last_transmission()
+                        .is_some_and(|occurrence| occurrence.cause == cause)
             })
     }
 
     fn expire_automatic_witness(&mut self, returned: LinkId) {
-        let Some(automaticity) = &mut self.automaticity else {
+        let Some(automaticity) = &mut self.consolidation else {
             return;
         };
         automaticity
@@ -326,18 +333,18 @@ impl Body {
     }
 
     fn complete_automatic_witness(&mut self, returned: LinkId, path: Path, exact: bool) {
-        if self.automaticity.is_none() {
+        if self.consolidation.is_none() {
             return;
         }
         if exact
             && self
-                .automaticity
+                .consolidation
                 .as_ref()
                 .is_some_and(|automaticity| !automaticity.evidence.is_empty())
         {
             let evidence = std::mem::take(
                 &mut self
-                    .automaticity
+                    .consolidation
                     .as_mut()
                     .expect("checked automaticity")
                     .evidence,
@@ -348,13 +355,13 @@ impl Body {
                     evidence.owner != path.first || automatic_pair_is_valid(self, evidence.pair)
                 })
                 .collect();
-            self.automaticity
+            self.consolidation
                 .as_mut()
                 .expect("checked automaticity")
                 .evidence = retained;
         }
         let Some(index) = self
-            .automaticity
+            .consolidation
             .as_ref()
             .expect("checked automaticity")
             .witnesses
@@ -365,7 +372,7 @@ impl Body {
             return;
         };
         let witness = self
-            .automaticity
+            .consolidation
             .as_mut()
             .expect("checked automaticity")
             .witnesses
@@ -380,14 +387,14 @@ impl Body {
             if !automatic_pair_is_valid(self, pair) {
                 continue;
             }
-            let automaticity = self.automaticity_mut();
+            let automaticity = self.consolidation_mut();
             automaticity.work.exact_closure_updates =
                 automaticity.work.exact_closure_updates.saturating_add(1);
             if automatic_composite_with_parents(self, pair).is_some() {
                 continue;
             }
             if let Some(evidence) = self
-                .automaticity_mut()
+                .consolidation_mut()
                 .evidence
                 .iter_mut()
                 .find(|evidence| evidence.owner == witness.path.first && evidence.pair == pair)
@@ -397,7 +404,7 @@ impl Body {
                     ready.push(pair);
                 }
             } else {
-                self.automaticity_mut().evidence.push(AutomaticEvidence {
+                self.consolidation_mut().evidence.push(AutomaticEvidence {
                     owner: witness.path.first,
                     pair,
                     exact_closures: 1,
@@ -406,7 +413,7 @@ impl Body {
         }
         for pair in ready {
             if self.retain_automatic_pair(pair) {
-                self.automaticity_mut().evidence.retain(|evidence| {
+                self.consolidation_mut().evidence.retain(|evidence| {
                     evidence.owner != witness.path.first || evidence.pair != pair
                 });
             }
@@ -435,15 +442,19 @@ impl Body {
         else {
             return false;
         };
-        self.set_link_role(
-            composite,
-            LinkRole::Composite {
-                first: pair.first,
-                second: pair.second,
-            },
-        )
-        .expect("new automatic composite exists");
-        self.link_memory[composite.slot()].strength = self.link_memory[pair.second.slot()].strength;
+        self.arrows[composite.slot()].retain_factors([pair.first, pair.second]);
+        let parent_strength = self.arrows[pair.second.slot()].strength();
+        self.arrows[composite.slot()].strengthen(parent_strength.saturating_sub(1));
+        self.consolidation_mut().work.composites_formed = self
+            .consolidation_mut()
+            .work
+            .composites_formed
+            .saturating_add(1);
+        if automatic_leftmost(self, composite, 0)
+            .is_some_and(|root| self.arrows[root.slot()].factors().is_none())
+        {
+            self.has_composites = true;
+        }
         true
     }
 
@@ -465,10 +476,7 @@ impl Body {
                 .expect("live automatic incidence");
             next = physical.next;
             if candidate == drive
-                || !matches!(
-                    self.link_memory[candidate.slot()].role,
-                    LinkRole::Composite { .. }
-                )
+                || self.arrows[candidate.slot()].factors().is_none()
                 || automatic_leftmost(self, candidate, 0) != Some(drive)
                 || !automatic_segment_is_valid(self, candidate, 0)
             {
@@ -494,10 +502,8 @@ impl Body {
 }
 
 fn automatic_segment_role(body: &Body, link: LinkId) -> bool {
-    body.link_memory.get(link.slot()).is_some_and(|memory| {
-        memory.live
-            && !memory.is_boundary_drive()
-            && matches!(memory.role, LinkRole::Drive | LinkRole::Composite { .. })
+    body.arrows.get(link.slot()).is_some_and(|memory| {
+        memory.is_drive() && !memory.boundary_crossing()
     })
 }
 
@@ -505,9 +511,10 @@ fn automatic_leftmost(body: &Body, link: LinkId, depth: usize) -> Option<LinkId>
     if depth >= MAX_AUTOMATIC_COMPOSITE_DEPTH {
         return None;
     }
-    match body.link_memory.get(link.slot())?.role {
-        LinkRole::Drive => Some(link),
-        LinkRole::Composite { first, .. } => automatic_leftmost(body, first, depth + 1),
+    let memory = body.arrows.get(link.slot())?;
+    match memory.factors() {
+        None if memory.is_drive() => Some(link),
+        Some([first, _]) => automatic_leftmost(body, first, depth + 1),
         _ => None,
     }
 }
@@ -516,9 +523,10 @@ fn automatic_rightmost(body: &Body, link: LinkId, depth: usize) -> Option<LinkId
     if depth >= MAX_AUTOMATIC_COMPOSITE_DEPTH {
         return None;
     }
-    match body.link_memory.get(link.slot())?.role {
-        LinkRole::Drive => Some(link),
-        LinkRole::Composite { second, .. } => automatic_rightmost(body, second, depth + 1),
+    let memory = body.arrows.get(link.slot())?;
+    match memory.factors() {
+        None if memory.is_drive() => Some(link),
+        Some([_, second]) => automatic_rightmost(body, second, depth + 1),
         _ => None,
     }
 }
@@ -527,9 +535,10 @@ fn automatic_leaf_count(body: &Body, link: LinkId, depth: usize) -> Option<usize
     if depth >= MAX_AUTOMATIC_COMPOSITE_DEPTH {
         return None;
     }
-    match body.link_memory.get(link.slot())?.role {
-        LinkRole::Drive => Some(1),
-        LinkRole::Composite { first, second } => automatic_leaf_count(body, first, depth + 1)?
+    let memory = body.arrows.get(link.slot())?;
+    match memory.factors() {
+        None if memory.is_drive() => Some(1),
+        Some([first, second]) => automatic_leaf_count(body, first, depth + 1)?
             .checked_add(automatic_leaf_count(body, second, depth + 1)?),
         _ => None,
     }
@@ -544,9 +553,9 @@ fn automatic_segment_is_valid(body: &Body, link: LinkId, depth: usize) -> bool {
         return false;
     }
     let physical = body.arena.link(link).expect("live automatic segment");
-    match body.link_memory[link.slot()].role {
-        LinkRole::Drive => physical.impulse != 0,
-        LinkRole::Composite { first, second } => {
+    match body.arrows[link.slot()].factors() {
+        None => physical.impulse != 0,
+        Some([first, second]) => {
             let pair = AutomaticPair { first, second };
             let Some(left) = body.arena.link(first) else {
                 return false;
@@ -562,10 +571,9 @@ fn automatic_segment_is_valid(body: &Body, link: LinkId, depth: usize) -> bool {
                 && left.delay.checked_add(right.delay) == Some(physical.delay)
                 && physical.impulse == right.impulse
                 && physical.trigger == Trigger::SourceFires
-                && body.link_memory[link.slot()].strength
-                    == body.link_memory[second.slot()].strength
+                && body.arrows[link.slot()].strength()
+                    == body.arrows[second.slot()].strength()
         }
-        _ => false,
     }
 }
 
@@ -596,7 +604,7 @@ fn automatic_pair_is_valid_at(body: &Body, pair: AutomaticPair, depth: usize) ->
         return false;
     }
     let delivered =
-        i64::from(first.impulse).saturating_mul(body.link_memory[pair.first.slot()].strength);
+        i64::from(first.impulse).saturating_mul(body.arrows[pair.first.slot()].strength());
     if delivered < i64::from(junction.checkpoint_law().threshold) {
         return false;
     }
@@ -607,11 +615,8 @@ fn automatic_pair_is_valid_at(body: &Body, pair: AutomaticPair, depth: usize) ->
         return false;
     };
     if body.arena.incoming(middle).any(|link| {
-        body.link_memory[link.slot()].live
-            && !matches!(
-                body.link_memory[link.slot()].role,
-                LinkRole::Composite { .. }
-            )
+        body.arrows[link.slot()].active()
+            && body.arrows[link.slot()].factors().is_none()
             && link != incoming
     }) {
         return false;
@@ -620,11 +625,8 @@ fn automatic_pair_is_valid_at(body: &Body, pair: AutomaticPair, depth: usize) ->
     while let Some(link) = next {
         let physical = body.arena.link(link).expect("live automatic incidence");
         next = physical.next;
-        if body.link_memory[link.slot()].live
-            && !matches!(
-                body.link_memory[link.slot()].role,
-                LinkRole::Composite { .. }
-            )
+        if body.arrows[link.slot()].active()
+            && body.arrows[link.slot()].factors().is_none()
             && link != outgoing
         {
             return false;
@@ -642,12 +644,8 @@ fn automatic_composite_with_parents(body: &Body, pair: AutomaticPair) -> Option<
     while let Some(link) = next {
         let physical = body.arena.link(link).expect("live automatic incidence");
         next = physical.next;
-        if body.link_memory[link.slot()].live
-            && body.link_memory[link.slot()].role
-                == (LinkRole::Composite {
-                    first: pair.first,
-                    second: pair.second,
-                })
+        if body.arrows[link.slot()].active()
+            && body.arrows[link.slot()].factors() == Some([pair.first, pair.second])
         {
             return Some(link);
         }

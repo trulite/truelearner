@@ -9,8 +9,8 @@
 
 use crate::{
     harness::{attach_outcome_component, attach_sensor, effect, motor, schedule, Motor},
-    verify_choice_laws, Arrival, Body, ChoiceBasis, Junction, JunctionId, LinkId, LinkRole,
-    PhysicalEvent, ReturnDecision, TraceEvent, TracePath, Trigger,
+    verify_choice_laws, Arrival, Body, ChoiceBasis, Junction, JunctionId, LinkId, PhysicalEvent,
+    ReturnDecision, TraceEvent, TracePath, Trigger,
 };
 
 #[derive(Clone)]
@@ -199,10 +199,10 @@ fn a_shortcut_preserves_the_sampled_direction_of_its_closed_path() {
 
     let shortcut_triggers = learned
         .body
-        .link_memory
+        .arrows
         .iter()
         .enumerate()
-        .filter(|(_, memory)| matches!(memory.role, LinkRole::Composite { .. }))
+        .filter(|(_, memory)| memory.factors().is_some())
         .map(|(slot, _)| {
             learned
                 .body

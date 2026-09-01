@@ -1,4 +1,4 @@
 interface:
   display_name: "Development"
   short_description: "Develop with compositional physics and formal checks"
-  default_prompt: "Use $dev to make the smallest complete change: preserve the generic workstation and its developed-body checkpoint, model the commuting physical arrows with category theory and TAME, make Rust witness every premise, let Lean check only frozen observer evidence, verify controls, and enforce the strict 25 ns warm-wave limit."
+  default_prompt: "Use $dev to make the smallest complete change: preserve the generic workstation and its developed-body checkpoint, model the commuting physical arrows with category theory and TAME, audit the concept delta and prefer composition over new types, fit persistent structures and laws on the two concise contract sheets, propose any new struct or elaborate mechanism and wait for explicit user confirmation before editing it, remove compatibility and migration code while TrueLearner is prerelease unless the user explicitly requests it, make Rust witness every premise, let Lean check only frozen observer evidence, verify controls, and enforce the strict 25 ns warm-wave limit."

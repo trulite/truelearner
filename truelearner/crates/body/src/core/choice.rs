@@ -2,7 +2,7 @@
 fn mark_current_returns(
     body: ReactionView<'_>,
     facts: &[MomentFact],
-    paths: &mut [ReadyPath],
+    paths: &mut [CandidatePath],
     connected_outcomes: &[JunctionId],
 ) {
     for fact in facts.iter().filter(|fact| {
@@ -29,7 +29,7 @@ fn mark_current_returns(
 }
 
 fn unique_progress_output(
-    paths: &[ReadyPath],
+    paths: &[CandidatePath],
     source: JunctionId,
     cause: Cause,
 ) -> Option<JunctionId> {
@@ -62,18 +62,18 @@ fn latest_fresh_output(body: ReactionView<'_>, source: JunctionId) -> Option<Jun
     while let Some(witness) = next {
         let link = body.arena.link(witness).expect("live link");
         next = link.next;
-        let memory = &body.link_memory[witness.slot()];
-        if !memory.live || !closes_return(memory.role) {
+        let memory = &body.arrows[witness.slot()];
+        if !closes_return(memory) {
             continue;
         }
-        if memory.transmitted {
+        if let Some(occurrence) = memory.last_transmission() {
             match latest_fresh {
-                None => latest_fresh = Some((memory.participated_at, link.to)),
-                Some((at, _)) if memory.participated_at > at => {
-                    latest_fresh = Some((memory.participated_at, link.to));
+                None => latest_fresh = Some((occurrence.at, link.to)),
+                Some((at, _)) if occurrence.at > at => {
+                    latest_fresh = Some((occurrence.at, link.to));
                     fresh_ambiguous = false;
                 }
-                Some((at, output)) if memory.participated_at == at && link.to != output => {
+                Some((at, output)) if occurrence.at == at && link.to != output => {
                     fresh_ambiguous = true;
                 }
                 Some(_) => {}
@@ -81,14 +81,14 @@ fn latest_fresh_output(body: ReactionView<'_>, source: JunctionId) -> Option<Jun
         }
         for drive in body.arena.incoming(link.to) {
             let physical = body.arena.link(drive).expect("live link");
-            let memory = &body.link_memory[drive.slot()];
-            if memory.live
-                && memory.role == LinkRole::Drive
+            let memory = &body.arrows[drive.slot()];
+            if memory.is_drive()
                 && physical.impulse != 0
-                && memory.participation > 0
+                && memory.participation() > 0
             {
-                latest_drive = Some(latest_drive.map_or(memory.participated_at, |at: Time| {
-                    at.max(memory.participated_at)
+                let participated_at = memory.occurrence().map_or(0, |occurrence| occurrence.at);
+                latest_drive = Some(latest_drive.map_or(participated_at, |at: Time| {
+                    at.max(participated_at)
                 }));
             }
         }
@@ -104,7 +104,7 @@ fn latest_fresh_output(body: ReactionView<'_>, source: JunctionId) -> Option<Jun
 
 fn fresh_opportunity(
     body: ReactionView<'_>,
-    paths: &[ReadyPath],
+    paths: &[CandidatePath],
     connected_outcomes: &[JunctionId],
     worlds: &[usize],
     world: usize,
@@ -152,9 +152,8 @@ fn fresh_opportunity(
         while let Some(witness) = next {
             let link = body.arena.link(witness).expect("live link");
             next = link.next;
-            let memory = &body.link_memory[witness.slot()];
-            if !memory.live
-                || !closes_return(memory.role)
+            let memory = &body.arrows[witness.slot()];
+            if !closes_return(memory)
                 || link.to == donor.output
                 || paths.iter().enumerate().any(|(index, path)| {
                     worlds[index] == world
@@ -182,9 +181,8 @@ fn fresh_opportunity(
 fn outputs_are_local(body: ReactionView<'_>, left: JunctionId, right: JunctionId) -> bool {
     body.arena.incoming(left).any(|incidence| {
         let link = body.arena.link(incidence).expect("live link");
-        let memory = &body.link_memory[incidence.slot()];
-        memory.live
-            && memory.role == LinkRole::Drive
+        let memory = &body.arrows[incidence.slot()];
+        memory.is_drive()
             && link.impulse == 0
             && (1..=LOCAL_RADIUS as Time).contains(&link.delay)
             && surface_reaches(body, link.from, right)
@@ -199,9 +197,8 @@ fn surface_reaches(body: ReactionView<'_>, surface: JunctionId, output: Junction
     while let Some(incidence) = next {
         let link = body.arena.link(incidence).expect("live link");
         next = link.next;
-        let memory = &body.link_memory[incidence.slot()];
-        if memory.live
-            && memory.role == LinkRole::Drive
+        let memory = &body.arrows[incidence.slot()];
+        if memory.is_drive()
             && link.to == output
             && link.impulse == 0
             && (1..=LOCAL_RADIUS as Time).contains(&link.delay)
@@ -214,7 +211,7 @@ fn surface_reaches(body: ReactionView<'_>, surface: JunctionId, output: Junction
 
 fn ready_path_exists(
     body: ReactionView<'_>,
-    ready: &[ReadyPath],
+    ready: &[CandidatePath],
     output: JunctionId,
     sign: i8,
 ) -> bool {
@@ -229,7 +226,7 @@ fn ready_path_exists(
             .and_then(|junction| junction.outgoing_head);
         while let Some(second_id) = second {
             let link = body.arena.link(second_id).expect("live link");
-            if body.link_memory[second_id.slot()].role == LinkRole::Drive
+            if body.arrows[second_id.slot()].is_drive()
                 && link.to == output
                 && link.impulse.signum() == i32::from(sign)
             {
@@ -242,7 +239,7 @@ fn ready_path_exists(
 }
 
 fn choose_ready(
-    paths: &[ReadyPath],
+    paths: &[CandidatePath],
     worlds: &[usize],
     world: usize,
     construction: bool,
@@ -385,7 +382,7 @@ fn choose_ready(
     })
 }
 
-fn ready_preference(path: &ReadyPath) -> (u64, i64, u16, Reverse<u32>) {
+fn ready_preference(path: &CandidatePath) -> (u64, i64, u16, Reverse<u32>) {
     (
         path.participation,
         path.strength,
@@ -394,34 +391,34 @@ fn ready_preference(path: &ReadyPath) -> (u64, i64, u16, Reverse<u32>) {
     )
 }
 
-fn unique_reentry(paths: impl Iterator<Item = usize>, ready: &[ReadyPath]) -> Option<usize> {
+fn unique_reentry(paths: impl Iterator<Item = usize>, ready: &[CandidatePath]) -> Option<usize> {
     let candidates = paths.collect::<Vec<_>>();
     if candidates
         .iter()
-        .any(|index| ready[*index].reentry_failed || ready[*index].reentries.len() > 1)
+        .any(|index| ready[*index].continuation.reentry_failed || ready[*index].continuation.reentries.len() > 1)
     {
         return None;
     }
     unique_ready(
         candidates
             .into_iter()
-            .filter(|index| ready[*index].reentries.len() == 1),
+            .filter(|index| ready[*index].continuation.reentries.len() == 1),
     )
 }
 
-fn unique_motif_reentry(paths: impl Iterator<Item = usize>, ready: &[ReadyPath]) -> Option<usize> {
+fn unique_motif_reentry(paths: impl Iterator<Item = usize>, ready: &[CandidatePath]) -> Option<usize> {
     let candidates = paths.collect::<Vec<_>>();
-    if candidates.iter().any(|index| ready[*index].reentry_failed) {
+    if candidates.iter().any(|index| ready[*index].continuation.reentry_failed) {
         return None;
     }
     if candidates
         .iter()
-        .any(|index| ready[*index].motif_routes.is_some())
+        .any(|index| ready[*index].continuation.motif_routes.is_some())
     {
         if candidates.iter().any(|index| {
-            ready[*index].motif_route_failed
+            ready[*index].continuation.motif_route_failed
                 || ready[*index]
-                    .motif_routes
+                    .continuation.motif_routes
                     .as_ref()
                     .is_some_and(|routes| routes.len() > 1)
         }) {
@@ -429,7 +426,7 @@ fn unique_motif_reentry(paths: impl Iterator<Item = usize>, ready: &[ReadyPath])
         }
         return unique_ready(candidates.into_iter().filter(|index| {
             ready[*index]
-                .motif_routes
+                .continuation.motif_routes
                 .as_ref()
                 .is_some_and(|routes| routes.len() == 1)
         }));
@@ -437,13 +434,13 @@ fn unique_motif_reentry(paths: impl Iterator<Item = usize>, ready: &[ReadyPath])
     unique_ready(
         candidates
             .into_iter()
-            .filter(|index| !ready[*index].motif_reentries.is_empty()),
+            .filter(|index| !ready[*index].continuation.motif_reentries.is_empty()),
     )
 }
 
 fn unique_returned_output(
     paths: impl Iterator<Item = usize>,
-    ready: &[ReadyPath],
+    ready: &[CandidatePath],
 ) -> Option<usize> {
     unique_output(
         paths.filter(|index| ready[*index].output_participated),
@@ -453,7 +450,7 @@ fn unique_returned_output(
 
 fn latest_unanswered_output(
     paths: impl Iterator<Item = usize>,
-    ready: &[ReadyPath],
+    ready: &[CandidatePath],
 ) -> Option<JunctionId> {
     let mut latest = None;
     let mut output = None;
@@ -483,7 +480,7 @@ fn latest_unanswered_output(
     }
 }
 
-fn unique_output(paths: impl Iterator<Item = usize>, ready: &[ReadyPath]) -> Option<usize> {
+fn unique_output(paths: impl Iterator<Item = usize>, ready: &[CandidatePath]) -> Option<usize> {
     let mut output: Option<JunctionId> = None;
     let mut winner: Option<usize> = None;
     for index in paths {
@@ -515,7 +512,7 @@ fn unique_output(paths: impl Iterator<Item = usize>, ready: &[ReadyPath]) -> Opt
 
 fn unique_retained_progress(
     paths: impl Iterator<Item = usize>,
-    ready: &[ReadyPath],
+    ready: &[CandidatePath],
 ) -> Option<usize> {
     unique_output(
         paths.filter(|index| {
@@ -531,12 +528,12 @@ fn unique_retained_progress(
 fn unique_witness_source(
     body: ReactionView<'_>,
     junction: JunctionId,
-    role: LinkRole,
+    kind: WitnessKind,
 ) -> Option<JunctionId> {
     let mut source = None;
     for witness in body.arena.incoming(junction) {
-        let memory = &body.link_memory[witness.slot()];
-        if !memory.live || memory.role != role {
+        let memory = &body.arrows[witness.slot()];
+        if memory.witness_kind() != Some(kind) {
             continue;
         }
         let candidate = body.arena.link(witness).expect("live witness").from;
@@ -557,10 +554,7 @@ fn path_has_open_return(body: ReactionView<'_>, middle: JunctionId, output: Junc
     while let Some(link) = next {
         let physical = body.arena.link(link).expect("live link");
         next = physical.next;
-        if physical.to == middle
-            && body.link_memory[link.slot()].live
-            && matches!(body.link_memory[link.slot()].role, LinkRole::Return { .. })
-        {
+        if physical.to == middle && body.arrows[link.slot()].open_return_data().is_some() {
             return true;
         }
     }
@@ -573,7 +567,7 @@ fn unique_ready(mut paths: impl Iterator<Item = usize>) -> Option<usize> {
 }
 
 fn unique_latest_ready(
-    paths: &[ReadyPath],
+    paths: &[CandidatePath],
     worlds: &[usize],
     world: usize,
     drive: u16,
@@ -626,15 +620,14 @@ fn append_outcome_sources(
         body.arena
             .incoming(junction)
             .filter(|link| {
-                body.link_memory[link.slot()].live
-                    && closes_return(body.link_memory[link.slot()].role)
+                closes_return(&body.arrows[link.slot()])
             })
             .filter_map(|link| body.arena.link(link).map(|physical| physical.from)),
     );
 }
 
 fn fill_ready_worlds(
-    paths: &[ReadyPath],
+    paths: &[CandidatePath],
     connected_outcomes: &[JunctionId],
     parents: &mut Vec<usize>,
 ) {
@@ -676,10 +669,7 @@ fn union(parents: &mut [usize], left: usize, right: usize) {
 }
 
 fn consume_path_outcome(body: ReactionView<'_>, change: &mut Change, first: LinkId) {
-    change.push(Edit::ChangeLink {
-        link: first.into(),
-        change: LinkChange::ConsumeOutcome,
-    });
+    change.change_link(first.into(), LinkChange::ConsumeOutcome);
     let middle = body.arena.link(first).expect("live path entry").to;
     let mut next = body
         .arena
@@ -688,11 +678,8 @@ fn consume_path_outcome(body: ReactionView<'_>, change: &mut Change, first: Link
     while let Some(second) = next {
         let link = body.arena.link(second).expect("live link");
         next = link.next;
-        if body.link_memory[second.slot()].role == LinkRole::Drive && link.impulse != 0 {
-            change.push(Edit::ChangeLink {
-                link: second.into(),
-                change: LinkChange::ConsumeOutcome,
-            });
+        if body.arrows[second.slot()].is_drive() && link.impulse != 0 {
+            change.change_link(second.into(), LinkChange::ConsumeOutcome);
             break;
         }
     }

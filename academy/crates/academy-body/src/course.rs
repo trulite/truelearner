@@ -631,9 +631,10 @@ impl BodyCourse {
                                 BodyExperienceMode::Retention,
                                 development_seed.saturating_add(offset),
                                 BodyPerturbation {
-                                    control: BodyControl::PalmHorizontal {
-                                        direction: truelearner_workstation::Direction::Increase,
-                                    },
+                                    control: BodyControl::new(
+                                        BodyAxis::PalmHorizontal,
+                                        truelearner_workstation::Direction::Increase,
+                                    ),
                                     impulse: 1,
                                 },
                             )?
@@ -1851,9 +1852,7 @@ mod tests {
 
         let parent = MotorEffect {
             at: 7,
-            control: BodyControl::PalmDepth {
-                direction: Direction::Decrease,
-            },
+            control: BodyControl::new(BodyAxis::PalmDepth, Direction::Decrease),
             impulse: 1,
             cause: 11,
         };
@@ -2056,9 +2055,7 @@ mod tests {
                         _ => None,
                     })
                     .collect::<Vec<_>>();
-                let forward = BodyControl::PalmDepth {
-                    direction: Direction::Increase,
-                };
+                let forward = BodyControl::new(BodyAxis::PalmDepth, Direction::Increase);
                 let forward_candidate = candidates
                     .iter()
                     .filter_map(|(control, candidate)| {
@@ -2089,9 +2086,7 @@ mod tests {
                     relevant_choice
                         .winner
                         .and_then(|path| soft_harness.control_for_trace_output(path.output)),
-                    Some(BodyControl::PalmDepth {
-                        direction: Direction::Decrease,
-                    })
+                    Some(BodyControl::new(BodyAxis::PalmDepth, Direction::Decrease,))
                 );
                 assert!(!observation
                     .crossings
@@ -2167,9 +2162,7 @@ mod tests {
                 })
                 .collect::<Vec<_>>();
             if before_depth == 640 && !first_progress_checked {
-                let forward = BodyControl::PalmDepth {
-                    direction: Direction::Increase,
-                };
+                let forward = BodyControl::new(BodyAxis::PalmDepth, Direction::Increase);
                 let forward_candidate = candidates
                     .iter()
                     .filter_map(|(control, candidate)| {
@@ -2349,12 +2342,14 @@ mod tests {
             from: academy_workstation::ScreenPoint { x: 10, y: 10 },
             to: academy_workstation::ScreenPoint { x: 20, y: 10 },
         };
-        let lateral = effect(BodyControl::PalmHorizontal {
-            direction: Direction::Increase,
-        });
-        let thumb = effect(BodyControl::ThumbOpposition {
-            direction: Direction::Decrease,
-        });
+        let lateral = effect(BodyControl::new(
+            BodyAxis::PalmHorizontal,
+            Direction::Increase,
+        ));
+        let thumb = effect(BodyControl::new(
+            BodyAxis::ThumbOpposition,
+            Direction::Decrease,
+        ));
         let mut witnessed = world_observation(vec![moved.clone()]);
         witnessed.progress_parents = vec![lateral];
         assert!(contact_drag_completed(&[witnessed.clone()]));
@@ -2380,12 +2375,11 @@ mod tests {
     fn thumb_contact_requires_a_unique_thumb_parent_and_later_contact() {
         let open = sample_with_contact(1, 0);
         let contact = sample_with_contact(1, 1);
-        let thumb = effect(BodyControl::ThumbOpposition {
-            direction: Direction::Decrease,
-        });
-        let palm = effect(BodyControl::PalmDepth {
-            direction: Direction::Decrease,
-        });
+        let thumb = effect(BodyControl::new(
+            BodyAxis::ThumbOpposition,
+            Direction::Decrease,
+        ));
+        let palm = effect(BodyControl::new(BodyAxis::PalmDepth, Direction::Decrease));
         let mut witnessed = world_observation(Vec::new());
         witnessed.progress_parents = vec![thumb];
         assert!(thumb_contact_witnessed(

@@ -1,19 +1,8 @@
-pub type Cause = u64;
-pub type Cohort = u64;
 const LOCAL_RADIUS: i32 = 2;
 const AUTOMATIC_AFTER_EXACT_CLOSURES: u8 = 3;
 const THOUGHT_SHORTCUT_AFTER_REHEARSALS: u8 = 3;
 const MAX_REENTRY_DEPTH: usize = 16;
 const MAX_REENTRY_INCIDENCE_VISITS: u16 = 256;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Path {
-    pub surface: JunctionId,
-    pub middle: JunctionId,
-    pub output: JunctionId,
-    pub first: LinkId,
-    pub second: LinkId,
-}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AutomaticityWork {
@@ -91,40 +80,20 @@ struct ThoughtShortcut {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct Automaticity {
+pub(crate) struct Consolidation {
     pub(crate) closure_maintenance: bool,
     witnesses: Vec<AutomaticWitness>,
     evidence: Vec<AutomaticEvidence>,
-    reentry_epochs: Vec<u64>,
-    thought_shortcuts: Vec<ThoughtShortcut>,
-    pub(crate) generic_composites: bool,
     work: AutomaticityWork,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct AutomaticityV7 {
-    closure_maintenance: bool,
-    witnesses: Vec<AutomaticWitness>,
-    evidence: Vec<AutomaticEvidence>,
-    generic_composites: bool,
-    work: AutomaticityWork,
+pub(crate) struct ReentryCache {
+    epochs: Vec<u64>,
+    shortcuts: Vec<ThoughtShortcut>,
 }
 
-impl From<AutomaticityV7> for Automaticity {
-    fn from(previous: AutomaticityV7) -> Self {
-        Self {
-            closure_maintenance: previous.closure_maintenance,
-            witnesses: previous.witnesses,
-            evidence: previous.evidence,
-            reentry_epochs: Vec::new(),
-            thought_shortcuts: Vec::new(),
-            generic_composites: previous.generic_composites,
-            work: previous.work,
-        }
-    }
-}
-
-impl Automaticity {
+impl Consolidation {
     pub(crate) fn remap(&mut self, junction_base: usize, link_base: usize) {
         for witness in &mut self.witnesses {
             witness.remap(junction_base, link_base);
@@ -133,10 +102,34 @@ impl Automaticity {
             evidence.owner = remap_link(evidence.owner, link_base);
             evidence.pair.remap_links(link_base);
         }
+    }
+
+    pub(crate) fn append(&mut self, mut other: Self) {
+        self.closure_maintenance |= other.closure_maintenance;
+        self.witnesses.append(&mut other.witnesses);
+        self.evidence.append(&mut other.evidence);
+        self.work.pair_observations = self
+            .work
+            .pair_observations
+            .saturating_add(other.work.pair_observations);
+        self.work.exact_closure_updates = self
+            .work
+            .exact_closure_updates
+            .saturating_add(other.work.exact_closure_updates);
+        self.work.composites_formed = self
+            .work
+            .composites_formed
+            .saturating_add(other.work.composites_formed);
+    }
+
+}
+
+impl ReentryCache {
+    pub(crate) fn remap(&mut self, junction_base: usize, link_base: usize) {
         let mut remapped_epochs = vec![0; junction_base];
-        remapped_epochs.append(&mut self.reentry_epochs);
-        self.reentry_epochs = remapped_epochs;
-        for shortcut in &mut self.thought_shortcuts {
+        remapped_epochs.append(&mut self.epochs);
+        self.epochs = remapped_epochs;
+        for shortcut in &mut self.shortcuts {
             remap_path(&mut shortcut.start, junction_base, link_base);
             shortcut.condition = remap_junction(shortcut.condition, junction_base);
             for route in &mut shortcut.routes {
@@ -152,51 +145,34 @@ impl Automaticity {
                 dependency.junction = remap_junction(dependency.junction, junction_base);
             }
         }
-        self.thought_shortcuts
+        self.shortcuts
             .sort_unstable_by_key(|shortcut| (shortcut.start, shortcut.condition));
     }
 
     pub(crate) fn append(&mut self, mut other: Self) {
-        self.closure_maintenance |= other.closure_maintenance;
-        self.witnesses.append(&mut other.witnesses);
-        self.evidence.append(&mut other.evidence);
-        if self.reentry_epochs.len() < other.reentry_epochs.len() {
-            self.reentry_epochs.resize(other.reentry_epochs.len(), 0);
+        if self.epochs.len() < other.epochs.len() {
+            self.epochs.resize(other.epochs.len(), 0);
         }
-        for (slot, epoch) in other.reentry_epochs.into_iter().enumerate() {
-            self.reentry_epochs[slot] = self.reentry_epochs[slot].max(epoch);
+        for (slot, epoch) in other.epochs.into_iter().enumerate() {
+            self.epochs[slot] = self.epochs[slot].max(epoch);
         }
-        self.thought_shortcuts.append(&mut other.thought_shortcuts);
-        self.thought_shortcuts
+        self.shortcuts.append(&mut other.shortcuts);
+        self.shortcuts
             .sort_unstable_by_key(|shortcut| (shortcut.start, shortcut.condition));
-        self.generic_composites |= other.generic_composites;
-        self.work.pair_observations = self
-            .work
-            .pair_observations
-            .saturating_add(other.work.pair_observations);
-        self.work.exact_closure_updates = self
-            .work
-            .exact_closure_updates
-            .saturating_add(other.work.exact_closure_updates);
-        self.work.composites_formed = self
-            .work
-            .composites_formed
-            .saturating_add(other.work.composites_formed);
     }
 
     fn reentry_epoch(&self, junction: JunctionId) -> u64 {
-        self.reentry_epochs
+        self.epochs
             .get(junction.slot())
             .copied()
             .unwrap_or(0)
     }
 
     fn touch_reentry(&mut self, junction: JunctionId) {
-        if self.reentry_epochs.len() <= junction.slot() {
-            self.reentry_epochs.resize(junction.slot() + 1, 0);
+        if self.epochs.len() <= junction.slot() {
+            self.epochs.resize(junction.slot() + 1, 0);
         }
-        self.reentry_epochs[junction.slot()] =
-            self.reentry_epochs[junction.slot()].saturating_add(1);
+        self.epochs[junction.slot()] = self.epochs[junction.slot()].saturating_add(1);
     }
 
     fn shortcut_is_current(&self, shortcut: &ThoughtShortcut) -> bool {
@@ -211,12 +187,12 @@ impl Automaticity {
         start: Path,
         condition: JunctionId,
     ) -> Option<&ThoughtShortcut> {
-        self.thought_shortcuts
+        self.shortcuts
             .binary_search_by_key(&(start, condition), |shortcut| {
                 (shortcut.start, shortcut.condition)
             })
             .ok()
-            .map(|index| &self.thought_shortcuts[index])
+            .map(|index| &self.shortcuts[index])
             .filter(|shortcut| {
                 shortcut.rehearsals >= THOUGHT_SHORTCUT_AFTER_REHEARSALS
                     && self.shortcut_is_current(shortcut)
@@ -240,12 +216,6 @@ fn remap_path(path: &mut Path, junction_base: usize, link_base: usize) {
     path.second = remap_link(path.second, link_base);
 }
 
-impl Path {
-    const fn links(self) -> [LinkId; 2] {
-        [self.first, self.second]
-    }
-}
-
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ReentryState {
     pub closed_steps: usize,
@@ -258,13 +228,6 @@ struct ClosedStep {
     path: Path,
     returned_source: JunctionId,
     outcome_witness: LinkId,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub struct Outcome {
-    pub at: Time,
-    pub caused_transition: bool,
-    pub available_until_choice: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -309,42 +272,16 @@ impl From<NewLink> for LinkRef {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub enum LinkRole {
-    #[default]
-    Drive,
-    PathEntry,
-    /// A repeatedly closed two-link path retained as one ordinary physical
-    /// occurrence. The parents remain the causal support and are used again
-    /// whenever the composite reaches an output.
-    Composite {
-        first: LinkId,
-        second: LinkId,
-    },
-    Return {
-        cause: Cause,
-        cohort: Cohort,
-    },
-    OutcomeWitness,
-    Membership,
-    /// Incidence from a physical progress source to an output. Unlike an
-    /// outcome witness, this can identify an open path without closing it.
-    ProgressWitness,
-    /// A world-boundary return can close and strengthen a path, but does not
-    /// itself offer that path as the next action.
-    BoundaryWitness,
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct LinkSpec {
+struct LinkSpec {
     pub delay: Time,
     pub impulse: Impulse,
     pub trigger: Trigger,
-    pub role: LinkRole,
+    pub state: ArrowState,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LinkChange {
+enum LinkChange {
     Participated {
         cause: Cause,
         at: Time,
@@ -352,11 +289,6 @@ pub enum LinkChange {
     RememberOutcome {
         at: Time,
         available_until_choice: bool,
-    },
-    LearnOutcome {
-        at: Time,
-        available_until_choice: bool,
-        strength: i32,
     },
     ConsumeOutcome,
     ClearOutcomeSelection,
@@ -368,11 +300,14 @@ pub enum LinkChange {
     RememberSwitchedFrom {
         prior: LinkId,
     },
+    MarkAmbiguous {
+        at: Time,
+    },
     Retire,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Edit {
+enum Edit {
     AddJunction {
         new: NewJunction,
         spec: Junction,
@@ -412,31 +347,84 @@ pub enum Edit {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Change {
+pub(crate) struct Change {
     edits: Vec<Edit>,
     junctions: u32,
     links: u32,
 }
 
 impl Change {
+    #[cfg(test)]
     pub fn empty() -> Self {
         Self::default()
     }
 
-    fn new_junction(&mut self) -> NewJunction {
+    fn add_junction(&mut self, spec: Junction) -> NewJunction {
         let id = NewJunction(self.junctions);
         self.junctions += 1;
+        self.edits.push(Edit::AddJunction { new: id, spec });
         id
     }
 
-    fn new_link(&mut self) -> NewLink {
+    fn add_link(&mut self, from: JunctionRef, to: JunctionRef, spec: LinkSpec) -> NewLink {
         let id = NewLink(self.links);
         self.links += 1;
+        self.edits.push(Edit::AddLink {
+            new: id,
+            from,
+            to,
+            spec,
+        });
         id
     }
 
-    fn push(&mut self, edit: Edit) {
-        self.edits.push(edit);
+    fn send(&mut self, through: LinkRef, at: Time, cause: Cause) {
+        self.edits.push(Edit::Send { through, at, cause });
+    }
+
+    fn change_link(&mut self, link: LinkRef, change: LinkChange) {
+        self.edits.push(Edit::ChangeLink { link, change });
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn complete_return(
+        &mut self,
+        source: JunctionId,
+        returned: LinkId,
+        path: Path,
+        outcome_witness: Option<LinkId>,
+        motif_parent: Option<LinkId>,
+        exact: bool,
+        exclusive_source: bool,
+        offers_choice: bool,
+        at: Time,
+    ) {
+        self.edits.push(Edit::CompleteReturn {
+            source,
+            returned,
+            path,
+            outcome_witness,
+            motif_parent,
+            exact,
+            exclusive_source,
+            offers_choice,
+            at,
+        });
+    }
+
+    fn rehearse_reentry(
+        &mut self,
+        start: Path,
+        condition: JunctionId,
+        routes: Vec<ReentryTrace>,
+        dependencies: Vec<JunctionId>,
+    ) {
+        self.edits.push(Edit::RehearseReentry {
+            start,
+            condition,
+            routes,
+            dependencies,
+        });
     }
 
     fn clear(&mut self) {
@@ -583,7 +571,7 @@ enum MembershipParent {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ReactionScratch {
     facts: Vec<MomentFact>,
-    ready: Vec<ReadyPath>,
+    ready: Vec<CandidatePath>,
     connected_outcomes: Vec<JunctionId>,
     worlds: Vec<usize>,
     winners: Vec<ReadyChoice>,
@@ -596,36 +584,36 @@ pub(crate) struct ReactionScratch {
 #[derive(Clone, Copy)]
 pub(crate) struct ReactionView<'a> {
     arena: &'a Arena,
-    link_memory: &'a [LinkMemory],
+    arrows: &'a [ArrowState],
     returns: &'a ReturnIndex,
-    automaticity: Option<&'a Automaticity>,
+    reentry: Option<&'a ReentryCache>,
 }
 
 impl<'a> ReactionView<'a> {
     pub(crate) const fn new(
         arena: &'a Arena,
-        link_memory: &'a [LinkMemory],
+        arrows: &'a [ArrowState],
         returns: &'a ReturnIndex,
     ) -> Self {
         Self {
             arena,
-            link_memory,
+            arrows,
             returns,
-            automaticity: None,
+            reentry: None,
         }
     }
 
-    pub(crate) const fn with_automaticity(
+    pub(crate) const fn with_reentry(
         arena: &'a Arena,
-        link_memory: &'a [LinkMemory],
+        arrows: &'a [ArrowState],
         returns: &'a ReturnIndex,
-        automaticity: Option<&'a Automaticity>,
+        reentry: Option<&'a ReentryCache>,
     ) -> Self {
         Self {
             arena,
-            link_memory,
+            arrows,
             returns,
-            automaticity,
+            reentry,
         }
     }
 }

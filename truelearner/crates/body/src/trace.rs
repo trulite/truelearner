@@ -826,7 +826,7 @@ fn unique_latest<'a>(
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum ReturnDecision {
-    BlockedByReadyPath,
+    BlockedByCandidatePath,
     NoOpenPath,
     Ambiguous,
     BeforeReturnOpened,

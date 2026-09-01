@@ -1,110 +1,8 @@
-use serde::{Deserialize, Serialize};
-use std::num::NonZeroU32;
-
-pub type Time = u64;
-pub type Impulse = i32;
-pub const DRIVE_MAX: u16 = 1_023;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct JunctionId(NonZeroU32);
-
-impl JunctionId {
-    pub(crate) fn new(slot: usize) -> Option<Self> {
-        u32::try_from(slot)
-            .ok()?
-            .checked_add(1)
-            .and_then(NonZeroU32::new)
-            .map(Self)
-    }
-
-    pub(crate) const fn slot(self) -> usize {
-        self.0.get() as usize - 1
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct LinkId(NonZeroU32);
-
-impl LinkId {
-    pub(crate) fn new(slot: usize) -> Option<Self> {
-        u32::try_from(slot)
-            .ok()?
-            .checked_add(1)
-            .and_then(NonZeroU32::new)
-            .map(Self)
-    }
-
-    pub(crate) const fn slot(self) -> usize {
-        self.0.get() as usize - 1
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Retention {
-    Integrating,
-    Sampled { lifetime: Time, range: u32 },
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Junction {
-    pub threshold: Impulse,
-    pub retention: Retention,
-}
-
-impl Junction {
-    pub const fn integrating(threshold: Impulse) -> Self {
-        Self {
-            threshold,
-            retention: Retention::Integrating,
-        }
-    }
-
-    pub const fn sampled(lifetime: Time) -> Self {
-        Self::sampled_in(lifetime, DRIVE_MAX as u32)
-    }
-
-    pub const fn sampled_in(lifetime: Time, range: u32) -> Self {
-        Self {
-            threshold: 1,
-            retention: Retention::Sampled { lifetime, range },
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Trigger {
-    SourceFires,
-    RisesThrough(Impulse),
-    FallsThrough(Impulse),
-    Rises,
-    Falls,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Link {
-    pub from: JunctionId,
-    pub to: JunctionId,
-    pub delay: Time,
-    pub impulse: Impulse,
-    pub trigger: Trigger,
-}
-
-impl Link {
-    pub const fn new(from: JunctionId, to: JunctionId, delay: Time, impulse: Impulse) -> Self {
-        Self {
-            from,
-            to,
-            delay,
-            impulse,
-            trigger: Trigger::SourceFires,
-        }
-    }
-
-    pub const fn when(mut self, trigger: Trigger) -> Self {
-        self.trigger = trigger;
-        self
-    }
-}
+use serde::Serialize;
+pub(crate) use truelearner_core::opens;
+pub use truelearner_core::{
+    Impulse, Junction, JunctionId, Link, LinkId, Retention, Time, Trigger, DRIVE_MAX,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BuildError {
@@ -309,16 +207,6 @@ fn normalized_drive(before: Impulse, after: Impulse, range: u32) -> u32 {
 
 fn clamp_signal(value: i64) -> Impulse {
     value.clamp(i64::from(Impulse::MIN), i64::from(Impulse::MAX)) as Impulse
-}
-
-pub(crate) fn opens(trigger: Trigger, before: Impulse, after: Impulse) -> bool {
-    match trigger {
-        Trigger::SourceFires => true,
-        Trigger::Rises => after > before,
-        Trigger::Falls => after < before,
-        Trigger::RisesThrough(level) => before < level && after >= level,
-        Trigger::FallsThrough(level) => before > level && after <= level,
-    }
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ mod arena;
 mod attachment;
 mod calibration;
 mod checkpoint;
-pub mod core;
+mod core;
 mod engine;
 pub mod harness;
 #[cfg(test)]
@@ -21,7 +21,13 @@ pub use crate::attachment::{
 };
 pub use crate::calibration::{calibrate, Normalizer, Residual};
 pub use crate::checkpoint::{BodyCheckpoint, BodyCheckpointError};
-pub use crate::core::*;
+pub use crate::core::{
+    ApplyError, AutomaticityState, AutomaticityWork, Cause, JunctionRef, LinkRef, Outcome, Path,
+    ReentryState,
+};
+#[cfg(test)]
+pub(crate) use crate::core::{ArrowKind, ReturnStatus};
+pub(crate) use crate::core::{ArrowState, Consolidation, ReentryCache, WitnessKind};
 pub use crate::engine::Body;
 pub use crate::physics::{
     Arrival, BuildError, Event as PhysicalEvent, Impulse, Junction, JunctionId, Link, LinkId,

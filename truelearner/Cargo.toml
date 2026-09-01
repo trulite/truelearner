@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/behavior-contract", "crates/body", "crates/workstation"]
+members = ["crates/behavior-contract", "crates/body", "crates/core", "crates/workstation"]
 default-members = ["crates/body", "crates/workstation"]
 resolver = "2"
 

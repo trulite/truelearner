@@ -9,7 +9,9 @@ use academy_workstation_course::{
 };
 use behavior_diagram::BehaviorDiagram;
 use sha2::{Digest, Sha256};
-use truelearner_workstation::{BodyControl, Direction, WorkstationCheckpoint, WorkstationHarness};
+use truelearner_workstation::{
+    BodyAxis, BodyControl, Direction, WorkstationCheckpoint, WorkstationHarness,
+};
 
 #[path = "../../../tests/support/behavior_diagram.rs"]
 mod behavior_diagram;
@@ -147,9 +149,7 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
     let perturbation = contact_retention.perturbation.unwrap();
     assert_eq!(
         perturbation.control,
-        BodyControl::PalmHorizontal {
-            direction: Direction::Increase,
-        }
+        BodyControl::new(BodyAxis::PalmHorizontal, Direction::Increase)
     );
     assert_eq!(perturbation.impulse, 1);
     let checkpoint = WorkstationCheckpoint::decode(&contact_retention.checkpoint_before).unwrap();

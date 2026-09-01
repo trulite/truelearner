@@ -421,6 +421,14 @@ dependencies = [
  "bincode",
  "serde",
  "sha2",
+ "truelearner-core",
+]
+
+[[package]]
+name = "truelearner-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

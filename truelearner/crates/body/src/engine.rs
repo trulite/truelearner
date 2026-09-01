@@ -1,6 +1,9 @@
 use crate::{
     arena::Arena,
-    core::{Automaticity, LinkMemory, ReactionScratch, ReactionView, ReturnIndex, UsedPaths},
+    core::{
+        ArrowState, Consolidation, ReactionScratch, ReactionView, ReentryCache, ReturnIndex,
+        UsedPaths,
+    },
     physics::*,
     trace::{NoTrace, ObserveTrace, TraceArrival, TraceEvent, TraceSink},
 };
@@ -207,9 +210,11 @@ struct Activity {
 #[derive(Clone, Debug, Default)]
 pub struct Body {
     pub(crate) arena: Arena,
-    pub(crate) link_memory: Vec<LinkMemory>,
+    pub(crate) arrows: Vec<ArrowState>,
     pub(crate) returns: ReturnIndex,
-    pub(crate) automaticity: Option<Box<Automaticity>>,
+    pub(crate) consolidation: Option<Box<Consolidation>>,
+    pub(crate) reentry: Option<Box<ReentryCache>>,
+    pub(crate) has_composites: bool,
     activity: Activity,
 }
 
@@ -244,7 +249,7 @@ impl Body {
 
     pub(crate) fn add_link_untracked(&mut self, law: Link) -> Result<LinkId, BuildError> {
         let id = self.arena.add_link(law)?;
-        self.link_memory.push(LinkMemory::default());
+        self.arrows.push(ArrowState::drive());
         if self.returns.live_count != 0 {
             self.rebuild_live_returns();
         }
@@ -454,7 +459,7 @@ impl Body {
             let mut used = UsedPaths::None;
             let mut participant_count = 0_u32;
             let mut all_links_exist = true;
-            let body = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+            let body = ReactionView::new(&self.arena, &self.arrows, &self.returns);
             for participant in self.activity.moment.participants_from(meeting.first) {
                 participant_count += 1;
                 boundary |= participant.via.is_none();
@@ -489,18 +494,18 @@ impl Body {
             self.transmit(recorded.event, recorded.predecessor, work)?;
         }
         let reaction_needed = crate::core::reaction_needed(
-            ReactionView::new(&self.arena, &self.link_memory, &self.returns),
+            ReactionView::new(&self.arena, &self.arrows, &self.returns),
             &self.activity.moment,
         );
         let reaction_result = if !reaction_needed {
             Ok(())
         } else {
             crate::core::react_into(
-                ReactionView::with_automaticity(
+                ReactionView::with_reentry(
                     &self.arena,
-                    &self.link_memory,
+                    &self.arrows,
                     &self.returns,
-                    self.automaticity.as_deref(),
+                    self.reentry.as_deref(),
                 ),
                 &self.activity.moment,
                 &mut self.activity.reaction,
@@ -576,7 +581,7 @@ impl Body {
             self.activity.moment.changes.clear();
             return Ok(Some(at));
         }
-        let body = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+        let body = ReactionView::new(&self.arena, &self.arrows, &self.returns);
         let used = firing
             .via
             .and_then(|link| crate::core::path_from_drive(body, link))
@@ -591,15 +596,15 @@ impl Body {
             first_participant: 0,
         });
         if crate::core::reaction_needed(
-            ReactionView::new(&self.arena, &self.link_memory, &self.returns),
+            ReactionView::new(&self.arena, &self.arrows, &self.returns),
             &self.activity.moment,
         ) {
             crate::core::react_into(
-                ReactionView::with_automaticity(
+                ReactionView::with_reentry(
                     &self.arena,
-                    &self.link_memory,
+                    &self.arrows,
                     &self.returns,
-                    self.automaticity.as_deref(),
+                    self.reentry.as_deref(),
                 ),
                 &self.activity.moment,
                 &mut self.activity.reaction,
@@ -637,16 +642,13 @@ impl Body {
             .and_then(|slot| slot.outgoing_head);
         while let Some(link_id) = next {
             let link = *self.arena.link(link_id).expect("live link");
-            let is_drive = self.link_memory[link_id.slot()].live
-                && self.link_memory[link_id.slot()].role == crate::core::LinkRole::Drive;
+            let is_drive = self.arrows[link_id.slot()].is_drive()
+                && self.arrows[link_id.slot()].factors().is_none();
             if is_drive {
                 work.link_visits += 1;
                 if opens(link.trigger, change.before, change.after) {
-                    let through = if self
-                        .automaticity
-                        .as_ref()
-                        .is_some_and(|automaticity| automaticity.generic_composites)
-                        && !self.link_memory[link_id.slot()].is_boundary_drive()
+                    let through = if self.has_composites
+                        && !self.arrows[link_id.slot()].boundary_crossing()
                     {
                         self.preferred_automatic_drive(link_id)
                     } else {
@@ -660,10 +662,8 @@ impl Body {
                         through
                     };
                     let selected = *self.arena.link(through).expect("validated automatic drive");
-                    let impulse = effective_impulse(
-                        selected.impulse,
-                        self.link_memory[through.slot()].strength,
-                    );
+                    let impulse =
+                        effective_impulse(selected.impulse, self.arrows[through.slot()].strength());
                     self.activity.pending.push(Firing {
                         at: change.at.saturating_add(selected.delay),
                         target: selected.to,
@@ -672,7 +672,10 @@ impl Body {
                         via: Some(through),
                         next_at_junction: NO_PARTICIPANT,
                     })?;
-                    self.link_memory[through.slot()].record_transmission(change.cause, change.at);
+                    self.arrows[through.slot()].record_transmission(crate::core::Occurrence {
+                        cause: change.cause,
+                        at: change.at,
+                    });
                     if let Some(first) = predecessor {
                         self.observe_automatic_pair(first, through, change.cause);
                     }
@@ -694,8 +697,7 @@ impl Body {
         if depth >= 32 {
             return true;
         }
-        let crate::core::LinkRole::Composite { first, second } = self.link_memory[link.slot()].role
-        else {
+        let Some([first, second]) = self.arrows[link.slot()].factors() else {
             return false;
         };
         let Some(first_physical) = self.arena.link(first) else {
@@ -735,7 +737,7 @@ impl Body {
         cause: u64,
     ) -> Result<(), RunError> {
         let link = *self.arena.link(link_id).expect("validated live link");
-        let impulse = effective_impulse(link.impulse, self.link_memory[link_id.slot()].strength);
+        let impulse = effective_impulse(link.impulse, self.arrows[link_id.slot()].strength());
         self.enqueue(
             at.saturating_add(link.delay),
             link.to,
@@ -743,7 +745,7 @@ impl Body {
             cause,
             Some(link_id),
         )?;
-        self.link_memory[link_id.slot()].record_transmission(cause, at);
+        self.arrows[link_id.slot()].record_transmission(crate::core::Occurrence { cause, at });
         Ok(())
     }
 }

@@ -138,23 +138,32 @@ pub fn attach(
     let part_junctions = part.body.arena.junction_count();
     let at = host.attachment_time().max(part.body.attachment_time());
     let part_arena = std::mem::take(&mut part.body.arena);
-    let mut part_link_memory = std::mem::take(&mut part.body.link_memory);
-    let part_automaticity = std::mem::take(&mut part.body.automaticity);
+    let mut part_arrows = std::mem::take(&mut part.body.arrows);
+    let part_consolidation = std::mem::take(&mut part.body.consolidation);
+    let part_reentry = std::mem::take(&mut part.body.reentry);
+    host.has_composites |= part.body.has_composites;
     let (junction_base, link_base) = host.arena.append(part_arena);
-    debug_assert_eq!(host.link_memory.len(), link_base);
-    for memory in &mut part_link_memory {
-        memory.remap_links(link_base);
-        memory.remap_junctions(junction_base);
+    debug_assert_eq!(host.arrows.len(), link_base);
+    for memory in &mut part_arrows {
+        memory.remap(junction_base, link_base);
     }
-    if let Some(mut part_automaticity) = part_automaticity {
-        part_automaticity.remap(junction_base, link_base);
-        if let Some(host_automaticity) = &mut host.automaticity {
-            host_automaticity.append(*part_automaticity);
+    if let Some(mut part_consolidation) = part_consolidation {
+        part_consolidation.remap(junction_base, link_base);
+        if let Some(host_consolidation) = &mut host.consolidation {
+            host_consolidation.append(*part_consolidation);
         } else {
-            host.automaticity = Some(part_automaticity);
+            host.consolidation = Some(part_consolidation);
         }
     }
-    host.link_memory.append(&mut part_link_memory);
+    if let Some(mut part_reentry) = part_reentry {
+        part_reentry.remap(junction_base, link_base);
+        if let Some(host_reentry) = &mut host.reentry {
+            host_reentry.append(*part_reentry);
+        } else {
+            host.reentry = Some(part_reentry);
+        }
+    }
+    host.arrows.append(&mut part_arrows);
     host.prepare_attachment(part_junctions, at);
     host.rebuild_live_returns();
 

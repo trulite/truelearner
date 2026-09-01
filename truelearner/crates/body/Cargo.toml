@@ -12,6 +12,7 @@ path = "src/lib.rs"
 bincode = "1"
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"
+truelearner-core = { path = "../core" }
 
 [dev-dependencies]
 egglog = { version = "3", default-features = false }

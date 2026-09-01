@@ -7,8 +7,9 @@
 use crate::{
     attach,
     harness::{attach_outcome_component, attach_sensor, effect, motor, reading, schedule, Motor},
-    verify_choice_laws, Arrival, Body, BodyCheckpoint, ChoiceBasis, Junction, JunctionId, Link,
-    LinkId, LinkRole, OpenBody, PhysicalEvent, ReturnDecision, TraceEvent,
+    verify_choice_laws, Arrival, ArrowKind, ArrowState, Body, BodyCheckpoint, ChoiceBasis,
+    Junction, JunctionId, Link, LinkId, OpenBody, PhysicalEvent, ReturnDecision, ReturnStatus,
+    TraceEvent, WitnessKind,
 };
 
 fn run(body: &mut Body) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
@@ -271,8 +272,13 @@ impl PlanningWorld {
 
 fn outcome_witness(body: &mut Body, source: JunctionId, output: JunctionId) -> LinkId {
     let witness = body.add_link(Link::new(source, output, 0, 1)).unwrap();
-    body.set_link_role(witness, LinkRole::OutcomeWitness)
-        .unwrap();
+    body.mark_witness(
+        witness,
+        WitnessKind::Closure {
+            offers_choice: true,
+        },
+    )
+    .unwrap();
     witness
 }
 
@@ -366,7 +372,7 @@ fn reentry_crosses_no_downstream_motor_and_opens_only_the_actual_return() {
     prepare_route(&mut world);
     let strengths = world
         .outcome_witnesses
-        .map(|link| world.body.link_memory[link.slot()].strength);
+        .map(|link| world.body.arrows[link.slot()].strength());
 
     let (events, trace) = world.probe_shared_with_present_condition(40, 4, 92);
 
@@ -376,7 +382,7 @@ fn reentry_crosses_no_downstream_motor_and_opens_only_the_actual_return() {
     assert_eq!(
         world
             .outcome_witnesses
-            .map(|link| world.body.link_memory[link.slot()].strength),
+            .map(|link| world.body.arrows[link.slot()].strength()),
         strengths
     );
     assert!(!trace.iter().any(|event| matches!(
@@ -434,6 +440,21 @@ fn ambiguous_returns_retain_no_reentry() {
             if returned.decision == ReturnDecision::Ambiguous && returned.open_paths == 2
     )));
     assert_eq!(world.body.reentry_state().closed_steps, 0);
+    assert_eq!(
+        world
+            .body
+            .arrows
+            .iter()
+            .filter(|state| matches!(
+                state.kind(),
+                ArrowKind::Return {
+                    status: ReturnStatus::Ambiguous { at: 18 },
+                    ..
+                }
+            ))
+            .count(),
+        2
+    );
 }
 
 #[test]
@@ -443,7 +464,12 @@ fn changed_support_invalidates_reentry_before_choice() {
     assert!(world.body.reentry_state().closed_steps > 0);
     world
         .body
-        .set_link_role(world.outcome_witnesses[2], LinkRole::BoundaryWitness)
+        .mark_witness(
+            world.outcome_witnesses[2],
+            WitnessKind::Closure {
+                offers_choice: false,
+            },
+        )
         .unwrap();
     assert_eq!(world.body.reentry_state().closed_steps, 2);
 
@@ -459,9 +485,9 @@ fn two_reaching_candidates_make_no_reentry_claim() {
     prepare_route(&mut world);
     world
         .body
-        .set_link_role(
+        .replace_arrow_state(
             world.outcome_witnesses[PlanningWorld::DEAD_END],
-            LinkRole::Drive,
+            ArrowState::drive(),
         )
         .unwrap();
     outcome_witness(
@@ -498,12 +524,7 @@ fn prepare_shortcut_route(world: &mut PlanningWorld) {
 fn composites(body: &Body) -> Vec<LinkId> {
     (0..body.arena.link_count())
         .filter_map(LinkId::new)
-        .filter(|link| {
-            matches!(
-                body.link_memory[link.slot()].role,
-                LinkRole::Composite { .. }
-            )
-        })
+        .filter(|link| body.arrows[link.slot()].factors().is_some())
         .collect()
 }
 
@@ -1236,10 +1257,7 @@ fn direct_membership_parent(body: &Body, member: JunctionId) -> Option<JunctionI
     let mut parents = body
         .arena
         .incoming(member)
-        .filter(|link| {
-            body.link_memory[link.slot()].live
-                && body.link_memory[link.slot()].role == LinkRole::Membership
-        })
+        .filter(|link| body.arrows[link.slot()].is_membership())
         .filter_map(|link| body.arena.link(link).map(|physical| physical.from));
     let parent = parents.next();
     assert!(parents.all(|candidate| Some(candidate) == parent));
@@ -1247,7 +1265,7 @@ fn direct_membership_parent(body: &Body, member: JunctionId) -> Option<JunctionI
 }
 
 fn composed_motifs(body: &Body) -> Vec<(LinkId, LinkId)> {
-    body.link_memory
+    body.arrows
         .iter()
         .enumerate()
         .filter_map(|(slot, memory)| {
@@ -1259,16 +1277,12 @@ fn composed_motifs(body: &Body) -> Vec<(LinkId, LinkId)> {
 }
 
 fn motif_parent_from_output(body: &Body, output: JunctionId) -> Option<LinkId> {
-    let mut parents = body
-        .link_memory
-        .iter()
-        .enumerate()
-        .filter_map(|(slot, memory)| {
-            let link = LinkId::new(slot)?;
-            (body.arena.link(link)?.from == output)
-                .then(|| memory.motif_parent())
-                .flatten()
-        });
+    let mut parents = body.arrows.iter().enumerate().filter_map(|(slot, memory)| {
+        let link = LinkId::new(slot)?;
+        (body.arena.link(link)?.from == output)
+            .then(|| memory.motif_parent())
+            .flatten()
+    });
     let parent = parents.next();
     assert!(parents.next().is_none());
     parent
@@ -1522,7 +1536,7 @@ fn two_renamed_switch_then_close_histories_form_one_shared_causal_motif() {
     world.demonstrate(0, 10, 1);
     assert!(world
         .body
-        .link_memory
+        .arrows
         .iter()
         .all(|memory| memory.motif_parent().is_none()));
     world.demonstrate(1, 30, 3);
@@ -2042,7 +2056,10 @@ impl MotifChainWorld {
             .arena
             .incoming(output)
             .find(|link| {
-                self.body.link_memory[link.slot()].role == LinkRole::OutcomeWitness
+                self.body.arrows[link.slot()].witness_kind()
+                    == Some(WitnessKind::Closure {
+                        offers_choice: true,
+                    })
                     && self
                         .body
                         .arena
@@ -2051,7 +2068,12 @@ impl MotifChainWorld {
             })
             .expect("right closer has its dead outcome witness");
         self.body
-            .set_link_role(witness, LinkRole::BoundaryWitness)
+            .mark_witness(
+                witness,
+                WitnessKind::Closure {
+                    offers_choice: false,
+                },
+            )
             .unwrap();
         outcome_witness(&mut self.body, self.outcomes[Self::FRESH_GOAL], output);
     }
@@ -2074,10 +2096,7 @@ impl MotifChainWorld {
         while let Some(link) = next {
             let physical = self.body.arena.link(link).expect("live path incidence");
             next = physical.next;
-            count += usize::from(
-                self.body.link_memory[link.slot()].live
-                    && self.body.link_memory[link.slot()].role == LinkRole::PathEntry,
-            );
+            count += usize::from(self.body.arrows[link.slot()].is_entry());
         }
         count
     }

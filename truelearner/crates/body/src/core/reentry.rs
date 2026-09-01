@@ -31,7 +31,7 @@ struct MotifRouteCandidate {
 
 fn mark_motif_reentries(
     body: ReactionView<'_>,
-    paths: &mut [ReadyPath],
+    paths: &mut [CandidatePath],
     present: &[JunctionId],
     construction: bool,
 ) {
@@ -45,16 +45,16 @@ fn mark_motif_reentries(
 
     let mut visits = 0_u16;
     let mut motifs = Vec::new();
-    for slot in 0..body.link_memory.len() {
+    for slot in 0..body.arrows.len() {
         if visits >= MAX_MOTIF_REENTRY_LINK_VISITS {
             for path in paths
                 .iter_mut()
                 .filter(|path| matches!(path.first, LinkRef::New(_)))
             {
-                path.motif_reentries.clear();
-                path.motif_routes = None;
-                path.reentry_incidence_visits =
-                    path.reentry_incidence_visits.saturating_add(visits);
+                path.continuation.motif_reentries.clear();
+                path.continuation.motif_routes = None;
+                path.continuation.reentry_incidence_visits =
+                    path.continuation.reentry_incidence_visits.saturating_add(visits);
             }
             return;
         }
@@ -62,7 +62,7 @@ fn mark_motif_reentries(
         let Some(witness) = LinkId::new(slot) else {
             continue;
         };
-        let Some(parent) = body.link_memory[slot].motif_parent() else {
+        let Some(parent) = body.arrows[slot].motif_parent() else {
             continue;
         };
         let Some(motif) = retained_motif(body, witness, parent) else {
@@ -90,11 +90,11 @@ fn mark_motif_reentries(
             });
             if has_prior
                 && !paths[index]
-                    .motif_reentries
+                    .continuation.motif_reentries
                     .iter()
                     .any(|support| support.witness == motif.witness)
             {
-                paths[index].motif_reentries.push(MotifReentryTrace {
+                paths[index].continuation.motif_reentries.push(MotifReentryTrace {
                     witness: motif.witness,
                     parent: motif.parent,
                 });
@@ -105,8 +105,8 @@ fn mark_motif_reentries(
         .iter_mut()
         .filter(|path| matches!(path.first, LinkRef::New(_)))
     {
-        path.reentry_incidence_visits = path.reentry_incidence_visits.saturating_add(visits);
-        if present.is_empty() || path.motif_reentries.is_empty() {
+        path.continuation.reentry_incidence_visits = path.continuation.reentry_incidence_visits.saturating_add(visits);
+        if present.is_empty() || path.continuation.motif_reentries.is_empty() {
             continue;
         }
         let Some(surface) = path.outcome_source.filter(|source| *source != path.surface) else {
@@ -122,11 +122,11 @@ fn mark_motif_reentries(
             &mut route_visits,
         ) {
             Ok(routes) if routes.is_empty() => {}
-            Ok(routes) => path.motif_routes = Some(routes.into_boxed_slice()),
-            Err(()) => path.motif_route_failed = true,
+            Ok(routes) => path.continuation.motif_routes = Some(routes.into_boxed_slice()),
+            Err(()) => path.continuation.motif_route_failed = true,
         }
-        path.reentry_incidence_visits = path
-            .reentry_incidence_visits
+        path.continuation.reentry_incidence_visits = path
+            .continuation.reentry_incidence_visits
             .saturating_add(route_visits.saturating_sub(visits));
     }
 }
@@ -243,12 +243,11 @@ fn motif_route_candidates(
             .link(through)
             .expect("live motif-route incidence");
         next = physical.next;
-        let memory = &body.link_memory[through.slot()];
-        if memory.live && memory.role == LinkRole::PathEntry {
+        let memory = &body.arrows[through.slot()];
+        if memory.is_entry() {
             return Ok(Vec::new());
         }
-        if !memory.live
-            || memory.role != LinkRole::Drive
+        if !memory.is_drive()
             || physical.impulse != 0
             || !(1..=LOCAL_RADIUS as Time).contains(&physical.delay)
         {
@@ -290,8 +289,12 @@ fn motif_route_outcome(
     let mut selected = None;
     for witness in body.arena.incoming(output) {
         visit_motif_route_incidence(incidence_visits)?;
-        let memory = &body.link_memory[witness.slot()];
-        if !memory.live || memory.role != LinkRole::OutcomeWitness {
+        let memory = &body.arrows[witness.slot()];
+        if memory.witness_kind()
+            != Some(WitnessKind::Closure {
+                offers_choice: true,
+            })
+        {
             continue;
         }
         let source = body.arena.link(witness).expect("live outcome witness").from;
@@ -396,8 +399,12 @@ fn retained_motif(
 fn outcome_form(body: ReactionView<'_>, output: JunctionId) -> OutcomeForm {
     let mut selected = None;
     for witness in body.arena.incoming(output) {
-        let memory = &body.link_memory[witness.slot()];
-        if !memory.live || memory.role != LinkRole::OutcomeWitness {
+        let memory = &body.arrows[witness.slot()];
+        if memory.witness_kind()
+            != Some(WitnessKind::Closure {
+                offers_choice: true,
+            })
+        {
             continue;
         }
         let source = body.arena.link(witness).expect("live outcome witness").from;
@@ -502,9 +509,11 @@ impl ReentrySearch<'_, '_> {
         self.depend_on(path.middle);
         self.depend_on(path.output);
         if self.present.len() == 1 {
-            if let Some(shortcut) = self.body.automaticity.and_then(|automaticity| {
-                automaticity.usable_thought_shortcut(path, self.present[0])
-            }) {
+            if let Some(shortcut) = self
+                .body
+                .reentry
+                .and_then(|reentry| reentry.usable_thought_shortcut(path, self.present[0]))
+            {
                 return self.reuse_shortcut(shortcut);
             }
         }
@@ -528,8 +537,10 @@ impl ReentrySearch<'_, '_> {
             if physical.to != path.middle {
                 continue;
             }
-            let Some((returned_source, outcome_witness)) =
-                self.body.link_memory[link.slot()].closed_support()
+            let Some(ClosedSupport {
+                source: returned_source,
+                witness: outcome_witness,
+            }) = self.body.arrows[link.slot()].closed_support()
             else {
                 continue;
             };
@@ -653,8 +664,8 @@ fn append_reentry_continuations(
         visit_reentry_incidence(incidence_visits)?;
         let first = *body.arena.link(first_id).expect("live path incidence");
         next = first.next;
-        let first_memory = &body.link_memory[first_id.slot()];
-        if !first_memory.live || first_memory.role != LinkRole::PathEntry {
+        let first_memory = &body.arrows[first_id.slot()];
+        if !first_memory.is_entry() {
             continue;
         }
         let mut second = body
@@ -665,8 +676,8 @@ fn append_reentry_continuations(
             visit_reentry_incidence(incidence_visits)?;
             let drive = *body.arena.link(second_id).expect("live drive incidence");
             second = drive.next;
-            let memory = &body.link_memory[second_id.slot()];
-            if !memory.live || memory.role != LinkRole::Drive || drive.impulse == 0 {
+            let memory = &body.arrows[second_id.slot()];
+            if !memory.is_drive() || memory.factors().is_some() || drive.impulse == 0 {
                 continue;
             }
             let path = Path {
@@ -696,8 +707,8 @@ fn closed_step_is_valid_for_reentry(
     incidence_visits: &mut u16,
 ) -> Result<Option<JunctionId>, ()> {
     if path_from_links(body, step.path.first, step.path.second) != Some(step.path)
-        || body.link_memory[step.path.first.slot()].participation == 0
-        || body.link_memory[step.path.second.slot()].participation == 0
+        || body.arrows[step.path.first.slot()].participation() == 0
+        || body.arrows[step.path.second.slot()].participation() == 0
         || !path_is_executable_for_reentry(body, step.path.surface, dependencies, incidence_visits)?
     {
         return Ok(None);
@@ -762,8 +773,13 @@ fn unique_outcome_witness_for_reentry(
         for witness in body.arena.incoming(target) {
             visit_reentry_incidence(incidence_visits)?;
             let physical = body.arena.link(witness).expect("live outcome incidence");
-            let memory = &body.link_memory[witness.slot()];
-            if !memory.live || memory.role != LinkRole::OutcomeWitness || physical.from != source {
+            let memory = &body.arrows[witness.slot()];
+            if memory.witness_kind()
+                != Some(WitnessKind::Closure {
+                    offers_choice: true,
+                })
+                || physical.from != source
+            {
                 continue;
             }
             if selected.is_some() {
@@ -776,7 +792,7 @@ fn unique_outcome_witness_for_reentry(
 }
 
 fn closed_steps(body: ReactionView<'_>) -> impl Iterator<Item = ClosedStep> + '_ {
-    (0..body.link_memory.len()).filter_map(move |slot| {
+    (0..body.arrows.len()).filter_map(move |slot| {
         let link = LinkId::new(slot)?;
         closed_step(body, link)
     })
@@ -784,8 +800,8 @@ fn closed_steps(body: ReactionView<'_>) -> impl Iterator<Item = ClosedStep> + '_
 
 fn path_from_entry(body: ReactionView<'_>, first: LinkId) -> Option<Path> {
     let entry = body.arena.link(first)?;
-    let memory = body.link_memory.get(first.slot())?;
-    if !memory.live || memory.role != LinkRole::PathEntry {
+    let memory = body.arrows.get(first.slot())?;
+    if !memory.is_entry() {
         return None;
     }
     let mut selected = None;
@@ -796,8 +812,11 @@ fn path_from_entry(body: ReactionView<'_>, first: LinkId) -> Option<Path> {
     while let Some(second) = next {
         let physical = body.arena.link(second).expect("live path incidence");
         next = physical.next;
-        let second_memory = &body.link_memory[second.slot()];
-        if !second_memory.live || second_memory.role != LinkRole::Drive || physical.impulse == 0 {
+        let second_memory = &body.arrows[second.slot()];
+        if !second_memory.is_drive()
+            || second_memory.factors().is_some()
+            || physical.impulse == 0
+        {
             continue;
         }
         let path = path_from_links(body, first, second)?;
@@ -809,7 +828,11 @@ fn path_from_entry(body: ReactionView<'_>, first: LinkId) -> Option<Path> {
 }
 
 fn unique_prior_unclosed_sibling(body: ReactionView<'_>, closed: Path) -> Option<Path> {
-    let closed_at = body.link_memory.get(closed.second.slot())?.participated_at;
+    let closed_at = body
+        .arrows
+        .get(closed.second.slot())?
+        .occurrence()
+        .map_or(0, |occurrence| occurrence.at);
     unique_prior_unclosed_sibling_before(body, closed, closed_at)
 }
 
@@ -829,11 +852,11 @@ fn unique_prior_unclosed_sibling_before(
         let Some(path) = path_from_entry(body, first) else {
             continue;
         };
-        let memory = &body.link_memory[path.second.slot()];
+        let memory = &body.arrows[path.second.slot()];
         if path.output == current.output
-            || memory.participation == 0
-            || memory.participated_at >= current_at
-            || memory.exact_closures != 0
+            || memory.participation() == 0
+            || memory.occurrence().is_none_or(|occurrence| occurrence.at >= current_at)
+            || memory.exact_closures() != 0
             || !path_has_open_return(body, path.middle, path.output)
         {
             continue;
@@ -900,14 +923,17 @@ fn matching_return_motif(
     returned: OpenReturn,
     returned_source: JunctionId,
 ) -> Option<ClosedStep> {
-    body.link_memory[returned.link.slot()]
+    body.arrows[returned.link.slot()]
         .switched_from()
         .and_then(|prior| path_from_drive(body, prior))
         .and_then(|prior| matching_closed_switch(body, returned.path, prior, returned_source))
 }
 
 fn closed_step(body: ReactionView<'_>, link: LinkId) -> Option<ClosedStep> {
-    let (returned_source, outcome_witness) = body.link_memory.get(link.slot())?.closed_support()?;
+    let ClosedSupport {
+        source: returned_source,
+        witness: outcome_witness,
+    } = body.arrows.get(link.slot())?.closed_support()?;
     let physical = body.arena.link(link)?;
     let second = outgoing_drive_to(body, physical.to, physical.from)?;
     let path = path_from_drive(body, second)?;
@@ -921,8 +947,8 @@ fn closed_step(body: ReactionView<'_>, link: LinkId) -> Option<ClosedStep> {
 
 fn closed_step_is_valid(body: ReactionView<'_>, step: ClosedStep) -> Option<JunctionId> {
     if path_from_links(body, step.path.first, step.path.second) != Some(step.path)
-        || body.link_memory[step.path.first.slot()].participation == 0
-        || body.link_memory[step.path.second.slot()].participation == 0
+        || body.arrows[step.path.first.slot()].participation() == 0
+        || body.arrows[step.path.second.slot()].participation() == 0
         || !path_is_executable(body, step.path.surface, true)
     {
         return None;
@@ -940,8 +966,13 @@ fn unique_outcome_witness(
     for target in [path.middle, path.output] {
         for witness in body.arena.incoming(target) {
             let physical = body.arena.link(witness).expect("live outcome support");
-            let memory = &body.link_memory[witness.slot()];
-            if !memory.live || memory.role != LinkRole::OutcomeWitness || physical.from != source {
+            let memory = &body.arrows[witness.slot()];
+            if memory.witness_kind()
+                != Some(WitnessKind::Closure {
+                    offers_choice: true,
+                })
+                || physical.from != source
+            {
                 continue;
             }
             if selected.is_some() {

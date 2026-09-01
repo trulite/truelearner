@@ -1,8 +1,8 @@
 //! Small physical setup and observation helpers for body-level laws.
 
 use crate::{
-    attach, calibrate, Arrival, Body, Join, Junction, JunctionId, Link, LinkRole, OpenBody,
-    PhysicalEvent, Residual, Run,
+    attach, calibrate, Arrival, Body, Join, Junction, JunctionId, Link, OpenBody, PhysicalEvent,
+    Residual, Run, WitnessKind,
 };
 
 #[derive(Clone, Copy)]
@@ -70,8 +70,13 @@ pub fn attach_outcome_component(
         let link = body
             .add_link(Link::new(source, opportunity, 0, 1))
             .expect("validated outcome component");
-        body.set_link_role(link, LinkRole::OutcomeWitness)
-            .expect("new outcome link exists");
+        body.mark_witness(
+            link,
+            WitnessKind::Closure {
+                offers_choice: true,
+            },
+        )
+        .expect("new outcome link exists");
     }
 }
 
@@ -84,8 +89,13 @@ pub fn attach_boundary_component(
         let link = body
             .add_link(Link::new(source, opportunity, 0, 1))
             .expect("validated boundary component");
-        body.set_link_role(link, LinkRole::BoundaryWitness)
-            .expect("new boundary link exists");
+        body.mark_witness(
+            link,
+            WitnessKind::Closure {
+                offers_choice: false,
+            },
+        )
+        .expect("new boundary link exists");
     }
 }
 
@@ -100,7 +110,7 @@ pub fn attach_progress_component(
         let link = body
             .add_link(Link::new(source, opportunity, 0, 1))
             .expect("validated progress component");
-        body.set_link_role(link, LinkRole::ProgressWitness)
+        body.mark_witness(link, WitnessKind::Progress)
             .expect("new progress link exists");
     }
 }

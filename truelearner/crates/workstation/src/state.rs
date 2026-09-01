@@ -87,51 +87,27 @@ pub enum Direction {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "control", rename_all = "snake_case")]
-pub enum BodyControl {
-    EyeHorizontal { eye: Eye, direction: Direction },
-    EyeVertical { eye: Eye, direction: Direction },
-    PalmHorizontal { direction: Direction },
-    PalmVertical { direction: Direction },
-    PalmDepth { direction: Direction },
-    Wrist { direction: Direction },
-    Spread { direction: Direction },
-    ThumbOpposition { direction: Direction },
-    FingerFlexion { digit: Digit, direction: Direction },
+pub struct BodyControl {
+    axis: BodyAxis,
+    direction: Direction,
 }
 
 impl BodyControl {
+    pub const fn new(axis: BodyAxis, direction: Direction) -> Self {
+        Self { axis, direction }
+    }
+
     pub const fn axis(self) -> BodyAxis {
-        match self {
-            Self::EyeHorizontal { eye, .. } => BodyAxis::EyeHorizontal { eye },
-            Self::EyeVertical { eye, .. } => BodyAxis::EyeVertical { eye },
-            Self::PalmHorizontal { .. } => BodyAxis::PalmHorizontal,
-            Self::PalmVertical { .. } => BodyAxis::PalmVertical,
-            Self::PalmDepth { .. } => BodyAxis::PalmDepth,
-            Self::Wrist { .. } => BodyAxis::Wrist,
-            Self::Spread { .. } => BodyAxis::Spread,
-            Self::ThumbOpposition { .. } => BodyAxis::ThumbOpposition,
-            Self::FingerFlexion { digit, .. } => BodyAxis::FingerFlexion { digit },
-        }
+        self.axis
     }
 
     pub const fn direction(self) -> Direction {
-        match self {
-            Self::EyeHorizontal { direction, .. }
-            | Self::EyeVertical { direction, .. }
-            | Self::PalmHorizontal { direction }
-            | Self::PalmVertical { direction }
-            | Self::PalmDepth { direction }
-            | Self::Wrist { direction }
-            | Self::Spread { direction }
-            | Self::ThumbOpposition { direction }
-            | Self::FingerFlexion { direction, .. } => direction,
-        }
+        self.direction
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "axis", rename_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum BodyAxis {
     EyeHorizontal { eye: Eye },
     EyeVertical { eye: Eye },
@@ -718,6 +694,27 @@ fn clamp_body(value: i32) -> i16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn body_control_is_one_axis_direction_product() {
+        let controls = BodyAxis::ALL.map(|axis| BodyControl::new(axis, Direction::Increase));
+        for control in controls {
+            let encoded = serde_json::to_string(&control).unwrap();
+            assert_eq!(
+                serde_json::from_str::<BodyControl>(&encoded).unwrap(),
+                control
+            );
+            assert_eq!(control.direction(), Direction::Increase);
+        }
+        assert_eq!(
+            serde_json::to_string(&BodyControl::new(
+                BodyAxis::EyeHorizontal { eye: Eye::Left },
+                Direction::Decrease,
+            ))
+            .unwrap(),
+            r#"{"axis":{"eye_horizontal":{"eye":"left"}},"direction":"decrease"}"#
+        );
+    }
 
     #[test]
     fn equal_opposing_effort_is_visible_without_movement() {

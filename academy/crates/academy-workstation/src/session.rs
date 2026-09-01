@@ -385,9 +385,10 @@ mod tests {
         let mut session = WorkstationSession::new(71_015).unwrap();
         session.boundary_parents.push(MotorEffect {
             at: 1,
-            control: BodyControl::PalmDepth {
-                direction: Direction::Increase,
-            },
+            control: BodyControl::new(
+                truelearner_workstation::BodyAxis::PalmDepth,
+                Direction::Increase,
+            ),
             impulse: 16,
             cause: 2,
         });
