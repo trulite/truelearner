@@ -6,15 +6,15 @@ description: Develop, debug, review, formalize, or change TrueLearner code. Appl
 # Development
 
 ```text
-problem -> compositional physical model -> smallest complete change -> verify
-               |                                  |                 |
-        category theory + TAME              simple code       warm wave < 25 ns
-                                                  |
-                               new type or elaborate mechanism
-                                                  |
-                         concept audit -> propose -> user confirms -> edit
-                                                                    |
-                                                    slower -> ask user to approve
+problem -> physical model -> tiny body test fails -> smallest change
+              |                                      |
+       category theory + TAME                         v
+                                      tiny test passes -> embodiment
+                                                               |
+                                      regressions + warm wave < 25 ns
+
+new type or elaborate mechanism -> audit -> propose -> user confirms -> edit
+slower warm wave -------------------------------------> ask user to approve
 ```
 
 ## Model
@@ -138,8 +138,13 @@ Rust physical trace -> structure-preserving projection -> Lean claim check
 
 ## Verify
 
-- Add the smallest law or black-box scenario that fails before the change and
-  passes after it.
+- Before changing learner physics, write and run the smallest body unit test
+  that directly expresses the required input -> path -> output behavior. Make
+  sure it fails for the predicted physical reason.
+- Implement only enough to make that test and its smallest killing negative
+  pass. Only then test the unchanged behavior through morphology, workstation,
+  Academy, or a benchmark; never use those larger systems as the first proof of
+  a learner mechanism.
 - Run focused tests, then the affected regression suite.
 - Measure the representative warm wave before and after the change. Exclude
   build, setup, rendering, serialization, and cold bootstrap unless they are the

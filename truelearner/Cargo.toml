@@ -3,5 +3,8 @@ members = ["crates/behavior-contract", "crates/body", "crates/core", "crates/wor
 default-members = ["crates/body", "crates/workstation"]
 resolver = "2"
 
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_only)'] }
+
 [profile.test]
 opt-level = 2

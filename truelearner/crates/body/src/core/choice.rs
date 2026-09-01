@@ -155,6 +155,7 @@ fn fresh_opportunity(
             let memory = &body.arrows[witness.slot()];
             if !closes_return(memory)
                 || link.to == donor.output
+                || output_has_returned_path(body, link.to)
                 || paths.iter().enumerate().any(|(index, path)| {
                     worlds[index] == world
                         && path.executable
@@ -176,6 +177,16 @@ fn fresh_opportunity(
         }
     }
     selected.map(|fresh| (donor_index, fresh))
+}
+
+fn output_has_returned_path(body: ReactionView<'_>, output: JunctionId) -> bool {
+    body.arena.incoming(output).any(|drive| {
+        path_from_drive(body, drive).is_some()
+            && body.arrows[drive.slot()].participation() > 0
+            && body.arrows[drive.slot()]
+                .outcome()
+                .is_some_and(|outcome| outcome.caused_transition)
+    })
 }
 
 fn outputs_are_local(body: ReactionView<'_>, left: JunctionId, right: JunctionId) -> bool {

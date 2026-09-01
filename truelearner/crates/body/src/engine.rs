@@ -168,6 +168,13 @@ pub(crate) struct PhysicalMoment {
 }
 
 impl PhysicalMoment {
+    pub(crate) fn boundary_arrivals(&self) -> impl Iterator<Item = (Time, JunctionId, u64)> + '_ {
+        self.participants
+            .iter()
+            .filter(|participant| participant.via.is_none())
+            .map(|participant| (participant.at, participant.target, participant.cause))
+    }
+
     #[cfg(test)]
     pub(crate) fn participants(&self, change: &MomentChange) -> Participants<'_> {
         self.participants_from(change.first_participant)
@@ -493,44 +500,7 @@ impl Body {
             }
             self.transmit(recorded.event, recorded.predecessor, work)?;
         }
-        let reaction_needed = crate::core::reaction_needed(
-            ReactionView::new(&self.arena, &self.arrows, &self.returns),
-            &self.activity.moment,
-        );
-        let reaction_result = if !reaction_needed {
-            Ok(())
-        } else {
-            crate::core::react_into(
-                ReactionView::with_reentry(
-                    &self.arena,
-                    &self.arrows,
-                    &self.returns,
-                    self.reentry.as_deref(),
-                ),
-                &self.activity.moment,
-                &mut self.activity.reaction,
-                trace,
-            );
-            if self.activity.reaction.change.is_empty() {
-                self.activity.reaction.clear();
-                Ok(())
-            } else {
-                let mut change = std::mem::take(&mut self.activity.reaction.change);
-                let mut applied = std::mem::take(&mut self.activity.reaction.applied);
-                let result = self.apply_reusing(&mut change, &mut applied, at, trace);
-                self.activity.reaction.change = change;
-                self.activity.reaction.applied = applied;
-                self.activity.reaction.clear();
-                result
-            }
-        };
-        reaction_result.map_err(|error| match error {
-            crate::core::ApplyError::Build(BuildError::CapacityExhausted) => {
-                RunError::CapacityExhausted
-            }
-            crate::core::ApplyError::Run(error) => error,
-            _ => RunError::InvalidReaction,
-        })?;
+        self.react_current_moment(at, trace)?;
         self.activity.meetings.touched.clear();
         Ok(Some(at))
     }
@@ -560,6 +530,8 @@ impl Body {
             .expect("live junction")
             .change(at, i64::from(firing.impulse), firing.cause)
         else {
+            self.activity.moment.changes.clear();
+            self.react_current_moment(at, trace)?;
             return Ok(Some(at));
         };
         work.changes += 1;
@@ -595,38 +567,49 @@ impl Body {
             #[cfg(test)]
             first_participant: 0,
         });
-        if crate::core::reaction_needed(
+        self.react_current_moment(at, trace)?;
+        Ok(Some(at))
+    }
+
+    fn react_current_moment<T: TraceSink>(
+        &mut self,
+        at: Time,
+        trace: &mut T,
+    ) -> Result<(), RunError> {
+        if !crate::core::reaction_needed(
             ReactionView::new(&self.arena, &self.arrows, &self.returns),
             &self.activity.moment,
         ) {
-            crate::core::react_into(
-                ReactionView::with_reentry(
-                    &self.arena,
-                    &self.arrows,
-                    &self.returns,
-                    self.reentry.as_deref(),
-                ),
-                &self.activity.moment,
-                &mut self.activity.reaction,
-                trace,
-            );
-            if !self.activity.reaction.change.is_empty() {
-                let mut change = std::mem::take(&mut self.activity.reaction.change);
-                let mut applied = std::mem::take(&mut self.activity.reaction.applied);
-                self.apply_reusing(&mut change, &mut applied, at, trace)
-                    .map_err(|error| match error {
-                        crate::core::ApplyError::Build(BuildError::CapacityExhausted) => {
-                            RunError::CapacityExhausted
-                        }
-                        crate::core::ApplyError::Run(error) => error,
-                        _ => RunError::InvalidReaction,
-                    })?;
-                self.activity.reaction.change = change;
-                self.activity.reaction.applied = applied;
-            }
-            self.activity.reaction.clear();
+            return Ok(());
         }
-        Ok(Some(at))
+        crate::core::react_into(
+            ReactionView::with_reentry(
+                &self.arena,
+                &self.arrows,
+                &self.returns,
+                self.reentry.as_deref(),
+            ),
+            &self.activity.moment,
+            &mut self.activity.reaction,
+            trace,
+        );
+        if self.activity.reaction.change.is_empty() {
+            self.activity.reaction.clear();
+            return Ok(());
+        }
+        let mut change = std::mem::take(&mut self.activity.reaction.change);
+        let mut applied = std::mem::take(&mut self.activity.reaction.applied);
+        let result = self.apply_reusing(&mut change, &mut applied, at, trace);
+        self.activity.reaction.change = change;
+        self.activity.reaction.applied = applied;
+        self.activity.reaction.clear();
+        result.map_err(|error| match error {
+            crate::core::ApplyError::Build(BuildError::CapacityExhausted) => {
+                RunError::CapacityExhausted
+            }
+            crate::core::ApplyError::Run(error) => error,
+            _ => RunError::InvalidReaction,
+        })
     }
 
     #[inline(always)]

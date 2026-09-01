@@ -13,6 +13,29 @@ pub(crate) fn reaction_needed(body: ReactionView<'_>, moment: &PhysicalMoment) -
             }
         }
     }
+    moment.boundary_arrivals().any(|(_, target, _)| {
+        !moment
+            .changes
+            .iter()
+            .any(|change| change.event.junction == target)
+            && is_motor_gate(body, target)
+    })
+}
+
+fn is_motor_gate(body: ReactionView<'_>, junction: JunctionId) -> bool {
+    let mut next = body
+        .arena
+        .junction(junction)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(link) = next {
+        let physical = body.arena.link(link).expect("live motor incidence");
+        if body.arrows[link.slot()].is_drive()
+            && body.arrows[link.slot()].boundary_crossing()
+        {
+            return true;
+        }
+        next = physical.next;
+    }
     false
 }
 
@@ -301,6 +324,7 @@ pub(crate) fn react_into<T: TraceSink>(
     let construction = detect_closure(body, moment, &mut scratch.construction);
     form_and_choose(
         body,
+        moment,
         &mut scratch.facts,
         &mut scratch.ready,
         &mut scratch.connected_outcomes,

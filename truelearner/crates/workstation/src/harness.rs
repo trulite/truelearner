@@ -28,7 +28,7 @@ const SENSOR_PRIME: i32 = i32::MIN;
 const LIGHT_RANGE: u32 = u8::MAX as u32;
 const BODY_RANGE: u32 = BODY_MAX as u32;
 const SIGNED_BODY_RANGE: u32 = BODY_RANGE * 2;
-const COMPETITION_COMPONENTS: usize = 4;
+const COMPETITION_COMPONENTS: usize = 5;
 const OUTCOME_COMPONENTS: usize = AXIS_COUNT;
 const MOMENT_LIMIT: usize = 512;
 
@@ -865,14 +865,14 @@ const fn competition_component(axis: BodyAxis) -> usize {
         | BodyAxis::PalmVertical
         | BodyAxis::PalmDepth
         | BodyAxis::Wrist
-        | BodyAxis::Spread
-        | BodyAxis::FingerFlexion {
-            digit: Digit::Index | Digit::Middle | Digit::Ring | Digit::Little,
-        } => 2,
+        | BodyAxis::Spread => 2,
         BodyAxis::ThumbOpposition
         | BodyAxis::FingerFlexion {
             digit: Digit::Thumb,
         } => 3,
+        BodyAxis::FingerFlexion {
+            digit: Digit::Index | Digit::Middle | Digit::Ring | Digit::Little,
+        } => 4,
     }
 }
 
@@ -1148,10 +1148,20 @@ mod tests {
     fn thumb_contact_is_a_local_hand_component() {
         assert_eq!(competition_component(BodyAxis::PalmDepth), 2);
         assert_eq!(
+            competition_component(BodyAxis::PalmDepth),
+            competition_component(BodyAxis::PalmHorizontal)
+        );
+        assert_eq!(
             competition_component(BodyAxis::FingerFlexion {
                 digit: Digit::Index
             }),
-            2
+            4
+        );
+        assert_ne!(
+            competition_component(BodyAxis::PalmDepth),
+            competition_component(BodyAxis::FingerFlexion {
+                digit: Digit::Index
+            })
         );
         assert_eq!(competition_component(BodyAxis::ThumbOpposition), 3);
         assert_eq!(

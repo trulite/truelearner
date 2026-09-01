@@ -10,3 +10,10 @@ path = "src/lib.rs"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
+vstd = { version = "=0.0.0-2026-08-30-0159", features = ["nonzero_internals"] }
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true

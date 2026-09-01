@@ -3,14 +3,24 @@
 
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
+use vstd::prelude::*;
+
+verus! {
 
 pub type Time = u64;
 pub type Impulse = i32;
 pub type Cause = u64;
 pub const DRIVE_MAX: u16 = 1_023;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct JunctionId(NonZeroU32);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
+pub struct LinkId(NonZeroU32);
+
+} // verus!
 
 impl JunctionId {
     #[doc(hidden)]
@@ -30,9 +40,6 @@ impl JunctionId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct LinkId(NonZeroU32);
-
 impl LinkId {
     #[doc(hidden)]
     #[inline(always)]
@@ -51,13 +58,15 @@ impl LinkId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub enum Retention {
     Integrating,
     Sampled { lifetime: Time, range: u32 },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct Junction {
     pub threshold: Impulse,
     pub retention: Retention,
@@ -86,7 +95,8 @@ impl Junction {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub enum Trigger {
     SourceFires,
     RisesThrough(Impulse),
@@ -108,7 +118,8 @@ impl Trigger {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct Link {
     pub from: JunctionId,
     pub to: JunctionId,
@@ -136,7 +147,8 @@ impl Link {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct Path {
     pub surface: JunctionId,
     pub middle: JunctionId,
@@ -152,20 +164,23 @@ impl Path {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct Occurrence {
     pub cause: Cause,
     pub at: Time,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct Outcome {
     pub at: Time,
     pub caused_transition: bool,
     pub available_until_choice: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct PathEvidence {
     participation: u64,
     last_participation: Occurrence,
@@ -319,7 +334,8 @@ impl PathEvidence {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub enum PropagationMode {
     Entry,
     Drive {
@@ -328,19 +344,24 @@ pub enum PropagationMode {
     },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub enum WitnessKind {
     Progress,
     Closure { offers_choice: bool },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+verus! {
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct ClosedSupport {
     pub source: JunctionId,
     pub witness: LinkId,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub enum ReturnStatus {
     Open {
         switched_from: Option<LinkId>,
@@ -356,7 +377,133 @@ pub enum ReturnStatus {
     Expired,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub open spec fn return_is_open(status: ReturnStatus) -> bool {
+    status is Open
+}
+
+pub open spec fn return_is_closed_with(status: ReturnStatus, expected: ClosedSupport) -> bool {
+    match status {
+        ReturnStatus::Closed { support, .. } => support == expected,
+        _ => false,
+    }
+}
+
+pub open spec fn return_is_ambiguous_at(status: ReturnStatus, expected_at: Time) -> bool {
+    match status {
+        ReturnStatus::Ambiguous { at } => at == expected_at,
+        _ => false,
+    }
+}
+
+pub open spec fn return_is_expired(status: ReturnStatus) -> bool {
+    status is Expired
+}
+
+pub open spec fn return_has_no_support(status: ReturnStatus) -> bool {
+    !(status is Closed)
+}
+
+#[inline(always)]
+fn close_return_transition(
+    active: &mut bool,
+    status: &mut ReturnStatus,
+    at: Time,
+    support: ClosedSupport,
+    motif_parent: Option<LinkId>,
+) -> (changed: bool)
+    ensures
+        changed == return_is_open(*old(status)),
+        changed ==> return_is_closed_with(*final(status), support),
+        changed ==> *final(active),
+        !changed ==> *final(status) == *old(status),
+        !changed ==> *final(active) == *old(active),
+{
+    if !matches!(status, ReturnStatus::Open { .. }) {
+        return false;
+    }
+    *status = ReturnStatus::Closed {
+        at,
+        support,
+        motif_parent,
+    };
+    *active = true;
+    true
+}
+
+#[inline(always)]
+fn mark_ambiguous_transition(
+    active: &mut bool,
+    status: &mut ReturnStatus,
+    at: Time,
+) -> (changed: bool)
+    ensures
+        changed == return_is_open(*old(status)),
+        changed ==> return_is_ambiguous_at(*final(status), at),
+        changed ==> return_has_no_support(*final(status)),
+        changed ==> !*final(active),
+        !changed ==> *final(status) == *old(status),
+        !changed ==> *final(active) == *old(active),
+{
+    if !matches!(status, ReturnStatus::Open { .. }) {
+        return false;
+    }
+    *status = ReturnStatus::Ambiguous { at };
+    *active = false;
+    true
+}
+
+#[inline(always)]
+fn expire_return_transition(
+    active: &mut bool,
+    status: &mut ReturnStatus,
+) -> (changed: bool)
+    ensures
+        changed == return_is_open(*old(status)),
+        changed ==> return_is_expired(*final(status)),
+        changed ==> return_has_no_support(*final(status)),
+        changed ==> !*final(active),
+        !changed ==> *final(status) == *old(status),
+        !changed ==> *final(active) == *old(active),
+{
+    if !matches!(status, ReturnStatus::Open { .. }) {
+        return false;
+    }
+    *status = ReturnStatus::Expired;
+    *active = false;
+    true
+}
+
+#[cfg(verus_only)]
+fn verify_terminal_returns_are_absorbing(
+    mut active: bool,
+    mut status: ReturnStatus,
+    at: Time,
+    support: ClosedSupport,
+    motif_parent: Option<LinkId>,
+)
+    requires
+        return_is_ambiguous_at(status, at) || return_is_expired(status),
+    ensures
+        return_has_no_support(status),
+{
+    let closed = close_return_transition(
+        &mut active,
+        &mut status,
+        at,
+        support,
+        motif_parent,
+    );
+    assert(!closed);
+    let ambiguous = mark_ambiguous_transition(&mut active, &mut status, at);
+    assert(!ambiguous);
+    let expired = expire_return_transition(&mut active, &mut status);
+    assert(!expired);
+}
+
+} // verus!
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub enum ArrowKind {
     Propagation {
         mode: PropagationMode,
@@ -376,7 +523,8 @@ pub enum ArrowKind {
     Membership,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct ArrowState {
     active: bool,
     kind: ArrowKind,
@@ -845,16 +993,7 @@ impl ArrowState {
         let ArrowKind::Return { status, .. } = &mut self.kind else {
             return false;
         };
-        if !matches!(status, ReturnStatus::Open { .. }) {
-            return false;
-        }
-        *status = ReturnStatus::Closed {
-            at,
-            support,
-            motif_parent,
-        };
-        self.active = true;
-        true
+        close_return_transition(&mut self.active, status, at, support, motif_parent)
     }
 
     #[inline(always)]
@@ -862,12 +1001,7 @@ impl ArrowState {
         let ArrowKind::Return { status, .. } = &mut self.kind else {
             return false;
         };
-        if !matches!(status, ReturnStatus::Open { .. }) {
-            return false;
-        }
-        *status = ReturnStatus::Ambiguous { at };
-        self.active = false;
-        true
+        mark_ambiguous_transition(&mut self.active, status, at)
     }
 
     #[inline(always)]
@@ -875,12 +1009,7 @@ impl ArrowState {
         let ArrowKind::Return { status, .. } = &mut self.kind else {
             return false;
         };
-        if !matches!(status, ReturnStatus::Open { .. }) {
-            return false;
-        }
-        *status = ReturnStatus::Expired;
-        self.active = false;
-        true
+        expire_return_transition(&mut self.active, status)
     }
 
     #[inline(always)]

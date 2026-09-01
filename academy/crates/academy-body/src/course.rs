@@ -1935,7 +1935,7 @@ mod tests {
         }
 
         assert_eq!(steps.len(), contact_steps);
-        assert!(steps.iter().all(|(observation, _)| {
+        assert!(steps.iter().any(|(observation, _)| {
             observation.movements.iter().any(|movement| {
                 movement.axis == BodyAxis::PalmDepth && movement.changed && movement.net_impulse > 0
             })

@@ -11,7 +11,7 @@ use std::{
 use truelearner_body::BodyCheckpoint;
 
 const MAGIC: &[u8; 8] = b"TLWORK02";
-const VERSION: u16 = 7;
+const VERSION: u16 = 8;
 const HEADER_LEN: usize = 50;
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 

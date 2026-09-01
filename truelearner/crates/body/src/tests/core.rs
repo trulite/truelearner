@@ -1,5 +1,8 @@
 use super::*;
-use crate::harness::{attach_outcome_component, attach_sensor, finish, motor, reading, schedule};
+use crate::harness::{
+    attach_boundary_component, attach_outcome_component, attach_sensor, finish, motor, reading,
+    schedule,
+};
 use crate::{verify_choice_laws, Arrival};
 use proptest::prelude::*;
 
@@ -1553,4 +1556,339 @@ fn accepted_return_updates_memory_without_growing_morphology() {
     finish(&mut body);
 
     assert_eq!(body.arena.link_count(), links_before_return);
+}
+
+#[test]
+fn a_motor_gate_arrival_re_presents_one_returned_unfinished_path() {
+    let mut body = Body::default();
+    let motor = motor(&mut body);
+    let surface = attach_sensor(
+        &mut body,
+        Junction::integrating(1),
+        &[(motor.opportunity, 1)],
+    );
+    let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+    attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+    schedule(&mut body, 0, &[reading(outcome, 0, 0, 0)]);
+    finish(&mut body);
+
+    schedule(&mut body, 10, &[reading(surface, 0, 1, 1)]);
+    schedule(&mut body, 11, &[Arrival::caused(motor.opportunity, 1, 1)]);
+    assert_eq!(
+        crate::harness::event_count(&finish(&mut body).events, motor.effect),
+        1
+    );
+    schedule(&mut body, 12, &[reading(outcome, 0, 1, 1)]);
+    finish(&mut body);
+
+    let links_before = body.arena.link_count();
+    schedule(&mut body, 20, &[Arrival::caused(motor.opportunity, 1, 2)]);
+    let recurrence = finish(&mut body);
+
+    assert_eq!(
+        crate::harness::event_count(&recurrence.events, motor.effect),
+        1
+    );
+    assert_eq!(body.arena.link_count(), links_before + 1);
+    assert_eq!(body.returns.live_count, 1);
+}
+
+fn return_motor_path(
+    body: &mut Body,
+    motor: crate::harness::Motor,
+    surface: JunctionId,
+    outcome: JunctionId,
+    at: Time,
+    cause: Cause,
+) {
+    schedule(body, at, &[reading(surface, 0, 1, cause)]);
+    schedule(
+        body,
+        at + 1,
+        &[Arrival::caused(motor.opportunity, 1, cause)],
+    );
+    finish(body);
+    schedule(body, at + 2, &[reading(outcome, 0, 1, cause)]);
+    finish(body);
+}
+
+#[test]
+fn an_unreturned_path_cannot_recur_from_a_motor_gate_arrival() {
+    let mut body = Body::default();
+    let motor = motor(&mut body);
+    let surface = attach_sensor(
+        &mut body,
+        Junction::integrating(1),
+        &[(motor.opportunity, 1)],
+    );
+    schedule(&mut body, 10, &[reading(surface, 0, 1, 1)]);
+    schedule(&mut body, 11, &[Arrival::caused(motor.opportunity, 1, 1)]);
+    finish(&mut body);
+
+    schedule(&mut body, 20, &[Arrival::caused(motor.opportunity, 1, 2)]);
+    let recurrence = finish(&mut body);
+
+    assert_eq!(
+        crate::harness::event_count(&recurrence.events, motor.effect),
+        0
+    );
+}
+
+#[test]
+fn a_competition_component_re_presents_its_least_recent_exact_component() {
+    let mut body = Body::default();
+    let motors = [motor(&mut body), motor(&mut body)];
+    let surfaces = motors.map(|motor| {
+        attach_sensor(
+            &mut body,
+            Junction::integrating(1),
+            &[(motor.opportunity, 1)],
+        )
+    });
+    let outcomes = motors.map(|motor| {
+        let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+        attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+        outcome
+    });
+    schedule(
+        &mut body,
+        0,
+        &outcomes.map(|outcome| reading(outcome, 0, 0, 0)),
+    );
+    finish(&mut body);
+    return_motor_path(&mut body, motors[0], surfaces[0], outcomes[0], 10, 1);
+    return_motor_path(&mut body, motors[1], surfaces[1], outcomes[1], 20, 2);
+    let competition = attach_sensor(&mut body, Junction::integrating(1), &[]);
+    attach_boundary_component(
+        &mut body,
+        competition,
+        motors.map(|motor| motor.opportunity),
+    );
+
+    schedule(
+        &mut body,
+        30,
+        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 3)),
+    );
+    let recurrence = finish(&mut body);
+
+    assert_eq!(
+        motors.map(|motor| crate::harness::event_count(&recurrence.events, motor.effect)),
+        [1, 0]
+    );
+}
+
+#[test]
+fn equal_oldest_exact_components_preserve_ambiguity() {
+    let mut body = Body::default();
+    let motors = [motor(&mut body), motor(&mut body)];
+    let surfaces = motors.map(|motor| {
+        attach_sensor(
+            &mut body,
+            Junction::integrating(1),
+            &[(motor.opportunity, 1)],
+        )
+    });
+    let outcomes = motors.map(|motor| {
+        let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+        attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+        outcome
+    });
+    schedule(
+        &mut body,
+        0,
+        &outcomes.map(|outcome| reading(outcome, 0, 0, 0)),
+    );
+    finish(&mut body);
+    schedule(
+        &mut body,
+        10,
+        &surfaces.map(|surface| reading(surface, 0, 1, 1)),
+    );
+    schedule(
+        &mut body,
+        11,
+        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 1)),
+    );
+    finish(&mut body);
+    schedule(
+        &mut body,
+        12,
+        &outcomes.map(|outcome| reading(outcome, 0, 1, 1)),
+    );
+    finish(&mut body);
+    let competition = attach_sensor(&mut body, Junction::integrating(1), &[]);
+    attach_boundary_component(
+        &mut body,
+        competition,
+        motors.map(|motor| motor.opportunity),
+    );
+
+    schedule(
+        &mut body,
+        20,
+        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 2)),
+    );
+    let recurrence = finish(&mut body);
+
+    assert!(motors
+        .iter()
+        .all(|motor| { crate::harness::event_count(&recurrence.events, motor.effect) == 0 }));
+}
+
+#[test]
+fn independent_exact_components_recur_as_a_product() {
+    let mut body = Body::default();
+    let motors = [motor(&mut body), motor(&mut body)];
+    let surfaces = motors.map(|motor| {
+        attach_sensor(
+            &mut body,
+            Junction::integrating(1),
+            &[(motor.opportunity, 1)],
+        )
+    });
+    let outcomes = motors.map(|motor| {
+        let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+        attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+        outcome
+    });
+    schedule(
+        &mut body,
+        0,
+        &outcomes.map(|outcome| reading(outcome, 0, 0, 0)),
+    );
+    finish(&mut body);
+    return_motor_path(&mut body, motors[0], surfaces[0], outcomes[0], 10, 1);
+    return_motor_path(&mut body, motors[1], surfaces[1], outcomes[1], 20, 2);
+
+    schedule(
+        &mut body,
+        30,
+        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 3)),
+    );
+    let recurrence = finish(&mut body);
+
+    assert_eq!(
+        motors.map(|motor| crate::harness::event_count(&recurrence.events, motor.effect)),
+        [1, 1]
+    );
+}
+
+#[test]
+fn a_current_path_from_the_same_surface_suppresses_dormant_recurrence() {
+    let mut body = Body::default();
+    let motor = motor(&mut body);
+    let surface = attach_sensor(
+        &mut body,
+        Junction::integrating(1),
+        &[(motor.opportunity, 1)],
+    );
+    let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+    attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+    schedule(&mut body, 0, &[reading(outcome, 0, 0, 0)]);
+    finish(&mut body);
+    return_motor_path(&mut body, motor, surface, outcome, 10, 1);
+
+    let path = body
+        .arena
+        .incoming(motor.opportunity)
+        .find_map(|drive| {
+            path_from_drive(
+                ReactionView::new(&body.arena, &body.arrows, &body.returns),
+                drive,
+            )
+        })
+        .expect("returned path");
+    body.arrows[path.first.slot()].record_transmission(Occurrence { cause: 2, at: 20 });
+
+    schedule(&mut body, 20, &[Arrival::caused(motor.opportunity, 1, 2)]);
+    let answered = finish(&mut body);
+
+    assert_eq!(
+        crate::harness::event_count(&answered.events, motor.effect),
+        0
+    );
+}
+
+#[test]
+fn a_current_path_in_the_same_competition_component_suppresses_dormant_recurrence() {
+    let mut body = Body::default();
+    let motors = [motor(&mut body), motor(&mut body)];
+    let surfaces = motors.map(|motor| {
+        attach_sensor(
+            &mut body,
+            Junction::integrating(1),
+            &[(motor.opportunity, 1)],
+        )
+    });
+    let outcomes = motors.map(|motor| {
+        let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+        attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+        outcome
+    });
+    let competition = attach_sensor(&mut body, Junction::integrating(1), &[]);
+    attach_boundary_component(
+        &mut body,
+        competition,
+        motors.map(|motor| motor.opportunity),
+    );
+    schedule(
+        &mut body,
+        0,
+        &outcomes.map(|outcome| reading(outcome, 0, 0, 0)),
+    );
+    finish(&mut body);
+    return_motor_path(&mut body, motors[0], surfaces[0], outcomes[0], 10, 1);
+    return_motor_path(&mut body, motors[1], surfaces[1], outcomes[1], 20, 2);
+
+    let current = body
+        .arena
+        .incoming(motors[0].opportunity)
+        .find_map(|drive| {
+            path_from_drive(
+                ReactionView::new(&body.arena, &body.arrows, &body.returns),
+                drive,
+            )
+        })
+        .expect("current path");
+    for link in [current.first, current.second] {
+        body.arrows[link.slot()].record_transmission(Occurrence { cause: 3, at: 30 });
+    }
+
+    schedule(
+        &mut body,
+        30,
+        &[Arrival::caused(motors[1].opportunity, 1, 3)],
+    );
+    let answered = finish(&mut body);
+
+    assert_eq!(
+        crate::harness::event_count(&answered.events, motors[1].effect),
+        0
+    );
+}
+
+#[test]
+fn a_returned_output_is_not_a_fresh_opportunity() {
+    let mut body = Body::default();
+    let motor = motor(&mut body);
+    let surface = attach_sensor(
+        &mut body,
+        Junction::integrating(1),
+        &[(motor.opportunity, 1)],
+    );
+    let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+    attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+    schedule(&mut body, 0, &[reading(outcome, 0, 0, 0)]);
+    finish(&mut body);
+
+    assert!(!output_has_returned_path(
+        ReactionView::new(&body.arena, &body.arrows, &body.returns),
+        motor.opportunity
+    ));
+    return_motor_path(&mut body, motor, surface, outcome, 10, 1);
+    assert!(output_has_returned_path(
+        ReactionView::new(&body.arena, &body.arrows, &body.returns),
+        motor.opportunity
+    ));
 }
