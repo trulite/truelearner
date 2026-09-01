@@ -29,6 +29,7 @@ pub use crate::physics::{
 pub use crate::timeline::{MomentKey, QueueWork, Timeline, TimelineItem};
 pub use crate::trace::{
     verify_choice_laws, CandidateTrace, ChoiceBasis, ChoiceLaw, ChoiceLawViolation, ChoiceTrace,
-    MotifReentryTrace, ReentryStepTrace, ReentryTrace, ReturnCandidateTrace, ReturnDecision,
-    ReturnTrace, StrengthTrace, TraceArrival, TraceEvent, TracePath,
+    MotifReentryTrace, MotifRouteStepTrace, MotifRouteTrace, ReentryStepTrace, ReentryTrace,
+    ReturnCandidateTrace, ReturnDecision, ReturnTrace, StrengthTrace, TraceArrival, TraceEvent,
+    TracePath,
 };

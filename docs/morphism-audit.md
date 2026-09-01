@@ -48,6 +48,11 @@ organism.
   when both its successful and unanswered physical roles match. Several
   matching histories add support without selecting one historical parent;
   several supported fresh candidates make no motif choice.
+- When several fresh first actions have equal motif support, their actual
+  unique outcome-source incidence may expose further untouched morphology.
+  Retained motifs can compose through those physical intermediate surfaces;
+  exactly one route to a currently present condition may select its first
+  action. Two reaching routes make no claim.
 - Tentative motif support constructs no additional topology and strengthens
   nothing. A later exact return independently closes the fresh path; wrong
   ancestry and ambiguity retain no closed support.
@@ -58,10 +63,15 @@ organism.
 - Three identical, complete reentry inspections can retain a dependent thought
   shortcut. Reuse returns the same complete route set and exact step receipts;
   it does not add a closure, strengthen a path, or create graph topology.
+- Every successfully inspected suffix is rehearsed independently. The same
+  exact suffix reached through different beginnings can therefore compile and
+  be reused, but it cannot supply a missing beginning.
 - A thought shortcut is valid only while every locally inspected physical
   dependency has the same epoch. A new branch or changed witness invalidates
-  it, while disconnected products, checkpoint replay, and attachment renaming
-  preserve it. Repeated real confirmation of the same support does not.
+  only the shortcuts that depended on it. Unchanged downstream suffixes,
+  disconnected products, checkpoint replay, and attachment renaming preserve
+  their compiled structure. Repeated real confirmation of the same support
+  does not invalidate it.
 
 ## Closed handoffs
 
@@ -132,11 +142,19 @@ construction, and the incidence safety ceiling.
 ### 6. Dependent thought compilation
 
 Reentry now distinguishes causal evidence from derived computation. Exact
-returned consequences remain the only source of closed support. When the same
-complete internal route set is composed three times, the body may retain that
-composition as a `ThoughtShortcut` indexed by its physical start path and
-present condition. Later reuse emits the unchanged full reentry receipt, so
-observer verification sees every path, returned source, and outcome witness.
+returned consequences remain the only source of closed support. Each complete
+inspection rehearses both its full route set and every successfully inspected
+suffix. After three rehearsals, any one of those exact compositions may become
+a `ThoughtShortcut` indexed by its physical start path and present condition.
+Later reuse emits the unchanged full reentry receipt, so observer verification
+sees every path, returned source, and outcome witness.
+
+Because suffixes have their own dependency sets, an unchanged causal tail can
+accumulate its three rehearsals while it is reached through different
+beginnings. A later real beginning that reaches that tail may reuse it. The
+shortcut never creates that beginning: a path with no witnessed closure still
+finds no future. Changing one beginning invalidates its dependent prefix
+without erasing the unchanged tail.
 
 The shortcut stores the local junction epochs inspected by the original
 search. Adding a possible branch, changing or retiring a parent, changing an
@@ -147,12 +165,41 @@ deterministic shortcut indexing keep disconnected components out of local
 graph work.
 
 Active tests cover the three-use threshold, ordinary reaction integration,
-unchanged causal evidence and topology, lower graph inspection work, ambiguity,
-new-branch and changed-support invalidation, repeated identical real support,
-checkpoint replay, attachment remapping, observer verification, and products
-containing many disconnected compiled thoughts. Checkpoint format 8 persists
-this derived state; the explicit version-7 reader restores older trained bodies
-with an empty thought cache.
+shared-tail learning across different beginnings, missing-prefix rejection,
+suffix-local invalidation, unchanged causal evidence and topology, lower graph
+inspection work, ambiguity, membership changes, new-branch and changed-support
+invalidation, repeated identical real support, checkpoint replay, attachment
+remapping, observer verification, and products containing many disconnected
+compiled thoughts. Checkpoint format 8 persists this derived state; the
+explicit version-7 reader restores older trained bodies with an empty thought
+cache.
+
+### 7. Transient identity-free motif routes
+
+A fresh action's existing outcome witness names the physical surface on which
+its consequence could return. When that surface has untouched local motor
+morphology, the resolver can compare each possible continuation with the same
+two-example motif law already used for one-step generalization. A matched
+continuation may compose through its own unique outcome source. This repeats
+until one route reaches a boundary condition that is physically present in the
+current moment.
+
+The route is a transient receipt, not retained planning topology. Every
+proposed step records its real morphology link, proposed impulse, unique
+outcome source, and retained motif witnesses. Only the first real action is
+sent; the next action still waits for the real intermediate consequence. No
+downstream path, return, closure, or strength is created. Sampled
+downstream surfaces are currently rejected because their future rise or fall
+has not yet been physically witnessed; integrating `SourceFires` surfaces do
+not require that invented direction.
+
+Route search shares the existing 256-incidence safety budget and the
+16-unfamiliar-step lifetime. One downstream example is insufficient,
+ambiguous outcome incidence forms no route, and two routes reaching the
+present condition block a unique motif choice. Tests also cover identity and
+construction-order invariance, unchanged downstream topology, checkpoint
+replay, attachment remapping, independent products, and observer-side receipt
+validation.
 
 ## Gated downstream ladder
 
@@ -160,8 +207,9 @@ These claims remain downstream rather than being implemented or inferred:
 
 1. Refine or split caused membership or motif resemblance when an exact return
    separates histories previously treated as the same form.
-2. Test whether repeated shared suffixes can compile as independently reusable
-   subpaths without inheriting unrelated prefix dependencies or hiding a dead
-   sibling branch.
-3. Project frozen motif and dependent-thought receipts into observer-only Lean claims without
-   giving the result back to the learner.
+2. Test whether repeated real confirmation can compile a previously transient
+   motif route without allowing the proposal itself to create evidence.
+3. Test goal discovery separately: a condition must become physically
+   maintainable through experience rather than being named by a goal object.
+4. Project frozen motif, motif-route, and dependent-thought receipts into
+   observer-only Lean claims without giving the result back to the learner.

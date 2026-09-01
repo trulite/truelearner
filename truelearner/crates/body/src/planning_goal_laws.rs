@@ -1821,3 +1821,498 @@ fn only_a_fresh_exact_return_confirms_tentative_motif_reentry() {
     )));
     assert_eq!(wrong_cause.body.reentry_state().closed_steps, 2);
 }
+
+#[derive(Clone)]
+struct MotifChainWorld {
+    body: Body,
+    motors: Vec<Motor>,
+    starts: [JunctionId; 3],
+    intermediate: [JunctionId; 4],
+    outcomes: [JunctionId; 4],
+}
+
+impl MotifChainWorld {
+    const FIRST_PROXY_0: usize = 0;
+    const FIRST_CLOSER_0: usize = 1;
+    const FIRST_PROXY_1: usize = 2;
+    const FIRST_CLOSER_1: usize = 3;
+    const SECOND_PROXY_0: usize = 4;
+    const SECOND_CLOSER_0: usize = 5;
+    const SECOND_PROXY_1: usize = 6;
+    const SECOND_CLOSER_1: usize = 7;
+    const FRESH_PROXY: usize = 8;
+    const FRESH_LEFT: usize = 9;
+    const FRESH_RIGHT: usize = 10;
+    const LEFT_PROXY: usize = 11;
+    const LEFT_CLOSER: usize = 12;
+    const RIGHT_PROXY: usize = 13;
+    const RIGHT_CLOSER: usize = 14;
+
+    const MID_0: usize = 0;
+    const MID_1: usize = 1;
+    const LEFT: usize = 2;
+    const RIGHT: usize = 3;
+
+    const GOAL_0: usize = 0;
+    const GOAL_1: usize = 1;
+    const FRESH_GOAL: usize = 2;
+    const DEAD: usize = 3;
+
+    fn new() -> Self {
+        Self::with_setup(false, false)
+    }
+
+    fn with_setup(dormant_prefix: bool, reverse_fresh_construction: bool) -> Self {
+        let mut body = Body::default();
+        if dormant_prefix {
+            let from = body.add_junction(Junction::integrating(1)).unwrap();
+            let to = body.add_junction(Junction::integrating(1)).unwrap();
+            body.add_link(Link::new(from, to, 1, 1)).unwrap();
+        }
+        let motors = (0..15).map(|_| motor(&mut body)).collect::<Vec<_>>();
+        let starts =
+            std::array::from_fn(|_| attach_sensor(&mut body, Junction::integrating(1), &[]));
+        let intermediate =
+            std::array::from_fn(|_| attach_sensor(&mut body, Junction::integrating(1), &[]));
+        let outcomes =
+            std::array::from_fn(|_| attach_sensor(&mut body, Junction::sampled(1_000), &[]));
+
+        for (surface, output) in [
+            (starts[0], Self::FIRST_PROXY_0),
+            (starts[0], Self::FIRST_CLOSER_0),
+            (starts[1], Self::FIRST_PROXY_1),
+            (starts[1], Self::FIRST_CLOSER_1),
+        ] {
+            body.add_link(Link::new(surface, motors[output].opportunity, 1, 0))
+                .unwrap();
+        }
+        let fresh = if reverse_fresh_construction {
+            [Self::FRESH_RIGHT, Self::FRESH_LEFT]
+        } else {
+            [Self::FRESH_LEFT, Self::FRESH_RIGHT]
+        };
+        for output in [Self::FRESH_PROXY, fresh[0], fresh[1]] {
+            body.add_link(Link::new(starts[2], motors[output].opportunity, 1, 0))
+                .unwrap();
+        }
+        for (source, output) in [
+            (intermediate[Self::MID_0], Self::FIRST_CLOSER_0),
+            (intermediate[Self::MID_1], Self::FIRST_CLOSER_1),
+            (intermediate[Self::LEFT], Self::FRESH_LEFT),
+            (intermediate[Self::RIGHT], Self::FRESH_RIGHT),
+        ] {
+            outcome_witness(&mut body, source, motors[output].opportunity);
+        }
+        schedule(
+            &mut body,
+            0,
+            &outcomes.map(|outcome| Arrival::caused(outcome, 0, 0)),
+        );
+        run(&mut body);
+        Self {
+            body,
+            motors,
+            starts,
+            intermediate,
+            outcomes,
+        }
+    }
+
+    fn act(
+        &mut self,
+        surface: JunctionId,
+        outputs: &[usize],
+        at: u64,
+        cause: u64,
+    ) -> (Vec<usize>, Vec<TraceEvent>) {
+        schedule(&mut self.body, at, &[reading(surface, 0, 1, cause)]);
+        schedule(
+            &mut self.body,
+            at + 1,
+            &outputs
+                .iter()
+                .map(|output| Arrival::caused(self.motors[*output].opportunity, 1, cause))
+                .collect::<Vec<_>>(),
+        );
+        let (events, trace) = run(&mut self.body);
+        (effect(&events, &self.motors), trace)
+    }
+
+    fn demonstrate(
+        &mut self,
+        surface: JunctionId,
+        proxy: usize,
+        closer: usize,
+        outcome: JunctionId,
+        at: u64,
+        cause: u64,
+    ) {
+        assert_eq!(self.act(surface, &[proxy], at, cause).0, [proxy]);
+        assert_eq!(self.act(surface, &[closer], at + 10, cause + 1).0, [closer]);
+        schedule(
+            &mut self.body,
+            at + 14,
+            &[reading(outcome, 0, 1, cause + 1)],
+        );
+        let (_, trace) = run(&mut self.body);
+        assert!(trace.iter().any(|event| matches!(
+            event,
+            TraceEvent::Return(returned)
+                if returned.source == outcome
+                    && returned.return_cause == Some(cause + 1)
+                    && returned.decision == ReturnDecision::Accepted
+        )));
+    }
+
+    fn train_first_motif(&mut self) {
+        self.demonstrate(
+            self.starts[0],
+            Self::FIRST_PROXY_0,
+            Self::FIRST_CLOSER_0,
+            self.intermediate[Self::MID_0],
+            10,
+            1,
+        );
+        self.demonstrate(
+            self.starts[1],
+            Self::FIRST_PROXY_1,
+            Self::FIRST_CLOSER_1,
+            self.intermediate[Self::MID_1],
+            30,
+            3,
+        );
+        for (surface, output) in [
+            (self.intermediate[Self::MID_0], Self::SECOND_PROXY_0),
+            (self.intermediate[Self::MID_0], Self::SECOND_CLOSER_0),
+            (self.intermediate[Self::MID_1], Self::SECOND_PROXY_1),
+            (self.intermediate[Self::MID_1], Self::SECOND_CLOSER_1),
+            (self.intermediate[Self::LEFT], Self::LEFT_PROXY),
+            (self.intermediate[Self::LEFT], Self::LEFT_CLOSER),
+            (self.intermediate[Self::RIGHT], Self::RIGHT_PROXY),
+            (self.intermediate[Self::RIGHT], Self::RIGHT_CLOSER),
+        ] {
+            self.body
+                .add_link(Link::new(surface, self.motors[output].opportunity, 2, 0))
+                .unwrap();
+        }
+        for (source, output) in [
+            (self.outcomes[Self::GOAL_0], Self::SECOND_CLOSER_0),
+            (self.outcomes[Self::GOAL_1], Self::SECOND_CLOSER_1),
+            (self.outcomes[Self::FRESH_GOAL], Self::LEFT_CLOSER),
+            (self.outcomes[Self::DEAD], Self::RIGHT_CLOSER),
+        ] {
+            outcome_witness(&mut self.body, source, self.motors[output].opportunity);
+        }
+    }
+
+    fn train_one_second_example(&mut self) {
+        self.demonstrate(
+            self.intermediate[Self::MID_0],
+            Self::SECOND_PROXY_0,
+            Self::SECOND_CLOSER_0,
+            self.outcomes[Self::GOAL_0],
+            50,
+            5,
+        );
+    }
+
+    fn train_second_motif(&mut self) {
+        self.train_one_second_example();
+        self.demonstrate(
+            self.intermediate[Self::MID_1],
+            Self::SECOND_PROXY_1,
+            Self::SECOND_CLOSER_1,
+            self.outcomes[Self::GOAL_1],
+            70,
+            7,
+        );
+    }
+
+    fn train(&mut self) {
+        self.train_first_motif();
+        self.train_second_motif();
+        assert_eq!(composed_motifs(&self.body).len(), 2);
+    }
+
+    fn make_right_reach_goal(&mut self) {
+        let output = self.motors[Self::RIGHT_CLOSER].opportunity;
+        let dead = self.outcomes[Self::DEAD];
+        let witness = self
+            .body
+            .arena
+            .incoming(output)
+            .find(|link| {
+                self.body.link_memory[link.slot()].role == LinkRole::OutcomeWitness
+                    && self
+                        .body
+                        .arena
+                        .link(*link)
+                        .is_some_and(|physical| physical.from == dead)
+            })
+            .expect("right closer has its dead outcome witness");
+        self.body
+            .set_link_role(witness, LinkRole::BoundaryWitness)
+            .unwrap();
+        outcome_witness(&mut self.body, self.outcomes[Self::FRESH_GOAL], output);
+    }
+
+    fn make_left_outcome_ambiguous(&mut self) {
+        outcome_witness(
+            &mut self.body,
+            self.outcomes[Self::DEAD],
+            self.motors[Self::LEFT_CLOSER].opportunity,
+        );
+    }
+
+    fn path_entries_from(&self, surface: JunctionId) -> usize {
+        let mut count = 0;
+        let mut next = self
+            .body
+            .arena
+            .junction(surface)
+            .and_then(|junction| junction.outgoing_head);
+        while let Some(link) = next {
+            let physical = self.body.arena.link(link).expect("live path incidence");
+            next = physical.next;
+            count += usize::from(
+                self.body.link_memory[link.slot()].live
+                    && self.body.link_memory[link.slot()].role == LinkRole::PathEntry,
+            );
+        }
+        count
+    }
+
+    fn remap_junctions(&mut self, base: usize) {
+        let remap = |junction: JunctionId| {
+            JunctionId::new(base + junction.slot()).expect("validated attachment identity")
+        };
+        self.starts = self.starts.map(remap);
+        self.intermediate = self.intermediate.map(remap);
+        self.outcomes = self.outcomes.map(remap);
+        for motor in &mut self.motors {
+            motor.opportunity = remap(motor.opportunity);
+            motor.effect = remap(motor.effect);
+        }
+    }
+
+    fn probe(&mut self, at: u64, cause: u64) -> (Vec<usize>, Vec<TraceEvent>) {
+        schedule(
+            &mut self.body,
+            at,
+            &[
+                reading(self.starts[2], 0, 1, cause),
+                reading(self.outcomes[Self::FRESH_GOAL], 0, 1, cause + 100),
+            ],
+        );
+        schedule(
+            &mut self.body,
+            at + 1,
+            &[
+                Arrival::caused(self.motors[Self::FRESH_PROXY].opportunity, 1, cause),
+                Arrival::caused(self.motors[Self::FRESH_LEFT].opportunity, 1, cause),
+                Arrival::caused(self.motors[Self::FRESH_RIGHT].opportunity, 1, cause),
+            ],
+        );
+        let (events, trace) = run(&mut self.body);
+        (effect(&events, &self.motors), trace)
+    }
+}
+
+#[test]
+fn two_identity_free_motifs_compose_to_select_the_only_reaching_first_step() {
+    let mut world = MotifChainWorld::new();
+    world.train();
+    let closed_before = world.body.reentry_state().closed_steps;
+    assert_eq!(
+        world.path_entries_from(world.intermediate[MotifChainWorld::LEFT]),
+        0
+    );
+
+    let (events, trace) = world.probe(90, 9);
+
+    assert_eq!(
+        events,
+        [MotifChainWorld::FRESH_LEFT],
+        "choices={:#?}",
+        trace
+            .iter()
+            .filter(|event| matches!(event, TraceEvent::Candidate(_) | TraceEvent::Choice(_)))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    let route = trace.iter().find_map(|event| match event {
+        TraceEvent::Candidate(candidate)
+            if candidate.path.output == world.motors[MotifChainWorld::FRESH_LEFT].opportunity
+                && candidate.motif_routes.len() == 1 =>
+        {
+            Some(&candidate.motif_routes[0])
+        }
+        _ => None,
+    });
+    let route = route.expect("the left candidate has one composed motif route");
+    assert_eq!(route.condition, world.outcomes[MotifChainWorld::FRESH_GOAL]);
+    assert_eq!(route.steps.len(), 1);
+    assert_eq!(
+        route.steps[0].surface,
+        world.intermediate[MotifChainWorld::LEFT]
+    );
+    assert_eq!(
+        route.steps[0].output,
+        world.motors[MotifChainWorld::LEFT_CLOSER].opportunity
+    );
+    assert_eq!(route.steps[0].outcome_source, route.condition);
+    assert!(!route.steps[0].supports.is_empty());
+    assert_eq!(
+        world.path_entries_from(world.intermediate[MotifChainWorld::LEFT]),
+        0
+    );
+    assert_eq!(world.body.reentry_state().closed_steps, closed_before);
+    assert!(!trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted
+    ) || matches!(event, TraceEvent::Strengthened(_))));
+}
+
+#[test]
+fn a_composed_motif_route_waits_for_the_real_intermediate_before_continuing() {
+    let mut world = MotifChainWorld::new();
+    world.train();
+    assert_eq!(world.probe(90, 9).0, [MotifChainWorld::FRESH_LEFT]);
+
+    schedule(
+        &mut world.body,
+        94,
+        &[reading(world.intermediate[MotifChainWorld::LEFT], 0, 1, 9)],
+    );
+    let (events, trace) = run(&mut world.body);
+    assert!(effect(&events, &world.motors).is_empty());
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned)
+            if returned.source == world.intermediate[MotifChainWorld::LEFT]
+                && returned.decision == ReturnDecision::Accepted
+    )));
+
+    let at = world.body.now() + 1;
+    schedule(
+        &mut world.body,
+        at,
+        &[
+            Arrival::caused(world.motors[MotifChainWorld::LEFT_PROXY].opportunity, 1, 9),
+            Arrival::caused(world.motors[MotifChainWorld::LEFT_CLOSER].opportunity, 1, 9),
+        ],
+    );
+    let (events, _) = run(&mut world.body);
+    assert_eq!(
+        effect(&events, &world.motors),
+        [MotifChainWorld::LEFT_CLOSER]
+    );
+}
+
+#[test]
+fn two_reaching_motif_routes_make_no_unique_composed_choice() {
+    let mut world = MotifChainWorld::new();
+    world.train();
+    world.make_right_reach_goal();
+
+    let (_, trace) = world.probe(90, 9);
+
+    assert_eq!(
+        trace
+            .iter()
+            .filter(|event| matches!(
+                event,
+                TraceEvent::Candidate(candidate) if candidate.motif_routes.len() == 1
+            ))
+            .count(),
+        2
+    );
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+}
+
+#[test]
+fn one_downstream_example_cannot_supply_a_composed_motif_route() {
+    let mut world = MotifChainWorld::new();
+    world.train_first_motif();
+    world.train_one_second_example();
+
+    let (_, trace) = world.probe(90, 9);
+
+    assert!(trace.iter().all(|event| !matches!(
+        event,
+        TraceEvent::Candidate(candidate) if !candidate.motif_routes.is_empty()
+    )));
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+}
+
+#[test]
+fn ambiguous_downstream_outcome_makes_no_composed_motif_route() {
+    let mut world = MotifChainWorld::new();
+    world.train();
+    world.make_left_outcome_ambiguous();
+
+    let (_, trace) = world.probe(90, 9);
+
+    assert!(trace.iter().all(|event| !matches!(
+        event,
+        TraceEvent::Candidate(candidate) if !candidate.motif_routes.is_empty()
+    )));
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+}
+
+#[test]
+fn composed_motif_route_is_invariant_to_identity_and_construction_order() {
+    for (dormant_prefix, reverse_fresh_construction) in
+        [(false, false), (true, true), (false, true)]
+    {
+        let mut world = MotifChainWorld::with_setup(dormant_prefix, reverse_fresh_construction);
+        world.train();
+
+        let (events, trace) = world.probe(90, 9);
+
+        assert_eq!(events, [MotifChainWorld::FRESH_LEFT]);
+        assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    }
+}
+
+#[test]
+fn checkpoint_and_attachment_preserve_composed_motif_routes() {
+    let mut plain = MotifChainWorld::new();
+    plain.train();
+    let bytes = plain.body.checkpoint().unwrap().canonical_bytes().unwrap();
+    let mut restored = plain.clone();
+    restored.body = BodyCheckpoint::decode(&bytes).unwrap().restore().unwrap();
+
+    assert_eq!(plain.probe(90, 9), restored.probe(90, 9));
+
+    let mut attached = MotifChainWorld::new();
+    attached.train();
+    let mut host = Body::default();
+    let from = host.add_junction(Junction::integrating(1)).unwrap();
+    let to = host.add_junction(Junction::integrating(1)).unwrap();
+    host.add_link(Link::new(from, to, 1, 1)).unwrap();
+    let junction_base = host.arena.junction_count();
+    let part = OpenBody::new(attached.body, Vec::new()).unwrap();
+    attach(&mut host, part, &[]).unwrap();
+    attached.body = host;
+    attached.remap_junctions(junction_base);
+
+    let (events, trace) = attached.probe(90, 9);
+    assert_eq!(events, [MotifChainWorld::FRESH_LEFT]);
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+}
+
+#[test]
+fn an_independent_trained_product_does_not_change_the_composed_motif_choice() {
+    let mut world = MotifChainWorld::new();
+    world.train();
+    let mut dormant = MotifChainWorld::new();
+    dormant.train();
+    let part = OpenBody::new(dormant.body, Vec::new()).unwrap();
+    attach(&mut world.body, part, &[]).unwrap();
+
+    let (events, trace) = world.probe(90, 9);
+
+    assert_eq!(events, [MotifChainWorld::FRESH_LEFT]);
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+}

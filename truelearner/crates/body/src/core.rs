@@ -6,8 +6,9 @@ use crate::{
     physics::opens,
     trace::{
         CandidateTrace, ChoiceBasis, ChoiceTrace, FreshOpportunityTrace, MotifReentryTrace,
-        NoTrace, ReentryStepTrace, ReentryTrace, ReturnCandidateTrace, ReturnDecision, ReturnTrace,
-        StrengthTrace, TraceEvent, TracePath, TraceSink,
+        MotifRouteStepTrace, MotifRouteTrace, NoTrace, ReentryStepTrace, ReentryTrace,
+        ReturnCandidateTrace, ReturnDecision, ReturnTrace, StrengthTrace, TraceEvent, TracePath,
+        TraceSink,
     },
     Body, BuildError, Impulse, Junction, JunctionId, Link, LinkId, Retention, RunError, Time,
     Trigger,
@@ -645,12 +646,34 @@ struct ReentryContinuation {
     path: Path,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ReentryRehearsal {
+    start: Path,
+    condition: JunctionId,
+    routes: Vec<ReentryTrace>,
+    dependencies: Vec<JunctionId>,
+}
+
+#[derive(Clone, Debug)]
+struct ReentryFrame {
+    start: Path,
+    prefix_len: usize,
+    found_start: usize,
+    dependencies: Vec<JunctionId>,
+}
+
+#[derive(Clone, Debug, Default)]
+struct ReentryCompilationScratch {
+    frames: Vec<ReentryFrame>,
+    rehearsals: Vec<ReentryRehearsal>,
+}
+
 #[derive(Clone, Debug, Default)]
 struct ReentryScratch {
     present: Vec<JunctionId>,
     steps: Vec<ReentryStepTrace>,
     continuations: Vec<ReentryContinuation>,
-    dependencies: Vec<JunctionId>,
+    compilation: ReentryCompilationScratch,
 }
 
 impl ReentryScratch {
@@ -658,13 +681,15 @@ impl ReentryScratch {
         self.present.clear();
         self.steps.clear();
         self.continuations.clear();
-        self.dependencies.clear();
+        self.compilation.frames.clear();
+        self.compilation.rehearsals.clear();
     }
 
     fn clear_search(&mut self) {
         self.steps.clear();
         self.continuations.clear();
-        self.dependencies.clear();
+        self.compilation.frames.clear();
+        self.compilation.rehearsals.clear();
     }
 }
 
@@ -1620,6 +1645,24 @@ impl Body {
         for junction in junctions {
             automaticity.touch_reentry(junction);
         }
+    }
+
+    fn touch_path_entries_from(&mut self, surface: JunctionId) {
+        let mut middles = Vec::new();
+        let mut next = self
+            .arena
+            .junction(surface)
+            .and_then(|junction| junction.outgoing_head);
+        while let Some(link) = next {
+            let physical = self.arena.link(link).expect("live path incidence");
+            next = physical.next;
+            if self.link_memory[link.slot()].live
+                && self.link_memory[link.slot()].role == LinkRole::PathEntry
+            {
+                middles.push(physical.to);
+            }
+        }
+        self.touch_reentry_junctions(middles);
     }
 
     fn rehearse_reentry(
@@ -2801,9 +2844,11 @@ struct ReadyPath {
     fresh_opportunity: Option<FreshOpportunityTrace>,
     reentries: Vec<ReentryTrace>,
     motif_reentries: Vec<MotifReentryTrace>,
+    motif_routes: Option<Box<[MotifRouteTrace]>>,
     reentry_incidence_visits: u16,
     reentry_shortcut_hits: u16,
     reentry_failed: bool,
+    motif_route_failed: bool,
     executable: bool,
 }
 
@@ -2978,9 +3023,11 @@ fn form_and_choose<T: TraceSink>(
                     fresh_opportunity: None,
                     reentries: Vec::new(),
                     motif_reentries: Vec::new(),
+                    motif_routes: None,
                     reentry_incidence_visits: 0,
                     reentry_shortcut_hits: 0,
                     reentry_failed: false,
+                    motif_route_failed: false,
                     executable: path_is_executable(body, surface, false),
                 });
             }
@@ -2989,7 +3036,7 @@ fn form_and_choose<T: TraceSink>(
 
     mark_current_returns(body, facts, ready, connected_outcomes);
     mark_reentries(body, facts, ready, reentry, change, construction);
-    mark_motif_reentries(body, ready, construction);
+    mark_motif_reentries(body, ready, &reentry.present, construction);
     fill_ready_worlds(ready, connected_outcomes, worlds);
     for world in 0..ready.len() {
         if worlds[world] == world {
@@ -3049,9 +3096,15 @@ fn form_and_choose<T: TraceSink>(
                 present_sources: reentry.present.clone(),
                 reentries: candidate.reentries.clone(),
                 motif_reentries: candidate.motif_reentries.clone(),
+                motif_routes: candidate
+                    .motif_routes
+                    .as_deref()
+                    .unwrap_or_default()
+                    .to_vec(),
                 reentry_incidence_visits: candidate.reentry_incidence_visits,
                 reentry_shortcut_hits: candidate.reentry_shortcut_hits,
                 reentry_failed: candidate.reentry_failed,
+                motif_route_failed: candidate.motif_route_failed,
                 new_path: matches!(candidate.first, LinkRef::New(_)),
             }));
         }
@@ -3221,9 +3274,11 @@ fn append_existing_ready_paths(
                     fresh_opportunity: None,
                     reentries: Vec::new(),
                     motif_reentries: Vec::new(),
+                    motif_routes: None,
                     reentry_incidence_visits: 0,
                     reentry_shortcut_hits: 0,
                     reentry_failed: false,
+                    motif_route_failed: false,
                     executable: path_is_executable(body, surface, outcome.is_some()),
                 });
             }
@@ -3298,17 +3353,17 @@ fn mark_reentries(
             &scratch.present,
             &mut scratch.steps,
             &mut scratch.continuations,
-            &mut scratch.dependencies,
+            &mut scratch.compilation,
             &mut visits,
             &mut shortcut_hits,
         ) {
             Ok(found) => {
-                if scratch.present.len() == 1 && !found.is_empty() {
+                for rehearsal in &scratch.compilation.rehearsals {
                     change.push(Edit::RehearseReentry {
-                        start: path,
-                        condition: scratch.present[0],
-                        routes: found.clone(),
-                        dependencies: scratch.dependencies.clone(),
+                        start: rehearsal.start,
+                        condition: rehearsal.condition,
+                        routes: rehearsal.routes.clone(),
+                        dependencies: rehearsal.dependencies.clone(),
                     });
                 }
                 candidate.reentries = found;
@@ -3339,7 +3394,23 @@ struct RetainedMotif {
     prior_outcome: OutcomeForm,
 }
 
-fn mark_motif_reentries(body: ReactionView<'_>, paths: &mut [ReadyPath], construction: bool) {
+#[derive(Clone, Copy, Debug)]
+struct MotifRouteCandidate {
+    surface: JunctionId,
+    output: JunctionId,
+    through: LinkId,
+    impulse: i32,
+    outcome_source: Option<JunctionId>,
+    form: PathForm,
+    outcome: OutcomeForm,
+}
+
+fn mark_motif_reentries(
+    body: ReactionView<'_>,
+    paths: &mut [ReadyPath],
+    present: &[JunctionId],
+    construction: bool,
+) {
     if construction
         || !paths
             .iter()
@@ -3349,6 +3420,7 @@ fn mark_motif_reentries(body: ReactionView<'_>, paths: &mut [ReadyPath], constru
     }
 
     let mut visits = 0_u16;
+    let mut motifs = Vec::new();
     for slot in 0..body.link_memory.len() {
         if visits >= MAX_MOTIF_REENTRY_LINK_VISITS {
             for path in paths
@@ -3356,6 +3428,7 @@ fn mark_motif_reentries(body: ReactionView<'_>, paths: &mut [ReadyPath], constru
                 .filter(|path| matches!(path.first, LinkRef::New(_)))
             {
                 path.motif_reentries.clear();
+                path.motif_routes = None;
                 path.reentry_incidence_visits =
                     path.reentry_incidence_visits.saturating_add(visits);
             }
@@ -3371,10 +3444,14 @@ fn mark_motif_reentries(body: ReactionView<'_>, paths: &mut [ReadyPath], constru
         let Some(motif) = retained_motif(body, witness, parent) else {
             continue;
         };
-        for index in 0..paths.len() {
-            if !paths[index].executable
-                || !matches!(paths[index].first, LinkRef::New(_))
-                || paths[index].form != motif.closed
+        motifs.push(motif);
+    }
+    for index in 0..paths.len() {
+        if !paths[index].executable || !matches!(paths[index].first, LinkRef::New(_)) {
+            continue;
+        }
+        for motif in &motifs {
+            if paths[index].form != motif.closed
                 || outcome_form(body, paths[index].output) != motif.closed_outcome
             {
                 continue;
@@ -3405,7 +3482,252 @@ fn mark_motif_reentries(body: ReactionView<'_>, paths: &mut [ReadyPath], constru
         .filter(|path| matches!(path.first, LinkRef::New(_)))
     {
         path.reentry_incidence_visits = path.reentry_incidence_visits.saturating_add(visits);
+        if present.is_empty() || path.motif_reentries.is_empty() {
+            continue;
+        }
+        let Some(surface) = path.outcome_source.filter(|source| *source != path.surface) else {
+            continue;
+        };
+        let mut route_visits = visits;
+        match find_motif_routes(
+            body,
+            surface,
+            path.surface,
+            present,
+            &motifs,
+            &mut route_visits,
+        ) {
+            Ok(routes) if routes.is_empty() => {}
+            Ok(routes) => path.motif_routes = Some(routes.into_boxed_slice()),
+            Err(()) => path.motif_route_failed = true,
+        }
+        path.reentry_incidence_visits = path
+            .reentry_incidence_visits
+            .saturating_add(route_visits.saturating_sub(visits));
     }
+}
+
+fn find_motif_routes(
+    body: ReactionView<'_>,
+    surface: JunctionId,
+    forbidden_condition: JunctionId,
+    present: &[JunctionId],
+    motifs: &[RetainedMotif],
+    incidence_visits: &mut u16,
+) -> Result<Vec<MotifRouteTrace>, ()> {
+    let mut search = MotifRouteSearch {
+        body,
+        forbidden_condition,
+        present,
+        motifs,
+        incidence_visits,
+        stack: Vec::new(),
+        steps: Vec::new(),
+        found: Vec::new(),
+    };
+    search.search(surface, 0)?;
+    Ok(search.found)
+}
+
+struct MotifRouteSearch<'body, 'scratch> {
+    body: ReactionView<'body>,
+    forbidden_condition: JunctionId,
+    present: &'scratch [JunctionId],
+    motifs: &'scratch [RetainedMotif],
+    incidence_visits: &'scratch mut u16,
+    stack: Vec<JunctionId>,
+    steps: Vec<MotifRouteStepTrace>,
+    found: Vec<MotifRouteTrace>,
+}
+
+impl MotifRouteSearch<'_, '_> {
+    fn search(&mut self, surface: JunctionId, depth: usize) -> Result<(), ()> {
+        if depth >= MAX_REENTRY_DEPTH || self.stack.contains(&surface) {
+            return Err(());
+        }
+        let Some(law) = self
+            .body
+            .arena
+            .junction(surface)
+            .map(|law| law.checkpoint_law())
+        else {
+            return Err(());
+        };
+        // Without an actual sampled event, no physical evidence selects its
+        // future `Rises` or `Falls` path form.
+        if matches!(law.retention, Retention::Sampled { .. })
+            || !path_is_executable(self.body, surface, false)
+        {
+            return Ok(());
+        }
+        self.stack.push(surface);
+        let candidates = motif_route_candidates(self.body, surface, self.incidence_visits)?;
+        for (index, candidate) in candidates.iter().copied().enumerate() {
+            let supports = motif_route_supports(self.motifs, &candidates, index);
+            if supports.is_empty() {
+                continue;
+            }
+            let Some(outcome_source) = candidate.outcome_source else {
+                continue;
+            };
+            if outcome_source == surface || outcome_source == self.forbidden_condition {
+                continue;
+            }
+            self.steps.push(MotifRouteStepTrace {
+                surface: candidate.surface,
+                output: candidate.output,
+                through: candidate.through,
+                impulse: candidate.impulse,
+                outcome_source,
+                supports,
+            });
+            if self.present.contains(&outcome_source) {
+                let route = MotifRouteTrace {
+                    condition: outcome_source,
+                    steps: self.steps.clone(),
+                };
+                if !self.found.contains(&route) {
+                    self.found.push(route);
+                }
+            } else {
+                self.search(outcome_source, depth + 1)?;
+            }
+            self.steps.pop();
+        }
+        self.stack.pop();
+        Ok(())
+    }
+}
+
+fn motif_route_candidates(
+    body: ReactionView<'_>,
+    surface: JunctionId,
+    incidence_visits: &mut u16,
+) -> Result<Vec<MotifRouteCandidate>, ()> {
+    let Some(surface_law) = body.arena.junction(surface).map(|law| law.checkpoint_law()) else {
+        return Err(());
+    };
+    let mut candidates = Vec::new();
+    let mut next = body
+        .arena
+        .junction(surface)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(through) = next {
+        visit_motif_route_incidence(incidence_visits)?;
+        let physical = *body
+            .arena
+            .link(through)
+            .expect("live motif-route incidence");
+        next = physical.next;
+        let memory = &body.link_memory[through.slot()];
+        if memory.live && memory.role == LinkRole::PathEntry {
+            return Ok(Vec::new());
+        }
+        if !memory.live
+            || memory.role != LinkRole::Drive
+            || physical.impulse != 0
+            || !(1..=LOCAL_RADIUS as Time).contains(&physical.delay)
+        {
+            continue;
+        }
+        let (outcome, outcome_source) = motif_route_outcome(body, physical.to, incidence_visits)?;
+        for impulse in [1, -1] {
+            candidates.push(MotifRouteCandidate {
+                surface,
+                output: physical.to,
+                through,
+                impulse,
+                outcome_source,
+                form: PathForm {
+                    surface: surface_law,
+                    first: LinkForm {
+                        delay: physical.delay,
+                        impulse: 1,
+                        trigger: Trigger::SourceFires,
+                    },
+                    second: LinkForm {
+                        delay: physical.delay,
+                        impulse,
+                        trigger: Trigger::SourceFires,
+                    },
+                },
+                outcome,
+            });
+        }
+    }
+    Ok(candidates)
+}
+
+fn motif_route_outcome(
+    body: ReactionView<'_>,
+    output: JunctionId,
+    incidence_visits: &mut u16,
+) -> Result<(OutcomeForm, Option<JunctionId>), ()> {
+    let mut selected = None;
+    for witness in body.arena.incoming(output) {
+        visit_motif_route_incidence(incidence_visits)?;
+        let memory = &body.link_memory[witness.slot()];
+        if !memory.live || memory.role != LinkRole::OutcomeWitness {
+            continue;
+        }
+        let source = body.arena.link(witness).expect("live outcome witness").from;
+        let Some(law) = body
+            .arena
+            .junction(source)
+            .map(|source| source.checkpoint_law())
+        else {
+            return Ok((OutcomeForm::Ambiguous, None));
+        };
+        match selected {
+            None => selected = Some((source, law)),
+            Some((existing, _)) if existing != source => {
+                return Ok((OutcomeForm::Ambiguous, None));
+            }
+            Some(_) => {}
+        }
+    }
+    Ok(selected.map_or((OutcomeForm::None, None), |(source, law)| {
+        (OutcomeForm::One(law), Some(source))
+    }))
+}
+
+fn motif_route_supports(
+    motifs: &[RetainedMotif],
+    candidates: &[MotifRouteCandidate],
+    index: usize,
+) -> Vec<MotifReentryTrace> {
+    let candidate = candidates[index];
+    let mut supports = Vec::new();
+    for motif in motifs {
+        if candidate.form != motif.closed || candidate.outcome != motif.closed_outcome {
+            continue;
+        }
+        let has_prior = candidates.iter().enumerate().any(|(other, prior)| {
+            other != index
+                && prior.output != candidate.output
+                && prior.form == motif.prior
+                && prior.outcome == motif.prior_outcome
+        });
+        if has_prior
+            && !supports
+                .iter()
+                .any(|support: &MotifReentryTrace| support.witness == motif.witness)
+        {
+            supports.push(MotifReentryTrace {
+                witness: motif.witness,
+                parent: motif.parent,
+            });
+        }
+    }
+    supports
+}
+
+fn visit_motif_route_incidence(incidence_visits: &mut u16) -> Result<(), ()> {
+    if *incidence_visits >= MAX_MOTIF_REENTRY_LINK_VISITS {
+        return Err(());
+    }
+    *incidence_visits += 1;
+    Ok(())
 }
 
 fn retained_motif(
@@ -3478,7 +3800,7 @@ fn find_reentries(
     present: &[JunctionId],
     steps: &mut Vec<ReentryStepTrace>,
     continuations: &mut Vec<ReentryContinuation>,
-    dependencies: &mut Vec<JunctionId>,
+    compilation: &mut ReentryCompilationScratch,
     incidence_visits: &mut u16,
     shortcut_hits: &mut u16,
 ) -> Result<Vec<ReentryTrace>, ()> {
@@ -3487,7 +3809,7 @@ fn find_reentries(
         present,
         steps,
         continuations,
-        dependencies,
+        compilation,
         incidence_visits,
         shortcut_hits,
         found: Vec::new(),
@@ -3501,7 +3823,7 @@ struct ReentrySearch<'body, 'scratch> {
     present: &'scratch [JunctionId],
     steps: &'scratch mut Vec<ReentryStepTrace>,
     continuations: &'scratch mut Vec<ReentryContinuation>,
-    dependencies: &'scratch mut Vec<JunctionId>,
+    compilation: &'scratch mut ReentryCompilationScratch,
     incidence_visits: &'scratch mut u16,
     shortcut_hits: &'scratch mut u16,
     found: Vec<ReentryTrace>,
@@ -3509,10 +3831,50 @@ struct ReentrySearch<'body, 'scratch> {
 
 impl ReentrySearch<'_, '_> {
     fn search(&mut self, path: Path, depth: usize) -> Result<(), ()> {
+        self.compilation.frames.push(ReentryFrame {
+            start: path,
+            prefix_len: self.steps.len(),
+            found_start: self.found.len(),
+            dependencies: Vec::new(),
+        });
+        let result = self.search_open(path, depth);
+        let frame = self.compilation.frames.pop().expect("current search frame");
+        for dependency in &frame.dependencies {
+            for parent in &mut self.compilation.frames {
+                if !parent.dependencies.contains(dependency) {
+                    parent.dependencies.push(*dependency);
+                }
+            }
+        }
+        if result.is_ok() && self.present.len() == 1 {
+            let routes = self.found[frame.found_start..]
+                .iter()
+                .filter_map(|route| {
+                    let steps = route.steps.get(frame.prefix_len..)?.to_vec();
+                    (steps.first().map(|step| step.path) == Some(frame.start)).then_some(
+                        ReentryTrace {
+                            condition: route.condition,
+                            steps,
+                        },
+                    )
+                })
+                .collect::<Vec<_>>();
+            if !routes.is_empty() {
+                self.compilation.rehearsals.push(ReentryRehearsal {
+                    start: frame.start,
+                    condition: self.present[0],
+                    routes,
+                    dependencies: frame.dependencies,
+                });
+            }
+        }
+        result
+    }
+
+    fn search_open(&mut self, path: Path, depth: usize) -> Result<(), ()> {
         if self.steps.iter().any(|step| step.path == path) {
             return Err(());
         }
-        self.depend_on(path.surface);
         self.depend_on(path.middle);
         self.depend_on(path.output);
         if self.present.len() == 1 {
@@ -3553,10 +3915,16 @@ impl ReentrySearch<'_, '_> {
                 returned_source,
                 outcome_witness,
             };
+            let dependencies = &mut self
+                .compilation
+                .frames
+                .last_mut()
+                .expect("active search frame")
+                .dependencies;
             let Some(outcome_target) = closed_step_is_valid_for_reentry(
                 self.body,
                 retained,
-                self.dependencies,
+                dependencies,
                 self.incidence_visits,
             )?
             else {
@@ -3599,8 +3967,10 @@ impl ReentrySearch<'_, '_> {
     }
 
     fn depend_on(&mut self, junction: JunctionId) {
-        if !self.dependencies.contains(&junction) {
-            self.dependencies.push(junction);
+        for frame in &mut self.compilation.frames {
+            if !frame.dependencies.contains(&junction) {
+                frame.dependencies.push(junction);
+            }
         }
     }
 
@@ -4380,6 +4750,26 @@ fn unique_motif_reentry(paths: impl Iterator<Item = usize>, ready: &[ReadyPath])
     let candidates = paths.collect::<Vec<_>>();
     if candidates.iter().any(|index| ready[*index].reentry_failed) {
         return None;
+    }
+    if candidates
+        .iter()
+        .any(|index| ready[*index].motif_routes.is_some())
+    {
+        if candidates.iter().any(|index| {
+            ready[*index].motif_route_failed
+                || ready[*index]
+                    .motif_routes
+                    .as_ref()
+                    .is_some_and(|routes| routes.len() > 1)
+        }) {
+            return None;
+        }
+        return unique_ready(candidates.into_iter().filter(|index| {
+            ready[*index]
+                .motif_routes
+                .as_ref()
+                .is_some_and(|routes| routes.len() == 1)
+        }));
     }
     unique_ready(
         candidates
@@ -5246,6 +5636,9 @@ impl Body {
         if previous != role && !transient_return && (reentry_role(previous) || reentry_role(role)) {
             self.touch_reentry_junctions([physical.from, physical.to]);
         }
+        if previous != role && (previous == LinkRole::Membership || role == LinkRole::Membership) {
+            self.touch_path_entries_from(physical.to);
+        }
         if !matches!(previous, LinkRole::Composite { .. })
             && matches!(role, LinkRole::Composite { .. })
         {
@@ -5517,6 +5910,9 @@ impl Body {
                                     | LinkRole::Membership
                             ) {
                                 self.touch_reentry_junctions([physical.from, physical.to]);
+                            }
+                            if role == LinkRole::Membership {
+                                self.touch_path_entries_from(physical.to);
                             }
                         }
                         continue;
@@ -5808,9 +6204,11 @@ mod tests {
             fresh_opportunity: None,
             reentries: Vec::new(),
             motif_reentries: Vec::new(),
+            motif_routes: None,
             reentry_incidence_visits: 0,
             reentry_shortcut_hits: 0,
             reentry_failed: false,
+            motif_route_failed: false,
             executable: true,
         }
     }
@@ -5921,7 +6319,7 @@ mod tests {
         let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
         let mut steps = Vec::new();
         let mut continuations = Vec::new();
-        let mut dependencies = Vec::new();
+        let mut compilation = ReentryCompilationScratch::default();
         let mut incidence_visits = 0;
         let mut shortcut_hits = 0;
         let found = find_reentries(
@@ -5930,7 +6328,7 @@ mod tests {
             &[present],
             &mut steps,
             &mut continuations,
-            &mut dependencies,
+            &mut compilation,
             &mut incidence_visits,
             &mut shortcut_hits,
         );
@@ -5974,12 +6372,29 @@ mod tests {
         }
     }
 
+    fn append_unclosed_reentry_step(body: &mut Body, surface: JunctionId) -> Path {
+        let middle = body.add_junction(Junction::integrating(1)).unwrap();
+        let output = body.add_junction(Junction::integrating(1)).unwrap();
+        let first = body.add_link(Link::new(surface, middle, 1, 1)).unwrap();
+        body.set_link_role(first, LinkRole::PathEntry).unwrap();
+        let second = body.add_link(Link::new(middle, output, 1, 1)).unwrap();
+        body.link_memory[first.slot()].participation = 1;
+        body.link_memory[second.slot()].participation = 1;
+        Path {
+            surface,
+            middle,
+            output,
+            first,
+            second,
+        }
+    }
+
     fn think_reentry(
         body: &mut Body,
         first: Path,
         present: JunctionId,
     ) -> (Result<Vec<ReentryTrace>, ()>, u16, u16) {
-        let (found, dependencies, visits, shortcut_hits) = {
+        let (found, rehearsals, visits, shortcut_hits) = {
             let view = ReactionView::with_automaticity(
                 &body.arena,
                 &body.link_memory,
@@ -5988,7 +6403,7 @@ mod tests {
             );
             let mut steps = Vec::new();
             let mut continuations = Vec::new();
-            let mut dependencies = Vec::new();
+            let mut compilation = ReentryCompilationScratch::default();
             let mut incidence_visits = 0;
             let mut shortcut_hits = 0;
             let found = find_reentries(
@@ -5997,23 +6412,28 @@ mod tests {
                 &[present],
                 &mut steps,
                 &mut continuations,
-                &mut dependencies,
+                &mut compilation,
                 &mut incidence_visits,
                 &mut shortcut_hits,
             );
-            (found, dependencies, incidence_visits, shortcut_hits)
+            (
+                found,
+                compilation.rehearsals,
+                incidence_visits,
+                shortcut_hits,
+            )
         };
-        if let Ok(routes) = &found {
-            if !routes.is_empty() {
-                let mut change = Change::empty();
+        if found.is_ok() {
+            let mut change = Change::empty();
+            for rehearsal in rehearsals {
                 change.push(Edit::RehearseReentry {
-                    start: first,
-                    condition: present,
-                    routes: routes.clone(),
-                    dependencies,
+                    start: rehearsal.start,
+                    condition: rehearsal.condition,
+                    routes: rehearsal.routes,
+                    dependencies: rehearsal.dependencies,
                 });
-                body.apply(change).unwrap();
             }
+            body.apply(change).unwrap();
         }
         (found, visits, shortcut_hits)
     }
@@ -6218,7 +6638,7 @@ mod tests {
 
         let mut steps = Vec::new();
         let mut continuations = Vec::new();
-        let mut dependencies = Vec::new();
+        let mut compilation = ReentryCompilationScratch::default();
         let mut incidence_visits = 0;
         let mut shortcut_hits = 0;
         assert_eq!(
@@ -6228,7 +6648,7 @@ mod tests {
                 &[present],
                 &mut steps,
                 &mut continuations,
-                &mut dependencies,
+                &mut compilation,
                 &mut incidence_visits,
                 &mut shortcut_hits,
             ),
@@ -6303,7 +6723,7 @@ mod tests {
         assert_eq!(body.reentry_state().thought_shortcuts, 0);
         let (_, third_visits, third_hits) = think_reentry(&mut body, paths[0], present);
         assert_eq!((third_visits, third_hits), (full_visits, 0));
-        assert_eq!(body.reentry_state().thought_shortcuts, 1);
+        assert_eq!(body.reentry_state().thought_shortcuts, paths.len());
 
         let (compiled, compiled_visits, compiled_hits) =
             think_reentry(&mut body, paths[0], present);
@@ -6338,6 +6758,70 @@ mod tests {
     }
 
     #[test]
+    fn different_beginnings_compile_and_reuse_their_shared_causal_tail() {
+        let (mut body, tail, present) = closed_reentry_chain(3, false);
+        let starts = (0..3)
+            .map(|_| body.add_junction(Junction::integrating(1)).unwrap())
+            .collect::<Vec<_>>();
+        let prefixes = starts
+            .iter()
+            .map(|surface| append_closed_reentry_step(&mut body, *surface, tail[0].surface))
+            .collect::<Vec<_>>();
+        let (expected, full_visits) = inspect_reentry(&body, prefixes[2], present);
+
+        assert_eq!(think_reentry(&mut body, prefixes[0], present).2, 0);
+        assert_eq!(think_reentry(&mut body, prefixes[1], present).2, 0);
+        assert_eq!(think_reentry(&mut body, prefixes[1], present).2, 0);
+        assert_eq!(body.reentry_state().thought_shortcuts, tail.len());
+
+        let (reused, visits, shortcut_hits) = think_reentry(&mut body, prefixes[2], present);
+
+        assert_eq!(reused, expected);
+        assert_eq!(shortcut_hits, 1);
+        assert!(visits < full_visits);
+        assert_eq!(reused.unwrap()[0].steps.len(), tail.len() + 1);
+    }
+
+    #[test]
+    fn a_compiled_tail_never_invents_a_missing_beginning() {
+        let (mut body, tail, present) = closed_reentry_chain(3, false);
+        let first = body.add_junction(Junction::integrating(1)).unwrap();
+        let second = body.add_junction(Junction::integrating(1)).unwrap();
+        let missing = body.add_junction(Junction::integrating(1)).unwrap();
+        let first = append_closed_reentry_step(&mut body, first, tail[0].surface);
+        let second = append_closed_reentry_step(&mut body, second, tail[0].surface);
+        let missing = append_unclosed_reentry_step(&mut body, missing);
+        assert_eq!(think_reentry(&mut body, first, present).2, 0);
+        assert_eq!(think_reentry(&mut body, second, present).2, 0);
+        assert_eq!(think_reentry(&mut body, second, present).2, 0);
+
+        let (found, _, shortcut_hits) = think_reentry(&mut body, missing, present);
+
+        assert!(found.unwrap().is_empty());
+        assert_eq!(shortcut_hits, 0);
+    }
+
+    #[test]
+    fn changing_one_beginning_does_not_invalidate_its_shared_tail() {
+        let (mut body, tail, present) = closed_reentry_chain(3, false);
+        let starts = (0..3)
+            .map(|_| body.add_junction(Junction::integrating(1)).unwrap())
+            .collect::<Vec<_>>();
+        let prefixes = starts
+            .iter()
+            .map(|surface| append_closed_reentry_step(&mut body, *surface, tail[0].surface))
+            .collect::<Vec<_>>();
+        assert_eq!(think_reentry(&mut body, prefixes[0], present).2, 0);
+        assert_eq!(think_reentry(&mut body, prefixes[1], present).2, 0);
+        assert_eq!(think_reentry(&mut body, prefixes[1], present).2, 0);
+
+        body.set_link_impulse(prefixes[0].second, 2).unwrap();
+        let (_, _, shortcut_hits) = think_reentry(&mut body, prefixes[2], present);
+
+        assert_eq!(shortcut_hits, 1);
+    }
+
+    #[test]
     fn compiled_thought_survives_checkpoint_restore() {
         let (mut body, paths, present) = closed_reentry_chain(5, false);
         for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
@@ -6353,7 +6837,7 @@ mod tests {
 
         assert_eq!(shortcut_hits, 1);
         assert_eq!(visits, 0);
-        assert_eq!(restored.reentry_state().thought_shortcuts, 1);
+        assert_eq!(restored.reentry_state().thought_shortcuts, paths.len());
     }
 
     #[test]
@@ -6392,7 +6876,47 @@ mod tests {
 
         assert_eq!(shortcut_hits, 0);
         assert!(found.unwrap().is_empty());
-        assert_eq!(body.reentry_state().thought_shortcuts, 0);
+        assert_eq!(body.reentry_state().thought_shortcuts, 1);
+        assert_eq!(think_reentry(&mut body, paths[3], present).2, 1);
+    }
+
+    #[test]
+    fn changed_membership_invalidates_the_path_whose_executability_it_changes() {
+        let (mut body, paths, present) = closed_reentry_chain(4, false);
+        for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert!(think_reentry(&mut body, paths[0], present).0.is_ok());
+        }
+        assert_eq!(think_reentry(&mut body, paths[0], present).2, 1);
+
+        let parent = body.add_junction(Junction::integrating(1)).unwrap();
+        let membership = body
+            .add_link(Link::new(parent, paths[0].surface, 0, 1))
+            .unwrap();
+        body.set_link_role(membership, LinkRole::Membership)
+            .unwrap();
+        assert_eq!(body.reentry_state().thought_shortcuts, paths.len() - 1);
+        let (found, visits, shortcut_hits) = think_reentry(&mut body, paths[0], present);
+
+        assert!(visits > 0);
+        assert_eq!(shortcut_hits, 1);
+        assert_eq!(found.unwrap().len(), 1);
+        for _ in 1..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert!(think_reentry(&mut body, paths[0], present).0.is_ok());
+        }
+        assert_eq!(think_reentry(&mut body, paths[0], present).2, 1);
+
+        let mut change = Change::empty();
+        change.push(Edit::ChangeLink {
+            link: membership.into(),
+            change: LinkChange::Retire,
+        });
+        body.apply(change).unwrap();
+        assert_eq!(body.reentry_state().thought_shortcuts, paths.len() - 1);
+        let (found, visits, shortcut_hits) = think_reentry(&mut body, paths[0], present);
+
+        assert!(visits > 0);
+        assert_eq!(shortcut_hits, 1);
+        assert_eq!(found.unwrap().len(), 1);
     }
 
     #[test]
@@ -6441,7 +6965,7 @@ mod tests {
 
         assert_eq!(shortcut_hits, 1);
         assert_eq!(found.unwrap().len(), 1);
-        assert_eq!(body.reentry_state().thought_shortcuts, 1);
+        assert_eq!(body.reentry_state().thought_shortcuts, paths.len());
     }
 
     #[test]
@@ -6499,7 +7023,7 @@ mod tests {
 
         assert_eq!(shortcut_hits, 1);
         assert_eq!(visits, 0);
-        assert_eq!(host.reentry_state().thought_shortcuts, 1);
+        assert_eq!(host.reentry_state().thought_shortcuts, paths.len());
     }
 
     #[test]
@@ -6938,9 +7462,15 @@ mod tests {
                 present_sources: Vec::new(),
                 reentries: path.reentries.clone(),
                 motif_reentries: path.motif_reentries.clone(),
+                motif_routes: path
+                    .motif_routes
+                    .as_deref()
+                    .unwrap_or_default()
+                    .to_vec(),
                 reentry_incidence_visits: path.reentry_incidence_visits,
                 reentry_shortcut_hits: path.reentry_shortcut_hits,
                 reentry_failed: path.reentry_failed,
+                motif_route_failed: path.motif_route_failed,
                 new_path: false,
             });
             let mut events = candidates.map(TraceEvent::Candidate).collect::<Vec<_>>();
