@@ -334,6 +334,9 @@ impl BodyCourse {
         let durable_before = self.checkpoint_bytes()?;
         let checkpoint = truelearner_workstation::WorkstationCheckpoint::decode(&durable_before)?;
         let mut working = WorkstationHarness::restore(checkpoint)?;
+        if capability == BodyCapability::TapHoldRelease {
+            position_for_tap(&mut working, seed)?;
+        }
         if let Some(perturbation) = perturbation {
             if !working.perturb_body(perturbation.control, perturbation.impulse)? {
                 return Err(BodyCourseError::Workstation(
@@ -765,6 +768,42 @@ impl BodyCourse {
     }
 }
 
+fn position_for_tap(harness: &mut WorkstationHarness, seed: u64) -> Result<(), BodyCourseError> {
+    let mut pose = WorkstationHarness::new(seed)?;
+    if !pose.perturb_body(
+        BodyControl::new(
+            BodyAxis::PalmHorizontal,
+            truelearner_workstation::Direction::Decrease,
+        ),
+        2,
+    )? {
+        return Err(BodyCourseError::Workstation(
+            WorkstationError::InvalidCheckpoint,
+        ));
+    }
+    let target_depth = PRACTICE_KEY_PRESS_DEPTH - 16;
+    while pose.state().hand().palm().depth() < target_depth {
+        if !pose.perturb_body(
+            BodyControl::new(
+                BodyAxis::PalmDepth,
+                truelearner_workstation::Direction::Increase,
+            ),
+            1,
+        )? {
+            return Err(BodyCourseError::Workstation(
+                WorkstationError::InvalidCheckpoint,
+            ));
+        }
+    }
+    if pose.state().hand().palm().depth() != target_depth {
+        return Err(BodyCourseError::Workstation(
+            WorkstationError::InvalidCheckpoint,
+        ));
+    }
+    harness.reposition_from_checkpoint(&pose.save()?)?;
+    Ok(())
+}
+
 enum ExperienceWorld {
     Flat(FlatWorld),
     Workstation {
@@ -1085,6 +1124,9 @@ fn replay(
     let checkpoint =
         truelearner_workstation::WorkstationCheckpoint::decode(evidence.checkpoint_before)?;
     let mut harness = WorkstationHarness::restore(checkpoint)?;
+    if capability == BodyCapability::TapHoldRelease {
+        position_for_tap(&mut harness, seed)?;
+    }
     if let Some(perturbation) = perturbation {
         if !harness.perturb_body(perturbation.control, perturbation.impulse)? {
             return Ok(false);
@@ -2013,6 +2055,7 @@ mod tests {
         let development_seed = seed + 8 * 10 + 1;
         let lesson_pose = checkpoint.clone();
         let mut soft_harness = WorkstationHarness::restore(checkpoint.clone()).unwrap();
+        position_for_tap(&mut soft_harness, development_seed + 875_000).unwrap();
         let mut soft_world = ExperienceWorld::generated(
             development_seed + 875_000,
             BodyCapability::TapHoldRelease,
@@ -2021,6 +2064,38 @@ mod tests {
             soft_harness.state(),
         )
         .unwrap();
+        let press_depth = soft_world
+            .key_depths()
+            .0
+            .expect("TapHoldRelease presents a physical key depth");
+        let device = match &soft_world {
+            ExperienceWorld::Workstation { device, .. } => device,
+            ExperienceWorld::Flat(_) => unreachable!("TapHoldRelease uses the workstation"),
+        };
+        let hand = soft_harness.state().hand();
+        let tips_over_keys = Digit::ALL
+            .into_iter()
+            .filter_map(|digit| {
+                let tip = hand.fingertip(digit);
+                device
+                    .geometry()
+                    .keys()
+                    .iter()
+                    .any(|key| key.rect.contains_hand(tip))
+                    .then_some((digit, tip))
+            })
+            .collect::<Vec<_>>();
+        assert!(
+            !tips_over_keys.is_empty(),
+            "the frozen Tap pose must put a fingertip over a key; hand={hand:?}"
+        );
+        let key_depth_boundary_is_open = tips_over_keys
+            .iter()
+            .any(|(_, tip)| tip.depth() < press_depth);
+        assert!(
+            key_depth_boundary_is_open,
+            "the frozen Tap pose must leave an open depth crossing; tips_over_keys={tips_over_keys:?}, press_depth={press_depth}"
+        );
         let forward = BodyControl::new(BodyAxis::PalmDepth, Direction::Increase);
         let mut soft_forward_closed = false;
         let mut soft_choice_checked = false;
@@ -2040,8 +2115,16 @@ mod tests {
             let world_observation = soft_world.advance(&observation).unwrap();
             soft_boundary_parents.clone_from(&world_observation.boundary_parents);
             soft_progress_parents.clone_from(&world_observation.progress_parents);
-            if closed_before_choice {
+            if closed_before_choice && !soft_choice_checked {
                 assert!(closed_before_choice);
+                assert!(
+                    matches!(
+                        observation.boundary_parents.as_slice(),
+                        [parent] if parent.control == forward
+                    ),
+                    "soft key closure must have one exact PalmDepth parent; parents={:?}",
+                    observation.boundary_parents
+                );
                 let candidates = trace
                     .iter()
                     .filter_map(|event| match event {
@@ -2067,7 +2150,8 @@ mod tests {
                     .iter()
                     .find_map(|event| match event {
                         BodyTraceEvent::Choice(choice)
-                            if choice.group == forward_candidate.group =>
+                            if choice.at == forward_candidate.at
+                                && choice.group == forward_candidate.group =>
                         {
                             Some(choice)
                         }

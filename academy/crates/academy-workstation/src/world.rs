@@ -739,7 +739,7 @@ impl WorkstationWorld {
                 .crossings
                 .iter()
                 .copied()
-                .filter(|crossing| changed_axes.contains(&crossing.control.axis()))
+                .filter(|crossing| boundary_axes.contains(&crossing.control.axis()))
                 .collect()
         } else {
             Vec::new()
@@ -1397,6 +1397,63 @@ mod tests {
             practice.fingerprint().unwrap(),
             standard.fingerprint().unwrap()
         );
+    }
+
+    #[test]
+    fn one_palm_depth_step_over_a_soft_key_presses_with_that_exact_parent() {
+        let mut world = WorkstationWorld::new_with_key_depths(640, 608).unwrap();
+        let key = world
+            .geometry()
+            .keys()
+            .iter()
+            .find(|key| key.label == "A")
+            .unwrap()
+            .clone();
+        let mut before = empty_frame();
+        before.tips[digit_index(Digit::Index)] = SurfacePoint {
+            x: key.rect.x + 2,
+            y: key.rect.y + 2,
+            depth: 624,
+        };
+        let mut after = before;
+        for tip in &mut after.tips {
+            tip.depth += 16;
+        }
+
+        let events = world.advance_surface_for_test(before, after);
+        assert!(events.iter().any(
+            |event| matches!(event, DeviceEvent::KeyPressed { key: pressed } if *pressed == key.id.0)
+        ));
+        assert_eq!(
+            exact_boundary_axes(
+                &events,
+                world.geometry(),
+                world.geometry().touchpad,
+                CONTACT_DEPTH,
+                640,
+                608,
+                before,
+                after,
+                &[BodyAxis::PalmDepth],
+            ),
+            [BodyAxis::PalmDepth]
+        );
+    }
+
+    #[test]
+    fn neutral_body_pose_exposes_an_open_soft_key_boundary() {
+        let world = WorkstationWorld::new_with_key_depths(640, 608).unwrap();
+        let state = WorkstationState::default();
+
+        assert!(Digit::ALL.into_iter().any(|digit| {
+            let tip = state.hand().fingertip(digit);
+            tip.depth() < world.key_press_depth()
+                && world
+                    .geometry()
+                    .keys()
+                    .iter()
+                    .any(|key| key.rect.contains_hand(tip))
+        }));
     }
 
     #[test]

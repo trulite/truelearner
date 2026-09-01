@@ -1270,6 +1270,20 @@ mod tests {
     }
 
     #[test]
+    fn returned_external_exploration_reaches_palm_depth_increase() {
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let stable = with_fields(field(0), field(0), [ContactSample::default(); TOUCH_SITES]);
+        harness.observe(stable.clone()).unwrap();
+
+        let controls = (0..CONTROL_COUNT)
+            .flat_map(|_| harness.step(stable.clone()).unwrap().crossings)
+            .map(|effect| effect.control)
+            .collect::<Vec<_>>();
+
+        assert!(controls.contains(&BodyControl::new(BodyAxis::PalmDepth, Direction::Increase,)));
+    }
+
+    #[test]
     fn retinal_position_is_near_only_its_displaced_eye_axes() {
         let harness = WorkstationHarness::new(1).unwrap();
         let opportunities = &harness.handles.opportunities;

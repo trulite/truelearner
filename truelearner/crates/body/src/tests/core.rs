@@ -1264,6 +1264,36 @@ fn latest_boundary_completion_releases_a_stale_local_antagonist() {
 }
 
 #[test]
+fn external_exploration_cannot_hide_a_completed_boundary_release() {
+    let mut paths = [
+        candidate_path(512, 0),
+        candidate_path(512, 1),
+        candidate_path(1_023, 2),
+    ];
+    let local = JunctionId::new(20).unwrap();
+
+    // A real outward movement has just completed at the local boundary.
+    paths[0].outcome_source = Some(local);
+    paths[0].boundary_inhibited = true;
+    paths[0].participation = 2;
+    paths[0].participated_at = 20;
+
+    // Its previously witnessed antagonist is the unique local release.
+    paths[1].outcome_source = Some(local);
+    paths[1].boundary_inhibited = true;
+    paths[1].participation = 1;
+    paths[1].participated_at = 10;
+
+    // An externally clocked exploration pulse has no returned boundary ancestry.
+    paths[2].surface = JunctionId::new(30).unwrap();
+
+    let choice = choose_ready(&paths, &[0, 0, 0], 0, false, || None).unwrap();
+
+    assert_eq!(choice.winner, 1);
+    assert_eq!(choice.warrant, ChoiceWarrant::ReturnedConsequence);
+}
+
+#[test]
 fn ambiguous_boundary_release_leaves_local_exploration_available() {
     let mut paths = [
         candidate_path(900, 0),
