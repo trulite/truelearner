@@ -15,7 +15,7 @@ organism.
 | Motif | A closed path or small branch history retained through its physical support | `automaticity_laws`; renamed switch-then-close composition |
 | Recursive motif | A retained motif that re-enters the same composition law | `recursive_automaticity_laws` |
 | Diagram | Product, branch, loop, or symmetry formed by arrows | Product, invalidation, trace, and renaming laws |
-| Quotient | Histories that remain interchangeable under returned consequences | Exact-return/unique-reentry membership; third-instance transfer remains a frontier |
+| Quotient | Histories that remain interchangeable under returned consequences | Exact-return membership and tentative third-instance motif reentry |
 
 ## Active laws
 
@@ -26,7 +26,7 @@ organism.
   direction.
 - Shifted absolute baselines with the same positive delta produce the same
   normalized drive and the same learned behavior.
-- Only an exact returned consequence strengthens and supports a path;
+- Only an exact returned consequence retains closed causal support;
   ambiguity and wrong ancestry do not.
 - Separately learned steps compose only through their real returned
   intermediate.
@@ -43,7 +43,25 @@ organism.
   the two participating surfaces through the existing membership law.
 - Two renamed histories of “unanswered sibling, then exact closure” retain one
   sparse return-to-return composition without becoming causal members or
-  changing choice.
+  immediately changing choice.
+- A retained two-example motif can transiently support one fresh candidate
+  when both its successful and unanswered physical roles match. Several
+  matching histories add support without selecting one historical parent;
+  several supported fresh candidates make no motif choice.
+- Tentative motif support constructs no additional topology and strengthens
+  nothing. A later exact return independently closes the fresh path; wrong
+  ancestry and ambiguity retain no closed support.
+- A valid retained composite consumes no unfamiliar-depth lifetime during
+  transient reentry. Its exact witnessed step remains in the receipt, cycles
+  and the incidence ceiling still fail closed, and inspection itself forms no
+  shortcut.
+- Three identical, complete reentry inspections can retain a dependent thought
+  shortcut. Reuse returns the same complete route set and exact step receipts;
+  it does not add a closure, strengthen a path, or create graph topology.
+- A thought shortcut is valid only while every locally inspected physical
+  dependency has the same epoch. A new branch or changed witness invalidates
+  it, while disconnected products, checkpoint replay, and attachment renaming
+  preserve it. Repeated real confirmation of the same support does not.
 
 ## Closed handoffs
 
@@ -84,17 +102,66 @@ Active tests cover one-example insufficiency, renamed identity, independent
 construction, changed path form, reversed experience, passive and ambiguous
 returns, disconnected products, checkpoint replay, and attachment remapping.
 
+### 4. Tentative fresh motif reentry
+
+On a fresh surface, the resolver compares only physical link form, surface
+law, and the presence or absence of unique outcome incidence. Two retained
+examples are required. Matching witnesses are attached only to the transient
+candidate receipt, and `UniqueMotifReentry` is available only when exactly one
+fresh candidate is supported. The receipt does not create, strengthen, or
+repair retained topology.
+
+Active tests cover one-example insufficiency, changed path and outcome form,
+identity and construction order, several disconnected matching witnesses,
+checkpoint replay, observer verification, exact confirmation, wrong ancestry,
+and ambiguous returns.
+
+### 5. Experience-compressed foresight
+
+Reentry has one fixed unfamiliar-step lifetime. An ordinary retained causal
+step consumes one unit; a step with an existing valid automatic composite
+consumes none. This does not omit the returned source or outcome witness from
+the reentry receipt. A stale composite falls back to its detailed parents, a
+changed intermediate consequence stops the route, and the independent
+256-incidence ceiling remains absolute.
+
+Active tests cover one-step and whole-route depth extension, unconfirmed
+inspection, detailed fallback, changed consequences, identity and independent
+construction, and the incidence safety ceiling.
+
+### 6. Dependent thought compilation
+
+Reentry now distinguishes causal evidence from derived computation. Exact
+returned consequences remain the only source of closed support. When the same
+complete internal route set is composed three times, the body may retain that
+composition as a `ThoughtShortcut` indexed by its physical start path and
+present condition. Later reuse emits the unchanged full reentry receipt, so
+observer verification sees every path, returned source, and outcome witness.
+
+The shortcut stores the local junction epochs inspected by the original
+search. Adding a possible branch, changing or retiring a parent, changing an
+outcome witness, or changing relevant membership makes the shortcut unusable.
+The complete route set is stored, including several routes, so compilation
+cannot turn ambiguity into a unique planning claim. Direct epoch lookup and
+deterministic shortcut indexing keep disconnected components out of local
+graph work.
+
+Active tests cover the three-use threshold, ordinary reaction integration,
+unchanged causal evidence and topology, lower graph inspection work, ambiguity,
+new-branch and changed-support invalidation, repeated identical real support,
+checkpoint replay, attachment remapping, observer verification, and products
+containing many disconnected compiled thoughts. Checkpoint format 8 persists
+this derived state; the explicit version-7 reader restores older trained bodies
+with an empty thought cache.
+
 ## Gated downstream ladder
 
 These claims remain downstream rather than being implemented or inferred:
 
-1. Let a retained renamed motif transiently reenter a fresh local candidate
-   without constructing or strengthening it.
-2. Confirm or reject that tentative reuse through the fresh returned
-   consequence.
-3. Refine or split caused membership or motif resemblance when a return separates their
-   members.
-4. Admit a third causal instance only after those two lower laws survive.
-
-The existing ignored third-instance test now fails at fresh motif reentry, not
-at motif formation.
+1. Refine or split caused membership or motif resemblance when an exact return
+   separates histories previously treated as the same form.
+2. Test whether repeated shared suffixes can compile as independently reusable
+   subpaths without inheriting unrelated prefix dependencies or hiding a dead
+   sibling branch.
+3. Project frozen motif and dependent-thought receipts into observer-only Lean claims without
+   giving the result back to the learner.

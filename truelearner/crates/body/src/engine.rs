@@ -236,6 +236,13 @@ impl Body {
     }
 
     pub fn add_link(&mut self, law: Link) -> Result<LinkId, BuildError> {
+        let endpoints = [law.from, law.to];
+        let id = self.add_link_untracked(law)?;
+        self.touch_reentry_junctions(endpoints);
+        Ok(id)
+    }
+
+    pub(crate) fn add_link_untracked(&mut self, law: Link) -> Result<LinkId, BuildError> {
         let id = self.arena.add_link(law)?;
         self.link_memory.push(LinkMemory::default());
         if self.returns.live_count != 0 {
@@ -489,7 +496,12 @@ impl Body {
             Ok(())
         } else {
             crate::core::react_into(
-                ReactionView::new(&self.arena, &self.link_memory, &self.returns),
+                ReactionView::with_automaticity(
+                    &self.arena,
+                    &self.link_memory,
+                    &self.returns,
+                    self.automaticity.as_deref(),
+                ),
                 &self.activity.moment,
                 &mut self.activity.reaction,
                 trace,
@@ -583,7 +595,12 @@ impl Body {
             &self.activity.moment,
         ) {
             crate::core::react_into(
-                ReactionView::new(&self.arena, &self.link_memory, &self.returns),
+                ReactionView::with_automaticity(
+                    &self.arena,
+                    &self.link_memory,
+                    &self.returns,
+                    self.automaticity.as_deref(),
+                ),
                 &self.activity.moment,
                 &mut self.activity.reaction,
                 trace,

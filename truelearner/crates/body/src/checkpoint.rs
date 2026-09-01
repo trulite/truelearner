@@ -1,11 +1,12 @@
-use crate::{Automaticity, Body, Junction, Link, LinkMemory};
+use crate::{Automaticity, AutomaticityV7, Body, Junction, Link, LinkMemory};
 use bincode::Options;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fmt;
 
 const MAGIC: &[u8; 8] = b"TLBODY01";
-const VERSION: u16 = 7;
+const VERSION: u16 = 8;
+const PREVIOUS_VERSION: u16 = 7;
 const HEADER_LEN: usize = 50;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,6 +29,27 @@ struct Payload {
     junctions: Vec<JunctionRecord>,
     links: Vec<LinkRecord>,
     automaticity: Option<Box<Automaticity>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct PayloadV7 {
+    now: u64,
+    junctions: Vec<JunctionRecord>,
+    links: Vec<LinkRecord>,
+    automaticity: Option<Box<AutomaticityV7>>,
+}
+
+impl From<PayloadV7> for Payload {
+    fn from(previous: PayloadV7) -> Self {
+        Self {
+            now: previous.now,
+            junctions: previous.junctions,
+            links: previous.links,
+            automaticity: previous
+                .automaticity
+                .map(|automaticity| Box::new((*automaticity).into())),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -129,7 +151,7 @@ impl BodyCheckpoint {
                 .try_into()
                 .map_err(|_| BodyCheckpointError::Invalid)?,
         );
-        if version != VERSION {
+        if version != VERSION && version != PREVIOUS_VERSION {
             return Err(BodyCheckpointError::UnsupportedVersion(version));
         }
         let length = usize::try_from(u64::from_le_bytes(
@@ -150,9 +172,16 @@ impl BodyCheckpoint {
         if Sha256::digest(payload).as_slice() != &bytes[18..HEADER_LEN] {
             return Err(BodyCheckpointError::Checksum);
         }
-        let payload = options()
-            .deserialize(payload)
-            .map_err(|_| BodyCheckpointError::Invalid)?;
+        let payload = if version == VERSION {
+            options()
+                .deserialize(payload)
+                .map_err(|_| BodyCheckpointError::Invalid)?
+        } else {
+            let previous: PayloadV7 = options()
+                .deserialize(payload)
+                .map_err(|_| BodyCheckpointError::Invalid)?;
+            previous.into()
+        };
         Ok(Self { payload })
     }
 
@@ -196,32 +225,32 @@ mod tests {
     };
 
     #[derive(Serialize)]
-    enum VersionSevenTrigger {
+    enum VersionEightTrigger {
         SourceFires,
         RisesThrough(i32),
         FallsThrough(i32),
     }
 
     #[derive(Serialize)]
-    struct VersionSevenLink {
+    struct VersionEightLink {
         from: crate::JunctionId,
         to: crate::JunctionId,
         delay: u64,
         impulse: i32,
-        trigger: VersionSevenTrigger,
+        trigger: VersionEightTrigger,
     }
 
     #[derive(Serialize)]
-    struct VersionSevenLinkRecord {
-        law: VersionSevenLink,
+    struct VersionEightLinkRecord {
+        law: VersionEightLink,
         memory: LinkMemory,
     }
 
     #[derive(Serialize)]
-    struct VersionSevenPayload {
+    struct VersionEightPayload {
         now: u64,
         junctions: Vec<JunctionRecord>,
-        links: Vec<VersionSevenLinkRecord>,
+        links: Vec<VersionEightLinkRecord>,
         automaticity: Option<Box<Automaticity>>,
     }
 
@@ -269,10 +298,10 @@ mod tests {
     }
 
     #[test]
-    fn version_seven_threshold_triggers_keep_their_checkpoint_meaning() {
+    fn version_eight_threshold_triggers_keep_their_checkpoint_meaning() {
         let first = crate::JunctionId::new(0).unwrap();
         let second = crate::JunctionId::new(1).unwrap();
-        let payload = VersionSevenPayload {
+        let payload = VersionEightPayload {
             now: 0,
             junctions: vec![
                 JunctionRecord {
@@ -289,33 +318,33 @@ mod tests {
                 },
             ],
             links: vec![
-                VersionSevenLinkRecord {
-                    law: VersionSevenLink {
+                VersionEightLinkRecord {
+                    law: VersionEightLink {
                         from: first,
                         to: second,
                         delay: 0,
                         impulse: 1,
-                        trigger: VersionSevenTrigger::SourceFires,
+                        trigger: VersionEightTrigger::SourceFires,
                     },
                     memory: LinkMemory::default(),
                 },
-                VersionSevenLinkRecord {
-                    law: VersionSevenLink {
+                VersionEightLinkRecord {
+                    law: VersionEightLink {
                         from: first,
                         to: second,
                         delay: 1,
                         impulse: 1,
-                        trigger: VersionSevenTrigger::RisesThrough(5),
+                        trigger: VersionEightTrigger::RisesThrough(5),
                     },
                     memory: LinkMemory::default(),
                 },
-                VersionSevenLinkRecord {
-                    law: VersionSevenLink {
+                VersionEightLinkRecord {
+                    law: VersionEightLink {
                         from: first,
                         to: second,
                         delay: 2,
                         impulse: -1,
-                        trigger: VersionSevenTrigger::FallsThrough(-5),
+                        trigger: VersionEightTrigger::FallsThrough(-5),
                     },
                     memory: LinkMemory::default(),
                 },
@@ -345,6 +374,28 @@ mod tests {
                 Trigger::FallsThrough(-5)
             ]
         );
+    }
+
+    #[test]
+    fn version_seven_checkpoint_restores_with_empty_dependent_thought_state() {
+        let payload = PayloadV7 {
+            now: 0,
+            junctions: Vec::new(),
+            links: Vec::new(),
+            automaticity: Some(Box::new(AutomaticityV7::default())),
+        };
+        let payload = options().serialize(&payload).unwrap();
+        let mut bytes = Vec::with_capacity(HEADER_LEN + payload.len());
+        bytes.extend_from_slice(MAGIC);
+        bytes.extend_from_slice(&PREVIOUS_VERSION.to_le_bytes());
+        bytes.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(&Sha256::digest(&payload));
+        bytes.extend_from_slice(&payload);
+
+        let body = BodyCheckpoint::decode(&bytes).unwrap().restore().unwrap();
+
+        assert_eq!(body.reentry_state().thought_shortcuts, 0);
+        assert_eq!(body.automaticity_work(), crate::AutomaticityWork::default());
     }
 
     #[test]

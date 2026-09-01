@@ -762,6 +762,268 @@ fn attachment_remaps_reentry_support_and_independent_parts_remain_a_product() {
     );
 }
 
+#[derive(Clone)]
+struct BranchingWorld {
+    body: Body,
+    shared: JunctionId,
+    x: JunctionId,
+    y: JunctionId,
+    dead_x: JunctionId,
+    dead_y: JunctionId,
+    goal: JunctionId,
+    motors: [Motor; 6],
+    values: [i32; 5],
+}
+
+impl BranchingWorld {
+    const A: usize = 0;
+    const B: usize = 1;
+    const X_DEAD: usize = 2;
+    const X_GOAL: usize = 3;
+    const Y_DEAD: usize = 4;
+    const Y_GOAL: usize = 5;
+
+    const X: usize = 0;
+    const Y: usize = 1;
+    const DEAD_X: usize = 2;
+    const DEAD_Y: usize = 3;
+    const GOAL: usize = 4;
+
+    fn new(reverse_motor_identities: bool) -> Self {
+        let mut body = Body::default();
+        let raw_motors = std::array::from_fn(|_| motor(&mut body));
+        let motors = if reverse_motor_identities {
+            std::array::from_fn(|index| raw_motors[5 - index])
+        } else {
+            raw_motors
+        };
+        let shared = attach_sensor(
+            &mut body,
+            Junction::integrating(1),
+            &[(motors[Self::A].opportunity, 1)],
+        );
+        let x = attach_sensor(
+            &mut body,
+            Junction::sampled(1_000),
+            &[(motors[Self::X_DEAD].opportunity, 1)],
+        );
+        let y = attach_sensor(
+            &mut body,
+            Junction::sampled(1_000),
+            &[(motors[Self::Y_DEAD].opportunity, 1)],
+        );
+        let dead_x = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
+        let dead_y = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
+        let goal = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
+        for (source, output) in [
+            (x, Self::A),
+            (y, Self::B),
+            (dead_x, Self::X_DEAD),
+            (goal, Self::X_GOAL),
+            (dead_y, Self::Y_DEAD),
+            (goal, Self::Y_GOAL),
+        ] {
+            outcome_witness(&mut body, source, motors[output].opportunity);
+        }
+        schedule(
+            &mut body,
+            0,
+            &[
+                Arrival::caused(x, 0, 0),
+                Arrival::caused(y, 0, 0),
+                Arrival::caused(dead_x, 0, 0),
+                Arrival::caused(dead_y, 0, 0),
+                Arrival::caused(goal, 0, 0),
+            ],
+        );
+        run(&mut body);
+        Self {
+            body,
+            shared,
+            x,
+            y,
+            dead_x,
+            dead_y,
+            goal,
+            motors,
+            values: [0; 5],
+        }
+    }
+
+    fn add_action(&mut self, surface: JunctionId, output: usize) {
+        self.body
+            .add_link(Link::new(surface, self.motors[output].opportunity, 1, 0))
+            .unwrap();
+    }
+
+    fn choose(
+        &mut self,
+        surface: JunctionId,
+        value: i32,
+        outputs: &[usize],
+        at: u64,
+        cause: u64,
+    ) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
+        schedule(&mut self.body, at, &[reading(surface, 0, value, cause)]);
+        let opportunities = outputs
+            .iter()
+            .map(|output| Arrival::caused(self.motors[*output].opportunity, 1, cause))
+            .collect::<Vec<_>>();
+        schedule(&mut self.body, at + 1, &opportunities);
+        run(&mut self.body)
+    }
+
+    fn return_from(&mut self, source: usize, at: u64, cause: u64) {
+        self.values[source] += 1;
+        let junction = match source {
+            Self::X => self.x,
+            Self::Y => self.y,
+            Self::DEAD_X => self.dead_x,
+            Self::DEAD_Y => self.dead_y,
+            Self::GOAL => self.goal,
+            _ => unreachable!("known branching-world source"),
+        };
+        schedule(
+            &mut self.body,
+            at,
+            &[reading(junction, 0, self.values[source], cause)],
+        );
+        let (_, trace) = run(&mut self.body);
+        assert!(trace.iter().any(|event| matches!(
+            event,
+            TraceEvent::Return(returned)
+                if returned.decision == ReturnDecision::Accepted
+                    && returned.source == junction
+                    && returned.return_cause == Some(cause)
+        )));
+    }
+
+    fn train(&mut self) {
+        let (events, _) = self.choose(self.shared, 1, &[Self::A], 10, 1);
+        assert_eq!(effect(&events, &self.motors), [Self::A]);
+        self.return_from(Self::X, 14, 1);
+
+        self.add_action(self.shared, Self::B);
+        let (events, _) = self.choose(self.shared, 1, &[Self::A, Self::B], 20, 2);
+        assert_eq!(effect(&events, &self.motors), [Self::B]);
+        self.return_from(Self::Y, 24, 2);
+
+        self.values[Self::X] += 1;
+        let (events, _) = self.choose(self.x, self.values[Self::X], &[Self::X_DEAD], 30, 3);
+        assert_eq!(effect(&events, &self.motors), [Self::X_DEAD]);
+        self.return_from(Self::DEAD_X, 34, 3);
+
+        self.add_action(self.x, Self::X_GOAL);
+        self.values[Self::X] += 1;
+        let (events, _) = self.choose(
+            self.x,
+            self.values[Self::X],
+            &[Self::X_DEAD, Self::X_GOAL],
+            40,
+            4,
+        );
+        assert_eq!(effect(&events, &self.motors), [Self::X_GOAL]);
+        self.return_from(Self::GOAL, 44, 4);
+
+        self.values[Self::Y] += 1;
+        let (events, _) = self.choose(self.y, self.values[Self::Y], &[Self::Y_DEAD], 50, 5);
+        assert_eq!(effect(&events, &self.motors), [Self::Y_DEAD]);
+        self.return_from(Self::DEAD_Y, 54, 5);
+    }
+
+    fn add_goal_below_y(&mut self) {
+        self.add_action(self.y, Self::Y_GOAL);
+        self.values[Self::Y] += 1;
+        let (events, _) = self.choose(
+            self.y,
+            self.values[Self::Y],
+            &[Self::Y_DEAD, Self::Y_GOAL],
+            60,
+            6,
+        );
+        assert_eq!(effect(&events, &self.motors), [Self::Y_GOAL]);
+        self.return_from(Self::GOAL, 64, 6);
+    }
+
+    fn probe(&mut self, at: u64, cause: u64) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
+        self.values[Self::GOAL] += 1;
+        schedule(
+            &mut self.body,
+            at,
+            &[
+                reading(self.shared, 0, 1, cause),
+                reading(self.goal, 0, self.values[Self::GOAL], cause + 100),
+            ],
+        );
+        schedule(
+            &mut self.body,
+            at + 1,
+            &[
+                Arrival::caused(self.motors[Self::A].opportunity, 1, cause),
+                Arrival::caused(self.motors[Self::B].opportunity, 1, cause),
+            ],
+        );
+        run(&mut self.body)
+    }
+}
+
+#[test]
+fn reentry_looks_through_a_remembered_branch_without_enacting_it() {
+    for reverse_motor_identities in [false, true] {
+        let mut world = BranchingWorld::new(reverse_motor_identities);
+        world.train();
+        let closed_steps = world.body.reentry_state().closed_steps;
+
+        let (events, trace) = world.probe(70, 7);
+
+        assert_eq!(effect(&events, &world.motors), [BranchingWorld::A]);
+        assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+        let reentry = trace.iter().find_map(|event| match event {
+            TraceEvent::Candidate(candidate)
+                if candidate.path.output == world.motors[BranchingWorld::A].opportunity
+                    && candidate.reentries.len() == 1 =>
+            {
+                Some(&candidate.reentries[0])
+            }
+            _ => None,
+        });
+        let reentry = reentry.expect("A has one remembered continuation to the present goal");
+        assert_eq!(reentry.condition, world.goal);
+        assert_eq!(reentry.steps.len(), 2);
+        assert_eq!(reentry.steps[0].returned_source, world.x);
+        assert_eq!(reentry.steps[1].returned_source, world.goal);
+        assert!(events.iter().all(|event| ![
+            world.x,
+            world.y,
+            world.dead_x,
+            world.dead_y,
+            world.motors[BranchingWorld::X_DEAD].effect,
+            world.motors[BranchingWorld::X_GOAL].effect,
+            world.motors[BranchingWorld::Y_DEAD].effect,
+            world.motors[BranchingWorld::Y_GOAL].effect,
+        ]
+        .contains(&event.junction)));
+        assert_eq!(world.body.reentry_state().closed_steps, closed_steps);
+        assert!(!trace.iter().any(|event| matches!(
+            event,
+            TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted
+        ) || matches!(event, TraceEvent::Strengthened(_))));
+    }
+}
+
+#[test]
+fn two_remembered_goal_branches_make_no_unique_planning_claim() {
+    let mut world = BranchingWorld::new(false);
+    world.train();
+    world.add_goal_below_y();
+
+    let (events, trace) = world.probe(70, 7);
+
+    assert_eq!(effect(&events, &world.motors).len(), 1);
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+}
+
+#[derive(Clone)]
 struct ClosureWorld {
     body: Body,
     surfaces: [JunctionId; 3],
@@ -1347,7 +1609,6 @@ fn disconnected_matching_histories_do_not_block_local_motif_composition() {
 }
 
 #[test]
-#[ignore = "frontier: a retained renamed motif does not yet reenter a fresh causal instance"]
 fn two_renamed_demonstrations_generalize_to_a_third_causal_instance() {
     let mut world = ClosureWorld::new();
     world.demonstrate(0, 10, 1);
@@ -1364,9 +1625,199 @@ fn two_renamed_demonstrations_generalize_to_a_third_causal_instance() {
             .filter(|event| matches!(event, TraceEvent::Candidate(_) | TraceEvent::Choice(_)))
             .collect::<Vec<_>>()
     );
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_eq!(
+        trace
+            .iter()
+            .filter_map(|event| match event {
+                TraceEvent::Candidate(candidate) if !candidate.motif_reentries.is_empty() => {
+                    Some(candidate)
+                }
+                _ => None,
+            })
+            .count(),
+        1
+    );
     assert_eq!(world.body.reentry_state().closed_steps, 2);
     assert!(!trace.iter().any(|event| matches!(
         event,
         TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted
     ) || matches!(event, TraceEvent::Strengthened(_))));
+}
+
+#[test]
+fn one_demonstration_cannot_reenter_a_fresh_causal_instance() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+
+    let (events, trace) = world.probe(2, 30, 3);
+
+    assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert!(trace.iter().all(|event| !matches!(
+        event,
+        TraceEvent::Candidate(candidate) if !candidate.motif_reentries.is_empty()
+    )));
+}
+
+#[test]
+fn a_changed_fresh_path_form_cannot_receive_motif_reentry() {
+    let mut world = ClosureWorld::with_forms([false; 3], [1, 1, 2]);
+    world.demonstrate(0, 10, 1);
+    world.demonstrate(1, 30, 3);
+
+    let (events, trace) = world.probe(2, 50, 5);
+
+    assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+}
+
+#[test]
+fn changed_fresh_outcome_roles_make_no_motif_choice() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    world.demonstrate(1, 30, 3);
+    attach_outcome_component(
+        &mut world.body,
+        world.closures[2],
+        [world.motors[ClosureWorld::output(2, ClosureWorld::PROXY)].opportunity],
+    );
+
+    let (events, trace) = world.probe(2, 50, 5);
+
+    assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert!(trace.iter().all(|event| !matches!(
+        event,
+        TraceEvent::Candidate(candidate) if !candidate.motif_reentries.is_empty()
+    )));
+}
+
+#[test]
+fn motif_reentry_is_invariant_to_renaming_and_construction_order() {
+    let mut world = ClosureWorld::with_reversed_order([false, false, true]);
+    world.demonstrate(0, 10, 1);
+    world.demonstrate(1, 30, 3);
+
+    let (events, trace) = world.probe(2, 50, 5);
+
+    assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::CLOSER)]);
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+}
+
+#[test]
+fn disconnected_matching_motifs_add_support_without_selecting_a_parent() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    world.demonstrate(1, 30, 3);
+    for _ in 0..4 {
+        let mut dormant = ClosureWorld::new();
+        dormant.demonstrate(0, 10, 1);
+        dormant.demonstrate(1, 30, 3);
+        let part = OpenBody::new(dormant.body, Vec::new()).unwrap();
+        attach(&mut world.body, part, &[]).unwrap();
+    }
+
+    let at = world.body.now() + 10;
+    let (events, trace) = world.probe(2, at, 5);
+    let support = trace.iter().find_map(|event| match event {
+        TraceEvent::Candidate(candidate) if !candidate.motif_reentries.is_empty() => {
+            Some(&candidate.motif_reentries)
+        }
+        _ => None,
+    });
+
+    assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::CLOSER)]);
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert!(support.is_some_and(|support| support.len() > 1));
+}
+
+#[test]
+fn an_overlarge_motif_search_fails_closed_without_a_choice_claim() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    world.demonstrate(1, 30, 3);
+    for _ in 0..300 {
+        let from = world.body.add_junction(Junction::integrating(1)).unwrap();
+        let to = world.body.add_junction(Junction::integrating(1)).unwrap();
+        world.body.add_link(Link::new(from, to, 1, 1)).unwrap();
+    }
+
+    let (events, trace) = world.probe(2, 50, 5);
+
+    assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
+    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Candidate(candidate)
+            if candidate.new_path
+                && candidate.motif_reentries.is_empty()
+                && candidate.reentry_incidence_visits == 256
+    )));
+}
+
+#[test]
+fn checkpoint_replays_the_exact_fresh_motif_choice() {
+    let mut plain = ClosureWorld::new();
+    plain.demonstrate(0, 10, 1);
+    plain.demonstrate(1, 30, 3);
+    let bytes = plain.body.checkpoint().unwrap().canonical_bytes().unwrap();
+    let mut restored = plain.clone();
+    restored.body = BodyCheckpoint::decode(&bytes).unwrap().restore().unwrap();
+
+    let plain_result = plain.probe(2, 50, 5);
+    let restored_result = restored.probe(2, 50, 5);
+
+    assert_eq!(plain_result, restored_result);
+    assert_eq!(
+        chosen_basis(&plain_result.1),
+        Some(ChoiceBasis::UniqueMotifReentry)
+    );
+}
+
+#[test]
+fn only_a_fresh_exact_return_confirms_tentative_motif_reentry() {
+    let mut learned = ClosureWorld::new();
+    learned.demonstrate(0, 10, 1);
+    learned.demonstrate(1, 30, 3);
+    assert_eq!(
+        learned.probe(2, 50, 5).0,
+        [ClosureWorld::output(2, ClosureWorld::CLOSER)]
+    );
+    assert_eq!(learned.body.reentry_state().closed_steps, 2);
+
+    let mut exact = learned.clone();
+    let trace = exact.return_closure(2, 54, 5);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned)
+            if returned.decision == ReturnDecision::Accepted
+                && returned.return_cause == Some(5)
+    )));
+    assert_eq!(exact.body.reentry_state().closed_steps, 3);
+
+    let mut ambiguous = learned.clone();
+    let closer = ClosureWorld::output(2, ClosureWorld::CLOSER);
+    let extra = attach_sensor(
+        &mut ambiguous.body,
+        Junction::integrating(1),
+        &[(ambiguous.motors[closer].opportunity, 1)],
+    );
+    assert_eq!(ambiguous.act_from(extra, &[closer], 54, 6).0, [closer]);
+    let trace = ambiguous.return_closure(2, 58, 99);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Ambiguous
+    )));
+    assert_eq!(ambiguous.body.reentry_state().closed_steps, 2);
+
+    let mut wrong_cause = learned;
+    let trace = wrong_cause.return_closure(2, 54, 99);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned)
+            if returned.decision == ReturnDecision::Accepted
+                && returned.return_cause == Some(5)
+    )));
+    assert_eq!(wrong_cause.body.reentry_state().closed_steps, 2);
 }

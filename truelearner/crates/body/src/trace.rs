@@ -1,7 +1,7 @@
 use crate::{
     Cause, JunctionId, JunctionRef, LinkId, LinkRef, Outcome, Path, PhysicalEvent, Run, Time,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{cmp::Reverse, error::Error, fmt};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -29,7 +29,7 @@ pub struct FreshOpportunityTrace {
     pub through: LinkId,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReentryStepTrace {
     pub path: Path,
     pub returned_source: JunctionId,
@@ -37,10 +37,16 @@ pub struct ReentryStepTrace {
     pub outcome_target: JunctionId,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReentryTrace {
     pub condition: JunctionId,
     pub steps: Vec<ReentryStepTrace>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub struct MotifReentryTrace {
+    pub witness: LinkId,
+    pub parent: LinkId,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -68,8 +74,11 @@ pub struct CandidateTrace {
     pub fresh_opportunity: Option<FreshOpportunityTrace>,
     pub present_sources: Vec<JunctionId>,
     pub reentries: Vec<ReentryTrace>,
+    pub motif_reentries: Vec<MotifReentryTrace>,
     /// Local graph incidences actually examined by the bounded reentry resolver.
     pub reentry_incidence_visits: u16,
+    /// Previously compiled, dependency-checked reentry searches reused this wave.
+    pub reentry_shortcut_hits: u16,
     pub reentry_failed: bool,
     pub new_path: bool,
 }
@@ -81,6 +90,7 @@ pub enum ChoiceBasis {
     RetainedProgress,
     FreshOpportunity,
     UniqueReentry,
+    UniqueMotifReentry,
     AvailableOutcome,
     UnansweredOutputRelease,
     LatestOutcome,
@@ -109,6 +119,7 @@ pub enum ChoiceLaw {
     CurrentSurfaceLocality,
     FreshOpportunity,
     UniqueReentry,
+    UniqueMotifReentry,
     UntriedOutputRelease,
     AvailableOutcome,
     UnansweredOutputRelease,
@@ -265,8 +276,9 @@ struct ExpectedChoice<'a> {
 
 /// Verifies recorded choice decisions and receipt shape without changing the body.
 ///
-/// Historical exact-return support is established by the body before projection;
-/// this observer has no retained topology from which to reconstruct that ancestry.
+/// Historical exact-return and motif-form support are established by the body
+/// before projection; this observer has no retained topology from which to
+/// reconstruct that ancestry.
 pub fn verify_choice_laws(events: &[TraceEvent]) -> Result<(), ChoiceLawViolation> {
     let mut pending = Vec::<&CandidateTrace>::new();
     for event in events {
@@ -518,6 +530,13 @@ fn expected_choice<'a>(
             law: ChoiceLaw::UniqueReentry,
         });
     }
+    if let Some(candidate) = unique_motif_reentry(&active) {
+        return Some(ExpectedChoice {
+            candidate,
+            basis: ChoiceBasis::UniqueMotifReentry,
+            law: ChoiceLaw::UniqueMotifReentry,
+        });
+    }
     if let Some(candidate) = unique_latest(&active, true) {
         return Some(ExpectedChoice {
             candidate,
@@ -577,6 +596,25 @@ fn unique_reentry<'a>(candidates: &[&'a CandidateTrace]) -> Option<&'a Candidate
     reaching.next().is_none().then_some(candidate)
 }
 
+fn unique_motif_reentry<'a>(candidates: &[&'a CandidateTrace]) -> Option<&'a CandidateTrace> {
+    if candidates.iter().copied().any(|candidate| {
+        candidate.reentry_failed
+            || (!candidate.motif_reentries.is_empty() && candidate.reentry_incidence_visits == 0)
+            || candidate
+                .motif_reentries
+                .iter()
+                .any(|support| support.witness == support.parent || !candidate.new_path)
+    }) {
+        return None;
+    }
+    let mut reaching = candidates
+        .iter()
+        .copied()
+        .filter(|candidate| !candidate.motif_reentries.is_empty());
+    let candidate = reaching.next()?;
+    reaching.next().is_none().then_some(candidate)
+}
+
 fn valid_reentry(candidate: &CandidateTrace, reentry: &ReentryTrace) -> bool {
     let Some(first) = reentry.steps.first() else {
         return false;
@@ -607,7 +645,7 @@ fn valid_reentry(candidate: &CandidateTrace, reentry: &ReentryTrace) -> bool {
             return false;
         }
     }
-    candidate.reentry_incidence_visits > 0
+    candidate.reentry_incidence_visits > 0 || candidate.reentry_shortcut_hits > 0
 }
 
 fn latest_unanswered_output(candidates: &[&CandidateTrace]) -> Option<JunctionId> {
@@ -835,7 +873,9 @@ mod tests {
             fresh_opportunity: None,
             present_sources: Vec::new(),
             reentries: Vec::new(),
+            motif_reentries: Vec::new(),
             reentry_incidence_visits: 0,
+            reentry_shortcut_hits: 0,
             reentry_failed: false,
             new_path: false,
         }
@@ -915,7 +955,47 @@ mod tests {
         let TraceEvent::Candidate(candidate) = &mut events[0] else {
             unreachable!()
         };
+        candidate.reentry_incidence_visits = 0;
+        candidate.reentry_shortcut_hits = 1;
+        verify_choice_laws(&events).unwrap();
+
+        let TraceEvent::Candidate(candidate) = &mut events[0] else {
+            unreachable!()
+        };
         candidate.reentries[0].steps[0].outcome_target = JunctionId::new(99).unwrap();
+        assert!(verify_choice_laws(&events).is_err());
+    }
+
+    #[test]
+    fn offline_verifier_checks_unique_motif_reentry_receipt_shape() {
+        let mut reaching = candidate(0, 512);
+        reaching.new_path = true;
+        reaching.motif_reentries.push(MotifReentryTrace {
+            witness: LinkId::new(40).unwrap(),
+            parent: LinkId::new(41).unwrap(),
+        });
+        reaching.reentry_incidence_visits = 1;
+        let stale = candidate(1, 512);
+        let mut events = vec![
+            TraceEvent::Candidate(reaching.clone()),
+            TraceEvent::Candidate(stale),
+            TraceEvent::Choice(ChoiceTrace {
+                at: 7,
+                group: 0,
+                alternatives: 2,
+                winner: Some(reaching.path),
+                basis: Some(ChoiceBasis::UniqueMotifReentry),
+                construction: false,
+                sent: true,
+            }),
+        ];
+
+        verify_choice_laws(&events).unwrap();
+
+        let TraceEvent::Candidate(candidate) = &mut events[0] else {
+            unreachable!()
+        };
+        candidate.motif_reentries[0].parent = candidate.motif_reentries[0].witness;
         assert!(verify_choice_laws(&events).is_err());
     }
 

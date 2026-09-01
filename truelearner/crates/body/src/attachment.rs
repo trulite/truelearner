@@ -147,7 +147,7 @@ pub fn attach(
         memory.remap_junctions(junction_base);
     }
     if let Some(mut part_automaticity) = part_automaticity {
-        part_automaticity.remap_links(link_base);
+        part_automaticity.remap(junction_base, link_base);
         if let Some(host_automaticity) = &mut host.automaticity {
             host_automaticity.append(*part_automaticity);
         } else {

@@ -5,9 +5,9 @@ use crate::{
     engine::PhysicalMoment,
     physics::opens,
     trace::{
-        CandidateTrace, ChoiceBasis, ChoiceTrace, FreshOpportunityTrace, NoTrace, ReentryStepTrace,
-        ReentryTrace, ReturnCandidateTrace, ReturnDecision, ReturnTrace, StrengthTrace, TraceEvent,
-        TracePath, TraceSink,
+        CandidateTrace, ChoiceBasis, ChoiceTrace, FreshOpportunityTrace, MotifReentryTrace,
+        NoTrace, ReentryStepTrace, ReentryTrace, ReturnCandidateTrace, ReturnDecision, ReturnTrace,
+        StrengthTrace, TraceEvent, TracePath, TraceSink,
     },
     Body, BuildError, Impulse, Junction, JunctionId, Link, LinkId, Retention, RunError, Time,
     Trigger,
@@ -23,6 +23,7 @@ pub type Cohort = u64;
 pub type Boundary = u32;
 const LOCAL_RADIUS: i32 = 2;
 const AUTOMATIC_AFTER_EXACT_CLOSURES: u8 = 3;
+const THOUGHT_SHORTCUT_AFTER_REHEARSALS: u8 = 3;
 const MAX_REENTRY_DEPTH: usize = 16;
 const MAX_REENTRY_INCIDENCE_VISITS: u16 = 256;
 
@@ -79,12 +80,11 @@ struct AutomaticWitness {
 }
 
 impl AutomaticWitness {
-    fn remap_links(&mut self, base: usize) {
-        self.returned = remap_link(self.returned, base);
-        self.path.first = remap_link(self.path.first, base);
-        self.path.second = remap_link(self.path.second, base);
+    fn remap(&mut self, junction_base: usize, link_base: usize) {
+        self.returned = remap_link(self.returned, link_base);
+        remap_path(&mut self.path, junction_base, link_base);
         for pair in &mut self.pairs {
-            pair.remap_links(base);
+            pair.remap_links(link_base);
         }
     }
 }
@@ -96,30 +96,100 @@ struct AutomaticEvidence {
     exact_closures: u8,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct ReentryDependency {
+    junction: JunctionId,
+    epoch: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct ThoughtShortcut {
+    start: Path,
+    condition: JunctionId,
+    routes: Vec<ReentryTrace>,
+    dependencies: Vec<ReentryDependency>,
+    rehearsals: u8,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Automaticity {
     pub(crate) closure_maintenance: bool,
     witnesses: Vec<AutomaticWitness>,
     evidence: Vec<AutomaticEvidence>,
+    reentry_epochs: Vec<u64>,
+    thought_shortcuts: Vec<ThoughtShortcut>,
     pub(crate) generic_composites: bool,
     work: AutomaticityWork,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct AutomaticityV7 {
+    closure_maintenance: bool,
+    witnesses: Vec<AutomaticWitness>,
+    evidence: Vec<AutomaticEvidence>,
+    generic_composites: bool,
+    work: AutomaticityWork,
+}
+
+impl From<AutomaticityV7> for Automaticity {
+    fn from(previous: AutomaticityV7) -> Self {
+        Self {
+            closure_maintenance: previous.closure_maintenance,
+            witnesses: previous.witnesses,
+            evidence: previous.evidence,
+            reentry_epochs: Vec::new(),
+            thought_shortcuts: Vec::new(),
+            generic_composites: previous.generic_composites,
+            work: previous.work,
+        }
+    }
+}
+
 impl Automaticity {
-    pub(crate) fn remap_links(&mut self, base: usize) {
+    pub(crate) fn remap(&mut self, junction_base: usize, link_base: usize) {
         for witness in &mut self.witnesses {
-            witness.remap_links(base);
+            witness.remap(junction_base, link_base);
         }
         for evidence in &mut self.evidence {
-            evidence.owner = remap_link(evidence.owner, base);
-            evidence.pair.remap_links(base);
+            evidence.owner = remap_link(evidence.owner, link_base);
+            evidence.pair.remap_links(link_base);
         }
+        let mut remapped_epochs = vec![0; junction_base];
+        remapped_epochs.append(&mut self.reentry_epochs);
+        self.reentry_epochs = remapped_epochs;
+        for shortcut in &mut self.thought_shortcuts {
+            remap_path(&mut shortcut.start, junction_base, link_base);
+            shortcut.condition = remap_junction(shortcut.condition, junction_base);
+            for route in &mut shortcut.routes {
+                route.condition = remap_junction(route.condition, junction_base);
+                for step in &mut route.steps {
+                    remap_path(&mut step.path, junction_base, link_base);
+                    step.returned_source = remap_junction(step.returned_source, junction_base);
+                    step.outcome_witness = remap_link(step.outcome_witness, link_base);
+                    step.outcome_target = remap_junction(step.outcome_target, junction_base);
+                }
+            }
+            for dependency in &mut shortcut.dependencies {
+                dependency.junction = remap_junction(dependency.junction, junction_base);
+            }
+        }
+        self.thought_shortcuts
+            .sort_unstable_by_key(|shortcut| (shortcut.start, shortcut.condition));
     }
 
     pub(crate) fn append(&mut self, mut other: Self) {
         self.closure_maintenance |= other.closure_maintenance;
         self.witnesses.append(&mut other.witnesses);
         self.evidence.append(&mut other.evidence);
+        if self.reentry_epochs.len() < other.reentry_epochs.len() {
+            self.reentry_epochs.resize(other.reentry_epochs.len(), 0);
+        }
+        for (slot, epoch) in other.reentry_epochs.into_iter().enumerate() {
+            self.reentry_epochs[slot] = self.reentry_epochs[slot].max(epoch);
+        }
+        self.thought_shortcuts.append(&mut other.thought_shortcuts);
+        self.thought_shortcuts
+            .sort_unstable_by_key(|shortcut| (shortcut.start, shortcut.condition));
         self.generic_composites |= other.generic_composites;
         self.work.pair_observations = self
             .work
@@ -134,10 +204,61 @@ impl Automaticity {
             .composites_formed
             .saturating_add(other.work.composites_formed);
     }
+
+    fn reentry_epoch(&self, junction: JunctionId) -> u64 {
+        self.reentry_epochs
+            .get(junction.slot())
+            .copied()
+            .unwrap_or(0)
+    }
+
+    fn touch_reentry(&mut self, junction: JunctionId) {
+        if self.reentry_epochs.len() <= junction.slot() {
+            self.reentry_epochs.resize(junction.slot() + 1, 0);
+        }
+        self.reentry_epochs[junction.slot()] =
+            self.reentry_epochs[junction.slot()].saturating_add(1);
+    }
+
+    fn shortcut_is_current(&self, shortcut: &ThoughtShortcut) -> bool {
+        shortcut
+            .dependencies
+            .iter()
+            .all(|dependency| self.reentry_epoch(dependency.junction) == dependency.epoch)
+    }
+
+    fn usable_thought_shortcut(
+        &self,
+        start: Path,
+        condition: JunctionId,
+    ) -> Option<&ThoughtShortcut> {
+        self.thought_shortcuts
+            .binary_search_by_key(&(start, condition), |shortcut| {
+                (shortcut.start, shortcut.condition)
+            })
+            .ok()
+            .map(|index| &self.thought_shortcuts[index])
+            .filter(|shortcut| {
+                shortcut.rehearsals >= THOUGHT_SHORTCUT_AFTER_REHEARSALS
+                    && self.shortcut_is_current(shortcut)
+            })
+    }
 }
 
 fn remap_link(link: LinkId, base: usize) -> LinkId {
     LinkId::new(base + link.slot()).expect("validated attachment link identity")
+}
+
+fn remap_junction(junction: JunctionId, base: usize) -> JunctionId {
+    JunctionId::new(base + junction.slot()).expect("validated attachment junction identity")
+}
+
+fn remap_path(path: &mut Path, junction_base: usize, link_base: usize) {
+    path.surface = remap_junction(path.surface, junction_base);
+    path.middle = remap_junction(path.middle, junction_base);
+    path.output = remap_junction(path.output, junction_base);
+    path.first = remap_link(path.first, link_base);
+    path.second = remap_link(path.second, link_base);
 }
 
 impl Path {
@@ -149,6 +270,7 @@ impl Path {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct ReentryState {
     pub closed_steps: usize,
+    pub thought_shortcuts: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -386,6 +508,12 @@ pub enum Edit {
         offers_choice: bool,
         at: Time,
     },
+    RehearseReentry {
+        start: Path,
+        condition: JunctionId,
+        routes: Vec<ReentryTrace>,
+        dependencies: Vec<JunctionId>,
+    },
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -522,6 +650,7 @@ struct ReentryScratch {
     present: Vec<JunctionId>,
     steps: Vec<ReentryStepTrace>,
     continuations: Vec<ReentryContinuation>,
+    dependencies: Vec<JunctionId>,
 }
 
 impl ReentryScratch {
@@ -529,11 +658,13 @@ impl ReentryScratch {
         self.present.clear();
         self.steps.clear();
         self.continuations.clear();
+        self.dependencies.clear();
     }
 
     fn clear_search(&mut self) {
         self.steps.clear();
         self.continuations.clear();
+        self.dependencies.clear();
     }
 }
 
@@ -583,6 +714,7 @@ pub(crate) struct ReactionView<'a> {
     arena: &'a Arena,
     link_memory: &'a [LinkMemory],
     returns: &'a ReturnIndex,
+    automaticity: Option<&'a Automaticity>,
 }
 
 impl<'a> ReactionView<'a> {
@@ -595,6 +727,21 @@ impl<'a> ReactionView<'a> {
             arena,
             link_memory,
             returns,
+            automaticity: None,
+        }
+    }
+
+    pub(crate) const fn with_automaticity(
+        arena: &'a Arena,
+        link_memory: &'a [LinkMemory],
+        returns: &'a ReturnIndex,
+        automaticity: Option<&'a Automaticity>,
+    ) -> Self {
+        Self {
+            arena,
+            link_memory,
+            returns,
+            automaticity,
         }
     }
 }
@@ -1450,10 +1597,88 @@ impl Body {
                 .iter()
                 .filter(|memory| memory.closed_support().is_some())
                 .count(),
+            thought_shortcuts: self.automaticity.as_ref().map_or(0, |automaticity| {
+                automaticity
+                    .thought_shortcuts
+                    .iter()
+                    .filter(|shortcut| {
+                        shortcut.rehearsals >= THOUGHT_SHORTCUT_AFTER_REHEARSALS
+                            && automaticity.shortcut_is_current(shortcut)
+                    })
+                    .count()
+            }),
+        }
+    }
+
+    pub(crate) fn touch_reentry_junctions(
+        &mut self,
+        junctions: impl IntoIterator<Item = JunctionId>,
+    ) {
+        let Some(automaticity) = &mut self.automaticity else {
+            return;
+        };
+        for junction in junctions {
+            automaticity.touch_reentry(junction);
+        }
+    }
+
+    fn rehearse_reentry(
+        &mut self,
+        start: Path,
+        condition: JunctionId,
+        routes: Vec<ReentryTrace>,
+        mut dependencies: Vec<JunctionId>,
+    ) {
+        dependencies.sort_unstable();
+        dependencies.dedup();
+        let automaticity = self.automaticity_mut();
+        let captured = dependencies
+            .into_iter()
+            .map(|junction| ReentryDependency {
+                junction,
+                epoch: automaticity.reentry_epoch(junction),
+            })
+            .collect::<Vec<_>>();
+        match automaticity
+            .thought_shortcuts
+            .binary_search_by_key(&(start, condition), |shortcut| {
+                (shortcut.start, shortcut.condition)
+            }) {
+            Ok(index) => {
+                let current =
+                    automaticity.shortcut_is_current(&automaticity.thought_shortcuts[index]);
+                let shortcut = &mut automaticity.thought_shortcuts[index];
+                let same_dependencies = shortcut
+                    .dependencies
+                    .iter()
+                    .map(|dependency| dependency.junction)
+                    .eq(captured.iter().map(|dependency| dependency.junction));
+                if current && shortcut.routes == routes && same_dependencies {
+                    shortcut.rehearsals = shortcut.rehearsals.saturating_add(1);
+                } else {
+                    shortcut.routes = routes;
+                    shortcut.dependencies = captured;
+                    shortcut.rehearsals = 1;
+                }
+            }
+            Err(index) => automaticity.thought_shortcuts.insert(
+                index,
+                ThoughtShortcut {
+                    start,
+                    condition,
+                    routes,
+                    dependencies: captured,
+                    rehearsals: 1,
+                },
+            ),
         }
     }
 
     fn invalidate_closed_step(&mut self, path: Path) {
+        self.invalidate_closed_step_with_epoch(path, true);
+    }
+
+    fn invalidate_closed_step_with_epoch(&mut self, path: Path, touch_epoch: bool) {
         let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
         let invalid = closed_steps(view)
             .filter(|step| step.path == path)
@@ -1461,6 +1686,9 @@ impl Body {
             .collect::<Vec<_>>();
         for link in invalid {
             self.link_memory[link.slot()].outcome_available = false;
+        }
+        if touch_epoch {
+            self.touch_reentry_junctions([path.surface, path.middle, path.output]);
         }
     }
 
@@ -1489,11 +1717,28 @@ impl Body {
             return;
         };
         let support = (source, outcome_witness);
+        let same_existing_support = if replaces_existing {
+            let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
+            let mut matching = closed_steps(view)
+                .filter(|step| step.path == path)
+                .map(|step| (step.returned_source, step.outcome_witness));
+            matching.next() == Some(support) && matching.all(|existing| existing == support)
+        } else {
+            false
+        };
         if replaces_existing {
-            self.invalidate_closed_step(path);
+            self.invalidate_closed_step_with_epoch(path, !same_existing_support);
         }
         if self.link_memory[returned.slot()].stored_support() != Some(support) {
             self.link_memory[returned.slot()].remember_closed_support(source, outcome_witness);
+            if !same_existing_support {
+                let witness = self.arena.link(outcome_witness).copied();
+                self.touch_reentry_junctions(
+                    [path.surface, path.middle, path.output, source]
+                        .into_iter()
+                        .chain(witness.into_iter().flat_map(|link| [link.from, link.to])),
+                );
+            }
         }
     }
 
@@ -1501,10 +1746,11 @@ impl Body {
         let view = ReactionView::new(&self.arena, &self.link_memory, &self.returns);
         let invalid = closed_steps(view)
             .filter(|step| closed_step_is_valid(view, *step).is_none())
-            .map(|step| step.link)
+            .map(|step| (step.link, step.path))
             .collect::<Vec<_>>();
-        for link in invalid {
+        for (link, path) in invalid {
             self.link_memory[link.slot()].outcome_available = false;
+            self.touch_reentry_junctions([path.surface, path.middle, path.output]);
         }
     }
 
@@ -2442,6 +2688,90 @@ fn usable_composite(body: ReactionView<'_>, path: Path) -> Option<LinkId> {
     composite_with_parents(body, path).filter(|link| composite_is_valid(body, *link, path))
 }
 
+fn usable_composite_for_reentry(
+    body: ReactionView<'_>,
+    path: Path,
+    incidence_visits: &mut u16,
+) -> Result<bool, ()> {
+    let mut next = body
+        .arena
+        .junction(path.surface)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(composite) = next {
+        visit_reentry_incidence(incidence_visits)?;
+        let physical = body.arena.link(composite).expect("live shortcut incidence");
+        next = physical.next;
+        if body.link_memory[composite.slot()].live
+            && body.link_memory[composite.slot()].role
+                == (LinkRole::Composite {
+                    first: path.first,
+                    second: path.second,
+                })
+        {
+            return composite_is_valid_for_reentry(body, composite, path, incidence_visits);
+        }
+    }
+    Ok(false)
+}
+
+fn composite_is_valid_for_reentry(
+    body: ReactionView<'_>,
+    composite: LinkId,
+    path: Path,
+    incidence_visits: &mut u16,
+) -> Result<bool, ()> {
+    let Some(first) = body.arena.link(path.first) else {
+        return Ok(false);
+    };
+    let Some(second) = body.arena.link(path.second) else {
+        return Ok(false);
+    };
+    if path_from_links(body, path.first, path.second) != Some(path)
+        || !matches!(
+            first.trigger,
+            Trigger::SourceFires | Trigger::Rises | Trigger::Falls
+        )
+        || second.trigger != Trigger::SourceFires
+        || first.delay.checked_add(second.delay).is_none()
+    {
+        return Ok(false);
+    }
+    let mut next = body
+        .arena
+        .junction(path.middle)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(link) = next {
+        visit_reentry_incidence(incidence_visits)?;
+        let physical = body.arena.link(link).expect("live path-middle incidence");
+        next = physical.next;
+        if link != path.second
+            && body.link_memory[link.slot()].live
+            && body.link_memory[link.slot()].role == LinkRole::Drive
+        {
+            return Ok(false);
+        }
+    }
+    let Some(physical) = body.arena.link(composite) else {
+        return Ok(false);
+    };
+    Ok(body
+        .link_memory
+        .get(composite.slot())
+        .is_some_and(|memory| {
+            memory.live
+                && memory.role
+                    == (LinkRole::Composite {
+                        first: path.first,
+                        second: path.second,
+                    })
+        })
+        && physical.from == path.surface
+        && physical.to == path.output
+        && physical.delay == first.delay.saturating_add(second.delay)
+        && physical.impulse == second.impulse
+        && physical.trigger == first.trigger)
+}
+
 #[derive(Clone, Debug)]
 struct ReadyPath {
     surface: JunctionId,
@@ -2449,6 +2779,7 @@ struct ReadyPath {
     output: JunctionId,
     first: LinkRef,
     second: LinkRef,
+    form: PathForm,
     at: Time,
     current_cause: Cause,
     return_cause: Option<Cause>,
@@ -2469,9 +2800,25 @@ struct ReadyPath {
     stable_order: u32,
     fresh_opportunity: Option<FreshOpportunityTrace>,
     reentries: Vec<ReentryTrace>,
+    motif_reentries: Vec<MotifReentryTrace>,
     reentry_incidence_visits: u16,
+    reentry_shortcut_hits: u16,
     reentry_failed: bool,
     executable: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct LinkForm {
+    delay: Time,
+    impulse: Impulse,
+    trigger: Trigger,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PathForm {
+    surface: Junction,
+    first: LinkForm,
+    second: LinkForm,
 }
 
 impl ReadyPath {
@@ -2548,6 +2895,8 @@ fn form_and_choose<T: TraceSink>(
                     new: middle,
                     spec: Junction::integrating(1),
                 });
+                let entry_trigger =
+                    path_entry_trigger(body, surface, fact.event.before, fact.event.after);
                 let first = change.new_link();
                 change.push(Edit::AddLink {
                     new: first,
@@ -2556,12 +2905,7 @@ fn form_and_choose<T: TraceSink>(
                     spec: LinkSpec {
                         delay: morphology.delay,
                         impulse: 1,
-                        trigger: path_entry_trigger(
-                            body,
-                            surface,
-                            fact.event.before,
-                            fact.event.after,
-                        ),
+                        trigger: entry_trigger,
                         role: LinkRole::PathEntry,
                     },
                 });
@@ -2586,6 +2930,23 @@ fn form_and_choose<T: TraceSink>(
                     output: morphology.to,
                     first: first.into(),
                     second: second.into(),
+                    form: PathForm {
+                        surface: body
+                            .arena
+                            .junction(surface)
+                            .expect("current surface")
+                            .checkpoint_law(),
+                        first: LinkForm {
+                            delay: morphology.delay,
+                            impulse: 1,
+                            trigger: entry_trigger,
+                        },
+                        second: LinkForm {
+                            delay: morphology.delay,
+                            impulse: i32::from(sign),
+                            trigger: Trigger::SourceFires,
+                        },
+                    },
                     at: fact.event.at,
                     current_cause,
                     return_cause: None,
@@ -2616,7 +2977,9 @@ fn form_and_choose<T: TraceSink>(
                         .saturating_add(second.0),
                     fresh_opportunity: None,
                     reentries: Vec::new(),
+                    motif_reentries: Vec::new(),
                     reentry_incidence_visits: 0,
+                    reentry_shortcut_hits: 0,
                     reentry_failed: false,
                     executable: path_is_executable(body, surface, false),
                 });
@@ -2625,7 +2988,8 @@ fn form_and_choose<T: TraceSink>(
     }
 
     mark_current_returns(body, facts, ready, connected_outcomes);
-    mark_reentries(body, facts, ready, reentry, construction);
+    mark_reentries(body, facts, ready, reentry, change, construction);
+    mark_motif_reentries(body, ready, construction);
     fill_ready_worlds(ready, connected_outcomes, worlds);
     for world in 0..ready.len() {
         if worlds[world] == world {
@@ -2636,6 +3000,7 @@ fn form_and_choose<T: TraceSink>(
                         | ChoiceBasis::BoundaryRelease
                         | ChoiceBasis::RetainedProgress
                         | ChoiceBasis::UniqueReentry
+                        | ChoiceBasis::UniqueMotifReentry
                 ) {
                     if let Some((donor, fresh)) = fresh_opportunity(
                         body,
@@ -2683,7 +3048,9 @@ fn form_and_choose<T: TraceSink>(
                 fresh_opportunity: candidate.fresh_opportunity,
                 present_sources: reentry.present.clone(),
                 reentries: candidate.reentries.clone(),
+                motif_reentries: candidate.motif_reentries.clone(),
                 reentry_incidence_visits: candidate.reentry_incidence_visits,
+                reentry_shortcut_hits: candidate.reentry_shortcut_hits,
                 reentry_failed: candidate.reentry_failed,
                 new_path: matches!(candidate.first, LinkRef::New(_)),
             }));
@@ -2812,6 +3179,23 @@ fn append_existing_ready_paths(
                     output: link.to,
                     first: first_id.into(),
                     second: second_id.into(),
+                    form: PathForm {
+                        surface: body
+                            .arena
+                            .junction(surface)
+                            .expect("current surface")
+                            .checkpoint_law(),
+                        first: LinkForm {
+                            delay: first.delay,
+                            impulse: first.impulse,
+                            trigger: first.trigger,
+                        },
+                        second: LinkForm {
+                            delay: link.delay,
+                            impulse: link.impulse,
+                            trigger: link.trigger,
+                        },
+                    },
                     at: event.at,
                     current_cause,
                     return_cause: (memory.participation > 0).then_some(memory.cause),
@@ -2836,7 +3220,9 @@ fn append_existing_ready_paths(
                     stable_order: second_id.slot() as u32,
                     fresh_opportunity: None,
                     reentries: Vec::new(),
+                    motif_reentries: Vec::new(),
                     reentry_incidence_visits: 0,
+                    reentry_shortcut_hits: 0,
                     reentry_failed: false,
                     executable: path_is_executable(body, surface, outcome.is_some()),
                 });
@@ -2873,6 +3259,7 @@ fn mark_reentries(
     facts: &[MomentFact],
     paths: &mut [ReadyPath],
     scratch: &mut ReentryScratch,
+    change: &mut Change,
     construction: bool,
 ) {
     if construction {
@@ -2904,35 +3291,205 @@ fn mark_reentries(
         };
         scratch.clear_search();
         let mut visits = 0;
+        let mut shortcut_hits = 0;
         match find_reentries(
             body,
             path,
             &scratch.present,
             &mut scratch.steps,
             &mut scratch.continuations,
+            &mut scratch.dependencies,
             &mut visits,
+            &mut shortcut_hits,
         ) {
-            Ok(found) => candidate.reentries = found,
+            Ok(found) => {
+                if scratch.present.len() == 1 && !found.is_empty() {
+                    change.push(Edit::RehearseReentry {
+                        start: path,
+                        condition: scratch.present[0],
+                        routes: found.clone(),
+                        dependencies: scratch.dependencies.clone(),
+                    });
+                }
+                candidate.reentries = found;
+            }
             Err(()) => candidate.reentry_failed = true,
         }
         candidate.reentry_incidence_visits = visits;
+        candidate.reentry_shortcut_hits = shortcut_hits;
     }
 }
 
+const MAX_MOTIF_REENTRY_LINK_VISITS: u16 = 256;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum OutcomeForm {
+    None,
+    One(Junction),
+    Ambiguous,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct RetainedMotif {
+    witness: LinkId,
+    parent: LinkId,
+    closed: PathForm,
+    prior: PathForm,
+    closed_outcome: OutcomeForm,
+    prior_outcome: OutcomeForm,
+}
+
+fn mark_motif_reentries(body: ReactionView<'_>, paths: &mut [ReadyPath], construction: bool) {
+    if construction
+        || !paths
+            .iter()
+            .any(|path| path.executable && matches!(path.first, LinkRef::New(_)))
+    {
+        return;
+    }
+
+    let mut visits = 0_u16;
+    for slot in 0..body.link_memory.len() {
+        if visits >= MAX_MOTIF_REENTRY_LINK_VISITS {
+            for path in paths
+                .iter_mut()
+                .filter(|path| matches!(path.first, LinkRef::New(_)))
+            {
+                path.motif_reentries.clear();
+                path.reentry_incidence_visits =
+                    path.reentry_incidence_visits.saturating_add(visits);
+            }
+            return;
+        }
+        visits += 1;
+        let Some(witness) = LinkId::new(slot) else {
+            continue;
+        };
+        let Some(parent) = body.link_memory[slot].motif_parent() else {
+            continue;
+        };
+        let Some(motif) = retained_motif(body, witness, parent) else {
+            continue;
+        };
+        for index in 0..paths.len() {
+            if !paths[index].executable
+                || !matches!(paths[index].first, LinkRef::New(_))
+                || paths[index].form != motif.closed
+                || outcome_form(body, paths[index].output) != motif.closed_outcome
+            {
+                continue;
+            }
+            let has_prior = paths.iter().enumerate().any(|(other, path)| {
+                other != index
+                    && path.surface == paths[index].surface
+                    && path.output != paths[index].output
+                    && matches!(path.first, LinkRef::New(_))
+                    && path.form == motif.prior
+                    && outcome_form(body, path.output) == motif.prior_outcome
+            });
+            if has_prior
+                && !paths[index]
+                    .motif_reentries
+                    .iter()
+                    .any(|support| support.witness == motif.witness)
+            {
+                paths[index].motif_reentries.push(MotifReentryTrace {
+                    witness: motif.witness,
+                    parent: motif.parent,
+                });
+            }
+        }
+    }
+    for path in paths
+        .iter_mut()
+        .filter(|path| matches!(path.first, LinkRef::New(_)))
+    {
+        path.reentry_incidence_visits = path.reentry_incidence_visits.saturating_add(visits);
+    }
+}
+
+fn retained_motif(
+    body: ReactionView<'_>,
+    witness: LinkId,
+    parent: LinkId,
+) -> Option<RetainedMotif> {
+    let child = closed_step(body, witness)?;
+    let parent_step = closed_step(body, parent)?;
+    if closed_step_is_valid(body, child)? != child.path.output
+        || closed_step_is_valid(body, parent_step)? != parent_step.path.output
+    {
+        return None;
+    }
+    let child_prior = unique_prior_unclosed_sibling(body, child.path)?;
+    let parent_prior = unique_prior_unclosed_sibling(body, parent_step.path)?;
+    let closed = retained_path_form(body, child.path)?;
+    let prior = retained_path_form(body, child_prior)?;
+    if closed != retained_path_form(body, parent_step.path)?
+        || prior != retained_path_form(body, parent_prior)?
+    {
+        return None;
+    }
+    let closed_outcome = outcome_form(body, child.path.output);
+    let prior_outcome = outcome_form(body, child_prior.output);
+    if !matches!(closed_outcome, OutcomeForm::One(_))
+        || closed_outcome != outcome_form(body, parent_step.path.output)
+        || prior_outcome != outcome_form(body, parent_prior.output)
+    {
+        return None;
+    }
+    Some(RetainedMotif {
+        witness,
+        parent,
+        closed,
+        prior,
+        closed_outcome,
+        prior_outcome,
+    })
+}
+
+fn outcome_form(body: ReactionView<'_>, output: JunctionId) -> OutcomeForm {
+    let mut selected = None;
+    for witness in body.arena.incoming(output) {
+        let memory = &body.link_memory[witness.slot()];
+        if !memory.live || memory.role != LinkRole::OutcomeWitness {
+            continue;
+        }
+        let source = body.arena.link(witness).expect("live outcome witness").from;
+        let Some(law) = body
+            .arena
+            .junction(source)
+            .map(|source| source.checkpoint_law())
+        else {
+            return OutcomeForm::Ambiguous;
+        };
+        match selected {
+            None => selected = Some((source, law)),
+            Some((existing, _)) if existing != source => return OutcomeForm::Ambiguous,
+            Some(_) => {}
+        }
+    }
+    selected.map_or(OutcomeForm::None, |(_, law)| OutcomeForm::One(law))
+}
+
+#[allow(clippy::too_many_arguments)]
 fn find_reentries(
     body: ReactionView<'_>,
     path: Path,
     present: &[JunctionId],
     steps: &mut Vec<ReentryStepTrace>,
     continuations: &mut Vec<ReentryContinuation>,
+    dependencies: &mut Vec<JunctionId>,
     incidence_visits: &mut u16,
+    shortcut_hits: &mut u16,
 ) -> Result<Vec<ReentryTrace>, ()> {
     let mut search = ReentrySearch {
         body,
         present,
         steps,
         continuations,
+        dependencies,
         incidence_visits,
+        shortcut_hits,
         found: Vec::new(),
     };
     search.search(path, 0)?;
@@ -2944,13 +3501,33 @@ struct ReentrySearch<'body, 'scratch> {
     present: &'scratch [JunctionId],
     steps: &'scratch mut Vec<ReentryStepTrace>,
     continuations: &'scratch mut Vec<ReentryContinuation>,
+    dependencies: &'scratch mut Vec<JunctionId>,
     incidence_visits: &'scratch mut u16,
+    shortcut_hits: &'scratch mut u16,
     found: Vec<ReentryTrace>,
 }
 
 impl ReentrySearch<'_, '_> {
     fn search(&mut self, path: Path, depth: usize) -> Result<(), ()> {
-        if depth >= MAX_REENTRY_DEPTH || self.steps.iter().any(|step| step.path == path) {
+        if self.steps.iter().any(|step| step.path == path) {
+            return Err(());
+        }
+        self.depend_on(path.surface);
+        self.depend_on(path.middle);
+        self.depend_on(path.output);
+        if self.present.len() == 1 {
+            if let Some(shortcut) = self.body.automaticity.and_then(|automaticity| {
+                automaticity.usable_thought_shortcut(path, self.present[0])
+            }) {
+                return self.reuse_shortcut(shortcut);
+            }
+        }
+        let depth = if usable_composite_for_reentry(self.body, path, self.incidence_visits)? {
+            depth
+        } else {
+            depth.saturating_add(1)
+        };
+        if depth > MAX_REENTRY_DEPTH {
             return Err(());
         }
         let mut next = self
@@ -2976,11 +3553,20 @@ impl ReentrySearch<'_, '_> {
                 returned_source,
                 outcome_witness,
             };
-            let Some(outcome_target) =
-                closed_step_is_valid_for_reentry(self.body, retained, self.incidence_visits)?
+            let Some(outcome_target) = closed_step_is_valid_for_reentry(
+                self.body,
+                retained,
+                self.dependencies,
+                self.incidence_visits,
+            )?
             else {
                 return Err(());
             };
+            self.depend_on(returned_source);
+            self.depend_on(outcome_target);
+            let witness = self.body.arena.link(outcome_witness).ok_or(())?;
+            self.depend_on(witness.from);
+            self.depend_on(witness.to);
             self.steps.push(ReentryStepTrace {
                 path,
                 returned_source,
@@ -3003,12 +3589,49 @@ impl ReentrySearch<'_, '_> {
                 let end = self.continuations.len();
                 for index in start..end {
                     let continuation = self.continuations[index];
-                    self.search(continuation.path, depth + 1)?;
+                    self.search(continuation.path, depth)?;
                 }
                 self.continuations.truncate(start);
             }
             self.steps.pop();
         }
+        Ok(())
+    }
+
+    fn depend_on(&mut self, junction: JunctionId) {
+        if !self.dependencies.contains(&junction) {
+            self.dependencies.push(junction);
+        }
+    }
+
+    fn reuse_shortcut(&mut self, shortcut: &ThoughtShortcut) -> Result<(), ()> {
+        for dependency in &shortcut.dependencies {
+            self.depend_on(dependency.junction);
+        }
+        let prefix = self.steps.clone();
+        for route in &shortcut.routes {
+            if route.condition != shortcut.condition
+                || route.steps.first().map(|step| step.path) != Some(shortcut.start)
+            {
+                return Err(());
+            }
+            for (index, step) in route.steps.iter().enumerate() {
+                if prefix.iter().any(|existing| {
+                    existing.path == step.path || existing.outcome_witness == step.outcome_witness
+                }) || route.steps[..index].iter().any(|existing| {
+                    existing.path == step.path || existing.outcome_witness == step.outcome_witness
+                }) {
+                    return Err(());
+                }
+            }
+            let mut steps = prefix.clone();
+            steps.extend_from_slice(&route.steps);
+            self.found.push(ReentryTrace {
+                condition: route.condition,
+                steps,
+            });
+        }
+        *self.shortcut_hits = self.shortcut_hits.saturating_add(1);
         Ok(())
     }
 }
@@ -3075,12 +3698,13 @@ fn append_reentry_continuations(
 fn closed_step_is_valid_for_reentry(
     body: ReactionView<'_>,
     step: ClosedStep,
+    dependencies: &mut Vec<JunctionId>,
     incidence_visits: &mut u16,
 ) -> Result<Option<JunctionId>, ()> {
     if path_from_links(body, step.path.first, step.path.second) != Some(step.path)
         || body.link_memory[step.path.first.slot()].participation == 0
         || body.link_memory[step.path.second.slot()].participation == 0
-        || !path_is_executable_for_reentry(body, step.path.surface, incidence_visits)?
+        || !path_is_executable_for_reentry(body, step.path.surface, dependencies, incidence_visits)?
     {
         return Ok(None);
     }
@@ -3099,6 +3723,7 @@ fn closed_step_is_valid_for_reentry(
 fn path_is_executable_for_reentry(
     body: ReactionView<'_>,
     surface: JunctionId,
+    dependencies: &mut Vec<JunctionId>,
     incidence_visits: &mut u16,
 ) -> Result<bool, ()> {
     let mut parent = None;
@@ -3112,6 +3737,9 @@ fn path_is_executable_for_reentry(
             .link(link)
             .expect("live membership incidence")
             .from;
+        if !dependencies.contains(&found) {
+            dependencies.push(found);
+        }
         if parent.is_some_and(|existing| existing != found) {
             return Ok(false);
         }
@@ -3223,31 +3851,27 @@ fn unique_prior_unclosed_sibling_before(
     selected
 }
 
+fn retained_path_form(body: ReactionView<'_>, path: Path) -> Option<PathForm> {
+    let surface = body.arena.junction(path.surface)?.checkpoint_law();
+    let first = body.arena.link(path.first)?;
+    let second = body.arena.link(path.second)?;
+    Some(PathForm {
+        surface,
+        first: LinkForm {
+            delay: first.delay,
+            impulse: first.impulse,
+            trigger: first.trigger,
+        },
+        second: LinkForm {
+            delay: second.delay,
+            impulse: second.impulse,
+            trigger: second.trigger,
+        },
+    })
+}
+
 fn same_path_form(body: ReactionView<'_>, left: Path, right: Path) -> bool {
-    let Some(left_first) = body.arena.link(left.first) else {
-        return false;
-    };
-    let Some(left_second) = body.arena.link(left.second) else {
-        return false;
-    };
-    let Some(right_first) = body.arena.link(right.first) else {
-        return false;
-    };
-    let Some(right_second) = body.arena.link(right.second) else {
-        return false;
-    };
-    let same_surface_law = body.arena.junction(left.surface).is_some_and(|left| {
-        body.arena
-            .junction(right.surface)
-            .is_some_and(|right| left.checkpoint_law() == right.checkpoint_law())
-    });
-    same_surface_law
-        && left_first.delay == right_first.delay
-        && left_first.impulse == right_first.impulse
-        && left_first.trigger == right_first.trigger
-        && left_second.delay == right_second.delay
-        && left_second.impulse == right_second.impulse
-        && left_second.trigger == right_second.trigger
+    retained_path_form(body, left).is_some_and(|left| Some(left) == retained_path_form(body, right))
 }
 
 fn matching_closed_switch(
@@ -3678,6 +4302,12 @@ fn choose_ready(
         })
     })
     .or_else(|| {
+        unique_motif_reentry((0..paths.len()).filter(active), paths).map(|winner| ReadyChoice {
+            winner,
+            basis: ChoiceBasis::UniqueMotifReentry,
+        })
+    })
+    .or_else(|| {
         unique_latest_ready(paths, worlds, world, strongest_drive, true, construction).map(
             |winner| ReadyChoice {
                 winner,
@@ -3743,6 +4373,18 @@ fn unique_reentry(paths: impl Iterator<Item = usize>, ready: &[ReadyPath]) -> Op
         candidates
             .into_iter()
             .filter(|index| ready[*index].reentries.len() == 1),
+    )
+}
+
+fn unique_motif_reentry(paths: impl Iterator<Item = usize>, ready: &[ReadyPath]) -> Option<usize> {
+    let candidates = paths.collect::<Vec<_>>();
+    if candidates.iter().any(|index| ready[*index].reentry_failed) {
+        return None;
+    }
+    unique_ready(
+        candidates
+            .into_iter()
+            .filter(|index| !ready[*index].motif_reentries.is_empty()),
     )
 }
 
@@ -4538,11 +5180,27 @@ impl Body {
     }
 
     pub fn set_link_impulse(&mut self, link: LinkId, impulse: Impulse) -> Result<(), ApplyError> {
+        let (from, to, changed, relevant) = {
+            let physical = self.arena.link(link).ok_or(ApplyError::UnknownLink(link))?;
+            let memory = self
+                .link_memory
+                .get(link.slot())
+                .ok_or(ApplyError::UnknownLink(link))?;
+            (
+                physical.from,
+                physical.to,
+                physical.impulse != impulse,
+                matches!(memory.role, LinkRole::PathEntry | LinkRole::Drive),
+            )
+        };
         let physical = self
             .arena
             .link_mut(link)
             .ok_or(ApplyError::UnknownLink(link))?;
         physical.impulse = impulse;
+        if changed && relevant {
+            self.touch_reentry_junctions([from, to]);
+        }
         if self.returns.live_count != 0 {
             self.rebuild_live_returns();
         }
@@ -4569,10 +5227,25 @@ impl Body {
             .ok_or(ApplyError::UnknownLink(link))?;
         let live = memory.live;
         let previous = memory.role;
+        let physical = *self.arena.link(link).ok_or(ApplyError::UnknownLink(link))?;
         if live {
             self.remove_live_return(link, previous);
         }
         self.link_memory[link.slot()].role = role;
+        let transient_return =
+            matches!(role, LinkRole::Return { .. }) && physical.delay == 0 && physical.impulse == 0;
+        let reentry_role = |role| {
+            matches!(
+                role,
+                LinkRole::PathEntry
+                    | LinkRole::Drive
+                    | LinkRole::OutcomeWitness
+                    | LinkRole::Membership
+            )
+        };
+        if previous != role && !transient_return && (reentry_role(previous) || reentry_role(role)) {
+            self.touch_reentry_junctions([physical.from, physical.to]);
+        }
         if !matches!(previous, LinkRole::Composite { .. })
             && matches!(role, LinkRole::Composite { .. })
         {
@@ -4659,6 +5332,45 @@ impl Body {
                         validate_link(self, (*parent).into(), links)?;
                     }
                 }
+                Edit::RehearseReentry {
+                    start,
+                    condition,
+                    routes,
+                    dependencies,
+                } => {
+                    for junction in [start.surface, start.middle, start.output, *condition]
+                        .into_iter()
+                        .chain(dependencies.iter().copied())
+                        .chain(routes.iter().flat_map(|route| {
+                            std::iter::once(route.condition).chain(route.steps.iter().flat_map(
+                                |step| {
+                                    [
+                                        step.path.surface,
+                                        step.path.middle,
+                                        step.path.output,
+                                        step.returned_source,
+                                        step.outcome_target,
+                                    ]
+                                },
+                            ))
+                        }))
+                    {
+                        if self.arena.junction(junction).is_none() {
+                            return Err(ApplyError::UnknownJunction(junction));
+                        }
+                    }
+                    for link in start
+                        .links()
+                        .into_iter()
+                        .chain(routes.iter().flat_map(|route| {
+                            route.steps.iter().flat_map(|step| {
+                                [step.path.first, step.path.second, step.outcome_witness]
+                            })
+                        }))
+                    {
+                        validate_link(self, link.into(), links)?;
+                    }
+                }
             }
         }
         if !self.arena.has_junction_capacity(junctions) {
@@ -4689,9 +5401,14 @@ impl Body {
                     let from = resolve_junction(from, applied)?;
                     let to = resolve_junction(to, applied)?;
                     let id = self
-                        .add_link(Link::new(from, to, spec.delay, spec.impulse).when(spec.trigger))
+                        .add_link_untracked(
+                            Link::new(from, to, spec.delay, spec.impulse).when(spec.trigger),
+                        )
                         .map_err(ApplyError::Build)?;
                     self.set_link_role(id, spec.role)?;
+                    if spec.role == LinkRole::Drive {
+                        self.touch_reentry_junctions([from, to]);
+                    }
                     applied.links.push(id);
                 }
                 Edit::Send { through, at, cause } => {
@@ -4783,6 +5500,8 @@ impl Body {
                             .ok_or(ApplyError::UnknownLink(link))?;
                         let was_live = memory.live;
                         let role = memory.role;
+                        let physical =
+                            *self.arena.link(link).ok_or(ApplyError::UnknownLink(link))?;
                         if was_live {
                             self.remove_live_return(link, role);
                             self.link_memory[link.slot()].live = false;
@@ -4790,15 +5509,27 @@ impl Body {
                             if self.returns.live_count != 0 && return_topology_role(role) {
                                 self.rebuild_live_returns();
                             }
+                            if matches!(
+                                role,
+                                LinkRole::PathEntry
+                                    | LinkRole::Drive
+                                    | LinkRole::OutcomeWitness
+                                    | LinkRole::Membership
+                            ) {
+                                self.touch_reentry_junctions([physical.from, physical.to]);
+                            }
                         }
                         continue;
                     }
+                    let physical = *self.arena.link(link).ok_or(ApplyError::UnknownLink(link))?;
+                    let mut touch_reentry = false;
                     let memory = self
                         .link_memory
                         .get_mut(link.slot())
                         .ok_or(ApplyError::UnknownLink(link))?;
                     match change {
                         LinkChange::Participated { cause, at } => {
+                            touch_reentry = memory.participation == 0;
                             memory.participation = memory.participation.saturating_add(1);
                             memory.cause = cause;
                             memory.participated_at = at;
@@ -4859,7 +5590,16 @@ impl Body {
                         }
                         LinkChange::Retire => unreachable!("retirement handled before mutation"),
                     }
+                    if touch_reentry {
+                        self.touch_reentry_junctions([physical.from, physical.to]);
+                    }
                 }
+                Edit::RehearseReentry {
+                    start,
+                    condition,
+                    routes,
+                    dependencies,
+                } => self.rehearse_reentry(start, condition, routes, dependencies),
             }
         }
         Ok(())
@@ -5034,6 +5774,19 @@ mod tests {
             output,
             first: LinkId::new(stable_order as usize * 2).unwrap().into(),
             second: LinkId::new(stable_order as usize * 2 + 1).unwrap().into(),
+            form: PathForm {
+                surface: Junction::integrating(1),
+                first: LinkForm {
+                    delay: 1,
+                    impulse: 1,
+                    trigger: Trigger::SourceFires,
+                },
+                second: LinkForm {
+                    delay: 1,
+                    impulse: 1,
+                    trigger: Trigger::SourceFires,
+                },
+            },
             at: 1,
             current_cause: 1,
             return_cause: None,
@@ -5054,7 +5807,9 @@ mod tests {
             stable_order,
             fresh_opportunity: None,
             reentries: Vec::new(),
+            motif_reentries: Vec::new(),
             reentry_incidence_visits: 0,
+            reentry_shortcut_hits: 0,
             reentry_failed: false,
             executable: true,
         }
@@ -5091,6 +5846,234 @@ mod tests {
                 outcome_target: path.output,
             }],
         }
+    }
+
+    fn closed_reentry_chain(length: usize, dormant_prefix: bool) -> (Body, Vec<Path>, JunctionId) {
+        assert!(length > 0);
+        let mut body = Body::default();
+        if dormant_prefix {
+            let from = body.add_junction(Junction::integrating(1)).unwrap();
+            let to = body.add_junction(Junction::integrating(1)).unwrap();
+            body.add_link(Link::new(from, to, 1, 1)).unwrap();
+        }
+        let surfaces = (0..=length)
+            .map(|_| body.add_junction(Junction::integrating(1)).unwrap())
+            .collect::<Vec<_>>();
+        let mut paths = Vec::with_capacity(length);
+        for index in 0..length {
+            let middle = body.add_junction(Junction::integrating(1)).unwrap();
+            let output = body.add_junction(Junction::integrating(1)).unwrap();
+            let first = body
+                .add_link(Link::new(surfaces[index], middle, 1, 1))
+                .unwrap();
+            body.set_link_role(first, LinkRole::PathEntry).unwrap();
+            let second = body.add_link(Link::new(middle, output, 1, 1)).unwrap();
+            body.link_memory[first.slot()].participation = 1;
+            body.link_memory[second.slot()].participation = 1;
+            let witness = body
+                .add_link(Link::new(surfaces[index + 1], output, 0, 1))
+                .unwrap();
+            body.set_link_role(witness, LinkRole::OutcomeWitness)
+                .unwrap();
+            let returned = body.add_link(Link::new(output, middle, 0, 0)).unwrap();
+            body.set_link_role(
+                returned,
+                LinkRole::Return {
+                    cause: 1,
+                    cohort: 1,
+                },
+            )
+            .unwrap();
+            body.link_memory[returned.slot()].live = false;
+            body.link_memory[returned.slot()].remember_closed_support(surfaces[index + 1], witness);
+            paths.push(Path {
+                surface: surfaces[index],
+                middle,
+                output,
+                first,
+                second,
+            });
+        }
+        (body, paths, surfaces[length])
+    }
+
+    fn retain_confirmed_shortcuts(body: &mut Body, paths: &[Path]) -> Vec<LinkId> {
+        let mut trace = NoTrace;
+        for path in paths {
+            body.link_memory[path.first.slot()].exact_closures = AUTOMATIC_AFTER_EXACT_CLOSURES;
+            body.link_memory[path.second.slot()].exact_closures = AUTOMATIC_AFTER_EXACT_CLOSURES;
+            retain_composite_direct(body, *path, 1, &mut trace);
+        }
+        paths
+            .iter()
+            .map(|path| {
+                let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+                usable_composite(view, *path).expect("confirmed path has a valid shortcut")
+            })
+            .collect()
+    }
+
+    fn inspect_reentry(
+        body: &Body,
+        first: Path,
+        present: JunctionId,
+    ) -> (Result<Vec<ReentryTrace>, ()>, u16) {
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+        let mut steps = Vec::new();
+        let mut continuations = Vec::new();
+        let mut dependencies = Vec::new();
+        let mut incidence_visits = 0;
+        let mut shortcut_hits = 0;
+        let found = find_reentries(
+            view,
+            first,
+            &[present],
+            &mut steps,
+            &mut continuations,
+            &mut dependencies,
+            &mut incidence_visits,
+            &mut shortcut_hits,
+        );
+        (found, incidence_visits)
+    }
+
+    fn append_closed_reentry_step(
+        body: &mut Body,
+        surface: JunctionId,
+        returned_source: JunctionId,
+    ) -> Path {
+        let middle = body.add_junction(Junction::integrating(1)).unwrap();
+        let output = body.add_junction(Junction::integrating(1)).unwrap();
+        let first = body.add_link(Link::new(surface, middle, 1, 1)).unwrap();
+        body.set_link_role(first, LinkRole::PathEntry).unwrap();
+        let second = body.add_link(Link::new(middle, output, 1, 1)).unwrap();
+        body.link_memory[first.slot()].participation = 1;
+        body.link_memory[second.slot()].participation = 1;
+        let witness = body
+            .add_link(Link::new(returned_source, output, 0, 1))
+            .unwrap();
+        body.set_link_role(witness, LinkRole::OutcomeWitness)
+            .unwrap();
+        let returned = body.add_link(Link::new(output, middle, 0, 0)).unwrap();
+        body.set_link_role(
+            returned,
+            LinkRole::Return {
+                cause: 1,
+                cohort: 1,
+            },
+        )
+        .unwrap();
+        body.link_memory[returned.slot()].live = false;
+        body.link_memory[returned.slot()].remember_closed_support(returned_source, witness);
+        Path {
+            surface,
+            middle,
+            output,
+            first,
+            second,
+        }
+    }
+
+    fn think_reentry(
+        body: &mut Body,
+        first: Path,
+        present: JunctionId,
+    ) -> (Result<Vec<ReentryTrace>, ()>, u16, u16) {
+        let (found, dependencies, visits, shortcut_hits) = {
+            let view = ReactionView::with_automaticity(
+                &body.arena,
+                &body.link_memory,
+                &body.returns,
+                body.automaticity.as_deref(),
+            );
+            let mut steps = Vec::new();
+            let mut continuations = Vec::new();
+            let mut dependencies = Vec::new();
+            let mut incidence_visits = 0;
+            let mut shortcut_hits = 0;
+            let found = find_reentries(
+                view,
+                first,
+                &[present],
+                &mut steps,
+                &mut continuations,
+                &mut dependencies,
+                &mut incidence_visits,
+                &mut shortcut_hits,
+            );
+            (found, dependencies, incidence_visits, shortcut_hits)
+        };
+        if let Ok(routes) = &found {
+            if !routes.is_empty() {
+                let mut change = Change::empty();
+                change.push(Edit::RehearseReentry {
+                    start: first,
+                    condition: present,
+                    routes: routes.clone(),
+                    dependencies,
+                });
+                body.apply(change).unwrap();
+            }
+        }
+        (found, visits, shortcut_hits)
+    }
+
+    fn rehearse_through_reaction(
+        body: &mut Body,
+        first: Path,
+        present: JunctionId,
+    ) -> (Vec<ReentryTrace>, u16, u16) {
+        let (routes, visits, shortcut_hits, change) = {
+            let view = ReactionView::with_automaticity(
+                &body.arena,
+                &body.link_memory,
+                &body.returns,
+                body.automaticity.as_deref(),
+            );
+            let event = crate::physics::Event {
+                at: 7,
+                junction: first.surface,
+                arrivals: 1,
+                impulse: 1,
+                before: 0,
+                after: 1,
+                cause: 1,
+            };
+            let mut paths = Vec::new();
+            let mut connected = Vec::new();
+            append_existing_ready_paths(view, event, 1, 1, &mut paths, &mut connected);
+            let facts = [MomentFact {
+                event: crate::physics::Event {
+                    junction: present,
+                    ..event
+                },
+                drive: 1,
+                boundary: true,
+                used: UsedPaths::None,
+                had_ready_path: false,
+            }];
+            let mut change = Change::empty();
+            mark_reentries(
+                view,
+                &facts,
+                &mut paths,
+                &mut ReentryScratch::default(),
+                &mut change,
+                false,
+            );
+            let path = paths
+                .into_iter()
+                .find(|candidate| candidate.first == first.first.into())
+                .unwrap();
+            (
+                path.reentries,
+                path.reentry_incidence_visits,
+                path.reentry_shortcut_hits,
+                change,
+            )
+        };
+        body.apply(change).unwrap();
+        (routes, visits, shortcut_hits)
     }
 
     #[test]
@@ -5171,6 +6154,7 @@ mod tests {
             &facts,
             &mut paths,
             &mut ReentryScratch::default(),
+            &mut Change::empty(),
             false,
         );
 
@@ -5234,7 +6218,9 @@ mod tests {
 
         let mut steps = Vec::new();
         let mut continuations = Vec::new();
+        let mut dependencies = Vec::new();
         let mut incidence_visits = 0;
+        let mut shortcut_hits = 0;
         assert_eq!(
             find_reentries(
                 view,
@@ -5242,10 +6228,370 @@ mod tests {
                 &[present],
                 &mut steps,
                 &mut continuations,
+                &mut dependencies,
                 &mut incidence_visits,
+                &mut shortcut_hits,
             ),
             Err(())
         );
+    }
+
+    #[test]
+    fn confirmed_shortcuts_extend_foresight_without_a_larger_depth_lifetime() {
+        let (mut body, paths, present) = closed_reentry_chain(MAX_REENTRY_DEPTH + 1, false);
+        assert_eq!(inspect_reentry(&body, paths[0], present).0, Err(()));
+
+        let shortcuts = retain_confirmed_shortcuts(&mut body, &paths);
+        let (found, _) = inspect_reentry(&body, paths[0], present);
+
+        let found = found.expect("confirmed compression extends the same wave");
+        let [reentry] = found.as_slice() else {
+            panic!("one compressed route should reach the present condition");
+        };
+        assert_eq!(reentry.condition, present);
+        assert_eq!(reentry.steps.len(), MAX_REENTRY_DEPTH + 1);
+        assert_eq!(shortcuts.len(), paths.len());
+    }
+
+    #[test]
+    fn one_confirmed_shortcut_extends_foresight_by_one_physical_step() {
+        let (mut body, paths, present) = closed_reentry_chain(MAX_REENTRY_DEPTH + 1, false);
+        assert_eq!(inspect_reentry(&body, paths[0], present).0, Err(()));
+
+        retain_confirmed_shortcuts(&mut body, &paths[MAX_REENTRY_DEPTH..]);
+
+        assert!(inspect_reentry(&body, paths[0], present)
+            .0
+            .is_ok_and(|found| found.len() == 1));
+    }
+
+    #[test]
+    fn unconfirmed_inspection_never_creates_its_own_foresight() {
+        let (body, paths, present) = closed_reentry_chain(MAX_REENTRY_DEPTH + 1, false);
+        let before = body.checkpoint().unwrap().canonical_bytes().unwrap();
+
+        for _ in 0..3 {
+            assert_eq!(inspect_reentry(&body, paths[0], present).0, Err(()));
+        }
+
+        assert_eq!(
+            body.checkpoint().unwrap().canonical_bytes().unwrap(),
+            before
+        );
+        assert!(body
+            .link_memory
+            .iter()
+            .all(|memory| !matches!(memory.role, LinkRole::Composite { .. })));
+    }
+
+    #[test]
+    fn repeated_thought_permanently_compiles_without_inventing_causal_evidence() {
+        let (mut body, paths, present) = closed_reentry_chain(6, false);
+        let closed_before = body.reentry_state().closed_steps;
+        let link_count_before = body.arena.link_count();
+        let strengths_before = body
+            .link_memory
+            .iter()
+            .map(|memory| memory.strength)
+            .collect::<Vec<_>>();
+
+        let (expected, full_visits, first_hits) = think_reentry(&mut body, paths[0], present);
+        assert_eq!(first_hits, 0);
+        assert_eq!(body.reentry_state().thought_shortcuts, 0);
+        let (_, second_visits, second_hits) = think_reentry(&mut body, paths[0], present);
+        assert_eq!((second_visits, second_hits), (full_visits, 0));
+        assert_eq!(body.reentry_state().thought_shortcuts, 0);
+        let (_, third_visits, third_hits) = think_reentry(&mut body, paths[0], present);
+        assert_eq!((third_visits, third_hits), (full_visits, 0));
+        assert_eq!(body.reentry_state().thought_shortcuts, 1);
+
+        let (compiled, compiled_visits, compiled_hits) =
+            think_reentry(&mut body, paths[0], present);
+        assert_eq!(compiled, expected);
+        assert_eq!(compiled_hits, 1);
+        assert!(compiled_visits < full_visits);
+        assert_eq!(body.reentry_state().closed_steps, closed_before);
+        assert_eq!(body.arena.link_count(), link_count_before);
+        assert_eq!(
+            body.link_memory
+                .iter()
+                .map(|memory| memory.strength)
+                .collect::<Vec<_>>(),
+            strengths_before
+        );
+    }
+
+    #[test]
+    fn ordinary_reaction_compiles_the_same_repeated_internal_path() {
+        let (mut body, paths, present) = closed_reentry_chain(4, false);
+        let first = rehearse_through_reaction(&mut body, paths[0], present);
+        assert_eq!(first.0.len(), 1);
+        assert_eq!(first.2, 0);
+        assert_eq!(rehearse_through_reaction(&mut body, paths[0], present).2, 0);
+        assert_eq!(rehearse_through_reaction(&mut body, paths[0], present).2, 0);
+
+        let compiled = rehearse_through_reaction(&mut body, paths[0], present);
+
+        assert_eq!(compiled.0, first.0);
+        assert!(compiled.1 < first.1);
+        assert_eq!(compiled.2, 1);
+    }
+
+    #[test]
+    fn compiled_thought_survives_checkpoint_restore() {
+        let (mut body, paths, present) = closed_reentry_chain(5, false);
+        for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert!(think_reentry(&mut body, paths[0], present).0.is_ok());
+        }
+        let bytes = body.checkpoint().unwrap().canonical_bytes().unwrap();
+        let mut restored = crate::BodyCheckpoint::decode(&bytes)
+            .unwrap()
+            .restore()
+            .unwrap();
+
+        let (_, visits, shortcut_hits) = think_reentry(&mut restored, paths[0], present);
+
+        assert_eq!(shortcut_hits, 1);
+        assert_eq!(visits, 0);
+        assert_eq!(restored.reentry_state().thought_shortcuts, 1);
+    }
+
+    #[test]
+    fn a_new_possible_branch_invalidates_compiled_thought_and_preserves_ambiguity() {
+        let (mut body, paths, present) = closed_reentry_chain(4, false);
+        for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert_eq!(
+                think_reentry(&mut body, paths[0], present).0.unwrap().len(),
+                1
+            );
+        }
+        assert_eq!(think_reentry(&mut body, paths[0], present).2, 1);
+
+        append_closed_reentry_step(&mut body, paths[1].surface, present);
+        let (found, _, shortcut_hits) = think_reentry(&mut body, paths[0], present);
+
+        assert_eq!(shortcut_hits, 0);
+        assert_eq!(found.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn changed_causal_support_invalidates_only_the_dependent_compiled_thought() {
+        let (mut body, paths, present) = closed_reentry_chain(4, false);
+        for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert!(think_reentry(&mut body, paths[0], present).0.is_ok());
+        }
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+        let witness = closed_steps(view)
+            .find(|step| step.path == paths[2])
+            .unwrap()
+            .outcome_witness;
+
+        body.set_link_role(witness, LinkRole::BoundaryWitness)
+            .unwrap();
+        let (found, _, shortcut_hits) = think_reentry(&mut body, paths[0], present);
+
+        assert_eq!(shortcut_hits, 0);
+        assert!(found.unwrap().is_empty());
+        assert_eq!(body.reentry_state().thought_shortcuts, 0);
+    }
+
+    #[test]
+    fn repeated_real_confirmation_of_the_same_support_keeps_compiled_thought() {
+        let (mut body, paths, present) = closed_reentry_chain(4, false);
+        for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert!(think_reentry(&mut body, paths[0], present).0.is_ok());
+        }
+        let confirmed = {
+            let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+            closed_steps(view)
+                .find(|step| step.path == paths[1])
+                .unwrap()
+        };
+        let epochs_before = body.automaticity.as_ref().unwrap().reentry_epochs.clone();
+        let returned = body
+            .add_link_untracked(Link::new(paths[1].output, paths[1].middle, 0, 0))
+            .unwrap();
+        body.set_link_role(
+            returned,
+            LinkRole::Return {
+                cause: 9,
+                cohort: 9,
+            },
+        )
+        .unwrap();
+        body.link_memory[returned.slot()].live = false;
+        assert_eq!(
+            body.automaticity.as_ref().unwrap().reentry_epochs,
+            epochs_before
+        );
+
+        body.retain_closed_step(
+            returned,
+            confirmed.returned_source,
+            confirmed.path,
+            Some(confirmed.outcome_witness),
+            true,
+            true,
+        );
+        assert_eq!(
+            body.automaticity.as_ref().unwrap().reentry_epochs,
+            epochs_before
+        );
+        let (found, _, shortcut_hits) = think_reentry(&mut body, paths[0], present);
+
+        assert_eq!(shortcut_hits, 1);
+        assert_eq!(found.unwrap().len(), 1);
+        assert_eq!(body.reentry_state().thought_shortcuts, 1);
+    }
+
+    #[test]
+    fn compiled_ambiguous_thought_never_becomes_a_unique_future() {
+        let (mut body, paths, present) = closed_reentry_chain(4, false);
+        append_closed_reentry_step(&mut body, paths[1].surface, present);
+        for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert_eq!(
+                think_reentry(&mut body, paths[0], present).0.unwrap().len(),
+                2
+            );
+        }
+
+        let (found, _, shortcut_hits) = think_reentry(&mut body, paths[0], present);
+
+        assert_eq!(shortcut_hits, 1);
+        assert_eq!(found.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn disconnected_change_does_not_invalidate_compiled_thought() {
+        let (mut body, paths, present) = closed_reentry_chain(4, false);
+        for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert!(think_reentry(&mut body, paths[0], present).0.is_ok());
+        }
+        let from = body.add_junction(Junction::integrating(1)).unwrap();
+        let to = body.add_junction(Junction::integrating(1)).unwrap();
+        body.add_link(Link::new(from, to, 1, 1)).unwrap();
+
+        let (_, _, shortcut_hits) = think_reentry(&mut body, paths[0], present);
+
+        assert_eq!(shortcut_hits, 1);
+    }
+
+    #[test]
+    fn attached_compiled_thought_keeps_its_remapped_physical_dependencies() {
+        let (mut part, paths, present) = closed_reentry_chain(4, false);
+        for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert!(think_reentry(&mut part, paths[0], present).0.is_ok());
+        }
+        let mut host = Body::default();
+        let dormant_from = host.add_junction(Junction::integrating(1)).unwrap();
+        let dormant_to = host.add_junction(Junction::integrating(1)).unwrap();
+        host.add_link(Link::new(dormant_from, dormant_to, 1, 1))
+            .unwrap();
+        let junction_base = host.arena.junction_count();
+        let link_base = host.arena.link_count();
+        let mut remapped_start = paths[0];
+        remap_path(&mut remapped_start, junction_base, link_base);
+        let remapped_present = remap_junction(present, junction_base);
+        let part = crate::OpenBody::new(part, vec![present]).unwrap();
+
+        crate::attach(&mut host, part, &[]).unwrap();
+        let (_, visits, shortcut_hits) = think_reentry(&mut host, remapped_start, remapped_present);
+
+        assert_eq!(shortcut_hits, 1);
+        assert_eq!(visits, 0);
+        assert_eq!(host.reentry_state().thought_shortcuts, 1);
+    }
+
+    #[test]
+    fn disconnected_compiled_thoughts_do_not_change_local_receipt_or_graph_work() {
+        let (mut host, paths, present) = closed_reentry_chain(4, false);
+        for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+            assert!(think_reentry(&mut host, paths[0], present).0.is_ok());
+        }
+        let expected = think_reentry(&mut host, paths[0], present);
+        for _ in 0..12 {
+            let (mut part, part_paths, part_present) = closed_reentry_chain(4, false);
+            for _ in 0..THOUGHT_SHORTCUT_AFTER_REHEARSALS {
+                assert!(think_reentry(&mut part, part_paths[0], part_present)
+                    .0
+                    .is_ok());
+            }
+            let part = crate::OpenBody::new(part, vec![part_present]).unwrap();
+            crate::attach(&mut host, part, &[]).unwrap();
+        }
+
+        let observed = think_reentry(&mut host, paths[0], present);
+
+        assert_eq!(observed, expected);
+    }
+
+    #[test]
+    fn changing_one_confirmed_parent_falls_back_to_detailed_foresight() {
+        let (mut body, paths, present) = closed_reentry_chain(MAX_REENTRY_DEPTH + 1, false);
+        let shortcuts = retain_confirmed_shortcuts(&mut body, &paths);
+        assert!(inspect_reentry(&body, paths[0], present)
+            .0
+            .is_ok_and(|found| found.len() == 1));
+
+        let changed = MAX_REENTRY_DEPTH / 2;
+        body.set_link_impulse(shortcuts[changed], 0).unwrap();
+
+        assert!(inspect_reentry(&body, paths[0], present)
+            .0
+            .is_ok_and(|found| found.len() == 1));
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+        assert!(usable_composite(view, paths[changed]).is_none());
+    }
+
+    #[test]
+    fn changing_an_intermediate_consequence_stops_compressed_foresight() {
+        let (mut body, paths, present) = closed_reentry_chain(MAX_REENTRY_DEPTH + 1, false);
+        retain_confirmed_shortcuts(&mut body, &paths);
+        let changed = MAX_REENTRY_DEPTH / 2;
+        let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
+        let witness = closed_steps(view)
+            .find(|step| step.path == paths[changed])
+            .expect("changed step has exact retained support")
+            .outcome_witness;
+
+        body.set_link_role(witness, LinkRole::BoundaryWitness)
+            .unwrap();
+
+        assert!(inspect_reentry(&body, paths[0], present)
+            .0
+            .is_ok_and(|found| found.is_empty()));
+    }
+
+    #[test]
+    fn compressed_foresight_ignores_identity_and_disconnected_construction() {
+        let episode = |dormant_prefix| {
+            let (mut body, paths, present) =
+                closed_reentry_chain(MAX_REENTRY_DEPTH + 1, dormant_prefix);
+            retain_confirmed_shortcuts(&mut body, &paths);
+            let (found, visits) = inspect_reentry(&body, paths[0], present);
+            (
+                found
+                    .expect("renamed compressed route remains inspectable")
+                    .into_iter()
+                    .map(|reentry| reentry.steps.len())
+                    .collect::<Vec<_>>(),
+                visits,
+            )
+        };
+
+        assert_eq!(episode(false), episode(true));
+    }
+
+    #[test]
+    fn confirmed_compression_never_removes_the_incidence_safety_ceiling() {
+        let (mut body, paths, present) =
+            closed_reentry_chain(MAX_REENTRY_INCIDENCE_VISITS as usize, false);
+        retain_confirmed_shortcuts(&mut body, &paths);
+
+        let (found, visits) = inspect_reentry(&body, paths[0], present);
+
+        assert_eq!(found, Err(()));
+        assert_eq!(visits, MAX_REENTRY_INCIDENCE_VISITS);
     }
 
     #[test]
@@ -5591,7 +6937,9 @@ mod tests {
                 fresh_opportunity: path.fresh_opportunity,
                 present_sources: Vec::new(),
                 reentries: path.reentries.clone(),
+                motif_reentries: path.motif_reentries.clone(),
                 reentry_incidence_visits: path.reentry_incidence_visits,
+                reentry_shortcut_hits: path.reentry_shortcut_hits,
                 reentry_failed: path.reentry_failed,
                 new_path: false,
             });
