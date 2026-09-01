@@ -8,11 +8,12 @@ pub mod core;
 mod engine;
 pub mod harness;
 #[cfg(test)]
+#[path = "tests/motif_laws.rs"]
 mod motif_laws;
 mod physics;
 #[cfg(test)]
+#[path = "tests/planning_goal_laws.rs"]
 mod planning_goal_laws;
-mod timeline;
 mod trace;
 
 pub use crate::attachment::{
@@ -26,7 +27,6 @@ pub use crate::physics::{
     Arrival, BuildError, Event as PhysicalEvent, Impulse, Junction, JunctionId, Link, LinkId,
     Retention, Run, RunError, Step, Time, Trigger, Work, DRIVE_MAX,
 };
-pub use crate::timeline::{MomentKey, QueueWork, Timeline, TimelineItem};
 pub use crate::trace::{
     verify_choice_laws, CandidateTrace, ChoiceBasis, ChoiceLaw, ChoiceLawViolation, ChoiceTrace,
     MotifReentryTrace, MotifRouteStepTrace, MotifRouteTrace, ReentryStepTrace, ReentryTrace,
