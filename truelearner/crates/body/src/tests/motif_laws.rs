@@ -9,8 +9,8 @@
 
 use crate::{
     harness::{attach_outcome_component, attach_sensor, effect, motor, schedule, Motor},
-    verify_choice_laws, Arrival, Body, ChoiceBasis, Junction, JunctionId, LinkId, PhysicalEvent,
-    ReturnDecision, TraceEvent, TracePath, Trigger,
+    verify_choice_contract, Arrival, Body, ChoiceWarrant, Junction, JunctionId, LinkId,
+    PhysicalEvent, ReturnDecision, TraceEvent, TracePath, Trigger,
 };
 
 #[derive(Clone)]
@@ -123,11 +123,11 @@ fn run(body: &mut Body) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
     body.run_traced(256, |event| events.push(event), |event| trace.push(event))
         .unwrap();
     assert!(body.is_quiet());
-    verify_choice_laws(&trace).unwrap();
+    verify_choice_contract(&trace).unwrap();
     (events, trace)
 }
 
-fn selected_candidate(trace: &[TraceEvent]) -> (&TracePath, u16, ChoiceBasis) {
+fn selected_candidate(trace: &[TraceEvent]) -> (&TracePath, u16, ChoiceWarrant) {
     let choice = trace.iter().find_map(|event| match event {
         TraceEvent::Choice(choice) if choice.sent => Some(choice),
         _ => None,
@@ -143,8 +143,8 @@ fn selected_candidate(trace: &[TraceEvent]) -> (&TracePath, u16, ChoiceBasis) {
         winner,
         candidate.drive,
         choice
-            .basis
-            .expect("a sent choice names its physical basis"),
+            .warrant
+            .expect("a sent choice names its physical warrant"),
     )
 }
 
@@ -154,14 +154,14 @@ fn shifted_absolute_baselines_preserve_the_same_closed_rise_behavior() {
         let mut world = DeltaWorld::new(baseline);
         world.demonstrate_rise();
         let (events, trace) = world.probe(baseline + 6);
-        let (_, drive, basis) = selected_candidate(&trace);
-        (events, drive, basis)
+        let (_, drive, warrant) = selected_candidate(&trace);
+        (events, drive, warrant)
     };
 
     let low = episode(10);
     let high = episode(100);
     assert_eq!(low.0, [DeltaWorld::CLOSER]);
-    assert_eq!(low.2, ChoiceBasis::AvailableOutcome);
+    assert_eq!(low.2, ChoiceWarrant::RetainedContinuation);
     assert_eq!(low, high);
 }
 

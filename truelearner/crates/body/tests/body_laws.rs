@@ -1,6 +1,6 @@
 use truelearner_body::{
-    attach, harness::*, verify_choice_laws, Arrival, Body, ChoiceBasis, Join, Junction, JunctionId,
-    Link, OpenBody, ReturnDecision, TraceEvent, Work,
+    attach, harness::*, verify_choice_contract, Arrival, Body, ChoiceWarrant, Join, Junction,
+    JunctionId, Link, OpenBody, ReturnDecision, TraceEvent, Work,
 };
 
 struct LocalWorld {
@@ -412,7 +412,7 @@ fn an_unanswered_action_gives_an_alternative_the_next_chance() {
     assert_eq!(effect(&next.events, &world.motors), [1]);
     assert!(trace.iter().any(|event| matches!(
         event,
-        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::UntriedOutputRelease)
+        TraceEvent::Choice(choice) if choice.warrant == Some(ChoiceWarrant::Exploration)
     )));
     assert!(trace.iter().any(|event| matches!(
         event,
@@ -431,7 +431,7 @@ fn a_previously_successful_action_without_a_new_return_releases_to_an_alternativ
     assert_eq!(effect(&first.events, &world.motors), [0]);
     assert!(first_trace.iter().any(|event| matches!(
         event,
-        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::AvailableOutcome)
+        TraceEvent::Choice(choice) if choice.warrant == Some(ChoiceWarrant::RetainedContinuation)
     )));
 
     let (next, trace) = world.compete_traced(40, 4);
@@ -457,10 +457,10 @@ fn a_previously_successful_action_without_a_new_return_releases_to_an_alternativ
     assert!(trace.iter().any(|event| matches!(
         event,
         TraceEvent::Choice(choice)
-            if choice.basis == Some(ChoiceBasis::UnansweredOutputRelease)
+            if choice.warrant == Some(ChoiceWarrant::Exploration)
     )));
-    verify_choice_laws(&first_trace).unwrap();
-    verify_choice_laws(&trace).unwrap();
+    verify_choice_contract(&first_trace).unwrap();
+    verify_choice_contract(&trace).unwrap();
 }
 
 #[test]
@@ -472,7 +472,7 @@ fn a_completed_action_gives_an_untried_alternative_the_next_chance() {
     assert_eq!(effect(&next.events, &world.motors), [1]);
     assert!(trace.iter().any(|event| matches!(
         event,
-        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::UntriedOutputRelease)
+        TraceEvent::Choice(choice) if choice.warrant == Some(ChoiceWarrant::Exploration)
     )));
 }
 
@@ -524,9 +524,9 @@ fn a_fresh_return_preserves_the_acted_output_for_untried_release() {
     )));
     assert!(trace.iter().any(|event| matches!(
         event,
-        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::FreshOpportunity)
+        TraceEvent::Choice(choice) if choice.warrant == Some(ChoiceWarrant::RetainedContinuation)
     )));
-    verify_choice_laws(&trace).unwrap();
+    verify_choice_contract(&trace).unwrap();
 
     schedule(
         &mut body,
@@ -559,9 +559,9 @@ fn a_fresh_return_preserves_the_acted_output_for_untried_release() {
     assert!(trace.iter().any(|event| matches!(
         event,
         TraceEvent::Choice(choice)
-            if choice.basis == Some(ChoiceBasis::UntriedOutputRelease)
+            if choice.warrant == Some(ChoiceWarrant::Exploration)
     )));
-    verify_choice_laws(&trace).unwrap();
+    verify_choice_contract(&trace).unwrap();
 }
 
 #[test]
@@ -605,9 +605,9 @@ fn a_unique_ordinary_return_continues_after_both_outputs_were_tried() {
     assert!(trace.iter().any(|event| matches!(
         event,
         TraceEvent::Choice(choice)
-            if choice.basis == Some(ChoiceBasis::CurrentReturn)
+            if choice.warrant == Some(ChoiceWarrant::ReturnedConsequence)
     )));
-    verify_choice_laws(&trace).unwrap();
+    verify_choice_contract(&trace).unwrap();
 }
 
 #[test]

@@ -469,7 +469,7 @@ fn construct_caused_reentry_memberships(
 ) {
     for choice in winners
         .iter()
-        .filter(|choice| choice.basis == ChoiceBasis::UniqueReentry)
+        .filter(|choice| choice.warrant == ChoiceWarrant::Reentry)
     {
         let candidate = &ready[choice.winner];
         let [reentry] = candidate.continuation.reentries.as_slice() else {

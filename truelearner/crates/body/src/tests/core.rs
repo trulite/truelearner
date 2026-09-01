@@ -3,7 +3,7 @@ use crate::harness::{
     attach_boundary_component, attach_outcome_component, attach_sensor, finish, motor, reading,
     schedule,
 };
-use crate::{verify_choice_laws, Arrival};
+use crate::{verify_choice_contract, Arrival};
 use proptest::prelude::*;
 
 fn participate_arrow(state: &mut ArrowState, times: u64, cause: Cause, at: Time) {
@@ -79,10 +79,10 @@ fn candidate_path(drive: u16, stable_order: u32) -> CandidatePath {
 fn current_normalized_drive_breaks_an_unlearned_choice_tie() {
     let paths = [candidate_path(512, 0), candidate_path(513, 1)];
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 1);
-    assert_eq!(choice.basis, ChoiceBasis::ParticipationStrengthAndDrive);
+    assert_eq!(choice.warrant, ChoiceWarrant::LocalIncidence);
 }
 
 fn witnessed_reentry(path: &CandidatePath, condition: JunctionId) -> ReentryTrace {
@@ -365,10 +365,10 @@ fn actual_current_return_precedes_unique_reentry() {
         vec![witnessed_reentry(&paths[0], JunctionId::new(20).unwrap())];
     paths[1].return_cause = Some(paths[1].current_cause);
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 1);
-    assert_eq!(choice.basis, ChoiceBasis::CurrentReturn);
+    assert_eq!(choice.warrant, ChoiceWarrant::ReturnedConsequence);
 }
 
 #[test]
@@ -381,10 +381,55 @@ fn actual_retained_progress_precedes_unique_reentry() {
     paths[1].strength = 2;
     paths[1].participation = 1;
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 1);
-    assert_eq!(choice.basis, ChoiceBasis::RetainedProgress);
+    assert_eq!(choice.warrant, ChoiceWarrant::RetainedContinuation);
+}
+
+#[test]
+fn one_local_resolver_orders_fresh_opportunity_without_a_second_choice() {
+    let paths = [candidate_path(512, 0), candidate_path(512, 1)];
+    let evidence = FreshOpportunityTrace {
+        source: paths[0].surface,
+        output: paths[0].output,
+        through: LinkId::new(30).unwrap(),
+    };
+    let fresh = choose_ready(&paths, &[0, 0], 0, false, || Some((0, evidence))).unwrap();
+    assert_eq!(fresh.winner, 0);
+    assert_eq!(fresh.warrant, ChoiceWarrant::RetainedContinuation);
+    assert_eq!(fresh.fresh_through, Some(evidence.through));
+
+    let mut current = paths.clone();
+    current[1].return_cause = Some(current[1].current_cause);
+    let current = choose_ready(&current, &[0, 0], 0, false, || Some((0, evidence))).unwrap();
+    assert_eq!(current.winner, 1);
+    assert_eq!(current.warrant, ChoiceWarrant::ReturnedConsequence);
+    assert_eq!(current.fresh_through, None);
+
+    let mut progressing = paths.clone();
+    progressing[1].resisted_progress = true;
+    progressing[1].boundary_open = true;
+    progressing[1].strength = 2;
+    progressing[1].participation = 1;
+    let progressing =
+        choose_ready(&progressing, &[0, 0], 0, false, || Some((0, evidence))).unwrap();
+    assert_eq!(progressing.winner, 1);
+    assert_eq!(progressing.warrant, ChoiceWarrant::RetainedContinuation);
+    assert_eq!(progressing.fresh_through, None);
+
+    let mut reentering = paths;
+    for path in &mut reentering {
+        path.participation = 1;
+    }
+    reentering[1].continuation.reentries = vec![witnessed_reentry(
+        &reentering[1],
+        JunctionId::new(20).unwrap(),
+    )];
+    let reentering = choose_ready(&reentering, &[0, 0], 0, false, || Some((0, evidence))).unwrap();
+    assert_eq!(reentering.winner, 1);
+    assert_eq!(reentering.warrant, ChoiceWarrant::Reentry);
+    assert_eq!(reentering.fresh_through, None);
 }
 
 #[test]
@@ -989,7 +1034,7 @@ fn old_outcome_cannot_override_a_stronger_current_surface() {
         available_until_choice: true,
     });
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 1);
 }
@@ -998,7 +1043,7 @@ fn old_outcome_cannot_override_a_stronger_current_surface() {
 fn equal_current_drive_preserves_physical_stable_order() {
     let paths = [candidate_path(512, 0), candidate_path(512, 1)];
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 0);
 }
@@ -1009,10 +1054,10 @@ fn a_participating_output_continues_its_current_return_after_both_outputs_were_t
     paths[0].output_participated = true;
     paths[1].participation = 1;
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 0);
-    assert_eq!(choice.basis, ChoiceBasis::CurrentReturn);
+    assert_eq!(choice.warrant, ChoiceWarrant::ReturnedConsequence);
 }
 
 #[test]
@@ -1023,10 +1068,10 @@ fn one_retained_progressing_output_precedes_untried_release() {
     paths[0].participation = 1;
     paths[0].strength = 2;
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 0);
-    assert_eq!(choice.basis, ChoiceBasis::RetainedProgress);
+    assert_eq!(choice.warrant, ChoiceWarrant::RetainedContinuation);
 }
 
 #[test]
@@ -1035,10 +1080,10 @@ fn unanswered_without_fresh_progress_releases_to_the_untried_output() {
     paths[0].unanswered = true;
     paths[0].participation = 1;
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 1);
-    assert_eq!(choice.basis, ChoiceBasis::UntriedOutputRelease);
+    assert_eq!(choice.warrant, ChoiceWarrant::Exploration);
 }
 
 #[test]
@@ -1056,10 +1101,10 @@ fn a_newer_unanswered_reuse_releases_an_older_success_to_a_tried_alternative() {
     paths[1].participation = 1;
     paths[1].participated_at = 15;
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 1);
-    assert_eq!(choice.basis, ChoiceBasis::UnansweredOutputRelease);
+    assert_eq!(choice.warrant, ChoiceWarrant::Exploration);
 }
 
 #[test]
@@ -1077,10 +1122,10 @@ fn an_exact_return_precedes_unanswered_output_release() {
     paths[1].participation = 1;
     paths[1].participated_at = 15;
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 0);
-    assert_eq!(choice.basis, ChoiceBasis::CurrentReturn);
+    assert_eq!(choice.warrant, ChoiceWarrant::ReturnedConsequence);
 }
 
 #[test]
@@ -1095,10 +1140,10 @@ fn a_lone_unanswered_output_does_not_invent_an_alternative() {
         available_until_choice: false,
     });
 
-    let choice = choose_ready(&[path], &[0], 0, false).unwrap();
+    let choice = choose_ready(&[path], &[0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 0);
-    assert_eq!(choice.basis, ChoiceBasis::LatestOutcome);
+    assert_eq!(choice.warrant, ChoiceWarrant::LocalIncidence);
 }
 
 #[test]
@@ -1110,10 +1155,10 @@ fn simultaneous_unanswered_outputs_make_no_unique_release_claim() {
         path.unanswered = true;
     }
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 0);
-    assert_eq!(choice.basis, ChoiceBasis::ParticipationStrengthAndDrive);
+    assert_eq!(choice.warrant, ChoiceWarrant::LocalIncidence);
 }
 
 #[test]
@@ -1124,10 +1169,10 @@ fn unclosed_exploration_cannot_claim_continuation() {
     paths[0].boundary_open = true;
     paths[0].participation = 1;
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 1);
-    assert_eq!(choice.basis, ChoiceBasis::UntriedOutputRelease);
+    assert_eq!(choice.warrant, ChoiceWarrant::Exploration);
 }
 
 #[test]
@@ -1138,10 +1183,10 @@ fn retained_output_with_fresh_progress_continues_after_ordinary_outcome() {
     paths[0].participation = 1;
     paths[0].strength = 2;
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 0);
-    assert_eq!(choice.basis, ChoiceBasis::RetainedProgress);
+    assert_eq!(choice.warrant, ChoiceWarrant::RetainedContinuation);
 }
 
 #[test]
@@ -1155,9 +1200,9 @@ fn several_progressing_outputs_receive_no_continuation_precedence() {
         path.strength = 2;
     }
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
-    assert_ne!(choice.basis, ChoiceBasis::RetainedProgress);
+    assert_ne!(choice.warrant, ChoiceWarrant::RetainedContinuation);
 }
 
 #[test]
@@ -1167,10 +1212,10 @@ fn boundary_closed_output_cannot_claim_progress_continuation() {
     paths[0].participation = 1;
     paths[0].strength = 2;
 
-    let choice = choose_ready(&paths, &[0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 1);
-    assert_ne!(choice.basis, ChoiceBasis::RetainedProgress);
+    assert_ne!(choice.warrant, ChoiceWarrant::RetainedContinuation);
 }
 
 #[test]
@@ -1188,10 +1233,10 @@ fn boundary_completion_releases_only_the_local_antagonist() {
     paths[2].participation = 100;
     paths[2].strength = 100;
 
-    let choice = choose_ready(&paths, &[0, 0, 0], 0, false).unwrap();
+    let choice = choose_ready(&paths, &[0, 0, 0], 0, false, || None).unwrap();
 
     assert_eq!(choice.winner, 1);
-    assert_eq!(choice.basis, ChoiceBasis::BoundaryRelease);
+    assert_eq!(choice.warrant, ChoiceWarrant::ReturnedConsequence);
 }
 
 #[test]
@@ -1207,7 +1252,7 @@ fn simultaneous_boundary_components_make_no_local_release_claim() {
     paths[1].boundary_inhibited = true;
     paths[2].outcome_source = Some(JunctionId::new(20).unwrap());
 
-    assert!(choose_ready(&paths, &[0, 0, 0], 0, false).is_none());
+    assert!(choose_ready(&paths, &[0, 0, 0], 0, false, || None).is_none());
 }
 
 #[test]
@@ -1315,7 +1360,7 @@ proptest! {
         paths[0].executable = left_executable;
         paths[1].executable = right_executable;
 
-        let selected = choose_ready(&paths, &[0, 0], 0, construction);
+        let selected = choose_ready(&paths, &[0, 0], 0, construction, || None);
         let candidates = paths.iter().map(|path| CandidateTrace {
             at: path.at,
             cause: path.current_cause,
@@ -1337,7 +1382,7 @@ proptest! {
             strength: path.strength,
             drive: path.drive,
             stable_order: path.stable_order,
-            fresh_opportunity: path.continuation.fresh_opportunity,
+            fresh_opportunity: None,
             present_sources: Vec::new(),
             reentries: path.continuation.reentries.clone(),
             motif_reentries: path.continuation.motif_reentries.clone(),
@@ -1358,12 +1403,12 @@ proptest! {
             group: 0,
             alternatives: paths.len(),
             winner: selected.map(|choice| paths[choice.winner].trace_path()),
-            basis: selected.map(|choice| choice.basis),
+            warrant: selected.map(|choice| choice.warrant),
             construction,
             sent: selected.is_some() && !construction,
         }));
 
-        prop_assert_eq!(verify_choice_laws(&events), Ok(()));
+        prop_assert_eq!(verify_choice_contract(&events), Ok(()));
     }
 }
 

@@ -1,9 +1,9 @@
 #![deny(warnings)]
 
 use truelearner_workstation::{
-    verify_choice_laws, BodyLinkId, BodyPath, BodyReturnDecision, BodyTraceEvent, ContactSample,
-    LightField, MotorEffect, WorkstationCheckpoint, WorkstationHarness, WorkstationStepObservation,
-    WorldSample, TOUCH_SITES,
+    verify_choice_contract, BodyLinkId, BodyPath, BodyReturnDecision, BodyTraceEvent,
+    ContactSample, LightField, MotorEffect, WorkstationCheckpoint, WorkstationHarness,
+    WorkstationStepObservation, WorldSample, TOUCH_SITES,
 };
 
 fn physical_sample(light_value: u8) -> WorldSample {
@@ -54,7 +54,7 @@ fn transferred_probe(
     for step in 0..12 {
         let sample = physical_sample(if step % 2 == 0 { 200 } else { 80 });
         let (observation, trace) = harness.step_traced(sample).unwrap();
-        verify_choice_laws(&trace).unwrap();
+        verify_choice_contract(&trace).unwrap();
         let reused = trace.iter().any(|event| {
             matches!(
                 event,
@@ -84,7 +84,7 @@ fn repeated_closed_workstation_experience_compacts_and_transfers() {
         for step in 0..12 {
             latest = physical_sample(if step % 2 == 0 { 224 } else { 96 });
             let (action, action_trace) = harness.step_traced(latest.clone()).unwrap();
-            verify_choice_laws(&action_trace).unwrap();
+            verify_choice_contract(&action_trace).unwrap();
             if let Some(parent) = action.crossings.first().copied() {
                 if repetition == 5 {
                     ordinary_effects = action.crossings.clone();
@@ -99,7 +99,7 @@ fn repeated_closed_workstation_experience_compacts_and_transfers() {
         let (_, trace) = harness
             .settle_traced_with_boundary_parents(latest, &[parent])
             .unwrap();
-        verify_choice_laws(&trace).unwrap();
+        verify_choice_contract(&trace).unwrap();
         let returned = trace
             .iter()
             .find_map(|event| match event {

@@ -1605,7 +1605,7 @@ impl From<academy_workstation_course::WorkstationCourseError> for BodyCourseErro
 mod tests {
     use super::*;
     use truelearner_workstation::{
-        verify_choice_laws, BodyControl, BodyTraceEvent, ChoiceBasis, ContactSample, Digit,
+        verify_choice_contract, BodyControl, BodyTraceEvent, ChoiceWarrant, ContactSample, Digit,
         Direction, TOUCH_SITES,
     };
 
@@ -1655,7 +1655,7 @@ mod tests {
                         .unwrap();
                     (observation, Vec::new())
                 };
-                verify_choice_laws(&trace).unwrap();
+                verify_choice_contract(&trace).unwrap();
                 assert_eq!(&observation, expected);
                 let world_observation = world.advance(&observation).unwrap();
                 boundary_parents.clone_from(&world_observation.boundary_parents);
@@ -1930,7 +1930,7 @@ mod tests {
         for _ in 0..contact_steps {
             let sample = world.sample(&harness.read().unwrap()).unwrap();
             let (observation, trace) = harness.step_traced(sample).unwrap();
-            verify_choice_laws(&trace).unwrap();
+            verify_choice_contract(&trace).unwrap();
             steps.push((observation, trace));
         }
 
@@ -2035,7 +2035,7 @@ mod tests {
                     &soft_progress_parents,
                 )
                 .unwrap();
-            verify_choice_laws(&trace).unwrap();
+            verify_choice_contract(&trace).unwrap();
             let world_observation = soft_world.advance(&observation).unwrap();
             soft_boundary_parents.clone_from(&world_observation.boundary_parents);
             soft_progress_parents.clone_from(&world_observation.progress_parents);
@@ -2081,7 +2081,10 @@ mod tests {
                         _ => None,
                     })
                     .expect("soft forward candidate's choice is recorded");
-                assert_eq!(relevant_choice.basis, Some(ChoiceBasis::BoundaryRelease));
+                assert_eq!(
+                    relevant_choice.warrant,
+                    Some(ChoiceWarrant::ReturnedConsequence)
+                );
                 assert_eq!(
                     relevant_choice
                         .winner
@@ -2121,7 +2124,7 @@ mod tests {
             let (observation, trace) = harness
                 .step_traced_with_causal_parents(sample, &boundary_parents, &progress_parents)
                 .unwrap();
-            verify_choice_laws(&trace).unwrap();
+            verify_choice_contract(&trace).unwrap();
             let world_observation = world.advance(&observation).unwrap();
             if had_boundary_parents {
                 boundary_return_closed |= trace.iter().any(|event| {
@@ -2187,7 +2190,7 @@ mod tests {
                     .iter()
                     .find(|choice| choice.group == forward_candidate.group)
                     .expect("forward candidate's choice group is recorded");
-                assert_eq!(choice.basis, Some(ChoiceBasis::RetainedProgress));
+                assert_eq!(choice.warrant, Some(ChoiceWarrant::RetainedContinuation));
                 let winner_path = choice.winner.expect("choice has a physical winner");
                 let (winner_control, winner_candidate) = candidates
                     .iter()

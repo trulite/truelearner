@@ -1,6 +1,6 @@
 use truelearner_body::{
     harness::{attach_outcome_component, attach_sensor, finish, motor, reading, schedule},
-    verify_choice_laws, Arrival, Body, Junction, ReturnDecision, TraceEvent,
+    verify_choice_contract, Arrival, Body, Junction, ReturnDecision, TraceEvent,
 };
 
 struct World {
@@ -54,7 +54,7 @@ fn trace_keeps_the_whole_choice_no_effect_and_learning_chain() {
     let mut world = World::new();
     let (_, action) = world.act(10, 1);
 
-    verify_choice_laws(&action).unwrap();
+    verify_choice_contract(&action).unwrap();
 
     let candidates = action
         .iter()

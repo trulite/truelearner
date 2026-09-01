@@ -31,7 +31,6 @@ struct CandidatePath {
 
 #[derive(Clone, Debug, Default)]
 struct ContinuationResult {
-    fresh_opportunity: Option<FreshOpportunityTrace>,
     reentries: Vec<ReentryTrace>,
     motif_reentries: Vec<MotifReentryTrace>,
     motif_routes: Option<Box<[MotifRouteTrace]>>,
@@ -70,7 +69,8 @@ impl CandidatePath {
 #[derive(Clone, Copy, Debug)]
 struct ReadyChoice {
     winner: usize,
-    basis: ChoiceBasis,
+    warrant: ChoiceWarrant,
+    fresh_through: Option<LinkId>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -218,28 +218,16 @@ fn form_and_choose<T: TraceSink>(
     fill_ready_worlds(ready, connected_outcomes, worlds);
     for world in 0..ready.len() {
         if worlds[world] == world {
-            if let Some(mut choice) = choose_ready(ready, worlds, world, construction) {
-                if !matches!(
-                    choice.basis,
-                    ChoiceBasis::CurrentReturn
-                        | ChoiceBasis::BoundaryRelease
-                        | ChoiceBasis::RetainedProgress
-                        | ChoiceBasis::UniqueReentry
-                        | ChoiceBasis::UniqueMotifReentry
-                ) {
-                    if let Some((donor, fresh)) = fresh_opportunity(
-                        body,
-                        ready,
-                        connected_outcomes,
-                        worlds,
-                        world,
-                        construction,
-                    ) {
-                        ready[donor].continuation.fresh_opportunity = Some(fresh);
-                        choice.winner = donor;
-                        choice.basis = ChoiceBasis::FreshOpportunity;
-                    }
-                }
+            if let Some(choice) = choose_ready(ready, worlds, world, construction, || {
+                fresh_opportunity(
+                    body,
+                    ready,
+                    connected_outcomes,
+                    worlds,
+                    world,
+                    construction,
+                )
+            }) {
                 winners.push(choice);
             }
         }
@@ -270,7 +258,18 @@ fn form_and_choose<T: TraceSink>(
                 strength: candidate.strength,
                 drive: candidate.drive,
                 stable_order: candidate.stable_order,
-                fresh_opportunity: candidate.continuation.fresh_opportunity,
+                fresh_opportunity: winners
+                    .iter()
+                    .find(|choice| choice.winner == index)
+                    .and_then(|choice| choice.fresh_through)
+                    .map(|through| {
+                        let link = body.arena.link(through).expect("live fresh witness");
+                        FreshOpportunityTrace {
+                            source: link.from,
+                            output: link.to,
+                            through,
+                        }
+                    }),
                 present_sources: reentry.present.clone(),
                 reentries: candidate.continuation.reentries.clone(),
                 motif_reentries: candidate.continuation.motif_reentries.clone(),
@@ -304,7 +303,7 @@ fn form_and_choose<T: TraceSink>(
                     let winner = &ready[choice.winner];
                     winner.trace_path()
                 }),
-                basis: choice.map(|choice| choice.basis),
+                warrant: choice.map(|choice| choice.warrant),
                 construction,
                 sent: choice.is_some() && !construction,
             }));
@@ -315,7 +314,7 @@ fn form_and_choose<T: TraceSink>(
     }
     for choice in winners.iter() {
         let winner = &ready[choice.winner];
-        let through = winner.continuation.fresh_opportunity.map_or_else(
+        let through = choice.fresh_through.map_or_else(
             || {
                 let path = match (winner.middle, winner.first, winner.second) {
                     (
@@ -334,7 +333,7 @@ fn form_and_choose<T: TraceSink>(
                 path.and_then(|path| usable_composite(body, path))
                     .map_or(winner.first, LinkRef::Existing)
             },
-            |fresh| fresh.through.into(),
+            LinkRef::Existing,
         );
         change.send(through, winner.at, winner.current_cause);
         for (index, candidate) in ready.iter().enumerate() {
@@ -345,7 +344,7 @@ fn form_and_choose<T: TraceSink>(
                 change.change_link(link, LinkChange::ConsumeBoundaryInhibition);
             }
         }
-        if winner.continuation.fresh_opportunity.is_none()
+        if choice.fresh_through.is_none()
             && winner
                 .outcome
                 .is_some_and(|outcome| outcome.available_until_choice)

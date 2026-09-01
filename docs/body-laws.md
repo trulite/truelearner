@@ -1,79 +1,87 @@
 # Body Laws — Executable Contract
 
-> These are the complete current learner laws. Storage, indexing, tracing,
-> Academy verdicts, and benchmark meanings add no law.
+> The learner has five primitive laws. Everything below them is either a
+> consequence, a structure-preservation requirement, or an observer boundary.
+> Storage, indexing, tracing, Academy verdicts, and benchmark meanings add no
+> learner law.
 
-1. **Quiet identity.** With no arrival, scheduled firing, or open physical
-   reaction, a wave changes nothing. Repeated quiet waves compose to quiet.
+## Primitive laws
 
-2. **Propagation.** An active drive whose trigger opens sends its physical
-   impulse after its delay. A selected entry sends only after selection.
+1. **Local propagation.** An active link transmits when its local trigger opens.
+   A path may be considered only when it is locally incident and physically
+   executable; disconnected structure cannot supply a continuation.
 
-3. **Local candidate formation.** A present boundary event may expose only
-   locally incident, executable propagation. Identity, construction order, and
-   disconnected products cannot change the local alternatives.
-
-4. **Choice.** Choice is a deterministic precedence over frozen physical
-   candidate evidence. Zero or several equally warranted causal explanations
-   make no causal claim. The recorded choice basis only explains the result.
-
-5. **Dormant returned reuse.** An otherwise unanswered motor-boundary arrival
-   may re-present only an executable path with a real returned consequence. A
-   current path in the same physical competition component suppresses it;
-   independent components compose, and ambiguity chooses none. Actual reuse
-   opens the ordinary return topology again.
-
-6. **Participation opens history.** A propagation that actually participates
-   in an outward action creates one `Open` return for that exact path, cause,
-   and opening time. Timing alone creates no ancestry.
-
-7. **Return automaton.** A return changes exactly once:
+2. **Unique local resolution.** Within one physical competition component, the
+   body acts only through one uniquely warranted executable continuation.
+   Several equally warranted explanations make no causal claim. A selected
+   continuation records one of five physical warrants:
 
    ```text
-   Open → Closed(exact unique support) | Ambiguous | Expired
+   returned consequence | retained continuation | reentry |
+   exploration          | local incidence
    ```
 
-   No terminal state reopens, and only `Open` can close.
+   These are causal evidence classes, not rewards, goals, or semantic scores.
 
-8. **Closure persistence.** `Closed` requires one returned source and one
-   physically incident closing witness with matching cause and ancestry. Only
-   this transition may strengthen the participating path or retain support.
+3. **Participation opens a return.** A path that actually participates in an
+   outward action creates one `Open` return for that exact path, cause, and
+   opening time. Timing, resemblance, and observation alone create no ancestry.
 
-9. **Ambiguity is not failure.** Several possible returns, sources, parents, or
-   continuations produce `Ambiguous` and no consolidation. Missing or late
-   evidence produces `Expired` and no consolidation.
+4. **Exact return persists.** A return changes exactly once:
 
-10. **Boundary incidence.** `Progress` identifies an open continuing path but
-   cannot close it. `Closure { offers_choice: true }` closes and may offer the
-   path. `Closure { offers_choice: false }` closes and locally inhibits it.
+   ```text
+   Open -> Closed(exact unique support) | Ambiguous | Expired
+   ```
 
-11. **Composition.** Three exact real closures may retain a drive whose factors
-    are the witnessed adjacent arrows. The retained drive has the same external
-    effect as its factors and never crosses an outward body boundary invisibly.
+   `Closed` requires one returned source and one physically incident witness
+   with matching cause and ancestry. Only closure may retain support or
+   strengthen the participating path. Ambiguous, missing, or late evidence
+   retains nothing; terminal returns never reopen.
 
-12. **Inspection is read-only.** Reentry may traverse only local incidence and
-    retained exact support, under fixed depth and incidence limits. It cannot
-    send, open or close a return, strengthen, construct, or repair topology.
+5. **Persistence composes and refines.** Closed histories may be reused,
+   composed, or identified only through further exact physical closure. A new
+   separating consequence invalidates only the retained or derived structure
+   that depends on the changed incidence; independent components and exact
+   suffixes remain valid.
 
-13. **Derived compression.** Repeated identical complete inspection may cache
-    its computation. Reuse returns the same receipts; dependency change makes
-    the cache unusable. A cached result is never causal evidence.
+## Consequences of the five laws
 
-14. **Quotient formation.** Membership is retained only when one exact returned
-    history physically composes with one uniquely selected continuation.
-    Simultaneity or resemblance alone creates no membership.
+- `Progress` witnesses an open continuing path but cannot close it. `Closure`
+  supplies the terminal boundary witness and may locally offer or inhibit the
+  path.
+- A fresh external opportunity may re-present one unique executable path with
+  a real returned consequence. A current path in the same competition
+  component suppresses it; independent components compose; ambiguity acts as
+  no claim. Reuse opens the ordinary return topology again.
+- Three exact real closures may retain an ordinary drive whose factors are the
+  witnessed adjacent links. It performs the same external step as those links
+  and never crosses an outward body boundary invisibly.
+- Reentry is read-only traversal of local incidence and retained support under
+  fixed depth and work limits. Exact reentry, identity-free motif reentry, and
+  an already composed drive are different representations of retained
+  continuation, not new learner laws.
+- Repeated identical complete inspection may cache its computation. A cache is
+  derived, never causal evidence, and becomes unusable when a dependency
+  changes.
+- Membership records a quotient only after one exact returned history
+  physically composes with one uniquely selected reentry. Simultaneity or
+  resemblance alone creates no membership.
 
-15. **Local invalidation.** A separator invalidates only support and derived
-    caches that depend on the changed incidence. Independent components and
-    still-exact suffixes remain valid.
+## Structure-preservation requirements
 
-16. **Structure preservation.** Renaming, construction order, attachment,
-    checkpoint/replay, and observer projection preserve every physical result.
-    Independent systems compose as a product.
+- **Quiet identity.** With no arrival, scheduled firing, or open physical
+  reaction, a wave changes nothing. Repeated quiet waves compose to quiet.
+- **Products.** Independent systems cannot change one another's alternatives
+  or results and compose as a product.
+- **Representation invariance.** Renaming, construction order, attachment,
+  checkpoint/replay, and observer projection preserve every physical result.
 
-17. **Observer isolation.** Traces, Lean claims, Verus proofs, Academy verdicts,
-    task text, evaluator state, and benchmark answers never enter candidate
-    formation, choice, closure, strength, or authority.
+## Observer and trust boundary
+
+Traces, Lean claims, Verus proofs, Academy verdicts, task text, evaluator state,
+and benchmark answers never enter candidate formation, resolution, closure,
+strength, or authority. A recorded warrant projects the physical reason already
+used by the resolver; the observer neither creates nor changes it.
 
 ## Mechanical boundaries
 

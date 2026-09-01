@@ -117,7 +117,7 @@ returns, disconnected products, checkpoint replay, and attachment remapping.
 On a fresh surface, the resolver compares only physical link form, surface
 law, and the presence or absence of unique outcome incidence. Two retained
 examples are required. Matching witnesses are attached only to the transient
-candidate receipt, and `UniqueMotifReentry` is available only when exactly one
+candidate receipt, and a `Reentry` warrant is available only when exactly one
 fresh candidate is supported. The receipt does not create, strengthen, or
 repair retained topology.
 

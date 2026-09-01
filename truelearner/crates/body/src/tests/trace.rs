@@ -57,13 +57,13 @@ fn offline_verifier_accepts_a_valid_choice() {
             group: 0,
             alternatives: 2,
             winner: Some(strong.path),
-            basis: Some(ChoiceBasis::ParticipationStrengthAndDrive),
+            warrant: Some(ChoiceWarrant::LocalIncidence),
             construction: false,
             sent: true,
         }),
     ];
 
-    assert_eq!(verify_choice_laws(&events), Ok(()));
+    assert_eq!(verify_choice_contract(&events), Ok(()));
 }
 
 #[test]
@@ -108,26 +108,26 @@ fn offline_verifier_checks_unique_reentry_receipt_shape() {
             group: 0,
             alternatives: 2,
             winner: Some(reaching.path),
-            basis: Some(ChoiceBasis::UniqueReentry),
+            warrant: Some(ChoiceWarrant::Reentry),
             construction: false,
             sent: true,
         }),
     ];
 
-    verify_choice_laws(&events).unwrap();
+    verify_choice_contract(&events).unwrap();
 
     let TraceEvent::Candidate(candidate) = &mut events[0] else {
         unreachable!()
     };
     candidate.reentry_incidence_visits = 0;
     candidate.reentry_shortcut_hits = 1;
-    verify_choice_laws(&events).unwrap();
+    verify_choice_contract(&events).unwrap();
 
     let TraceEvent::Candidate(candidate) = &mut events[0] else {
         unreachable!()
     };
     candidate.reentries[0].steps[0].outcome_target = JunctionId::new(99).unwrap();
-    assert!(verify_choice_laws(&events).is_err());
+    assert!(verify_choice_contract(&events).is_err());
 }
 
 #[test]
@@ -148,19 +148,19 @@ fn offline_verifier_checks_unique_motif_reentry_receipt_shape() {
             group: 0,
             alternatives: 2,
             winner: Some(reaching.path),
-            basis: Some(ChoiceBasis::UniqueMotifReentry),
+            warrant: Some(ChoiceWarrant::Reentry),
             construction: false,
             sent: true,
         }),
     ];
 
-    verify_choice_laws(&events).unwrap();
+    verify_choice_contract(&events).unwrap();
 
     let TraceEvent::Candidate(candidate) = &mut events[0] else {
         unreachable!()
     };
     candidate.motif_reentries[0].parent = candidate.motif_reentries[0].witness;
-    assert!(verify_choice_laws(&events).is_err());
+    assert!(verify_choice_contract(&events).is_err());
 }
 
 #[test]
@@ -205,19 +205,19 @@ fn offline_verifier_checks_composed_motif_route_receipt_shape() {
             group: 0,
             alternatives: 2,
             winner: Some(reaching.path),
-            basis: Some(ChoiceBasis::UniqueMotifReentry),
+            warrant: Some(ChoiceWarrant::Reentry),
             construction: false,
             sent: true,
         }),
     ];
 
-    verify_choice_laws(&events).unwrap();
+    verify_choice_contract(&events).unwrap();
 
     let TraceEvent::Candidate(candidate) = &mut events[0] else {
         unreachable!()
     };
     candidate.motif_routes[0].steps[0].surface = JunctionId::new(99).unwrap();
-    assert!(verify_choice_laws(&events).is_err());
+    assert!(verify_choice_contract(&events).is_err());
 }
 
 #[test]
@@ -245,20 +245,20 @@ fn offline_verifier_checks_unanswered_output_release() {
             group: 0,
             alternatives: 2,
             winner: Some(alternative.path),
-            basis: Some(ChoiceBasis::UnansweredOutputRelease),
+            warrant: Some(ChoiceWarrant::Exploration),
             construction: false,
             sent: true,
         }),
     ];
 
-    verify_choice_laws(&events).unwrap();
+    verify_choice_contract(&events).unwrap();
 
     let TraceEvent::Choice(choice) = events.last_mut().unwrap() else {
         unreachable!()
     };
-    choice.basis = Some(ChoiceBasis::LatestOutcome);
-    let failure = verify_choice_laws(&events).unwrap_err();
-    assert_eq!(failure.law(), ChoiceLaw::UnansweredOutputRelease);
+    choice.warrant = Some(ChoiceWarrant::LocalIncidence);
+    let failure = verify_choice_contract(&events).unwrap_err();
+    assert_eq!(failure.check(), ChoiceCheck::LocalResolution);
 }
 
 #[test]
@@ -280,13 +280,13 @@ fn offline_verifier_accepts_local_boundary_release() {
             group: 0,
             alternatives: 3,
             winner: Some(antagonist.path),
-            basis: Some(ChoiceBasis::BoundaryRelease),
+            warrant: Some(ChoiceWarrant::ReturnedConsequence),
             construction: false,
             sent: true,
         }),
     ];
 
-    verify_choice_laws(&events).unwrap();
+    verify_choice_contract(&events).unwrap();
 }
 
 #[test]
@@ -306,14 +306,14 @@ fn offline_verifier_names_the_old_surface_locality_failure() {
             group: 0,
             alternatives: 2,
             winner: Some(weak.path),
-            basis: Some(ChoiceBasis::AvailableOutcome),
+            warrant: Some(ChoiceWarrant::RetainedContinuation),
             construction: false,
             sent: true,
         }),
     ];
 
-    let failure = verify_choice_laws(&events).unwrap_err();
-    assert_eq!(failure.law(), ChoiceLaw::CurrentSurfaceLocality);
+    let failure = verify_choice_contract(&events).unwrap_err();
+    assert_eq!(failure.check(), ChoiceCheck::LocalResolution);
     assert_eq!(
         failure.to_string(),
         "choice group 0 at 7 violated CurrentSurfaceLocality: winner drive 44, strongest current drive 1023"
@@ -333,11 +333,11 @@ fn exact_current_return_precedes_current_surface_locality() {
             group: 0,
             alternatives: 2,
             winner: Some(returning.path),
-            basis: Some(ChoiceBasis::CurrentReturn),
+            warrant: Some(ChoiceWarrant::ReturnedConsequence),
             construction: false,
             sent: true,
         }),
     ];
 
-    assert_eq!(verify_choice_laws(&events), Ok(()));
+    assert_eq!(verify_choice_contract(&events), Ok(()));
 }

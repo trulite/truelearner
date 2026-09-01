@@ -4,6 +4,21 @@ const THOUGHT_SHORTCUT_AFTER_REHEARSALS: u8 = 3;
 const MAX_REENTRY_DEPTH: usize = 16;
 const MAX_REENTRY_INCIDENCE_VISITS: u16 = 256;
 
+/// The physical evidence class that uniquely resolves one local competition.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+pub enum ChoiceWarrant {
+    /// A current returned effect selects its continuation or local antagonist.
+    ReturnedConsequence,
+    /// Previously closed progress or outcome support selects a continuation.
+    RetainedContinuation,
+    /// Read-only traversal finds one retained exact or identity-free route.
+    Reentry,
+    /// An unresolved path releases competition to an available alternative.
+    Exploration,
+    /// Ordinary local participation, strength, drive, and order resolve the path.
+    LocalIncidence,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AutomaticityWork {
     pub pair_observations: u64,

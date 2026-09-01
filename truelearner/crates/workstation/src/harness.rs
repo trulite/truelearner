@@ -1337,7 +1337,7 @@ mod tests {
             .iter()
             .any(|event| matches!(event, BodyTraceEvent::Choice(_))));
         assert!(matches!(trace.last(), Some(BodyTraceEvent::Quiet(_))));
-        crate::verify_choice_laws(&trace).unwrap();
+        crate::verify_choice_contract(&trace).unwrap();
 
         assert_eq!(
             plain.step(sample()).unwrap(),
@@ -1364,7 +1364,7 @@ mod tests {
         assert_eq!(plain_observation, traced_observation);
         assert_eq!(format!("{:?}", plain.body), format!("{:?}", traced.body));
         assert!(matches!(trace.last(), Some(BodyTraceEvent::Quiet(_))));
-        crate::verify_choice_laws(&trace).unwrap();
+        crate::verify_choice_contract(&trace).unwrap();
         assert_eq!(
             plain.step(sample()).unwrap(),
             traced.step(sample()).unwrap()

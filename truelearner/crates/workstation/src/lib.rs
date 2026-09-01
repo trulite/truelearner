@@ -16,10 +16,11 @@ pub use state::{
 };
 use std::fmt;
 pub use truelearner_body::{
-    verify_choice_laws, ChoiceBasis, ChoiceLaw, ChoiceLawViolation, JunctionId as BodyJunctionId,
-    LinkId as BodyLinkId, Path as BodyPath, PhysicalEvent as BodyPhysicalEvent,
-    ReturnCandidateTrace as BodyReturnCandidateTrace, ReturnDecision as BodyReturnDecision,
-    ReturnTrace as BodyReturnTrace, Run as BodyRun, TraceEvent as BodyTraceEvent,
+    verify_choice_contract, ChoiceCheck, ChoiceContractViolation, ChoiceWarrant,
+    JunctionId as BodyJunctionId, LinkId as BodyLinkId, Path as BodyPath,
+    PhysicalEvent as BodyPhysicalEvent, ReturnCandidateTrace as BodyReturnCandidateTrace,
+    ReturnDecision as BodyReturnDecision, ReturnTrace as BodyReturnTrace, Run as BodyRun,
+    TraceEvent as BodyTraceEvent,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]

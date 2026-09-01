@@ -30,7 +30,7 @@ Before a run, retain one lossless observation envelope containing:
 - admitted input and physical incidence;
 - participating links, complete paths, ownership, and lifetime;
 - every candidate's drive, opportunity, threshold, executability, and cause;
-- choice groups, admitted alternatives, winner, and choice basis;
+- choice groups, admitted alternatives, winner, and choice warrant;
 - ordered outputs by tick and phase;
 - actual world effect, returned outcome, and strengthening;
 - work, propagation, natural quiescence, fingerprints, and exact replay.
@@ -42,7 +42,7 @@ Use evidence in this order:
 3. pure offline projections joining existing events;
 4. new causally inert instrumentation only for a genuinely absent fact.
 
-When the trace contains choices, run `verify_choice_laws` before interpreting
+When the trace contains choices, run `verify_choice_contract` before interpreting
 them. Stop at its first violation. If it passes, treat the choice arrow as
 commuting and continue to output, world effect, return, and strengthening.
 A pass does not verify sensor calibration or world morphology.

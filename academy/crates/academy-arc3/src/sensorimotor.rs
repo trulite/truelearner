@@ -7,7 +7,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fmt;
 use truelearner_workstation::{
-    verify_choice_laws, BodyTraceEvent, Eye, WorkstationCheckpoint, WorkstationError,
+    verify_choice_contract, BodyTraceEvent, Eye, WorkstationCheckpoint, WorkstationError,
     WorkstationStepObservation, WorldSample,
 };
 
@@ -162,7 +162,7 @@ impl Arc3Sensorimotor {
 
         for _ in 0..WORKSTATION_STEPS_PER_OBSERVATION {
             let (session, trace) = next.session.step_traced()?;
-            verify_choice_laws(&trace)
+            verify_choice_contract(&trace)
                 .map_err(|error| Arc3Error::boundary(format!("choice trace failed: {error}")))?;
             admitted_inputs = admitted_inputs.saturating_add(session.body.admitted_inputs);
             outward_crossings = outward_crossings.saturating_add(session.body.crossings.len());

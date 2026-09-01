@@ -7,7 +7,7 @@
 use crate::{
     attach,
     harness::{attach_outcome_component, attach_sensor, effect, motor, reading, schedule, Motor},
-    verify_choice_laws, Arrival, ArrowKind, ArrowState, Body, BodyCheckpoint, ChoiceBasis,
+    verify_choice_contract, Arrival, ArrowKind, ArrowState, Body, BodyCheckpoint, ChoiceWarrant,
     Junction, JunctionId, Link, LinkId, OpenBody, PhysicalEvent, ReturnDecision, ReturnStatus,
     TraceEvent, WitnessKind,
 };
@@ -18,7 +18,7 @@ fn run(body: &mut Body) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
     body.run_traced(256, |event| events.push(event), |event| trace.push(event))
         .unwrap();
     assert!(body.is_quiet());
-    verify_choice_laws(&trace).unwrap();
+    verify_choice_contract(&trace).unwrap();
     (events, trace)
 }
 
@@ -334,7 +334,7 @@ fn an_open_condition_selects_the_learned_route_that_can_close_it() {
     assert_eq!(reentry.steps[1].returned_source, world.closure);
     assert!(trace.iter().any(|event| matches!(
         event,
-        TraceEvent::Choice(choice) if choice.basis == Some(ChoiceBasis::UniqueReentry)
+        TraceEvent::Choice(choice) if choice.warrant == Some(ChoiceWarrant::Reentry)
     )));
     assert!(!trace.iter().any(|event| matches!(
         event,
@@ -359,9 +359,9 @@ fn prepare_route(world: &mut PlanningWorld) {
     world.return_dead_end(36, 3);
 }
 
-fn chosen_basis(trace: &[TraceEvent]) -> Option<ChoiceBasis> {
+fn chosen_warrant(trace: &[TraceEvent]) -> Option<ChoiceWarrant> {
     trace.iter().find_map(|event| match event {
-        TraceEvent::Choice(choice) if choice.sent => choice.basis,
+        TraceEvent::Choice(choice) if choice.sent => choice.warrant,
         _ => None,
     })
 }
@@ -377,7 +377,7 @@ fn reentry_crosses_no_downstream_motor_and_opens_only_the_actual_return() {
     let (events, trace) = world.probe_shared_with_present_condition(40, 4, 92);
 
     assert_eq!(effect(&events, &world.motors), [PlanningWorld::ROUTE]);
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert_eq!(world.body.returns.live_count, 1);
     assert_eq!(
         world
@@ -476,7 +476,7 @@ fn changed_support_invalidates_reentry_before_choice() {
     let (events, trace) = world.probe_shared_with_present_condition(40, 4, 92);
 
     assert_eq!(effect(&events, &world.motors), [PlanningWorld::DEAD_END]);
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
 }
 
 #[test]
@@ -501,9 +501,9 @@ fn two_reaching_candidates_make_no_reentry_claim() {
 
     let (events, trace) = world.probe_shared_with_present_condition(50, 6, 92);
 
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert_eq!(effect(&events, &world.motors).len(), 1);
-    verify_choice_laws(&trace).unwrap();
+    verify_choice_contract(&trace).unwrap();
 }
 
 fn prepare_shortcut_route(world: &mut PlanningWorld) {
@@ -559,10 +559,10 @@ fn an_existing_valid_shortcut_is_reused_without_changing_choice() {
         effect(&shortcut_events, &shortcut.motors),
         [PlanningWorld::ROUTE]
     );
-    assert_eq!(chosen_basis(&full_trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(chosen_warrant(&full_trace), Some(ChoiceWarrant::Reentry));
     assert_eq!(
-        chosen_basis(&shortcut_trace),
-        Some(ChoiceBasis::UniqueReentry)
+        chosen_warrant(&shortcut_trace),
+        Some(ChoiceWarrant::Reentry)
     );
     full.route_value += 1;
     schedule(
@@ -616,7 +616,7 @@ fn many_disconnected_retained_histories_do_not_change_choice_or_local_reentry_wo
         effect(&product_events, &product.motors),
         [PlanningWorld::ROUTE]
     );
-    assert_eq!(chosen_basis(&plain_trace), chosen_basis(&product_trace));
+    assert_eq!(chosen_warrant(&plain_trace), chosen_warrant(&product_trace));
     assert_eq!(
         selected_reentry_work(&plain_trace),
         selected_reentry_work(&product_trace)
@@ -633,7 +633,7 @@ fn reentry_neither_creates_nor_repairs_a_shortcut() {
 
     let (_, trace) = world.probe_shared_with_present_condition(80, 6, 95);
 
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert_eq!(world.body.automaticity_work().composites_formed, formed);
     assert_eq!(world.body.arena.link(composite).unwrap().impulse, 0);
 }
@@ -666,7 +666,7 @@ fn reentry_choice_is_invariant_to_renaming_and_independent_construction_order() 
         effect(&left_events, &semantic_first.motors),
         effect(&right_events, &independent_first.motors)
     );
-    assert_eq!(chosen_basis(&left_trace), chosen_basis(&right_trace));
+    assert_eq!(chosen_warrant(&left_trace), chosen_warrant(&right_trace));
     assert_eq!(
         semantic_first.body.reentry_state(),
         independent_first.body.reentry_state()
@@ -776,7 +776,7 @@ fn attachment_remaps_reentry_support_and_independent_parts_remain_a_product() {
             .filter(|event| matches!(
                 event,
                 TraceEvent::Choice(choice)
-                    if choice.basis == Some(ChoiceBasis::UniqueReentry)
+                    if choice.warrant == Some(ChoiceWarrant::Reentry)
             ))
             .count(),
         2
@@ -998,7 +998,7 @@ fn reentry_looks_through_a_remembered_branch_without_enacting_it() {
         let (events, trace) = world.probe(70, 7);
 
         assert_eq!(effect(&events, &world.motors), [BranchingWorld::A]);
-        assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+        assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
         let reentry = trace.iter().find_map(|event| match event {
             TraceEvent::Candidate(candidate)
                 if candidate.path.output == world.motors[BranchingWorld::A].opportunity
@@ -1041,7 +1041,7 @@ fn two_remembered_goal_branches_make_no_unique_planning_claim() {
     let (events, trace) = world.probe(70, 7);
 
     assert_eq!(effect(&events, &world.motors).len(), 1);
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
 }
 
 #[derive(Clone)]
@@ -1293,7 +1293,7 @@ fn assert_unique_reentry_and_return(
     returned_source: JunctionId,
     decision: ReturnDecision,
 ) {
-    assert_eq!(chosen_basis(trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(chosen_warrant(trace), Some(ChoiceWarrant::Reentry));
     assert!(trace.iter().any(|event| matches!(
         event,
         TraceEvent::Return(returned)
@@ -1396,10 +1396,7 @@ fn reversed_experience_order_does_not_create_a_generalization_claim() {
 
     let (events, trace) = world.probe(2, 50, 5);
     assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
-    assert_eq!(
-        chosen_basis(&trace),
-        Some(ChoiceBasis::ParticipationStrengthAndDrive)
-    );
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::LocalIncidence));
 }
 
 #[test]
@@ -1409,7 +1406,7 @@ fn reentry_without_an_accepted_second_return_forms_no_shared_membership() {
 
     let (_, trace) = world.probe_with_present_condition_and_returns(0, 30, 3, 90, &[]);
 
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert!(!trace.iter().any(|event| matches!(
         event,
         TraceEvent::Return(returned)
@@ -1433,7 +1430,7 @@ fn passive_timing_during_reentry_forms_no_shared_membership() {
 
     let (_, trace) = world.probe_with_present_condition_and_returns(0, 30, 3, 90, &[(1, 91)]);
 
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert!(!trace.iter().any(|event| matches!(
         event,
         TraceEvent::Return(returned)
@@ -1639,7 +1636,7 @@ fn two_renamed_demonstrations_generalize_to_a_third_causal_instance() {
             .filter(|event| matches!(event, TraceEvent::Candidate(_) | TraceEvent::Choice(_)))
             .collect::<Vec<_>>()
     );
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert_eq!(
         trace
             .iter()
@@ -1667,7 +1664,7 @@ fn one_demonstration_cannot_reenter_a_fresh_causal_instance() {
     let (events, trace) = world.probe(2, 30, 3);
 
     assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert!(trace.iter().all(|event| !matches!(
         event,
         TraceEvent::Candidate(candidate) if !candidate.motif_reentries.is_empty()
@@ -1683,7 +1680,7 @@ fn a_changed_fresh_path_form_cannot_receive_motif_reentry() {
     let (events, trace) = world.probe(2, 50, 5);
 
     assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
 }
 
 #[test]
@@ -1700,7 +1697,7 @@ fn changed_fresh_outcome_roles_make_no_motif_choice() {
     let (events, trace) = world.probe(2, 50, 5);
 
     assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert!(trace.iter().all(|event| !matches!(
         event,
         TraceEvent::Candidate(candidate) if !candidate.motif_reentries.is_empty()
@@ -1716,7 +1713,7 @@ fn motif_reentry_is_invariant_to_renaming_and_construction_order() {
     let (events, trace) = world.probe(2, 50, 5);
 
     assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::CLOSER)]);
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
 }
 
 #[test]
@@ -1742,7 +1739,7 @@ fn disconnected_matching_motifs_add_support_without_selecting_a_parent() {
     });
 
     assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::CLOSER)]);
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert!(support.is_some_and(|support| support.len() > 1));
 }
 
@@ -1760,7 +1757,7 @@ fn an_overlarge_motif_search_fails_closed_without_a_choice_claim() {
     let (events, trace) = world.probe(2, 50, 5);
 
     assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     assert!(trace.iter().any(|event| matches!(
         event,
         TraceEvent::Candidate(candidate)
@@ -1784,8 +1781,8 @@ fn checkpoint_replays_the_exact_fresh_motif_choice() {
 
     assert_eq!(plain_result, restored_result);
     assert_eq!(
-        chosen_basis(&plain_result.1),
-        Some(ChoiceBasis::UniqueMotifReentry)
+        chosen_warrant(&plain_result.1),
+        Some(ChoiceWarrant::Reentry)
     );
 }
 
@@ -2158,7 +2155,7 @@ fn two_identity_free_motifs_compose_to_select_the_only_reaching_first_step() {
             .filter(|event| matches!(event, TraceEvent::Candidate(_) | TraceEvent::Choice(_)))
             .collect::<Vec<_>>()
     );
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     let route = trace.iter().find_map(|event| match event {
         TraceEvent::Candidate(candidate)
             if candidate.path.output == world.motors[MotifChainWorld::FRESH_LEFT].opportunity
@@ -2246,7 +2243,7 @@ fn two_reaching_motif_routes_make_no_unique_composed_choice() {
             .count(),
         2
     );
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
 }
 
 #[test]
@@ -2261,7 +2258,7 @@ fn one_downstream_example_cannot_supply_a_composed_motif_route() {
         event,
         TraceEvent::Candidate(candidate) if !candidate.motif_routes.is_empty()
     )));
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
 }
 
 #[test]
@@ -2276,7 +2273,7 @@ fn ambiguous_downstream_outcome_makes_no_composed_motif_route() {
         event,
         TraceEvent::Candidate(candidate) if !candidate.motif_routes.is_empty()
     )));
-    assert_ne!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_ne!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
 }
 
 #[test]
@@ -2290,7 +2287,7 @@ fn composed_motif_route_is_invariant_to_identity_and_construction_order() {
         let (events, trace) = world.probe(90, 9);
 
         assert_eq!(events, [MotifChainWorld::FRESH_LEFT]);
-        assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+        assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
     }
 }
 
@@ -2318,7 +2315,7 @@ fn checkpoint_and_attachment_preserve_composed_motif_routes() {
 
     let (events, trace) = attached.probe(90, 9);
     assert_eq!(events, [MotifChainWorld::FRESH_LEFT]);
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
 }
 
 #[test]
@@ -2333,5 +2330,5 @@ fn an_independent_trained_product_does_not_change_the_composed_motif_choice() {
     let (events, trace) = world.probe(90, 9);
 
     assert_eq!(events, [MotifChainWorld::FRESH_LEFT]);
-    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueMotifReentry));
+    assert_eq!(chosen_warrant(&trace), Some(ChoiceWarrant::Reentry));
 }

@@ -2,7 +2,7 @@
 
 use truelearner_body::{
     harness::{attach_outcome_component, attach_sensor, effect, finish, motor, reading, schedule},
-    verify_choice_laws, Arrival, Body, Junction, PhysicalEvent, ReturnDecision, TraceEvent,
+    verify_choice_contract, Arrival, Body, Junction, PhysicalEvent, ReturnDecision, TraceEvent,
 };
 
 struct TwoStepWorld {
@@ -65,7 +65,7 @@ impl TwoStepWorld {
             .run_traced(256, |event| events.push(event), |event| trace.push(event))
             .unwrap();
         assert!(self.body.is_quiet());
-        verify_choice_laws(&trace).unwrap();
+        verify_choice_contract(&trace).unwrap();
         (events, trace)
     }
 

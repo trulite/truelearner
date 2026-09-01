@@ -236,10 +236,10 @@ Implement and test it in this order:
    explains the consequence. Missing ancestry makes no claim; several live
    explanations are ambiguous and strengthen nothing. Ordinary movement
    closure does not mark the boundary instance closed.
-4. Before `UntriedOutputRelease`, continue only one executable, retained,
-   boundary-open path carrying fresh world-witnessed progress from its own
-   motor cause. Recompute this condition at every choice; do not store a
-   permanent continue command.
+4. Before an `Exploration` warrant can release competition, continue only one
+   executable, retained, boundary-open path carrying fresh world-witnessed
+   progress from its own motor cause. Recompute this condition at every choice;
+   do not store a permanent continue command.
 5. Boundary closure clears transient outcome selection and inhibits the exact
    completed output. The next release is confined to the same ordinary outcome
    component; an unrelated finger or eye cannot win that local reversal.
@@ -257,7 +257,8 @@ Keep implementation ownership separated:
   antagonist release;
 - `academy-body` owns only the paired discriminator and capability evidence;
 - `academy-formal` projects explicit frozen arrows, and `formal/closure` proves
-  the claimed closure resolution; Rust's frozen verifier checks choice laws.
+  the claimed closure resolution; Rust's frozen verifier checks the choice
+  contract.
 
 The paired discriminator remains mandatory. With the same checkpoint, a deeper
 world must compose the progressing palm path until its own boundary closes,

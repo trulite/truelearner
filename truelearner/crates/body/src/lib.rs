@@ -22,8 +22,8 @@ pub use crate::attachment::{
 pub use crate::calibration::{calibrate, Normalizer, Residual};
 pub use crate::checkpoint::{BodyCheckpoint, BodyCheckpointError};
 pub use crate::core::{
-    ApplyError, AutomaticityState, AutomaticityWork, Cause, JunctionRef, LinkRef, Outcome, Path,
-    ReentryState,
+    ApplyError, AutomaticityState, AutomaticityWork, Cause, ChoiceWarrant, JunctionRef, LinkRef,
+    Outcome, Path, ReentryState,
 };
 #[cfg(test)]
 pub(crate) use crate::core::{ArrowKind, ReturnStatus};
@@ -34,7 +34,7 @@ pub use crate::physics::{
     Retention, Run, RunError, Step, Time, Trigger, Work, DRIVE_MAX,
 };
 pub use crate::trace::{
-    verify_choice_laws, CandidateTrace, ChoiceBasis, ChoiceLaw, ChoiceLawViolation, ChoiceTrace,
+    verify_choice_contract, CandidateTrace, ChoiceCheck, ChoiceContractViolation, ChoiceTrace,
     MotifReentryTrace, MotifRouteStepTrace, MotifRouteTrace, ReentryStepTrace, ReentryTrace,
     ReturnCandidateTrace, ReturnDecision, ReturnTrace, StrengthTrace, TraceArrival, TraceEvent,
     TracePath,

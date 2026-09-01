@@ -7,9 +7,9 @@ use crate::{
     engine::PhysicalMoment,
     physics::opens,
     trace::{
-        CandidateTrace, ChoiceBasis, ChoiceTrace, FreshOpportunityTrace, MotifReentryTrace,
-        MotifRouteStepTrace, MotifRouteTrace, ReentryStepTrace, ReentryTrace, ReturnCandidateTrace,
-        ReturnDecision, ReturnTrace, StrengthTrace, TraceEvent, TracePath, TraceSink,
+        CandidateTrace, ChoiceTrace, FreshOpportunityTrace, MotifReentryTrace, MotifRouteStepTrace,
+        MotifRouteTrace, ReentryStepTrace, ReentryTrace, ReturnCandidateTrace, ReturnDecision,
+        ReturnTrace, StrengthTrace, TraceEvent, TracePath, TraceSink,
     },
     Body, BuildError, Impulse, Junction, JunctionId, Link, LinkId, Retention, RunError, Time,
     Trigger,

@@ -3,8 +3,8 @@
 use truelearner_body::{
     attach,
     harness::{attach_outcome_component, attach_sensor, effect, motor, reading, schedule, Motor},
-    verify_choice_laws, Arrival, Body, BodyCheckpoint, Junction, JunctionId, Link, OpenBody, Path,
-    PhysicalEvent, ReturnDecision, Run, TraceEvent, Work,
+    verify_choice_contract, Arrival, Body, BodyCheckpoint, Junction, JunctionId, Link, OpenBody,
+    Path, PhysicalEvent, ReturnDecision, Run, TraceEvent, Work,
 };
 
 struct RepeatedPathWorld {
@@ -85,7 +85,7 @@ impl RepeatedPathWorld {
             .run_traced(256, |event| events.push(event), |event| trace.push(event))
             .unwrap();
         assert!(self.body.is_quiet());
-        verify_choice_laws(&trace).unwrap();
+        verify_choice_contract(&trace).unwrap();
         (run, events, trace)
     }
 }

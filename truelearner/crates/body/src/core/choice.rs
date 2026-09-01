@@ -249,12 +249,16 @@ fn ready_path_exists(
     })
 }
 
-fn choose_ready(
+fn choose_ready<F>(
     paths: &[CandidatePath],
     worlds: &[usize],
     world: usize,
     construction: bool,
-) -> Option<ReadyChoice> {
+    fresh: F,
+) -> Option<ReadyChoice>
+where
+    F: Fn() -> Option<(usize, FreshOpportunityTrace)>,
+{
     if !construction {
         let mut inhibited = (0..paths.len()).filter(|index| {
             worlds[*index] == world && paths[*index].executable && paths[*index].boundary_inhibited
@@ -273,10 +277,7 @@ fn choose_ready(
                 }),
                 paths,
             )
-            .map(|winner| ReadyChoice {
-                winner,
-                basis: ChoiceBasis::BoundaryRelease,
-            });
+            .map(|winner| warranted(winner, ChoiceWarrant::ReturnedConsequence));
         }
     }
     let eligible = |index: &usize| {
@@ -301,96 +302,98 @@ fn choose_ready(
     let has_untried_output =
         (0..paths.len()).any(|index| active(&index) && !output_is_tried(paths[index].output));
     let release_to_untried_output = has_tried_output && has_untried_output;
-    unique_ready((0..paths.len()).filter(eligible).filter(|index| {
+
+    if let Some(winner) = unique_ready((0..paths.len()).filter(eligible).filter(|index| {
         let path = &paths[*index];
         path.return_cause.is_some() && path.return_cause == Some(path.current_cause)
-    }))
-    .map(|winner| ReadyChoice {
-        winner,
-        basis: ChoiceBasis::CurrentReturn,
-    })
-    .or_else(|| {
-        unique_retained_progress((0..paths.len()).filter(active), paths).map(|winner| ReadyChoice {
+    })) {
+        return Some(warranted(
             winner,
-            basis: ChoiceBasis::RetainedProgress,
-        })
-    })
-    .or_else(|| {
-        release_to_untried_output
-            .then(|| {
-                (0..paths.len())
-                    .filter(active)
-                    .filter(|index| !output_is_tried(paths[*index].output))
-                    .max_by_key(|index| {
-                        let path = &paths[*index];
-                        (
-                            path.participation,
-                            path.strength,
-                            path.drive,
-                            Reverse(path.stable_order),
-                        )
-                    })
-            })
-            .flatten()
-            .map(|winner| ReadyChoice {
-                winner,
-                basis: ChoiceBasis::UntriedOutputRelease,
-            })
-    })
-    .or_else(|| {
-        unique_returned_output((0..paths.len()).filter(active), paths).map(|winner| ReadyChoice {
+            ChoiceWarrant::ReturnedConsequence,
+        ));
+    }
+
+    if let Some(winner) = unique_retained_progress((0..paths.len()).filter(active), paths) {
+        return Some(warranted(
             winner,
-            basis: ChoiceBasis::CurrentReturn,
-        })
-    })
-    .or_else(|| {
-        unique_reentry((0..paths.len()).filter(active), paths).map(|winner| ReadyChoice {
+            ChoiceWarrant::RetainedContinuation,
+        ));
+    }
+
+    if release_to_untried_output {
+        if let Some((winner, evidence)) = fresh() {
+            return Some(warranted_fresh(winner, evidence));
+        }
+        if let Some(winner) = (0..paths.len())
+            .filter(active)
+            .filter(|index| !output_is_tried(paths[*index].output))
+            .max_by_key(|index| ready_preference(&paths[*index]))
+        {
+            return Some(warranted(winner, ChoiceWarrant::Exploration));
+        }
+    }
+
+    if let Some(winner) = unique_returned_output((0..paths.len()).filter(active), paths) {
+        return Some(warranted(
             winner,
-            basis: ChoiceBasis::UniqueReentry,
-        })
-    })
-    .or_else(|| {
-        unique_motif_reentry((0..paths.len()).filter(active), paths).map(|winner| ReadyChoice {
+            ChoiceWarrant::ReturnedConsequence,
+        ));
+    }
+
+    if let Some(winner) = unique_reentry((0..paths.len()).filter(active), paths) {
+        return Some(warranted(winner, ChoiceWarrant::Reentry));
+    }
+    if let Some(winner) = unique_motif_reentry((0..paths.len()).filter(active), paths) {
+        return Some(warranted(winner, ChoiceWarrant::Reentry));
+    }
+
+    if let Some((winner, evidence)) = fresh() {
+        return Some(warranted_fresh(winner, evidence));
+    }
+    if let Some(winner) =
+        unique_latest_ready(paths, worlds, world, strongest_drive, true, construction)
+    {
+        return Some(warranted(
             winner,
-            basis: ChoiceBasis::UniqueMotifReentry,
-        })
-    })
-    .or_else(|| {
-        unique_latest_ready(paths, worlds, world, strongest_drive, true, construction).map(
-            |winner| ReadyChoice {
-                winner,
-                basis: ChoiceBasis::AvailableOutcome,
-            },
-        )
-    })
-    .or_else(|| {
-        let unanswered = latest_unanswered?;
-        (0..paths.len())
+            ChoiceWarrant::RetainedContinuation,
+        ));
+    }
+
+    if let Some(unanswered) = latest_unanswered {
+        if let Some(winner) = (0..paths.len())
             .filter(active)
             .filter(|index| paths[*index].output != unanswered)
             .max_by_key(|index| ready_preference(&paths[*index]))
-            .map(|winner| ReadyChoice {
-                winner,
-                basis: ChoiceBasis::UnansweredOutputRelease,
-            })
-    })
-    .or_else(|| {
-        unique_latest_ready(paths, worlds, world, strongest_drive, false, construction).map(
-            |winner| ReadyChoice {
-                winner,
-                basis: ChoiceBasis::LatestOutcome,
-            },
-        )
-    })
-    .or_else(|| {
-        (0..paths.len())
-            .filter(active)
-            .max_by_key(|index| ready_preference(&paths[*index]))
-            .map(|winner| ReadyChoice {
-                winner,
-                basis: ChoiceBasis::ParticipationStrengthAndDrive,
-            })
-    })
+        {
+            return Some(warranted(winner, ChoiceWarrant::Exploration));
+        }
+    }
+
+    if let Some(winner) =
+        unique_latest_ready(paths, worlds, world, strongest_drive, false, construction)
+    {
+        return Some(warranted(winner, ChoiceWarrant::LocalIncidence));
+    }
+    (0..paths.len())
+        .filter(active)
+        .max_by_key(|index| ready_preference(&paths[*index]))
+        .map(|winner| warranted(winner, ChoiceWarrant::LocalIncidence))
+}
+
+const fn warranted(winner: usize, warrant: ChoiceWarrant) -> ReadyChoice {
+    ReadyChoice {
+        winner,
+        warrant,
+        fresh_through: None,
+    }
+}
+
+const fn warranted_fresh(winner: usize, evidence: FreshOpportunityTrace) -> ReadyChoice {
+    ReadyChoice {
+        winner,
+        warrant: ChoiceWarrant::RetainedContinuation,
+        fresh_through: Some(evidence.through),
+    }
 }
 
 fn ready_preference(path: &CandidatePath) -> (u64, i64, u16, Reverse<u32>) {

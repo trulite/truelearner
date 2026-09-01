@@ -116,6 +116,23 @@ the current physical candidate and its evidence; its `ContinuationResult` holds
 only the temporary result of read-only continuation inspection. Neither is
 checkpointed.
 
+Local resolution produces one transient warrant:
+
+```rust
+enum ChoiceWarrant {
+    ReturnedConsequence,
+    RetainedContinuation,
+    Reentry,
+    Exploration,
+    LocalIncidence,
+}
+```
+
+The warrant says which physical evidence class uniquely selected the path. It
+is not stored learner state, a reward, or a second decision. Traces project the
+same warrant. Only a selected `Reentry` carrying one exact returned reentry may
+participate in later membership formation.
+
 ## Workstation morphology and public boundary
 
 ```rust

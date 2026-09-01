@@ -1,7 +1,7 @@
 use crate::{CausalCheckRequest, CausalClaim, CausalEvent, ClosureWitness};
 use std::{collections::BTreeMap, error::Error, fmt};
 use truelearner_workstation::{
-    verify_choice_laws, BodyLinkId, BodyReturnDecision, BodyReturnTrace, BodyTraceEvent,
+    verify_choice_contract, BodyLinkId, BodyReturnDecision, BodyReturnTrace, BodyTraceEvent,
 };
 
 const CROSSING_EVENT_ID: u64 = 1;
@@ -295,8 +295,8 @@ fn validated_return(
     if !matches!(events.last(), Some(BodyTraceEvent::Quiet(_))) {
         return Err(TraceProjectionError::NotNaturallyQuiet);
     }
-    verify_choice_laws(events)
-        .map_err(|error| TraceProjectionError::ChoiceLaw(error.to_string()))?;
+    verify_choice_contract(events)
+        .map_err(|error| TraceProjectionError::ChoiceCheck(error.to_string()))?;
     match events.get(return_event_index) {
         Some(BodyTraceEvent::Return(returned)) => Ok(returned),
         Some(_) => Err(TraceProjectionError::NotReturnEvent(return_event_index)),
@@ -307,7 +307,7 @@ fn validated_return(
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TraceProjectionError {
     NotNaturallyQuiet,
-    ChoiceLaw(String),
+    ChoiceCheck(String),
     EventOutsideTrace(usize),
     NotReturnEvent(usize),
     ReturnNotClosed {
@@ -363,7 +363,7 @@ impl fmt::Display for TraceProjectionError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotNaturallyQuiet => formatter.write_str("frozen trace does not end at natural quiet"),
-            Self::ChoiceLaw(message) => write!(formatter, "choice trace is invalid: {message}"),
+            Self::ChoiceCheck(message) => write!(formatter, "choice trace is invalid: {message}"),
             Self::EventOutsideTrace(event) => write!(formatter, "event {event} is outside the frozen trace"),
             Self::NotReturnEvent(event) => write!(formatter, "event {event} is not a return"),
             Self::ReturnNotClosed {

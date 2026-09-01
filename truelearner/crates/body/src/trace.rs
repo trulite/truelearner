@@ -1,5 +1,6 @@
 use crate::{
-    Cause, JunctionId, JunctionRef, LinkId, LinkRef, Outcome, Path, PhysicalEvent, Run, Time,
+    Cause, ChoiceWarrant, JunctionId, JunctionRef, LinkId, LinkRef, Outcome, Path, PhysicalEvent,
+    Run, Time,
 };
 use serde::{Deserialize, Serialize};
 use std::{cmp::Reverse, error::Error, fmt};
@@ -102,52 +103,26 @@ pub struct CandidateTrace {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-pub enum ChoiceBasis {
-    CurrentReturn,
-    BoundaryRelease,
-    RetainedProgress,
-    FreshOpportunity,
-    UniqueReentry,
-    UniqueMotifReentry,
-    AvailableOutcome,
-    UnansweredOutputRelease,
-    LatestOutcome,
-    UntriedOutputRelease,
-    ParticipationStrengthAndDrive,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct ChoiceTrace {
     pub at: Time,
     pub group: usize,
     pub alternatives: usize,
     pub winner: Option<TracePath>,
-    pub basis: Option<ChoiceBasis>,
+    pub warrant: Option<ChoiceWarrant>,
     pub construction: bool,
     pub sent: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ChoiceLaw {
+pub enum ChoiceCheck {
     CandidateAccounting,
     Eligibility,
-    CurrentReturn,
-    BoundaryRelease,
-    RetainedProgress,
-    CurrentSurfaceLocality,
-    FreshOpportunity,
-    UniqueReentry,
-    UniqueMotifReentry,
-    UntriedOutputRelease,
-    AvailableOutcome,
-    UnansweredOutputRelease,
-    LatestOutcome,
-    ParticipationStrengthAndDrive,
+    LocalResolution,
     Delivery,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ChoiceLawViolation {
+pub enum ChoiceContractViolation {
     MissingChoice {
         at: Time,
         group: usize,
@@ -166,7 +141,7 @@ pub enum ChoiceLawViolation {
     MissingWinner {
         at: Time,
         group: usize,
-        law: ChoiceLaw,
+        check: ChoiceCheck,
         expected: TracePath,
     },
     UnexpectedWinner {
@@ -177,16 +152,16 @@ pub enum ChoiceLawViolation {
     WrongWinner {
         at: Time,
         group: usize,
-        law: ChoiceLaw,
+        check: ChoiceCheck,
         expected: TracePath,
         observed: TracePath,
     },
-    WrongBasis {
+    WrongWarrant {
         at: Time,
         group: usize,
-        law: ChoiceLaw,
-        expected: Option<ChoiceBasis>,
-        observed: Option<ChoiceBasis>,
+        check: ChoiceCheck,
+        expected: Option<ChoiceWarrant>,
+        observed: Option<ChoiceWarrant>,
     },
     CurrentSurfaceLocality {
         at: Time,
@@ -203,23 +178,23 @@ pub enum ChoiceLawViolation {
     },
 }
 
-impl ChoiceLawViolation {
-    pub const fn law(&self) -> ChoiceLaw {
+impl ChoiceContractViolation {
+    pub const fn check(&self) -> ChoiceCheck {
         match self {
             Self::MissingChoice { .. }
             | Self::CandidateCount { .. }
-            | Self::WinnerNotCandidate { .. } => ChoiceLaw::CandidateAccounting,
-            Self::MissingWinner { law, .. }
-            | Self::WrongWinner { law, .. }
-            | Self::WrongBasis { law, .. } => *law,
-            Self::UnexpectedWinner { .. } => ChoiceLaw::Eligibility,
-            Self::CurrentSurfaceLocality { .. } => ChoiceLaw::CurrentSurfaceLocality,
-            Self::Delivery { .. } => ChoiceLaw::Delivery,
+            | Self::WinnerNotCandidate { .. } => ChoiceCheck::CandidateAccounting,
+            Self::MissingWinner { check, .. }
+            | Self::WrongWinner { check, .. }
+            | Self::WrongWarrant { check, .. } => *check,
+            Self::UnexpectedWinner { .. } => ChoiceCheck::Eligibility,
+            Self::CurrentSurfaceLocality { .. } => ChoiceCheck::LocalResolution,
+            Self::Delivery { .. } => ChoiceCheck::Delivery,
         }
     }
 }
 
-impl fmt::Display for ChoiceLawViolation {
+impl fmt::Display for ChoiceContractViolation {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::MissingChoice { at, group } => {
@@ -238,27 +213,31 @@ impl fmt::Display for ChoiceLawViolation {
                 formatter,
                 "choice group {group} at {at} selected a path that was not a candidate"
             ),
-            Self::MissingWinner { at, group, law, .. } => write!(
+            Self::MissingWinner {
+                at, group, check, ..
+            } => write!(
                 formatter,
-                "choice group {group} at {at} violated {law:?}: the required candidate was not selected"
+                "choice group {group} at {at} violated {check:?}: the required candidate was not selected"
             ),
             Self::UnexpectedWinner { at, group, .. } => write!(
                 formatter,
                 "choice group {group} at {at} violated Eligibility: an ineligible candidate was selected"
             ),
-            Self::WrongWinner { at, group, law, .. } => write!(
+            Self::WrongWinner {
+                at, group, check, ..
+            } => write!(
                 formatter,
-                "choice group {group} at {at} violated {law:?}: it selected the wrong candidate"
+                "choice group {group} at {at} violated {check:?}: it selected the wrong candidate"
             ),
-            Self::WrongBasis {
+            Self::WrongWarrant {
                 at,
                 group,
-                law,
+                check,
                 expected,
                 observed,
             } => write!(
                 formatter,
-                "choice group {group} at {at} violated {law:?}: expected basis {expected:?}, observed {observed:?}"
+                "choice group {group} at {at} violated {check:?}: expected warrant {expected:?}, observed {observed:?}"
             ),
             Self::CurrentSurfaceLocality {
                 at,
@@ -283,13 +262,12 @@ impl fmt::Display for ChoiceLawViolation {
     }
 }
 
-impl Error for ChoiceLawViolation {}
+impl Error for ChoiceContractViolation {}
 
 #[derive(Clone, Copy)]
 struct ExpectedChoice<'a> {
     candidate: &'a CandidateTrace,
-    basis: ChoiceBasis,
-    law: ChoiceLaw,
+    warrant: ChoiceWarrant,
 }
 
 /// Verifies recorded choice decisions and receipt shape without changing the body.
@@ -297,7 +275,7 @@ struct ExpectedChoice<'a> {
 /// Historical exact-return and motif-form support are established by the body
 /// before projection; this observer has no retained topology from which to
 /// reconstruct that ancestry.
-pub fn verify_choice_laws(events: &[TraceEvent]) -> Result<(), ChoiceLawViolation> {
+pub fn verify_choice_contract(events: &[TraceEvent]) -> Result<(), ChoiceContractViolation> {
     let mut pending = Vec::<&CandidateTrace>::new();
     for event in events {
         match event {
@@ -319,7 +297,7 @@ pub fn verify_choice_laws(events: &[TraceEvent]) -> Result<(), ChoiceLawViolatio
         }
     }
     if let Some(candidate) = pending.first() {
-        return Err(ChoiceLawViolation::MissingChoice {
+        return Err(ChoiceContractViolation::MissingChoice {
             at: candidate.at,
             group: candidate.group,
         });
@@ -330,9 +308,9 @@ pub fn verify_choice_laws(events: &[TraceEvent]) -> Result<(), ChoiceLawViolatio
 fn verify_choice(
     choice: &ChoiceTrace,
     candidates: &[&CandidateTrace],
-) -> Result<(), ChoiceLawViolation> {
+) -> Result<(), ChoiceContractViolation> {
     if choice.alternatives != candidates.len() {
-        return Err(ChoiceLawViolation::CandidateCount {
+        return Err(ChoiceContractViolation::CandidateCount {
             at: choice.at,
             group: choice.group,
             recorded: choice.alternatives,
@@ -345,7 +323,7 @@ fn verify_choice(
                 .iter()
                 .copied()
                 .find(|candidate| candidate.path == winner)
-                .ok_or(ChoiceLawViolation::WinnerNotCandidate {
+                .ok_or(ChoiceContractViolation::WinnerNotCandidate {
                     at: choice.at,
                     group: choice.group,
                     winner,
@@ -356,25 +334,22 @@ fn verify_choice(
     let expected = expected_choice(candidates, choice.construction);
     match (expected, observed) {
         (None, Some(winner)) => {
-            return Err(ChoiceLawViolation::UnexpectedWinner {
+            return Err(ChoiceContractViolation::UnexpectedWinner {
                 at: choice.at,
                 group: choice.group,
                 winner: winner.path,
             });
         }
         (Some(expected), None) => {
-            return Err(ChoiceLawViolation::MissingWinner {
+            return Err(ChoiceContractViolation::MissingWinner {
                 at: choice.at,
                 group: choice.group,
-                law: expected.law,
+                check: ChoiceCheck::LocalResolution,
                 expected: expected.candidate.path,
             });
         }
         (Some(expected), Some(observed)) => {
-            if !matches!(
-                expected.law,
-                ChoiceLaw::CurrentReturn | ChoiceLaw::BoundaryRelease
-            ) {
+            if expected.warrant != ChoiceWarrant::ReturnedConsequence {
                 let strongest_drive = candidates
                     .iter()
                     .copied()
@@ -383,7 +358,7 @@ fn verify_choice(
                     .max()
                     .expect("an expected choice has an eligible candidate");
                 if observed.drive != strongest_drive {
-                    return Err(ChoiceLawViolation::CurrentSurfaceLocality {
+                    return Err(ChoiceContractViolation::CurrentSurfaceLocality {
                         at: choice.at,
                         group: choice.group,
                         winner: observed.path,
@@ -393,39 +368,39 @@ fn verify_choice(
                 }
             }
             if expected.candidate.path != observed.path {
-                return Err(ChoiceLawViolation::WrongWinner {
+                return Err(ChoiceContractViolation::WrongWinner {
                     at: choice.at,
                     group: choice.group,
-                    law: expected.law,
+                    check: ChoiceCheck::LocalResolution,
                     expected: expected.candidate.path,
                     observed: observed.path,
                 });
             }
-            if choice.basis != Some(expected.basis) {
-                return Err(ChoiceLawViolation::WrongBasis {
+            if choice.warrant != Some(expected.warrant) {
+                return Err(ChoiceContractViolation::WrongWarrant {
                     at: choice.at,
                     group: choice.group,
-                    law: expected.law,
-                    expected: Some(expected.basis),
-                    observed: choice.basis,
+                    check: ChoiceCheck::LocalResolution,
+                    expected: Some(expected.warrant),
+                    observed: choice.warrant,
                 });
             }
         }
         (None, None) => {
-            if choice.basis.is_some() {
-                return Err(ChoiceLawViolation::WrongBasis {
+            if choice.warrant.is_some() {
+                return Err(ChoiceContractViolation::WrongWarrant {
                     at: choice.at,
                     group: choice.group,
-                    law: ChoiceLaw::Eligibility,
+                    check: ChoiceCheck::Eligibility,
                     expected: None,
-                    observed: choice.basis,
+                    observed: choice.warrant,
                 });
             }
         }
     }
     let expected_sent = choice.winner.is_some() && !choice.construction;
     if choice.sent != expected_sent {
-        return Err(ChoiceLawViolation::Delivery {
+        return Err(ChoiceContractViolation::Delivery {
             at: choice.at,
             group: choice.group,
             expected_sent,
@@ -460,8 +435,7 @@ fn expected_choice<'a>(
                 .collect::<Vec<_>>();
             return unique_output(&local).map(|candidate| ExpectedChoice {
                 candidate,
-                basis: ChoiceBasis::BoundaryRelease,
-                law: ChoiceLaw::BoundaryRelease,
+                warrant: ChoiceWarrant::ReturnedConsequence,
             });
         }
     }
@@ -480,8 +454,7 @@ fn expected_choice<'a>(
     if let [candidate] = exact_returns.as_slice() {
         return Some(ExpectedChoice {
             candidate,
-            basis: ChoiceBasis::CurrentReturn,
-            law: ChoiceLaw::CurrentReturn,
+            warrant: ChoiceWarrant::ReturnedConsequence,
         });
     }
 
@@ -491,25 +464,17 @@ fn expected_choice<'a>(
         .copied()
         .filter(|candidate| candidate.drive == strongest_drive)
         .collect::<Vec<_>>();
-    let fresh = eligible
+    if let Some(candidate) = unique_retained_progress(&active) {
+        return Some(ExpectedChoice {
+            candidate,
+            warrant: ChoiceWarrant::RetainedContinuation,
+        });
+    }
+    let fresh = active
         .iter()
         .copied()
         .filter(|candidate| candidate.fresh_opportunity.is_some())
         .collect::<Vec<_>>();
-    if let [candidate] = fresh.as_slice() {
-        return Some(ExpectedChoice {
-            candidate,
-            basis: ChoiceBasis::FreshOpportunity,
-            law: ChoiceLaw::FreshOpportunity,
-        });
-    }
-    if let Some(candidate) = unique_retained_progress(&active) {
-        return Some(ExpectedChoice {
-            candidate,
-            basis: ChoiceBasis::RetainedProgress,
-            law: ChoiceLaw::RetainedProgress,
-        });
-    }
     let output_is_tried = |output| {
         active.iter().any(|candidate| {
             candidate.path.output == output
@@ -523,6 +488,12 @@ fn expected_choice<'a>(
         .iter()
         .any(|candidate| !output_is_tried(candidate.path.output));
     if has_tried_output && has_untried_output {
+        if let [candidate] = fresh.as_slice() {
+            return Some(ExpectedChoice {
+                candidate,
+                warrant: ChoiceWarrant::RetainedContinuation,
+            });
+        }
         let candidate = active
             .iter()
             .copied()
@@ -530,36 +501,37 @@ fn expected_choice<'a>(
             .max_by_key(|candidate| preference(candidate))?;
         return Some(ExpectedChoice {
             candidate,
-            basis: ChoiceBasis::UntriedOutputRelease,
-            law: ChoiceLaw::UntriedOutputRelease,
+            warrant: ChoiceWarrant::Exploration,
         });
     }
     if let Some(candidate) = unique_returned_output(&active) {
         return Some(ExpectedChoice {
             candidate,
-            basis: ChoiceBasis::CurrentReturn,
-            law: ChoiceLaw::CurrentReturn,
+            warrant: ChoiceWarrant::ReturnedConsequence,
         });
     }
     if let Some(candidate) = unique_reentry(&active) {
         return Some(ExpectedChoice {
             candidate,
-            basis: ChoiceBasis::UniqueReentry,
-            law: ChoiceLaw::UniqueReentry,
+            warrant: ChoiceWarrant::Reentry,
         });
     }
     if let Some(candidate) = unique_motif_reentry(&active) {
         return Some(ExpectedChoice {
             candidate,
-            basis: ChoiceBasis::UniqueMotifReentry,
-            law: ChoiceLaw::UniqueMotifReentry,
+            warrant: ChoiceWarrant::Reentry,
+        });
+    }
+    if let [candidate] = fresh.as_slice() {
+        return Some(ExpectedChoice {
+            candidate,
+            warrant: ChoiceWarrant::RetainedContinuation,
         });
     }
     if let Some(candidate) = unique_latest(&active, true) {
         return Some(ExpectedChoice {
             candidate,
-            basis: ChoiceBasis::AvailableOutcome,
-            law: ChoiceLaw::AvailableOutcome,
+            warrant: ChoiceWarrant::RetainedContinuation,
         });
     }
     let latest_unanswered = latest_unanswered_output(&active);
@@ -572,16 +544,14 @@ fn expected_choice<'a>(
         {
             return Some(ExpectedChoice {
                 candidate,
-                basis: ChoiceBasis::UnansweredOutputRelease,
-                law: ChoiceLaw::UnansweredOutputRelease,
+                warrant: ChoiceWarrant::Exploration,
             });
         }
     }
     if let Some(candidate) = unique_latest(&active, false) {
         return Some(ExpectedChoice {
             candidate,
-            basis: ChoiceBasis::LatestOutcome,
-            law: ChoiceLaw::LatestOutcome,
+            warrant: ChoiceWarrant::LocalIncidence,
         });
     }
     active
@@ -590,8 +560,7 @@ fn expected_choice<'a>(
         .max_by_key(|candidate| preference(candidate))
         .map(|candidate| ExpectedChoice {
             candidate,
-            basis: ChoiceBasis::ParticipationStrengthAndDrive,
-            law: ChoiceLaw::ParticipationStrengthAndDrive,
+            warrant: ChoiceWarrant::LocalIncidence,
         })
 }
 

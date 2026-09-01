@@ -8,8 +8,8 @@ use std::fmt;
 #[cfg(test)]
 use truelearner_workstation::MotorEffect;
 use truelearner_workstation::{
-    verify_choice_laws, BodyControl, BodyLinkId, BodyTraceEvent, Direction, WorkstationCheckpoint,
-    WorkstationHarness, WorkstationStepObservation,
+    verify_choice_contract, BodyControl, BodyLinkId, BodyTraceEvent, Direction,
+    WorkstationCheckpoint, WorkstationHarness, WorkstationStepObservation,
 };
 
 const PRACTICE_PRESS_DEPTH: i16 = 640;
@@ -561,9 +561,9 @@ fn execute(
             } else {
                 session.step_traced()?
             };
-            verify_choice_laws(&traced.1).map_err(|violation| {
+            verify_choice_contract(&traced.1).map_err(|violation| {
                 WorkstationCourseError::InvalidEvidence(format!(
-                    "automaticity trace violates choice law: {violation:?}"
+                    "automaticity trace violates choice contract: {violation:?}"
                 ))
             })?;
             traced
