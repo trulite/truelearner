@@ -974,9 +974,21 @@ fn axis_nearness(opportunities: &[JunctionId], axis: BodyAxis) -> Vec<(JunctionI
 }
 
 fn eye_nearness(opportunities: &[JunctionId], eye: Eye, receptor: usize) -> Vec<(JunctionId, u64)> {
-    let mut nearby = Vec::with_capacity(2);
+    let mut nearby = Vec::with_capacity(4);
     let column = receptor % RECEPTOR_SIDE;
     let row = receptor / RECEPTOR_SIDE;
+    let center = RECEPTOR_SIDE / 2;
+    // Preserve neutral four-way exploration only at the exact foveal center.
+    if column == center && row == center {
+        for axis in [
+            BodyAxis::EyeHorizontal { eye },
+            BodyAxis::EyeVertical { eye },
+        ] {
+            let start = axis.index() * 2;
+            nearby.extend([(opportunities[start], 1), (opportunities[start + 1], 1)]);
+        }
+        return nearby;
+    }
     extend_directional_nearness(
         &mut nearby,
         opportunities,
@@ -1005,10 +1017,7 @@ fn extend_directional_nearness(
     };
     match position.cmp(&center) {
         std::cmp::Ordering::Less => push(Direction::Decrease),
-        std::cmp::Ordering::Equal => {
-            push(Direction::Decrease);
-            push(Direction::Increase);
-        }
+        std::cmp::Ordering::Equal => {}
         std::cmp::Ordering::Greater => push(Direction::Increase),
     }
 }
@@ -1236,7 +1245,7 @@ mod tests {
     }
 
     #[test]
-    fn retinal_position_is_near_only_its_matching_eye_directions() {
+    fn retinal_position_is_near_only_its_displaced_eye_axes() {
         let harness = WorkstationHarness::new(1).unwrap();
         let opportunities = &harness.handles.opportunities;
         let nearby = |axis: BodyAxis, direction: Direction| {
@@ -1246,17 +1255,12 @@ mod tests {
         let horizontal = BodyAxis::EyeHorizontal { eye: Eye::Left };
         let vertical = BodyAxis::EyeVertical { eye: Eye::Left };
         let left = eye_nearness(opportunities, Eye::Left, RECEPTOR_SIDE * 4);
+        let upper = eye_nearness(opportunities, Eye::Left, 4);
         let center = eye_nearness(opportunities, Eye::Left, RECEPTOR_SIDE * 4 + 4);
         let lower_right = eye_nearness(opportunities, Eye::Left, RECEPTORS_PER_EYE - 1);
 
-        assert_eq!(
-            left,
-            vec![
-                nearby(horizontal, Direction::Decrease),
-                nearby(vertical, Direction::Decrease),
-                nearby(vertical, Direction::Increase),
-            ]
-        );
+        assert_eq!(left, vec![nearby(horizontal, Direction::Decrease)]);
+        assert_eq!(upper, vec![nearby(vertical, Direction::Decrease)]);
         assert_eq!(
             center,
             vec![
