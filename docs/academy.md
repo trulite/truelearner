@@ -546,6 +546,17 @@ available. When reached, Academy emits separate opaque body-course and taught
 workstation artifacts rather than pretending they are one body. Recombining
 those branches remains a future compositional-retention problem.
 
+### Workstation1 is disabled by default
+
+Workstation2 is the primary workstation path. `BodyCourse::run` and the
+`academy-body-course` binary teach only eye control, hand and finger control,
+and eye-hand coordination; the Workstation1 contact course and generic screen
+course run only through `run_with_workstation_course` or `--with-workstation`.
+`academy-workstation`, `academy-workstation-course`,
+`academy-workstation-review`, and `academy-arc3` remain workspace members but
+are outside the default build. Their tests in `academy-body` are ignored with a
+stated reason rather than deleted.
+
 ### Workstation2 touchscreen course
 
 `academy-workstation2` is a separate tablet-like external world used to test a

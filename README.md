@@ -22,7 +22,10 @@ evaluator knowledge never enters the organism.
 - `truelearner-behavior-contract`: shared black-box scenarios used to verify
   behavior independently of an adapter.
 
-`academy/` contains eight crates:
+`academy/` contains eight crates. Workstation2 is the primary workstation
+path; the Workstation1 crates (`academy-arc3`, `academy-workstation`,
+`academy-workstation-course`, `academy-workstation-review`) stay in the
+workspace but outside the default build.
 
 - `academy-arc3`: ARC-AGI-3 workstation application adapter and trace evidence.
 - `academy-body`: development courses, probes, controls, and evidence.
