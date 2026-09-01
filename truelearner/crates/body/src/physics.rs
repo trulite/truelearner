@@ -76,6 +76,8 @@ pub enum Trigger {
     SourceFires,
     RisesThrough(Impulse),
     FallsThrough(Impulse),
+    Rises,
+    Falls,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -312,6 +314,8 @@ fn clamp_signal(value: i64) -> Impulse {
 pub(crate) fn opens(trigger: Trigger, before: Impulse, after: Impulse) -> bool {
     match trigger {
         Trigger::SourceFires => true,
+        Trigger::Rises => after > before,
+        Trigger::Falls => after < before,
         Trigger::RisesThrough(level) => before < level && after >= level,
         Trigger::FallsThrough(level) => before > level && after <= level,
     }

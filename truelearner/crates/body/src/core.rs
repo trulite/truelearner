@@ -3,6 +3,7 @@
 use crate::{
     arena::Arena,
     engine::PhysicalMoment,
+    physics::opens,
     trace::{
         CandidateTrace, ChoiceBasis, ChoiceTrace, FreshOpportunityTrace, NoTrace, ReentryStepTrace,
         ReentryTrace, ReturnCandidateTrace, ReturnDecision, ReturnTrace, StrengthTrace, TraceEvent,
@@ -347,6 +348,9 @@ pub enum LinkChange {
     Strengthen {
         amount: i32,
     },
+    RememberSwitchedFrom {
+        prior: LinkId,
+    },
     Retire,
 }
 
@@ -376,6 +380,7 @@ pub enum Edit {
         returned: LinkId,
         path: Path,
         outcome_witness: Option<LinkId>,
+        motif_parent: Option<LinkId>,
         exact: bool,
         exclusive_source: bool,
         offers_choice: bool,
@@ -989,7 +994,15 @@ pub(crate) fn react_into<T: TraceSink>(
         );
         return;
     }
-    record_used_outputs(&scratch.facts, &mut scratch.change);
+    record_used_outputs(body, &scratch.facts, &mut scratch.change);
+    construct_caused_reentry_memberships(
+        body,
+        &scratch.facts,
+        &scratch.ready,
+        &scratch.winners,
+        &mut scratch.construction,
+        &mut scratch.change,
+    );
     record_returned_outcomes(body, &scratch.facts, &mut scratch.change, trace);
 }
 
@@ -1094,6 +1107,94 @@ fn construct_membership(
     }
 }
 
+fn construct_caused_reentry_memberships(
+    body: ReactionView<'_>,
+    facts: &[MomentFact],
+    ready: &[ReadyPath],
+    winners: &[ReadyChoice],
+    scratch: &mut ConstructionScratch,
+    change: &mut Change,
+) {
+    for choice in winners
+        .iter()
+        .filter(|choice| choice.basis == ChoiceBasis::UniqueReentry)
+    {
+        let candidate = &ready[choice.winner];
+        let [reentry] = candidate.reentries.as_slice() else {
+            continue;
+        };
+        let mut returning = facts.iter().filter(|fact| {
+            fact.boundary
+                && matches!(fact.used, UsedPaths::None)
+                && fact.event.junction == reentry.condition
+        });
+        let Some(fact) = returning.next() else {
+            continue;
+        };
+        if returning.next().is_some() {
+            continue;
+        }
+        let selected = scan_live_returns(body, reentry.condition, fact.event.cause);
+        let Some(returned) = selected.selected.filter(|returned| {
+            selected.exact_total == 1
+                && returned.cause == fact.event.cause
+                && returned.opened_at <= fact.event.at
+        }) else {
+            continue;
+        };
+        let (JunctionRef::Existing(middle), LinkRef::Existing(first), LinkRef::Existing(second)) =
+            (candidate.middle, candidate.first, candidate.second)
+        else {
+            continue;
+        };
+        let candidate_path = Path {
+            surface: candidate.surface,
+            middle,
+            output: candidate.output,
+            first,
+            second,
+        };
+        if reentry.steps.first().map(|step| step.path) != Some(candidate_path)
+            || returned.path.surface == candidate.surface
+        {
+            continue;
+        }
+
+        scratch.clear();
+        scratch
+            .members
+            .extend([candidate.surface, returned.path.surface]);
+        scratch.members.sort_unstable();
+        scratch.members.dedup();
+        if scratch.members.len() != 2 {
+            continue;
+        }
+        let parent = resolve_membership_parent(
+            body,
+            &scratch.members,
+            &mut scratch.candidates,
+            &mut scratch.stack,
+            &mut scratch.visited,
+            &mut scratch.leaves,
+            &mut scratch.parent_members,
+        );
+        let parent = match parent {
+            MembershipParent::Root => None,
+            MembershipParent::Existing(parent) => Some(parent),
+            MembershipParent::Ambiguous => continue,
+        };
+        construct_membership(
+            DetectedClosure {
+                at: fact.event.at,
+                parent,
+            },
+            &scratch.members,
+            &scratch.parent_members,
+            change,
+        );
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn remember_construction_outcomes(
     at: Time,
@@ -1131,7 +1232,7 @@ fn remember_construction_outcomes(
     }
 }
 
-fn record_used_outputs(facts: &[MomentFact], change: &mut Change) {
+fn record_used_outputs(body: ReactionView<'_>, facts: &[MomentFact], change: &mut Change) {
     for fact in facts {
         let UsedPaths::One(path) = fact.used else {
             continue;
@@ -1167,6 +1268,14 @@ fn record_used_outputs(facts: &[MomentFact], change: &mut Change) {
                 at: fact.event.at,
             },
         });
+        if let Some(prior) = unique_prior_unclosed_sibling_before(body, path, fact.event.at) {
+            change.push(Edit::ChangeLink {
+                link: returned.into(),
+                change: LinkChange::RememberSwitchedFrom {
+                    prior: prior.second,
+                },
+            });
+        }
     }
 }
 
@@ -1241,6 +1350,11 @@ fn record_returned_outcome<T: TraceSink>(
     let accepted = selected
         .selected
         .filter(|returned| returned.opened_at <= fact.event.at);
+    let motif_parent = accepted
+        .filter(|returned| returned.cause == fact.event.cause)
+        .filter(|returned| body.link_memory[returned.link.slot()].boundary_inhibited)
+        .and_then(|returned| matching_return_motif(body, returned, fact.event.junction))
+        .map(|closed| closed.link);
     if let Some(returned) = accepted.filter(|returned| !returned.offers_choice) {
         clear_output_selection(body, returned.path.output, change);
     }
@@ -1260,6 +1374,7 @@ fn record_returned_outcome<T: TraceSink>(
                 path: entry.path,
                 outcome_witness: unique_outcome_witness(body, fact.event.junction, entry.path)
                     .map(|(witness, _)| witness),
+                motif_parent,
                 exact: returned.cause == fact.event.cause,
                 exclusive_source: entry.exclusive_source,
                 offers_choice: entry.offers_choice,
@@ -1310,7 +1425,7 @@ fn retain_composite_after_return(
         spec: LinkSpec {
             delay: first.delay + second.delay,
             impulse: second.impulse,
-            trigger: Trigger::SourceFires,
+            trigger: first.trigger,
             role: LinkRole::Composite {
                 first: path.first,
                 second: path.second,
@@ -1883,6 +1998,9 @@ pub(crate) fn try_complete_single_return<T: TraceSink>(
     let Some(returned) = open_return(view, entry) else {
         return false;
     };
+    if body.link_memory[returned.link.slot()].boundary_inhibited {
+        return false;
+    }
     if returned.opened_at > event.at {
         return false;
     }
@@ -1991,12 +2109,15 @@ fn retain_composite_direct<T: TraceSink>(body: &mut Body, path: Path, at: Time, 
     let first = *body.arena.link(path.first).expect("validated path entry");
     let second = *body.arena.link(path.second).expect("validated path drive");
     let parent_strength = body.link_memory[path.second.slot()].strength;
-    let Ok(composite) = body.add_link(Link::new(
-        path.surface,
-        path.output,
-        first.delay + second.delay,
-        second.impulse,
-    )) else {
+    let Ok(composite) = body.add_link(
+        Link::new(
+            path.surface,
+            path.output,
+            first.delay + second.delay,
+            second.impulse,
+        )
+        .when(first.trigger),
+    ) else {
         return;
     };
     body.set_link_role(
@@ -2278,7 +2399,10 @@ fn path_can_be_composed(body: ReactionView<'_>, path: Path) -> bool {
         return false;
     };
     path_from_links(body, path.first, path.second) == Some(path)
-        && first.trigger == Trigger::SourceFires
+        && matches!(
+            first.trigger,
+            Trigger::SourceFires | Trigger::Rises | Trigger::Falls
+        )
         && second.trigger == Trigger::SourceFires
         && first.delay.checked_add(second.delay).is_some()
         && path_middle_is_transparent(body, path)
@@ -2311,7 +2435,7 @@ fn composite_is_valid(body: ReactionView<'_>, composite: LinkId, path: Path) -> 
         && link.to == path.output
         && link.delay == first.delay.saturating_add(second.delay)
         && link.impulse == second.impulse
-        && link.trigger == Trigger::SourceFires
+        && link.trigger == first.trigger
 }
 
 fn usable_composite(body: ReactionView<'_>, path: Path) -> Option<LinkId> {
@@ -2395,8 +2519,7 @@ fn form_and_choose<T: TraceSink>(
         let ready_start = ready.len();
         append_existing_ready_paths(
             body,
-            surface,
-            fact.event.at,
+            fact.event,
             current_cause,
             fact.drive,
             ready,
@@ -2433,7 +2556,12 @@ fn form_and_choose<T: TraceSink>(
                     spec: LinkSpec {
                         delay: morphology.delay,
                         impulse: 1,
-                        trigger: Trigger::SourceFires,
+                        trigger: path_entry_trigger(
+                            body,
+                            surface,
+                            fact.event.before,
+                            fact.event.after,
+                        ),
                         role: LinkRole::PathEntry,
                     },
                 });
@@ -2640,13 +2768,13 @@ fn form_and_choose<T: TraceSink>(
 
 fn append_existing_ready_paths(
     body: ReactionView<'_>,
-    surface: JunctionId,
-    at: Time,
+    event: crate::physics::Event,
     current_cause: Cause,
     drive: u16,
     paths: &mut Vec<ReadyPath>,
     connected_outcomes: &mut Vec<JunctionId>,
 ) {
+    let surface = event.junction;
     let mut next = body
         .arena
         .junction(surface)
@@ -2655,7 +2783,10 @@ fn append_existing_ready_paths(
         let first = *body.arena.link(first_id).expect("live link");
         next = first.next;
         let first_memory = &body.link_memory[first_id.slot()];
-        if !first_memory.live || first_memory.role != LinkRole::PathEntry {
+        if !first_memory.live
+            || first_memory.role != LinkRole::PathEntry
+            || !opens(first.trigger, event.before, event.after)
+        {
             continue;
         }
         let mut second = body
@@ -2681,7 +2812,7 @@ fn append_existing_ready_paths(
                     output: link.to,
                     first: first_id.into(),
                     second: second_id.into(),
-                    at,
+                    at: event.at,
                     current_cause,
                     return_cause: (memory.participation > 0).then_some(memory.cause),
                     unanswered: path_has_open_return(body, first.to, link.to),
@@ -2711,6 +2842,29 @@ fn append_existing_ready_paths(
                 });
             }
         }
+    }
+}
+
+fn path_entry_trigger(
+    body: ReactionView<'_>,
+    surface: JunctionId,
+    before: Impulse,
+    after: Impulse,
+) -> Trigger {
+    if !body.arena.junction(surface).is_some_and(|junction| {
+        matches!(
+            junction.checkpoint_law().retention,
+            Retention::Sampled { .. }
+        )
+    }) {
+        return Trigger::SourceFires;
+    }
+    if after > before {
+        Trigger::Rises
+    } else if after < before {
+        Trigger::Falls
+    } else {
+        Trigger::SourceFires
     }
 }
 
@@ -3004,6 +3158,134 @@ fn closed_steps(body: ReactionView<'_>) -> impl Iterator<Item = ClosedStep> + '_
         let link = LinkId::new(slot)?;
         closed_step(body, link)
     })
+}
+
+fn path_from_entry(body: ReactionView<'_>, first: LinkId) -> Option<Path> {
+    let entry = body.arena.link(first)?;
+    let memory = body.link_memory.get(first.slot())?;
+    if !memory.live || memory.role != LinkRole::PathEntry {
+        return None;
+    }
+    let mut selected = None;
+    let mut next = body
+        .arena
+        .junction(entry.to)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(second) = next {
+        let physical = body.arena.link(second).expect("live path incidence");
+        next = physical.next;
+        let second_memory = &body.link_memory[second.slot()];
+        if !second_memory.live || second_memory.role != LinkRole::Drive || physical.impulse == 0 {
+            continue;
+        }
+        let path = path_from_links(body, first, second)?;
+        if selected.replace(path).is_some() {
+            return None;
+        }
+    }
+    selected
+}
+
+fn unique_prior_unclosed_sibling(body: ReactionView<'_>, closed: Path) -> Option<Path> {
+    let closed_at = body.link_memory.get(closed.second.slot())?.participated_at;
+    unique_prior_unclosed_sibling_before(body, closed, closed_at)
+}
+
+fn unique_prior_unclosed_sibling_before(
+    body: ReactionView<'_>,
+    current: Path,
+    current_at: Time,
+) -> Option<Path> {
+    let mut selected = None;
+    let mut next = body
+        .arena
+        .junction(current.surface)
+        .and_then(|junction| junction.outgoing_head);
+    while let Some(first) = next {
+        let physical = body.arena.link(first).expect("live surface incidence");
+        next = physical.next;
+        let Some(path) = path_from_entry(body, first) else {
+            continue;
+        };
+        let memory = &body.link_memory[path.second.slot()];
+        if path.output == current.output
+            || memory.participation == 0
+            || memory.participated_at >= current_at
+            || memory.exact_closures != 0
+            || !path_has_open_return(body, path.middle, path.output)
+        {
+            continue;
+        }
+        if selected.replace(path).is_some() {
+            return None;
+        }
+    }
+    selected
+}
+
+fn same_path_form(body: ReactionView<'_>, left: Path, right: Path) -> bool {
+    let Some(left_first) = body.arena.link(left.first) else {
+        return false;
+    };
+    let Some(left_second) = body.arena.link(left.second) else {
+        return false;
+    };
+    let Some(right_first) = body.arena.link(right.first) else {
+        return false;
+    };
+    let Some(right_second) = body.arena.link(right.second) else {
+        return false;
+    };
+    let same_surface_law = body.arena.junction(left.surface).is_some_and(|left| {
+        body.arena
+            .junction(right.surface)
+            .is_some_and(|right| left.checkpoint_law() == right.checkpoint_law())
+    });
+    same_surface_law
+        && left_first.delay == right_first.delay
+        && left_first.impulse == right_first.impulse
+        && left_first.trigger == right_first.trigger
+        && left_second.delay == right_second.delay
+        && left_second.impulse == right_second.impulse
+        && left_second.trigger == right_second.trigger
+}
+
+fn matching_closed_switch(
+    body: ReactionView<'_>,
+    current: Path,
+    current_prior: Path,
+    returned_source: JunctionId,
+) -> Option<ClosedStep> {
+    unique_outcome_witness(body, returned_source, current)?;
+    for closed in closed_steps(body) {
+        if closed.path.surface == current.surface
+            || closed_step_is_valid(body, closed).is_none()
+            || !same_path_form(body, closed.path, current)
+        {
+            continue;
+        }
+        let Some(prior) = unique_prior_unclosed_sibling(body, closed.path) else {
+            continue;
+        };
+        if !same_path_form(body, prior, current_prior) {
+            continue;
+        }
+        return Some(closed);
+    }
+    None
+}
+
+#[cold]
+#[inline(never)]
+fn matching_return_motif(
+    body: ReactionView<'_>,
+    returned: OpenReturn,
+    returned_source: JunctionId,
+) -> Option<ClosedStep> {
+    body.link_memory[returned.link.slot()]
+        .switched_from()
+        .and_then(|prior| path_from_drive(body, prior))
+        .and_then(|prior| matching_closed_switch(body, returned.path, prior, returned_source))
 }
 
 fn closed_step(body: ReactionView<'_>, link: LinkId) -> Option<ClosedStep> {
@@ -4008,6 +4290,8 @@ impl LinkMemory {
     }
 
     pub(crate) fn remap_links(&mut self, base: usize) {
+        let motif_parent = self.motif_parent();
+        let switched_from = self.switched_from();
         if let LinkRole::Composite { first, second } = self.role {
             self.role = LinkRole::Composite {
                 first: remap_link(first, base),
@@ -4016,6 +4300,12 @@ impl LinkMemory {
         }
         if let Some((source, witness)) = self.closed_support() {
             self.remember_closed_support(source, remap_link(witness, base));
+        }
+        if let Some(parent) = motif_parent {
+            self.remember_motif_parent(remap_link(parent, base));
+        }
+        if let Some(prior) = switched_from {
+            self.remember_switched_from(remap_link(prior, base));
         }
     }
 
@@ -4052,6 +4342,42 @@ impl LinkMemory {
     #[inline(always)]
     fn closed_support(&self) -> Option<(JunctionId, LinkId)> {
         (!self.live).then(|| self.stored_support()).flatten()
+    }
+
+    fn remember_motif_parent(&mut self, parent: LinkId) {
+        debug_assert!(!self.live && matches!(self.role, LinkRole::Return { .. }));
+        self.participation = parent.slot() as u64;
+        self.boundary_inhibited = true;
+    }
+
+    pub(crate) fn motif_parent(&self) -> Option<LinkId> {
+        if self.closed_support().is_none() || !self.boundary_inhibited {
+            return None;
+        }
+        usize::try_from(self.participation)
+            .ok()
+            .and_then(LinkId::new)
+    }
+
+    fn remember_switched_from(&mut self, prior: LinkId) {
+        debug_assert!(self.live && matches!(self.role, LinkRole::Return { .. }));
+        self.participation = prior.slot() as u64;
+        self.boundary_inhibited = true;
+    }
+
+    fn switched_from(&self) -> Option<LinkId> {
+        if !self.live || !matches!(self.role, LinkRole::Return { .. }) || !self.boundary_inhibited {
+            return None;
+        }
+        usize::try_from(self.participation)
+            .ok()
+            .and_then(LinkId::new)
+    }
+
+    fn clear_switched_from(&mut self) {
+        if self.live && matches!(self.role, LinkRole::Return { .. }) {
+            self.boundary_inhibited = false;
+        }
     }
 }
 
@@ -4310,13 +4636,27 @@ impl Body {
                     validate_junction(self, *to, junctions)?;
                     links += 1;
                 }
-                Edit::Send { through, .. } | Edit::ChangeLink { link: through, .. } => {
+                Edit::Send { through, .. } => {
                     validate_link(self, *through, links)?;
                 }
-                Edit::CompleteReturn { returned, path, .. } => {
+                Edit::ChangeLink { link, change } => {
+                    validate_link(self, *link, links)?;
+                    if let LinkChange::RememberSwitchedFrom { prior } = change {
+                        validate_link(self, (*prior).into(), links)?;
+                    }
+                }
+                Edit::CompleteReturn {
+                    returned,
+                    path,
+                    motif_parent,
+                    ..
+                } => {
                     validate_link(self, (*returned).into(), links)?;
                     for link in path.links() {
                         validate_link(self, link.into(), links)?;
+                    }
+                    if let Some(parent) = motif_parent {
+                        validate_link(self, (*parent).into(), links)?;
                     }
                 }
             }
@@ -4364,6 +4704,7 @@ impl Body {
                     returned,
                     path,
                     outcome_witness,
+                    motif_parent,
                     exact,
                     exclusive_source,
                     offers_choice,
@@ -4387,6 +4728,7 @@ impl Body {
                                 self.remove_live_return_with_path(returned, Some(path));
                             }
                         }
+                        self.link_memory[returned.slot()].clear_switched_from();
                         self.link_memory[returned.slot()].live = false;
                     }
                     let mut exact_closures = self.link_memory[path.first.slot()].exact_closures;
@@ -4426,6 +4768,11 @@ impl Body {
                         exact,
                         exclusive_source && exact_closures > u8::from(exact),
                     );
+                    if self.link_memory[returned.slot()].closed_support().is_some() {
+                        if let Some(parent) = motif_parent {
+                            self.link_memory[returned.slot()].remember_motif_parent(parent);
+                        }
+                    }
                 }
                 Edit::ChangeLink { link, change } => {
                     let link = resolve_link(link, applied)?;
@@ -4506,6 +4853,9 @@ impl Body {
                                     after,
                                 }));
                             }
+                        }
+                        LinkChange::RememberSwitchedFrom { prior } => {
+                            memory.remember_switched_from(prior);
                         }
                         LinkChange::Retire => unreachable!("retirement handled before mutation"),
                     }
@@ -4798,17 +5148,18 @@ mod tests {
         let view = ReactionView::new(&body.arena, &body.link_memory, &body.returns);
         let mut paths = Vec::new();
         let mut connected = Vec::new();
-        append_existing_ready_paths(view, surface, 7, 1, 1, &mut paths, &mut connected);
+        let event = crate::physics::Event {
+            at: 7,
+            junction: surface,
+            arrivals: 1,
+            impulse: 1,
+            before: 0,
+            after: 1,
+            cause: 1,
+        };
+        append_existing_ready_paths(view, event, 1, 1, &mut paths, &mut connected);
         let facts = [MomentFact {
-            event: crate::physics::Event {
-                at: 7,
-                junction: surface,
-                arrivals: 1,
-                impulse: 1,
-                before: 0,
-                after: 1,
-                cause: 1,
-            },
+            event,
             drive: 1,
             boundary: true,
             used: UsedPaths::None,

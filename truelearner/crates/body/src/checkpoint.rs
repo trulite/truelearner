@@ -192,8 +192,38 @@ mod tests {
     use super::*;
     use crate::{
         harness::{attach_outcome_component, attach_sensor, finish, motor, reading, schedule},
-        Arrival, Junction, TraceEvent,
+        Arrival, Junction, TraceEvent, Trigger,
     };
+
+    #[derive(Serialize)]
+    enum VersionSevenTrigger {
+        SourceFires,
+        RisesThrough(i32),
+        FallsThrough(i32),
+    }
+
+    #[derive(Serialize)]
+    struct VersionSevenLink {
+        from: crate::JunctionId,
+        to: crate::JunctionId,
+        delay: u64,
+        impulse: i32,
+        trigger: VersionSevenTrigger,
+    }
+
+    #[derive(Serialize)]
+    struct VersionSevenLinkRecord {
+        law: VersionSevenLink,
+        memory: LinkMemory,
+    }
+
+    #[derive(Serialize)]
+    struct VersionSevenPayload {
+        now: u64,
+        junctions: Vec<JunctionRecord>,
+        links: Vec<VersionSevenLinkRecord>,
+        automaticity: Option<Box<Automaticity>>,
+    }
 
     fn body_with_open_return() -> (Body, crate::JunctionId) {
         let mut body = Body::default();
@@ -235,6 +265,85 @@ mod tests {
         assert_eq!(
             plain.checkpoint().unwrap().canonical_bytes().unwrap(),
             restored.checkpoint().unwrap().canonical_bytes().unwrap()
+        );
+    }
+
+    #[test]
+    fn version_seven_threshold_triggers_keep_their_checkpoint_meaning() {
+        let first = crate::JunctionId::new(0).unwrap();
+        let second = crate::JunctionId::new(1).unwrap();
+        let payload = VersionSevenPayload {
+            now: 0,
+            junctions: vec![
+                JunctionRecord {
+                    law: Junction::sampled(100),
+                    stamp: 0,
+                    value: 0,
+                    sampled_known: false,
+                },
+                JunctionRecord {
+                    law: Junction::integrating(1),
+                    stamp: 0,
+                    value: 0,
+                    sampled_known: false,
+                },
+            ],
+            links: vec![
+                VersionSevenLinkRecord {
+                    law: VersionSevenLink {
+                        from: first,
+                        to: second,
+                        delay: 0,
+                        impulse: 1,
+                        trigger: VersionSevenTrigger::SourceFires,
+                    },
+                    memory: LinkMemory::default(),
+                },
+                VersionSevenLinkRecord {
+                    law: VersionSevenLink {
+                        from: first,
+                        to: second,
+                        delay: 1,
+                        impulse: 1,
+                        trigger: VersionSevenTrigger::RisesThrough(5),
+                    },
+                    memory: LinkMemory::default(),
+                },
+                VersionSevenLinkRecord {
+                    law: VersionSevenLink {
+                        from: first,
+                        to: second,
+                        delay: 2,
+                        impulse: -1,
+                        trigger: VersionSevenTrigger::FallsThrough(-5),
+                    },
+                    memory: LinkMemory::default(),
+                },
+            ],
+            automaticity: None,
+        };
+        let payload = options().serialize(&payload).unwrap();
+        let mut bytes = Vec::with_capacity(HEADER_LEN + payload.len());
+        bytes.extend_from_slice(MAGIC);
+        bytes.extend_from_slice(&VERSION.to_le_bytes());
+        bytes.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(&Sha256::digest(&payload));
+        bytes.extend_from_slice(&payload);
+
+        let body = BodyCheckpoint::decode(&bytes).unwrap().restore().unwrap();
+        let triggers = body
+            .arena
+            .links()
+            .map(|link| link.checkpoint_law().trigger)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            triggers,
+            [
+                Trigger::SourceFires,
+                Trigger::RisesThrough(5),
+                Trigger::FallsThrough(-5)
+            ]
         );
     }
 

@@ -7,6 +7,8 @@ mod checkpoint;
 pub mod core;
 mod engine;
 pub mod harness;
+#[cfg(test)]
+mod motif_laws;
 mod physics;
 #[cfg(test)]
 mod planning_goal_laws;

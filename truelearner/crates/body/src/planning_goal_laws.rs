@@ -764,65 +764,111 @@ fn attachment_remaps_reentry_support_and_independent_parts_remain_a_product() {
 
 struct ClosureWorld {
     body: Body,
-    surfaces: [JunctionId; 2],
-    motors: [Motor; 4],
-    closure: JunctionId,
-    closure_value: i32,
+    surfaces: [JunctionId; 3],
+    motors: [Motor; 6],
+    closures: [JunctionId; 3],
+    closure_values: [i32; 3],
 }
 
 impl ClosureWorld {
-    const OLD_PROXY: usize = 0;
-    const OLD_CLOSER: usize = 1;
-    const NEW_PROXY: usize = 2;
-    const NEW_CLOSER: usize = 3;
+    const PROXY: usize = 0;
+    const CLOSER: usize = 1;
+
+    const fn output(problem: usize, role: usize) -> usize {
+        problem * 2 + role
+    }
 
     fn new() -> Self {
+        Self::with_reversed_order([false; 3])
+    }
+
+    fn with_reversed_order(reversed: [bool; 3]) -> Self {
+        Self::with_forms(reversed, [1; 3])
+    }
+
+    fn with_forms(reversed: [bool; 3], distances: [u64; 3]) -> Self {
+        Self::with_setup(reversed, distances, false)
+    }
+
+    fn with_dormant_prefix(prefix: bool) -> Self {
+        Self::with_setup([false; 3], [1; 3], prefix)
+    }
+
+    fn with_setup(reversed: [bool; 3], distances: [u64; 3], prefix: bool) -> Self {
         let mut body = Body::default();
+        if prefix {
+            let from = body.add_junction(Junction::integrating(1)).unwrap();
+            let to = body.add_junction(Junction::integrating(1)).unwrap();
+            body.add_link(Link::new(from, to, 1, 1)).unwrap();
+        }
         let motors = std::array::from_fn(|_| motor(&mut body));
-        let surfaces = [
+        let surfaces = std::array::from_fn(|problem| {
+            let roles = if reversed[problem] {
+                [Self::CLOSER, Self::PROXY]
+            } else {
+                [Self::PROXY, Self::CLOSER]
+            };
             attach_sensor(
                 &mut body,
                 Junction::integrating(1),
                 &[
-                    (motors[Self::OLD_PROXY].opportunity, 1),
-                    (motors[Self::OLD_CLOSER].opportunity, 1),
+                    (
+                        motors[Self::output(problem, roles[0])].opportunity,
+                        distances[problem],
+                    ),
+                    (
+                        motors[Self::output(problem, roles[1])].opportunity,
+                        distances[problem],
+                    ),
                 ],
-            ),
-            attach_sensor(
+            )
+        });
+        let closures = std::array::from_fn(|problem| {
+            let closure = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
+            attach_outcome_component(
                 &mut body,
-                Junction::integrating(1),
-                &[
-                    (motors[Self::NEW_PROXY].opportunity, 1),
-                    (motors[Self::NEW_CLOSER].opportunity, 1),
-                ],
-            ),
-        ];
-        let closure = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
-        attach_outcome_component(
+                closure,
+                [motors[Self::output(problem, Self::CLOSER)].opportunity],
+            );
+            closure
+        });
+        schedule(
             &mut body,
-            closure,
-            [
-                motors[Self::OLD_CLOSER].opportunity,
-                motors[Self::NEW_CLOSER].opportunity,
-            ],
+            0,
+            &closures.map(|closure| Arrival::caused(closure, 0, 0)),
         );
-        schedule(&mut body, 0, &[Arrival::caused(closure, 0, 0)]);
         run(&mut body);
         Self {
             body,
             surfaces,
             motors,
-            closure,
-            closure_value: 0,
+            closures,
+            closure_values: [0; 3],
         }
     }
 
-    fn act(&mut self, surface: usize, outputs: &[usize], at: u64, cause: u64) -> Vec<usize> {
-        schedule(
-            &mut self.body,
-            at,
-            &[reading(self.surfaces[surface], 0, 1, cause)],
-        );
+    fn act(
+        &mut self,
+        problem: usize,
+        roles: &[usize],
+        at: u64,
+        cause: u64,
+    ) -> (Vec<usize>, Vec<TraceEvent>) {
+        let outputs = roles
+            .iter()
+            .map(|role| Self::output(problem, *role))
+            .collect::<Vec<_>>();
+        self.act_from(self.surfaces[problem], &outputs, at, cause)
+    }
+
+    fn act_from(
+        &mut self,
+        surface: JunctionId,
+        outputs: &[usize],
+        at: u64,
+        cause: u64,
+    ) -> (Vec<usize>, Vec<TraceEvent>) {
+        schedule(&mut self.body, at, &[reading(surface, 0, 1, cause)]);
         schedule(
             &mut self.body,
             at + 1,
@@ -831,84 +877,496 @@ impl ClosureWorld {
                 .map(|output| Arrival::caused(self.motors[*output].opportunity, 1, cause))
                 .collect::<Vec<_>>(),
         );
-        effect(&run(&mut self.body).0, &self.motors)
+        let (events, trace) = run(&mut self.body);
+        (effect(&events, &self.motors), trace)
     }
 
-    fn return_closure(&mut self, at: u64, cause: u64) {
-        self.closure_value += 1;
+    fn return_closure(&mut self, problem: usize, at: u64, cause: u64) -> Vec<TraceEvent> {
+        self.closure_values[problem] += 1;
         schedule(
             &mut self.body,
             at,
-            &[reading(self.closure, 0, self.closure_value, cause)],
+            &[reading(
+                self.closures[problem],
+                0,
+                self.closure_values[problem],
+                cause,
+            )],
         );
         let (_, trace) = run(&mut self.body);
+        trace
+    }
+
+    fn demonstrate(&mut self, problem: usize, at: u64, cause: u64) {
+        assert_eq!(
+            self.act(problem, &[Self::PROXY], at, cause).0,
+            [Self::output(problem, Self::PROXY)]
+        );
+        assert_eq!(
+            self.act(problem, &[Self::CLOSER], at + 10, cause + 1).0,
+            [Self::output(problem, Self::CLOSER)]
+        );
+        let return_at = (at + 12).max(self.body.now().saturating_add(1));
+        let trace = self.return_closure(problem, return_at, cause + 1);
         assert!(trace.iter().any(|event| matches!(
             event,
             TraceEvent::Return(returned)
                 if returned.decision == ReturnDecision::Accepted
-                    && returned.source == self.closure
-                    && returned.return_cause == Some(cause)
+                    && returned.source == self.closures[problem]
+                    && returned.return_cause == Some(cause + 1)
         )));
     }
 
-    fn discover_old_closure(&mut self) {
-        assert_eq!(self.act(0, &[Self::OLD_PROXY], 10, 1), [Self::OLD_PROXY]);
-        assert_eq!(self.act(0, &[Self::OLD_CLOSER], 20, 2), [Self::OLD_CLOSER]);
-        self.return_closure(22, 2);
+    fn probe(&mut self, problem: usize, at: u64, cause: u64) -> (Vec<usize>, Vec<TraceEvent>) {
+        self.act(problem, &[Self::PROXY, Self::CLOSER], at, cause)
     }
+
+    fn probe_with_present_condition_and_returns(
+        &mut self,
+        problem: usize,
+        at: u64,
+        cause: u64,
+        condition_cause: u64,
+        returns: &[(usize, u64)],
+    ) -> (Vec<usize>, Vec<TraceEvent>) {
+        self.closure_values[problem] += 1;
+        let mut arrivals = vec![
+            reading(self.surfaces[problem], 0, 1, cause),
+            reading(
+                self.closures[problem],
+                0,
+                self.closure_values[problem],
+                condition_cause,
+            ),
+        ];
+        for (returned_problem, return_cause) in returns {
+            self.closure_values[*returned_problem] += 1;
+            arrivals.push(reading(
+                self.closures[*returned_problem],
+                0,
+                self.closure_values[*returned_problem],
+                *return_cause,
+            ));
+        }
+        schedule(&mut self.body, at, &arrivals);
+        schedule(
+            &mut self.body,
+            at + 1,
+            &[
+                Arrival::caused(
+                    self.motors[Self::output(problem, Self::PROXY)].opportunity,
+                    1,
+                    cause,
+                ),
+                Arrival::caused(
+                    self.motors[Self::output(problem, Self::CLOSER)].opportunity,
+                    1,
+                    cause,
+                ),
+            ],
+        );
+        let (events, trace) = run(&mut self.body);
+        (effect(&events, &self.motors), trace)
+    }
+}
+
+fn direct_membership_parent(body: &Body, member: JunctionId) -> Option<JunctionId> {
+    let mut parents = body
+        .arena
+        .incoming(member)
+        .filter(|link| {
+            body.link_memory[link.slot()].live
+                && body.link_memory[link.slot()].role == LinkRole::Membership
+        })
+        .filter_map(|link| body.arena.link(link).map(|physical| physical.from));
+    let parent = parents.next();
+    assert!(parents.all(|candidate| Some(candidate) == parent));
+    parent
+}
+
+fn composed_motifs(body: &Body) -> Vec<(LinkId, LinkId)> {
+    body.link_memory
+        .iter()
+        .enumerate()
+        .filter_map(|(slot, memory)| {
+            memory
+                .motif_parent()
+                .map(|parent| (LinkId::new(slot).expect("live motif witness"), parent))
+        })
+        .collect()
+}
+
+fn motif_parent_from_output(body: &Body, output: JunctionId) -> Option<LinkId> {
+    let mut parents = body
+        .link_memory
+        .iter()
+        .enumerate()
+        .filter_map(|(slot, memory)| {
+            let link = LinkId::new(slot)?;
+            (body.arena.link(link)?.from == output)
+                .then(|| memory.motif_parent())
+                .flatten()
+        });
+    let parent = parents.next();
+    assert!(parents.next().is_none());
+    parent
+}
+
+fn assert_unique_reentry_and_return(
+    trace: &[TraceEvent],
+    returned_source: JunctionId,
+    decision: ReturnDecision,
+) {
+    assert_eq!(chosen_basis(trace), Some(ChoiceBasis::UniqueReentry));
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned)
+            if returned.source == returned_source && returned.decision == decision
+    )));
 }
 
 #[test]
 fn one_unique_self_caused_closure_changes_later_choice_on_the_same_surface() {
     let mut world = ClosureWorld::new();
-    world.discover_old_closure();
+    world.demonstrate(0, 10, 1);
 
     assert_eq!(
-        world.act(
-            0,
-            &[ClosureWorld::OLD_PROXY, ClosureWorld::OLD_CLOSER],
-            30,
-            3,
-        ),
-        [ClosureWorld::OLD_CLOSER]
+        world.probe(0, 30, 3).0,
+        [ClosureWorld::output(0, ClosureWorld::CLOSER)]
     );
 }
 
 #[test]
 fn a_passive_closure_sample_creates_no_later_action_preference() {
     let mut world = ClosureWorld::new();
-    world.closure_value += 1;
-    schedule(
-        &mut world.body,
-        10,
-        &[reading(world.closure, 0, world.closure_value, 9)],
-    );
-    run(&mut world.body);
+    world.return_closure(0, 10, 9);
 
     assert_eq!(
-        world.act(
-            0,
-            &[ClosureWorld::OLD_PROXY, ClosureWorld::OLD_CLOSER],
-            20,
-            1,
-        ),
-        [ClosureWorld::OLD_PROXY]
+        world.probe(0, 20, 1).0,
+        [ClosureWorld::output(0, ClosureWorld::PROXY)]
     );
 }
 
 #[test]
-#[ignore = "frontier: a closure class does not yet transfer to fresh surface and output identities"]
-fn a_discovered_closure_transfers_to_a_fresh_equivalent_surface_and_output() {
+fn passive_timing_cannot_supply_the_second_example_for_generalization() {
     let mut world = ClosureWorld::new();
-    world.discover_old_closure();
+    world.demonstrate(0, 10, 1);
+    let trace = world.return_closure(1, 30, 0);
 
+    assert!(!trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted
+    )));
+    assert_eq!(world.body.reentry_state().closed_steps, 1);
+    assert!(composed_motifs(&world.body).is_empty());
     assert_eq!(
-        world.act(
-            1,
-            &[ClosureWorld::NEW_PROXY, ClosureWorld::NEW_CLOSER],
-            30,
-            3,
-        ),
-        [ClosureWorld::NEW_CLOSER]
+        world.probe(2, 40, 5).0,
+        [ClosureWorld::output(2, ClosureWorld::PROXY)]
     );
+}
+
+#[test]
+fn ambiguous_return_cannot_supply_the_second_example_for_generalization() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    let closer = ClosureWorld::output(1, ClosureWorld::CLOSER);
+    let first = attach_sensor(
+        &mut world.body,
+        Junction::integrating(1),
+        &[(world.motors[closer].opportunity, 1)],
+    );
+    let second = attach_sensor(
+        &mut world.body,
+        Junction::integrating(1),
+        &[(world.motors[closer].opportunity, 1)],
+    );
+    assert_eq!(world.act_from(first, &[closer], 30, 3).0, [closer]);
+    assert_eq!(world.act_from(second, &[closer], 34, 4).0, [closer]);
+    let trace = world.return_closure(1, 38, 99);
+
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Ambiguous
+    )));
+    assert_eq!(world.body.reentry_state().closed_steps, 1);
+    assert!(composed_motifs(&world.body).is_empty());
+    assert_eq!(
+        world.probe(2, 40, 6).0,
+        [ClosureWorld::output(2, ClosureWorld::PROXY)]
+    );
+}
+
+#[test]
+fn reversed_experience_order_does_not_create_a_generalization_claim() {
+    let mut world = ClosureWorld::with_reversed_order([false, true, false]);
+    world.demonstrate(0, 10, 1);
+    let (events, first_trace) = world.act(1, &[ClosureWorld::CLOSER], 30, 3);
+    assert_eq!(
+        events,
+        [ClosureWorld::output(1, ClosureWorld::CLOSER)],
+        "trace={first_trace:#?}"
+    );
+    let trace = world.return_closure(1, 32, 3);
+    assert!(trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted
+    )));
+    assert_eq!(
+        world.act(1, &[ClosureWorld::PROXY], 40, 4).0,
+        [ClosureWorld::output(1, ClosureWorld::PROXY)]
+    );
+    assert_eq!(world.body.reentry_state().closed_steps, 2);
+    assert!(composed_motifs(&world.body).is_empty());
+
+    let (events, trace) = world.probe(2, 50, 5);
+    assert_eq!(events, [ClosureWorld::output(2, ClosureWorld::PROXY)]);
+    assert_eq!(
+        chosen_basis(&trace),
+        Some(ChoiceBasis::ParticipationStrengthAndDrive)
+    );
+}
+
+#[test]
+fn reentry_without_an_accepted_second_return_forms_no_shared_membership() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+
+    let (_, trace) = world.probe_with_present_condition_and_returns(0, 30, 3, 90, &[]);
+
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert!(!trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned)
+            if returned.source == world.closures[1]
+                && returned.decision == ReturnDecision::Accepted
+    )));
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[0]),
+        None
+    );
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[1]),
+        None
+    );
+}
+
+#[test]
+fn passive_timing_during_reentry_forms_no_shared_membership() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+
+    let (_, trace) = world.probe_with_present_condition_and_returns(0, 30, 3, 90, &[(1, 91)]);
+
+    assert_eq!(chosen_basis(&trace), Some(ChoiceBasis::UniqueReentry));
+    assert!(!trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned)
+            if returned.source == world.closures[1]
+                && returned.decision == ReturnDecision::Accepted
+    )));
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[0]),
+        None
+    );
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[1]),
+        None
+    );
+}
+
+#[test]
+fn ambiguous_return_during_reentry_forms_no_shared_membership() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    let closer = ClosureWorld::output(1, ClosureWorld::CLOSER);
+    let first = attach_sensor(
+        &mut world.body,
+        Junction::integrating(1),
+        &[(world.motors[closer].opportunity, 1)],
+    );
+    let second = attach_sensor(
+        &mut world.body,
+        Junction::integrating(1),
+        &[(world.motors[closer].opportunity, 1)],
+    );
+    assert_eq!(world.act_from(first, &[closer], 30, 3).0, [closer]);
+    assert_eq!(world.act_from(second, &[closer], 34, 4).0, [closer]);
+
+    let (_, trace) = world.probe_with_present_condition_and_returns(0, 40, 5, 90, &[(1, 99)]);
+
+    assert_unique_reentry_and_return(&trace, world.closures[1], ReturnDecision::Ambiguous);
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[0]),
+        None
+    );
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[1]),
+        None
+    );
+}
+
+#[test]
+fn an_unrelated_exact_return_during_unique_reentry_forms_no_shared_membership() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    let closer = ClosureWorld::output(1, ClosureWorld::CLOSER);
+    assert_eq!(
+        world.act(1, &[ClosureWorld::PROXY], 26, 2).0,
+        [ClosureWorld::output(1, ClosureWorld::PROXY)]
+    );
+    assert_eq!(world.act(1, &[ClosureWorld::CLOSER], 30, 3).0, [closer]);
+
+    let (_, trace) = world.probe_with_present_condition_and_returns(0, 40, 4, 90, &[(1, 3)]);
+
+    assert_unique_reentry_and_return(&trace, world.closures[1], ReturnDecision::Accepted);
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[0]),
+        None
+    );
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[1]),
+        None
+    );
+}
+
+#[test]
+fn an_exact_return_that_is_the_reentry_condition_forms_shared_causal_membership() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    let closer = ClosureWorld::output(1, ClosureWorld::CLOSER);
+    attach_outcome_component(
+        &mut world.body,
+        world.closures[0],
+        [world.motors[closer].opportunity],
+    );
+    assert_eq!(
+        world.act(1, &[ClosureWorld::PROXY], 26, 2).0,
+        [ClosureWorld::output(1, ClosureWorld::PROXY)]
+    );
+    assert_eq!(world.act(1, &[ClosureWorld::CLOSER], 30, 3).0, [closer]);
+
+    let (_, trace) = world.probe_with_present_condition_and_returns(0, 40, 4, 3, &[]);
+
+    assert_unique_reentry_and_return(&trace, world.closures[0], ReturnDecision::Accepted);
+    let first = direct_membership_parent(&world.body, world.surfaces[0]);
+    let second = direct_membership_parent(&world.body, world.surfaces[1]);
+    assert!(first.is_some(), "trace={trace:#?}");
+    assert_eq!(first, second, "trace={trace:#?}");
+}
+
+#[test]
+fn two_renamed_switch_then_close_histories_form_one_shared_causal_motif() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    assert!(world
+        .body
+        .link_memory
+        .iter()
+        .all(|memory| memory.motif_parent().is_none()));
+    world.demonstrate(1, 30, 3);
+
+    let composed = composed_motifs(&world.body);
+    let [(second, first)] = composed.as_slice() else {
+        panic!("expected one composed motif witness, got {composed:#?}");
+    };
+    assert_eq!(
+        world.body.arena.link(*first).expect("first witness").from,
+        world.motors[ClosureWorld::output(0, ClosureWorld::CLOSER)].opportunity
+    );
+    assert_eq!(
+        world.body.arena.link(*second).expect("second witness").from,
+        world.motors[ClosureWorld::output(1, ClosureWorld::CLOSER)].opportunity
+    );
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[0]),
+        None
+    );
+    assert_eq!(
+        direct_membership_parent(&world.body, world.surfaces[1]),
+        None
+    );
+}
+
+#[test]
+fn motif_composition_ignores_identity_and_independent_construction() {
+    let episode = |prefix| {
+        let mut world = ClosureWorld::with_dormant_prefix(prefix);
+        world.demonstrate(0, 10, 1);
+        world.demonstrate(1, 30, 3);
+        composed_motifs(&world.body).len()
+    };
+
+    assert_eq!(episode(false), 1);
+    assert_eq!(episode(true), 1);
+}
+
+#[test]
+fn a_changed_physical_path_form_does_not_compose_a_motif() {
+    let mut world = ClosureWorld::with_forms([false; 3], [1, 2, 1]);
+    world.demonstrate(0, 10, 1);
+    world.demonstrate(1, 30, 3);
+
+    assert!(composed_motifs(&world.body).is_empty());
+}
+
+#[test]
+fn checkpoint_and_attachment_preserve_composed_motif_links() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    world.demonstrate(1, 30, 3);
+    let expected = composed_motifs(&world.body);
+
+    let bytes = world.body.checkpoint().unwrap().canonical_bytes().unwrap();
+    let restored = BodyCheckpoint::decode(&bytes).unwrap().restore().unwrap();
+    assert_eq!(composed_motifs(&restored), expected);
+
+    let mut host = Body::default();
+    let part = OpenBody::new(restored, Vec::new()).unwrap();
+    attach(&mut host, part, &[]).unwrap();
+    let attached = composed_motifs(&host);
+    assert_eq!(attached.len(), 1);
+    assert!(host.arena.link(attached[0].0).is_some());
+    assert!(host.arena.link(attached[0].1).is_some());
+}
+
+#[test]
+fn disconnected_matching_histories_do_not_block_local_motif_composition() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    for _ in 0..8 {
+        let mut dormant = ClosureWorld::new();
+        dormant.demonstrate(0, 10, 1);
+        dormant.demonstrate(1, 30, 3);
+        let part = OpenBody::new(dormant.body, Vec::new()).unwrap();
+        attach(&mut world.body, part, &[]).unwrap();
+    }
+    world.demonstrate(1, 50, 3);
+
+    let output = world.motors[ClosureWorld::output(1, ClosureWorld::CLOSER)].opportunity;
+    assert!(motif_parent_from_output(&world.body, output).is_some());
+}
+
+#[test]
+#[ignore = "frontier: a retained renamed motif does not yet reenter a fresh causal instance"]
+fn two_renamed_demonstrations_generalize_to_a_third_causal_instance() {
+    let mut world = ClosureWorld::new();
+    world.demonstrate(0, 10, 1);
+    world.demonstrate(1, 30, 3);
+    assert_eq!(world.body.reentry_state().closed_steps, 2);
+
+    let (events, trace) = world.probe(2, 50, 5);
+    assert_eq!(
+        events,
+        [ClosureWorld::output(2, ClosureWorld::CLOSER)],
+        "choices={:#?}",
+        trace
+            .iter()
+            .filter(|event| matches!(event, TraceEvent::Candidate(_) | TraceEvent::Choice(_)))
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(world.body.reentry_state().closed_steps, 2);
+    assert!(!trace.iter().any(|event| matches!(
+        event,
+        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted
+    ) || matches!(event, TraceEvent::Strengthened(_))));
 }
