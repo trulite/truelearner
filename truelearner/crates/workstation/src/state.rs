@@ -561,7 +561,7 @@ impl WorkstationState {
         }
     }
 
-    fn limits(&self, axis: BodyAxis) -> (bool, bool) {
+    pub(crate) fn limits(&self, axis: BodyAxis) -> (bool, bool) {
         match axis {
             BodyAxis::EyeHorizontal { eye } => {
                 (self.eye(eye).gaze.x == 0, self.eye(eye).gaze.x == BODY_MAX)

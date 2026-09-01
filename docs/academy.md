@@ -555,7 +555,8 @@ course run only through `run_with_workstation_course` or `--with-workstation`.
 `academy-workstation`, `academy-workstation-course`,
 `academy-workstation-review`, and `academy-arc3` remain workspace members but
 are outside the default build. Their tests in `academy-body` are ignored with a
-stated reason rather than deleted.
+stated reason rather than deleted. With the joint-stop boundary (lesson 111) the
+Workstation1 course stops at VisualReach.
 
 ### Workstation2 touchscreen course
 
@@ -592,6 +593,11 @@ use, and pinch. A fresh body is used only by named cold-control tests. A visible
 event in development alone is `Emerging`; `Acquired` requires the corresponding
 event in the shifted probe as well. The course reports failure rather than
 moving a hand, selecting a direction, or injecting a touch.
+
+Reference result after the joint-stop boundary (lesson 111): a fresh body
+acquires all four rungs at `256` steps per phase; the body-course checkpoint
+acquires gaze, touch, and virtual key at `96` steps and leaves pinch
+`Emerging`. Key taps arrive by sweeping, not by aimed reaching.
 
 ## First curriculum
 

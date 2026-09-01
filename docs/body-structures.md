@@ -152,6 +152,10 @@ The workstation also owns one ordinary exploration surface for each of those
 six components. The external sequence clock fires exactly one surface per
 admitted opportunity; that surface exposes its local motor alternatives but
 stores no task, direction, preference, or learned evidence.
+The workstation also retains the crossings that met a joint stop on the last
+step (`pending_stops: Vec<MotorEffect>`, reported as `joint_stops`). They join
+the world's boundary parents in the next boundary wave and are checkpointed
+like `pending_transitions`.
 Prerelease checkpoints contain only the current model. Incompatible changes
 bump the version and old artifacts are rejected. The public API creates ordinary
 junctions and drives, supplies arrivals, runs time, observes frozen traces, and

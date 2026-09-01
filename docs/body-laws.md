@@ -60,6 +60,11 @@
   competition component as an ordinary local choice. The clock selects only a
   body region, never an action or direction; no admitted opportunity means no
   exploration surface fires.
+- A body joint stop is a completed boundary. A crossing that pushes an axis
+  into its own stop moves nothing; on the next wave the workstation closes that
+  exact crossing through the same boundary arrow a world uses for a key
+  closure, so its local antagonist may be released. The stop names a body
+  region and a parent, never an action or direction.
 - Three exact real closures may retain an ordinary drive whose factors are the
   witnessed adjacent links. It performs the same external step as those links
   and never crosses an outward body boundary invisibly.

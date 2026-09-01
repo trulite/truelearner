@@ -128,6 +128,9 @@ pub struct WorkstationStepObservation {
     pub boundary_parents: Vec<MotorEffect>,
     pub progress_parents: Vec<MotorEffect>,
     pub crossings: Vec<MotorEffect>,
+    /// Crossings that pushed an axis into its own joint stop without moving.
+    /// Each is a completed boundary whose exact parent is that crossing.
+    pub joint_stops: Vec<MotorEffect>,
     pub movements: Vec<BodyMovement>,
     pub returned_transitions: Vec<BodyAxis>,
     pub pending_transitions: Vec<BodyAxis>,
@@ -155,6 +158,7 @@ pub struct WorkstationHarness {
     sequence: u64,
     physical_tick: u64,
     pending_transitions: [bool; AXIS_COUNT],
+    pending_stops: Vec<MotorEffect>,
     history: Vec<WorldSample>,
 }
 
@@ -164,6 +168,7 @@ impl PartialEq for WorkstationHarness {
             && self.sequence == other.sequence
             && self.physical_tick == other.physical_tick
             && self.pending_transitions == other.pending_transitions
+            && self.pending_stops == other.pending_stops
             && self.history == other.history
     }
 }
@@ -279,6 +284,7 @@ impl WorkstationHarness {
             sequence: 0,
             physical_tick: 0,
             pending_transitions: [false; AXIS_COUNT],
+            pending_stops: Vec::new(),
             history: Vec::new(),
         })
     }
@@ -493,7 +499,15 @@ impl WorkstationHarness {
         };
         let cause = self.sequence.saturating_add(1);
         let at = self.physical_tick.saturating_add(1);
-        let boundary_wave = self.boundary_wave(boundary_parents);
+        // A joint stop met on the previous step is a completed boundary of the
+        // body itself; it joins the world's boundary parents for this wave.
+        let stops = std::mem::take(&mut self.pending_stops);
+        let parents = boundary_parents
+            .iter()
+            .copied()
+            .chain(stops)
+            .collect::<Vec<_>>();
+        let boundary_wave = self.boundary_wave(&parents);
         let sensory_at = at.saturating_add(u64::from(!boundary_wave.is_empty()));
         if !boundary_wave.is_empty() {
             self.body.inputs(at, &boundary_wave).map_err(body_error)?;
@@ -577,6 +591,8 @@ impl WorkstationHarness {
         }
         apply_contact_reaction(&sample, &mut frame);
         let movements = self.state.integrate(frame);
+        let joint_stops = joint_stops(&self.state, &crossings, &movements);
+        self.pending_stops.clone_from(&joint_stops);
         self.pending_transitions = std::array::from_fn(|index| {
             movements
                 .iter()
@@ -609,6 +625,7 @@ impl WorkstationHarness {
             boundary_parents: boundary_parents.to_vec(),
             progress_parents: progress_parents.to_vec(),
             crossings,
+            joint_stops,
             movements,
             returned_transitions,
             pending_transitions,
@@ -759,6 +776,7 @@ impl WorkstationHarness {
             self.sequence,
             self.physical_tick,
             self.pending_transitions,
+            self.pending_stops.clone(),
             self.history.clone(),
         ))
     }
@@ -778,6 +796,7 @@ impl WorkstationHarness {
             sequence: payload.sequence,
             physical_tick: payload.physical_tick,
             pending_transitions: payload.pending_transitions,
+            pending_stops: payload.pending_stops,
             history: payload.history,
         })
     }
@@ -795,6 +814,7 @@ impl WorkstationHarness {
         let reference = checkpoint.clone().open();
         self.state = reference.state;
         self.pending_transitions = reference.pending_transitions;
+        self.pending_stops = reference.pending_stops;
         self.history = reference.history;
         Ok(())
     }
@@ -850,6 +870,32 @@ impl WorkstationHarness {
             .map(|byte| format!("{byte:02x}"))
             .collect())
     }
+}
+
+/// A crossing that pushes an axis against its own joint stop moves nothing.
+/// The stop is a one-sided reaction of the body, and that crossing is the
+/// exact parent of the completed boundary.
+fn joint_stops(
+    state: &WorkstationState,
+    crossings: &[MotorEffect],
+    movements: &[BodyMovement],
+) -> Vec<MotorEffect> {
+    crossings
+        .iter()
+        .copied()
+        .filter(|crossing| {
+            let axis = crossing.control.axis();
+            let moved = movements
+                .iter()
+                .any(|movement| movement.axis == axis && movement.changed);
+            let (at_lower_limit, at_upper_limit) = state.limits(axis);
+            !moved
+                && match crossing.control.direction() {
+                    Direction::Decrease => at_lower_limit,
+                    Direction::Increase => at_upper_limit,
+                }
+        })
+        .collect()
 }
 
 fn apply_contact_reaction(sample: &WorldSample, frame: &mut ActuatorFrame) {
@@ -1046,6 +1092,7 @@ fn proprioception_range() -> std::ops::Range<usize> {
 mod tests {
     use super::*;
     use crate::{ContactSample, LightField, TOUCH_SITES};
+    use truelearner_body::ChoiceWarrant;
 
     fn sample() -> WorldSample {
         WorldSample::new(
@@ -1281,6 +1328,64 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert!(controls.contains(&BodyControl::new(BodyAxis::PalmDepth, Direction::Increase,)));
+    }
+
+    #[test]
+    fn a_crossing_into_a_joint_stop_releases_its_antagonist() {
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let stable = with_fields(field(0), field(0), [ContactSample::default(); TOUCH_SITES]);
+        harness.observe(stable.clone()).unwrap();
+        let increase = BodyControl::new(BodyAxis::PalmHorizontal, Direction::Increase);
+        let decrease = BodyControl::new(BodyAxis::PalmHorizontal, Direction::Decrease);
+        assert!(harness.perturb_body(increase, 64).unwrap());
+        assert_eq!(harness.state().hand().palm().x(), BODY_MAX);
+
+        // Find the first outward push that meets the joint stop without moving.
+        let mut stop = None;
+        for _ in 0..CONTROL_COUNT * 4 {
+            let observation = harness.step(stable.clone()).unwrap();
+            let pushed = observation
+                .crossings
+                .iter()
+                .find(|effect| effect.control == increase)
+                .copied();
+            if observation.state_before.hand().palm().x() == BODY_MAX
+                && observation.state_after.hand().palm().x() == BODY_MAX
+                && pushed.is_some()
+            {
+                assert_eq!(
+                    observation.joint_stops,
+                    pushed.into_iter().collect::<Vec<_>>()
+                );
+                stop = pushed;
+                break;
+            }
+            assert!(observation.joint_stops.is_empty());
+        }
+        let stop = stop.expect("the palm pushes into its joint stop");
+
+        // The stop is a completed boundary with that exact push as parent, so
+        // the next wave releases the palm's antagonist as a returned consequence.
+        let (observation, trace) = harness.step_traced(stable).unwrap();
+        let released = trace.iter().any(|event| match event {
+            BodyTraceEvent::Choice(choice) => {
+                choice.warrant == Some(ChoiceWarrant::ReturnedConsequence)
+                    && choice
+                        .winner
+                        .and_then(|winner| harness.control_for_trace_output(winner.output))
+                        == Some(decrease)
+            }
+            _ => false,
+        });
+        assert!(
+            released,
+            "no returned-consequence release after stop {stop:?}"
+        );
+        assert!(observation
+            .crossings
+            .iter()
+            .any(|effect| effect.control == decrease));
+        assert!(observation.state_after.hand().palm().x() < BODY_MAX);
     }
 
     #[test]

@@ -1,4 +1,6 @@
-use crate::{harness::Handles, WorkstationError, WorkstationState, WorldSample, AXIS_COUNT};
+use crate::{
+    harness::Handles, MotorEffect, WorkstationError, WorkstationState, WorldSample, AXIS_COUNT,
+};
 use bincode::Options;
 use memmap2::MmapOptions;
 use serde::{Deserialize, Serialize};
@@ -11,7 +13,7 @@ use std::{
 use truelearner_body::BodyCheckpoint;
 
 const MAGIC: &[u8; 8] = b"TLWORK02";
-const VERSION: u16 = 10;
+const VERSION: u16 = 11;
 const HEADER_LEN: usize = 50;
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -23,6 +25,7 @@ pub(crate) struct Payload {
     pub(crate) sequence: u64,
     pub(crate) physical_tick: u64,
     pub(crate) pending_transitions: [bool; AXIS_COUNT],
+    pub(crate) pending_stops: Vec<MotorEffect>,
     pub(crate) history: Vec<WorldSample>,
 }
 
@@ -40,6 +43,7 @@ impl WorkstationCheckpoint {
         sequence: u64,
         physical_tick: u64,
         pending_transitions: [bool; AXIS_COUNT],
+        pending_stops: Vec<MotorEffect>,
         history: Vec<WorldSample>,
     ) -> Self {
         Self {
@@ -50,6 +54,7 @@ impl WorkstationCheckpoint {
                 sequence,
                 physical_tick,
                 pending_transitions,
+                pending_stops,
                 history,
             },
         }

@@ -193,6 +193,22 @@ mod tests {
     }
 
     #[test]
+    fn a_fresh_body_acquires_every_rung_by_sweeping() {
+        let checkpoint = WorkstationHarness::new(11).unwrap().save().unwrap();
+        let run = Workstation2Course::new(256).run(checkpoint, 11).unwrap();
+
+        assert!(run.exact_replay);
+        assert_eq!(run.first_failure, None);
+        for capability in Capability::ALL {
+            assert_eq!(
+                run.state(capability),
+                EvidenceState::Acquired,
+                "{capability:?}"
+            );
+        }
+    }
+
+    #[test]
     fn shifted_probe_uses_a_fresh_external_layout() {
         let checkpoint = WorkstationHarness::new(12).unwrap().save().unwrap();
         let run = Workstation2Course::new(8).run(checkpoint, 12).unwrap();
