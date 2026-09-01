@@ -1,0 +1,126 @@
+#![forbid(unsafe_code)]
+//! A tablet-like external world. Only light and hand contact enter the body.
+
+mod application;
+mod screen;
+mod session;
+mod world;
+
+pub use screen::{DeviceEvent, ScreenPoint, TouchId, CONTACT_DEPTH};
+pub use session::{Workstation2Observation, Workstation2Session};
+pub use world::Workstation2;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use truelearner_workstation::{
+        BodyAxis, BodyControl, Digit, Direction, Eye, WorkstationHarness,
+    };
+
+    #[test]
+    fn gaze_moves_the_retinal_view_over_one_screen() {
+        let world = Workstation2::new(0);
+        let mut body = WorkstationHarness::new(1).unwrap();
+        let before = world.sense(body.state()).unwrap();
+        body.perturb_body(
+            BodyControl::new(
+                BodyAxis::EyeHorizontal { eye: Eye::Left },
+                Direction::Increase,
+            ),
+            1,
+        )
+        .unwrap();
+        let after = world.sense(body.state()).unwrap();
+
+        assert_ne!(before.eye(Eye::Left), after.eye(Eye::Left));
+        assert_eq!(before.eye(Eye::Right), after.eye(Eye::Right));
+    }
+
+    #[test]
+    fn a_real_fingertip_contact_reaches_the_virtual_keyboard() {
+        let mut world = Workstation2::new(0);
+        let mut body = WorkstationHarness::new(2).unwrap();
+        while body.state().hand().fingertip(Digit::Middle).depth() < CONTACT_DEPTH {
+            body.perturb_body(
+                BodyControl::new(BodyAxis::PalmDepth, Direction::Increase),
+                1,
+            )
+            .unwrap();
+        }
+        let started = world.advance(body.state());
+        assert!(started
+            .iter()
+            .any(|event| matches!(event, DeviceEvent::TouchStarted { .. })));
+
+        body.perturb_body(
+            BodyControl::new(BodyAxis::PalmDepth, Direction::Decrease),
+            1,
+        )
+        .unwrap();
+        let ended = world.advance(body.state());
+        assert!(ended
+            .iter()
+            .any(|event| matches!(event, DeviceEvent::TouchEnded { .. })));
+        assert!(!world.text().is_empty());
+    }
+
+    #[test]
+    fn two_screen_contacts_change_scale_but_one_does_not() {
+        let mut world = Workstation2::new(0);
+        let first = TouchId::new(0).unwrap();
+        let second = TouchId::new(1).unwrap();
+        world.apply_device_events(&[
+            DeviceEvent::TouchStarted {
+                touch: first,
+                at: ScreenPoint { x: 400, y: 400 },
+            },
+            DeviceEvent::TouchMoved {
+                touch: first,
+                from: ScreenPoint { x: 400, y: 400 },
+                to: ScreenPoint { x: 350, y: 400 },
+            },
+        ]);
+        assert_eq!(world.scale(), 128);
+
+        world.apply_device_events(&[
+            DeviceEvent::TouchStarted {
+                touch: second,
+                at: ScreenPoint { x: 600, y: 400 },
+            },
+            DeviceEvent::TouchMoved {
+                touch: second,
+                from: ScreenPoint { x: 600, y: 400 },
+                to: ScreenPoint { x: 700, y: 400 },
+            },
+        ]);
+        assert!(world.scale() > 128);
+    }
+
+    #[test]
+    fn session_has_no_device_event_input_to_the_body() {
+        let checkpoint = WorkstationHarness::new(3).unwrap().save().unwrap();
+        let mut first = Workstation2Session::from_checkpoint(checkpoint.clone(), 0).unwrap();
+        let mut second = Workstation2Session::from_checkpoint(checkpoint, 0).unwrap();
+
+        let left = first.step().unwrap();
+        let right = second.step().unwrap();
+        assert_eq!(left, right);
+    }
+
+    #[test]
+    fn an_application_event_cannot_mutate_the_body() {
+        let body = WorkstationHarness::new(4).unwrap();
+        let before = body.read().unwrap();
+        let mut world = Workstation2::new(0);
+        let touch = TouchId::new(0).unwrap();
+        let key = ScreenPoint { x: 448, y: 736 };
+
+        world.apply_device_events(&[
+            DeviceEvent::TouchStarted { touch, at: key },
+            DeviceEvent::TouchEnded { touch, at: key },
+        ]);
+
+        assert_eq!(body.read().unwrap(), before);
+        assert_eq!(world.text(), "A");
+    }
+}

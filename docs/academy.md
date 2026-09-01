@@ -546,6 +546,42 @@ available. When reached, Academy emits separate opaque body-course and taught
 workstation artifacts rather than pretending they are one body. Recombining
 those branches remains a future compositional-retention problem.
 
+### Workstation2 touchscreen course
+
+`academy-workstation2` is a separate tablet-like external world used to test a
+smaller body boundary. One luminous surface is also touch-sensitive. A virtual
+keyboard and scalable object are ordinary application pixels on that surface;
+they are not body sensors, motors, outcomes, or task labels.
+
+The only values entering `WorkstationHarness` are one `WorldSample` containing
+retinal light, fingertip contact, and the harness's ordinary proprioception.
+The session never calls a causal-parent API and never supplies a device event,
+application state, touch identity, virtual key, expected action, or verdict to
+the organism. It observes the body's public before/after physical pose, derives
+generic touch-start/move/end events outside the organism, applies those events
+to the external application, and renders the later application state back as
+light.
+
+```text
+hand -> touchscreen contact -> generic touch event -> application
+ ^                                                  |
+ |                                                  v
+ +---------------- eyes <- changed screen light ----+
+```
+
+The screen emits several independent contact tracks, so two contacts may
+compose into a pinch while one contact cannot. Eye position selects a local
+retinal view; the complete tablet is not injected as a fixed panoramic image.
+The virtual keyboard may move during a fresh probe without changing the body.
+
+`academy-workstation2-course` accepts an opaque body checkpoint. It records one
+development phase, one shifted-keyboard probe, exact replay, natural quiet,
+physical work, and the first unsupported rung among gaze, touch, virtual-key
+use, and pinch. A fresh body is used only by named cold-control tests. A visible
+event in development alone is `Emerging`; `Acquired` requires the corresponding
+event in the shifted probe as well. The course reports failure rather than
+moving a hand, selecting a direction, or injecting a touch.
+
 ## First curriculum
 
 Start with a small set that can be inspected completely:

@@ -1,0 +1,13 @@
+[package]
+name = "academy-workstation2"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+description = "Headless touchscreen workstation world for TrueLearner Academy"
+
+[dependencies]
+serde.workspace = true
+truelearner-workstation.workspace = true
+
+[lib]
+path = "src/lib.rs"

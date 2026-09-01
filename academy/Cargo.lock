@@ -74,6 +74,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "academy-workstation2"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "truelearner-workstation",
+]
+
+[[package]]
+name = "academy-workstation2-course"
+version = "0.1.0"
+dependencies = [
+ "academy-workstation2",
+ "serde",
+ "truelearner-workstation",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -22,7 +22,7 @@ evaluator knowledge never enters the organism.
 - `truelearner-behavior-contract`: shared black-box scenarios used to verify
   behavior independently of an adapter.
 
-`academy/` contains six crates:
+`academy/` contains eight crates:
 
 - `academy-arc3`: ARC-AGI-3 workstation application adapter and trace evidence.
 - `academy-body`: development courses, probes, controls, and evidence.
@@ -30,6 +30,10 @@ evaluator knowledge never enters the organism.
 - `academy-workstation`: the headless physical workstation world.
 - `academy-workstation-course`: generic device-to-screen causal development,
   controls, transfer probes, and evidence.
+- `academy-workstation2`: a gaze-dependent touchscreen world whose only
+  organism inputs are retinal light and hand contact.
+- `academy-workstation2-course`: development, shifted-layout probing, and exact
+  replay evidence for gaze, touch, virtual keys, and pinch.
 - `academy-workstation-review`: causally inert review of frozen recordings.
 
 `formal/` contains pinned Lean projects used by those observer-side checks.

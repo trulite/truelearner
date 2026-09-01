@@ -4,14 +4,16 @@ members = [
     "crates/academy-body",
     "crates/academy-formal",
     "crates/academy-workstation",
+    "crates/academy-workstation2",
     "crates/academy-workstation-course",
+    "crates/academy-workstation2-course",
     "crates/academy-workstation-review",
 ]
 default-members = [
-    "crates/academy-arc3",
     "crates/academy-body",
-    "crates/academy-workstation",
-    "crates/academy-workstation-course",
+    "crates/academy-formal",
+    "crates/academy-workstation2",
+    "crates/academy-workstation2-course",
 ]
 resolver = "2"
 
@@ -28,7 +30,9 @@ academy-body = { path = "crates/academy-body" }
 academy-arc3 = { path = "crates/academy-arc3" }
 academy-formal = { path = "crates/academy-formal" }
 academy-workstation = { path = "crates/academy-workstation" }
+academy-workstation2 = { path = "crates/academy-workstation2" }
 academy-workstation-course = { path = "crates/academy-workstation-course" }
+academy-workstation2-course = { path = "crates/academy-workstation2-course" }
 academy-workstation-review = { path = "crates/academy-workstation-review" }
 truelearner-workstation = { path = "../truelearner/crates/workstation" }
 font8x8 = "0.3.1"
