@@ -67,7 +67,7 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
     assert!(run.acquired.contains(&BodyCapability::ThumbContact));
     assert!(run.acquired.contains(&BodyCapability::PinchDrag));
     assert_eq!(run.first_failure, None);
-    assert_eq!(run.schema_version, 13);
+    assert_eq!(run.schema_version, 14);
     let completed =
         WorkstationHarness::restore(WorkstationCheckpoint::decode(&run.body_checkpoint).unwrap())
             .unwrap();

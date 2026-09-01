@@ -142,6 +142,16 @@ struct BodyControl { axis: BodyAxis, direction: Direction }
 ```
 
 `BodyControl` serializes directly; there is no parallel command representation.
+The workstation competition quotient follows physical incidence. Left eye,
+right eye, planar palm transport, palm depth, local thumb motion, and ordinary
+digit flexion are declared morphology components, but the body still identifies
+paths that arise on the same current physical surface. A morphology claiming
+two independent products must therefore expose distinct physical incidence; a
+component number alone cannot override the learner's locality law.
+The workstation also owns one ordinary exploration surface for each of those
+six components. The external sequence clock fires exactly one surface per
+admitted opportunity; that surface exposes its local motor alternatives but
+stores no task, direction, preference, or learned evidence.
 Prerelease checkpoints contain only the current model. Incompatible changes
 bump the version and old artifacts are rejected. The public API creates ordinary
 junctions and drives, supplies arrivals, runs time, observes frozen traces, and

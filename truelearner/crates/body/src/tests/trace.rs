@@ -290,6 +290,66 @@ fn offline_verifier_accepts_local_boundary_release() {
 }
 
 #[test]
+fn offline_verifier_accepts_release_to_a_stale_local_antagonist() {
+    let local = JunctionId::new(30).unwrap();
+    let mut completed = candidate(0, 512);
+    completed.outcome_source = Some(local);
+    completed.boundary_inhibited = true;
+    completed.participation = 2;
+    completed.participated_at = 6;
+    let mut antagonist = candidate(1, 512);
+    antagonist.outcome_source = Some(local);
+    antagonist.boundary_inhibited = true;
+    antagonist.participation = 1;
+    antagonist.participated_at = 5;
+    let events = [
+        TraceEvent::Candidate(completed),
+        TraceEvent::Candidate(antagonist.clone()),
+        TraceEvent::Choice(ChoiceTrace {
+            at: 7,
+            group: 0,
+            alternatives: 2,
+            winner: Some(antagonist.path),
+            warrant: Some(ChoiceWarrant::ReturnedConsequence),
+            construction: false,
+            sent: true,
+        }),
+    ];
+
+    verify_choice_contract(&events).unwrap();
+}
+
+#[test]
+fn offline_verifier_separates_ambiguous_release_from_local_exploration() {
+    let local = JunctionId::new(30).unwrap();
+    let mut completed = candidate(0, 900);
+    completed.outcome_source = Some(local);
+    completed.boundary_inhibited = true;
+    completed.participation = 1;
+    completed.participated_at = 6;
+    let mut first = candidate(1, 512);
+    first.outcome_source = Some(local);
+    let mut second = candidate(2, 513);
+    second.outcome_source = Some(local);
+    let events = [
+        TraceEvent::Candidate(completed),
+        TraceEvent::Candidate(first),
+        TraceEvent::Candidate(second.clone()),
+        TraceEvent::Choice(ChoiceTrace {
+            at: 7,
+            group: 0,
+            alternatives: 3,
+            winner: Some(second.path),
+            warrant: Some(ChoiceWarrant::LocalIncidence),
+            construction: false,
+            sent: true,
+        }),
+    ];
+
+    verify_choice_contract(&events).unwrap();
+}
+
+#[test]
 fn offline_verifier_names_the_old_surface_locality_failure() {
     let mut weak = candidate(0, 44);
     weak.outcome = Some(Outcome {

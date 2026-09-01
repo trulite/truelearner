@@ -48,11 +48,18 @@
 
 - `Progress` witnesses an open continuing path but cannot close it. `Closure`
   supplies the terminal boundary witness and may locally offer or inhibit the
-  path.
+  path. If every local alternative is inhibited, the uniquely latest completed
+  output may release its unique antagonist. Simultaneous completions make no
+  such claim. If several uninhibited alternatives remain, causal attribution
+  stays ambiguous but ordinary eligible exploration is not suppressed.
 - A fresh external opportunity may re-present one unique executable path with
   a real returned consequence. A current path in the same competition
   component suppresses it; independent components compose; ambiguity acts as
   no claim. Reuse opens the ordinary return topology again.
+- At the workstation boundary, an external clock may expose one physical
+  competition component as an ordinary local choice. The clock selects only a
+  body region, never an action or direction; no admitted opportunity means no
+  exploration surface fires.
 - Three exact real closures may retain an ordinary drive whose factors are the
   witnessed adjacent links. It performs the same external step as those links
   and never crosses an outward body boundary invisibly.
@@ -72,7 +79,10 @@
 - **Quiet identity.** With no arrival, scheduled firing, or open physical
   reaction, a wave changes nothing. Repeated quiet waves compose to quiet.
 - **Products.** Independent systems cannot change one another's alternatives
-  or results and compose as a product.
+  or results and compose as a product. Equality of the current physical surface
+  or connected returned-outcome incidence puts paths in one local competition
+  component; a morphology claiming independence must preserve distinct
+  incidence before that quotient.
 - **Representation invariance.** Renaming, construction order, attachment,
   checkpoint/replay, and observer projection preserve every physical result.
 

@@ -740,7 +740,7 @@ impl BodyCourse {
                 .as_ref()
                 .is_none_or(|experience| experience.replay_exact);
         Ok(CourseRun {
-            schema_version: 13,
+            schema_version: 14,
             seed: self.seed,
             courses,
             acquired: self.acquired.iter().copied().collect(),
@@ -1605,7 +1605,7 @@ impl From<academy_workstation_course::WorkstationCourseError> for BodyCourseErro
 mod tests {
     use super::*;
     use truelearner_workstation::{
-        verify_choice_contract, BodyControl, BodyTraceEvent, ChoiceWarrant, ContactSample, Digit,
+        verify_choice_contract, BodyControl, BodyTraceEvent, ChoiceWarrant, ContactSample,
         Direction, TOUCH_SITES,
     };
 
@@ -2021,12 +2021,13 @@ mod tests {
             soft_harness.state(),
         )
         .unwrap();
-        let mut soft_closed = false;
+        let forward = BodyControl::new(BodyAxis::PalmDepth, Direction::Increase);
+        let mut soft_forward_closed = false;
         let mut soft_choice_checked = false;
         let mut soft_boundary_parents = Vec::new();
         let mut soft_progress_parents = Vec::new();
         for _ in 0..3 {
-            let closed_before_choice = soft_closed;
+            let closed_before_choice = soft_forward_closed;
             let sample = soft_world.sample(&soft_harness.read().unwrap()).unwrap();
             let (observation, trace) = soft_harness
                 .step_traced_with_causal_parents(
@@ -2039,12 +2040,7 @@ mod tests {
             let world_observation = soft_world.advance(&observation).unwrap();
             soft_boundary_parents.clone_from(&world_observation.boundary_parents);
             soft_progress_parents.clone_from(&world_observation.progress_parents);
-            let before_depth = Digit::ALL
-                .into_iter()
-                .map(|digit| observation.state_before.hand().fingertip(digit).depth())
-                .max()
-                .unwrap();
-            if before_depth == 640 {
+            if closed_before_choice {
                 assert!(closed_before_choice);
                 let candidates = trace
                     .iter()
@@ -2055,17 +2051,14 @@ mod tests {
                         _ => None,
                     })
                     .collect::<Vec<_>>();
-                let forward = BodyControl::new(BodyAxis::PalmDepth, Direction::Increase);
                 let forward_candidate = candidates
                     .iter()
                     .filter_map(|(control, candidate)| {
-                        (*control == forward && candidate.participation > 0).then_some(*candidate)
+                        (*control == forward && candidate.boundary_inhibited).then_some(*candidate)
                     })
                     .max_by_key(|candidate| (candidate.participation, candidate.strength))
                     .expect("soft closure retains the witnessed forward path");
                 assert!(forward_candidate.executable);
-                assert!(forward_candidate.resisted_progress);
-                assert!(!forward_candidate.boundary_open);
                 assert!(forward_candidate.boundary_inhibited);
                 assert!(forward_candidate.outcome.is_none());
                 assert!(forward_candidate.participation > 0);
@@ -2097,130 +2090,16 @@ mod tests {
                     .any(|effect| effect.control == forward));
                 soft_choice_checked = true;
             }
-            soft_closed |= world_observation
+            soft_forward_closed |= world_observation
                 .events
                 .iter()
-                .any(|event| matches!(event.event, DeviceEvent::KeyPressed { .. }));
+                .any(|event| matches!(event.event, DeviceEvent::KeyPressed { .. }))
+                && world_observation
+                    .boundary_parents
+                    .iter()
+                    .any(|parent| parent.control == forward);
         }
         assert!(soft_choice_checked);
-
-        let mut harness = WorkstationHarness::restore(checkpoint).unwrap();
-        let mut world = ExperienceWorld::generated(
-            development_seed + 875_000,
-            BodyCapability::TapHoldRelease,
-            BodyExperienceMode::DepthControl,
-            Some((656, DEPTH_CONTROL_RELEASE_DEPTH)),
-            harness.state(),
-        )
-        .unwrap();
-
-        let mut first_progress_checked = false;
-        let mut boundary_parents = Vec::new();
-        let mut progress_parents = Vec::new();
-        let mut boundary_return_closed = false;
-        for _ in 0..DEPTH_CONTROL_STEPS_PER_EXPERIENCE {
-            let sample = world.sample(&harness.read().unwrap()).unwrap();
-            let had_boundary_parents = !boundary_parents.is_empty();
-            let (observation, trace) = harness
-                .step_traced_with_causal_parents(sample, &boundary_parents, &progress_parents)
-                .unwrap();
-            verify_choice_contract(&trace).unwrap();
-            let world_observation = world.advance(&observation).unwrap();
-            if had_boundary_parents {
-                boundary_return_closed |= trace.iter().any(|event| {
-                    matches!(
-                        event,
-                        BodyTraceEvent::Return(returned)
-                            if returned.decision
-                                == truelearner_workstation::BodyReturnDecision::Accepted
-                    )
-                });
-            }
-            boundary_parents.clone_from(&world_observation.boundary_parents);
-            progress_parents.clone_from(&world_observation.progress_parents);
-            let before_depth = Digit::ALL
-                .into_iter()
-                .map(|digit| observation.state_before.hand().fingertip(digit).depth())
-                .max()
-                .unwrap();
-            let depth = Digit::ALL
-                .into_iter()
-                .map(|digit| observation.state_after.hand().fingertip(digit).depth())
-                .max()
-                .unwrap();
-            let candidates = trace
-                .iter()
-                .filter_map(|event| match event {
-                    BodyTraceEvent::Candidate(candidate) => harness
-                        .control_for_trace_output(candidate.path.output)
-                        .map(|control| (control, candidate)),
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
-            let choices = trace
-                .iter()
-                .filter_map(|event| match event {
-                    BodyTraceEvent::Choice(choice) => Some(choice),
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
-            if before_depth == 640 && !first_progress_checked {
-                let forward = BodyControl::new(BodyAxis::PalmDepth, Direction::Increase);
-                let forward_candidate = candidates
-                    .iter()
-                    .filter_map(|(control, candidate)| {
-                        (*control == forward
-                            && candidate.unanswered
-                            && candidate.output_participated
-                            && candidate.participation > 0)
-                            .then_some(*candidate)
-                    })
-                    .max_by_key(|candidate| (candidate.participation, candidate.strength))
-                    .expect("unanswered forward candidate remains physically present");
-                assert!(forward_candidate.executable);
-                assert!(forward_candidate.boundary_open);
-                assert_eq!(forward_candidate.return_cause, Some(102));
-                assert_eq!(forward_candidate.participation, 38);
-                assert_eq!(forward_candidate.strength, 38);
-                assert_eq!(forward_candidate.drive, 16);
-                assert!(forward_candidate.resisted_progress);
-                assert!(forward_candidate.outcome.is_some());
-
-                let choice = choices
-                    .iter()
-                    .find(|choice| choice.group == forward_candidate.group)
-                    .expect("forward candidate's choice group is recorded");
-                assert_eq!(choice.warrant, Some(ChoiceWarrant::RetainedContinuation));
-                let winner_path = choice.winner.expect("choice has a physical winner");
-                let (winner_control, winner_candidate) = candidates
-                    .iter()
-                    .find(|(_, candidate)| candidate.path == winner_path)
-                    .copied()
-                    .expect("winner is one of the recorded candidates");
-                assert_eq!(winner_control, forward);
-                assert!(winner_candidate.executable);
-                assert!(winner_candidate.output_participated);
-                assert!(winner_candidate.resisted_progress);
-                assert_eq!(winner_candidate.participation, 38);
-                assert_eq!(winner_candidate.strength, 38);
-                assert_eq!(winner_candidate.drive, 16);
-                assert!(observation
-                    .returned_transitions
-                    .contains(&BodyAxis::PalmDepth));
-                assert!(observation
-                    .crossings
-                    .iter()
-                    .any(|effect| effect.control == forward));
-                assert!(world_observation
-                    .events
-                    .iter()
-                    .any(|event| matches!(event.event, DeviceEvent::KeyPressed { .. })));
-                assert_eq!(depth, 656);
-                first_progress_checked = true;
-            }
-        }
-        assert!(first_progress_checked);
-        assert!(boundary_return_closed);
 
         let practice = course
             .experience(

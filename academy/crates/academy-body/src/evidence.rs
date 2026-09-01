@@ -102,7 +102,7 @@ pub fn write_course_evidence(
         }
     }
     let receipt = CourseReceipt {
-        schema: "body-course/v13".to_string(),
+        schema: "body-course/v14".to_string(),
         seed: run.seed,
         courses: run.courses.clone(),
         acquired: run.acquired.clone(),

@@ -1240,6 +1240,65 @@ fn boundary_completion_releases_only_the_local_antagonist() {
 }
 
 #[test]
+fn latest_boundary_completion_releases_a_stale_local_antagonist() {
+    let mut paths = [
+        candidate_path(512, 0),
+        candidate_path(512, 1),
+        candidate_path(900, 2),
+    ];
+    let local = JunctionId::new(20).unwrap();
+    paths[0].outcome_source = Some(local);
+    paths[0].boundary_inhibited = true;
+    paths[0].participation = 2;
+    paths[0].participated_at = 20;
+    paths[1].outcome_source = Some(local);
+    paths[1].boundary_inhibited = true;
+    paths[1].participation = 1;
+    paths[1].participated_at = 10;
+    paths[2].outcome_source = Some(JunctionId::new(21).unwrap());
+
+    let choice = choose_ready(&paths, &[0, 0, 0], 0, false, || None).unwrap();
+
+    assert_eq!(choice.winner, 1);
+    assert_eq!(choice.warrant, ChoiceWarrant::ReturnedConsequence);
+}
+
+#[test]
+fn ambiguous_boundary_release_leaves_local_exploration_available() {
+    let mut paths = [
+        candidate_path(900, 0),
+        candidate_path(512, 1),
+        candidate_path(513, 2),
+    ];
+    let local = JunctionId::new(20).unwrap();
+    paths[0].outcome_source = Some(local);
+    paths[0].boundary_inhibited = true;
+    paths[0].participation = 1;
+    paths[0].participated_at = 10;
+    paths[1].outcome_source = Some(local);
+    paths[2].outcome_source = Some(local);
+
+    let choice = choose_ready(&paths, &[0, 0, 0], 0, false, || None).unwrap();
+
+    assert_eq!(choice.winner, 2);
+    assert_eq!(choice.warrant, ChoiceWarrant::LocalIncidence);
+}
+
+#[test]
+fn simultaneous_local_boundary_completions_make_no_release_claim() {
+    let mut paths = [candidate_path(512, 0), candidate_path(512, 1)];
+    let local = JunctionId::new(20).unwrap();
+    for path in &mut paths {
+        path.outcome_source = Some(local);
+        path.boundary_inhibited = true;
+        path.participation = 1;
+        path.participated_at = 20;
+    }
+
+    assert!(choose_ready(&paths, &[0, 0], 0, false, || None).is_none());
+}
+
+#[test]
 fn simultaneous_boundary_components_make_no_local_release_claim() {
     let mut paths = [
         candidate_path(512, 0),
@@ -1638,6 +1697,101 @@ fn a_motor_gate_arrival_re_presents_one_returned_unfinished_path() {
     assert_eq!(body.returns.live_count, 1);
 }
 
+#[test]
+fn one_external_surface_exposes_one_ordinary_untried_output() {
+    let mut body = Body::default();
+    let motors = [motor(&mut body), motor(&mut body)];
+    let surface = attach_sensor(
+        &mut body,
+        Junction::integrating(1),
+        &motors.map(|motor| (motor.opportunity, 1)),
+    );
+    for motor in motors {
+        let outcome = attach_sensor(&mut body, Junction::integrating(1), &[]);
+        attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+    }
+
+    schedule(&mut body, 10, &[reading(surface, 0, 1, 1)]);
+    schedule(
+        &mut body,
+        11,
+        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 1)),
+    );
+    let reaction = finish(&mut body);
+
+    assert_eq!(
+        motors
+            .iter()
+            .map(|motor| crate::harness::event_count(&reaction.events, motor.effect))
+            .sum::<usize>(),
+        1
+    );
+}
+
+#[test]
+fn returned_external_exploration_moves_to_an_untried_output() {
+    let mut body = Body::default();
+    let motors = [motor(&mut body), motor(&mut body)];
+    let surface = attach_sensor(
+        &mut body,
+        Junction::integrating(1),
+        &motors.map(|motor| (motor.opportunity, 1)),
+    );
+    let outcomes = motors.map(|motor| {
+        let outcome = attach_sensor(&mut body, Junction::integrating(1), &[]);
+        attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+        outcome
+    });
+
+    let explore = |body: &mut Body, at: Time, cause: Cause| {
+        schedule(body, at, &[Arrival::caused(surface, 1, cause)]);
+        schedule(
+            body,
+            at + 1,
+            &motors.map(|motor| Arrival::caused(motor.opportunity, 1, cause)),
+        );
+        finish(body)
+    };
+    let first = explore(&mut body, 10, 1);
+    let first_index = crate::harness::effect(&first.events, &motors)
+        .into_iter()
+        .next()
+        .expect("one explored output");
+    schedule(
+        &mut body,
+        12,
+        &[Arrival::caused(outcomes[first_index], 1, 1)],
+    );
+    finish(&mut body);
+
+    let second = explore(&mut body, 20, 2);
+    let second_index = crate::harness::effect(&second.events, &motors)
+        .into_iter()
+        .next()
+        .expect("one later explored output");
+
+    assert_ne!(second_index, first_index);
+}
+
+#[test]
+fn a_component_with_no_external_surface_pulse_remains_quiet() {
+    let mut body = Body::default();
+    let motors = [motor(&mut body), motor(&mut body)];
+    let component = attach_sensor(&mut body, Junction::integrating(1), &[]);
+    attach_boundary_component(&mut body, component, motors.map(|motor| motor.opportunity));
+
+    schedule(
+        &mut body,
+        10,
+        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 1)),
+    );
+    let reaction = finish(&mut body);
+
+    assert!(motors
+        .iter()
+        .all(|motor| crate::harness::event_count(&reaction.events, motor.effect) == 0));
+}
+
 fn return_motor_path(
     body: &mut Body,
     motor: crate::harness::Motor,
@@ -1815,6 +1969,45 @@ fn independent_exact_components_recur_as_a_product() {
 
     assert_eq!(
         motors.map(|motor| crate::harness::event_count(&recurrence.events, motor.effect)),
+        [1, 1]
+    );
+}
+
+#[test]
+fn a_current_path_does_not_hide_a_dormant_path_in_an_independent_component() {
+    let mut body = Body::default();
+    let motors = [motor(&mut body), motor(&mut body)];
+    let surfaces = motors.map(|motor| {
+        attach_sensor(
+            &mut body,
+            Junction::integrating(1),
+            &[(motor.opportunity, 1)],
+        )
+    });
+    let outcomes = motors.map(|motor| {
+        let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
+        attach_outcome_component(&mut body, outcome, [motor.opportunity]);
+        outcome
+    });
+    schedule(
+        &mut body,
+        0,
+        &outcomes.map(|outcome| reading(outcome, 0, 0, 0)),
+    );
+    finish(&mut body);
+
+    return_motor_path(&mut body, motors[0], surfaces[0], outcomes[0], 10, 1);
+
+    schedule(&mut body, 20, &[reading(surfaces[1], 0, 1, 2)]);
+    schedule(
+        &mut body,
+        21,
+        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 2)),
+    );
+    let reaction = finish(&mut body);
+
+    assert_eq!(
+        motors.map(|motor| crate::harness::event_count(&reaction.events, motor.effect)),
         [1, 1]
     );
 }

@@ -353,7 +353,10 @@ fn verify_choice(
                 let strongest_drive = candidates
                     .iter()
                     .copied()
-                    .filter(|candidate| choice.construction || candidate.executable)
+                    .filter(|candidate| {
+                        choice.construction
+                            || (candidate.executable && !candidate.boundary_inhibited)
+                    })
                     .map(|candidate| candidate.drive)
                     .max()
                     .expect("an expected choice has an eligible candidate");
@@ -415,13 +418,17 @@ fn expected_choice<'a>(
     construction: bool,
 ) -> Option<ExpectedChoice<'a>> {
     if !construction {
-        let mut inhibited = candidates
+        let inhibited = candidates
             .iter()
             .copied()
-            .filter(|candidate| candidate.executable && candidate.boundary_inhibited);
-        if let Some(first) = inhibited.next() {
+            .filter(|candidate| candidate.executable && candidate.boundary_inhibited)
+            .collect::<Vec<_>>();
+        if let Some(first) = inhibited.first() {
             let source = first.outcome_source?;
-            if inhibited.any(|candidate| candidate.outcome_source != Some(source)) {
+            if inhibited
+                .iter()
+                .any(|candidate| candidate.outcome_source != Some(source))
+            {
                 return None;
             }
             let local = candidates
@@ -433,10 +440,29 @@ fn expected_choice<'a>(
                         && candidate.outcome_source == Some(source)
                 })
                 .collect::<Vec<_>>();
-            return unique_output(&local).map(|candidate| ExpectedChoice {
-                candidate,
-                warrant: ChoiceWarrant::ReturnedConsequence,
-            });
+            if !local.is_empty() {
+                if let Some(candidate) = unique_output(&local) {
+                    return Some(ExpectedChoice {
+                        candidate,
+                        warrant: ChoiceWarrant::ReturnedConsequence,
+                    });
+                }
+            } else {
+                let completed = latest_participated_output(&inhibited)?;
+                let local = candidates
+                    .iter()
+                    .copied()
+                    .filter(|candidate| {
+                        candidate.executable
+                            && candidate.outcome_source == Some(source)
+                            && candidate.path.output != completed
+                    })
+                    .collect::<Vec<_>>();
+                return unique_output(&local).map(|candidate| ExpectedChoice {
+                    candidate,
+                    warrant: ChoiceWarrant::ReturnedConsequence,
+                });
+            }
         }
     }
     let eligible = candidates
@@ -769,6 +795,36 @@ fn preference(candidate: &CandidateTrace) -> (u64, i64, u16, Reverse<u32>) {
         candidate.drive,
         Reverse(candidate.stable_order),
     )
+}
+
+fn latest_participated_output(candidates: &[&CandidateTrace]) -> Option<JunctionId> {
+    let mut latest = None;
+    let mut output = None;
+    let mut ambiguous = false;
+    for candidate in candidates
+        .iter()
+        .copied()
+        .filter(|candidate| candidate.participation > 0)
+    {
+        match latest {
+            None => {
+                latest = Some(candidate.participated_at);
+                output = Some(candidate.path.output);
+            }
+            Some(at) if candidate.participated_at > at => {
+                latest = Some(candidate.participated_at);
+                output = Some(candidate.path.output);
+                ambiguous = false;
+            }
+            Some(at)
+                if candidate.participated_at == at && output != Some(candidate.path.output) =>
+            {
+                ambiguous = true;
+            }
+            Some(_) => {}
+        }
+    }
+    (!ambiguous).then_some(output).flatten()
 }
 
 fn unique_latest<'a>(

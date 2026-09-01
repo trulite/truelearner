@@ -163,11 +163,11 @@ capabilities to sixteen is rejected because it changes earlier binocular
 evidence. `ContactDrag` contains thirty-two steps so the same uninterrupted
 physical contact can include motion and its eventual release; the learner sees
 neither the horizon nor the verdict. For deterministic reference seed `31_001`,
-all twelve bounded Body Discovery claims are acquired and there is no
-acquisition failure. Acquisition is not treated as the end of the evidence
-ladder: changed-world transfer and retention after later committed learning are
-recorded separately. `ContactDrag`, `ThumbContact`, and `PinchDrag` are
-`Stable`.
+the current schema-14 course acquires eight bounded Body Discovery claims.
+`VisualReach` is acquired; `TapHoldRelease` is the first failure, and its
+prerequisite-gated successors are not reached. Acquisition is not treated as
+the end of the evidence ladder: changed-world transfer and retention are
+recorded separately when those lessons are reached.
 That lesson retains the course's compact visual field while using the physical
 workstation's key geometry, contact threshold, press/release hysteresis, and
 device events. A key held for two physical steps now produces one visible
@@ -309,6 +309,14 @@ together. The thumb and its flexion form one local competition component; the
 rest of the hand remains independent. This is morphology, not a desired
 movement or reward.
 
+Planar palm transport and palm depth are distinct workstation competition
+components with distinct contact incidence: pressure is normal to depth, while
+slip is tangential to planar transport. An external clock exposes one component
+surface at a time without selecting an action or direction. This factorization
+lets the reference learner discover a real lateral reach without weakening the
+body's same-surface locality law. Thumb opposition and thumb flexion remain one
+local component.
+
 Development and probes begin from the same frozen external pose while retaining
 only development's learned topology. All three claims must pass a fresh
 immutable probe, exact replay, choice-law verification, natural quiet, and
@@ -332,10 +340,10 @@ passing lesson into one claim: `Acquired` means development plus a fresh probe,
 `General` additionally requires changed-world transfer, and `Stable`
 additionally requires retention after subsequent committed learning.
 `Automatic` requires a separate repeated low-cost-use contract. In the
-reference run, all twelve body claims are acquired and all three manipulation
-capstones pass both transfer and later retention. The workstation branch also
-emits a separate `RepeatedUseEvidenceState::Automatic` receipt; it does not
-silently upgrade any body capability.
+current reference run, eight body claims are acquired and TapHoldRelease is the
+first failure. Its manipulation successors remain gated. A workstation branch
+can emit a separate `RepeatedUseEvidenceState::Automatic` receipt only after
+the body reaches that branch; it does not silently upgrade any body capability.
 
 ### Repeated-use automaticity successor
 
@@ -533,13 +541,10 @@ frames. A one-step horizontal pose transfer fails, so the evidence is
 
 This lesson branches from the checkpoint immediately after TapHoldRelease,
 where the keyboard path is still physically accessible. The ordinary body
-course continues separately and still acquires all twelve body claims. Its
-retention ladder shows that ContactDrag and later manipulation learning make
-the screen-taught key path inaccessible. Academy therefore emits two opaque
-artifacts instead of pretending they are one body: the all-claims
-`body-checkpoint-*` and the causally taught
-`workstation-body-checkpoint-*`. Recombining those branches is a future
-compositional-retention problem.
+course currently stops honestly at TapHoldRelease, before this branch is
+available. When reached, Academy emits separate opaque body-course and taught
+workstation artifacts rather than pretending they are one body. Recombining
+those branches remains a future compositional-retention problem.
 
 ## First curriculum
 

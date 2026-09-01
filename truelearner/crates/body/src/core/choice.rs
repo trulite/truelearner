@@ -268,16 +268,48 @@ where
             if inhibited.any(|index| paths[index].outcome_source != Some(source)) {
                 return None;
             }
-            return unique_output(
-                (0..paths.len()).filter(|index| {
-                    worlds[*index] == world
-                        && paths[*index].executable
-                        && !paths[*index].boundary_inhibited
-                        && paths[*index].outcome_source == Some(source)
-                }),
-                paths,
-            )
-            .map(|winner| warranted(winner, ChoiceWarrant::ReturnedConsequence));
+            let has_uninhibited = (0..paths.len()).any(|index| {
+                worlds[index] == world
+                    && paths[index].executable
+                    && !paths[index].boundary_inhibited
+                    && paths[index].outcome_source == Some(source)
+            });
+            if has_uninhibited {
+                if let Some(winner) = unique_output(
+                    (0..paths.len()).filter(|index| {
+                        worlds[*index] == world
+                            && paths[*index].executable
+                            && !paths[*index].boundary_inhibited
+                            && paths[*index].outcome_source == Some(source)
+                    }),
+                    paths,
+                ) {
+                    return Some(warranted(
+                        winner,
+                        ChoiceWarrant::ReturnedConsequence,
+                    ));
+                }
+            } else {
+                let completed = latest_participated_output(
+                    (0..paths.len()).filter(|index| {
+                        worlds[*index] == world
+                            && paths[*index].executable
+                            && paths[*index].boundary_inhibited
+                            && paths[*index].outcome_source == Some(source)
+                    }),
+                    paths,
+                )?;
+                return unique_output(
+                    (0..paths.len()).filter(|index| {
+                        worlds[*index] == world
+                            && paths[*index].executable
+                            && paths[*index].outcome_source == Some(source)
+                            && paths[*index].output != completed
+                    }),
+                    paths,
+                )
+                .map(|winner| warranted(winner, ChoiceWarrant::ReturnedConsequence));
+            }
         }
     }
     let eligible = |index: &usize| {
@@ -466,10 +498,17 @@ fn latest_unanswered_output(
     paths: impl Iterator<Item = usize>,
     ready: &[CandidatePath],
 ) -> Option<JunctionId> {
+    latest_participated_output(paths.filter(|index| ready[*index].unanswered), ready)
+}
+
+fn latest_participated_output(
+    paths: impl Iterator<Item = usize>,
+    ready: &[CandidatePath],
+) -> Option<JunctionId> {
     let mut latest = None;
     let mut output = None;
     let mut ambiguous = false;
-    for index in paths.filter(|index| ready[*index].unanswered && ready[*index].participation > 0) {
+    for index in paths.filter(|index| ready[*index].participation > 0) {
         let path = &ready[index];
         match latest {
             None => {

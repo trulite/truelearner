@@ -201,6 +201,23 @@ construction-order invariance, unchanged downstream topology, checkpoint
 replay, attachment remapping, independent products, and observer-side receipt
 validation.
 
+### 8. Local boundary release
+
+At a closed boundary, a uniquely latest completed output may release one stale
+local antagonist even when both paths still carry inhibition. Equal latest
+completions remain ambiguous. When several uninhibited alternatives prevent a
+unique causal release, the resolver makes no `ReturnedConsequence` claim but
+continues through ordinary local choice. The frozen trace verifier reconstructs
+the same quotient and precedence without feeding a result back to the learner.
+
+Active tests cover unique stale-antagonist release,
+simultaneous-completion ambiguity, ordinary exploration after ambiguous
+release, and workstation checkpoint rejection. A rejected broad arm removed
+same-surface competition and broke motif, reentry, planning, and product laws.
+The workstation instead separates normal pressure from tangential slip and
+clocks one component exploration surface at a time. VisualReach is acquired;
+TapHoldRelease remains the next Academy frontier.
+
 ## Gated downstream ladder
 
 These claims remain downstream rather than being implemented or inferred:

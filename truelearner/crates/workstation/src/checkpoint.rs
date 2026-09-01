@@ -11,7 +11,7 @@ use std::{
 use truelearner_body::BodyCheckpoint;
 
 const MAGIC: &[u8; 8] = b"TLWORK02";
-const VERSION: u16 = 8;
+const VERSION: u16 = 10;
 const HEADER_LEN: usize = 50;
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -214,10 +214,10 @@ mod tests {
         );
 
         let mut obsolete = bytes.clone();
-        obsolete[8..10].copy_from_slice(&6_u16.to_le_bytes());
+        obsolete[8..10].copy_from_slice(&9_u16.to_le_bytes());
         assert_eq!(
             WorkstationCheckpoint::decode(&obsolete),
-            Err(WorkstationError::UnsupportedCheckpointVersion(6))
+            Err(WorkstationError::UnsupportedCheckpointVersion(9))
         );
 
         let path = std::env::temp_dir().join(format!(
