@@ -2,7 +2,7 @@
 //! Development and fresh-probe evidence for the touchscreen workstation.
 //!
 //! The ladder a pointer body climbs before ARC: the eyes find and hold a
-//! lit target, the palm reaches a screen that starts within easy reach and
+//! lit target, the arm reaches a screen that starts within easy reach and
 //! then sits at the ordinary distance, and taps land on the target far
 //! above chance from a big-toy development phase with honest shrinking
 //! probes. Every claim is measured in a fresh probe that discards
@@ -78,7 +78,7 @@ pub struct PhaseEvidence {
     pub steps: usize,
     /// Steps in which the target sat on the left fovea.
     pub foveal_steps: usize,
-    /// Steps with palm contact on the screen.
+    /// Steps with fingertip contact on the screen.
     pub contact_steps: usize,
     pub taps: u32,
     pub target_taps: u32,
@@ -367,6 +367,7 @@ mod tests {
             Capability::AimedTap,
             Capability::LiveKey,
             Capability::DeadKey,
+            Capability::Sequence,
             Capability::Scan,
             Capability::QuietHand,
         ] {
@@ -378,8 +379,8 @@ mod tests {
                 run.touch
             );
         }
-        assert_eq!(run.state(Capability::Sequence), EvidenceState::Unknown);
-        assert_eq!(run.first_failure, Some(Capability::Sequence));
+        assert_eq!(run.state(Capability::Drag), EvidenceState::Unknown);
+        assert_eq!(run.first_failure, Some(Capability::Drag));
         // The killing control for the tap rung stays at chance.
         assert!(run.aimed_tap.controls_quiet());
     }

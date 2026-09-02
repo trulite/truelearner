@@ -295,6 +295,8 @@ impl TargetApp {
                                     self.ba_pairs += 1;
                                     if self.rewarded == Some(Rewarded::Ba) {
                                         self.rewarded_pair();
+                                        self.last_tapped = None;
+                                        continue;
                                     }
                                 }
                                 self.last_tapped = Some(true);
@@ -304,6 +306,8 @@ impl TargetApp {
                                     self.ab_pairs += 1;
                                     if self.rewarded == Some(Rewarded::Ab) {
                                         self.rewarded_pair();
+                                        self.last_tapped = None;
+                                        continue;
                                     }
                                 }
                                 self.last_tapped = Some(false);
@@ -318,8 +322,13 @@ impl TargetApp {
 
     fn rewarded_pair(&mut self) {
         self.hits += 1;
-        self.layout.target = Some(self.random_rect());
-        self.layout.decoy = Some(self.random_rect());
+        let target = self.random_rect();
+        let mut decoy = self.random_rect();
+        while decoy.overlaps(target) {
+            decoy = self.random_rect();
+        }
+        self.layout.target = Some(target);
+        self.layout.decoy = Some(decoy);
     }
 
     fn move_target(&mut self) {
@@ -526,6 +535,20 @@ mod tests {
         assert_eq!(app.hits(), 1);
         assert_ne!(app.layout().target, before.target);
         assert_ne!(app.layout().decoy, before.decoy);
+    }
+
+    #[test]
+    fn repeated_rewarded_pairs_do_not_manufacture_reverse_pairs() {
+        let mut app = TargetApp::sequence(17);
+        for _ in 0..6 {
+            let layout = app.layout();
+            tap(&mut app, centre(layout.target.unwrap()));
+            tap(&mut app, centre(layout.decoy.unwrap()));
+        }
+
+        assert_eq!(app.hits(), 6);
+        assert_eq!(app.ab_pairs(), 6);
+        assert_eq!(app.ba_pairs(), 0);
     }
 
     #[test]

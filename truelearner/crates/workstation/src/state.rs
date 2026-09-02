@@ -2,10 +2,9 @@ use crate::WorkstationError;
 use serde::{Deserialize, Serialize};
 
 pub const BODY_MAX: i16 = 1_023;
-/// One pointer, one contact surface: the undifferentiated hand touches as
-/// one whole, the way a newborn reaches long before fingers differentiate.
+/// One fingertip contact surface.
 pub const TOUCH_SITES: usize = 1;
-pub const AXIS_COUNT: usize = 7;
+pub const AXIS_COUNT: usize = 8;
 const MAX_PIXELS: usize = 1_048_576;
 const MID: i16 = (BODY_MAX + 1) / 2;
 
@@ -85,6 +84,7 @@ pub enum BodyAxis {
     PalmHorizontal,
     PalmVertical,
     PalmDepth,
+    FingerFlexion,
 }
 
 impl BodyAxis {
@@ -96,6 +96,7 @@ impl BodyAxis {
         Self::PalmHorizontal,
         Self::PalmVertical,
         Self::PalmDepth,
+        Self::FingerFlexion,
     ];
 
     pub const fn index(self) -> usize {
@@ -105,6 +106,7 @@ impl BodyAxis {
             Self::PalmHorizontal => 4,
             Self::PalmVertical => 5,
             Self::PalmDepth => 6,
+            Self::FingerFlexion => 7,
         }
     }
 }
@@ -142,6 +144,10 @@ impl ActuatorFrame {
             .decrease
             .saturating_add(unmatched.min(resistance))
             .min(BODY_MAX as u16);
+    }
+
+    pub(crate) fn net(&self, axis: BodyAxis) -> i32 {
+        self.axes[axis.index()].net()
     }
 }
 
@@ -339,16 +345,33 @@ impl Default for EyeState {
     }
 }
 
-/// The undifferentiated hand: one pointer with a planar position and a
-/// depth. Its contact surface is the whole hand.
+/// One arm carrying one independently flexing pointer finger.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HandState {
     palm: HandPoint,
+    finger_flexion: i16,
 }
 
 impl HandState {
     pub const fn palm(&self) -> HandPoint {
         self.palm
+    }
+
+    pub const fn finger_flexion(&self) -> i16 {
+        self.finger_flexion
+    }
+
+    pub fn fingertip(&self) -> HandPoint {
+        HandPoint {
+            x: self.palm.x,
+            y: self.palm.y,
+            depth: add_bounded(
+                self.palm.depth,
+                i32::from(self.finger_flexion - MID) / 4,
+                0,
+                BODY_MAX,
+            ),
+        }
     }
 }
 
@@ -360,6 +383,7 @@ impl Default for HandState {
                 y: 768,
                 depth: 256,
             },
+            finger_flexion: MID,
         }
     }
 }
@@ -443,6 +467,7 @@ impl WorkstationState {
             BodyAxis::PalmHorizontal => self.hand.palm.x - MID,
             BodyAxis::PalmVertical => self.hand.palm.y - 768,
             BodyAxis::PalmDepth => self.hand.palm.depth - 256,
+            BodyAxis::FingerFlexion => self.hand.finger_flexion - MID,
         }
     }
 
@@ -457,6 +482,10 @@ impl WorkstationState {
             BodyAxis::PalmHorizontal => (self.hand.palm.x == 0, self.hand.palm.x == BODY_MAX),
             BodyAxis::PalmVertical => (self.hand.palm.y == 0, self.hand.palm.y == BODY_MAX),
             BodyAxis::PalmDepth => (self.hand.palm.depth == 0, self.hand.palm.depth == BODY_MAX),
+            BodyAxis::FingerFlexion => (
+                self.hand.finger_flexion == 0,
+                self.hand.finger_flexion == BODY_MAX,
+            ),
         }
     }
 
@@ -504,7 +533,16 @@ impl WorkstationState {
                 );
             }
             BodyAxis::PalmDepth => {
-                self.hand.palm.depth = add_bounded(self.hand.palm.depth, amount, 0, BODY_MAX);
+                self.hand.palm.depth = add_bounded(
+                    self.hand.palm.depth,
+                    amount.clamp(-PALM_DEPTH_VELOCITY, PALM_DEPTH_VELOCITY),
+                    0,
+                    BODY_MAX,
+                );
+            }
+            BodyAxis::FingerFlexion => {
+                self.hand.finger_flexion =
+                    add_bounded(self.hand.finger_flexion, amount, 0, BODY_MAX);
             }
         }
     }
@@ -707,11 +745,16 @@ const fn axis_step(axis: BodyAxis) -> i32 {
         BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. } => 32,
         BodyAxis::PalmHorizontal | BodyAxis::PalmVertical => 8,
         BodyAxis::PalmDepth => 16,
+        BodyAxis::FingerFlexion => 64,
     }
 }
 
 /// The palm's planar speed bound in world units per step.
 const PALM_VELOCITY: i32 = 64;
+
+/// Surface-normal arm speed is one depth quantum per body step. This bounds
+/// discrete penetration so the finger can always withdraw from a new surface.
+const PALM_DEPTH_VELOCITY: i32 = 16;
 
 /// The eye's speed bound in world units per step: one receptor pitch.
 /// Summed effort cannot exceed it, so no combination of reflex and habit
@@ -824,6 +867,35 @@ mod tests {
     }
 
     #[test]
+    fn finger_contact_and_arm_pose_are_independent() {
+        let initial = WorkstationState::default();
+        let palm = initial.hand().palm();
+        let tip = initial.hand().fingertip();
+        let mut finger = initial.clone();
+        let mut frame = ActuatorFrame::default();
+        frame.activate(BodyAxis::FingerFlexion, Direction::Increase, 1);
+        finger.integrate(frame);
+
+        assert_eq!(finger.hand().palm(), palm);
+        assert_eq!(finger.hand().fingertip().x(), tip.x());
+        assert_eq!(finger.hand().fingertip().y(), tip.y());
+        assert!(finger.hand().fingertip().depth() > tip.depth());
+
+        let mut moved = finger.clone();
+        let held_depth = moved.hand().fingertip().depth();
+        let mut frame = ActuatorFrame::default();
+        frame.activate(BodyAxis::PalmHorizontal, Direction::Increase, 1);
+        moved.integrate(frame);
+
+        assert_ne!(moved.hand().fingertip().x(), finger.hand().fingertip().x());
+        assert_eq!(moved.hand().fingertip().depth(), held_depth);
+        assert_eq!(
+            moved.hand().finger_flexion(),
+            finger.hand().finger_flexion()
+        );
+    }
+
+    #[test]
     fn one_eye_impulse_uses_half_pitch_and_is_velocity_capped() {
         // One impulse moves half an original receptor pitch. Summed effort
         // retains the existing two-pitch velocity cap.
@@ -868,7 +940,15 @@ mod tests {
         let mut frame = ActuatorFrame::default();
         frame.activate(axis, Direction::Increase, BODY_MAX as u16);
         let movement = state.integrate(frame);
-        assert_eq!(movement[0].velocity, BODY_MAX - 256);
+
+        assert_eq!(movement[0].velocity, PALM_DEPTH_VELOCITY as i16);
+        assert!(!state.proprioception()[axis.index()].at_upper_limit);
+
+        for _ in 0..BODY_MAX / PALM_DEPTH_VELOCITY as i16 {
+            let mut frame = ActuatorFrame::default();
+            frame.activate(axis, Direction::Increase, BODY_MAX as u16);
+            state.integrate(frame);
+        }
         assert!(state.proprioception()[axis.index()].at_upper_limit);
     }
 }

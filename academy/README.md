@@ -90,22 +90,22 @@ The legal-action catalog filters completed device input after the gesture and
 cannot choose or inhibit body movement. Game identity, score, terminal state,
 action budget, and evaluator data remain in Python.
 
-The course currently stops at `Sequence`; `Drag` has not passed. Every run is
-therefore `plumbing-negative-control` evidence with no ARC capability or score
-claim. The pinned fixture preserves the physical trace and an exact
-fresh-process replay. Server-selected and private holdouts remain untouched.
+The course now acquires `Sequence` and stops at `Drag`. Every ARC run remains
+`plumbing-negative-control` evidence with no capability or score claim. The
+pinned fixture preserves the earlier physical trace and an exact fresh-process
+replay. Server-selected and private holdouts remain untouched.
 
 ```sh
 cargo run --release --locked --manifest-path academy/Cargo.toml \
   -p academy-workstation2-course --example course -- \
   256 fresh 11 \
-  /tmp/workstation2-sequence-frontier.bin
+  /tmp/workstation2-drag-frontier.bin
 cargo build --release --locked --manifest-path academy/Cargo.toml \
   -p academy-arc3 --bin academy-arc3-capstone-agent
 cd academy/capstones/arc3
 uv run capstone.py --mode fixture \
   --agent ../../target/release/academy-arc3-capstone-agent \
-  --workstation2-checkpoint /tmp/workstation2-live-key-frontier.bin \
+  --workstation2-checkpoint /tmp/workstation2-drag-frontier.bin \
   --output /tmp/truelearner-arc3-fixture
 ```
 

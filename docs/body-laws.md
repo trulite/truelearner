@@ -125,6 +125,12 @@
   oriented while the corresponding plastic visual-to-hand line is inhibited.
   Looking and acting therefore compose as a product rather than sharing one
   readiness state.
+- **Separate arm and finger.** Planar arm motion moves a held fingertip across
+  a surface. Finger flexion can make or release contact without moving the arm.
+  Arm depth and finger flexion share the surface-normal competition component;
+  tangential arm motion remains an independent product. On contact the arm
+  yields one bounded depth quantum. A matching finger extension preserves
+  moving contact; at rest the finger retracts and releases it.
 - **Labelled physical lines.** Distinct receptors and movement directions own
   distinct junctions. Shared location is represented by graph incidence, not
   an episode identifier. Returns therefore cannot confuse one body site or

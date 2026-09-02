@@ -669,8 +669,7 @@ corrupt checkpoints fail before committing a sensorimotor transition. Frozen
 evidence records pixels, generic events, body observations, physical traces,
 work, fingerprints, and exact fresh-process replay.
 
-The named fresh-body negative control currently stops at `Sequence`; `Drag`
-remains unmet. Running the pinned public fixture from its developed checkpoint
-is therefore classified only as `plumbing-negative-control`. It carries no ARC
-capability or score claim. Server-selected and private holdouts remain
-uninspected.
+The named fresh-body course now acquires `Sequence` and stops at `Drag`.
+Running ARC from this incomplete course remains a `plumbing-negative-control`.
+It carries no ARC capability or score claim. Server-selected and private
+holdouts remain uninspected.

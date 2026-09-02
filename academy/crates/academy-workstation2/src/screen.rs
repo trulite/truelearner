@@ -40,8 +40,8 @@ pub enum DeviceEvent {
     },
 }
 
-/// One contact surface: the whole palm of the undifferentiated hand. The
-/// screen sits at a configurable depth so a course can place it within
+/// One contact surface: the pointer fingertip. The screen sits at a
+/// configurable depth so a course can place it within
 /// easy reach during development, like a toy placed close to a baby,
 /// and at the ordinary distance for its probes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -67,12 +67,12 @@ impl Touchscreen {
     }
 
     pub(crate) fn advance(&mut self, body: &WorkstationState) -> Vec<DeviceEvent> {
-        let touch = TouchId::new(0).expect("palm touch id");
+        let touch = TouchId::new(0).expect("finger touch id");
         let next = in_contact(body, self.contact_depth).then(|| {
-            let palm = body.hand().palm();
+            let fingertip = body.hand().fingertip();
             ScreenPoint {
-                x: palm.x(),
-                y: palm.y(),
+                x: fingertip.x(),
+                y: fingertip.y(),
             }
         });
         let mut events = Vec::new();
@@ -90,5 +90,5 @@ impl Touchscreen {
 }
 
 fn in_contact(body: &WorkstationState, contact_depth: i16) -> bool {
-    body.hand().palm().depth() >= contact_depth
+    body.hand().fingertip().depth() >= contact_depth
 }

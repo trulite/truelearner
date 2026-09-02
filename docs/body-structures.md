@@ -156,7 +156,7 @@ participate in later membership formation.
 
 ```rust
 struct BodyControl { axis: BodyAxis, direction: Direction }
-// BodyAxis = eye | palm | wrist | spread | opposition | digit
+// BodyAxis = eye | palm | finger flexion
 // Direction = Decrease | Increase
 
 struct ApproachLine { strength: u8, pending: u8, inhibited: u8 }
@@ -196,7 +196,16 @@ learned links retain their physical meaning. Eye position advances in 32-unit
 quanta under the existing 128-unit velocity cap; planar palm motion advances in
 8-unit quanta under its existing 64-unit cap.
 
-Checkpoint version 18 stores the separate visual-approach lines. Older
+The pointer finger has one flexion axis. Its fingertip shares the palm's
+horizontal and vertical position and has depth relative to the palm. Screen
+pressure is local to finger flexion; tangential slip is local to planar arm
+motion. Arm depth and finger flexion are distinct actuators in the same normal
+contact component. Planar motion is independent.
+Palm depth moves at most one 16-unit quantum per body step, so discrete motion
+cannot place the arm beyond the finger's withdrawal range at first contact.
+
+Checkpoint version 19 stores the finger position and separate visual-approach
+lines. Older
 incompatible checkpoint versions are rejected. The public API creates ordinary
 junctions and drives, supplies arrivals, runs time, observes frozen traces, and
 checkpoints/restores. Narrow internal constructors create entries, witnesses,

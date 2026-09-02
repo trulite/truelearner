@@ -1142,7 +1142,7 @@ impl WorkstationHarness {
             frame.activate(effect.control.axis(), effect.control.direction(), effort);
         }
         apply_contact_reaction(&sample, &mut frame);
-        self.apply_arm_recoil(&sample, &mut frame);
+        self.apply_contact_posture(&sample, &mut frame);
         self.apply_pre_reach(&sample, &mut frame);
         self.apply_global_orient(&sample, &mut frame);
         apply_ocular_drift(&sample, &self.state, &mut frame);
@@ -1390,13 +1390,24 @@ impl WorkstationHarness {
             && (i32::from(palm.y()) - y).abs() <= REACH_HAND_MASK
     }
 
-    /// Contact starts the arm's one-quantum recoil. After attention
-    /// disengages, lateral transport cancels unmatched extension until the
-    /// pointer reaches the new focus, preserving that one-quantum clearance.
-    /// A held contact has not disengaged, so this does not prohibit dragging.
-    fn apply_arm_recoil(&self, sample: &WorldSample, frame: &mut ActuatorFrame) {
+    /// Contact makes the arm yield one depth quantum. During tangential arm
+    /// motion the finger extends by the matching amount, holding the fingertip
+    /// on the surface. At rest the finger retracts and releases it.
+    fn apply_contact_posture(&self, sample: &WorldSample, frame: &mut ActuatorFrame) {
+        let sliding = [BodyAxis::PalmHorizontal, BodyAxis::PalmVertical]
+            .into_iter()
+            .any(|axis| frame.net(axis) != 0);
         if touching(sample) {
             frame.activate(BodyAxis::PalmDepth, Direction::Decrease, 1);
+            frame.activate(
+                BodyAxis::FingerFlexion,
+                if sliding {
+                    Direction::Increase
+                } else {
+                    Direction::Decrease
+                },
+                1,
+            );
         }
         if self
             .visual_attention
@@ -1819,6 +1830,7 @@ fn apply_contact_reaction(sample: &WorldSample, frame: &mut ActuatorFrame) {
         .any(|contact| contact.pressure() == BODY_MAX as u16)
     {
         frame.resist_increase(BodyAxis::PalmDepth, BODY_MAX as u16);
+        frame.resist_increase(BodyAxis::FingerFlexion, BODY_MAX as u16);
     }
 }
 
@@ -1873,7 +1885,7 @@ const fn competition_component(axis: BodyAxis) -> usize {
             1
         }
         BodyAxis::PalmHorizontal | BodyAxis::PalmVertical => 2,
-        BodyAxis::PalmDepth => 3,
+        BodyAxis::PalmDepth | BodyAxis::FingerFlexion => 3,
     }
 }
 
@@ -2049,10 +2061,10 @@ fn extend_directional_nearness(
     }
 }
 
-/// The one contact surface of the undifferentiated hand: its pressure is
-/// near palm depth, its slip is near planar palm transport.
+/// Fingertip pressure is local to finger flexion; slip is local to planar arm
+/// transport. The two parts meet only through real contact.
 fn contact_pressure_nearness(opportunities: &[JunctionId]) -> Vec<(JunctionId, u64)> {
-    axis_nearness(opportunities, BodyAxis::PalmDepth)
+    axis_nearness(opportunities, BodyAxis::FingerFlexion)
 }
 
 fn contact_slip_nearness(opportunities: &[JunctionId]) -> Vec<(JunctionId, u64)> {
@@ -2447,7 +2459,7 @@ mod tests {
     }
 
     #[test]
-    fn arm_recoil_holds_clearance_during_transport_but_not_after_alignment() {
+    fn arm_clearance_holds_during_transport_but_not_after_alignment() {
         let sample = with_visual_field(
             vec![12; GLOBAL_VISION_FIELDS],
             vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
@@ -2457,7 +2469,7 @@ mod tests {
         harness.visual_attention.transporting = [true; 2];
         let mut frame = ActuatorFrame::default();
         frame.activate(BodyAxis::PalmDepth, Direction::Increase, 7);
-        harness.apply_arm_recoil(&sample, &mut frame);
+        harness.apply_contact_posture(&sample, &mut frame);
         let movement = harness.state.clone().integrate(frame);
         assert_eq!(movement.len(), 1);
         assert_eq!(movement[0].axis, BodyAxis::PalmDepth);
@@ -2467,8 +2479,36 @@ mod tests {
         harness.visual_attention.transporting = [false; 2];
         let mut frame = ActuatorFrame::default();
         frame.activate(BodyAxis::PalmDepth, Direction::Increase, 7);
-        harness.apply_arm_recoil(&sample, &mut frame);
+        harness.apply_contact_posture(&sample, &mut frame);
         assert!(harness.state.clone().integrate(frame)[0].changed);
+    }
+
+    #[test]
+    fn finger_holds_during_planar_motion_and_retracts_at_rest() {
+        let mut contacts = [ContactSample::default(); TOUCH_SITES];
+        contacts[0] = ContactSample::new(BODY_MAX as u16, 0).unwrap();
+        let sample = with_fields(field(0), field(0), contacts);
+        let harness = WorkstationHarness::new(3).unwrap();
+        let initial = harness.state.clone();
+        let initial_tip_depth = initial.hand().fingertip().depth();
+
+        let mut sliding = ActuatorFrame::default();
+        sliding.activate(BodyAxis::PalmHorizontal, Direction::Increase, 1);
+        harness.apply_contact_posture(&sample, &mut sliding);
+        let mut slid = initial.clone();
+        slid.integrate(sliding);
+        assert_ne!(slid.hand().palm().x(), initial.hand().palm().x());
+        assert!(slid.hand().palm().depth() < initial.hand().palm().depth());
+        assert!(slid.hand().finger_flexion() > initial.hand().finger_flexion());
+        assert_eq!(slid.hand().fingertip().depth(), initial_tip_depth);
+
+        let mut still = ActuatorFrame::default();
+        harness.apply_contact_posture(&sample, &mut still);
+        let mut released = initial.clone();
+        released.integrate(still);
+        assert!(released.hand().palm().depth() < initial.hand().palm().depth());
+        assert!(released.hand().finger_flexion() < initial.hand().finger_flexion());
+        assert!(released.hand().fingertip().depth() < initial_tip_depth);
     }
 
     #[test]
@@ -2544,7 +2584,15 @@ mod tests {
     }
 
     #[test]
-    fn the_one_contact_surface_does_not_bridge_depth_and_planar_products() {
+    fn arm_depth_and_finger_flexion_share_the_contact_normal() {
+        assert_eq!(
+            competition_component(BodyAxis::PalmDepth),
+            competition_component(BodyAxis::FingerFlexion)
+        );
+    }
+
+    #[test]
+    fn fingertip_contact_does_not_bridge_finger_and_arm_products() {
         let harness = WorkstationHarness::new(1).unwrap();
         let pressure = contact_pressure_nearness(&harness.handles.opportunities);
         let slip = contact_slip_nearness(&harness.handles.opportunities);
@@ -2555,9 +2603,11 @@ mod tests {
                 .any(|junction| nearby.iter().any(|(target, _)| target == junction))
         };
 
-        assert!(reaches(&pressure, BodyAxis::PalmDepth));
+        assert!(reaches(&pressure, BodyAxis::FingerFlexion));
+        assert!(!reaches(&pressure, BodyAxis::PalmDepth));
         assert!(!reaches(&pressure, BodyAxis::PalmHorizontal));
         assert!(!reaches(&pressure, BodyAxis::PalmVertical));
+        assert!(!reaches(&slip, BodyAxis::FingerFlexion));
         assert!(!reaches(&slip, BodyAxis::PalmDepth));
         assert!(reaches(&slip, BodyAxis::PalmHorizontal));
         assert!(reaches(&slip, BodyAxis::PalmVertical));

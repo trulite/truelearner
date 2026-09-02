@@ -93,23 +93,43 @@ mod tests {
     }
 
     #[test]
-    fn a_real_palm_contact_reaches_the_virtual_keyboard() {
+    fn a_real_fingertip_contact_reaches_the_virtual_keyboard() {
         let mut world = Workstation2::new(0);
         let mut body = WorkstationHarness::new(2).unwrap();
-        while body.state().hand().palm().depth() < CONTACT_DEPTH {
+        while body.state().hand().palm().depth() < CONTACT_DEPTH - 16 {
             body.perturb_body(
                 BodyControl::new(BodyAxis::PalmDepth, Direction::Increase),
                 1,
             )
             .unwrap();
         }
+        let palm_depth = body.state().hand().palm().depth();
+        body.perturb_body(
+            BodyControl::new(BodyAxis::FingerFlexion, Direction::Increase),
+            1,
+        )
+        .unwrap();
         let started = world.advance(body.state());
         assert!(started
             .iter()
             .any(|event| matches!(event, DeviceEvent::TouchStarted { .. })));
+        assert_eq!(body.state().hand().palm().depth(), palm_depth);
+
+        let finger_flexion = body.state().hand().finger_flexion();
+        body.perturb_body(
+            BodyControl::new(BodyAxis::PalmHorizontal, Direction::Increase),
+            1,
+        )
+        .unwrap();
+        let moved = world.advance(body.state());
+        assert!(moved
+            .iter()
+            .any(|event| matches!(event, DeviceEvent::TouchMoved { .. })));
+        assert_eq!(body.state().hand().finger_flexion(), finger_flexion);
+        assert_eq!(body.state().hand().palm().depth(), palm_depth);
 
         body.perturb_body(
-            BodyControl::new(BodyAxis::PalmDepth, Direction::Decrease),
+            BodyControl::new(BodyAxis::FingerFlexion, Direction::Decrease),
             1,
         )
         .unwrap();
@@ -117,6 +137,7 @@ mod tests {
         assert!(ended
             .iter()
             .any(|event| matches!(event, DeviceEvent::TouchEnded { .. })));
+        assert_eq!(body.state().hand().palm().depth(), palm_depth);
         assert!(!world.text().is_empty());
     }
 
