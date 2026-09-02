@@ -97,11 +97,11 @@ not to specify how the body should solve it.
 ## After the course
 
 Rehost the ARC-AGI-3 adapter on Workstation2 as another application. Its
-output is screen pixels; its input is generic touch events. Start ARC only
-from a checkpoint that passed through Drag.
+output is screen pixels; its input is generic touch events. ARC admission
+requires the capabilities through Sequence. Drag remains an independent
+manipulation capability and does not gate ARC.
 
-Before Drag passes, `run_with_diagnostic_checkpoint` may export the developed
-frontier checkpoint for the pinned public fixture. The current reference is the
-named fresh-body negative control at 256 steps and seed 11. That run is
-`plumbing-negative-control` evidence only. It cannot support an ARC capability
-or score claim.
+At the Drag frontier, `run_with_diagnostic_checkpoint` may export the developed
+Sequence checkpoint for ARC. The current pinned fixture remains
+`plumbing-negative-control` evidence until the generic game controls pass their
+own probes. It cannot support an ARC capability or score claim.

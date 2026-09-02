@@ -90,7 +90,7 @@ def load_protocol(path: Path) -> dict[str, Any]:
         raise CapstoneError("protocol changes the workstation application bindings")
     if data["unmapped_actions"] != [5, 7]:
         raise CapstoneError("protocol changes the unmapped Workstation2 actions")
-    if data["course_frontier"] != "LiveKey":
+    if data["course_frontier"] != "Drag":
         raise CapstoneError("protocol changes the measured Workstation2 frontier")
     if data["workstation_course_steps"] != 256 or data["workstation_course_seed"] != 11:
         raise CapstoneError("protocol changes the Workstation2 negative control")
@@ -491,7 +491,8 @@ def _receipt(
         "environment_seed": int(protocol["environment_seed"]),
         "workstation2_checkpoint_sha256": sha256_file(body_checkpoint),
         "course_frontier": protocol["course_frontier"],
-        "drag_prerequisite_met": False,
+        "arc_prerequisites_met": protocol["course_frontier"] == "Drag",
+        "drag_capability_acquired": False,
         "arc_capability_claim": None,
         "suite_selection": protocol["official_selection"],
         "holdout_policy": protocol["holdout_policy"],

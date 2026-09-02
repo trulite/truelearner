@@ -51,6 +51,19 @@ impl Capability {
         Self::Drag,
     ];
 
+    /// Generic screen capabilities required before an ARC application may
+    /// use this body. Drag is an independent manipulation capability.
+    pub const ARC_PREREQUISITES: [Self; 8] = [
+        Self::Gaze,
+        Self::Touch,
+        Self::AimedTap,
+        Self::LiveKey,
+        Self::DeadKey,
+        Self::Scan,
+        Self::QuietHand,
+        Self::Sequence,
+    ];
+
     fn rung(self) -> Option<screen_use::RungKind> {
         match self {
             Self::LiveKey => Some(screen_use::RungKind::LiveKey),
@@ -131,6 +144,12 @@ impl CourseRun {
                     .state
             }
         }
+    }
+
+    pub fn arc_prerequisites_acquired(&self) -> bool {
+        Capability::ARC_PREREQUISITES
+            .into_iter()
+            .all(|capability| self.state(capability) == EvidenceState::Acquired)
     }
 }
 
@@ -353,6 +372,15 @@ mod tests {
     }
 
     #[test]
+    fn arc_prerequisites_end_before_drag() {
+        assert_eq!(
+            Capability::ARC_PREREQUISITES.last(),
+            Some(&Capability::Sequence)
+        );
+        assert!(!Capability::ARC_PREREQUISITES.contains(&Capability::Drag));
+    }
+
+    #[test]
     fn a_fresh_body_acquires_separate_looking_and_approach() {
         let run = completed_course();
 
@@ -381,6 +409,7 @@ mod tests {
         }
         assert_eq!(run.state(Capability::Drag), EvidenceState::Unknown);
         assert_eq!(run.first_failure, Some(Capability::Drag));
+        assert!(run.arc_prerequisites_acquired());
         // The killing control for the tap rung stays at chance.
         assert!(run.aimed_tap.controls_quiet());
     }

@@ -53,7 +53,7 @@ class ProjectionTests(unittest.TestCase):
         protocol = capstone.load_protocol(
             Path(__file__).resolve().parents[1] / "protocol.toml"
         )
-        self.assertEqual(protocol["course_frontier"], "LiveKey")
+        self.assertEqual(protocol["course_frontier"], "Drag")
         self.assertEqual(protocol["workstation_course_steps"], 256)
         self.assertEqual(protocol["workstation_course_seed"], 11)
         self.assertEqual(protocol["unmapped_actions"], [5, 7])
