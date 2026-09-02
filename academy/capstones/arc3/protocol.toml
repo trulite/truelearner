@@ -1,7 +1,7 @@
 schema_version = 9
 receipt_schema_version = 5
 name = "academy-arc3-public-diagnostic"
-workstation2_foundation_revision = "d26da08bfa566e7dc03a4a0f8da7a5a630be7d77"
+workstation2_foundation_revision = "ef9b2771e52b8a43283f364eaeff6d5653a402bb"
 toolkit_source_revision = "arcprize/ARC-AGI@f12822c4d550121c35a275008d964afbbed47d2f"
 arc_agi_version = "0.9.9"
 arcengine_version = "0.9.3"
