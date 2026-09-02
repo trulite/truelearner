@@ -129,19 +129,8 @@ impl Arc3CapstoneAgent {
     ) -> Result<Arc3CapstoneObservation, Arc3Error> {
         actions.validate()?;
         let organism = self.organism.observe(frame)?;
-        let action_witnesses = organism
-            .application_input
-            .iter()
-            .map(|input| Arc3ActionWitness {
-                event: input.event.clone(),
-                call: input.call,
-                offered: actions.contains(input.call.id),
-            })
-            .collect::<Vec<_>>();
-        let call = action_witnesses
-            .first()
-            .filter(|witness| witness.offered)
-            .map(|witness| witness.call);
+        let (action_witnesses, call) =
+            filter_application_input(organism.application_input.as_ref(), &actions);
         Ok(Arc3CapstoneObservation {
             organism,
             action_witnesses,
@@ -164,10 +153,30 @@ impl Arc3CapstoneAgent {
     }
 }
 
+fn filter_application_input(
+    input: Option<&crate::Arc3DeviceInput>,
+    actions: &Arc3ActionCatalog,
+) -> (Vec<Arc3ActionWitness>, Option<Arc3ActionCall>) {
+    let action_witnesses = input
+        .iter()
+        .map(|input| Arc3ActionWitness {
+            event: input.event,
+            call: input.call,
+            offered: actions.contains(input.call.id),
+        })
+        .collect::<Vec<_>>();
+    let call = action_witnesses
+        .first()
+        .filter(|witness| witness.offered)
+        .map(|witness| witness.call);
+    (action_witnesses, call)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ARC3_FRAME_PIXELS;
+    use crate::{Arc3DeviceInput, ARC3_FRAME_PIXELS};
+    use academy_workstation2::{DeviceEvent, ScreenPoint, TouchId};
 
     fn catalog(ids: &[u8]) -> Arc3ActionCatalog {
         Arc3ActionCatalog {
@@ -232,5 +241,27 @@ mod tests {
             .unwrap();
         assert_eq!(left.organism.steps, right.organism.steps);
         assert_eq!(left.organism.device_events, right.organism.device_events);
+    }
+
+    #[test]
+    fn offered_actions_filter_only_after_a_complete_device_gesture() {
+        let input = Arc3DeviceInput {
+            event: DeviceEvent::TouchEnded {
+                touch: TouchId::new(0).unwrap(),
+                at: ScreenPoint { x: 512, y: 512 },
+            },
+            call: Arc3ActionCall {
+                id: 6,
+                arguments: Arc3ActionArguments::Point { x: 31, y: 31 },
+            },
+        };
+        let (rejected, call) = filter_application_input(Some(&input), &catalog(&[1]));
+        assert_eq!(rejected.len(), 1);
+        assert!(!rejected[0].offered);
+        assert_eq!(call, None);
+
+        let (accepted, call) = filter_application_input(Some(&input), &catalog(&[6]));
+        assert!(accepted[0].offered);
+        assert_eq!(call, Some(input.call));
     }
 }

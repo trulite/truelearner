@@ -6,7 +6,7 @@ publish.workspace = true
 description = "ARC-AGI-3 workstation application and evidence boundary for TrueLearner Academy"
 
 [dependencies]
-academy-workstation.workspace = true
+academy-workstation2.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

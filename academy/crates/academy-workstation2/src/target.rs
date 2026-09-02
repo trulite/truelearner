@@ -1,8 +1,8 @@
 //! The target app: one reactive lit rectangle, an optional inert decoy, a
 //! drag goal, ordered pairs, and blank screens. Everything it knows stays
 //! outside the organism.
-use crate::draw::{background, distance, fill_rect, frame, Rect, TAP_TRAVEL};
-use crate::{DeviceEvent, ScreenPoint};
+use crate::draw::{background, distance, fill_rect, frame, Rect};
+use crate::{DeviceEvent, ScreenPoint, TAP_TRAVEL};
 use truelearner_workstation::{LightField, BODY_MAX};
 
 pub const TARGET_SIDE: i16 = 192;

@@ -79,70 +79,53 @@ reuse at normal depth, equal external behavior, reduced physical work, passive
 interference, controls, checkpoint retention, and exact replay. This does not
 upgrade the twelve body capability states or imply general workstation skill.
 
-## ARC-AGI-3 development probe
+## ARC-AGI-3 diagnostic
 
 `academy-arc3` runs ARC-AGI-3 as an application on the same physical
-workstation used by Body Discovery. The taught workstation-course checkpoint sees
-the 64×64 frame only as pixels on the generic monitor. ARC receives input only
-after the workstation emits an ordinary arrow-key, Space, Escape, or touchpad
-click `DeviceEvent`; no body control or motor crossing maps directly to ARC.
-The legal-action catalog remains in the external application adapter and cannot
-choose or inhibit body movement. Game identity, score, terminal state, action
-budget, and evaluator data remain in Python.
+Workstation2 touchscreen. The 64×64 frame becomes luminance pixels in the
+pixels-only application. A complete generic touch gesture becomes at most one
+external ARC input: short travel is a point action; longer travel is one
+dominant-direction action. Actions 5 and 7 have no Workstation2 event mapping.
+The legal-action catalog filters completed device input after the gesture and
+cannot choose or inhibit body movement. Game identity, score, terminal state,
+action budget, and evaluator data remain in Python.
 
-The frozen protocol runs one named public development environment before any
-learner change and preserves the full physical trace plus an exact fresh-process
-replay. It is diagnostic evidence, not an ARC score claim. Server-selected
-holdouts remain untouched.
+The course currently stops at `LiveKey`; `Drag` has not passed. Every run is
+therefore `plumbing-negative-control` evidence with no ARC capability or score
+claim. The pinned fixture preserves the physical trace and an exact
+fresh-process replay. Server-selected and private holdouts remain untouched.
 
 ```sh
+cargo run --release --locked --manifest-path academy/Cargo.toml \
+  -p academy-workstation2-course --example course -- \
+  256 fresh 11 \
+  /tmp/workstation2-live-key-frontier.bin
 cargo build --release --locked --manifest-path academy/Cargo.toml \
   -p academy-arc3 --bin academy-arc3-capstone-agent
 cd academy/capstones/arc3
 uv run capstone.py --mode fixture \
   --agent ../../target/release/academy-arc3-capstone-agent \
-  --workstation-checkpoint ../../../output/body-course/workstation-body-checkpoint-<sha256>.bin \
+  --workstation2-checkpoint /tmp/workstation2-live-key-frontier.bin \
   --output /tmp/truelearner-arc3-fixture
 ```
-
-## Physical workstation
-
-`academy-workstation` supplies the binocular visual world, one articulated
-hand, keyboard, touchpad, monitor, collision, and exact world-plus-organism
-replay. Keys expose physical press/release hysteresis and one visible
-long-press consequence after two held steps. It talks only to
-`truelearner-workstation`.
-
-Record and render an observer-only workstation run with:
-
-```sh
-cargo run --release --locked --manifest-path academy/Cargo.toml \
-  -p academy-workstation-review --bin academy-workstation-record -- \
-  output/workstation-run --steps 48 --seed 82001
-```
-
-The recording and derived frames or video never return to the learner.
 
 ## Crates
 
 - `academy-arc3`: the blind Rust ARC-AGI-3 sensorimotor boundary and trace agent.
 - `academy-body`: Body Discovery development, probes, controls, replay, and evidence.
 - `academy-formal`: offline Rust-to-Lean checking of frozen causal evidence.
-- `academy-workstation`: the headless physical workstation world.
-- `academy-workstation-course`: device-to-screen development and falsification controls.
-- `academy-workstation-review`: causally inert rendering of frozen workstation recordings.
+- `academy-workstation2`: the headless touchscreen world and generic applications.
+- `academy-workstation2-course`: the pre-ARC screen-use ladder and controls.
 
 The runtime dependency direction is:
 
 ```text
-academy-body ----------> academy-workstation-course -> academy-workstation
-      |                                                   |
-      +---------------------------------------------------+--> truelearner-workstation -> truelearner-body
-academy-workstation-review -> academy-workstation
-academy-formal -------------------> truelearner-workstation -> truelearner-body
+academy-body ----------------------> truelearner-workstation -> truelearner-body
+academy-workstation2-course -> academy-workstation2 --------^
+academy-formal ------------------------------------------------^
        |
        +--------------------------> pinned Lean checker (frozen evidence only)
-academy-arc3 ----------> academy-workstation -> truelearner-workstation -> truelearner-body
+academy-arc3 -------------> academy-workstation2 -------------^
 ```
 
 Historical research evidence remains under the repository's archive and

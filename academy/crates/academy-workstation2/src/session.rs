@@ -1,8 +1,8 @@
 use crate::{DeviceEvent, Workstation2};
 use serde::{Deserialize, Serialize};
 use truelearner_workstation::{
-    WorkstationCheckpoint, WorkstationError, WorkstationHarness, WorkstationStepObservation,
-    WorldSample,
+    BodyTraceEvent, LightField, WorkstationCheckpoint, WorkstationError, WorkstationHarness,
+    WorkstationRead, WorkstationStepObservation, WorldSample,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,6 +53,10 @@ impl Workstation2Session {
         &self.world
     }
 
+    pub fn replace_application_frame(&mut self, frame: LightField) -> Result<(), WorkstationError> {
+        self.world.replace_pixels(frame)
+    }
+
     pub fn step(&mut self) -> Result<Workstation2Observation, WorkstationError> {
         // This is the complete organism input. Device events and application
         // state never cross this call boundary.
@@ -71,7 +75,30 @@ impl Workstation2Session {
         Ok(observation)
     }
 
+    /// Observer-equivalent form of [`Self::step`] with the physical body trace.
+    pub fn step_traced(
+        &mut self,
+    ) -> Result<(Workstation2Observation, Vec<BodyTraceEvent>), WorkstationError> {
+        let sample = self.world.sense(self.harness.state())?;
+        let (body, trace) = self.harness.step_traced(sample.clone())?;
+        let device_events = self.world.advance(&body.state_after);
+        let observation = Workstation2Observation {
+            sequence: self.sequence,
+            sample,
+            body,
+            device_events,
+            text: self.world.text().to_owned(),
+            scale: self.world.scale(),
+        };
+        self.sequence = self.sequence.saturating_add(1);
+        Ok((observation, trace))
+    }
+
     pub fn body_checkpoint(&self) -> Result<WorkstationCheckpoint, WorkstationError> {
         self.harness.save()
+    }
+
+    pub fn body_read(&self) -> Result<WorkstationRead, WorkstationError> {
+        self.harness.read()
     }
 }

@@ -49,6 +49,18 @@ def observation(**overrides: object) -> SimpleNamespace:
 
 
 class ProjectionTests(unittest.TestCase):
+    def test_protocol_freezes_workstation2_negative_control(self) -> None:
+        protocol = capstone.load_protocol(
+            Path(__file__).resolve().parents[1] / "protocol.toml"
+        )
+        self.assertEqual(protocol["course_frontier"], "LiveKey")
+        self.assertEqual(protocol["workstation_course_steps"], 256)
+        self.assertEqual(protocol["workstation_course_seed"], 11)
+        self.assertEqual(protocol["unmapped_actions"], [5, 7])
+        self.assertEqual(
+            protocol["diagnostic_classification"], "plumbing-negative-control"
+        )
+
     def test_evaluator_fields_cannot_reach_application_request(self) -> None:
         left = capstone.project_observation(observation(game_id="one", score=0.0))
         right = capstone.project_observation(observation(game_id="two", score=1.0))
@@ -126,7 +138,7 @@ class EvidenceTests(unittest.TestCase):
             output = Path(directory) / "receipt"
             result = capstone.write_evidence(
                 output,
-                {"schema_version": 1, "verdict": "fixture-only"},
+                {"schema_version": 1, "verdict": "plumbing-negative-control"},
                 [{"request": {"frame": [0]}, "response": {"call": None}}],
             )
             self.assertTrue((output / result["transcript_file"]).is_file())

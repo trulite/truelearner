@@ -1,11 +1,13 @@
 [workspace]
 members = [
+    "crates/academy-arc3",
     "crates/academy-body",
     "crates/academy-formal",
     "crates/academy-workstation2",
     "crates/academy-workstation2-course",
 ]
 default-members = [
+    "crates/academy-arc3",
     "crates/academy-body",
     "crates/academy-formal",
     "crates/academy-workstation2",
@@ -22,6 +24,7 @@ edition = "2021"
 publish = false
 
 [workspace.dependencies]
+academy-arc3 = { path = "crates/academy-arc3" }
 academy-body = { path = "crates/academy-body" }
 academy-formal = { path = "crates/academy-formal" }
 academy-workstation2 = { path = "crates/academy-workstation2" }

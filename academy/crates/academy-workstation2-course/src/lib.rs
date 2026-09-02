@@ -159,6 +159,18 @@ impl Workstation2Course {
         checkpoint: WorkstationCheckpoint,
         seed: u64,
     ) -> Result<CourseRun, WorkstationError> {
+        self.run_with_diagnostic_checkpoint(checkpoint, seed)
+            .map(|(run, _)| run)
+    }
+
+    /// Run the course and retain its developed checkpoint for diagnostic use.
+    /// The checkpoint carries no capability claim; callers must inspect
+    /// `first_failure` and keep later applications behind their own gates.
+    pub fn run_with_diagnostic_checkpoint(
+        self,
+        checkpoint: WorkstationCheckpoint,
+        seed: u64,
+    ) -> Result<(CourseRun, WorkstationCheckpoint), WorkstationError> {
         // The development ladder: gaze phase, then the close-screen touch
         // phase, then the big-toy tap phase. Each phase presents its
         // consequence to the learner; the phases train each other.
@@ -257,7 +269,7 @@ impl Workstation2Course {
             .into_iter()
             .find(|capability| run.state(*capability) != EvidenceState::Acquired)
             .or_else(|| (!run.aimed_tap.controls_quiet()).then_some(Capability::AimedTap));
-        Ok(run)
+        Ok((run, developed))
     }
 }
 

@@ -21,7 +21,7 @@ application parents, progress parents, or semantic action inputs.
 
 ```text
 Touchscreen: five opaque physical contact tracks
-Application: active contacts, virtual-key text, visible scale
+Application: keyboard, target, or replaceable pixels
 Workstation2: touchscreen + application
 Workstation2Session: opaque body harness + Workstation2
 ```
@@ -31,8 +31,11 @@ organism. A virtual key is a lit rectangle interpreted by the application only
 after a generic touch ends within it.
 
 The remaining public values are `ScreenPoint`, opaque `TouchId`, generic
-`DeviceEvent`, and the frozen `Workstation2Observation`. Course-only evidence is
-`PhaseEvidence` inside `CourseRun`; it is never organism state.
+`DeviceEvent`, and the frozen `Workstation2Observation`. A pixels-only
+application accepts a `LightField` replacement and ignores device events so an
+external adapter can consume them. `Workstation2Session::step_traced` adds only
+observer evidence to the ordinary step. Course evidence is never organism
+state.
 
 ## External laws
 
@@ -44,6 +47,7 @@ The remaining public values are `ScreenPoint`, opaque `TouchId`, generic
 4. Eye position changes the local retinal view.
 5. Application effects return only as later light, and surface reaction returns
    only as later hand contact.
+6. Replacing a pixels-only frame changes no body or touch-track state.
 
 ## Course
 

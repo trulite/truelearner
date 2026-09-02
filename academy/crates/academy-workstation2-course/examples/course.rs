@@ -12,9 +12,13 @@ fn main() {
         }
         _ => WorkstationHarness::new(seed).unwrap().save().unwrap(),
     };
-    let run = Workstation2Course::new(steps)
-        .run(checkpoint, seed)
+    let (run, diagnostic_checkpoint) = Workstation2Course::new(steps)
+        .run_with_diagnostic_checkpoint(checkpoint, seed)
         .unwrap();
+    if let Some(path) = args.get(3) {
+        diagnostic_checkpoint.write_mmap(path).unwrap();
+        println!("diagnostic_checkpoint={path}");
+    }
     println!(
         "steps={steps} replay={} first_failure={:?}",
         run.exact_replay, run.first_failure

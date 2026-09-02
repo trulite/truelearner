@@ -1,7 +1,5 @@
-use crate::draw::{
-    background, distance, fill_rect, fill_world_rect, frame, Rect, FRAME_SIDE, TAP_TRAVEL,
-};
-use crate::{DeviceEvent, ScreenPoint};
+use crate::draw::{background, distance, fill_rect, fill_world_rect, frame, Rect, FRAME_SIDE};
+use crate::{DeviceEvent, ScreenPoint, TAP_TRAVEL};
 use truelearner_workstation::LightField;
 
 const TEXT_LIMIT: usize = 64;

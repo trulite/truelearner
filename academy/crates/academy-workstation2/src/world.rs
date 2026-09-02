@@ -22,6 +22,7 @@ const HAND_RADIUS: i32 = 34;
 enum App {
     Keyboard(Application),
     Target(TargetApp),
+    Pixels(LightField),
 }
 
 impl App {
@@ -29,6 +30,7 @@ impl App {
         match self {
             Self::Keyboard(app) => app.frame(),
             Self::Target(app) => app.frame(),
+            Self::Pixels(frame) => frame.clone(),
         }
     }
 
@@ -36,6 +38,7 @@ impl App {
         match self {
             Self::Keyboard(app) => app.apply(events),
             Self::Target(app) => app.apply(events),
+            Self::Pixels(_) => {}
         }
     }
 }
@@ -61,6 +64,25 @@ impl Workstation2 {
         }
     }
 
+    /// Attach an ordinary pixels-only application to the touchscreen.
+    pub fn with_pixels(frame: LightField) -> Self {
+        Self {
+            screen: Touchscreen::new(CONTACT_DEPTH),
+            application: App::Pixels(frame),
+        }
+    }
+
+    /// Replace the pixels drawn by an attached pixels-only application.
+    pub fn replace_pixels(&mut self, frame: LightField) -> Result<(), WorkstationError> {
+        match &mut self.application {
+            App::Pixels(current) => {
+                *current = frame;
+                Ok(())
+            }
+            App::Keyboard(_) | App::Target(_) => Err(WorkstationError::InvalidState),
+        }
+    }
+
     /// The same target app with the screen placed at `contact_depth`, the
     /// big-toy exposure knob: a close screen presents the contact
     /// consequence within the palm's easy reach, exactly like a toy placed
@@ -75,7 +97,7 @@ impl Workstation2 {
     pub fn target(&self) -> Option<&TargetApp> {
         match &self.application {
             App::Target(app) => Some(app),
-            App::Keyboard(_) => None,
+            App::Keyboard(_) | App::Pixels(_) => None,
         }
     }
 
@@ -101,14 +123,14 @@ impl Workstation2 {
     pub fn text(&self) -> &str {
         match &self.application {
             App::Keyboard(app) => app.text(),
-            App::Target(_) => "",
+            App::Target(_) | App::Pixels(_) => "",
         }
     }
 
     pub const fn scale(&self) -> i16 {
         match &self.application {
             App::Keyboard(app) => app.scale(),
-            App::Target(_) => 0,
+            App::Target(_) | App::Pixels(_) => 0,
         }
     }
 }

@@ -3,8 +3,6 @@ use crate::ScreenPoint;
 use truelearner_workstation::{LightField, BODY_MAX};
 
 pub(crate) const FRAME_SIDE: usize = 64;
-pub(crate) const TAP_TRAVEL: i16 = 32;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Rect {
     pub left: i16,

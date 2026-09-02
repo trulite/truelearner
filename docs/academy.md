@@ -26,11 +26,10 @@ answers, correctness bits, loss, reward, or evaluator state.
 Keep the runtime dependency direction:
 
 ```text
-academy-body ----------> academy-workstation-course -> academy-workstation
-      |                                                   |
-      +---------------------------------------------------+--> truelearner-workstation -> truelearner-body
-academy-workstation-review -> academy-workstation
-academy-formal -------------------> truelearner-workstation -> truelearner-body
+academy-body ----------------------> truelearner-workstation -> truelearner-body
+academy-workstation2-course -> academy-workstation2 --------^
+academy-arc3 -----------------> academy-workstation2 --------^
+academy-formal ------------------------------------------------^
        |
        +--------------------------> pinned Lean checker (frozen evidence only)
 ```
@@ -552,11 +551,9 @@ Workstation2 is the primary workstation path. `BodyCourse::run` and the
 `academy-body-course` binary teach only eye control, hand and finger control,
 and eye-hand coordination; the Workstation1 contact course and generic screen
 course run only through `run_with_workstation_course` or `--with-workstation`.
-`academy-workstation`, `academy-workstation-course`,
-`academy-workstation-review`, and `academy-arc3` remain workspace members but
-are outside the default build. Their tests in `academy-body` are ignored with a
-stated reason rather than deleted. With the joint-stop boundary (lesson 111) the
-Workstation1 course stops at VisualReach.
+The Workstation1 crates remain in the tree as historical code but are no longer
+workspace members. `academy-arc3` is a default workspace member on Workstation2.
+The ignored Workstation1 tests in `academy-body` retain their stated reason.
 
 ### Workstation2 touchscreen course
 
@@ -642,47 +639,38 @@ distributed storage, robots, audio, video input, or a large ontology.
 Stop if Academy supplies an answer, action, route, capability, or correctness
 signal to the learner.
 
-## ARC-AGI-3 development probe
+## ARC-AGI-3 diagnostic
 
-ARC-AGI-3 is first used as an external falsification environment, not a
-teaching episode or an official capability claim. Before the run, Academy pins
-a clean body parent, adapter revision, SDK versions, seed, action budget, and
-one named public development environment. Server-selected holdouts remain
+ARC-AGI-3 is an external Workstation2 application. The Python boundary owns SDK
+state, game identity, score, terminal state, action budget, and the official
+action catalog. Its organism-facing request contains only a 64×64 palette frame
+and the outer catalog used after device input has crossed the workstation.
+
+`Arc3Sensorimotor` restores an opaque current `WorkstationCheckpoint`, attaches
+the pixels-only Workstation2 application, converts the palette to luminance,
+and takes at most 32 ordinary physical steps. The body receives only the normal
+`WorldSample`: retinal light, screen contact, and proprioception. Device events,
+gesture tracks, action offers, application state, and verdicts remain outside
+the harness.
+
+A complete touch track yields at most one application input. `TouchStarted`
+opens the external track and `TouchMoved` updates its path without emitting an
+action. At `TouchEnded`, path travel at or below the generic tap threshold emits
+action 6 at the release point. Longer travel emits one dominant signed
+direction, actions 1 through 4; horizontal wins equal-magnitude ties. Actions 5
+and 7 remain unmapped because Workstation2 exposes no corresponding generic
+device event. The action catalog may accept or reject the completed input only
+after this classification.
+
+The process command cannot represent score, game or level identity, expected
+action, target identity, evaluator state, `BodyControl`, or `MotorEffect`.
+Unknown fields, malformed frames, invalid catalogs, broken touch tracks, and
+corrupt checkpoints fail before committing a sensorimotor transition. Frozen
+evidence records pixels, generic events, body observations, physical traces,
+work, fingerprints, and exact fresh-process replay.
+
+The named fresh-body negative control currently stops at `LiveKey`; `Drag`
+remains unmet. Running the pinned public fixture from its developed checkpoint
+is therefore classified only as `plumbing-negative-control`. It carries no ARC
+capability or score claim. Server-selected and private holdouts remain
 uninspected.
-
-The Python adapter owns the SDK, game identity, score, terminal state, action
-budget, and official action catalog. Before the run it loads the opaque
-`workstation-body-checkpoint-*` emitted by the generic workstation course. The
-protocol rejects initialization as an ordinary body-course checkpoint. A fresh
-body is a negative control and cannot support a post-course claim.
-
-The Rust process owns `Arc3Sensorimotor`, which attaches that developed body to
-an ordinary `WorkstationSession`. The 64×64 palette frame is converted to
-distinct monitor luminances and rendered inside the workstation scene; it does
-not replace the body's optics or enter as a benchmark-native sensor. The
-workstation may take up to 32 ordinary physical steps while the external
-application is paused. ARC receives a call only from an arrow-key, Space,
-Escape, or touchpad-click `DeviceEvent`. The action catalog can reject that
-external application input, but it cannot choose, suppress, or reinterpret an
-internal movement.
-
-The workstation retains the exact motor parent of each device event. The next
-ARC frame is installed before the following workstation step, so its displayed
-consequence composes through that retained physical return path. No
-`BodyControl`, `MotorEffect`, or arbitrary crossing is visible to the ARC
-adapter.
-
-The process boundary exposes no score, game or level identity, expected action,
-babbling, support, settling, reset, or diagnostic command. Unknown fields,
-invalid frames, unsupported application actions, and corrupt workstation checkpoints
-fail before a harness transition.
-Academy records outer episode state separately from the request, the complete
-physical trace, work, crossings, body fingerprints, and an exact fresh-process
-transcript replay.
-
-Diagnosis walks the first failed physical transition in order: perception,
-route genesis, participation, outward consequence, returned ancestry,
-consolidation, and autonomous reuse. A public-game improvement alone cannot
-change learner physics. Any candidate must first survive a benchmark-blind
-fixture, negative controls, transfer, cost gates, and the ordinary production
-regressions.

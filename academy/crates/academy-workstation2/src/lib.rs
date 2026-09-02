@@ -14,6 +14,9 @@ pub use session::{Workstation2Observation, Workstation2Session};
 pub use target::{TargetApp, TargetLayout, TARGET_SIDE};
 pub use world::Workstation2;
 
+/// Maximum Manhattan path travel classified as one generic screen tap.
+pub const TAP_TRAVEL: i16 = 32;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,5 +127,36 @@ mod tests {
 
         assert_eq!(body.read().unwrap(), before);
         assert_eq!(world.text(), "A");
+    }
+
+    #[test]
+    fn pixels_are_replaceable_and_ignore_device_events() {
+        let dark = truelearner_workstation::LightField::filled(64, 64, 0).unwrap();
+        let light = truelearner_workstation::LightField::filled(64, 64, 255).unwrap();
+        let body = WorkstationHarness::new(5).unwrap();
+        let mut world = Workstation2::with_pixels(dark);
+        let before = world.sense(body.state()).unwrap();
+        world.apply_device_events(&[DeviceEvent::TouchEnded {
+            touch: TouchId::new(0).unwrap(),
+            at: ScreenPoint { x: 512, y: 512 },
+        }]);
+        assert_eq!(world.sense(body.state()).unwrap(), before);
+        world.replace_pixels(light).unwrap();
+        assert_ne!(world.sense(body.state()).unwrap(), before);
+    }
+
+    #[test]
+    fn traced_session_step_preserves_the_ordinary_observation() {
+        let checkpoint = WorkstationHarness::new(6).unwrap().save().unwrap();
+        let frame = truelearner_workstation::LightField::filled(64, 64, 0).unwrap();
+        let world = Workstation2::with_pixels(frame);
+        let mut ordinary =
+            Workstation2Session::with_world(checkpoint.clone(), world.clone()).unwrap();
+        let mut traced = Workstation2Session::with_world(checkpoint, world).unwrap();
+
+        let observation = ordinary.step().unwrap();
+        let (traced_observation, trace) = traced.step_traced().unwrap();
+        assert_eq!(traced_observation, observation);
+        truelearner_workstation::verify_choice_contract(&trace).unwrap();
     }
 }

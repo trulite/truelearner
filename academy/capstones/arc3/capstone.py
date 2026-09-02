@@ -46,14 +46,14 @@ def load_protocol(path: Path) -> dict[str, Any]:
     required = {
         "schema_version",
         "receipt_schema_version",
-        "body_parent_revision",
+        "workstation2_foundation_revision",
         "toolkit_source_revision",
         "arc_agi_version",
         "arcengine_version",
         "official_selection",
         "public_game",
         "initialization",
-        "body_course_seed",
+        "workstation_course_steps",
         "workstation_course_seed",
         "environment_seed",
         "max_actions_per_game",
@@ -63,6 +63,9 @@ def load_protocol(path: Path) -> dict[str, Any]:
         "supported_actions",
         "application_request_fields",
         "device_action_bindings",
+        "unmapped_actions",
+        "course_frontier",
+        "diagnostic_classification",
         "replay_required",
         "holdout_policy",
     }
@@ -73,20 +76,26 @@ def load_protocol(path: Path) -> dict[str, Any]:
         raise CapstoneError("protocol changes the external application request")
     if data["supported_actions"] != [1, 2, 3, 4, 5, 6, 7]:
         raise CapstoneError("protocol changes the frozen ARC application actions")
-    if data["initialization"] != "workstation-course-checkpoint":
-        raise CapstoneError("protocol does not require the taught workstation checkpoint")
+    if data["initialization"] != "fresh-body-workstation2-frontier-diagnostic-checkpoint":
+        raise CapstoneError("protocol does not require the Workstation2 diagnostic checkpoint")
     if data["workstation_steps_per_observation"] != 32:
         raise CapstoneError("protocol changes the generic workstation input horizon")
     if data["device_action_bindings"] != [
-        "Up:1",
-        "Down:2",
-        "Left:3",
-        "Right:4",
-        "Space:5",
-        "TouchpadClick:6",
-        "Esc:7",
+        "TouchSwipeUp:1",
+        "TouchSwipeDown:2",
+        "TouchSwipeLeft:3",
+        "TouchSwipeRight:4",
+        "TouchTap:6",
     ]:
         raise CapstoneError("protocol changes the workstation application bindings")
+    if data["unmapped_actions"] != [5, 7]:
+        raise CapstoneError("protocol changes the unmapped Workstation2 actions")
+    if data["course_frontier"] != "LiveKey":
+        raise CapstoneError("protocol changes the measured Workstation2 frontier")
+    if data["workstation_course_steps"] != 256 or data["workstation_course_seed"] != 11:
+        raise CapstoneError("protocol changes the Workstation2 negative control")
+    if data["diagnostic_classification"] != "plumbing-negative-control":
+        raise CapstoneError("protocol overstates the diagnostic evidence")
     return data
 
 
@@ -143,9 +152,9 @@ class AgentProcess:
     ready: dict[str, object]
 
     @classmethod
-    def start(cls, executable: Path, workstation_checkpoint: Path) -> AgentProcess:
+    def start(cls, executable: Path, workstation2_checkpoint: Path) -> AgentProcess:
         process = subprocess.Popen(
-            [str(executable), "--workstation-checkpoint", str(workstation_checkpoint)],
+            [str(executable), "--workstation2-checkpoint", str(workstation2_checkpoint)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -467,18 +476,23 @@ def _receipt(
     return {
         "schema_version": int(protocol["receipt_schema_version"]),
         "mode": mode,
-        "verdict": "fixture-only" if mode == "fixture" else "development-evidence",
+        "verdict": str(protocol["diagnostic_classification"]),
         "official": False,
         "source_revision": revision,
-        "body_parent_revision": protocol["body_parent_revision"],
+        "workstation2_foundation_revision": protocol[
+            "workstation2_foundation_revision"
+        ],
         "protocol_sha256": sha256_file(protocol_path),
         "agent_sha256": sha256_file(agent_path),
         "toolkit_source_revision": protocol["toolkit_source_revision"],
         "sdk_versions": _versions(protocol),
-        "body_course_seed": int(protocol["body_course_seed"]),
+        "workstation_course_steps": int(protocol["workstation_course_steps"]),
         "workstation_course_seed": int(protocol["workstation_course_seed"]),
         "environment_seed": int(protocol["environment_seed"]),
-        "workstation_checkpoint_sha256": sha256_file(body_checkpoint),
+        "workstation2_checkpoint_sha256": sha256_file(body_checkpoint),
+        "course_frontier": protocol["course_frontier"],
+        "drag_prerequisite_met": False,
+        "arc_capability_claim": None,
         "suite_selection": protocol["official_selection"],
         "holdout_policy": protocol["holdout_policy"],
         "games": [summary],
@@ -599,7 +613,7 @@ def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=("fixture", "public"), required=True)
     parser.add_argument("--agent", type=Path, required=True)
-    parser.add_argument("--workstation-checkpoint", type=Path, required=True)
+    parser.add_argument("--workstation2-checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--game", default="ls20")
     return parser.parse_args()
@@ -611,11 +625,11 @@ def main() -> int:
     repository = script.parents[3]
     protocol_path = script.with_name("protocol.toml")
     agent_path = args.agent.resolve()
-    body_checkpoint = args.workstation_checkpoint.resolve()
+    body_checkpoint = args.workstation2_checkpoint.resolve()
     if not agent_path.is_file():
         raise CapstoneError(f"agent does not exist: {agent_path}")
     if not body_checkpoint.is_file():
-        raise CapstoneError(f"workstation checkpoint does not exist: {body_checkpoint}")
+        raise CapstoneError(f"Workstation2 checkpoint does not exist: {body_checkpoint}")
     if args.mode == "fixture":
         receipt = run_fixture(
             repository,
@@ -634,7 +648,7 @@ def main() -> int:
             args.game,
         )
     print(
-        "ARC3_DEVELOPMENT_PROBE_COMPLETE "
+        "ARC3_DIAGNOSTIC_COMPLETE "
         f"mode={receipt['mode']} verdict={receipt['verdict']} "
         f"receipt={args.output.resolve() / 'receipt.json'}"
     )
