@@ -173,8 +173,20 @@ The workstation also retains the crossings that met a joint stop on the last
 step (`pending_stops: Vec<MotorEffect>`, reported as `joint_stops`). They join
 the world's boundary parents in the next boundary wave and are checkpointed
 like `pending_transitions`.
-Prerelease checkpoints contain only the current model. Incompatible changes
-bump the version and old artifacts are rejected. The public API creates ordinary
+
+Workstation vision has separate physical scales. A fixed 8x8 mean field covers
+the complete screen. Four signed transient subregions per mean field localize
+change on a 16x16 lattice. A gaze-centred 17x17 field at four body units per
+sample supplies local detail in four mirror-symmetric interleaves. The original
+9x9 receptors remain coarse foveal receptors so version-14 identities and
+learned links retain their physical meaning. Eye position advances in 32-unit
+quanta under the existing 128-unit velocity cap; planar palm motion advances in
+8-unit quanta under its existing 64-unit cap.
+
+Checkpoint version 15 appends the new visual tissue after the complete
+version-14 body. Version-14 restore performs that append deterministically;
+fresh construction and migration have identical junction and link identities.
+Other incompatible checkpoint versions are rejected. The public API creates ordinary
 junctions and drives, supplies arrivals, runs time, observes frozen traces, and
 checkpoints/restores. Narrow internal constructors create entries, witnesses,
 returns, and memberships. No public API sets a raw role or submits the internal

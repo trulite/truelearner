@@ -197,11 +197,16 @@ fn run_target_phase(
             .count();
         let band = session.world().target().map(|app| app.layout().target_band);
         let sees = |value: u8| {
-            Eye::ALL
-                .into_iter()
-                .any(|eye| observation.sample.eye(eye).pixels().contains(&value))
+            Eye::ALL.into_iter().any(|eye| {
+                observation
+                    .sample
+                    .eye(eye)
+                    .foveal()
+                    .pixels()
+                    .contains(&value)
+            })
         };
-        let left = observation.sample.eye(Eye::Left).pixels();
+        let left = observation.sample.eye(Eye::Left).foveal().pixels();
         let fovea = left[left.len() / 2];
         evidence.target_seen_steps += usize::from(band.is_some_and(sees));
         evidence.target_foveal_steps += usize::from(band == Some(fovea));

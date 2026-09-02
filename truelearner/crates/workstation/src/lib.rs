@@ -11,8 +11,9 @@ pub use harness::{
 };
 pub use state::{
     AxisProprioception, BodyAxis, BodyControl, BodyMovement, ContactSample, Direction, Eye,
-    EyeState, HandPoint, HandState, LightField, Point, WorkstationState, WorldSample, AXIS_COUNT,
-    BODY_MAX, TOUCH_SITES,
+    EyeState, HandPoint, HandState, LightField, Point, VisualField, WorkstationState, WorldSample,
+    AXIS_COUNT, BODY_MAX, FOVEAL_VISION_FIELDS, FOVEAL_VISION_SIDE, GLOBAL_CHANGE_SUBREGIONS,
+    GLOBAL_VISION_FIELDS, GLOBAL_VISION_SIDE, TOUCH_SITES,
 };
 use std::fmt;
 pub use truelearner_body::{

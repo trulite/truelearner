@@ -522,8 +522,102 @@ impl Default for WorkstationState {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WorldSample {
-    eyes: [LightField; 2],
+    eyes: [VisualField; 2],
     contacts: [ContactSample; TOUCH_SITES],
+}
+
+pub const GLOBAL_VISION_SIDE: usize = 8;
+pub const GLOBAL_VISION_FIELDS: usize = GLOBAL_VISION_SIDE * GLOBAL_VISION_SIDE;
+pub const GLOBAL_CHANGE_SUBREGIONS: usize = 4;
+pub const FOVEAL_VISION_SIDE: usize = 17;
+pub const FOVEAL_VISION_FIELDS: usize = FOVEAL_VISION_SIDE * FOVEAL_VISION_SIDE;
+
+/// One eye's generic multiresolution visual surface. The fixed global field
+/// carries coarse screen context and spatial transients. The gaze-centred
+/// fovea carries local detail. Both are ordinary physical readings.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VisualField {
+    global: LightField,
+    /// Bit 0 is darkening, bit 1 is brightening. Both may occur within one
+    /// pooled subregion during a spatial rearrangement.
+    changed: Vec<u8>,
+    foveal: LightField,
+    world_aligned_global: bool,
+}
+
+impl VisualField {
+    pub fn new(
+        global: LightField,
+        changed: Vec<u8>,
+        foveal: LightField,
+    ) -> Result<Self, WorkstationError> {
+        let field = Self {
+            global,
+            changed,
+            foveal,
+            world_aligned_global: true,
+        };
+        field.validate()?;
+        Ok(field)
+    }
+
+    pub const fn global(&self) -> &LightField {
+        &self.global
+    }
+
+    pub const fn foveal(&self) -> &LightField {
+        &self.foveal
+    }
+
+    pub(crate) const fn has_world_aligned_global(&self) -> bool {
+        self.world_aligned_global
+    }
+
+    /// Compatibility view for the original coarse retinal morphology.
+    pub fn sample(&self, position: Point) -> u8 {
+        self.global.sample(position)
+    }
+
+    pub fn changed(&self, field: usize, subregion: usize) -> bool {
+        field < GLOBAL_VISION_FIELDS
+            && subregion < GLOBAL_CHANGE_SUBREGIONS
+            && self.changed[field * GLOBAL_CHANGE_SUBREGIONS + subregion] != 0
+    }
+
+    pub(crate) fn brightened(&self, field: usize, subregion: usize) -> bool {
+        field < GLOBAL_VISION_FIELDS
+            && subregion < GLOBAL_CHANGE_SUBREGIONS
+            && self.changed[field * GLOBAL_CHANGE_SUBREGIONS + subregion] & 2 != 0
+    }
+
+    pub(crate) fn change_impulse(&self, field: usize, subregion: usize) -> i32 {
+        if self.brightened(field, subregion) {
+            1
+        } else if self.changed(field, subregion) {
+            -1
+        } else {
+            0
+        }
+    }
+
+    pub fn changed_values(&self) -> &[u8] {
+        &self.changed
+    }
+
+    fn validate(&self) -> Result<(), WorkstationError> {
+        self.global.validate()?;
+        self.foveal.validate()?;
+        if usize::from(self.global.width()) != GLOBAL_VISION_SIDE
+            || usize::from(self.global.height()) != GLOBAL_VISION_SIDE
+            || usize::from(self.foveal.width()) != FOVEAL_VISION_SIDE
+            || usize::from(self.foveal.height()) != FOVEAL_VISION_SIDE
+            || self.changed.len() != GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS
+            || self.changed.iter().any(|value| *value > 3)
+        {
+            return Err(WorkstationError::InvalidState);
+        }
+        Ok(())
+    }
 }
 
 impl WorldSample {
@@ -531,12 +625,21 @@ impl WorldSample {
         eyes: [LightField; 2],
         contacts: [ContactSample; TOUCH_SITES],
     ) -> Result<Self, WorkstationError> {
+        let [left, right] = eyes;
+        let eyes = [legacy_visual_field(left)?, legacy_visual_field(right)?];
+        Self::new_visual(eyes, contacts)
+    }
+
+    pub fn new_visual(
+        eyes: [VisualField; 2],
+        contacts: [ContactSample; TOUCH_SITES],
+    ) -> Result<Self, WorkstationError> {
         let sample = Self { eyes, contacts };
         sample.validate()?;
         Ok(sample)
     }
 
-    pub fn eye(&self, eye: Eye) -> &LightField {
+    pub fn eye(&self, eye: Eye) -> &VisualField {
         &self.eyes[eye.index()]
     }
 
@@ -555,13 +658,39 @@ impl WorldSample {
     }
 }
 
+fn legacy_visual_field(field: LightField) -> Result<VisualField, WorkstationError> {
+    let resample = |side: usize| {
+        let mut pixels = Vec::with_capacity(side * side);
+        for row in 0..side {
+            for column in 0..side {
+                let coordinate = |index: usize| {
+                    i16::try_from(index * BODY_MAX as usize / (side - 1))
+                        .expect("visual sample coordinate is bounded")
+                };
+                let point = Point::new(coordinate(column), coordinate(row))
+                    .expect("visual sample coordinate is bounded");
+                pixels.push(field.sample(point));
+            }
+        }
+        LightField::new(side as u16, side as u16, pixels)
+    };
+    let mut visual = VisualField::new(
+        resample(GLOBAL_VISION_SIDE)?,
+        vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+        resample(FOVEAL_VISION_SIDE)?,
+    )?;
+    visual.world_aligned_global = false;
+    Ok(visual)
+}
+
 const fn axis_step(axis: BodyAxis) -> i32 {
     match axis {
         // Half-pitch granularity: a vergence correction can land within
         // half a receptor pitch, so fusion settles inside the foveal
         // tolerance instead of hunting across it a full pitch at a time.
-        BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. } => 64,
-        BodyAxis::PalmHorizontal | BodyAxis::PalmVertical | BodyAxis::PalmDepth => 16,
+        BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. } => 32,
+        BodyAxis::PalmHorizontal | BodyAxis::PalmVertical => 8,
+        BodyAxis::PalmDepth => 16,
     }
 }
 
@@ -679,10 +808,9 @@ mod tests {
     }
 
     #[test]
-    fn one_eye_impulse_is_capped_at_one_receptor_pitch() {
-        // The eye is rate-limited: one receptor pitch per step however the
-        // efforts sum, so a reflex can lock onto a target a habit would
-        // otherwise jump clean over.
+    fn one_eye_impulse_uses_half_pitch_and_is_velocity_capped() {
+        // One impulse moves half an original receptor pitch. Summed effort
+        // retains the existing two-pitch velocity cap.
         let mut state = WorkstationState::default();
         let before = state.eye(Eye::Left).gaze().x();
         let mut frame = ActuatorFrame::default();
@@ -694,9 +822,9 @@ mod tests {
 
         let movement = state.integrate(frame);
 
-        assert_eq!(movement[0].velocity, 64);
-        assert_eq!(state.eye(Eye::Left).gaze().x() - before, 64);
-        // A doubled push is still one pitch.
+        assert_eq!(movement[0].velocity, 32);
+        assert_eq!(state.eye(Eye::Left).gaze().x() - before, 32);
+        // A larger push remains capped at the existing velocity.
         let mut state = WorkstationState::default();
         let mut frame = ActuatorFrame::default();
         frame.activate(

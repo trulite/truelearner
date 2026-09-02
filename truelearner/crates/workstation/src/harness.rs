@@ -2,7 +2,8 @@ use crate::checkpoint::WorkstationCheckpoint;
 use crate::state::{ActuatorFrame, BodyControl, Direction};
 use crate::{
     BodyAxis, BodyMovement, Eye, Point, WorkstationError, WorkstationState, WorldSample,
-    AXIS_COUNT, BODY_MAX, TOUCH_SITES,
+    AXIS_COUNT, BODY_MAX, FOVEAL_VISION_FIELDS, FOVEAL_VISION_SIDE, GLOBAL_CHANGE_SUBREGIONS,
+    GLOBAL_VISION_FIELDS, GLOBAL_VISION_SIDE, TOUCH_SITES,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -18,7 +19,9 @@ use truelearner_body::{
 const CONTROL_COUNT: usize = AXIS_COUNT * 2;
 const RECEPTOR_SIDE: usize = 9;
 const RECEPTORS_PER_EYE: usize = RECEPTOR_SIDE * RECEPTOR_SIDE;
-const VISUAL_SENSOR_COUNT: usize = Eye::ALL.len() * RECEPTORS_PER_EYE;
+const TRANSIENTS_PER_EYE: usize = GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS;
+const VISUAL_SENSOR_COUNT: usize = Eye::ALL.len()
+    * (RECEPTORS_PER_EYE + GLOBAL_VISION_FIELDS + TRANSIENTS_PER_EYE + FOVEAL_VISION_FIELDS);
 const SALIENCE_COUNT: usize = Eye::ALL.len() * RECEPTORS_PER_EYE;
 const CONTACT_FIELDS: usize = 2;
 const PROPRIOCEPTIVE_FIELDS: usize = 6;
@@ -45,6 +48,8 @@ const REACH_DEADZONE: i32 = 32;
 /// a zone — a larger mask would hide the very target the palm reaches once
 /// it arrives, and the reach would orbit it forever.
 const REACH_HAND_MASK: i32 = 40;
+/// One foveal sample spans eight display pixels, or four physical body units.
+const FOVEAL_PITCH: i32 = 4;
 const LIGHT_RANGE: u32 = u8::MAX as u32;
 const BODY_RANGE: u32 = BODY_MAX as u32;
 const SIGNED_BODY_RANGE: u32 = BODY_RANGE * 2;
@@ -54,7 +59,13 @@ const MOMENT_LIMIT: usize = 512;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Handles {
+    /// Version-14 coarse foveal receptors. Their identities and learned
+    /// gaze-relative links survive migration.
     pub(crate) vision: [Vec<JunctionId>; 2],
+    /// Fixed whole-screen mean fields added in version 15.
+    pub(crate) global_vision: [Vec<JunctionId>; 2],
+    pub(crate) visual_transients: [Vec<JunctionId>; 2],
+    pub(crate) foveal_vision: [Vec<JunctionId>; 2],
     /// One salience cell per receptor: tonic cells that fire while their
     /// receptor is lit above the salience floor. The foveation reflex is
     /// wired from them at attach time.
@@ -88,6 +99,18 @@ impl Handles {
             .iter()
             .any(|receptors| receptors.len() != RECEPTORS_PER_EYE)
             || self
+                .global_vision
+                .iter()
+                .any(|receptors| receptors.len() != GLOBAL_VISION_FIELDS)
+            || self
+                .visual_transients
+                .iter()
+                .any(|receptors| receptors.len() != TRANSIENTS_PER_EYE)
+            || self
+                .foveal_vision
+                .iter()
+                .any(|receptors| receptors.len() != FOVEAL_VISION_FIELDS)
+            || self
                 .salience
                 .iter()
                 .any(|cells| cells.len() != RECEPTORS_PER_EYE)
@@ -114,6 +137,39 @@ impl Handles {
         });
         controls_are_canonical
             && value_links_valid
+            && self
+                .vision
+                .iter()
+                .flatten()
+                .chain(self.global_vision.iter().flatten())
+                .chain(self.visual_transients.iter().flatten())
+                .chain(self.foveal_vision.iter().flatten())
+                .chain(self.salience.iter().flatten())
+                .chain(self.contacts.iter().flatten())
+                .chain(self.proprioception.iter().flatten())
+                .chain(&self.exploration)
+                .chain(&self.competition_outcomes)
+                .chain(&self.outcomes)
+                .chain(&self.resisted_progress)
+                .chain(&self.opportunities)
+                .chain(self.outward.iter().map(|(junction, _)| junction))
+                .all(|junction| body.held(*junction).is_some())
+    }
+
+    fn valid_legacy_for(&self, body: &Body) -> bool {
+        self.visual_transients.iter().all(Vec::is_empty)
+            && self.foveal_vision.iter().all(Vec::is_empty)
+            && self.global_vision.iter().all(Vec::is_empty)
+            && self
+                .vision
+                .iter()
+                .all(|values| values.len() == RECEPTORS_PER_EYE)
+            && self
+                .salience
+                .iter()
+                .all(|values| values.len() == RECEPTORS_PER_EYE)
+            && self.opportunities.len() == CONTROL_COUNT
+            && self.outward.len() == CONTROL_COUNT
             && self
                 .vision
                 .iter()
@@ -201,21 +257,21 @@ pub struct WorkstationRead {
 
 #[derive(Clone, Debug)]
 pub struct WorkstationHarness {
-    body: Body,
-    handles: Handles,
-    state: WorkstationState,
-    sequence: u64,
-    physical_tick: u64,
-    pending_transitions: [bool; AXIS_COUNT],
-    pending_stops: Vec<MotorEffect>,
+    pub(crate) body: Body,
+    pub(crate) handles: Handles,
+    pub(crate) state: WorkstationState,
+    pub(crate) sequence: u64,
+    pub(crate) physical_tick: u64,
+    pub(crate) pending_transitions: [bool; AXIS_COUNT],
+    pub(crate) pending_stops: Vec<MotorEffect>,
     /// Sustained-reach strain per planar axis, signed by aim direction: the
     /// insistent-reaching integral. While a planar aim persists, the reach
     /// pulse grows; when the aim clears or flips, the strain resets.
-    reach_strain: [i32; 2],
+    pub(crate) reach_strain: [i32; 2],
     /// Insistent-vergence strain: while the fusion error persists, the
     /// vergence pulse grows; fused or absent, it resets.
-    vergence_strain: i32,
-    history: Vec<WorldSample>,
+    pub(crate) vergence_strain: i32,
+    pub(crate) history: Vec<WorldSample>,
 }
 
 impl PartialEq for WorkstationHarness {
@@ -235,10 +291,10 @@ impl Eq for WorkstationHarness {}
 
 impl WorkstationHarness {
     pub fn new(_seed: u64) -> Result<Self, WorkstationError> {
-        Self::fresh()
+        Self::fresh(true)
     }
 
-    fn fresh() -> Result<Self, WorkstationError> {
+    fn fresh(include_version_15_vision: bool) -> Result<Self, WorkstationError> {
         let mut body = Body::default();
         body.reserve(
             COMPETITION_COMPONENTS * 2
@@ -363,21 +419,31 @@ impl WorkstationHarness {
         }
         body.inputs(0, &prime).map_err(body_error)?;
         body.run(MOMENT_LIMIT, |_| {}).map_err(body_error)?;
+        let mut handles = Handles {
+            vision,
+            // Version 15 appends its new visual tissue after the complete
+            // version-14 body. Fresh construction and migration therefore
+            // produce the same junction and link identities.
+            global_vision: Eye::ALL.map(|_| Vec::new()),
+            visual_transients: Eye::ALL.map(|_| Vec::new()),
+            foveal_vision: Eye::ALL.map(|_| Vec::new()),
+            salience,
+            value,
+            contacts,
+            proprioception,
+            exploration,
+            competition_outcomes,
+            outcomes,
+            resisted_progress,
+            opportunities,
+            outward,
+        };
+        if include_version_15_vision {
+            append_visual_tissue(&mut body, &mut handles)?;
+        }
         Ok(Self {
             body,
-            handles: Handles {
-                vision,
-                salience,
-                value,
-                contacts,
-                proprioception,
-                exploration,
-                competition_outcomes,
-                outcomes,
-                resisted_progress,
-                opportunities,
-                outward,
-            },
+            handles,
             state: WorkstationState::default(),
             sequence: 0,
             physical_tick: 0,
@@ -387,6 +453,11 @@ impl WorkstationHarness {
             vergence_strain: 0,
             history: Vec::new(),
         })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn legacy_for_test() -> Result<Self, WorkstationError> {
+        Self::fresh(false)
     }
 
     pub fn step(
@@ -696,6 +767,7 @@ impl WorkstationHarness {
         apply_contact_reaction(&sample, &mut frame);
         apply_arm_recoil(&sample, &mut frame);
         self.apply_pre_reach(&sample, &mut frame);
+        apply_global_orient(&sample, &self.state, &mut frame);
         apply_ocular_drift(&sample, &self.state, &mut frame);
         let movements = self.state.integrate(frame);
         let joint_stops = joint_stops(&self.state, &crossings, &movements);
@@ -800,9 +872,48 @@ impl WorkstationHarness {
             for (receptor, target) in self.handles.vision[eye.index()].iter().copied().enumerate() {
                 wave.push(Arrival::caused(
                     target,
-                    i32::from(sample.eye(eye).sample(receptor_position(receptor))),
+                    i32::from(sample.eye(eye).foveal().sample(receptor_position(receptor))),
                     cause,
                 ));
+            }
+            if sample.eye(eye).has_world_aligned_global() {
+                for (field, target) in self.handles.global_vision[eye.index()]
+                    .iter()
+                    .copied()
+                    .enumerate()
+                {
+                    wave.push(Arrival::caused(
+                        target,
+                        i32::from(sample.eye(eye).global().pixels()[field]),
+                        cause,
+                    ));
+                }
+                for (receptor, target) in self.handles.visual_transients[eye.index()]
+                    .iter()
+                    .copied()
+                    .enumerate()
+                {
+                    let field = receptor / GLOBAL_CHANGE_SUBREGIONS;
+                    let subregion = receptor % GLOBAL_CHANGE_SUBREGIONS;
+                    let impulse = sample.eye(eye).change_impulse(field, subregion);
+                    if impulse != 0 {
+                        wave.push(Arrival::caused(target, impulse, cause));
+                    }
+                }
+                let phase = self.sequence as usize % GLOBAL_CHANGE_SUBREGIONS;
+                for (receptor, target) in self.handles.foveal_vision[eye.index()]
+                    .iter()
+                    .copied()
+                    .enumerate()
+                {
+                    if foveal_phase(receptor) == phase {
+                        wave.push(Arrival::caused(
+                            target,
+                            i32::from(sample.eye(eye).foveal().pixels()[receptor]),
+                            cause,
+                        ));
+                    }
+                }
             }
             // Salience cells fire while their receptor is lit above the
             // floor: tonic retina, not change-only. Below the floor they get
@@ -812,7 +923,7 @@ impl WorkstationHarness {
                 .copied()
                 .enumerate()
             {
-                let light = sample.eye(eye).sample(receptor_position(receptor));
+                let light = sample.eye(eye).foveal().sample(receptor_position(receptor));
                 if light > SALIENCE_FLOOR {
                     wave.push(Arrival::caused(
                         cell,
@@ -855,21 +966,74 @@ impl WorkstationHarness {
     /// averaging into the empty space between them. The organism's own
     /// palm never counts as a target.
     fn reach_target(&self, sample: &WorldSample, eye: Eye) -> Option<(i32, i32)> {
+        if !sample.eye(eye).has_world_aligned_global() {
+            let gaze = self.state.eye(eye).gaze();
+            let field = sample.eye(eye).foveal();
+            let center = receptor_position(RECEPTOR_SIDE * 4 + 4);
+            let mut sum_x = 0_i64;
+            let mut sum_y = 0_i64;
+            let mut weight_sum = 0_i64;
+            for receptor in 0..RECEPTORS_PER_EYE {
+                let light = field.sample(receptor_position(receptor));
+                if light < SALIENCE_FLOOR {
+                    continue;
+                }
+                let weight = i64::from(light - SALIENCE_FLOOR);
+                let position = receptor_position(receptor);
+                let world_x = i32::from(gaze.x()) + i32::from(position.x()) - i32::from(center.x());
+                let world_y = i32::from(gaze.y()) + i32::from(position.y()) - i32::from(center.y());
+                if self.own_hand_at(world_x, world_y) {
+                    continue;
+                }
+                sum_x += i64::from(world_x) * weight;
+                sum_y += i64::from(world_y) * weight;
+                weight_sum += weight;
+            }
+            return (weight_sum > 0)
+                .then(|| ((sum_x / weight_sum) as i32, (sum_y / weight_sum) as i32));
+        }
+        let foveal = sample.eye(eye).foveal();
         let gaze = self.state.eye(eye).gaze();
-        let field = sample.eye(eye);
-        let center = receptor_position(RECEPTOR_SIDE * 4 + 4);
+        let center = FOVEAL_VISION_SIDE / 2;
+        let mut foveal_x = 0_i64;
+        let mut foveal_y = 0_i64;
+        let mut foveal_weight = 0_i64;
+        for (receptor, light) in foveal.pixels().iter().copied().enumerate() {
+            if light < SALIENCE_FLOOR {
+                continue;
+            }
+            let column = receptor % FOVEAL_VISION_SIDE;
+            let row = receptor / FOVEAL_VISION_SIDE;
+            let world_x = i32::from(gaze.x()) + (column as i32 - center as i32) * FOVEAL_PITCH;
+            let world_y = i32::from(gaze.y()) + (row as i32 - center as i32) * FOVEAL_PITCH;
+            if self.own_hand_at(world_x, world_y) {
+                continue;
+            }
+            let weight = i64::from(light - SALIENCE_FLOOR);
+            foveal_x += i64::from(world_x) * weight;
+            foveal_y += i64::from(world_y) * weight;
+            foveal_weight += weight;
+        }
+        if foveal_weight > 0 {
+            return Some((
+                (foveal_x / foveal_weight) as i32,
+                (foveal_y / foveal_weight) as i32,
+            ));
+        }
+        let field = sample.eye(eye).global();
         let mut sum_x = 0_i64;
         let mut sum_y = 0_i64;
         let mut weight_sum = 0_i64;
-        for receptor in 0..RECEPTORS_PER_EYE {
-            let light = field.sample(receptor_position(receptor));
+        for receptor in 0..GLOBAL_VISION_FIELDS {
+            let light = field.pixels()[receptor];
             if light < SALIENCE_FLOOR {
                 continue;
             }
             let weight = i64::from(light - SALIENCE_FLOOR);
-            let position = receptor_position(receptor);
-            let world_x = i32::from(gaze.x()) + i32::from(position.x()) - i32::from(center.x());
-            let world_y = i32::from(gaze.y()) + i32::from(position.y()) - i32::from(center.y());
+            let column = receptor % GLOBAL_VISION_SIDE;
+            let row = receptor / GLOBAL_VISION_SIDE;
+            let world_x = (column * 128 + 64) as i32;
+            let world_y = (row * 128 + 64) as i32;
             if self.own_hand_at(world_x, world_y) {
                 continue;
             }
@@ -1099,10 +1263,16 @@ impl WorkstationHarness {
     }
 
     pub fn restore(checkpoint: WorkstationCheckpoint) -> Result<Self, WorkstationError> {
-        let payload = checkpoint.open();
-        let body = BodyCheckpoint::decode(&payload.body)
+        let (mut payload, legacy_visual_migration) = checkpoint.open();
+        let mut body = BodyCheckpoint::decode(&payload.body)
             .and_then(BodyCheckpoint::restore)
             .map_err(body_checkpoint_error)?;
+        if legacy_visual_migration {
+            if !payload.handles.valid_legacy_for(&body) {
+                return Err(WorkstationError::InvalidCheckpoint);
+            }
+            append_visual_tissue(&mut body, &mut payload.handles)?;
+        }
         if !payload.handles.valid_for(&body) {
             return Err(WorkstationError::InvalidCheckpoint);
         }
@@ -1130,7 +1300,7 @@ impl WorkstationHarness {
         if !self.body.is_quiet() {
             return Err(WorkstationError::InvalidCheckpoint);
         }
-        let reference = checkpoint.clone().open();
+        let (reference, _) = checkpoint.clone().open();
         self.state = reference.state;
         self.pending_transitions = reference.pending_transitions;
         self.pending_stops = reference.pending_stops;
@@ -1244,13 +1414,104 @@ fn apply_arm_recoil(sample: &WorldSample, frame: &mut ActuatorFrame) {
     }
 }
 
-/// The gaze integrator leaks: when the whole retina is dark — the eyes
-/// staring past the screen's edge — an external drift carries the eyes back
-/// toward the primary position, straight ahead. Like the contact reaction,
-/// this is frame-level physics, not a chosen crossing, so it returns no
-/// consequence and strengthens nothing. Any salience makes the foveation
-/// reflex hold the eye, so lit scenes never drift.
+/// Full-screen visual orienting. A fresh spatial transient has priority;
+/// otherwise ordinary tonic global salience supplies the aim. Screen-space
+/// fields stay fixed while eye proprioception supplies the relative error.
+fn apply_global_orient(sample: &WorldSample, state: &WorkstationState, frame: &mut ActuatorFrame) {
+    for eye in Eye::ALL {
+        if !sample.eye(eye).has_world_aligned_global() {
+            continue;
+        }
+        if sample
+            .eye(eye)
+            .foveal()
+            .pixels()
+            .iter()
+            .any(|light| *light > SALIENCE_FLOOR)
+        {
+            continue;
+        }
+        let locate = |brightened_only: bool| {
+            (0..GLOBAL_VISION_FIELDS).find_map(|field| {
+                (0..GLOBAL_CHANGE_SUBREGIONS)
+                    .find(|subregion| {
+                        if brightened_only {
+                            sample.eye(eye).brightened(field, *subregion)
+                        } else {
+                            sample.eye(eye).changed(field, *subregion)
+                        }
+                    })
+                    .map(|subregion| {
+                        let field_row = field / GLOBAL_VISION_SIDE;
+                        let field_column = field % GLOBAL_VISION_SIDE;
+                        let sub_row = subregion / 2;
+                        let sub_column = subregion % 2;
+                        (
+                            (field_column * 128 + sub_column * 64 + 32) as i32,
+                            (field_row * 128 + sub_row * 64 + 32) as i32,
+                        )
+                    })
+            })
+        };
+        let transient = locate(true).or_else(|| locate(false));
+        let target = transient.or_else(|| tonic_global_target(sample.eye(eye).global()));
+        let Some((target_x, target_y)) = target else {
+            continue;
+        };
+        let gaze = state.eye(eye).gaze();
+        for (axis, error) in [
+            (
+                BodyAxis::EyeHorizontal { eye },
+                target_x - i32::from(gaze.x()),
+            ),
+            (
+                BodyAxis::EyeVertical { eye },
+                target_y - i32::from(gaze.y()),
+            ),
+        ] {
+            if error == 0 {
+                continue;
+            }
+            let effort = u16::try_from((error.unsigned_abs() / 32).clamp(1, 4)).unwrap_or(4);
+            frame.activate(
+                axis,
+                if error < 0 {
+                    Direction::Decrease
+                } else {
+                    Direction::Increase
+                },
+                effort,
+            );
+        }
+    }
+}
+
+/// A uniform global field has no visible candidate. Otherwise the brightest
+/// currently visible field wins relative competition. Equal fields resolve
+/// by stable screen position, never by an empty spatial average.
+fn tonic_global_target(field: &crate::LightField) -> Option<(i32, i32)> {
+    let minimum = field.pixels().iter().copied().min()?;
+    let maximum = field.pixels().iter().copied().max()?;
+    if minimum == maximum {
+        return None;
+    }
+    let index = field.pixels().iter().position(|light| *light == maximum)?;
+    Some((
+        (index % GLOBAL_VISION_SIDE * 128 + 64) as i32,
+        (index / GLOBAL_VISION_SIDE * 128 + 64) as i32,
+    ))
+}
+
+/// Compatibility physics for version-14 local-view samples: a wholly dark
+/// translated retina drifts to primary position. A world-aligned global field
+/// never uses this inference because a dark fovea does not remove the screen.
 fn apply_ocular_drift(sample: &WorldSample, state: &WorkstationState, frame: &mut ActuatorFrame) {
+    if Eye::ALL
+        .into_iter()
+        .any(|eye| sample.eye(eye).has_world_aligned_global())
+    {
+        return;
+    }
     let dark = Eye::ALL.into_iter().all(|eye| {
         (0..RECEPTORS_PER_EYE)
             .all(|receptor| sample.eye(eye).sample(receptor_position(receptor)) <= SALIENCE_FLOOR)
@@ -1319,9 +1580,60 @@ fn attach_sampled_sensor(
     sensor
 }
 
-/// The eye opportunities a salient receptor commands: the movements that
-/// move gaze toward that receptor. The exact foveal center commands
-/// nothing, so a centered stimulus leaves the eye still.
+fn append_visual_tissue(body: &mut Body, handles: &mut Handles) -> Result<(), WorkstationError> {
+    if !handles.global_vision.iter().all(Vec::is_empty)
+        || !handles.visual_transients.iter().all(Vec::is_empty)
+        || !handles.foveal_vision.iter().all(Vec::is_empty)
+    {
+        return Err(WorkstationError::InvalidCheckpoint);
+    }
+    body.reserve(
+        Eye::ALL.len() * (GLOBAL_VISION_FIELDS + TRANSIENTS_PER_EYE + FOVEAL_VISION_FIELDS),
+        0,
+    );
+    let mut prime = Vec::with_capacity(Eye::ALL.len() * FOVEAL_VISION_FIELDS);
+    for eye in Eye::ALL {
+        for _ in 0..GLOBAL_VISION_FIELDS {
+            handles.global_vision[eye.index()].push(attach_sampled_sensor(
+                body,
+                LIGHT_RANGE,
+                &[],
+                &mut prime,
+            ));
+        }
+        for _ in 0..TRANSIENTS_PER_EYE {
+            handles.visual_transients[eye.index()].push(attach_sensor(
+                body,
+                Junction::integrating(1),
+                &[],
+            ));
+        }
+        for _ in 0..FOVEAL_VISION_FIELDS {
+            let sensor = attach_sensor(
+                body,
+                Junction::sampled_in(SENSOR_LIFETIME, LIGHT_RANGE),
+                &[],
+            );
+            // Interleaves first visit different receptors over four frames.
+            // Prime them to the physical dark baseline so an unseen dark
+            // phase cannot masquerade as a visual onset.
+            prime.push(Arrival::new(sensor, 0));
+            handles.foveal_vision[eye.index()].push(sensor);
+        }
+    }
+    body.inputs(body.now().saturating_add(1), &prime)
+        .map_err(body_error)?;
+    body.run(MOMENT_LIMIT, |_| {}).map_err(body_error)?;
+    Ok(())
+}
+
+fn foveal_phase(receptor: usize) -> usize {
+    let row = receptor / FOVEAL_VISION_SIDE;
+    let column = receptor % FOVEAL_VISION_SIDE;
+    let center = FOVEAL_VISION_SIDE / 2;
+    (row.abs_diff(center) % 2) * 2 + column.abs_diff(center) % 2
+}
+
 fn eye_foveation_drive(opportunities: &[JunctionId], eye: Eye, receptor: usize) -> Vec<JunctionId> {
     let column = receptor % RECEPTOR_SIDE;
     let row = receptor / RECEPTOR_SIDE;
@@ -1437,31 +1749,22 @@ fn receptor_position(receptor: usize) -> Point {
 }
 
 #[cfg(test)]
-fn sensory_values(wave: &[Arrival]) -> Vec<i32> {
-    wave.iter().map(|arrival| arrival.impulse).collect()
-}
-
-#[cfg(test)]
-fn visual_range(eye: Eye) -> std::ops::Range<usize> {
-    let start = eye.index() * RECEPTORS_PER_EYE;
-    start..start + RECEPTORS_PER_EYE
-}
-
-#[cfg(test)]
-fn contact_range() -> std::ops::Range<usize> {
-    VISUAL_SENSOR_COUNT..VISUAL_SENSOR_COUNT + TOUCH_SITES * CONTACT_FIELDS
-}
-
-#[cfg(test)]
-fn proprioception_range() -> std::ops::Range<usize> {
-    let start = VISUAL_SENSOR_COUNT + TOUCH_SITES * CONTACT_FIELDS;
-    start..start + AXIS_COUNT * PROPRIOCEPTIVE_FIELDS
+fn readings_for(wave: &[Arrival], targets: impl IntoIterator<Item = JunctionId>) -> Vec<i32> {
+    targets
+        .into_iter()
+        .map(|target| {
+            wave.iter()
+                .filter(|arrival| arrival.target == target)
+                .map(|arrival| arrival.impulse)
+                .sum()
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ContactSample, LightField, TOUCH_SITES};
+    use crate::{ContactSample, LightField, VisualField, TOUCH_SITES};
     use truelearner_body::ChoiceWarrant;
 
     fn sample() -> WorldSample {
@@ -1479,6 +1782,31 @@ mod tests {
         LightField::filled(9, 9, value).unwrap()
     }
 
+    #[test]
+    fn every_foveal_interleave_is_mirror_symmetric() {
+        for receptor in 0..FOVEAL_VISION_FIELDS {
+            let row = receptor / FOVEAL_VISION_SIDE;
+            let column = receptor % FOVEAL_VISION_SIDE;
+            let horizontal_mirror = row * FOVEAL_VISION_SIDE + (FOVEAL_VISION_SIDE - 1 - column);
+            let vertical_mirror = (FOVEAL_VISION_SIDE - 1 - row) * FOVEAL_VISION_SIDE + column;
+            assert_eq!(foveal_phase(receptor), foveal_phase(horizontal_mirror));
+            assert_eq!(foveal_phase(receptor), foveal_phase(vertical_mirror));
+        }
+    }
+
+    #[test]
+    fn two_equal_global_patches_select_one_real_patch_not_the_midpoint() {
+        let mut pixels = vec![12_u8; GLOBAL_VISION_FIELDS];
+        pixels[8] = 200;
+        pixels[14] = 200;
+        let field = LightField::new(8, 8, pixels).unwrap();
+        assert_eq!(tonic_global_target(&field), Some((64, 192)));
+        assert_eq!(
+            tonic_global_target(&LightField::filled(8, 8, 12).unwrap()),
+            None
+        );
+    }
+
     fn centered(value: u8) -> LightField {
         let mut pixels = vec![0; 9 * 9];
         pixels[4 * 9 + 4] = value;
@@ -1491,6 +1819,41 @@ mod tests {
         contacts: [ContactSample; TOUCH_SITES],
     ) -> WorldSample {
         WorldSample::new([left, right], contacts).unwrap()
+    }
+
+    fn with_visual_field(global: Vec<u8>, changed: Vec<u8>, foveal: Vec<u8>) -> WorldSample {
+        let visual = || {
+            VisualField::new(
+                LightField::new(8, 8, global.clone()).unwrap(),
+                changed.clone(),
+                LightField::new(17, 17, foveal.clone()).unwrap(),
+            )
+            .unwrap()
+        };
+        WorldSample::new_visual(
+            [visual(), visual()],
+            [ContactSample::default(); TOUCH_SITES],
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn foveal_detail_refines_the_global_reach_location() {
+        let harness = WorkstationHarness::new(1).unwrap();
+        let mut global = vec![0; GLOBAL_VISION_FIELDS];
+        global[0] = 255;
+        let mut foveal = vec![0; FOVEAL_VISION_FIELDS];
+        foveal[(FOVEAL_VISION_SIDE / 2) * FOVEAL_VISION_SIDE + FOVEAL_VISION_SIDE / 2 + 4] = 255;
+        let sample = with_visual_field(
+            global,
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            foveal,
+        );
+
+        assert_eq!(harness.reach_target(&sample, Eye::Left), Some((528, 512)));
+        let mut frame = ActuatorFrame::default();
+        apply_global_orient(&sample, harness.state(), &mut frame);
+        assert_eq!(frame, ActuatorFrame::default());
     }
 
     #[test]
@@ -1546,16 +1909,25 @@ mod tests {
                 .map(|arrival| arrival.target)
                 .collect::<Vec<_>>()
         );
-        let differences = sensory_values(&high)
-            .into_iter()
-            .zip(sensory_values(&lower))
-            .enumerate()
-            .filter_map(|(index, (left, right))| (left != right).then_some(index))
+        let differences = high
+            .iter()
+            .zip(&lower)
+            .filter_map(|(left, right)| {
+                (left.impulse != right.impulse)
+                    .then_some((left.target, left.impulse - right.impulse))
+            })
             .collect::<Vec<_>>();
-        // The local vision reading and the local salience feed both change,
-        // by the same local amount: the tonic channel is an ordinary local
-        // transduction of the same pixel, not a second sensor.
-        assert_eq!(differences, [RECEPTORS_PER_EYE / 2, RECEPTORS_PER_EYE]);
+        let local_targets = harness.handles.vision[Eye::Left.index()]
+            .iter()
+            .chain(&harness.handles.global_vision[Eye::Left.index()])
+            .chain(&harness.handles.foveal_vision[Eye::Left.index()])
+            .chain(&harness.handles.salience[Eye::Left.index()])
+            .copied()
+            .collect::<Vec<_>>();
+        assert!(!differences.is_empty());
+        assert!(differences
+            .iter()
+            .all(|(target, delta)| local_targets.contains(target) && *delta == 1));
     }
 
     #[test]
@@ -1729,7 +2101,7 @@ mod tests {
         });
         assert!(
             released,
-            "no returned-consequence release after stop {stop:?}"
+            "no returned-consequence release after stop {stop:?}; trace {trace:?}"
         );
         assert!(observation
             .crossings
@@ -1858,7 +2230,7 @@ mod tests {
         // Termination is balance, not a constant: a centered bar drives both
         // directions equally, so the eyes settle still and stay there.
         let mut harness = WorkstationHarness::new(1).unwrap();
-        let bar = |gaze: Point| bar_field(gaze, gaze.x(), 230);
+        let bar = |gaze: Point| bar_field(gaze, 512, 230);
         harness
             .observe(with_fields(
                 bar(harness.state().eye(Eye::Left).gaze()),
@@ -2230,27 +2602,43 @@ mod tests {
     #[test]
     fn changing_the_right_eye_changes_only_right_receptors() {
         let harness = WorkstationHarness::new(2).unwrap();
-        let before = sensory_values(&harness.sensory_wave(
+        let before = harness.sensory_wave(
             &with_fields(field(1), field(2), [ContactSample::default(); TOUCH_SITES]),
             1,
-        ));
-        let after = sensory_values(&harness.sensory_wave(
+        );
+        let after = harness.sensory_wave(
             &with_fields(field(1), field(3), [ContactSample::default(); TOUCH_SITES]),
             1,
-        ));
-
+        );
+        let visual_targets = |eye: Eye| {
+            harness.handles.vision[eye.index()]
+                .iter()
+                .chain(&harness.handles.global_vision[eye.index()])
+                .chain(&harness.handles.visual_transients[eye.index()])
+                .chain(&harness.handles.foveal_vision[eye.index()])
+                .chain(&harness.handles.salience[eye.index()])
+                .copied()
+                .collect::<Vec<_>>()
+        };
         assert_eq!(
-            &before[visual_range(Eye::Left)],
-            &after[visual_range(Eye::Left)]
+            readings_for(&before, visual_targets(Eye::Left)),
+            readings_for(&after, visual_targets(Eye::Left))
         );
         assert_ne!(
-            &before[visual_range(Eye::Right)],
-            &after[visual_range(Eye::Right)]
+            readings_for(&before, visual_targets(Eye::Right)),
+            readings_for(&after, visual_targets(Eye::Right))
         );
-        assert_eq!(&before[contact_range()], &after[contact_range()]);
+        let nonvisual = harness
+            .handles
+            .contacts
+            .iter()
+            .flatten()
+            .chain(harness.handles.proprioception.iter().flatten())
+            .copied()
+            .collect::<Vec<_>>();
         assert_eq!(
-            &before[proprioception_range()],
-            &after[proprioception_range()]
+            readings_for(&before, nonvisual.iter().copied()),
+            readings_for(&after, nonvisual)
         );
     }
 
@@ -2259,19 +2647,32 @@ mod tests {
         let harness = WorkstationHarness::new(3).unwrap();
         let mut contacts = [ContactSample::default(); TOUCH_SITES];
         contacts[0] = ContactSample::new(7, -3).unwrap();
-        let before = sensory_values(&harness.sensory_wave(
+        let before = harness.sensory_wave(
             &with_fields(field(1), field(2), [ContactSample::default(); TOUCH_SITES]),
             1,
-        ));
-        let after =
-            sensory_values(&harness.sensory_wave(&with_fields(field(1), field(2), contacts), 1));
-        let differences = before
+        );
+        let after = harness.sensory_wave(&with_fields(field(1), field(2), contacts), 1);
+        let contact_targets = harness
+            .handles
+            .contacts
             .iter()
-            .zip(&after)
-            .enumerate()
-            .filter_map(|(index, (left, right))| (left != right).then_some(index))
+            .flatten()
+            .copied()
             .collect::<Vec<_>>();
-        assert_eq!(differences, contact_range().collect::<Vec<_>>());
+        let mut all_targets = before
+            .iter()
+            .chain(&after)
+            .map(|arrival| arrival.target)
+            .collect::<Vec<_>>();
+        all_targets.sort_unstable();
+        all_targets.dedup();
+        let differences = readings_for(&before, all_targets.iter().copied())
+            .into_iter()
+            .zip(readings_for(&after, all_targets.iter().copied()))
+            .zip(all_targets)
+            .filter_map(|((left, right), target)| (left != right).then_some(target))
+            .collect::<Vec<_>>();
+        assert_eq!(differences, contact_targets);
     }
 
     #[test]
@@ -2300,7 +2701,7 @@ mod tests {
     #[test]
     fn external_perturbation_changes_pose_without_changing_the_learner() {
         let mut harness = WorkstationHarness::new(6).unwrap();
-        let before = harness.save().unwrap().open();
+        let (before, _) = harness.save().unwrap().open();
         let x_before = before.state.hand().palm().x();
 
         assert!(harness
@@ -2310,8 +2711,8 @@ mod tests {
             )
             .unwrap());
 
-        let after = harness.save().unwrap().open();
-        assert_eq!(after.state.hand().palm().x(), x_before + 16);
+        let (after, _) = harness.save().unwrap().open();
+        assert_eq!(after.state.hand().palm().x(), x_before + 8);
         assert_eq!(after.body, before.body);
         assert_eq!(after.handles, before.handles);
         assert_eq!(after.sequence, before.sequence);

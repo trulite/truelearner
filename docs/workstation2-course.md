@@ -45,13 +45,11 @@ that discard mutation. Each has a positive claim and a killing control.
 | Sequence | the rewarded order A-then-B exceeds B-then-A | order requirement reversed in the probe | Frontier |
 | Drag | releases land on the goal far above its share of the screen, after starting on the target | goal drawn at zero contrast | Frontier |
 
-The measured frontier is the live key: the reach averages both salient
-rectangles and taps the empty midpoint between them, so neither key's
-consequence ever presents. Selection — winner-take-all salience, reaching
-the one thing the eyes hold instead of the average of everything lit — is
-the named missing physics. The dead key, sequence, and drag rungs sit
-behind it: each needs the learner to act on what its taps changed, which
-cannot begin until a tap lands on a key at all.
+The measured frontier is the live key. The corrected full-screen channel and
+relative field selection land on one real rectangle. The first failed physical
+transition is after an inert tap: no screen change disengages the current
+visible focus, so the peer rectangle is not examined. DeadKey, Sequence, and
+Drag remain gated behind this rung.
 
 "Far exceeds" means at least three times the chance rate with at least twenty
 taps, on at least three seeds. A rung that passes on one seed is `Emerging`;

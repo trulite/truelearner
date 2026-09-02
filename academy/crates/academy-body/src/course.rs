@@ -544,7 +544,8 @@ fn binocular_fusion_steps(samples: &[WorldSample]) -> usize {
         .iter()
         .filter(|sample| {
             Eye::ALL.into_iter().all(|eye| {
-                target_horizontal(sample.eye(eye)).is_some_and(|x| (x - center).abs() <= 128)
+                target_horizontal(sample.eye(eye).foveal())
+                    .is_some_and(|x| (x - center).abs() <= 128)
             })
         })
         .count()
@@ -562,8 +563,8 @@ fn binocular_alignment_improvements(samples: &[WorldSample]) -> usize {
             Eye::ALL.into_iter().any(|eye| {
                 matches!(
                     (
-                        target_horizontal(frames[0].eye(eye)),
-                        target_horizontal(frames[1].eye(eye)),
+                        target_horizontal(frames[0].eye(eye).foveal()),
+                        target_horizontal(frames[1].eye(eye).foveal()),
                     ),
                     (Some(before), Some(after)) if (after - center).abs() < (before - center).abs()
                 )
@@ -586,8 +587,8 @@ fn binocular_depth_verdict(
 fn has_stereo_target(sample: &WorldSample) -> bool {
     matches!(
         (
-            target_horizontal(sample.eye(Eye::Left)),
-            target_horizontal(sample.eye(Eye::Right))
+            target_horizontal(sample.eye(Eye::Left).foveal()),
+            target_horizontal(sample.eye(Eye::Right).foveal())
         ),
         (Some(left), Some(right)) if left != right
     )
@@ -799,9 +800,9 @@ mod tests {
     #[test]
     fn fusion_is_measured_in_simultaneous_foveal_frames() {
         let target_at = |column: usize| {
-            let mut pixels = vec![0; 9];
+            let mut pixels = vec![0; 17];
             pixels[column] = 255;
-            LightField::new(9, 1, pixels).unwrap()
+            LightField::new(17, 1, pixels).unwrap()
         };
         let sample_with = |left: usize, right: usize| {
             WorldSample::new(
@@ -812,12 +813,12 @@ mod tests {
         };
 
         // Both eyes hold their stereo targets on the fovea at once.
-        let fused = sample_with(4, 4);
+        let fused = sample_with(8, 8);
         assert_eq!(binocular_fusion_steps(std::slice::from_ref(&fused)), 1);
         // One receptor pitch off-center is still foveal at receptor
         // resolution; two pitches is not.
-        assert_eq!(binocular_fusion_steps(&[sample_with(4, 5)]), 1);
-        let lagging = sample_with(4, 6);
+        assert_eq!(binocular_fusion_steps(&[sample_with(8, 9)]), 1);
+        let lagging = sample_with(8, 10);
         assert_eq!(binocular_fusion_steps(std::slice::from_ref(&lagging)), 0);
         // Convergence in action counts an improvement step, fusion or not.
         let steps = [lagging, fused];

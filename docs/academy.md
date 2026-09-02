@@ -579,9 +579,10 @@ hand -> touchscreen contact -> generic touch event -> application
 ```
 
 The screen emits several independent contact tracks, so two contacts may
-compose into a pinch while one contact cannot. Eye position selects a local
-retinal view; the complete tablet is not injected as a fixed panoramic image.
-The virtual keyboard may move during a fresh probe without changing the body.
+compose into a pinch while one contact cannot. Every gaze receives a fixed
+coarse projection of the complete screen plus a gaze-centred detailed field;
+the global projection is spatially pooled, not a lossless panorama. The virtual
+keyboard may move during a fresh probe without changing the body.
 
 `academy-workstation2-course` accepts an opaque body checkpoint. It records one
 development phase, one shifted-keyboard probe, exact replay, natural quiet,

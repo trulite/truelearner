@@ -1,7 +1,7 @@
 use crate::{Arc3ActionArguments, Arc3ActionCall};
 use academy_workstation2::{
-    DeviceEvent, ScreenPoint, TouchId, Workstation2, Workstation2Observation, Workstation2Session,
-    TAP_TRAVEL,
+    DeviceEvent, ScreenPoint, TouchId, Viewport, Workstation2, Workstation2Observation,
+    Workstation2Session, TAP_TRAVEL,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
@@ -116,7 +116,10 @@ impl Arc3Sensorimotor {
             palette_luminance(0),
         )?;
         Ok(Self {
-            session: Workstation2Session::with_world(checkpoint, Workstation2::with_pixels(frame))?,
+            session: Workstation2Session::with_world(
+                checkpoint,
+                Workstation2::with_pixels_in_viewport(frame, Viewport::arc())?,
+            )?,
             sequence: 0,
             previous_frame: None,
             active_touches: Vec::new(),
@@ -244,12 +247,15 @@ fn frame_fingerprint(frame: &[u8]) -> String {
 
 fn sample_fingerprint(sample: &WorldSample) -> String {
     let mut digest = Sha256::new();
-    digest.update(b"academy-workstation2-application-sample-v1");
+    digest.update(b"academy-workstation2-application-sample-v2");
     for eye in Eye::ALL {
         let field = sample.eye(eye);
-        digest.update(field.width().to_le_bytes());
-        digest.update(field.height().to_le_bytes());
-        digest.update(field.pixels());
+        for channel in [field.global(), field.foveal()] {
+            digest.update(channel.width().to_le_bytes());
+            digest.update(channel.height().to_le_bytes());
+            digest.update(channel.pixels());
+        }
+        digest.update(field.changed_values());
     }
     for contact in sample.contacts() {
         digest.update(contact.pressure().to_le_bytes());

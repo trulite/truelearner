@@ -2,12 +2,17 @@
 //! A tablet-like external world. Only light and hand contact enter the body.
 
 mod application;
+mod display;
 mod draw;
 mod screen;
 mod session;
 mod target;
 mod world;
 
+pub use display::{
+    display_from_screen, DisplayPoint, DisplayRect, Viewport, ARC_VIEWPORT_MARGIN,
+    ARC_VIEWPORT_SIDE, DISPLAY_SIDE,
+};
 pub use draw::Rect;
 pub use screen::{DeviceEvent, ScreenPoint, TouchId, CONTACT_DEPTH};
 pub use session::{Workstation2Observation, Workstation2Session};
@@ -23,8 +28,8 @@ mod tests {
     use truelearner_workstation::{BodyAxis, BodyControl, Direction, Eye, WorkstationHarness};
 
     #[test]
-    fn gaze_moves_the_retinal_view_over_one_screen() {
-        let world = Workstation2::new(0);
+    fn gaze_refines_local_detail_without_removing_global_context() {
+        let mut world = Workstation2::new(0);
         let mut body = WorkstationHarness::new(1).unwrap();
         let before = world.sense(body.state()).unwrap();
         body.perturb_body(
@@ -37,8 +42,54 @@ mod tests {
         .unwrap();
         let after = world.sense(body.state()).unwrap();
 
-        assert_ne!(before.eye(Eye::Left), after.eye(Eye::Left));
+        assert_eq!(
+            before.eye(Eye::Left).global(),
+            after.eye(Eye::Left).global()
+        );
+        assert_eq!(
+            before.eye(Eye::Left).changed_values(),
+            after.eye(Eye::Left).changed_values()
+        );
+        assert_ne!(
+            before.eye(Eye::Left).foveal(),
+            after.eye(Eye::Left).foveal()
+        );
         assert_eq!(before.eye(Eye::Right), after.eye(Eye::Right));
+    }
+
+    #[test]
+    fn an_opposite_arc_edge_change_enters_the_fovea_within_thirty_two_steps() {
+        let frame = |x: usize| {
+            let mut pixels = vec![0_u8; 64 * 64];
+            pixels[32 * 64 + x] = 255;
+            truelearner_workstation::LightField::new(64, 64, pixels).unwrap()
+        };
+        let mut body = WorkstationHarness::new(1).unwrap();
+        for _ in 0..12 {
+            body.perturb_body(
+                BodyControl::new(
+                    BodyAxis::EyeHorizontal { eye: Eye::Left },
+                    Direction::Increase,
+                ),
+                4,
+            )
+            .unwrap();
+        }
+        assert!(body.state().eye(Eye::Left).gaze().x() >= 896);
+
+        let mut world = Workstation2::with_pixels_in_viewport(frame(63), Viewport::arc()).unwrap();
+        body.observe(world.sense(body.state()).unwrap()).unwrap();
+        world.replace_pixels(frame(0)).unwrap();
+        let mut gazes = Vec::new();
+        let mut detected = false;
+        for _ in 0..32 {
+            let sample = world.sense(body.state()).unwrap();
+            detected |= sample.eye(Eye::Left).foveal().pixels().contains(&255);
+            body.step(sample).unwrap();
+            let gaze = body.state().eye(Eye::Left).gaze();
+            gazes.push((gaze.x(), gaze.y()));
+        }
+        assert!(detected, "gazes {gazes:?}");
     }
 
     #[test]

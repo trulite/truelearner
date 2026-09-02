@@ -205,30 +205,8 @@ impl Workstation2Course {
         )?;
         let tap_exact_replay = tap_development == tap_replay;
 
-        // The screen-use development phases: each rung's consequence is
-        // presented to the learner in turn — the live key's asymmetry, the
-        // dead key's stop, the sequence's order, the drag's slide. Scan
-        // and quiet hand need no presentation: one is reflex, the other
-        // absence.
-        let mut rung_development = Vec::new();
-        for (index, kind) in (0_u64..).zip(screen_use::RungKind::ALL) {
-            let development = match screen_use::development_app(
-                kind,
-                seed.wrapping_add(4_000_003 + index * 250_000),
-            ) {
-                Some(app) => {
-                    let (evidence, after) =
-                        screen_use::run_rung_phase(developed, app, self.steps_per_phase)?;
-                    developed = after;
-                    Some(evidence)
-                }
-                None => None,
-            };
-            rung_development.push((kind, development));
-        }
-
-        // Every claim is measured from the same developed body, in fresh
-        // probes that discard their own mutation.
+        // Probe the acquired foundations before a later rung can change the
+        // body. Every probe discards its own mutation.
         let gaze = run_phase(
             developed.clone(),
             TargetApp::lit(seed.wrapping_add(1_000_003)),
@@ -250,10 +228,49 @@ impl Workstation2Course {
             self.steps_per_phase,
         )?;
         aimed_tap.exact_replay = tap_exact_replay;
+
+        // Develop and probe one frontier at a time. A failed rung blocks all
+        // later development, while its own developed checkpoint is retained
+        // for focused diagnosis.
         let mut rungs = Vec::with_capacity(screen_use::RungKind::ALL.len());
-        for (kind, development) in rung_development {
+        let mut blocked = !gaze.gaze_acquired()
+            || !touch.touch_acquired()
+            || aimed_tap.state != EvidenceState::Acquired
+            || !aimed_tap.controls_quiet();
+        for (index, kind) in (0_u64..).zip(screen_use::RungKind::ALL) {
+            let observer_control = matches!(
+                kind,
+                screen_use::RungKind::Scan | screen_use::RungKind::QuietHand
+            );
+            if blocked && !observer_control {
+                rungs.push(RungOutcome {
+                    kind,
+                    run: screen_use::RungRun {
+                        development: None,
+                        probes: Vec::new(),
+                        controls: Vec::new(),
+                        state: EvidenceState::Unknown,
+                    },
+                });
+                continue;
+            }
+            let development = match screen_use::development_app(
+                kind,
+                seed.wrapping_add(4_000_003 + index * 250_000),
+            ) {
+                Some(app) => {
+                    let (evidence, after) =
+                        screen_use::run_rung_phase(developed, app, self.steps_per_phase)?;
+                    developed = after;
+                    Some(evidence)
+                }
+                None => None,
+            };
             let mut run = screen_use::probe_rung(kind, &developed, seed, self.steps_per_phase)?;
             run.development = development;
+            if !observer_control {
+                blocked = run.state != EvidenceState::Acquired;
+            }
             rungs.push(RungOutcome { kind, run });
         }
 
@@ -298,7 +315,7 @@ fn run_phase(
     for _ in 0..steps {
         chance_sum += session.world().target().map_or(0.0, TargetApp::chance);
         let observation = session.step()?;
-        let left = observation.sample.eye(Eye::Left).pixels();
+        let left = observation.sample.eye(Eye::Left).foveal().pixels();
         let fovea = left[left.len() / 2];
         evidence.foveal_steps += usize::from(fovea == target_band);
         evidence.contact_steps += usize::from(

@@ -80,8 +80,9 @@ fn corrupt_and_invalid_external_values_fail_closed() {
     bytes[30] ^= 1;
     assert!(WorkstationCheckpoint::decode(&bytes).is_err());
 
-    let invalid = r#"{"eyes":[{"width":1,"height":1,"pixels":[]},{"width":1,"height":1,"pixels":[0]}],"contacts":[{"pressure":0,"slip":0}]}"#;
-    let sample = serde_json::from_str(invalid).unwrap();
+    let mut invalid = serde_json::to_value(sample()).unwrap();
+    invalid["eyes"][0]["global"]["pixels"] = serde_json::json!([]);
+    let sample = serde_json::from_value(invalid).unwrap();
     let mut candidate = body.clone();
     assert!(candidate.step(sample).is_err());
     assert_eq!(candidate.save().unwrap(), before);

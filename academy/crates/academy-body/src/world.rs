@@ -318,7 +318,7 @@ mod tests {
         for capability in BodyCapability::ORDER {
             let sample = FlatWorld::generated(83, capability).sample(&body).unwrap();
             for eye in Eye::ALL {
-                let field = sample.eye(eye);
+                let field = sample.eye(eye).foveal();
                 assert!(
                     !field.pixels().iter().any(|pixel| (97..129).contains(pixel)),
                     "no hand pixel reaches the salience floor for {capability:?}"
@@ -391,7 +391,7 @@ mod tests {
             .sample(&body)
             .unwrap();
         let target_column = |eye| {
-            let field = sample.eye(eye);
+            let field = sample.eye(eye).foveal();
             field
                 .pixels()
                 .iter()
@@ -415,8 +415,8 @@ mod tests {
                 .sample(&body)
                 .unwrap();
             for eye in Eye::ALL {
-                let field = sample.eye(eye);
-                assert_eq!((field.width(), field.height()), (9, 9));
+                let field = sample.eye(eye).foveal();
+                assert_eq!((field.width(), field.height()), (17, 17));
                 assert!(field.pixels().contains(&255));
             }
         }

@@ -17,16 +17,17 @@ thumb, or finger axes — a chord or a second pointer has no rung that needs
 it, and each was a standing risk to the one-component-at-a-time movement
 budget. If a future rung honestly demands fingers, they grow then.
 
-The eyes are rate-limited to one receptor pitch per step however efforts
-sum, and the palm's planar transport to four palm steps per step. Rate
+The eyes advance in half-pitch 32-unit quanta under a 128-unit velocity cap,
+and the palm advances in 8-unit quanta under its 64-unit cap. Rate
 limits are what make reflexes and habits able to share a joint: no summed
 effort can overshoot what a reflex can correct, and no habit can move
 faster than a reflex can follow.
 
-The retina is full-field: one receptor per 128 world units, so a centered
-gaze sees the whole screen. A narrow view would hide most of the world from
-a resting body — the gaze probe once failed exactly there, eyes anchored at
-center staring at a quarter of the screen.
+The screen is a 2048-square display mapped onto the unchanged 0..1023 body
+reach. An 8x8 mean field covers it at every gaze; signed transient quadrants
+localize changes on a 16x16 lattice. A gaze-centred 17x17 field samples every
+eight display pixels and supplies detail in four mirror-symmetric interleaves.
+The global view orients; supported foveal detail refines gaze and reach.
 
 ## The salience floor
 
@@ -81,10 +82,9 @@ strengthening laws act on them.
    toward its resting length: press, lift, press again. The tap cycle is
    the equilibrium of extension and recoil, not a learned trick.
 
-6. **Ocular drift** (frame-level). The gaze integrator leaks: when the
-   whole retina is dark, the eyes drift back toward the primary position
-   at an effort no habit noise can stalemate. Any salience hands the eye
-   to the foveation reflex. A lost gaze never stays lost.
+6. **Legacy ocular drift** (frame-level). Version-14 local-view samples retain
+   their old dark-field return to primary position. Full-screen samples do not
+   use it: a dark fovea no longer means that the only screen disappeared.
 
 Terminations are physical: balance for foveation, fusion for vergence,
 contact for extension, the deadzone for the planar pull, the resting length
@@ -117,11 +117,8 @@ touch, aimed tap, scan, quiet hand — with quiet blind controls and tap
 rates around eleven times chance (seed 11; seeds vary in how strongly the
 developed habits support the tap cycle).
 
-The learning rungs — live key, dead key, sequence, drag — are the
-measured frontier, and the live key names the missing physics precisely:
-the reach averages every salient thing, so between two keys it taps the
-empty midpoint and neither consequence presents. Selection —
-winner-take-all salience, reaching the one thing the eyes hold — is the
-next body change, and behind it the learner must act on what its taps
-changed: stop hammering the dead key, follow the sequence order, and slide
-the drag to its goal.
+The learning rungs — live key, dead key, sequence, drag — remain the measured
+frontier. Full-screen relative selection now reaches one real patch. The first
+failed LiveKey transition follows an inert tap: the unchanged visible patch
+keeps fixation, so the other patch is never examined. Any next law must be a
+generic physical disengagement and coherent selection law, not a key rule.

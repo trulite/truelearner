@@ -104,6 +104,9 @@
   incidence before that quotient.
 - **Representation invariance.** Renaming, construction order, attachment,
   checkpoint/replay, and observer projection preserve every physical result.
+- **Closed-screen vision.** Every legal gaze retains one fixed whole-screen
+  projection. Gaze changes local acuity, not which parts of the only screen
+  exist. Global orienting yields to supported foveal detail.
 
 ## Observer and trust boundary
 

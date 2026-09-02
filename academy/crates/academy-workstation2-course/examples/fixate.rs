@@ -44,7 +44,7 @@ fn main() {
         let dy = i32::from(gaze.y()) - cy;
         let distance = dx.abs().max(dy.abs());
         sum_distance += i64::from(distance);
-        let pixels = o.sample.eye(Eye::Left).pixels();
+        let pixels = o.sample.eye(Eye::Left).foveal().pixels();
         let on_fovea = pixels[pixels.len() / 2] == 230;
         foveal += usize::from(on_fovea);
         if step % 8 == 0 || step + 1 == steps {
