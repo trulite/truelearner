@@ -1,0 +1,4 @@
+interface:
+  display_name: "Embodiment"
+  short_description: "Design sensors and actuators before changing the body"
+  default_prompt: "Use $embodiment to inspect the existing physical system and draw its sensors, actuators, local attachments, and returned feedback in ASCII. Propose the exact fitted morphology, tests, and cost, then stop for explicit approval before editing. After approval, write the killing unit test first, implement only the approved delta, verify the closed physical loop and replay, and run Academy last."

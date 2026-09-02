@@ -14,6 +14,7 @@ Dont use AI slop, commentary, and obvious advice. Talk in airline english
 
 ```text
 Request
+  |-- Sensors/actuators ---> $embodiment
   |-- Academy work --------> $academy
   |-- Debug or trace ------> $causal-debug
   |-- Benchmark frontier --> $benchmark-climb
