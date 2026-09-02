@@ -14,7 +14,7 @@ use std::{
 use truelearner_body::BodyCheckpoint;
 
 const MAGIC: &[u8; 8] = b"TLWORK02";
-const VERSION: u16 = 19;
+const VERSION: u16 = 20;
 const HEADER_LEN: usize = 50;
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -31,7 +31,9 @@ pub(crate) struct Payload {
     pub(crate) vergence_strain: i32,
     pub(crate) visual_attention: VisualAttention,
     pub(crate) visual_approach: VisualApproach,
-    pub(crate) history: Vec<WorldSample>,
+    pub(crate) previous_sample: Option<WorldSample>,
+    pub(crate) history_digest: [u8; 32],
+    pub(crate) history_samples: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -53,7 +55,9 @@ impl WorkstationCheckpoint {
         vergence_strain: i32,
         visual_attention: VisualAttention,
         visual_approach: VisualApproach,
-        history: Vec<WorldSample>,
+        previous_sample: Option<WorldSample>,
+        history_digest: [u8; 32],
+        history_samples: u64,
     ) -> Self {
         Self {
             payload: Payload {
@@ -68,7 +72,9 @@ impl WorkstationCheckpoint {
                 vergence_strain,
                 visual_attention,
                 visual_approach,
-                history,
+                previous_sample,
+                history_digest,
+                history_samples,
             },
         }
     }
@@ -232,10 +238,10 @@ mod tests {
         );
 
         let mut obsolete = bytes.clone();
-        obsolete[8..10].copy_from_slice(&17_u16.to_le_bytes());
+        obsolete[8..10].copy_from_slice(&19_u16.to_le_bytes());
         assert_eq!(
             WorkstationCheckpoint::decode(&obsolete),
-            Err(WorkstationError::UnsupportedCheckpointVersion(17))
+            Err(WorkstationError::UnsupportedCheckpointVersion(19))
         );
 
         let path = std::env::temp_dir().join(format!(

@@ -13,7 +13,7 @@ use crate::{
     Trigger,
 };
 use serde::{Deserialize, Serialize};
-use std::cmp::Reverse;
+use std::{cmp::Reverse, collections::BTreeMap};
 pub(crate) use truelearner_core::{ArrowState, ClosedSupport, Occurrence, WitnessKind};
 pub use truelearner_core::{Outcome, Path};
 

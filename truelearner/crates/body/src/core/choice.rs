@@ -576,7 +576,23 @@ fn unique_witness_source(
     body: ReactionView<'_>,
     junction: JunctionId,
     kind: WitnessKind,
+    incidence: &mut ChoiceIncidence,
 ) -> Option<JunctionId> {
+    let key = (
+        junction,
+        match kind {
+            WitnessKind::Progress => 0,
+            WitnessKind::Closure {
+                offers_choice: false,
+            } => 1,
+            WitnessKind::Closure {
+                offers_choice: true,
+            } => 2,
+        },
+    );
+    if let Some(source) = incidence.witnesses.get(&key) {
+        return *source;
+    }
     let mut source = None;
     for witness in body.arena.incoming(junction) {
         let memory = &body.arrows[witness.slot()];
@@ -586,10 +602,14 @@ fn unique_witness_source(
         let candidate = body.arena.link(witness).expect("live witness").from;
         match source {
             None => source = Some(candidate),
-            Some(existing) if existing != candidate => return None,
+            Some(existing) if existing != candidate => {
+                incidence.witnesses.insert(key, None);
+                return None;
+            }
             Some(_) => {}
         }
     }
+    incidence.witnesses.insert(key, source);
     source
 }
 
@@ -653,24 +673,28 @@ fn append_connected_outcomes(
     middle: JunctionId,
     output: JunctionId,
     outcomes: &mut Vec<JunctionId>,
+    incidence: &mut ChoiceIncidence,
 ) {
-    append_outcome_sources(body, middle, outcomes);
-    append_outcome_sources(body, output, outcomes);
+    append_outcome_sources(body, middle, outcomes, incidence);
+    append_outcome_sources(body, output, outcomes, incidence);
 }
 
 fn append_outcome_sources(
     body: ReactionView<'_>,
     junction: JunctionId,
     outcomes: &mut Vec<JunctionId>,
+    incidence: &mut ChoiceIncidence,
 ) {
-    outcomes.extend(
+    let sources = incidence.outcome_sources.entry(junction).or_insert_with(|| {
         body.arena
             .incoming(junction)
             .filter(|link| {
                 closes_return(&body.arrows[link.slot()])
             })
-            .filter_map(|link| body.arena.link(link).map(|physical| physical.from)),
-    );
+            .filter_map(|link| body.arena.link(link).map(|physical| physical.from))
+            .collect()
+    });
+    outcomes.extend_from_slice(sources);
 }
 
 fn fill_ready_worlds(
@@ -679,18 +703,15 @@ fn fill_ready_worlds(
     parents: &mut Vec<usize>,
 ) {
     parents.extend(0..paths.len());
-    for right in 0..paths.len() {
-        for left in 0..right {
-            let same_surface = paths[left].surface == paths[right].surface;
-            let left_outcomes =
-                &connected_outcomes[paths[left].connected_start..paths[left].connected_end];
-            let right_outcomes =
-                &connected_outcomes[paths[right].connected_start..paths[right].connected_end];
-            let connected_outcome = left_outcomes
-                .iter()
-                .any(|source| right_outcomes.contains(source));
-            if same_surface || connected_outcome {
-                union(parents, left, right);
+    let mut surface_owner = BTreeMap::new();
+    let mut outcome_owner = BTreeMap::new();
+    for (index, path) in paths.iter().enumerate() {
+        if let Some(owner) = surface_owner.insert(path.surface, index) {
+            union(parents, owner, index);
+        }
+        for source in &connected_outcomes[path.connected_start..path.connected_end] {
+            if let Some(owner) = outcome_owner.insert(*source, index) {
+                union(parents, owner, index);
             }
         }
     }

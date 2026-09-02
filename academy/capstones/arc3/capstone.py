@@ -81,14 +81,16 @@ def load_protocol(path: Path) -> dict[str, Any]:
     if data["workstation_steps_per_observation"] != 32:
         raise CapstoneError("protocol changes the generic workstation input horizon")
     if data["device_action_bindings"] != [
-        "TouchSwipeUp:1",
-        "TouchSwipeDown:2",
-        "TouchSwipeLeft:3",
-        "TouchSwipeRight:4",
-        "TouchTap:6",
+        "ControlNorth:1",
+        "ControlSouth:2",
+        "ControlWest:3",
+        "ControlEast:4",
+        "ControlPrimary:5",
+        "ContentPoint:6",
+        "ControlBack:7",
     ]:
         raise CapstoneError("protocol changes the workstation application bindings")
-    if data["unmapped_actions"] != [5, 7]:
+    if data["unmapped_actions"] != []:
         raise CapstoneError("protocol changes the unmapped Workstation2 actions")
     if data["course_frontier"] != "Drag":
         raise CapstoneError("protocol changes the measured Workstation2 frontier")

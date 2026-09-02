@@ -24,6 +24,33 @@ impl TouchId {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BezelControl {
+    North,
+    South,
+    West,
+    East,
+    Primary,
+    Back,
+    Reset,
+}
+
+impl BezelControl {
+    pub const ALL: [Self; 7] = [
+        Self::North,
+        Self::South,
+        Self::West,
+        Self::East,
+        Self::Primary,
+        Self::Back,
+        Self::Reset,
+    ];
+
+    pub(crate) const fn bit(self) -> u8 {
+        1 << self as u8
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeviceEvent {
     TouchStarted {
         touch: TouchId,
@@ -37,6 +64,15 @@ pub enum DeviceEvent {
     TouchEnded {
         touch: TouchId,
         at: ScreenPoint,
+    },
+    ContentActivated {
+        touch: TouchId,
+        column: u16,
+        row: u16,
+    },
+    ControlActivated {
+        touch: TouchId,
+        control: BezelControl,
     },
 }
 

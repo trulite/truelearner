@@ -1,14 +1,13 @@
 use crate::{Arc3ActionArguments, Arc3ActionCall};
 use academy_workstation2::{
-    DeviceEvent, ScreenPoint, TouchId, Viewport, Workstation2, Workstation2Observation,
-    Workstation2Session, TAP_TRAVEL,
+    BezelControl, DeviceEvent, Workstation2, Workstation2Observation, Workstation2Session,
 };
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fmt;
 use truelearner_workstation::{
-    verify_choice_contract, BodyTraceEvent, Eye, LightField, WorkstationCheckpoint,
-    WorkstationError, WorkstationStepObservation, WorldSample, BODY_MAX,
+    verify_choice_contract, BodyTraceEvent, ColorField, Eye, Rgb, WorkstationCheckpoint,
+    WorkstationError, WorkstationStepObservation, WorldSample,
 };
 
 pub const ARC3_FRAME_SIDE: usize = 64;
@@ -87,7 +86,6 @@ pub struct Arc3SensorimotorSnapshot {
     pub physical_tick: i64,
     pub resident_bytes: usize,
     pub previous_frame_sha256: Option<String>,
-    pub active_touch_tracks: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -95,34 +93,23 @@ pub struct Arc3Sensorimotor {
     session: Workstation2Session,
     sequence: u64,
     previous_frame: Option<Vec<u8>>,
-    active_touches: Vec<TouchTrack>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct TouchTrack {
-    touch: TouchId,
-    start: ScreenPoint,
-    current: ScreenPoint,
-    travel: u32,
-    last_segment: Option<(ScreenPoint, ScreenPoint)>,
 }
 
 impl Arc3Sensorimotor {
     pub fn restore(body_checkpoint: &[u8]) -> Result<Self, Arc3Error> {
         let checkpoint = WorkstationCheckpoint::decode(body_checkpoint)?;
-        let frame = LightField::filled(
+        let frame = ColorField::filled(
             ARC3_FRAME_SIDE as u16,
             ARC3_FRAME_SIDE as u16,
-            palette_luminance(0),
+            palette_rgb(0),
         )?;
         Ok(Self {
             session: Workstation2Session::with_world(
                 checkpoint,
-                Workstation2::with_pixels_in_viewport(frame, Viewport::arc())?,
+                Workstation2::with_game_surface(frame, false, &[])?,
             )?,
             sequence: 0,
             previous_frame: None,
-            active_touches: Vec::new(),
         })
     }
 
@@ -134,11 +121,15 @@ impl Arc3Sensorimotor {
             physical_tick: read.physical_tick,
             resident_bytes: read.resident_bytes,
             previous_frame_sha256: self.previous_frame.as_deref().map(frame_fingerprint),
-            active_touch_tracks: self.active_touches.len(),
         })
     }
 
-    pub fn observe(&mut self, frame: Vec<u8>) -> Result<Arc3SensorimotorObservation, Arc3Error> {
+    pub fn observe(
+        &mut self,
+        frame: Vec<u8>,
+        point_enabled: bool,
+        enabled: &[BezelControl],
+    ) -> Result<Arc3SensorimotorObservation, Arc3Error> {
         validate_frame(&frame)?;
         let application_frame = application_frame(&frame)?;
         let frame_changed = self
@@ -147,7 +138,8 @@ impl Arc3Sensorimotor {
             .map(|previous| previous != &frame);
 
         let mut next = self.clone();
-        next.session.replace_application_frame(application_frame)?;
+        next.session
+            .replace_game_surface(application_frame, point_enabled, enabled)?;
         let mut steps = Vec::with_capacity(WORKSTATION_STEPS_PER_OBSERVATION);
         let mut device_events = Vec::new();
         let mut application_input = None;
@@ -168,12 +160,11 @@ impl Arc3Sensorimotor {
                 plasticity_updates.saturating_add(session.body.metrics.plasticity_updates);
             naturally_quiescent &= session.body.naturally_quiescent;
             device_events.extend(session.device_events.iter().copied());
-            let mut inputs = Vec::new();
-            for event in &session.device_events {
-                if let Some(input) = gesture_input_for(&mut next.active_touches, event)? {
-                    inputs.push(input);
-                }
-            }
+            let inputs = session
+                .device_events
+                .iter()
+                .filter_map(|event| activation_input_for(event).transpose())
+                .collect::<Result<Vec<_>, _>>()?;
             steps.push(compact_step(session, trace));
             match inputs.as_slice() {
                 [] => {}
@@ -229,16 +220,34 @@ fn validate_frame(frame: &[u8]) -> Result<(), Arc3Error> {
     Ok(())
 }
 
-fn application_frame(frame: &[u8]) -> Result<LightField, Arc3Error> {
-    Ok(LightField::new(
+fn application_frame(frame: &[u8]) -> Result<ColorField, Arc3Error> {
+    Ok(ColorField::new(
         ARC3_FRAME_SIDE as u16,
         ARC3_FRAME_SIDE as u16,
-        frame.iter().copied().map(palette_luminance).collect(),
+        frame.iter().copied().map(palette_rgb).collect(),
     )?)
 }
 
-fn palette_luminance(value: u8) -> u8 {
-    value.saturating_mul(17)
+fn palette_rgb(value: u8) -> Rgb {
+    const PALETTE: [Rgb; ARC3_PALETTE_SIZE as usize] = [
+        Rgb::new(255, 255, 255),
+        Rgb::new(204, 204, 204),
+        Rgb::new(153, 153, 153),
+        Rgb::new(102, 102, 102),
+        Rgb::new(51, 51, 51),
+        Rgb::new(0, 0, 0),
+        Rgb::new(229, 58, 163),
+        Rgb::new(255, 123, 204),
+        Rgb::new(249, 60, 49),
+        Rgb::new(30, 147, 255),
+        Rgb::new(136, 216, 241),
+        Rgb::new(255, 220, 0),
+        Rgb::new(255, 133, 27),
+        Rgb::new(146, 18, 49),
+        Rgb::new(79, 204, 48),
+        Rgb::new(163, 86, 214),
+    ];
+    PALETTE[usize::from(value.min(ARC3_PALETTE_SIZE - 1))]
 }
 
 fn frame_fingerprint(frame: &[u8]) -> String {
@@ -247,13 +256,17 @@ fn frame_fingerprint(frame: &[u8]) -> String {
 
 fn sample_fingerprint(sample: &WorldSample) -> String {
     let mut digest = Sha256::new();
-    digest.update(b"academy-workstation2-application-sample-v2");
+    digest.update(b"academy-workstation2-application-sample-v3");
     for eye in Eye::ALL {
         let field = sample.eye(eye);
         for channel in [field.global(), field.foveal()] {
             digest.update(channel.width().to_le_bytes());
             digest.update(channel.height().to_le_bytes());
             digest.update(channel.pixels());
+        }
+        for signal in field.foveal_chromatic().pixels() {
+            digest.update(signal.red_green().to_le_bytes());
+            digest.update(signal.blue_yellow().to_le_bytes());
         }
         digest.update(field.changed_values());
     }
@@ -282,124 +295,60 @@ fn hex_digest(digest: impl AsRef<[u8]>) -> String {
         .collect()
 }
 
-fn gesture_input_for(
-    active: &mut Vec<TouchTrack>,
-    event: &DeviceEvent,
-) -> Result<Option<Arc3DeviceInput>, Arc3Error> {
+fn activation_input_for(event: &DeviceEvent) -> Result<Option<Arc3DeviceInput>, Arc3Error> {
     match *event {
-        DeviceEvent::TouchStarted { touch, at } => {
-            validate_point(at)?;
-            if active.iter().any(|track| track.touch == touch) {
-                return Err(Arc3Error::boundary("touch started twice"));
-            }
-            active.push(TouchTrack {
-                touch,
-                start: at,
-                current: at,
-                travel: 0,
-                last_segment: None,
-            });
-            Ok(None)
-        }
-        DeviceEvent::TouchMoved { touch, from, to } => {
-            validate_point(from)?;
-            validate_point(to)?;
-            let track = active
-                .iter_mut()
-                .find(|track| track.touch == touch)
-                .ok_or_else(|| Arc3Error::boundary("touch moved before it started"))?;
-            if track.current != from {
-                return Err(Arc3Error::boundary("touch movement track is discontinuous"));
-            }
-            track.travel = track.travel.saturating_add(point_distance(from, to));
-            track.current = to;
-            if from != to {
-                track.last_segment = Some((from, to));
-            }
-            Ok(None)
-        }
-        DeviceEvent::TouchEnded { touch, at } => {
-            validate_point(at)?;
-            let index = active
-                .iter()
-                .position(|track| track.touch == touch)
-                .ok_or_else(|| Arc3Error::boundary("touch ended before it started"))?;
-            let track = active.remove(index);
-            let start = track.start;
-            let current = track.current;
-            let mut last_segment = track.last_segment;
-            let travel = track.travel.saturating_add(point_distance(current, at));
-            if current != at {
-                last_segment = Some((current, at));
-            }
-            let call = if travel <= u32::try_from(TAP_TRAVEL).expect("tap travel is positive") {
-                Arc3ActionCall {
-                    id: 6,
-                    arguments: Arc3ActionArguments::Point {
-                        x: scale_point(at.x),
-                        y: scale_point(at.y),
-                    },
-                }
-            } else {
-                Arc3ActionCall {
-                    id: swipe_action(start, at, last_segment),
-                    arguments: Arc3ActionArguments::Unit,
-                }
-            };
+        DeviceEvent::ContentActivated {
+            column,
+            row,
+            touch: _,
+        } => {
+            let x = u8::try_from(column)
+                .ok()
+                .filter(|value| *value < ARC3_FRAME_SIDE as u8)
+                .ok_or_else(|| Arc3Error::boundary("content column is outside the ARC frame"))?;
+            let y = u8::try_from(row)
+                .ok()
+                .filter(|value| *value < ARC3_FRAME_SIDE as u8)
+                .ok_or_else(|| Arc3Error::boundary("content row is outside the ARC frame"))?;
             Ok(Some(Arc3DeviceInput {
                 event: *event,
-                call,
+                call: Arc3ActionCall {
+                    id: 6,
+                    arguments: Arc3ActionArguments::Point { x, y },
+                },
             }))
         }
-    }
-}
-
-fn validate_point(point: ScreenPoint) -> Result<(), Arc3Error> {
-    if (0..=BODY_MAX).contains(&point.x) && (0..=BODY_MAX).contains(&point.y) {
-        Ok(())
-    } else {
-        Err(Arc3Error::boundary("touch point is outside the screen"))
-    }
-}
-
-fn point_distance(from: ScreenPoint, to: ScreenPoint) -> u32 {
-    u32::from(from.x.abs_diff(to.x)) + u32::from(from.y.abs_diff(to.y))
-}
-
-fn swipe_action(
-    start: ScreenPoint,
-    end: ScreenPoint,
-    last_segment: Option<(ScreenPoint, ScreenPoint)>,
-) -> u8 {
-    let mut dx = i32::from(end.x) - i32::from(start.x);
-    let mut dy = i32::from(end.y) - i32::from(start.y);
-    if dx == 0 && dy == 0 {
-        if let Some((from, to)) = last_segment {
-            dx = i32::from(to.x) - i32::from(from.x);
-            dy = i32::from(to.y) - i32::from(from.y);
+        DeviceEvent::ControlActivated { control, .. } => {
+            Ok(control_action(control).map(|id| Arc3DeviceInput {
+                event: *event,
+                call: Arc3ActionCall {
+                    id,
+                    arguments: Arc3ActionArguments::Unit,
+                },
+            }))
         }
-    }
-    if dx.abs() >= dy.abs() {
-        if dx < 0 {
-            3
-        } else {
-            4
-        }
-    } else if dy < 0 {
-        1
-    } else {
-        2
+        DeviceEvent::TouchStarted { .. }
+        | DeviceEvent::TouchMoved { .. }
+        | DeviceEvent::TouchEnded { .. } => Ok(None),
     }
 }
 
-fn scale_point(value: i16) -> u8 {
-    let scaled = i32::from(value) * 63 / i32::from(BODY_MAX);
-    u8::try_from(scaled).unwrap_or(63).min(63)
+fn control_action(control: BezelControl) -> Option<u8> {
+    match control {
+        BezelControl::North => Some(1),
+        BezelControl::South => Some(2),
+        BezelControl::West => Some(3),
+        BezelControl::East => Some(4),
+        BezelControl::Primary => Some(5),
+        BezelControl::Back => Some(7),
+        BezelControl::Reset => None,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use academy_workstation2::{ScreenPoint, TouchId};
 
     fn sensorimotor_checkpoint() -> Vec<u8> {
         truelearner_workstation::WorkstationHarness::new(31_001)
@@ -410,39 +359,63 @@ mod tests {
             .unwrap()
     }
 
-    fn gesture(events: &[DeviceEvent]) -> Vec<Arc3DeviceInput> {
-        let mut active = Vec::new();
-        events
-            .iter()
-            .filter_map(|event| gesture_input_for(&mut active, event).unwrap())
-            .collect()
-    }
-
-    fn point(x: i16, y: i16) -> ScreenPoint {
-        ScreenPoint { x, y }
-    }
-
     fn touch() -> TouchId {
         TouchId::new(0).unwrap()
     }
 
     #[test]
-    fn palette_becomes_screen_luminance() {
+    fn palette_becomes_screen_rgb() {
         let frame = (0..16).cycle().take(ARC3_FRAME_PIXELS).collect::<Vec<_>>();
         let converted = application_frame(&frame).unwrap();
         assert_eq!(converted.width(), 64);
         assert_eq!(converted.height(), 64);
         assert_eq!(
             &converted.pixels()[..16],
-            &[0, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255]
+            &[
+                Rgb::new(255, 255, 255),
+                Rgb::new(204, 204, 204),
+                Rgb::new(153, 153, 153),
+                Rgb::new(102, 102, 102),
+                Rgb::new(51, 51, 51),
+                Rgb::new(0, 0, 0),
+                Rgb::new(229, 58, 163),
+                Rgb::new(255, 123, 204),
+                Rgb::new(249, 60, 49),
+                Rgb::new(30, 147, 255),
+                Rgb::new(136, 216, 241),
+                Rgb::new(255, 220, 0),
+                Rgb::new(255, 133, 27),
+                Rgb::new(146, 18, 49),
+                Rgb::new(79, 204, 48),
+                Rgb::new(163, 86, 214),
+            ]
         );
+    }
+
+    #[test]
+    fn every_palette_entry_has_a_distinct_retinal_code() {
+        let codes = (0..ARC3_PALETTE_SIZE)
+            .map(|value| {
+                let colour = palette_rgb(value);
+                let opponents = colour.opponents();
+                (
+                    colour.luminance(),
+                    opponents.red_green(),
+                    opponents.blue_yellow(),
+                )
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert_eq!(codes.len(), ARC3_PALETTE_SIZE as usize);
     }
 
     #[test]
     fn invalid_frame_is_atomic() {
         let mut sensorimotor = Arc3Sensorimotor::restore(&sensorimotor_checkpoint()).unwrap();
         let before = sensorimotor.snapshot().unwrap();
-        assert!(sensorimotor.observe(vec![16; ARC3_FRAME_PIXELS]).is_err());
+        assert!(sensorimotor
+            .observe(vec![16; ARC3_FRAME_PIXELS], false, &[])
+            .is_err());
         assert_eq!(sensorimotor.snapshot().unwrap(), before);
     }
 
@@ -454,112 +427,73 @@ mod tests {
         let mut frame = vec![0; ARC3_FRAME_PIXELS];
         frame[32 * ARC3_FRAME_SIDE + 32] = 9;
         assert_eq!(
-            first.observe(frame.clone()).unwrap(),
-            replay.observe(frame).unwrap()
+            first
+                .observe(frame.clone(), true, &[BezelControl::Primary])
+                .unwrap(),
+            replay
+                .observe(frame, true, &[BezelControl::Primary])
+                .unwrap()
         );
         assert_eq!(first.snapshot().unwrap(), replay.snapshot().unwrap());
     }
 
     #[test]
-    fn tap_and_sub_threshold_motion_emit_one_point_call_on_release() {
-        for events in [
-            vec![
-                DeviceEvent::TouchStarted {
-                    touch: touch(),
-                    at: point(512, 512),
-                },
-                DeviceEvent::TouchEnded {
-                    touch: touch(),
-                    at: point(512, 512),
-                },
-            ],
-            vec![
-                DeviceEvent::TouchStarted {
-                    touch: touch(),
-                    at: point(500, 500),
-                },
-                DeviceEvent::TouchMoved {
-                    touch: touch(),
-                    from: point(500, 500),
-                    to: point(516, 500),
-                },
-                DeviceEvent::TouchEnded {
-                    touch: touch(),
-                    at: point(516, 500),
-                },
-            ],
+    fn content_activation_maps_exact_coordinates_to_action_six() {
+        let event = DeviceEvent::ContentActivated {
+            touch: touch(),
+            column: 12,
+            row: 34,
+        };
+        let input = activation_input_for(&event).unwrap().unwrap();
+        assert_eq!(input.event, event);
+        assert_eq!(input.call.id, 6);
+        assert_eq!(
+            input.call.arguments,
+            Arc3ActionArguments::Point { x: 12, y: 34 }
+        );
+    }
+
+    #[test]
+    fn generic_controls_map_to_all_six_unit_actions() {
+        for (control, expected) in [
+            (BezelControl::North, 1),
+            (BezelControl::South, 2),
+            (BezelControl::West, 3),
+            (BezelControl::East, 4),
+            (BezelControl::Primary, 5),
+            (BezelControl::Back, 7),
         ] {
-            let calls = gesture(&events);
-            assert_eq!(calls.len(), 1);
-            assert_eq!(calls[0].call.id, 6);
-            assert!(matches!(calls[0].event, DeviceEvent::TouchEnded { .. }));
+            let event = DeviceEvent::ControlActivated {
+                touch: touch(),
+                control,
+            };
+            let input = activation_input_for(&event).unwrap().unwrap();
+            assert_eq!(input.call.id, expected);
+            assert_eq!(input.call.arguments, Arc3ActionArguments::Unit);
         }
     }
 
     #[test]
-    fn four_dominant_swipe_directions_emit_one_unit_call_each() {
-        for (end, expected) in [
-            (point(512, 400), 1),
-            (point(512, 624), 2),
-            (point(400, 512), 3),
-            (point(624, 512), 4),
-        ] {
-            let calls = gesture(&[
-                DeviceEvent::TouchStarted {
-                    touch: touch(),
-                    at: point(512, 512),
-                },
-                DeviceEvent::TouchMoved {
-                    touch: touch(),
-                    from: point(512, 512),
-                    to: end,
-                },
-                DeviceEvent::TouchEnded {
-                    touch: touch(),
-                    at: end,
-                },
-            ]);
-            assert_eq!(calls.len(), 1);
-            assert_eq!(calls[0].call.id, expected);
-            assert_eq!(calls[0].call.arguments, Arc3ActionArguments::Unit);
-        }
+    fn raw_touch_and_reset_do_not_emit_arc_actions() {
+        let raw = DeviceEvent::TouchStarted {
+            touch: touch(),
+            at: ScreenPoint { x: 512, y: 512 },
+        };
+        let reset = DeviceEvent::ControlActivated {
+            touch: touch(),
+            control: BezelControl::Reset,
+        };
+        assert_eq!(activation_input_for(&raw).unwrap(), None);
+        assert_eq!(activation_input_for(&reset).unwrap(), None);
     }
 
     #[test]
-    fn equal_displacement_prefers_the_horizontal_sign() {
-        assert_eq!(swipe_action(point(512, 512), point(400, 400), None), 3);
-        assert_eq!(swipe_action(point(512, 512), point(624, 624), None), 4);
-    }
-
-    #[test]
-    fn movement_never_emits_before_the_one_release_call() {
-        let mut active = Vec::new();
-        let started = DeviceEvent::TouchStarted {
+    fn out_of_frame_content_activation_is_rejected() {
+        let event = DeviceEvent::ContentActivated {
             touch: touch(),
-            at: point(512, 512),
+            column: 64,
+            row: 0,
         };
-        let moved = DeviceEvent::TouchMoved {
-            touch: touch(),
-            from: point(512, 512),
-            to: point(600, 512),
-        };
-        let ended = DeviceEvent::TouchEnded {
-            touch: touch(),
-            at: point(600, 512),
-        };
-        assert_eq!(gesture_input_for(&mut active, &started).unwrap(), None);
-        assert_eq!(gesture_input_for(&mut active, &moved).unwrap(), None);
-        assert!(gesture_input_for(&mut active, &ended).unwrap().is_some());
-        assert!(active.is_empty());
-    }
-
-    #[test]
-    fn invalid_touch_sequence_is_rejected() {
-        let mut active = Vec::new();
-        let ended = DeviceEvent::TouchEnded {
-            touch: touch(),
-            at: point(512, 512),
-        };
-        assert!(gesture_input_for(&mut active, &ended).is_err());
+        assert!(activation_input_for(&event).is_err());
     }
 }

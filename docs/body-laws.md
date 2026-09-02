@@ -117,6 +117,10 @@
 - **Closed-screen vision.** Every legal gaze retains one fixed whole-screen
   projection. Gaze changes local acuity, not which parts of the only screen
   exist. Global orienting yields to supported foveal detail.
+- **Chromatic separation.** Screen RGB projects to one luminance signal and
+  two signed foveal opponent signals at the same physical location. Equal
+  luminance does not identify colours; gray is neutral on both opponent axes.
+  Colour adds local sensory lines and no learner law.
 - **Event-gated visual attention.** A visible coherent region is retained while
   supported. Interaction release, disappearance, or fresh spatial change may
   disengage it and record one decaying recent region. Choice is relative among

@@ -10,9 +10,10 @@ pub use harness::{
     MotorEffect, StepMetrics, WorkstationHarness, WorkstationRead, WorkstationStepObservation,
 };
 pub use state::{
-    AxisProprioception, BodyAxis, BodyControl, BodyMovement, ContactSample, Direction, Eye,
-    EyeState, HandPoint, HandState, LightField, Point, VisualField, WorkstationState, WorldSample,
-    AXIS_COUNT, BODY_MAX, FOVEAL_VISION_FIELDS, FOVEAL_VISION_SIDE, GLOBAL_CHANGE_SUBREGIONS,
+    AxisProprioception, BodyAxis, BodyControl, BodyMovement, ChromaticField, ChromaticSignal,
+    ColorField, ContactSample, Direction, Eye, EyeState, HandPoint, HandState, LightField, Point,
+    Rgb, VisualField, WorkstationState, WorldSample, AXIS_COUNT, BODY_MAX, CHROMATIC_VISION_FIELDS,
+    CHROMATIC_VISION_SIDE, FOVEAL_VISION_FIELDS, FOVEAL_VISION_SIDE, GLOBAL_CHANGE_SUBREGIONS,
     GLOBAL_VISION_FIELDS, GLOBAL_VISION_SIDE, TOUCH_SITES,
 };
 use std::fmt;

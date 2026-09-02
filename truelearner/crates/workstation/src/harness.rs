@@ -19,9 +19,15 @@ use truelearner_body::{
 const CONTROL_COUNT: usize = AXIS_COUNT * 2;
 const RECEPTOR_SIDE: usize = 9;
 const RECEPTORS_PER_EYE: usize = RECEPTOR_SIDE * RECEPTOR_SIDE;
+const CHROMATIC_CHANNELS: usize = 2;
+const CHROMATIC_RECEPTORS_PER_EYE: usize = RECEPTORS_PER_EYE * CHROMATIC_CHANNELS;
 const TRANSIENTS_PER_EYE: usize = GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS;
 const VISUAL_SENSOR_COUNT: usize = Eye::ALL.len()
-    * (RECEPTORS_PER_EYE + GLOBAL_VISION_FIELDS + TRANSIENTS_PER_EYE + FOVEAL_VISION_FIELDS);
+    * (RECEPTORS_PER_EYE
+        + CHROMATIC_RECEPTORS_PER_EYE
+        + GLOBAL_VISION_FIELDS
+        + TRANSIENTS_PER_EYE
+        + FOVEAL_VISION_FIELDS);
 const SALIENCE_COUNT: usize = Eye::ALL.len() * RECEPTORS_PER_EYE;
 const CONTACT_FIELDS: usize = 2;
 const PROPRIOCEPTIVE_FIELDS: usize = 6;
@@ -51,6 +57,7 @@ const REACH_HAND_MASK: i32 = 40;
 /// One foveal sample spans eight display pixels, or four physical body units.
 const FOVEAL_PITCH: i32 = 4;
 const LIGHT_RANGE: u32 = u8::MAX as u32;
+const OPPONENT_RANGE: u32 = u8::MAX as u32 * 2;
 const BODY_RANGE: u32 = BODY_MAX as u32;
 const SIGNED_BODY_RANGE: u32 = BODY_RANGE * 2;
 const COMPETITION_COMPONENTS: usize = 4;
@@ -143,6 +150,9 @@ pub(crate) struct Handles {
     /// Version-14 coarse foveal receptors. Their identities and learned
     /// gaze-relative links survive migration.
     pub(crate) vision: [Vec<JunctionId>; 2],
+    /// Two signed foveal opponent receptors beside every coarse luminance
+    /// receptor: red-green, then blue-yellow.
+    pub(crate) chromatic_vision: [Vec<JunctionId>; 2],
     /// Fixed whole-screen mean fields added in version 15.
     pub(crate) global_vision: [Vec<JunctionId>; 2],
     pub(crate) visual_transients: [Vec<JunctionId>; 2],
@@ -179,6 +189,10 @@ impl Handles {
             .vision
             .iter()
             .any(|receptors| receptors.len() != RECEPTORS_PER_EYE)
+            || self
+                .chromatic_vision
+                .iter()
+                .any(|receptors| receptors.len() != CHROMATIC_RECEPTORS_PER_EYE)
             || self
                 .global_vision
                 .iter()
@@ -222,6 +236,7 @@ impl Handles {
                 .vision
                 .iter()
                 .flatten()
+                .chain(self.chromatic_vision.iter().flatten())
                 .chain(self.global_vision.iter().flatten())
                 .chain(self.visual_transients.iter().flatten())
                 .chain(self.foveal_vision.iter().flatten())
@@ -326,7 +341,12 @@ pub struct WorkstationHarness {
     pub(crate) visual_attention: VisualAttention,
     /// Local visual-to-hand readiness, separate from visual attention.
     pub(crate) visual_approach: VisualApproach,
-    pub(crate) history: Vec<WorldSample>,
+    /// Only the preceding physical sample is needed by body morphology.
+    pub(crate) previous_sample: Option<WorldSample>,
+    /// Incremental evidence identity for every admitted sample. This preserves
+    /// replay discrimination without retaining and re-hashing the full stream.
+    pub(crate) history_digest: [u8; 32],
+    pub(crate) history_samples: u64,
 }
 
 impl PartialEq for WorkstationHarness {
@@ -340,7 +360,9 @@ impl PartialEq for WorkstationHarness {
             && self.vergence_strain == other.vergence_strain
             && self.visual_attention == other.visual_attention
             && self.visual_approach == other.visual_approach
-            && self.history == other.history
+            && self.previous_sample == other.previous_sample
+            && self.history_digest == other.history_digest
+            && self.history_samples == other.history_samples
     }
 }
 
@@ -704,6 +726,8 @@ impl WorkstationHarness {
         });
         let mut prime = Vec::with_capacity(SENSOR_COUNT);
         let mut vision = Eye::ALL.map(|_| Vec::with_capacity(RECEPTORS_PER_EYE));
+        let mut chromatic_vision =
+            Eye::ALL.map(|_| Vec::with_capacity(CHROMATIC_RECEPTORS_PER_EYE));
         let mut salience = Eye::ALL.map(|_| Vec::with_capacity(RECEPTORS_PER_EYE));
         let mut value = Eye::ALL.map(|_| vec![0_u32; RECEPTORS_PER_EYE]);
         for eye in Eye::ALL {
@@ -715,6 +739,18 @@ impl WorkstationHarness {
                 let nearby = eye_palm_nearness(&opportunities, eye, receptor);
                 let sensor = attach_sampled_sensor(&mut body, LIGHT_RANGE, &nearby, &mut prime);
                 vision[eye.index()].push(sensor);
+                for _ in 0..CHROMATIC_CHANNELS {
+                    let chromatic = attach_sensor(
+                        &mut body,
+                        Junction::sampled_in(SENSOR_LIFETIME, OPPONENT_RANGE),
+                        &nearby,
+                    );
+                    // Opponent cells are neutral at birth. A gray first frame
+                    // is therefore identity; the first chromatic difference
+                    // remains a real sampled transition.
+                    prime.push(Arrival::new(chromatic, 0));
+                    chromatic_vision[eye.index()].push(chromatic);
+                }
                 // The birthright foveation reflex: a tonic salience cell per
                 // receptor, wired to the eye opportunities that move gaze
                 // toward this receptor. The arc's impulse reaches the motor
@@ -797,6 +833,7 @@ impl WorkstationHarness {
         body.run(MOMENT_LIMIT, |_| {}).map_err(body_error)?;
         let mut handles = Handles {
             vision,
+            chromatic_vision,
             global_vision: Eye::ALL.map(|_| Vec::new()),
             visual_transients: Eye::ALL.map(|_| Vec::new()),
             foveal_vision: Eye::ALL.map(|_| Vec::new()),
@@ -824,7 +861,9 @@ impl WorkstationHarness {
             vergence_strain: 0,
             visual_attention: VisualAttention::default(),
             visual_approach: VisualApproach::default(),
-            history: Vec::new(),
+            previous_sample: None,
+            history_digest: [0; 32],
+            history_samples: 0,
         })
     }
 
@@ -1033,12 +1072,12 @@ impl WorkstationHarness {
         if admit_sensory {
             self.visual_approach.update(
                 &sample,
-                self.history.last(),
+                self.previous_sample.as_ref(),
                 &self.state,
                 &self.visual_attention,
             );
             self.visual_attention
-                .update(&sample, self.history.last(), Some(&self.state));
+                .update(&sample, self.previous_sample.as_ref(), Some(&self.state));
         }
         let state_before = self.state.clone();
         let returned_controls = if admit_sensory {
@@ -1166,7 +1205,7 @@ impl WorkstationHarness {
         let sequence = self.sequence;
         self.sequence = self.sequence.saturating_add(1);
         if admit_sensory {
-            self.history.push(sample);
+            self.admit_sample(sample)?;
         }
         let resident_bytes = self.resident_bytes();
         let body_fingerprint = self.fingerprint()?;
@@ -1229,6 +1268,20 @@ impl WorkstationHarness {
                     target,
                     i32::from(sample.eye(eye).foveal().sample(receptor_position(receptor))),
                 ));
+            }
+            for (receptor, targets) in self.handles.chromatic_vision[eye.index()]
+                .chunks_exact(CHROMATIC_CHANNELS)
+                .enumerate()
+            {
+                let signal = sample.eye(eye).foveal_chromatic().pixels()[receptor];
+                for (target, impulse) in [
+                    (targets[0], i32::from(signal.red_green())),
+                    (targets[1], i32::from(signal.blue_yellow())),
+                ] {
+                    if self.body.held(target) != Some(impulse) {
+                        wave.push(Arrival::new(target, impulse));
+                    }
+                }
             }
             if sample.eye(eye).has_world_aligned_global() {
                 for (field, target) in self.handles.global_vision[eye.index()]
@@ -1678,7 +1731,9 @@ impl WorkstationHarness {
             self.vergence_strain,
             self.visual_attention.clone(),
             self.visual_approach.clone(),
-            self.history.clone(),
+            self.previous_sample.clone(),
+            self.history_digest,
+            self.history_samples,
         ))
     }
 
@@ -1702,7 +1757,9 @@ impl WorkstationHarness {
             vergence_strain: payload.vergence_strain,
             visual_attention: payload.visual_attention,
             visual_approach: payload.visual_approach,
-            history: payload.history,
+            previous_sample: payload.previous_sample,
+            history_digest: payload.history_digest,
+            history_samples: payload.history_samples,
         })
     }
 
@@ -1723,7 +1780,9 @@ impl WorkstationHarness {
         self.reach_strain = reference.reach_strain;
         self.vergence_strain = reference.vergence_strain;
         self.visual_attention = reference.visual_attention;
-        self.history = reference.history;
+        self.previous_sample = reference.previous_sample;
+        self.history_digest = reference.history_digest;
+        self.history_samples = reference.history_samples;
         Ok(())
     }
 
@@ -1765,19 +1824,18 @@ impl WorkstationHarness {
 
     fn resident_bytes(&self) -> usize {
         std::mem::size_of::<Self>().saturating_add(
-            self.history
-                .iter()
+            self.previous_sample
+                .as_ref()
                 .map(|sample| bincode::serialized_size(sample).unwrap_or(0) as usize)
-                .sum::<usize>(),
+                .unwrap_or(0),
         )
     }
 
     fn fingerprint(&self) -> Result<String, WorkstationError> {
         let mut digest = Sha256::new();
-        digest.update(b"truelearner-compact-workstation-v1");
-        digest.update(
-            bincode::serialize(&self.history).map_err(|_| WorkstationError::InvalidCheckpoint)?,
-        );
+        digest.update(b"truelearner-compact-workstation-v2");
+        digest.update(self.history_digest);
+        digest.update(self.history_samples.to_le_bytes());
         digest.update(
             bincode::serialize(&self.state).map_err(|_| WorkstationError::InvalidCheckpoint)?,
         );
@@ -1794,6 +1852,20 @@ impl WorkstationHarness {
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect())
+    }
+
+    fn admit_sample(&mut self, sample: WorldSample) -> Result<(), WorkstationError> {
+        let encoded =
+            bincode::serialize(&sample).map_err(|_| WorkstationError::InvalidCheckpoint)?;
+        let mut digest = Sha256::new();
+        digest.update(b"truelearner-workstation-history-v1");
+        digest.update(self.history_digest);
+        digest.update(self.history_samples.to_le_bytes());
+        digest.update(encoded);
+        self.history_digest = digest.finalize().into();
+        self.history_samples = self.history_samples.saturating_add(1);
+        self.previous_sample = Some(sample);
+        Ok(())
     }
 }
 
@@ -2128,6 +2200,75 @@ mod tests {
             assert_eq!(foveal_phase(receptor), foveal_phase(horizontal_mirror));
             assert_eq!(foveal_phase(receptor), foveal_phase(vertical_mirror));
         }
+    }
+
+    #[test]
+    fn equal_luminance_colours_reach_distinct_local_opponent_receptors() {
+        let red = crate::Rgb::new(255, 0, 0);
+        let green = crate::Rgb::new(0, 75, 0);
+        assert_eq!(red.luminance(), green.luminance());
+        let visual = |colour: crate::Rgb| {
+            VisualField::new_chromatic(
+                LightField::filled(8, 8, colour.luminance()).unwrap(),
+                vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+                LightField::filled(17, 17, colour.luminance()).unwrap(),
+                crate::ChromaticField::new(9, 9, vec![colour.opponents(); RECEPTORS_PER_EYE])
+                    .unwrap(),
+            )
+            .unwrap()
+        };
+        let mut red_body = WorkstationHarness::new(1).unwrap();
+        let mut green_body = WorkstationHarness::new(1).unwrap();
+        let red_targets = red_body.handles.chromatic_vision[Eye::Left.index()][..2].to_vec();
+        let green_targets = green_body.handles.chromatic_vision[Eye::Left.index()][..2].to_vec();
+        red_body
+            .observe(
+                WorldSample::new_visual(
+                    [visual(red), visual(red)],
+                    [ContactSample::default(); TOUCH_SITES],
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        green_body
+            .observe(
+                WorldSample::new_visual(
+                    [visual(green), visual(green)],
+                    [ContactSample::default(); TOUCH_SITES],
+                )
+                .unwrap(),
+            )
+            .unwrap();
+
+        assert_eq!(red_body.body.held(red_targets[0]), Some(255));
+        assert_eq!(red_body.body.held(red_targets[1]), Some(-127));
+        assert_eq!(green_body.body.held(green_targets[0]), Some(-75));
+        assert_eq!(green_body.body.held(green_targets[1]), Some(-37));
+    }
+
+    #[test]
+    fn unchanged_neutral_opponents_add_no_sensory_arrivals() {
+        let body = WorkstationHarness::new(1).unwrap();
+        let sample = WorldSample::new(
+            [
+                LightField::filled(9, 9, 80).unwrap(),
+                LightField::filled(9, 9, 80).unwrap(),
+            ],
+            [ContactSample::default(); TOUCH_SITES],
+        )
+        .unwrap();
+        let chromatic = body
+            .handles
+            .chromatic_vision
+            .iter()
+            .flatten()
+            .copied()
+            .collect::<Vec<_>>();
+
+        assert!(body
+            .sensory_wave(&sample)
+            .iter()
+            .all(|arrival| !chromatic.contains(&arrival.target)));
     }
 
     #[test]
@@ -3329,6 +3470,32 @@ mod tests {
     }
 
     #[test]
+    fn sample_history_keeps_one_predecessor_and_a_sequence_identity() {
+        let latest = sample();
+        let alternative = WorldSample::new(
+            [
+                LightField::filled(3, 3, 9).unwrap(),
+                LightField::filled(3, 3, 8).unwrap(),
+            ],
+            [ContactSample::default(); TOUCH_SITES],
+        )
+        .unwrap();
+        let mut first = WorkstationHarness::new(5).unwrap();
+        let mut second = WorkstationHarness::new(5).unwrap();
+
+        first.admit_sample(sample()).unwrap();
+        first.admit_sample(latest.clone()).unwrap();
+        second.admit_sample(alternative).unwrap();
+        second.admit_sample(latest.clone()).unwrap();
+
+        assert_eq!(first.previous_sample, Some(latest.clone()));
+        assert_eq!(second.previous_sample, Some(latest));
+        assert_eq!(first.history_samples, 2);
+        assert_eq!(second.history_samples, 2);
+        assert_ne!(first.history_digest, second.history_digest);
+    }
+
+    #[test]
     fn external_perturbation_changes_pose_without_changing_the_learner() {
         let mut harness = WorkstationHarness::new(6).unwrap();
         let before = harness.save().unwrap().open();
@@ -3348,7 +3515,9 @@ mod tests {
         assert_eq!(after.sequence, before.sequence);
         assert_eq!(after.physical_tick, before.physical_tick);
         assert_eq!(after.pending_transitions, before.pending_transitions);
-        assert_eq!(after.history, before.history);
+        assert_eq!(after.previous_sample, before.previous_sample);
+        assert_eq!(after.history_digest, before.history_digest);
+        assert_eq!(after.history_samples, before.history_samples);
     }
 
     #[test]

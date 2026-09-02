@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Workstation2 game screen as seen by the body</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #090b10;
+      --panel: #11151c;
+      --ink: #eef2f7;
+      --muted: #9aa6b6;
+      --bezel: #121212;
+      --enabled: #b0b0b0;
+      --disabled: #404040;
+      --line: #303846;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 40% 15%, #171d28 0, var(--page) 48%);
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      padding: 28px;
+    }
+    main {
+      width: min(1050px, 100%);
+      display: grid;
+      grid-template-columns: minmax(360px, 680px) minmax(230px, 1fr);
+      gap: 30px;
+      align-items: center;
+    }
+    .screen-wrap { position: relative; }
+    .screen {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      background: var(--bezel);
+      border: 1px solid #343b46;
+      box-shadow: 0 22px 70px #000b, inset 0 0 0 1px #050505;
+      overflow: hidden;
+    }
+    .content {
+      position: absolute;
+      inset: 12.5%;
+      image-rendering: pixelated;
+      background:
+        linear-gradient(90deg, transparent 49.5%, #161922 49.5% 50.5%, transparent 50.5%),
+        linear-gradient(transparent 49.5%, #161922 49.5% 50.5%, transparent 50.5%),
+        conic-gradient(from 90deg at 50% 50%, #183e75, #183e75 25%, #111b31 0 50%, #183e75 0 75%, #111b31 0);
+      background-size: 12.5% 12.5%, 12.5% 12.5%, 100% 100%;
+      border: 1px solid #526176;
+    }
+    .shape { position: absolute; image-rendering: pixelated; }
+    .orange { left: 14%; top: 18%; width: 24%; height: 12%; background: #ff851b; }
+    .orange::after { content: ""; position: absolute; left: 50%; top: 100%; width: 50%; height: 100%; background: #ff851b; }
+    .cyan { right: 13%; top: 16%; width: 12%; height: 36%; background: #88d8f1; }
+    .red { left: 22%; bottom: 16%; width: 12%; height: 12%; background: #f93c31; box-shadow: 4.5cqw 0 #f93c31, 9cqw 0 #f93c31; }
+    .lime { right: 20%; bottom: 17%; width: 22%; height: 22%; background: #4fcc30; }
+    .control {
+      position: absolute;
+      width: 9.375%;
+      height: 9.375%;
+      background: var(--enabled);
+      box-shadow: inset 0 0 0 1px #c8c8c8;
+    }
+    .control.disabled { background: var(--disabled); box-shadow: none; }
+    .primary { left: 15.625%; top: 1.5625%; }
+    .north   { left: 45.3125%; top: 1.5625%; }
+    .reset   { left: 75%; top: 1.5625%; }
+    .west    { left: 1.5625%; top: 45.3125%; }
+    .east    { left: 89.0625%; top: 45.3125%; }
+    .back    { left: 15.625%; top: 89.0625%; }
+    .south   { left: 45.3125%; top: 89.0625%; }
+    .caption {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: center;
+    }
+    aside {
+      background: color-mix(in srgb, var(--panel) 90%, transparent);
+      border: 1px solid var(--line);
+      padding: 22px;
+    }
+    h1 { font: 600 21px/1.25 system-ui, sans-serif; margin: 0 0 8px; }
+    .lead { color: var(--muted); font: 14px/1.5 system-ui, sans-serif; margin: 0 0 22px; }
+    dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px 14px; font-size: 13px; }
+    dt { color: #d9e1ec; }
+    dd { margin: 0; color: var(--muted); }
+    .swatch { display: inline-block; width: 11px; height: 11px; margin-right: 7px; vertical-align: -1px; }
+    .note { border-top: 1px solid var(--line); margin-top: 20px; padding-top: 16px; color: #c7d0dc; font: 13px/1.5 system-ui, sans-serif; }
+    @media (max-width: 760px) {
+      body { padding: 16px; }
+      main { grid-template-columns: 1fr; }
+      aside { order: -1; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="screen-wrap" aria-label="The literal unlabeled screen presented to the body">
+      <div class="screen">
+        <div class="content">
+          <span class="shape orange"></span>
+          <span class="shape cyan"></span>
+          <span class="shape red"></span>
+          <span class="shape lime"></span>
+        </div>
+        <span class="control primary"></span>
+        <span class="control north"></span>
+        <span class="control reset disabled"></span>
+        <span class="control west"></span>
+        <span class="control east"></span>
+        <span class="control back"></span>
+        <span class="control south"></span>
+      </div>
+      <div class="caption">Literal screen input: RGB light, with no words, arrows, action numbers, or ARC hints.</div>
+    </section>
+
+    <aside>
+      <h1>Workstation2 game surface</h1>
+      <p class="lead">Observer key. RGB becomes luminance plus two opponent retinal signals. The body must learn control meanings from consequences.</p>
+      <dl>
+        <dt>top-left pad</dt><dd>primary · action 5</dd>
+        <dt>top-centre</dt><dd>north · action 1</dd>
+        <dt>top-right</dt><dd>reset · dim and inert for ARC</dd>
+        <dt>left / right</dt><dd>west 3 · east 4</dd>
+        <dt>bottom-left</dt><dd>back · action 7</dd>
+        <dt>bottom-centre</dt><dd>south · action 2</dd>
+        <dt>game image</dt><dd>touch a cell · action 6</dd>
+      </dl>
+      <p class="note"><span class="swatch" style="background:var(--enabled)"></span>Bright pad: currently available<br><span class="swatch" style="background:var(--disabled)"></span>Dim pad: unavailable and inert</p>
+    </aside>
+  </main>
+</body>
+</html>

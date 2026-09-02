@@ -4,6 +4,7 @@
 mod application;
 mod display;
 mod draw;
+mod game_surface;
 mod screen;
 mod session;
 mod target;
@@ -14,7 +15,7 @@ pub use display::{
     ARC_VIEWPORT_SIDE, DISPLAY_SIDE,
 };
 pub use draw::Rect;
-pub use screen::{DeviceEvent, ScreenPoint, TouchId, CONTACT_DEPTH};
+pub use screen::{BezelControl, DeviceEvent, ScreenPoint, TouchId, CONTACT_DEPTH};
 pub use session::{Workstation2Observation, Workstation2Session};
 pub use target::{TargetApp, TargetLayout, TARGET_SIDE};
 pub use world::Workstation2;

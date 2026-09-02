@@ -72,6 +72,12 @@ struct ReadyChoice {
     fresh_through: Option<LinkId>,
 }
 
+#[derive(Clone, Debug, Default)]
+struct ChoiceIncidence {
+    witnesses: BTreeMap<(JunctionId, u8), Option<JunctionId>>,
+    outcome_sources: BTreeMap<JunctionId, Vec<JunctionId>>,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn form_and_choose<T: TraceSink>(
     body: ReactionView<'_>,
@@ -86,6 +92,7 @@ fn form_and_choose<T: TraceSink>(
     construction: bool,
     trace: &mut T,
 ) {
+    let mut incidence = ChoiceIncidence::default();
     for fact in facts.iter_mut() {
         if !fact.boundary {
             continue;
@@ -99,6 +106,7 @@ fn form_and_choose<T: TraceSink>(
             fact.drive,
             ready,
             connected_outcomes,
+            &mut incidence,
         );
         fact.had_ready_path = ready.len() > ready_start;
         let mut next = body
@@ -142,7 +150,12 @@ fn form_and_choose<T: TraceSink>(
                     },
                 );
                 let connected_start = connected_outcomes.len();
-                append_outcome_sources(body, morphology.to, connected_outcomes);
+                append_outcome_sources(
+                    body,
+                    morphology.to,
+                    connected_outcomes,
+                    &mut incidence,
+                );
                 let connected_end = connected_outcomes.len();
                 ready.push(CandidatePath {
                     surface,
@@ -182,11 +195,13 @@ fn form_and_choose<T: TraceSink>(
                         WitnessKind::Closure {
                             offers_choice: true,
                         },
+                        &mut incidence,
                     ),
                     progress_source: unique_witness_source(
                         body,
                         morphology.to,
                         WitnessKind::Progress,
+                        &mut incidence,
                     ),
                     resisted_progress: false,
                     boundary_open: false,
@@ -203,7 +218,13 @@ fn form_and_choose<T: TraceSink>(
         }
     }
 
-    append_recurrent_motor_paths(body, moment, ready, connected_outcomes);
+    append_recurrent_motor_paths(
+        body,
+        moment,
+        ready,
+        connected_outcomes,
+        &mut incidence,
+    );
     mark_current_returns(body, facts, ready, connected_outcomes);
     mark_reentries(body, facts, ready, reentry, change, construction);
     mark_motif_reentries(body, ready, &reentry.present, construction);
@@ -352,6 +373,7 @@ fn append_recurrent_motor_paths(
     moment: &PhysicalMoment,
     paths: &mut Vec<CandidatePath>,
     connected_outcomes: &mut Vec<JunctionId>,
+    incidence: &mut ChoiceIncidence,
 ) {
     let start = paths.len();
     for (at, output) in moment.boundary_arrivals() {
@@ -365,7 +387,7 @@ fn append_recurrent_motor_paths(
         }
         for second in body.arena.incoming(output) {
             let Some((path, outcome, _occurrence, outcome_source)) =
-                recurrent_path(body, second, at)
+                recurrent_path(body, second, at, incidence)
             else {
                 continue;
             };
@@ -375,7 +397,13 @@ fn append_recurrent_motor_paths(
                 continue;
             }
             let connected_start = connected_outcomes.len();
-            append_connected_outcomes(body, path.middle, path.output, connected_outcomes);
+            append_connected_outcomes(
+                body,
+                path.middle,
+                path.output,
+                connected_outcomes,
+                incidence,
+            );
             let connected_end = connected_outcomes.len();
             let mut candidate = existing_candidate(
                 body,
@@ -384,6 +412,7 @@ fn append_recurrent_motor_paths(
                 1,
                 connected_start,
                 connected_end,
+                incidence,
             );
             candidate.return_present = true;
             candidate.outcome = Some(outcome);
@@ -399,7 +428,7 @@ fn append_recurrent_motor_paths(
         .iter()
         .enumerate()
         .filter(|(candidate, _)| {
-            recurrent_candidate_is_selected(body, &paths[start..], *candidate)
+            recurrent_candidate_is_selected(body, &paths[start..], *candidate, incidence)
         })
         .map(|(_, candidate)| candidate.clone())
         .collect::<Vec<_>>();
@@ -411,6 +440,7 @@ fn recurrent_candidate_is_selected(
     body: ReactionView<'_>,
     candidates: &[CandidatePath],
     candidate: usize,
+    incidence: &mut ChoiceIncidence,
 ) -> bool {
     let path = &candidates[candidate];
     let Some(exact_source) = path.outcome_source else {
@@ -419,13 +449,14 @@ fn recurrent_candidate_is_selected(
     if !recurrent_exact_representative(candidates, candidate) {
         return false;
     }
-    let competition_source = recurrent_competition_source(body, path).unwrap_or(exact_source);
+    let competition_source =
+        recurrent_competition_source(body, path, incidence).unwrap_or(exact_source);
     let oldest_component = candidates
         .iter()
         .enumerate()
         .filter(|(index, other)| {
             recurrent_exact_representative(candidates, *index)
-                && recurrent_competition_source(body, other) == Some(competition_source)
+                && recurrent_competition_source(body, other, incidence) == Some(competition_source)
         })
         .map(|(_, other)| other.participated_at)
         .min()
@@ -434,7 +465,7 @@ fn recurrent_candidate_is_selected(
         && unique_ready(candidates.iter().enumerate().filter_map(|(index, other)| {
             (other.participated_at == oldest_component
                 && recurrent_exact_representative(candidates, index)
-                && recurrent_competition_source(body, other) == Some(competition_source))
+                && recurrent_competition_source(body, other, incidence) == Some(competition_source))
             .then_some(index)
         })) == Some(candidate)
 }
@@ -465,6 +496,7 @@ fn recurrent_exact_representative(candidates: &[CandidatePath], candidate: usize
 fn recurrent_competition_source(
     body: ReactionView<'_>,
     path: &CandidatePath,
+    incidence: &mut ChoiceIncidence,
 ) -> Option<JunctionId> {
     let exact = path.outcome_source?;
     Some(
@@ -474,6 +506,7 @@ fn recurrent_competition_source(
             WitnessKind::Closure {
                 offers_choice: false,
             },
+            incidence,
         )
         .unwrap_or(exact),
     )
@@ -483,6 +516,7 @@ fn recurrent_path(
     body: ReactionView<'_>,
     second: LinkId,
     at: Time,
+    incidence: &mut ChoiceIncidence,
 ) -> Option<(Path, Outcome, Occurrence, JunctionId)> {
     let path = path_from_drive(body, second)?;
     let memory = &body.arrows[path.second.slot()];
@@ -495,7 +529,7 @@ fn recurrent_path(
         || memory.boundary_inhibited()
         || path_has_open_return(body, path.middle, path.output)
         || !path_is_executable(body, path.surface, true)
-        || path_surface_transmitted_near(body, path, at)
+        || path_surface_transmitted_near(body, path, at, incidence)
     {
         return None;
     }
@@ -505,6 +539,7 @@ fn recurrent_path(
         WitnessKind::Closure {
             offers_choice: true,
         },
+        incidence,
     )?;
     let competition_source = unique_witness_source(
         body,
@@ -512,6 +547,7 @@ fn recurrent_path(
         WitnessKind::Closure {
             offers_choice: false,
         },
+        incidence,
     )
     .unwrap_or(outcome_source);
     if closure_component_transmitted_near(body, competition_source, at) {
@@ -520,13 +556,19 @@ fn recurrent_path(
     Some((path, outcome, occurrence, outcome_source))
 }
 
-fn path_surface_transmitted_near(body: ReactionView<'_>, path: Path, at: Time) -> bool {
+fn path_surface_transmitted_near(
+    body: ReactionView<'_>,
+    path: Path,
+    at: Time,
+    incidence: &mut ChoiceIncidence,
+) -> bool {
     let component = unique_witness_source(
         body,
         path.output,
         WitnessKind::Closure {
             offers_choice: false,
         },
+        incidence,
     );
     let mut next = body
         .arena
@@ -558,6 +600,7 @@ fn path_surface_transmitted_near(body: ReactionView<'_>, path: Path, at: Time) -
                             WitnessKind::Closure {
                                 offers_choice: false,
                             },
+                            incidence,
                         ) == component
                     {
                         return true;
@@ -612,6 +655,7 @@ fn append_existing_ready_paths(
     drive: u16,
     paths: &mut Vec<CandidatePath>,
     connected_outcomes: &mut Vec<JunctionId>,
+    incidence: &mut ChoiceIncidence,
 ) {
     let surface = event.junction;
     let mut next = body
@@ -637,7 +681,13 @@ fn append_existing_ready_paths(
             let memory = &body.arrows[second_id.slot()];
             if memory.is_drive() && memory.factors().is_none() && link.impulse != 0 {
                 let connected_start = connected_outcomes.len();
-                append_connected_outcomes(body, first.to, link.to, connected_outcomes);
+                append_connected_outcomes(
+                    body,
+                    first.to,
+                    link.to,
+                    connected_outcomes,
+                    incidence,
+                );
                 let connected_end = connected_outcomes.len();
                 paths.push(existing_candidate(
                     body,
@@ -652,6 +702,7 @@ fn append_existing_ready_paths(
                     drive,
                     connected_start,
                     connected_end,
+                    incidence,
                 ));
             }
         }
@@ -666,6 +717,7 @@ fn existing_candidate(
     drive: u16,
     connected_start: usize,
     connected_end: usize,
+    incidence: &mut ChoiceIncidence,
 ) -> CandidatePath {
     let first = *body.arena.link(path.first).expect("live path entry");
     let second = *body.arena.link(path.second).expect("live path drive");
@@ -712,8 +764,14 @@ fn existing_candidate(
             WitnessKind::Closure {
                 offers_choice: true,
             },
+            incidence,
         ),
-        progress_source: unique_witness_source(body, path.output, WitnessKind::Progress),
+        progress_source: unique_witness_source(
+            body,
+            path.output,
+            WitnessKind::Progress,
+            incidence,
+        ),
         resisted_progress: false,
         boundary_open: memory.participation() > 0 && !memory.boundary_closed(),
         boundary_inhibited: memory.boundary_inhibited(),

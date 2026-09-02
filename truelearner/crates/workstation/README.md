@@ -9,7 +9,9 @@ cursor, click, key, character, object, target, word, score, or evaluator
 meaning. A later external world owns the real keyboard geometry, continuous
 touchpad, monitor pixels, images, collision, and device state.
 
-Each eye receives its own raster and owns horizontal and vertical movement.
+Each eye receives its own RGB raster and owns horizontal and vertical movement.
+The retina preserves luminance and adds local red-green and blue-yellow
+opponent receptors; grayscale remains chromatically neutral.
 There is no built-in vergence control and no fused depth channel. Any useful
 relation between the two views must form from separate pixels, separate eye
 position, and their shared physical consequences.

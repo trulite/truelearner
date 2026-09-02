@@ -2,6 +2,7 @@ use crate::{
     Arc3ActionWitness, Arc3Error, Arc3Sensorimotor, Arc3SensorimotorObservation,
     Arc3SensorimotorSnapshot,
 };
+use academy_workstation2::BezelControl;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -64,6 +65,21 @@ impl Arc3ActionCatalog {
 
     pub fn contains(&self, id: u8) -> bool {
         self.offers.iter().any(|offer| offer.id == id)
+    }
+
+    fn surface_affordances(&self) -> (bool, Vec<BezelControl>) {
+        let controls = [
+            (1, BezelControl::North),
+            (2, BezelControl::South),
+            (3, BezelControl::West),
+            (4, BezelControl::East),
+            (5, BezelControl::Primary),
+            (7, BezelControl::Back),
+        ]
+        .into_iter()
+        .filter_map(|(id, control)| self.contains(id).then_some(control))
+        .collect();
+        (self.contains(6), controls)
     }
 }
 
@@ -128,7 +144,8 @@ impl Arc3CapstoneAgent {
         actions: Arc3ActionCatalog,
     ) -> Result<Arc3CapstoneObservation, Arc3Error> {
         actions.validate()?;
-        let organism = self.organism.observe(frame)?;
+        let (point_enabled, controls) = actions.surface_affordances();
+        let organism = self.organism.observe(frame, point_enabled, &controls)?;
         let (action_witnesses, call) =
             filter_application_input(organism.application_input.as_ref(), &actions);
         Ok(Arc3CapstoneObservation {
@@ -176,7 +193,7 @@ fn filter_application_input(
 mod tests {
     use super::*;
     use crate::{Arc3DeviceInput, ARC3_FRAME_PIXELS};
-    use academy_workstation2::{DeviceEvent, ScreenPoint, TouchId};
+    use academy_workstation2::{DeviceEvent, TouchId};
 
     fn catalog(ids: &[u8]) -> Arc3ActionCatalog {
         Arc3ActionCatalog {
@@ -229,15 +246,29 @@ mod tests {
     }
 
     #[test]
-    fn catalog_cannot_change_physical_workstation_steps() {
+    fn catalog_projects_to_generic_surface_affordances() {
+        let (point, controls) = catalog(&[7, 6, 5, 1]).surface_affordances();
+        assert!(point);
+        assert_eq!(
+            controls,
+            vec![
+                BezelControl::North,
+                BezelControl::Primary,
+                BezelControl::Back
+            ]
+        );
+    }
+
+    #[test]
+    fn catalog_order_cannot_change_physical_workstation_steps() {
         let checkpoint = cold_body_negative_checkpoint();
         let mut left = Arc3CapstoneAgent::restore(&checkpoint).unwrap();
         let mut right = Arc3CapstoneAgent::restore(&checkpoint).unwrap();
         let left = left
-            .observe(vec![0; ARC3_FRAME_PIXELS], catalog(&[1]))
+            .observe(vec![0; ARC3_FRAME_PIXELS], catalog(&[1, 7]))
             .unwrap();
         let right = right
-            .observe(vec![0; ARC3_FRAME_PIXELS], catalog(&[7]))
+            .observe(vec![0; ARC3_FRAME_PIXELS], catalog(&[7, 1]))
             .unwrap();
         assert_eq!(left.organism.steps, right.organism.steps);
         assert_eq!(left.organism.device_events, right.organism.device_events);
@@ -246,9 +277,10 @@ mod tests {
     #[test]
     fn offered_actions_filter_only_after_a_complete_device_gesture() {
         let input = Arc3DeviceInput {
-            event: DeviceEvent::TouchEnded {
+            event: DeviceEvent::ContentActivated {
                 touch: TouchId::new(0).unwrap(),
-                at: ScreenPoint { x: 512, y: 512 },
+                column: 31,
+                row: 31,
             },
             call: Arc3ActionCall {
                 id: 6,

@@ -647,20 +647,19 @@ action catalog. Its organism-facing request contains only a 64×64 palette frame
 and the outer catalog used after device input has crossed the workstation.
 
 `Arc3Sensorimotor` restores an opaque current `WorkstationCheckpoint`, attaches
-the pixels-only Workstation2 application, converts the palette to luminance,
-and takes at most 32 ordinary physical steps. The body receives only the normal
+the generic Workstation2 game surface, converts the palette to RGB, and takes
+at most 32 ordinary physical steps. The retina derives luminance plus two
+foveal opponent signals. The body receives only the normal
 `WorldSample`: retinal light, screen contact, and proprioception. Device events,
-gesture tracks, action offers, application state, and verdicts remain outside
-the harness.
+action offers, application state, and verdicts remain outside the harness.
 
-A complete touch track yields at most one application input. `TouchStarted`
-opens the external track and `TouchMoved` updates its path without emitting an
-action. At `TouchEnded`, path travel at or below the generic tap threshold emits
-action 6 at the release point. Longer travel emits one dominant signed
-direction, actions 1 through 4; horizontal wins equal-magnitude ties. Actions 5
-and 7 remain unmapped because Workstation2 exposes no corresponding generic
-device event. The action catalog may accept or reject the completed input only
-after this classification.
+The game surface composes a central content viewport with seven equal-size
+bezel controls. Offered unit actions light and activate their corresponding
+generic control; action 6 activates content. A touch must start and end in the
+same enabled region without exceeding the ordinary tap-travel bound. It then
+emits one `ControlActivated` or `ContentActivated` event. The ARC adapter maps
+North, South, West, East, Primary, content point, and Back to actions 1 through
+7. Catalog order and duplicates cannot change the rendered surface.
 
 The process command cannot represent score, game or level identity, expected
 action, target identity, evaluator state, `BodyControl`, or `MotorEffect`.
@@ -669,7 +668,8 @@ corrupt checkpoints fail before committing a sensorimotor transition. Frozen
 evidence records pixels, generic events, body observations, physical traces,
 work, fingerprints, and exact fresh-process replay.
 
-The named fresh-body course now acquires `Sequence` and stops at `Drag`.
-Running ARC from this incomplete course remains a `plumbing-negative-control`.
-It carries no ARC capability or score claim. Server-selected and private
+The named fresh-body course acquires the ARC prerequisites through `Sequence`
+and stops at the independent `Drag` capability. ARC runs remain
+`plumbing-negative-control` until the body passes the generic game-surface
+probe. They carry no ARC capability or score claim. Server-selected and private
 holdouts remain uninspected.

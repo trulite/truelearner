@@ -56,7 +56,7 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(protocol["course_frontier"], "Drag")
         self.assertEqual(protocol["workstation_course_steps"], 256)
         self.assertEqual(protocol["workstation_course_seed"], 11)
-        self.assertEqual(protocol["unmapped_actions"], [5, 7])
+        self.assertEqual(protocol["unmapped_actions"], [])
         self.assertEqual(
             protocol["diagnostic_classification"], "plumbing-negative-control"
         )

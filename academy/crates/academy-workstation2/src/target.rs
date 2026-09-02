@@ -316,6 +316,7 @@ impl TargetApp {
                         }
                     }
                 }
+                DeviceEvent::ContentActivated { .. } | DeviceEvent::ControlActivated { .. } => {}
             }
         }
     }

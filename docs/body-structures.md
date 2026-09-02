@@ -161,6 +161,13 @@ struct BodyControl { axis: BodyAxis, direction: Direction }
 
 struct ApproachLine { strength: u8, pending: u8, inhibited: u8 }
 struct VisualApproach { lines: Vec<ApproachLine> } // fixed 16x16 anatomy
+
+struct Rgb { red: u8, green: u8, blue: u8 }
+struct ChromaticSignal { red_green: i16, blue_yellow: i16 }
+struct ColorField { width: u16, height: u16, pixels: Vec<Rgb> }
+struct ChromaticField {
+    width: u16, height: u16, pixels: Vec<ChromaticSignal>,
+}
 ```
 
 `BodyControl` serializes directly; there is no parallel command representation.
@@ -196,6 +203,13 @@ learned links retain their physical meaning. Eye position advances in 32-unit
 quanta under the existing 128-unit velocity cap; planar palm motion advances in
 8-unit quanta under its existing 64-unit cap.
 
+The screen owns one RGB raster. Retinal projection derives Rec. 709 luminance
+plus signed red-green and blue-yellow opponent responses. Luminance continues
+to own global layout, salience, gaze, and approach. Each original 9x9 foveal
+location also owns two opponent sensor junctions with the same local motor
+incidence. Gray light is zero on both opponent axes. Any RGB change raises the
+ordinary spatial transient even when luminance is unchanged.
+
 The pointer finger has one flexion axis. Its fingertip shares the palm's
 horizontal and vertical position and has depth relative to the palm. Screen
 pressure is local to finger flexion; tangential slip is local to planar arm
@@ -204,9 +218,9 @@ contact component. Planar motion is independent.
 Palm depth moves at most one 16-unit quantum per body step, so discrete motion
 cannot place the arm beyond the finger's withdrawal range at first contact.
 
-Checkpoint version 19 stores the finger position and separate visual-approach
-lines. Older
-incompatible checkpoint versions are rejected. The public API creates ordinary
+Checkpoint version 20 stores the opponent receptors, finger position, and
+separate visual-approach lines. Older incompatible checkpoint versions are
+rejected. The public API creates ordinary
 junctions and drives, supplies arrivals, runs time, observes frozen traces, and
 checkpoints/restores. Narrow internal constructors create entries, witnesses,
 returns, and memberships. No public API sets a raw role or submits the internal

@@ -1,11 +1,13 @@
 use crate::application::Application;
 use crate::display::{display_from_screen, DisplayPoint, DisplayRect, Viewport, DISPLAY_SIDE};
+use crate::game_surface::GameSurface;
 use crate::screen::{Touchscreen, CONTACT_DEPTH};
 use crate::target::TargetApp;
-use crate::{DeviceEvent, ScreenPoint};
+use crate::{BezelControl, DeviceEvent, ScreenPoint};
 use truelearner_workstation::{
-    Eye, LightField, VisualField, WorkstationError, WorkstationState, WorldSample,
-    FOVEAL_VISION_SIDE, GLOBAL_CHANGE_SUBREGIONS, GLOBAL_VISION_FIELDS, GLOBAL_VISION_SIDE,
+    ChromaticField, ColorField, Eye, LightField, Rgb, VisualField, WorkstationError,
+    WorkstationState, WorldSample, CHROMATIC_VISION_SIDE, FOVEAL_VISION_SIDE,
+    GLOBAL_CHANGE_SUBREGIONS, GLOBAL_VISION_FIELDS, GLOBAL_VISION_SIDE,
 };
 
 const GLOBAL_FIELD_SIDE: u16 = DISPLAY_SIDE / GLOBAL_VISION_SIDE as u16;
@@ -25,23 +27,29 @@ enum App {
     Keyboard(Application),
     Target(TargetApp),
     Pixels(LightField),
+    ColorPixels(ColorField),
+    GameSurface(GameSurface),
 }
 
 impl App {
-    fn frame(&self) -> LightField {
+    fn frame(&self) -> ColorField {
         match self {
-            Self::Keyboard(app) => app.frame(),
-            Self::Target(app) => app.frame(),
-            Self::Pixels(frame) => frame.clone(),
+            Self::Keyboard(app) => ColorField::from_luminance(&app.frame()),
+            Self::Target(app) => ColorField::from_luminance(&app.frame()),
+            Self::Pixels(frame) => ColorField::from_luminance(frame),
+            Self::ColorPixels(frame) => frame.clone(),
+            Self::GameSurface(app) => app.frame(),
         }
     }
 
-    fn apply(&mut self, events: &[DeviceEvent]) {
+    fn apply(&mut self, events: &[DeviceEvent]) -> Vec<DeviceEvent> {
         match self {
             Self::Keyboard(app) => app.apply(events),
             Self::Target(app) => app.apply(events),
-            Self::Pixels(_) => {}
+            Self::Pixels(_) | Self::ColorPixels(_) => return Vec::new(),
+            Self::GameSurface(app) => return app.apply(events),
         }
+        Vec::new()
     }
 }
 
@@ -50,7 +58,7 @@ pub struct Workstation2 {
     screen: Touchscreen,
     application: App,
     viewport: Viewport,
-    previous_frame: Option<LightField>,
+    previous_frame: Option<ColorField>,
     transient_lifetimes: Vec<u8>,
     transient_kinds: Vec<u8>,
 }
@@ -95,6 +103,19 @@ impl Workstation2 {
         }
     }
 
+    /// Attach an ordinary colour pixels-only application to the touchscreen.
+    pub fn with_color_pixels(frame: ColorField) -> Self {
+        let viewport = Viewport::full(frame.width(), frame.height()).expect("non-empty frame");
+        Self {
+            screen: Touchscreen::new(CONTACT_DEPTH),
+            application: App::ColorPixels(frame),
+            viewport,
+            previous_frame: None,
+            transient_lifetimes: vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            transient_kinds: vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+        }
+    }
+
     pub fn with_pixels_in_viewport(
         frame: LightField,
         viewport: Viewport,
@@ -106,6 +127,23 @@ impl Workstation2 {
             screen: Touchscreen::new(CONTACT_DEPTH),
             application: App::Pixels(frame),
             viewport,
+            previous_frame: None,
+            transient_lifetimes: vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            transient_kinds: vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+        })
+    }
+
+    pub fn with_game_surface(
+        frame: ColorField,
+        point_enabled: bool,
+        enabled: &[BezelControl],
+    ) -> Result<Self, WorkstationError> {
+        let application = App::GameSurface(GameSurface::new(frame, point_enabled, enabled)?);
+        let frame = application.frame();
+        Ok(Self {
+            screen: Touchscreen::new(CONTACT_DEPTH),
+            application,
+            viewport: Viewport::full(frame.width(), frame.height()).expect("non-empty frame"),
             previous_frame: None,
             transient_lifetimes: vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
             transient_kinds: vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
@@ -124,7 +162,40 @@ impl Workstation2 {
                 *current = frame;
                 Ok(())
             }
-            App::Keyboard(_) | App::Target(_) => Err(WorkstationError::InvalidState),
+            App::Keyboard(_) | App::Target(_) | App::ColorPixels(_) | App::GameSurface(_) => {
+                Err(WorkstationError::InvalidState)
+            }
+        }
+    }
+
+    pub fn replace_color_pixels(&mut self, frame: ColorField) -> Result<(), WorkstationError> {
+        match &mut self.application {
+            App::ColorPixels(current) => {
+                if frame.width() != self.viewport.source_width()
+                    || frame.height() != self.viewport.source_height()
+                {
+                    return Err(WorkstationError::InvalidState);
+                }
+                *current = frame;
+                Ok(())
+            }
+            App::Keyboard(_) | App::Target(_) | App::Pixels(_) | App::GameSurface(_) => {
+                Err(WorkstationError::InvalidState)
+            }
+        }
+    }
+
+    pub fn replace_game_surface(
+        &mut self,
+        frame: ColorField,
+        point_enabled: bool,
+        enabled: &[BezelControl],
+    ) -> Result<(), WorkstationError> {
+        match &mut self.application {
+            App::GameSurface(surface) => surface.replace(frame, point_enabled, enabled),
+            App::Keyboard(_) | App::Target(_) | App::Pixels(_) | App::ColorPixels(_) => {
+                Err(WorkstationError::InvalidState)
+            }
         }
     }
 
@@ -148,7 +219,7 @@ impl Workstation2 {
     pub fn target(&self) -> Option<&TargetApp> {
         match &self.application {
             App::Target(app) => Some(app),
-            App::Keyboard(_) | App::Pixels(_) => None,
+            App::Keyboard(_) | App::Pixels(_) | App::ColorPixels(_) | App::GameSurface(_) => None,
         }
     }
 
@@ -160,43 +231,39 @@ impl Workstation2 {
             &mut self.transient_kinds,
             &fresh_changes,
         );
-        let eyes = [
-            VisualField::new(
-                render_global(&display, self.viewport, body, Eye::Left)?,
-                changed.clone(),
-                render_fovea(&display, self.viewport, body, Eye::Left)?,
-            )?,
-            VisualField::new(
-                render_global(&display, self.viewport, body, Eye::Right)?,
-                changed,
-                render_fovea(&display, self.viewport, body, Eye::Right)?,
-            )?,
-        ];
+        let eyes = Eye::ALL.map(|eye| {
+            let global = render_global(&display, self.viewport, body, eye)?;
+            let (foveal, foveal_chromatic) =
+                render_fovea_channels(&display, self.viewport, body, eye)?;
+            VisualField::new_chromatic(global, changed.clone(), foveal, foveal_chromatic)
+        });
+        let eyes = [eyes[0].clone()?, eyes[1].clone()?];
         self.previous_frame = Some(display);
         WorldSample::new_visual(eyes, self.screen.contacts(body))
     }
 
     pub fn advance(&mut self, body: &WorkstationState) -> Vec<DeviceEvent> {
-        let events = self.screen.advance(body);
-        self.application.apply(&events);
+        let mut events = self.screen.advance(body);
+        let completed = self.application.apply(&events);
+        events.extend(completed);
         events
     }
 
     pub fn apply_device_events(&mut self, events: &[DeviceEvent]) {
-        self.application.apply(events);
+        let _ = self.application.apply(events);
     }
 
     pub fn text(&self) -> &str {
         match &self.application {
             App::Keyboard(app) => app.text(),
-            App::Target(_) | App::Pixels(_) => "",
+            App::Target(_) | App::Pixels(_) | App::ColorPixels(_) | App::GameSurface(_) => "",
         }
     }
 
     pub const fn scale(&self) -> i16 {
         match &self.application {
             App::Keyboard(app) => app.scale(),
-            App::Target(_) | App::Pixels(_) => 0,
+            App::Target(_) | App::Pixels(_) | App::ColorPixels(_) | App::GameSurface(_) => 0,
         }
     }
 }
@@ -221,29 +288,41 @@ fn retain_transients(lifetimes: &mut [u8], kinds: &mut [u8], fresh: &[u8]) -> Ve
         .collect()
 }
 
-fn render_fovea(
-    display: &LightField,
+fn render_fovea_channels(
+    display: &ColorField,
     viewport: Viewport,
     body: &WorkstationState,
     eye: Eye,
-) -> Result<LightField, WorkstationError> {
+) -> Result<(LightField, ChromaticField), WorkstationError> {
     let gaze = body.eye(eye).gaze();
     let gaze = display_from_screen(ScreenPoint {
         x: gaze.x(),
         y: gaze.y(),
     });
-    render_fovea_at(display, viewport, body, eye, gaze)
+    render_fovea_channels_at(display, viewport, body, eye, gaze)
 }
 
+#[cfg(test)]
 fn render_fovea_at(
-    display: &LightField,
+    display: &ColorField,
     viewport: Viewport,
     body: &WorkstationState,
     eye: Eye,
     gaze: DisplayPoint,
 ) -> Result<LightField, WorkstationError> {
+    Ok(render_fovea_channels_at(display, viewport, body, eye, gaze)?.0)
+}
+
+fn render_fovea_channels_at(
+    display: &ColorField,
+    viewport: Viewport,
+    body: &WorkstationState,
+    eye: Eye,
+    gaze: DisplayPoint,
+) -> Result<(LightField, ChromaticField), WorkstationError> {
     let center = (FOVEAL_VISION_SIDE / 2) as i32;
-    let mut pixels = Vec::with_capacity(FOVEAL_VISION_SIDE * FOVEAL_VISION_SIDE);
+    let mut luminance = Vec::with_capacity(FOVEAL_VISION_SIDE * FOVEAL_VISION_SIDE);
+    let mut colours = Vec::with_capacity(FOVEAL_VISION_SIDE * FOVEAL_VISION_SIDE);
     for row in 0..FOVEAL_VISION_SIDE {
         for column in 0..FOVEAL_VISION_SIDE {
             let x = i32::from(gaze.x) + (column as i32 - center) * FOVEAL_PITCH;
@@ -251,7 +330,8 @@ fn render_fovea_at(
             if !(0..i32::from(DISPLAY_SIDE)).contains(&x)
                 || !(0..i32::from(DISPLAY_SIDE)).contains(&y)
             {
-                pixels.push(0);
+                luminance.push(0);
+                colours.push(Rgb::gray(0));
                 continue;
             }
             let point = DisplayPoint {
@@ -264,37 +344,59 @@ fn render_fovea_at(
                 y: (point.y / 2) as i16,
             };
             if hand_visible_at(body, eye, body_point) {
-                value = 8;
+                value = Rgb::gray(8);
             }
-            pixels.push(value);
+            luminance.push(value.luminance());
+            colours.push(value);
         }
     }
-    LightField::new(FOVEAL_VISION_SIDE as u16, FOVEAL_VISION_SIDE as u16, pixels)
+    let mut chromatic = Vec::with_capacity(CHROMATIC_VISION_SIDE * CHROMATIC_VISION_SIDE);
+    for row in 0..CHROMATIC_VISION_SIDE {
+        for column in 0..CHROMATIC_VISION_SIDE {
+            chromatic.push(colours[row * 2 * FOVEAL_VISION_SIDE + column * 2].opponents());
+        }
+    }
+    Ok((
+        LightField::new(
+            FOVEAL_VISION_SIDE as u16,
+            FOVEAL_VISION_SIDE as u16,
+            luminance,
+        )?,
+        ChromaticField::new(
+            CHROMATIC_VISION_SIDE as u16,
+            CHROMATIC_VISION_SIDE as u16,
+            chromatic,
+        )?,
+    ))
 }
 
 fn render_global(
-    display: &LightField,
+    display: &ColorField,
     viewport: Viewport,
     body: &WorkstationState,
     eye: Eye,
 ) -> Result<LightField, WorkstationError> {
-    let mut sums = [0_i64; GLOBAL_VISION_FIELDS];
+    let mut luminance_sums = [0_i64; GLOBAL_VISION_FIELDS];
     for source_y in 0..display.height() {
         for source_x in 0..display.width() {
             let rect = viewport
                 .display_rect_for_source(source_x, source_y)
                 .expect("source coordinate belongs to its viewport");
-            let value = i64::from(source_value(display, source_x, source_y));
-            add_rect_to_global_sums(&mut sums, rect, value);
+            let value = source_value(display, source_x, source_y);
+            add_rect_to_global_sums(&mut luminance_sums, rect, i64::from(value.luminance()));
         }
     }
-    overlay_hand_on_global_sums(&mut sums, display, viewport, body, eye);
+    overlay_hand_on_global_sums(&mut luminance_sums, display, viewport, body, eye);
     let area = i64::from(GLOBAL_FIELD_SIDE) * i64::from(GLOBAL_FIELD_SIDE);
-    let pixels = sums
+    let luminance = luminance_sums
         .into_iter()
         .map(|sum| u8::try_from((sum / area).clamp(0, 255)).expect("mean luminance is bounded"))
         .collect();
-    LightField::new(GLOBAL_VISION_SIDE as u16, GLOBAL_VISION_SIDE as u16, pixels)
+    LightField::new(
+        GLOBAL_VISION_SIDE as u16,
+        GLOBAL_VISION_SIDE as u16,
+        luminance,
+    )
 }
 
 fn add_rect_to_global_sums(sums: &mut [i64; GLOBAL_VISION_FIELDS], rect: DisplayRect, value: i64) {
@@ -317,8 +419,8 @@ fn add_rect_to_global_sums(sums: &mut [i64; GLOBAL_VISION_FIELDS], rect: Display
 }
 
 fn overlay_hand_on_global_sums(
-    sums: &mut [i64; GLOBAL_VISION_FIELDS],
-    display: &LightField,
+    luminance_sums: &mut [i64; GLOBAL_VISION_FIELDS],
+    display: &ColorField,
     viewport: Viewport,
     body: &WorkstationState,
     eye: Eye,
@@ -348,14 +450,15 @@ fn overlay_hand_on_global_sums(
             }
             let field = usize::from(point.y / GLOBAL_FIELD_SIDE) * GLOBAL_VISION_SIDE
                 + usize::from(point.x / GLOBAL_FIELD_SIDE);
-            sums[field] += 8 - i64::from(display_value(display, viewport, point));
+            let value = display_value(display, viewport, point);
+            luminance_sums[field] += 8 - i64::from(value.luminance());
         }
     }
 }
 
 fn render_changed(
-    previous: Option<&LightField>,
-    current: &LightField,
+    previous: Option<&ColorField>,
+    current: &ColorField,
     viewport: Viewport,
 ) -> Vec<u8> {
     let mut changed = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
@@ -374,10 +477,13 @@ fn render_changed(
             let rect = viewport
                 .display_rect_for_source(x, y)
                 .expect("source coordinate belongs to its viewport");
-            let kind = if source_value(current, x, y) > source_value(previous, x, y) {
-                2
-            } else {
-                1
+            let kind = match source_value(current, x, y)
+                .luminance()
+                .cmp(&source_value(previous, x, y).luminance())
+            {
+                std::cmp::Ordering::Greater => 2,
+                std::cmp::Ordering::Less => 1,
+                std::cmp::Ordering::Equal => 3,
             };
             mark_changed_rect(&mut changed, rect, kind);
         }
@@ -401,13 +507,13 @@ fn mark_changed_rect(changed: &mut [u8], rect: DisplayRect, kind: u8) {
     }
 }
 
-fn display_value(display: &LightField, viewport: Viewport, point: DisplayPoint) -> u8 {
+fn display_value(display: &ColorField, viewport: Viewport, point: DisplayPoint) -> Rgb {
     viewport
         .source_at(point)
-        .map_or(0, |(x, y)| source_value(display, x, y))
+        .map_or(Rgb::gray(0), |(x, y)| source_value(display, x, y))
 }
 
-fn source_value(display: &LightField, x: u16, y: u16) -> u8 {
+fn source_value(display: &ColorField, x: u16, y: u16) -> Rgb {
     display.pixels()[usize::from(y) * usize::from(display.width()) + usize::from(x)]
 }
 
@@ -434,8 +540,8 @@ fn projected_near(x: i16, y: i16, depth: i16, eye: Eye, sample: ScreenPoint) -> 
 mod tests {
     use super::*;
 
-    fn pixels(side: u16, value: u8) -> LightField {
-        LightField::filled(side, side, value).unwrap()
+    fn pixels(side: u16, value: u8) -> ColorField {
+        ColorField::filled(side, side, Rgb::gray(value)).unwrap()
     }
 
     #[test]
@@ -475,8 +581,8 @@ mod tests {
             before.iter().map(|value| u64::from(*value)).sum::<u64>(),
             after.iter().map(|value| u64::from(*value)).sum::<u64>()
         );
-        let before = LightField::new(64, 64, before).unwrap();
-        let after = LightField::new(64, 64, after).unwrap();
+        let before = ColorField::from_luminance(&LightField::new(64, 64, before).unwrap());
+        let after = ColorField::from_luminance(&LightField::new(64, 64, after).unwrap());
 
         let changed = render_changed(Some(&before), &after, viewport);
 
@@ -555,7 +661,7 @@ mod tests {
                 let value = if hand_visible_at(&body, Eye::Left, screen) {
                     8
                 } else {
-                    display_value(&display, viewport, point)
+                    display_value(&display, viewport, point).luminance()
                 };
                 let field = usize::from(y / GLOBAL_FIELD_SIDE) * GLOBAL_VISION_SIDE
                     + usize::from(x / GLOBAL_FIELD_SIDE);
@@ -577,7 +683,7 @@ mod tests {
         for value in 0..16_u8 {
             source[10 * 64 + usize::from(value)] = value * 17;
         }
-        let display = LightField::new(64, 64, source).unwrap();
+        let display = ColorField::from_luminance(&LightField::new(64, 64, source).unwrap());
         let viewport = Viewport::arc();
         let body = WorkstationState::default();
         for value in 0..16_u16 {
@@ -611,7 +717,7 @@ mod tests {
                 }
             }
         }
-        let display = LightField::new(1024, 1024, source).unwrap();
+        let display = ColorField::from_luminance(&LightField::new(1024, 1024, source).unwrap());
         let viewport = Viewport::full(1024, 1024).unwrap();
         let body = WorkstationState::default();
         let fovea = render_fovea_at(
@@ -625,5 +731,57 @@ mod tests {
         let row = &fovea.pixels()[8 * FOVEAL_VISION_SIDE..9 * FOVEAL_VISION_SIDE];
         assert!(row.windows(5).any(|window| window == [0, 240, 240, 0, 240]));
         assert!(row.windows(4).any(|window| window == [0, 240, 240, 0]));
+    }
+
+    #[test]
+    fn equal_luminance_red_and_green_reach_different_retinal_signals() {
+        let red = Rgb::new(255, 0, 0);
+        let green = Rgb::new(0, 75, 0);
+        assert_eq!(red.luminance(), green.luminance());
+        let body = WorkstationState::default();
+        let mut red_world =
+            Workstation2::with_color_pixels(ColorField::filled(64, 64, red).unwrap());
+        let mut green_world =
+            Workstation2::with_color_pixels(ColorField::filled(64, 64, green).unwrap());
+
+        let red_sample = red_world.sense(&body).unwrap();
+        let green_sample = green_world.sense(&body).unwrap();
+
+        assert_ne!(red_sample.eye(Eye::Left), green_sample.eye(Eye::Left));
+    }
+
+    #[test]
+    fn equal_luminance_colour_change_raises_a_spatial_transient() {
+        let red = Rgb::new(255, 0, 0);
+        let green = Rgb::new(0, 75, 0);
+        assert_eq!(red.luminance(), green.luminance());
+        let body = WorkstationState::default();
+        let mut world = Workstation2::with_color_pixels(ColorField::filled(64, 64, red).unwrap());
+        world.sense(&body).unwrap();
+        world
+            .replace_color_pixels(ColorField::filled(64, 64, green).unwrap())
+            .unwrap();
+
+        let changed = world.sense(&body).unwrap();
+
+        assert!(changed
+            .eye(Eye::Left)
+            .changed_values()
+            .iter()
+            .all(|value| *value == 7));
+    }
+
+    #[test]
+    fn gray_colour_transport_preserves_the_monochrome_observation() {
+        let light = LightField::filled(64, 64, 173).unwrap();
+        let colour = ColorField::from_luminance(&light);
+        let body = WorkstationState::default();
+        let mut monochrome_world = Workstation2::with_pixels(light);
+        let mut colour_world = Workstation2::with_color_pixels(colour);
+
+        assert_eq!(
+            monochrome_world.sense(&body).unwrap(),
+            colour_world.sense(&body).unwrap()
+        );
     }
 }

@@ -82,19 +82,18 @@ upgrade the twelve body capability states or imply general workstation skill.
 ## ARC-AGI-3 diagnostic
 
 `academy-arc3` runs ARC-AGI-3 as an application on the same physical
-Workstation2 touchscreen. The 64×64 frame becomes luminance pixels in the
-pixels-only application. A complete generic touch gesture becomes at most one
-external ARC input: short travel is a point action; longer travel is one
-dominant-direction action. Actions 5 and 7 have no Workstation2 event mapping.
-The legal-action catalog filters completed device input after the gesture and
-cannot choose or inhibit body movement. Game identity, score, terminal state,
-action budget, and evaluator data remain in Python.
+Workstation2 touchscreen. The 64×64 frame occupies a central game viewport.
+Generic bezel controls surround it. A completed control activation maps to
+actions 1–5 or 7; a completed content activation maps to point action 6. The
+offered catalog changes only which generic controls are lit and touch-active.
+It cannot choose or inhibit body movement. Game identity, score, terminal
+state, action budget, and evaluator data remain in Python.
 
 The course acquires the ARC prerequisites through `Sequence` and stops at the
 independent `Drag` capability. ARC may start from that frontier checkpoint.
-Runs remain `plumbing-negative-control` evidence until the generic game
-controls pass their own probes. The pinned fixture preserves the physical trace
-and exact fresh-process replay. Server-selected and private holdouts remain
+Runs remain `plumbing-negative-control` evidence until the body passes the
+generic game-surface probe. The pinned fixture preserves the physical trace and
+exact fresh-process replay. Server-selected and private holdouts remain
 untouched.
 
 ```sh

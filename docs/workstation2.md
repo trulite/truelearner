@@ -58,6 +58,7 @@ state.
   |-- signed 16x16 transient localization, retained for 32 steps
   |     `-- one-frame freshness bit distinguishes repeated changes
   `-- gaze-centred 17x17 fovea, 8 display pixels per sample
+        `-- luminance + red/green and blue/yellow opponents
 
 0..1023 body reach <-> display mapping
 ARC viewport: [256,256)..[1792,1792), 64x64 at 24x

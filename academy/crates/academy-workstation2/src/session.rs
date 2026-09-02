@@ -1,8 +1,8 @@
-use crate::{DeviceEvent, Workstation2};
+use crate::{BezelControl, DeviceEvent, Workstation2};
 use serde::{Deserialize, Serialize};
 use truelearner_workstation::{
-    BodyTraceEvent, LightField, WorkstationCheckpoint, WorkstationError, WorkstationHarness,
-    WorkstationRead, WorkstationStepObservation, WorldSample,
+    BodyTraceEvent, ColorField, LightField, WorkstationCheckpoint, WorkstationError,
+    WorkstationHarness, WorkstationRead, WorkstationStepObservation, WorldSample,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -55,6 +55,23 @@ impl Workstation2Session {
 
     pub fn replace_application_frame(&mut self, frame: LightField) -> Result<(), WorkstationError> {
         self.world.replace_pixels(frame)
+    }
+
+    pub fn replace_color_application_frame(
+        &mut self,
+        frame: ColorField,
+    ) -> Result<(), WorkstationError> {
+        self.world.replace_color_pixels(frame)
+    }
+
+    pub fn replace_game_surface(
+        &mut self,
+        frame: ColorField,
+        point_enabled: bool,
+        enabled: &[BezelControl],
+    ) -> Result<(), WorkstationError> {
+        self.world
+            .replace_game_surface(frame, point_enabled, enabled)
     }
 
     pub fn step(&mut self) -> Result<Workstation2Observation, WorkstationError> {

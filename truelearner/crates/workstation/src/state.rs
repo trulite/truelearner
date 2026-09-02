@@ -8,6 +8,201 @@ pub const AXIS_COUNT: usize = 8;
 const MAX_PIXELS: usize = 1_048_576;
 const MID: i16 = (BODY_MAX + 1) / 2;
 
+/// Three generic physical light intensities at one screen pixel.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Rgb {
+    red: u8,
+    green: u8,
+    blue: u8,
+}
+
+impl Rgb {
+    pub const fn new(red: u8, green: u8, blue: u8) -> Self {
+        Self { red, green, blue }
+    }
+
+    pub const fn gray(value: u8) -> Self {
+        Self::new(value, value, value)
+    }
+
+    pub const fn red(self) -> u8 {
+        self.red
+    }
+
+    pub const fn green(self) -> u8 {
+        self.green
+    }
+
+    pub const fn blue(self) -> u8 {
+        self.blue
+    }
+
+    /// Integer Rec. 709 luminance. The coefficients sum to 256, so gray is
+    /// identity and existing monochrome applications retain exact behavior.
+    pub const fn luminance(self) -> u8 {
+        ((self.red as u32 * 54 + self.green as u32 * 183 + self.blue as u32 * 19 + 128) / 256) as u8
+    }
+
+    pub const fn opponents(self) -> ChromaticSignal {
+        ChromaticSignal {
+            red_green: self.red as i16 - self.green as i16,
+            blue_yellow: self.blue as i16 - ((self.red as i16 + self.green as i16) / 2),
+        }
+    }
+}
+
+/// Two local opponent responses. Neutral light is zero on both axes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChromaticSignal {
+    red_green: i16,
+    blue_yellow: i16,
+}
+
+impl ChromaticSignal {
+    pub const fn new(red_green: i16, blue_yellow: i16) -> Self {
+        Self {
+            red_green,
+            blue_yellow,
+        }
+    }
+
+    pub const fn red_green(self) -> i16 {
+        self.red_green
+    }
+
+    pub const fn blue_yellow(self) -> i16 {
+        self.blue_yellow
+    }
+}
+
+/// A spatial field of the two retinal opponent responses.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChromaticField {
+    width: u16,
+    height: u16,
+    pixels: Vec<ChromaticSignal>,
+}
+
+impl ChromaticField {
+    pub fn new(
+        width: u16,
+        height: u16,
+        pixels: Vec<ChromaticSignal>,
+    ) -> Result<Self, WorkstationError> {
+        let field = Self {
+            width,
+            height,
+            pixels,
+        };
+        field.validate()?;
+        Ok(field)
+    }
+
+    pub fn neutral(width: u16, height: u16) -> Result<Self, WorkstationError> {
+        let count = usize::from(width)
+            .checked_mul(usize::from(height))
+            .ok_or(WorkstationError::LightFieldTooLarge)?;
+        Self::new(width, height, vec![ChromaticSignal::default(); count])
+    }
+
+    pub const fn width(&self) -> u16 {
+        self.width
+    }
+
+    pub const fn height(&self) -> u16 {
+        self.height
+    }
+
+    pub fn pixels(&self) -> &[ChromaticSignal] {
+        &self.pixels
+    }
+
+    fn validate(&self) -> Result<(), WorkstationError> {
+        if self.width == 0 || self.height == 0 {
+            return Err(WorkstationError::EmptyLightField);
+        }
+        let expected = usize::from(self.width)
+            .checked_mul(usize::from(self.height))
+            .ok_or(WorkstationError::LightFieldTooLarge)?;
+        if expected > MAX_PIXELS {
+            return Err(WorkstationError::LightFieldTooLarge);
+        }
+        if self.pixels.len() != expected {
+            return Err(WorkstationError::LightLength);
+        }
+        if self.pixels.iter().any(|signal| {
+            !(-255..=255).contains(&signal.red_green) || !(-255..=255).contains(&signal.blue_yellow)
+        }) {
+            return Err(WorkstationError::InvalidState);
+        }
+        Ok(())
+    }
+}
+
+/// A bounded RGB screen raster. Retinal projections derive luminance and
+/// chromatic opponents from this one physical surface.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ColorField {
+    width: u16,
+    height: u16,
+    pixels: Vec<Rgb>,
+}
+
+impl ColorField {
+    pub fn new(width: u16, height: u16, pixels: Vec<Rgb>) -> Result<Self, WorkstationError> {
+        let field = Self {
+            width,
+            height,
+            pixels,
+        };
+        field.validate()?;
+        Ok(field)
+    }
+
+    pub fn filled(width: u16, height: u16, value: Rgb) -> Result<Self, WorkstationError> {
+        let count = usize::from(width)
+            .checked_mul(usize::from(height))
+            .ok_or(WorkstationError::LightFieldTooLarge)?;
+        Self::new(width, height, vec![value; count])
+    }
+
+    pub fn from_luminance(field: &LightField) -> Self {
+        Self {
+            width: field.width,
+            height: field.height,
+            pixels: field.pixels.iter().copied().map(Rgb::gray).collect(),
+        }
+    }
+
+    pub const fn width(&self) -> u16 {
+        self.width
+    }
+
+    pub const fn height(&self) -> u16 {
+        self.height
+    }
+
+    pub fn pixels(&self) -> &[Rgb] {
+        &self.pixels
+    }
+
+    fn validate(&self) -> Result<(), WorkstationError> {
+        if self.width == 0 || self.height == 0 {
+            return Err(WorkstationError::EmptyLightField);
+        }
+        let expected = usize::from(self.width)
+            .checked_mul(usize::from(self.height))
+            .ok_or(WorkstationError::LightFieldTooLarge)?;
+        if expected > MAX_PIXELS {
+            return Err(WorkstationError::LightFieldTooLarge);
+        }
+        if self.pixels.len() != expected {
+            return Err(WorkstationError::LightLength);
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct OpposedEffort {
     decrease: u16,
@@ -569,6 +764,8 @@ pub const GLOBAL_VISION_FIELDS: usize = GLOBAL_VISION_SIDE * GLOBAL_VISION_SIDE;
 pub const GLOBAL_CHANGE_SUBREGIONS: usize = 4;
 pub const FOVEAL_VISION_SIDE: usize = 17;
 pub const FOVEAL_VISION_FIELDS: usize = FOVEAL_VISION_SIDE * FOVEAL_VISION_SIDE;
+pub const CHROMATIC_VISION_SIDE: usize = 9;
+pub const CHROMATIC_VISION_FIELDS: usize = CHROMATIC_VISION_SIDE * CHROMATIC_VISION_SIDE;
 
 /// One eye's generic multiresolution visual surface. The fixed global field
 /// carries coarse screen context and spatial transients. The gaze-centred
@@ -581,6 +778,7 @@ pub struct VisualField {
     /// pooled subregion during a spatial rearrangement.
     changed: Vec<u8>,
     foveal: LightField,
+    foveal_chromatic: ChromaticField,
     world_aligned_global: bool,
 }
 
@@ -590,10 +788,22 @@ impl VisualField {
         changed: Vec<u8>,
         foveal: LightField,
     ) -> Result<Self, WorkstationError> {
+        let foveal_chromatic =
+            ChromaticField::neutral(CHROMATIC_VISION_SIDE as u16, CHROMATIC_VISION_SIDE as u16)?;
+        Self::new_chromatic(global, changed, foveal, foveal_chromatic)
+    }
+
+    pub fn new_chromatic(
+        global: LightField,
+        changed: Vec<u8>,
+        foveal: LightField,
+        foveal_chromatic: ChromaticField,
+    ) -> Result<Self, WorkstationError> {
         let field = Self {
             global,
             changed,
             foveal,
+            foveal_chromatic,
             world_aligned_global: true,
         };
         field.validate()?;
@@ -606,6 +816,10 @@ impl VisualField {
 
     pub const fn foveal(&self) -> &LightField {
         &self.foveal
+    }
+
+    pub const fn foveal_chromatic(&self) -> &ChromaticField {
+        &self.foveal_chromatic
     }
 
     pub(crate) const fn has_world_aligned_global(&self) -> bool {
@@ -658,10 +872,13 @@ impl VisualField {
     fn validate(&self) -> Result<(), WorkstationError> {
         self.global.validate()?;
         self.foveal.validate()?;
+        self.foveal_chromatic.validate()?;
         if usize::from(self.global.width()) != GLOBAL_VISION_SIDE
             || usize::from(self.global.height()) != GLOBAL_VISION_SIDE
             || usize::from(self.foveal.width()) != FOVEAL_VISION_SIDE
             || usize::from(self.foveal.height()) != FOVEAL_VISION_SIDE
+            || usize::from(self.foveal_chromatic.width()) != CHROMATIC_VISION_SIDE
+            || usize::from(self.foveal_chromatic.height()) != CHROMATIC_VISION_SIDE
             || self.changed.len() != GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS
             || self
                 .changed
@@ -770,6 +987,23 @@ fn add_bounded(value: i16, amount: i32, min: i16, max: i16) -> i16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gray_is_luminance_identity_and_chromatically_neutral() {
+        for value in [0, 1, 127, 255] {
+            let gray = Rgb::gray(value);
+            assert_eq!(gray.luminance(), value);
+            assert_eq!(gray.opponents(), ChromaticSignal::default());
+        }
+    }
+
+    #[test]
+    fn equal_luminance_colours_have_distinct_opponent_responses() {
+        let red = Rgb::new(255, 0, 0);
+        let green = Rgb::new(0, 75, 0);
+        assert_eq!(red.luminance(), green.luminance());
+        assert_ne!(red.opponents(), green.opponents());
+    }
 
     #[test]
     fn body_control_is_one_axis_direction_product() {

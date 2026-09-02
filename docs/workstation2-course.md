@@ -27,9 +27,9 @@ What "visible" means is fixed per rung (the target jumps, a bar grows, a
 second target appears). All of it is ordinary pixels. Positions, sizes, and
 brightness bands are regenerated for every probe so fixture memory cannot pass.
 
-Colours: ARC uses about ten. Until the retina has colour, the application maps
-each colour to a distinct brightness band. This decision is made here so the
-retina does not change halfway through the course.
+Colours: the screen carries RGB. The retina derives unchanged luminance plus
+red-green and blue-yellow foveal opponent signals. Existing monochrome course
+applications therefore retain their exact light input.
 
 ## Rungs
 
@@ -105,3 +105,9 @@ At the Drag frontier, `run_with_diagnostic_checkpoint` may export the developed
 Sequence checkpoint for ARC. The current pinned fixture remains
 `plumbing-negative-control` evidence until the generic game controls pass their
 own probes. It cannot support an ARC capability or score claim.
+
+The ARC application uses a generic game surface: content in the central
+viewport and equal-size controls on the bezel. Offered controls are bright and
+touch-active; unavailable controls are dim and inert. Completed activation is a
+Workstation2 device event. ARC action numbers exist only in the external
+adapter.

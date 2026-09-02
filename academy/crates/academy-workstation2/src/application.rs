@@ -51,6 +51,7 @@ impl Application {
                         }
                     }
                 }
+                DeviceEvent::ContentActivated { .. } | DeviceEvent::ControlActivated { .. } => {}
             }
         }
     }
