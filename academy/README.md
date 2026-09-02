@@ -90,7 +90,7 @@ The legal-action catalog filters completed device input after the gesture and
 cannot choose or inhibit body movement. Game identity, score, terminal state,
 action budget, and evaluator data remain in Python.
 
-The course currently stops at `LiveKey`; `Drag` has not passed. Every run is
+The course currently stops at `Sequence`; `Drag` has not passed. Every run is
 therefore `plumbing-negative-control` evidence with no ARC capability or score
 claim. The pinned fixture preserves the physical trace and an exact
 fresh-process replay. Server-selected and private holdouts remain untouched.
@@ -99,7 +99,7 @@ fresh-process replay. Server-selected and private holdouts remain untouched.
 cargo run --release --locked --manifest-path academy/Cargo.toml \
   -p academy-workstation2-course --example course -- \
   256 fresh 11 \
-  /tmp/workstation2-live-key-frontier.bin
+  /tmp/workstation2-sequence-frontier.bin
 cargo build --release --locked --manifest-path academy/Cargo.toml \
   -p academy-arc3 --bin academy-arc3-capstone-agent
 cd academy/capstones/arc3

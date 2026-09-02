@@ -63,12 +63,14 @@ strengthening laws act on them.
    eyes converge together or not at all, and the choice machinery would
    otherwise serialize them one eye per step.
 
-3. **Pre-reach extension** (harness pulse, impulse at threshold). While a
-   salient target is seen and the palm is not in contact, the arm extends
-   toward what is seen. Contact terminates it, exactly as balance terminates
-   orienting.
+3. **Pre-reach extension** (harness pulse, initially weak). While a salient
+   target is seen, its local approach line is ready, and the palm is not in
+   contact, the arm extends toward it. Contact terminates the pulse. A returned
+   visual change strengthens only the open approach line; an omitted change
+   temporarily inhibits that line.
 
-4. **Pre-reach planar pull** (frame-level equilibrium-point shift). The
+4. **Pre-reach planar pull** (frame-level equilibrium-point shift). A ready
+   local approach line shifts the
    arm's resting posture shifts toward the salience centroid of what the
    eyes see, with a sustained aim recruiting more drive each step — the
    infant straining toward a toy, so no fixed habit can stalemate the
@@ -103,10 +105,9 @@ reflex ever built.
 
 ## What the learner still owns
 
-The reflexes deliver the first hit and the tap cycle; the course's later
-rungs demand the learner's modulation: the dead key (stop hammering what
-stopped reacting), the quiet hand (no contact on blank screens), scan
-before act, sequences, and drag. The blind controls — target drawn at zero
+The reflexes deliver the first hit. Local approach readiness modulates later
+touches: the dead key inhibits its hand path while remaining visible. The
+course's later rungs demand sequence and drag structure. The blind controls — target drawn at zero
 contrast — stay at chance because without salience every reflex is silent;
 only the learner acts, and it has not yet learned to aim.
 
@@ -119,10 +120,11 @@ touch, aimed tap, scan, quiet hand — with quiet blind controls and tap
 rates around eleven times chance (seed 11; seeds vary in how strongly the
 developed habits support the tap cycle).
 
-Live key is acquired. Fixed-screen patches compete as coherent 4-connected
+Live key and dead key are acquired. Fixed-screen patches compete as coherent 4-connected
 regions; one focus is retained per eye until release, disappearance, or a fresh
 spatial change. Disengagement records one 32-step recent region. Fresh change,
 then a non-recent peer, then brightness, then stable screen position determine
 selection. A sole patch remains selectable. Fresh onsets use the existing
 16x16 transient location, including repeated changes inside the retention
-window. The measured frontier is dead key; sequence and drag remain gated.
+window. Gaze remains active when omission inhibits only the corresponding hand
+line. The measured frontier is sequence; drag remains gated.

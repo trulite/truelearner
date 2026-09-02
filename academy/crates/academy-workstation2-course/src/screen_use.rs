@@ -287,6 +287,8 @@ pub struct RungEvidence {
     pub taps_first_half: u32,
     pub taps_second_half: u32,
     pub target_taps: u32,
+    pub target_taps_first_half: u32,
+    pub target_taps_second_half: u32,
     pub decoy_taps: u32,
     pub hits: u32,
     pub ab_pairs: u32,
@@ -294,7 +296,7 @@ pub struct RungEvidence {
     pub drag_attempts: u32,
     pub drag_hits: u32,
     pub death_step: Option<usize>,
-    pub taps_at_death: u32,
+    pub target_taps_at_death: u32,
     pub first_target_gaze_step: Option<usize>,
     pub first_target_tap_step: Option<usize>,
     pub goal_chance: f64,
@@ -313,6 +315,8 @@ impl RungEvidence {
             taps_first_half: 0,
             taps_second_half: 0,
             target_taps: 0,
+            target_taps_first_half: 0,
+            target_taps_second_half: 0,
             decoy_taps: 0,
             hits: 0,
             ab_pairs: 0,
@@ -320,7 +324,7 @@ impl RungEvidence {
             drag_attempts: 0,
             drag_hits: 0,
             death_step: None,
-            taps_at_death: 0,
+            target_taps_at_death: 0,
             first_target_gaze_step: None,
             first_target_tap_step: None,
             goal_chance: 0.0,
@@ -343,8 +347,8 @@ impl RungEvidence {
         };
         let alive_steps = (death + 1).max(1);
         let dead_steps = self.steps.saturating_sub(death + 1).max(1);
-        let alive_rate = f64::from(self.taps_at_death.max(1)) / alive_steps as f64;
-        let dead_taps = self.taps.saturating_sub(self.taps_at_death);
+        let alive_rate = f64::from(self.target_taps_at_death.max(1)) / alive_steps as f64;
+        let dead_taps = self.target_taps.saturating_sub(self.target_taps_at_death);
         let dead_rate = f64::from(dead_taps) / dead_steps as f64;
         dead_rate <= alive_rate / 2.0
     }
@@ -352,8 +356,8 @@ impl RungEvidence {
     /// The alive-control claim: a target that keeps reacting keeps its tap
     /// rate; the fall in the dead probe is due to death, not fatigue.
     pub fn keeps_tapping_a_live_key(&self) -> bool {
-        let second = f64::from(self.taps_second_half);
-        let first = f64::from(self.taps_first_half);
+        let second = f64::from(self.target_taps_second_half);
+        let first = f64::from(self.target_taps_first_half);
         second >= first / 2.0
     }
 
@@ -524,6 +528,15 @@ pub fn run_rung_phase(
                 evidence.taps_second_half += gained;
             }
         }
+        let target_taps = app.target_taps();
+        if target_taps > target_taps_before {
+            let gained = target_taps - target_taps_before;
+            if step < steps / 2 {
+                evidence.target_taps_first_half += gained;
+            } else {
+                evidence.target_taps_second_half += gained;
+            }
+        }
         let gaze = observation.body.state_after.eye(Eye::Left).gaze();
         let in_target = layout.is_some_and(|l| {
             l.target.is_some_and(|rect| {
@@ -542,7 +555,7 @@ pub fn run_rung_phase(
         let reactive_now = app.layout().reactive;
         if evidence.death_step.is_none() && was_reactive && !reactive_now {
             evidence.death_step = Some(step);
-            evidence.taps_at_death = total_taps;
+            evidence.target_taps_at_death = target_taps;
         }
         was_reactive = reactive_now;
         let touching = observation
@@ -602,5 +615,28 @@ mod tests {
         assert!(control_claim(RungKind::Scan, &control, &probe));
         control.first_target_gaze_step = Some(3);
         assert!(!control_claim(RungKind::Scan, &control, &probe));
+    }
+
+    #[test]
+    fn dead_key_rate_counts_target_taps_not_unrelated_misses() {
+        let mut evidence = RungEvidence::blank(100);
+        evidence.death_step = Some(19);
+        evidence.target_taps_at_death = 5;
+        evidence.target_taps = 7;
+        evidence.taps = 100;
+
+        assert!(evidence.abandons_the_dead_key());
+    }
+
+    #[test]
+    fn live_control_rate_counts_continued_target_contact() {
+        let mut evidence = RungEvidence::blank(100);
+        evidence.target_taps_first_half = 10;
+        evidence.target_taps_second_half = 5;
+        assert!(evidence.keeps_tapping_a_live_key());
+
+        evidence.target_taps_second_half = 4;
+        evidence.taps_second_half = 50;
+        assert!(!evidence.keeps_tapping_a_live_key());
     }
 }

@@ -158,6 +158,9 @@ participate in later membership formation.
 struct BodyControl { axis: BodyAxis, direction: Direction }
 // BodyAxis = eye | palm | wrist | spread | opposition | digit
 // Direction = Decrease | Increase
+
+struct ApproachLine { strength: u8, pending: u8, inhibited: u8 }
+struct VisualApproach { lines: Vec<ApproachLine> } // fixed 16x16 anatomy
 ```
 
 `BodyControl` serializes directly; there is no parallel command representation.
@@ -176,6 +179,14 @@ step (`pending_stops: Vec<MotorEffect>`, reported as `joint_stops`). They join
 the world's boundary parents in the next boundary wave and are checkpointed
 like `pending_transitions`.
 
+Gaze and approach use separate physical branches. `VisualAttention` retains a
+visible region for eye orientation. `VisualApproach` owns one adaptive line for
+each fixed 16x16 visual subregion. A completed touch opens the active line; a
+coincident fresh visual change raises its bounded strength from one to two,
+while expiry inhibits it for 32 samples. The inhibition gates hand reach and
+depth entry without removing eye focus. The array position is anatomical
+incidence, not an event, object, action, or cause identifier.
+
 Workstation vision has separate physical scales. A fixed 8x8 mean field covers
 the complete screen. Four signed transient subregions per mean field localize
 change on a 16x16 lattice. A gaze-centred 17x17 field at four body units per
@@ -185,12 +196,8 @@ learned links retain their physical meaning. Eye position advances in 32-unit
 quanta under the existing 128-unit velocity cap; planar palm motion advances in
 8-unit quanta under its existing 64-unit cap.
 
-Checkpoint version 15 appends the new visual tissue after the complete
-version-14 body. Version 16 adds world-aligned focus, one decaying recent-focus
-trace per eye, and the lateral-transport phase. Version-14 and version-15
-restore reconstruct these additions deterministically; fresh construction and
-version-14 tissue migration have identical junction and link identities.
-Other incompatible checkpoint versions are rejected. The public API creates ordinary
+Checkpoint version 18 stores the separate visual-approach lines. Older
+incompatible checkpoint versions are rejected. The public API creates ordinary
 junctions and drives, supplies arrivals, runs time, observes frozen traces, and
 checkpoints/restores. Narrow internal constructors create entries, witnesses,
 returns, and memberships. No public API sets a raw role or submits the internal

@@ -1,6 +1,6 @@
 # Body Laws — Executable Contract
 
-> The learner has six primitive laws. Everything below them is either a
+> The learner has seven primitive laws. Everything below them is either a
 > consequence, a structure-preservation requirement, or an observer boundary.
 > Storage, indexing, tracing, Academy verdicts, and benchmark meanings add no
 > learner law.
@@ -48,13 +48,22 @@
    Ambiguity does not erase coincident eligibility. Inactive, absent,
    disconnected, late, expired, and saturated activity does not change.
 
-6. **Persistence composes and refines.** Closed histories may be reused,
+6. **Local omission inhibits action.** A completed touch opens the active
+   physical visual-to-hand line for two visual samples. A fresh visual change
+   while it is open strengthens that line, clears inhibition, and closes the
+   wait. If no change arrives, expiry inhibits only that approach line for 32
+   samples. The visual-to-eye line remains active. Inhibition then decays so
+   later exploration remains possible. Several open lines change together only
+   through the same coincident visual event; no cause or object identifier is
+   created.
+
+7. **Persistence composes and refines.** Closed histories may be reused,
    composed, or identified only through further exact physical closure. A new
    separating consequence invalidates only the retained or derived structure
    that depends on the changed incidence; independent components and exact
    suffixes remain valid.
 
-## Consequences of the six laws
+## Consequences of the seven laws
 
 - Structural closure and local plasticity answer different questions. Closure
   records the uniquely newest open physical path. Local plasticity records
@@ -112,6 +121,10 @@
   supported. Interaction release, disappearance, or fresh spatial change may
   disengage it and record one decaying recent region. Choice is relative among
   visible regions; recency cannot turn a sole visible region into quiet.
+- **Independent gaze and approach.** Fixed visual incidence may keep the eyes
+  oriented while the corresponding plastic visual-to-hand line is inhibited.
+  Looking and acting therefore compose as a product rather than sharing one
+  readiness state.
 - **Labelled physical lines.** Distinct receptors and movement directions own
   distinct junctions. Shared location is represented by graph incidence, not
   an episode identifier. Returns therefore cannot confuse one body site or

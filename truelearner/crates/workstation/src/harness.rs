@@ -63,6 +63,13 @@ const PHYSICAL_STEP_GAP: u64 = 5;
 /// observation window. Recency is event-gated: continued looking does not
 /// refresh it, and a sole supported patch remains selectable.
 const ATTENTION_RECENCY_STEPS: u8 = 32;
+const APPROACH_LINES: usize = GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS;
+/// A completed touch leaves its active visual line open for one later visual
+/// sample. A fresh screen change may close it before omission is declared.
+const APPROACH_RESPONSE_SAMPLES: u8 = 2;
+/// Omission suppresses only the touched visual line. Later exploration remains
+/// possible after this local refractory period.
+const APPROACH_INHIBITION_SAMPLES: u8 = 32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct AttentionRegion {
@@ -87,6 +94,38 @@ pub(crate) struct VisualAttention {
     /// A disengagement-selected focus is approached with the pointer clear
     /// of the surface. Alignment ends this phase.
     transporting: [bool; 2],
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct ApproachLine {
+    strength: u8,
+    pending: u8,
+    inhibited: u8,
+}
+
+impl Default for ApproachLine {
+    fn default() -> Self {
+        Self {
+            strength: 1,
+            pending: 0,
+            inhibited: 0,
+        }
+    }
+}
+
+/// Distributed approach readiness. Each fixed 16x16 retinal line adapts
+/// independently; there is no object, action, episode, or cause identifier.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct VisualApproach {
+    lines: Vec<ApproachLine>,
+}
+
+impl Default for VisualApproach {
+    fn default() -> Self {
+        Self {
+            lines: vec![ApproachLine::default(); APPROACH_LINES],
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -285,6 +324,8 @@ pub struct WorkstationHarness {
     /// Event-gated, world-aligned visual focus and its one soft recency trace.
     /// This is generic body morphology; application identity never enters it.
     pub(crate) visual_attention: VisualAttention,
+    /// Local visual-to-hand readiness, separate from visual attention.
+    pub(crate) visual_approach: VisualApproach,
     pub(crate) history: Vec<WorldSample>,
 }
 
@@ -298,6 +339,7 @@ impl PartialEq for WorkstationHarness {
             && self.reach_strain == other.reach_strain
             && self.vergence_strain == other.vergence_strain
             && self.visual_attention == other.visual_attention
+            && self.visual_approach == other.visual_approach
             && self.history == other.history
     }
 }
@@ -385,6 +427,73 @@ impl VisualAttention {
             self.transporting[eye.index()] = disengaged && self.focus[eye.index()].is_some();
         }
     }
+}
+
+impl VisualApproach {
+    fn valid(&self) -> bool {
+        self.lines.len() == APPROACH_LINES
+            && self.lines.iter().all(|line| {
+                (1..=2).contains(&line.strength)
+                    && line.pending <= APPROACH_RESPONSE_SAMPLES
+                    && line.inhibited <= APPROACH_INHIBITION_SAMPLES
+            })
+    }
+
+    fn update(
+        &mut self,
+        sample: &WorldSample,
+        previous: Option<&WorldSample>,
+        state: &WorkstationState,
+        attention: &VisualAttention,
+    ) {
+        for line in &mut self.lines {
+            line.inhibited = line.inhibited.saturating_sub(1);
+        }
+
+        let released = previous.is_some_and(|before| touching(before) && !touching(sample));
+        if released {
+            let palm = state.hand().palm();
+            for focus in attention.focus.into_iter().flatten() {
+                if attention_region_contains(focus, palm.x(), palm.y()) {
+                    self.lines[approach_line(focus)].pending = APPROACH_RESPONSE_SAMPLES;
+                }
+            }
+        }
+
+        let changed = (0..GLOBAL_VISION_FIELDS).any(|field| {
+            (0..GLOBAL_CHANGE_SUBREGIONS).any(|subregion| {
+                Eye::ALL
+                    .into_iter()
+                    .any(|eye| sample.eye(eye).freshly_changed(field, subregion))
+            })
+        });
+        if changed {
+            for line in self.lines.iter_mut().filter(|line| line.pending > 0) {
+                line.strength = line.strength.saturating_add(1).min(2);
+                line.pending = 0;
+                line.inhibited = 0;
+            }
+            return;
+        }
+
+        for line in self.lines.iter_mut().filter(|line| line.pending > 0) {
+            line.pending -= 1;
+            if line.pending == 0 {
+                line.inhibited = APPROACH_INHIBITION_SAMPLES;
+            }
+        }
+    }
+
+    fn strength(&self, focus: AttentionRegion) -> Option<u8> {
+        let line = self.lines.get(approach_line(focus))?;
+        (line.inhibited == 0).then_some(line.strength)
+    }
+}
+
+fn approach_line(region: AttentionRegion) -> usize {
+    let column = usize::try_from(region.x.max(0)).unwrap_or(0) / 64;
+    let row = usize::try_from(region.y.max(0)).unwrap_or(0) / 64;
+    row.min(15) * 16 + column.min(15)
 }
 
 fn attention_region_contains(region: AttentionRegion, x: i16, y: i16) -> bool {
@@ -714,6 +823,7 @@ impl WorkstationHarness {
             reach_strain: [0, 0],
             vergence_strain: 0,
             visual_attention: VisualAttention::default(),
+            visual_approach: VisualApproach::default(),
             history: Vec::new(),
         })
     }
@@ -921,6 +1031,12 @@ impl WorkstationHarness {
     ) -> Result<WorkstationStepObservation, WorkstationError> {
         sample.validate()?;
         if admit_sensory {
+            self.visual_approach.update(
+                &sample,
+                self.history.last(),
+                &self.state,
+                &self.visual_attention,
+            );
             self.visual_attention
                 .update(&sample, self.history.last(), Some(&self.state));
         }
@@ -1258,6 +1374,16 @@ impl WorkstationHarness {
         Some((i32::from(focus.x), i32::from(focus.y)))
     }
 
+    fn approach_target(&self, sample: &WorldSample, eye: Eye) -> Option<((i32, i32), u8)> {
+        if !sample.eye(eye).has_world_aligned_global() {
+            return self.reach_target(sample, eye).map(|target| (target, 1));
+        }
+        let focus = self.visual_attention.focus[eye.index()]?;
+        let strength = self.visual_approach.strength(focus)?;
+        self.reach_target(sample, eye)
+            .map(|target| (target, strength))
+    }
+
     fn own_hand_at(&self, x: i32, y: i32) -> bool {
         let palm = self.state.hand().palm();
         (i32::from(palm.x()) - x).abs() <= REACH_HAND_MASK
@@ -1277,6 +1403,12 @@ impl WorkstationHarness {
             .transporting
             .into_iter()
             .any(|active| active)
+        {
+            frame.resist_increase(BodyAxis::PalmDepth, BODY_MAX as u16);
+        }
+        let mut focused = self.visual_attention.focus.into_iter().flatten().peekable();
+        if focused.peek().is_some()
+            && focused.all(|focus| self.visual_approach.strength(focus).is_none())
         {
             frame.resist_increase(BodyAxis::PalmDepth, BODY_MAX as u16);
         }
@@ -1334,15 +1466,19 @@ impl WorkstationHarness {
         {
             return Vec::new();
         }
-        let sees_target = Eye::ALL
+        let strength = Eye::ALL
             .into_iter()
-            .any(|eye| self.reach_target(sample, eye).is_some());
-        if !sees_target {
+            .filter_map(|eye| {
+                self.approach_target(sample, eye)
+                    .map(|(_, strength)| strength)
+            })
+            .max();
+        let Some(strength) = strength else {
             return Vec::new();
-        }
+        };
         vec![Arrival::new(
             self.handles.opportunities[BodyAxis::PalmDepth.index() * 2 + 1],
-            2,
+            i32::from(strength) + 1,
         )]
     }
 
@@ -1411,10 +1547,12 @@ impl WorkstationHarness {
         let palm = self.state.hand().palm();
         let mut horizontal = 0_i32;
         let mut vertical = 0_i32;
+        let mut approach_strength = 1_u8;
         for eye in Eye::ALL {
-            let Some(target) = self.reach_target(sample, eye) else {
+            let Some((target, strength)) = self.approach_target(sample, eye) else {
                 continue;
             };
+            approach_strength = approach_strength.max(strength);
             let dx = target.0 - i32::from(palm.x());
             let dy = target.1 - i32::from(palm.y());
             if dx.abs() > REACH_DEADZONE {
@@ -1450,7 +1588,8 @@ impl WorkstationHarness {
             frame.activate(
                 axis,
                 direction,
-                4_i32.saturating_add(self.reach_strain[index].abs().min(28)) as u16,
+                (3_i32 + i32::from(approach_strength))
+                    .saturating_add(self.reach_strain[index].abs().min(28)) as u16,
             );
         }
     }
@@ -1527,6 +1666,7 @@ impl WorkstationHarness {
             self.reach_strain,
             self.vergence_strain,
             self.visual_attention.clone(),
+            self.visual_approach.clone(),
             self.history.clone(),
         ))
     }
@@ -1536,7 +1676,7 @@ impl WorkstationHarness {
         let body = BodyCheckpoint::decode(&payload.body)
             .and_then(BodyCheckpoint::restore)
             .map_err(body_checkpoint_error)?;
-        if !payload.handles.valid_for(&body) {
+        if !payload.handles.valid_for(&body) || !payload.visual_approach.valid() {
             return Err(WorkstationError::InvalidCheckpoint);
         }
         Ok(Self {
@@ -1550,6 +1690,7 @@ impl WorkstationHarness {
             reach_strain: payload.reach_strain,
             vergence_strain: payload.vergence_strain,
             visual_attention: payload.visual_attention,
+            visual_approach: payload.visual_approach,
             history: payload.history,
         })
     }
@@ -1631,6 +1772,10 @@ impl WorkstationHarness {
         );
         digest.update(
             bincode::serialize(&self.visual_attention)
+                .map_err(|_| WorkstationError::InvalidCheckpoint)?,
+        );
+        digest.update(
+            bincode::serialize(&self.visual_approach)
                 .map_err(|_| WorkstationError::InvalidCheckpoint)?,
         );
         Ok(digest
@@ -2065,6 +2210,111 @@ mod tests {
         global[8] = 200;
         global[14] = 200;
         with_visual_contact(global, changed, vec![0; FOVEAL_VISION_FIELDS], pressure)
+    }
+
+    fn focus_at_palm(state: &WorkstationState) -> AttentionRegion {
+        let palm = state.hand().palm();
+        AttentionRegion {
+            cells: 1_u64
+                << (usize::try_from(palm.y()).unwrap_or(0) / 128 * GLOBAL_VISION_SIDE
+                    + usize::try_from(palm.x()).unwrap_or(0) / 128),
+            x: palm.x(),
+            y: palm.y(),
+            precise: true,
+        }
+    }
+
+    #[test]
+    fn returned_visual_change_strengthens_only_the_open_approach_line() {
+        let state = WorkstationState::default();
+        let focus = focus_at_palm(&state);
+        let attention = VisualAttention {
+            focus: [Some(focus); 2],
+            ..VisualAttention::default()
+        };
+        let pressed = two_patch_sample(
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            BODY_MAX as u16,
+        );
+        let mut changed = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        changed[0] = 6;
+        let response = two_patch_sample(changed, 0);
+        let mut approach = VisualApproach::default();
+
+        approach.update(&response, Some(&pressed), &state, &attention);
+
+        let active = approach_line(focus);
+        assert_eq!(approach.lines[active].strength, 2);
+        assert_eq!(approach.lines[active].pending, 0);
+        assert_eq!(approach.lines[active].inhibited, 0);
+        assert_eq!(approach.lines[(active + 1) % APPROACH_LINES].strength, 1);
+    }
+
+    #[test]
+    fn omitted_visual_change_inhibits_reach_but_preserves_gaze() {
+        let state = WorkstationState::default();
+        let focus = focus_at_palm(&state);
+        let mut attention = VisualAttention {
+            focus: [Some(focus); 2],
+            ..VisualAttention::default()
+        };
+        let quiet_changes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        let pressed = two_patch_sample(quiet_changes.clone(), BODY_MAX as u16);
+        let released = two_patch_sample(quiet_changes, 0);
+        let mut approach = VisualApproach::default();
+
+        approach.update(&released, Some(&pressed), &state, &attention);
+        approach.update(&released, Some(&released), &state, &attention);
+        let active = approach_line(focus);
+        assert!(approach.strength(focus).is_none());
+        assert_eq!(
+            approach.lines[active].inhibited,
+            APPROACH_INHIBITION_SAMPLES
+        );
+
+        let before = attention.focus;
+        attention.update(&released, Some(&released), Some(&state));
+        assert_eq!(attention.focus, before);
+        assert!(approach
+            .strength(AttentionRegion {
+                x: focus.x.saturating_add(64),
+                ..focus
+            })
+            .is_some());
+    }
+
+    #[test]
+    fn local_approach_inhibition_decays_and_allows_a_later_probe() {
+        let state = WorkstationState::default();
+        let focus = focus_at_palm(&state);
+        let attention = VisualAttention {
+            focus: [Some(focus); 2],
+            ..VisualAttention::default()
+        };
+        let quiet_changes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        let pressed = two_patch_sample(quiet_changes.clone(), BODY_MAX as u16);
+        let released = two_patch_sample(quiet_changes, 0);
+        let mut approach = VisualApproach::default();
+        approach.update(&released, Some(&pressed), &state, &attention);
+        approach.update(&released, Some(&released), &state, &attention);
+
+        for _ in 0..APPROACH_INHIBITION_SAMPLES {
+            approach.update(&released, Some(&released), &state, &attention);
+        }
+
+        assert_eq!(approach.strength(focus), Some(1));
+    }
+
+    #[test]
+    fn malformed_visual_approach_tissue_is_rejected_on_restore() {
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        harness.visual_approach.lines.clear();
+        let checkpoint = harness.save().unwrap();
+
+        assert_eq!(
+            WorkstationHarness::restore(checkpoint),
+            Err(WorkstationError::InvalidCheckpoint)
+        );
     }
 
     #[test]

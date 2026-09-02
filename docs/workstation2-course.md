@@ -19,7 +19,8 @@ body course (eyes, hand, self/world)
 A single external application, the *target app*, draws on the screen:
 
 - **Target**: one lit rectangle. Tapping inside it does something visible.
-- **Decoy**: one lit rectangle of a different brightness that never reacts.
+- **Decoy**: one lit rectangle that never reacts. LiveKey gives it the same
+  brightness as the target.
 - **Blank**: no rectangle. Nothing on the screen reacts.
 
 What "visible" means is fixed per rung (the target jumps, a bar grows, a
@@ -38,17 +39,17 @@ that discard mutation. Each has a positive claim and a killing control.
 | rung | positive claim in a fresh probe | control that must stay at chance | state |
 |---|---|---|---|
 | Aimed tap | taps inside the target far exceed the target's share of the screen | same body, target drawn at zero contrast | Acquired |
-| Live key | taps on the target exceed taps on the decoy | target and decoy swapped in the probe | Emerging frontier |
-| Dead key | after the target stops reacting, taps on it fall within a budget | target keeps reacting; tap rate must not fall | Gated |
+| Live key | taps on the target exceed taps on the decoy | target and decoy swapped in the probe | Acquired |
+| Dead key | after the target stops reacting, taps on it fall within a budget | target keeps reacting; tap rate must not fall | Acquired |
 | Scan | gaze reaches the visible target before the first tap on it | with the same seed, the visible target is found before its zero-contrast control | Acquired |
 | Quiet hand | contact rate on blank screens is far below contact rate with a target lit | no rise over time on blank screens | Acquired |
-| Sequence | the rewarded order A-then-B exceeds B-then-A | order requirement reversed in the probe | Frontier |
+| Sequence | the rewarded order A-then-B exceeds B-then-A | order requirement reversed in the probe | Current frontier |
 | Drag | releases land on the goal far above its share of the screen, after starting on the target | goal drawn at zero contrast | Frontier |
 
-The identifier-free measured frontier is LiveKey. Its unchanged gate passes
-two of three probe/control pairs, so the state is `Emerging`. Direction-labelled
-movement witnesses preserve the body course without reviving an episode ID.
-DeadKey, Sequence, and Drag remain gated behind LiveKey.
+The identifier-free measured frontier is Sequence. LiveKey and DeadKey pass all
+three probe/control pairs. Gaze and approach are separate physical branches:
+omitted visual change inhibits only the local visual-to-hand line, while the
+visual-to-eye line remains active. Sequence is `Unknown`; Drag remains gated.
 
 "Far exceeds" means at least three times the chance rate with at least twenty
 taps, on at least three seeds. A rung that passes on one seed is `Emerging`;

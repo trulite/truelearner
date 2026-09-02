@@ -19,6 +19,13 @@ impl Rect {
     pub fn area(self) -> u32 {
         u32::from(self.right.abs_diff(self.left)) * u32::from(self.bottom.abs_diff(self.top))
     }
+
+    pub fn overlaps(self, other: Self) -> bool {
+        self.left < other.right
+            && other.left < self.right
+            && self.top < other.bottom
+            && other.top < self.bottom
+    }
 }
 
 pub(crate) fn background() -> Vec<u8> {

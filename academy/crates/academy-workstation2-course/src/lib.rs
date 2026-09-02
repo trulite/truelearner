@@ -353,7 +353,7 @@ mod tests {
     }
 
     #[test]
-    fn a_fresh_body_reports_the_id_free_learning_frontier() {
+    fn a_fresh_body_acquires_separate_looking_and_approach() {
         let run = completed_course();
 
         assert!(run.exact_replay);
@@ -365,6 +365,8 @@ mod tests {
             Capability::Gaze,
             Capability::Touch,
             Capability::AimedTap,
+            Capability::LiveKey,
+            Capability::DeadKey,
             Capability::Scan,
             Capability::QuietHand,
         ] {
@@ -376,8 +378,8 @@ mod tests {
                 run.touch
             );
         }
-        assert_eq!(run.state(Capability::LiveKey), EvidenceState::Emerging);
-        assert_eq!(run.first_failure, Some(Capability::LiveKey));
+        assert_eq!(run.state(Capability::Sequence), EvidenceState::Unknown);
+        assert_eq!(run.first_failure, Some(Capability::Sequence));
         // The killing control for the tap rung stays at chance.
         assert!(run.aimed_tap.controls_quiet());
     }
@@ -390,7 +392,7 @@ mod tests {
             .iter()
             .find(|outcome| outcome.kind == screen_use::RungKind::LiveKey)
             .unwrap();
-        assert_eq!(live_key.run.state, EvidenceState::Emerging);
+        assert_eq!(live_key.run.state, EvidenceState::Acquired);
         let passing_pairs = live_key
             .run
             .probes
@@ -400,15 +402,24 @@ mod tests {
                 probe.prefers_the_reactive_key() && control.prefers_the_reactive_key()
             })
             .count();
-        assert!(passing_pairs > 0);
-        assert!(passing_pairs < live_key.run.probes.len());
+        assert_eq!(passing_pairs, live_key.run.probes.len());
         let dead_key = run
             .rungs
             .iter()
             .find(|outcome| outcome.kind == screen_use::RungKind::DeadKey)
             .unwrap();
-        assert_eq!(dead_key.run.state, EvidenceState::Unknown);
-        assert!(dead_key.run.development.is_none());
-        assert!(dead_key.run.probes.is_empty());
+        assert_eq!(dead_key.run.state, EvidenceState::Acquired);
+        assert!(dead_key.run.development.is_some());
+        assert_eq!(dead_key.run.probes.len(), screen_use::PROBE_SEEDS);
+        assert!(dead_key
+            .run
+            .probes
+            .iter()
+            .all(screen_use::RungEvidence::abandons_the_dead_key));
+        assert!(dead_key
+            .run
+            .controls
+            .iter()
+            .all(screen_use::RungEvidence::keeps_tapping_a_live_key));
     }
 }

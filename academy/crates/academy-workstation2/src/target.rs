@@ -109,10 +109,14 @@ impl TargetApp {
         app.layout.target = Some(app.random_rect());
         let target = app.layout.target.unwrap();
         let mut decoy = app.random_rect();
-        while decoy.contains(ScreenPoint {
-            x: (target.left + target.right) / 2,
-            y: (target.top + target.bottom) / 2,
-        }) {
+        while if side < 512 {
+            decoy.overlaps(target)
+        } else {
+            decoy.contains(ScreenPoint {
+                x: (target.left + target.right) / 2,
+                y: (target.top + target.bottom) / 2,
+            })
+        } {
             decoy = app.random_rect();
         }
         app.layout.decoy = Some(decoy);
@@ -280,7 +284,7 @@ impl TargetApp {
                             if self.dies_after.is_some_and(|limit| self.hits >= limit) {
                                 self.layout.reactive = false;
                             } else {
-                                self.layout.target = Some(self.random_rect());
+                                self.move_target();
                             }
                         }
                     }
@@ -316,6 +320,21 @@ impl TargetApp {
         self.hits += 1;
         self.layout.target = Some(self.random_rect());
         self.layout.decoy = Some(self.random_rect());
+    }
+
+    fn move_target(&mut self) {
+        let mut target = self.random_rect();
+        if self.side < 512 {
+            while self
+                .layout
+                .decoy
+                .is_some_and(|decoy| target.overlaps(decoy))
+                || self.layout.goal.is_some_and(|goal| target.overlaps(goal))
+            {
+                target = self.random_rect();
+            }
+        }
+        self.layout.target = Some(target);
     }
 
     pub(crate) fn frame(&self) -> LightField {
@@ -431,7 +450,7 @@ mod tests {
         let decoy = layout.decoy.unwrap();
         assert_eq!(layout.target_band, layout.decoy_band);
         assert_ne!(target, decoy);
-        assert!(!target.contains(centre(decoy)));
+        assert!(!target.overlaps(decoy));
         // Only the target reacts.
         let mut app = app;
         let before = app.layout().target.unwrap();
@@ -441,6 +460,20 @@ mod tests {
         tap(&mut app, centre(before));
         assert_eq!(app.hits(), 1);
         assert_ne!(app.layout().target.unwrap(), before);
+    }
+
+    #[test]
+    fn a_live_target_never_moves_over_its_decoy() {
+        let mut app = TargetApp::dual(7);
+        for _ in 0..64 {
+            let target = app.layout().target.unwrap();
+            tap(&mut app, centre(target));
+            assert!(!app
+                .layout()
+                .target
+                .unwrap()
+                .overlaps(app.layout().decoy.unwrap()));
+        }
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use crate::{
-    harness::{Handles, VisualAttention},
+    harness::{Handles, VisualApproach, VisualAttention},
     MotorEffect, WorkstationError, WorkstationState, WorldSample, AXIS_COUNT,
 };
 use bincode::Options;
@@ -14,7 +14,7 @@ use std::{
 use truelearner_body::BodyCheckpoint;
 
 const MAGIC: &[u8; 8] = b"TLWORK02";
-const VERSION: u16 = 17;
+const VERSION: u16 = 18;
 const HEADER_LEN: usize = 50;
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -30,6 +30,7 @@ pub(crate) struct Payload {
     pub(crate) reach_strain: [i32; 2],
     pub(crate) vergence_strain: i32,
     pub(crate) visual_attention: VisualAttention,
+    pub(crate) visual_approach: VisualApproach,
     pub(crate) history: Vec<WorldSample>,
 }
 
@@ -51,6 +52,7 @@ impl WorkstationCheckpoint {
         reach_strain: [i32; 2],
         vergence_strain: i32,
         visual_attention: VisualAttention,
+        visual_approach: VisualApproach,
         history: Vec<WorldSample>,
     ) -> Self {
         Self {
@@ -65,6 +67,7 @@ impl WorkstationCheckpoint {
                 reach_strain,
                 vergence_strain,
                 visual_attention,
+                visual_approach,
                 history,
             },
         }
@@ -229,10 +232,10 @@ mod tests {
         );
 
         let mut obsolete = bytes.clone();
-        obsolete[8..10].copy_from_slice(&16_u16.to_le_bytes());
+        obsolete[8..10].copy_from_slice(&17_u16.to_le_bytes());
         assert_eq!(
             WorkstationCheckpoint::decode(&obsolete),
-            Err(WorkstationError::UnsupportedCheckpointVersion(16))
+            Err(WorkstationError::UnsupportedCheckpointVersion(17))
         );
 
         let path = std::env::temp_dir().join(format!(
