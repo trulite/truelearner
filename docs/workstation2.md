@@ -56,6 +56,7 @@ state.
 2048x2048 display raster
   |-- fixed 8x8 global means
   |-- signed 16x16 transient localization, retained for 32 steps
+  |     `-- one-frame freshness bit distinguishes repeated changes
   `-- gaze-centred 17x17 fovea, 8 display pixels per sample
 
 0..1023 body reach <-> display mapping

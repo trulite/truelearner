@@ -78,9 +78,11 @@ strengthening laws act on them.
    eaten by the learner's joint-stop inhibition — the reflex reaches
    through the equilibrium point, which learned inhibition cannot gate.
 
-5. **Arm elasticity** (frame-level). In contact, the un-driven arm recoils
-   toward its resting length: press, lift, press again. The tap cycle is
-   the equilibrium of extension and recoil, not a learned trick.
+5. **Arm elasticity and transport clearance** (frame-level). In contact, the
+   un-driven arm recoils by one depth quantum. After visual disengagement,
+   unmatched extension is cancelled while the palm moves laterally to the new
+   focus. Alignment restores extension. A held contact has not disengaged, so
+   contact-preserving movement remains physically possible.
 
 6. **Legacy ocular drift** (frame-level). Version-14 local-view samples retain
    their old dark-field return to primary position. Full-screen samples do not
@@ -117,8 +119,10 @@ touch, aimed tap, scan, quiet hand — with quiet blind controls and tap
 rates around eleven times chance (seed 11; seeds vary in how strongly the
 developed habits support the tap cycle).
 
-The learning rungs — live key, dead key, sequence, drag — remain the measured
-frontier. Full-screen relative selection now reaches one real patch. The first
-failed LiveKey transition follows an inert tap: the unchanged visible patch
-keeps fixation, so the other patch is never examined. Any next law must be a
-generic physical disengagement and coherent selection law, not a key rule.
+Live key is acquired. Fixed-screen patches compete as coherent 4-connected
+regions; one focus is retained per eye until release, disappearance, or a fresh
+spatial change. Disengagement records one 32-step recent region. Fresh change,
+then a non-recent peer, then brightness, then stable screen position determine
+selection. A sole patch remains selectable. Fresh onsets use the existing
+16x16 transient location, including repeated changes inside the retention
+window. The measured frontier is dead key; sequence and drag remain gated.

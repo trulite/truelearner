@@ -1,5 +1,6 @@
 use crate::{
-    harness::Handles, MotorEffect, WorkstationError, WorkstationState, WorldSample, AXIS_COUNT,
+    harness::{Handles, VisualAttention},
+    MotorEffect, WorkstationError, WorkstationState, WorldSample, AXIS_COUNT,
 };
 use crate::{ContactSample, LightField, TOUCH_SITES};
 use bincode::Options;
@@ -14,8 +15,9 @@ use std::{
 use truelearner_body::{BodyCheckpoint, JunctionId};
 
 const MAGIC: &[u8; 8] = b"TLWORK02";
-const VERSION: u16 = 15;
-const LEGACY_VERSION: u16 = 14;
+const VERSION: u16 = 16;
+const LEGACY_ATTENTION_VERSION: u16 = 15;
+const LEGACY_VISION_VERSION: u16 = 14;
 const HEADER_LEN: usize = 50;
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -30,6 +32,7 @@ pub(crate) struct Payload {
     pub(crate) pending_stops: Vec<MotorEffect>,
     pub(crate) reach_strain: [i32; 2],
     pub(crate) vergence_strain: i32,
+    pub(crate) visual_attention: VisualAttention,
     pub(crate) history: Vec<WorldSample>,
 }
 
@@ -82,7 +85,7 @@ struct LegacyWorldSample {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-struct LegacyPayload {
+struct LegacyPayloadV14 {
     body: Vec<u8>,
     handles: LegacyHandles,
     state: WorkstationState,
@@ -93,6 +96,20 @@ struct LegacyPayload {
     reach_strain: [i32; 2],
     vergence_strain: i32,
     history: Vec<LegacyWorldSample>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct LegacyPayloadV15 {
+    body: Vec<u8>,
+    handles: Handles,
+    state: WorkstationState,
+    sequence: u64,
+    physical_tick: u64,
+    pending_transitions: [bool; AXIS_COUNT],
+    pending_stops: Vec<MotorEffect>,
+    reach_strain: [i32; 2],
+    vergence_strain: i32,
+    history: Vec<WorldSample>,
 }
 
 impl WorkstationCheckpoint {
@@ -107,6 +124,7 @@ impl WorkstationCheckpoint {
         pending_stops: Vec<MotorEffect>,
         reach_strain: [i32; 2],
         vergence_strain: i32,
+        visual_attention: VisualAttention,
         history: Vec<WorldSample>,
     ) -> Self {
         Self {
@@ -120,6 +138,7 @@ impl WorkstationCheckpoint {
                 pending_stops,
                 reach_strain,
                 vergence_strain,
+                visual_attention,
                 history,
             },
             legacy_visual_migration: false,
@@ -160,7 +179,7 @@ impl WorkstationCheckpoint {
                 .try_into()
                 .map_err(|_| WorkstationError::InvalidCheckpoint)?,
         );
-        if version != VERSION && version != LEGACY_VERSION {
+        if ![VERSION, LEGACY_ATTENTION_VERSION, LEGACY_VISION_VERSION].contains(&version) {
             return Err(WorkstationError::UnsupportedCheckpointVersion(version));
         }
         let length = usize::try_from(u64::from_le_bytes(
@@ -181,37 +200,63 @@ impl WorkstationCheckpoint {
         if Sha256::digest(payload).as_slice() != &bytes[18..HEADER_LEN] {
             return Err(WorkstationError::CheckpointChecksum);
         }
-        let (payload, legacy_visual_migration) = if version == VERSION {
-            (
+        let (payload, legacy_visual_migration) = match version {
+            VERSION => (
                 options()
                     .deserialize(payload)
                     .map_err(|_| WorkstationError::InvalidCheckpoint)?,
                 false,
-            )
-        } else {
-            let legacy: LegacyPayload = options()
-                .deserialize(payload)
-                .map_err(|_| WorkstationError::InvalidCheckpoint)?;
-            let history = legacy
-                .history
-                .into_iter()
-                .map(|sample| WorldSample::new(sample.eyes, sample.contacts))
-                .collect::<Result<Vec<_>, _>>()?;
-            (
-                Payload {
-                    body: legacy.body,
-                    handles: legacy.handles.into(),
-                    state: legacy.state,
-                    sequence: legacy.sequence,
-                    physical_tick: legacy.physical_tick,
-                    pending_transitions: legacy.pending_transitions,
-                    pending_stops: legacy.pending_stops,
-                    reach_strain: legacy.reach_strain,
-                    vergence_strain: legacy.vergence_strain,
-                    history,
-                },
-                true,
-            )
+            ),
+            LEGACY_ATTENTION_VERSION => {
+                let legacy: LegacyPayloadV15 = options()
+                    .deserialize(payload)
+                    .map_err(|_| WorkstationError::InvalidCheckpoint)?;
+                let visual_attention = VisualAttention::from_history(&legacy.history);
+                (
+                    Payload {
+                        body: legacy.body,
+                        handles: legacy.handles,
+                        state: legacy.state,
+                        sequence: legacy.sequence,
+                        physical_tick: legacy.physical_tick,
+                        pending_transitions: legacy.pending_transitions,
+                        pending_stops: legacy.pending_stops,
+                        reach_strain: legacy.reach_strain,
+                        vergence_strain: legacy.vergence_strain,
+                        visual_attention,
+                        history: legacy.history,
+                    },
+                    false,
+                )
+            }
+            LEGACY_VISION_VERSION => {
+                let legacy: LegacyPayloadV14 = options()
+                    .deserialize(payload)
+                    .map_err(|_| WorkstationError::InvalidCheckpoint)?;
+                let history = legacy
+                    .history
+                    .into_iter()
+                    .map(|sample| WorldSample::new(sample.eyes, sample.contacts))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let visual_attention = VisualAttention::from_history(&history);
+                (
+                    Payload {
+                        body: legacy.body,
+                        handles: legacy.handles.into(),
+                        state: legacy.state,
+                        sequence: legacy.sequence,
+                        physical_tick: legacy.physical_tick,
+                        pending_transitions: legacy.pending_transitions,
+                        pending_stops: legacy.pending_stops,
+                        reach_strain: legacy.reach_strain,
+                        vergence_strain: legacy.vergence_strain,
+                        visual_attention,
+                        history,
+                    },
+                    true,
+                )
+            }
+            _ => unreachable!("checkpoint version was validated"),
         };
         BodyCheckpoint::decode(&payload.body).map_err(|_| WorkstationError::InvalidCheckpoint)?;
         Ok(Self {
@@ -322,7 +367,7 @@ mod tests {
             opportunities: harness.handles.opportunities.clone(),
             outward: harness.handles.outward.clone(),
         };
-        let payload = LegacyPayload {
+        let payload = LegacyPayloadV14 {
             body,
             handles,
             state: harness.state.clone(),
@@ -337,7 +382,35 @@ mod tests {
         let payload = options().serialize(&payload).unwrap();
         let mut bytes = Vec::with_capacity(HEADER_LEN + payload.len());
         bytes.extend_from_slice(MAGIC);
-        bytes.extend_from_slice(&LEGACY_VERSION.to_le_bytes());
+        bytes.extend_from_slice(&LEGACY_VISION_VERSION.to_le_bytes());
+        bytes.extend_from_slice(&(payload.len() as u64).to_le_bytes());
+        bytes.extend_from_slice(&Sha256::digest(&payload));
+        bytes.extend_from_slice(&payload);
+        bytes
+    }
+
+    fn version_15_bytes(harness: &WorkstationHarness) -> Vec<u8> {
+        let payload = LegacyPayloadV15 {
+            body: harness
+                .body
+                .checkpoint()
+                .unwrap()
+                .canonical_bytes()
+                .unwrap(),
+            handles: harness.handles.clone(),
+            state: harness.state.clone(),
+            sequence: harness.sequence,
+            physical_tick: harness.physical_tick,
+            pending_transitions: harness.pending_transitions,
+            pending_stops: harness.pending_stops.clone(),
+            reach_strain: harness.reach_strain,
+            vergence_strain: harness.vergence_strain,
+            history: harness.history.clone(),
+        };
+        let payload = options().serialize(&payload).unwrap();
+        let mut bytes = Vec::with_capacity(HEADER_LEN + payload.len());
+        bytes.extend_from_slice(MAGIC);
+        bytes.extend_from_slice(&LEGACY_ATTENTION_VERSION.to_le_bytes());
         bytes.extend_from_slice(&(payload.len() as u64).to_le_bytes());
         bytes.extend_from_slice(&Sha256::digest(&payload));
         bytes.extend_from_slice(&payload);
@@ -379,7 +452,7 @@ mod tests {
     }
 
     #[test]
-    fn version_14_migration_matches_fresh_version_15_construction_and_replay() {
+    fn version_14_migration_matches_fresh_version_16_construction_and_replay() {
         let legacy = WorkstationHarness::legacy_for_test().unwrap();
         let decoded = WorkstationCheckpoint::decode(&version_14_bytes(&legacy)).unwrap();
         assert_eq!(
@@ -410,6 +483,41 @@ mod tests {
                 .canonical_bytes()
                 .unwrap(),
             migrated_bytes
+        );
+    }
+
+    #[test]
+    fn version_15_migration_reconstructs_attention_and_replays() {
+        let mut global = vec![12; crate::GLOBAL_VISION_FIELDS];
+        global[8] = 200;
+        global[14] = 200;
+        let visual = || {
+            crate::VisualField::new(
+                LightField::new(8, 8, global.clone()).unwrap(),
+                vec![0; crate::GLOBAL_VISION_FIELDS * crate::GLOBAL_CHANGE_SUBREGIONS],
+                LightField::filled(17, 17, 0).unwrap(),
+            )
+            .unwrap()
+        };
+        let sample = crate::WorldSample::new_visual(
+            [visual(), visual()],
+            [ContactSample::default(); TOUCH_SITES],
+        )
+        .unwrap();
+        let mut original = WorkstationHarness::new(7).unwrap();
+        original.observe(sample.clone()).unwrap();
+
+        let checkpoint = WorkstationCheckpoint::decode(&version_15_bytes(&original)).unwrap();
+        let mut migrated = WorkstationHarness::restore(checkpoint).unwrap();
+        assert_eq!(migrated.visual_attention, original.visual_attention);
+        assert_eq!(
+            migrated.step(sample.clone()).unwrap(),
+            original.step(sample).unwrap()
+        );
+        assert_eq!(
+            WorkstationCheckpoint::decode(&migrated.save().unwrap().canonical_bytes().unwrap())
+                .unwrap(),
+            migrated.save().unwrap()
         );
     }
 }

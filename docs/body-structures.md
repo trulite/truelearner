@@ -184,8 +184,10 @@ quanta under the existing 128-unit velocity cap; planar palm motion advances in
 8-unit quanta under its existing 64-unit cap.
 
 Checkpoint version 15 appends the new visual tissue after the complete
-version-14 body. Version-14 restore performs that append deterministically;
-fresh construction and migration have identical junction and link identities.
+version-14 body. Version 16 adds world-aligned focus, one decaying recent-focus
+trace per eye, and the lateral-transport phase. Version-14 and version-15
+restore reconstruct these additions deterministically; fresh construction and
+version-14 tissue migration have identical junction and link identities.
 Other incompatible checkpoint versions are rejected. The public API creates ordinary
 junctions and drives, supplies arrivals, runs time, observes frozen traces, and
 checkpoints/restores. Narrow internal constructors create entries, witnesses,

@@ -18,7 +18,10 @@ fn main() {
         .get(2)
         .and_then(|value| value.parse().ok())
         .unwrap_or(11);
-    let app = TargetApp::dual(seed);
+    let app = match args.get(3).map(String::as_str) {
+        Some("swapped") => TargetApp::dual(seed).swapped(),
+        _ => TargetApp::dual(seed),
+    };
     let initial_layout = app.layout();
     let mut session =
         Workstation2Session::with_world(checkpoint, Workstation2::with_target(app)).unwrap();

@@ -214,7 +214,11 @@ fn retain_transients(lifetimes: &mut [u8], kinds: &mut [u8], fresh: &[u8]) -> Ve
             remaining
         };
     }
-    kinds.to_vec()
+    kinds
+        .iter()
+        .zip(fresh)
+        .map(|(kind, changed)| *kind | (u8::from(*changed != 0) * 4))
+        .collect()
 }
 
 fn render_fovea(
@@ -512,10 +516,26 @@ mod tests {
         for remaining in (1..=TRANSIENT_FRAMES).rev() {
             let visible = retain_transients(&mut lifetimes, &mut kinds, &fresh);
             assert_eq!(lifetimes[7], remaining);
-            assert_eq!(visible[7], 1);
+            assert_eq!(
+                visible[7],
+                if remaining == TRANSIENT_FRAMES { 5 } else { 1 }
+            );
             fresh[7] = 0;
         }
         assert_eq!(retain_transients(&mut lifetimes, &mut kinds, &fresh)[7], 0);
+    }
+
+    #[test]
+    fn repeated_change_in_one_retained_region_gets_a_new_fresh_frame() {
+        let mut lifetimes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        let mut kinds = vec![0; lifetimes.len()];
+        let mut fresh = vec![0; lifetimes.len()];
+        fresh[9] = 2;
+        assert_eq!(retain_transients(&mut lifetimes, &mut kinds, &fresh)[9], 6);
+        fresh[9] = 0;
+        assert_eq!(retain_transients(&mut lifetimes, &mut kinds, &fresh)[9], 2);
+        fresh[9] = 2;
+        assert_eq!(retain_transients(&mut lifetimes, &mut kinds, &fresh)[9], 6);
     }
 
     #[test]

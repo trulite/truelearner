@@ -538,7 +538,8 @@ pub const FOVEAL_VISION_FIELDS: usize = FOVEAL_VISION_SIDE * FOVEAL_VISION_SIDE;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VisualField {
     global: LightField,
-    /// Bit 0 is darkening, bit 1 is brightening. Both may occur within one
+    /// Bit 0 is darkening, bit 1 is brightening, and bit 2 marks a change
+    /// first observed in this frame. Both directions may occur within one
     /// pooled subregion during a spatial rearrangement.
     changed: Vec<u8>,
     foveal: LightField,
@@ -590,6 +591,18 @@ impl VisualField {
             && self.changed[field * GLOBAL_CHANGE_SUBREGIONS + subregion] & 2 != 0
     }
 
+    pub(crate) fn freshly_brightened(&self, field: usize, subregion: usize) -> bool {
+        field < GLOBAL_VISION_FIELDS
+            && subregion < GLOBAL_CHANGE_SUBREGIONS
+            && self.changed[field * GLOBAL_CHANGE_SUBREGIONS + subregion] & 6 == 6
+    }
+
+    pub(crate) fn freshly_changed(&self, field: usize, subregion: usize) -> bool {
+        field < GLOBAL_VISION_FIELDS
+            && subregion < GLOBAL_CHANGE_SUBREGIONS
+            && self.changed[field * GLOBAL_CHANGE_SUBREGIONS + subregion] & 4 != 0
+    }
+
     pub(crate) fn change_impulse(&self, field: usize, subregion: usize) -> i32 {
         if self.brightened(field, subregion) {
             1
@@ -612,7 +625,10 @@ impl VisualField {
             || usize::from(self.foveal.width()) != FOVEAL_VISION_SIDE
             || usize::from(self.foveal.height()) != FOVEAL_VISION_SIDE
             || self.changed.len() != GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS
-            || self.changed.iter().any(|value| *value > 3)
+            || self
+                .changed
+                .iter()
+                .any(|value| *value > 7 || (*value & 4 != 0 && *value & 3 == 0))
         {
             return Err(WorkstationError::InvalidState);
         }

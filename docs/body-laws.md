@@ -107,6 +107,10 @@
 - **Closed-screen vision.** Every legal gaze retains one fixed whole-screen
   projection. Gaze changes local acuity, not which parts of the only screen
   exist. Global orienting yields to supported foveal detail.
+- **Event-gated visual attention.** A visible coherent region is retained while
+  supported. Interaction release, disappearance, or fresh spatial change may
+  disengage it and record one decaying recent region. Choice is relative among
+  visible regions; recency cannot turn a sole visible region into quiet.
 
 ## Observer and trust boundary
 

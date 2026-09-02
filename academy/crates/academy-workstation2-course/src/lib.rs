@@ -359,11 +359,12 @@ mod tests {
         assert!(run.exact_replay);
         assert!(run.gaze.naturally_quiescent);
         assert!(run.touch.naturally_quiescent);
-        // The reflex-backed rungs acquire: look, touch, tap, scan, quiet.
+        // The earlier rungs and coherent two-patch selection acquire.
         for capability in [
             Capability::Gaze,
             Capability::Touch,
             Capability::AimedTap,
+            Capability::LiveKey,
             Capability::Scan,
             Capability::QuietHand,
         ] {
@@ -375,27 +376,34 @@ mod tests {
                 run.touch
             );
         }
-        // The learning rungs are the reported frontier, in ladder order:
-        // the course stops honestly at the live key.
-        assert_eq!(run.first_failure, Some(Capability::LiveKey));
+        assert_eq!(run.first_failure, Some(Capability::DeadKey));
         // The killing control for the tap rung stays at chance.
         assert!(run.aimed_tap.controls_quiet());
     }
 
     #[test]
     fn the_learning_frontier_names_its_evidence() {
-        // The live-key probes tap the empty midpoint between the pair:
-        // the reach averages the two salient rectangles instead of
-        // selecting one. That measurement is the named input for the next
-        // body change.
         let run = completed_course();
         let live_key = run
             .rungs
             .iter()
             .find(|outcome| outcome.kind == screen_use::RungKind::LiveKey)
             .unwrap();
-        for probe in &live_key.run.probes {
-            assert!(probe.taps > probe.target_taps + probe.decoy_taps);
+        assert_eq!(live_key.run.state, EvidenceState::Acquired);
+        for (probe, control) in live_key.run.probes.iter().zip(&live_key.run.controls) {
+            assert!(probe.prefers_the_reactive_key());
+            assert!(control.prefers_the_reactive_key());
         }
+        let dead_key = run
+            .rungs
+            .iter()
+            .find(|outcome| outcome.kind == screen_use::RungKind::DeadKey)
+            .unwrap();
+        assert_eq!(dead_key.run.state, EvidenceState::Unknown);
+        assert!(dead_key
+            .run
+            .probes
+            .iter()
+            .all(|probe| !probe.abandons_the_dead_key()));
     }
 }

@@ -38,18 +38,18 @@ that discard mutation. Each has a positive claim and a killing control.
 | rung | positive claim in a fresh probe | control that must stay at chance | state |
 |---|---|---|---|
 | Aimed tap | taps inside the target far exceed the target's share of the screen | same body, target drawn at zero contrast | Acquired |
-| Live key | taps on the target exceed taps on the decoy | target and decoy swapped in the probe | Frontier |
+| Live key | taps on the target exceed taps on the decoy | target and decoy swapped in the probe | Acquired |
 | Dead key | after the target stops reacting, taps on it fall within a budget | target keeps reacting; tap rate must not fall | Frontier |
 | Scan | gaze reaches the visible target before the first tap on it | with the same seed, the visible target is found before its zero-contrast control | Acquired |
 | Quiet hand | contact rate on blank screens is far below contact rate with a target lit | no rise over time on blank screens | Acquired |
 | Sequence | the rewarded order A-then-B exceeds B-then-A | order requirement reversed in the probe | Frontier |
 | Drag | releases land on the goal far above its share of the screen, after starting on the target | goal drawn at zero contrast | Frontier |
 
-The measured frontier is the live key. The corrected full-screen channel and
-relative field selection land on one real rectangle. The first failed physical
-transition is after an inert tap: no screen change disengages the current
-visible focus, so the peer rectangle is not examined. DeadKey, Sequence, and
-Drag remain gated behind this rung.
+The measured frontier is DeadKey. LiveKey passes through event-gated coherent
+focus: an interaction release deprioritizes its recent region when a visible
+peer exists, while a reactive relocation supplies a fresh 16x16 onset. A sole
+unchanged patch remains physically supported, so DeadKey must still acquire a
+generic consequence-sensitive stop. Sequence and Drag remain gated behind it.
 
 "Far exceeds" means at least three times the chance rate with at least twenty
 taps, on at least three seeds. A rung that passes on one seed is `Emerging`;

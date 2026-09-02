@@ -56,6 +56,45 @@ const SIGNED_BODY_RANGE: u32 = BODY_RANGE * 2;
 const COMPETITION_COMPONENTS: usize = 4;
 const OUTCOME_COMPONENTS: usize = AXIS_COUNT;
 const MOMENT_LIMIT: usize = 512;
+/// A disengaged location remains relatively recent for one ordinary visual
+/// observation window. Recency is event-gated: continued looking does not
+/// refresh it, and a sole supported patch remains selectable.
+const ATTENTION_RECENCY_STEPS: u8 = 32;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct AttentionRegion {
+    cells: u64,
+    x: i16,
+    y: i16,
+    /// A transient focus is localized to one 16x16 global subregion. Tonic
+    /// focus uses the full coherent 8x8-cell patch.
+    precise: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct RecentAttention {
+    region: AttentionRegion,
+    remaining: u8,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) struct VisualAttention {
+    focus: [Option<AttentionRegion>; 2],
+    recent: [Option<RecentAttention>; 2],
+    /// A disengagement-selected focus is approached with the pointer clear
+    /// of the surface. Alignment ends this phase.
+    transporting: [bool; 2],
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct VisibleCandidate {
+    region: AttentionRegion,
+    maximum: u8,
+    excess: u32,
+    first: usize,
+    fresh_onset: bool,
+    fresh_change: bool,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Handles {
@@ -271,6 +310,9 @@ pub struct WorkstationHarness {
     /// Insistent-vergence strain: while the fusion error persists, the
     /// vergence pulse grows; fused or absent, it resets.
     pub(crate) vergence_strain: i32,
+    /// Event-gated, world-aligned visual focus and its one soft recency trace.
+    /// This is generic body morphology; application identity never enters it.
+    pub(crate) visual_attention: VisualAttention,
     pub(crate) history: Vec<WorldSample>,
 }
 
@@ -283,11 +325,281 @@ impl PartialEq for WorkstationHarness {
             && self.pending_stops == other.pending_stops
             && self.reach_strain == other.reach_strain
             && self.vergence_strain == other.vergence_strain
+            && self.visual_attention == other.visual_attention
             && self.history == other.history
     }
 }
 
 impl Eq for WorkstationHarness {}
+
+impl VisualAttention {
+    fn update(
+        &mut self,
+        sample: &WorldSample,
+        previous: Option<&WorldSample>,
+        state: Option<&WorkstationState>,
+    ) {
+        for trace in &mut self.recent {
+            if let Some(recent) = trace {
+                recent.remaining = recent.remaining.saturating_sub(1);
+                if recent.remaining == 0 {
+                    *trace = None;
+                }
+            }
+        }
+        let physical_release = previous.is_some_and(|before| touching(before) && !touching(sample));
+        let candidates = visible_candidates(sample);
+        for eye in Eye::ALL {
+            if !sample.eye(eye).has_world_aligned_global() {
+                self.focus[eye.index()] = None;
+                self.recent[eye.index()] = None;
+                self.transporting[eye.index()] = false;
+                continue;
+            }
+            let released = physical_release
+                && self.focus[eye.index()].is_some_and(|focus| {
+                    state.is_none_or(|state| {
+                        let palm = state.hand().palm();
+                        attention_region_contains(focus, palm.x(), palm.y())
+                    })
+                });
+            if self.transporting[eye.index()]
+                && self.focus[eye.index()].is_some_and(|focus| {
+                    state.is_some_and(|state| {
+                        let palm = state.hand().palm();
+                        attention_region_contains(focus, palm.x(), palm.y())
+                    })
+                })
+            {
+                self.transporting[eye.index()] = false;
+            }
+            let supported = self.focus[eye.index()].and_then(|focus| {
+                candidates
+                    .iter()
+                    .copied()
+                    .filter(|candidate| candidate.region.cells & focus.cells != 0)
+                    .max_by_key(|candidate| (candidate.region.cells & focus.cells).count_ones())
+            });
+            let novel_peer = candidates.iter().any(|candidate| {
+                candidate.fresh_change
+                    && supported
+                        .is_none_or(|current| current.region.cells & candidate.region.cells == 0)
+            });
+            if !released && !novel_peer {
+                if supported.is_some() {
+                    continue;
+                }
+                if self.focus[eye.index()].is_some_and(|focus| {
+                    state.is_some_and(|state| {
+                        let palm = state.hand().palm();
+                        attention_region_contains(focus, palm.x(), palm.y())
+                    })
+                }) {
+                    continue;
+                }
+            }
+            let disengaged = self.focus[eye.index()].is_some();
+            if let Some(focus) = self.focus[eye.index()] {
+                self.recent[eye.index()] = Some(RecentAttention {
+                    region: focus,
+                    remaining: ATTENTION_RECENCY_STEPS,
+                });
+            }
+            self.focus[eye.index()] = choose_candidate(
+                &candidates,
+                self.recent[eye.index()].map(|recent| recent.region),
+            )
+            .map(|candidate| candidate.region);
+            self.transporting[eye.index()] = disengaged && self.focus[eye.index()].is_some();
+        }
+    }
+
+    pub(crate) fn from_history(history: &[WorldSample]) -> Self {
+        let mut attention = Self::default();
+        for (index, sample) in history.iter().enumerate() {
+            attention.update(
+                sample,
+                index.checked_sub(1).and_then(|before| history.get(before)),
+                None,
+            );
+        }
+        attention
+    }
+}
+
+fn attention_region_contains(region: AttentionRegion, x: i16, y: i16) -> bool {
+    if region.precise {
+        (i32::from(x) - i32::from(region.x)).abs() <= 32
+            && (i32::from(y) - i32::from(region.y)).abs() <= 32
+    } else {
+        let column = usize::try_from(x).unwrap_or(0) / 128;
+        let row = usize::try_from(y).unwrap_or(0) / 128;
+        region.cells & (1_u64 << (row * GLOBAL_VISION_SIDE + column)) != 0
+    }
+}
+
+fn touching(sample: &WorldSample) -> bool {
+    sample
+        .contacts()
+        .iter()
+        .any(|contact| contact.pressure() > 0)
+}
+
+/// Segment the fixed global field into 4-connected visible patches. Each
+/// patch carries a world-aligned cell mask, so representation order cannot
+/// alter matching or selection.
+fn visible_candidates(sample: &WorldSample) -> Vec<VisibleCandidate> {
+    let light_at = |index| {
+        Eye::ALL
+            .into_iter()
+            .map(|eye| sample.eye(eye).global().pixels()[index])
+            .max()
+            .unwrap_or(0)
+    };
+    let mut candidates = Vec::new();
+    for field in 0..GLOBAL_VISION_FIELDS {
+        for subregion in 0..GLOBAL_CHANGE_SUBREGIONS {
+            let changed = Eye::ALL
+                .into_iter()
+                .any(|eye| sample.eye(eye).changed(field, subregion));
+            if !changed {
+                continue;
+            }
+            let fresh_change = Eye::ALL
+                .into_iter()
+                .any(|eye| sample.eye(eye).freshly_changed(field, subregion));
+            let fresh_onset = Eye::ALL
+                .into_iter()
+                .any(|eye| sample.eye(eye).freshly_brightened(field, subregion));
+            let field_row = field / GLOBAL_VISION_SIDE;
+            let field_column = field % GLOBAL_VISION_SIDE;
+            let sub_row = subregion / 2;
+            let sub_column = subregion % 2;
+            candidates.push(VisibleCandidate {
+                region: AttentionRegion {
+                    cells: 1_u64 << field,
+                    x: (field_column * 128 + sub_column * 64 + 32) as i16,
+                    y: (field_row * 128 + sub_row * 64 + 32) as i16,
+                    precise: true,
+                },
+                maximum: light_at(field),
+                excess: u32::from(light_at(field).saturating_sub(SALIENCE_FLOOR)),
+                first: field * GLOBAL_CHANGE_SUBREGIONS + subregion,
+                fresh_onset,
+                fresh_change,
+            });
+        }
+    }
+    let mut remaining = (0..GLOBAL_VISION_FIELDS).fold(0_u64, |mask, index| {
+        if light_at(index) > SALIENCE_FLOOR {
+            mask | (1_u64 << index)
+        } else {
+            mask
+        }
+    });
+    while remaining != 0 {
+        let first = remaining.trailing_zeros() as usize;
+        let mut frontier = 1_u64 << first;
+        let mut cells = 0_u64;
+        while frontier != 0 {
+            let index = frontier.trailing_zeros() as usize;
+            let bit = 1_u64 << index;
+            frontier &= !bit;
+            if remaining & bit == 0 {
+                continue;
+            }
+            remaining &= !bit;
+            cells |= bit;
+            let row = index / GLOBAL_VISION_SIDE;
+            let column = index % GLOBAL_VISION_SIDE;
+            for neighbor in [
+                (row > 0).then(|| index - GLOBAL_VISION_SIDE),
+                (row + 1 < GLOBAL_VISION_SIDE).then_some(index + GLOBAL_VISION_SIDE),
+                (column > 0).then(|| index - 1),
+                (column + 1 < GLOBAL_VISION_SIDE).then_some(index + 1),
+            ]
+            .into_iter()
+            .flatten()
+            {
+                let neighbor_bit = 1_u64 << neighbor;
+                if remaining & neighbor_bit != 0 {
+                    frontier |= neighbor_bit;
+                }
+            }
+        }
+        let mut weighted_x = 0_u64;
+        let mut weighted_y = 0_u64;
+        let mut excess = 0_u32;
+        let mut maximum = 0_u8;
+        for index in 0..GLOBAL_VISION_FIELDS {
+            if cells & (1_u64 << index) == 0 {
+                continue;
+            }
+            let light = light_at(index);
+            let weight = u32::from(light.saturating_sub(SALIENCE_FLOOR));
+            excess = excess.saturating_add(weight);
+            maximum = maximum.max(light);
+            weighted_x = weighted_x
+                .saturating_add(u64::from(weight) * (index % GLOBAL_VISION_SIDE * 128 + 64) as u64);
+            weighted_y = weighted_y
+                .saturating_add(u64::from(weight) * (index / GLOBAL_VISION_SIDE * 128 + 64) as u64);
+        }
+        let divisor = u64::from(excess.max(1));
+        candidates.push(VisibleCandidate {
+            region: AttentionRegion {
+                cells,
+                x: i16::try_from(weighted_x / divisor).unwrap_or(BODY_MAX),
+                y: i16::try_from(weighted_y / divisor).unwrap_or(BODY_MAX),
+                precise: false,
+            },
+            maximum,
+            excess,
+            first,
+            fresh_onset: false,
+            fresh_change: false,
+        });
+    }
+    candidates
+}
+
+/// Competitive choice is lexicographic, not a scalar blend: novel onset,
+/// then a supported non-recent peer, then physical brightness, then stable
+/// world position. Recency never competes with quiet and cannot suppress the
+/// sole visible candidate.
+fn choose_candidate(
+    candidates: &[VisibleCandidate],
+    recent: Option<AttentionRegion>,
+) -> Option<VisibleCandidate> {
+    let has_onset = candidates.iter().any(|candidate| candidate.fresh_onset);
+    let has_fresh_change = candidates.iter().any(|candidate| candidate.fresh_change);
+    let event_pool = |candidate: &&VisibleCandidate| {
+        if has_onset {
+            candidate.fresh_onset
+        } else if has_fresh_change {
+            candidate.fresh_change
+        } else {
+            true
+        }
+    };
+    let has_non_recent = candidates
+        .iter()
+        .filter(event_pool)
+        .any(|candidate| recent.is_none_or(|region| candidate.region.cells & region.cells == 0));
+    candidates
+        .iter()
+        .filter(event_pool)
+        .filter(|candidate| {
+            !has_non_recent
+                || recent.is_none_or(|region| candidate.region.cells & region.cells == 0)
+        })
+        .max_by(|left, right| {
+            left.maximum
+                .cmp(&right.maximum)
+                .then(left.excess.cmp(&right.excess))
+                .then_with(|| right.first.cmp(&left.first))
+        })
+        .copied()
+}
 
 impl WorkstationHarness {
     pub fn new(_seed: u64) -> Result<Self, WorkstationError> {
@@ -451,6 +763,7 @@ impl WorkstationHarness {
             pending_stops: Vec::new(),
             reach_strain: [0, 0],
             vergence_strain: 0,
+            visual_attention: VisualAttention::default(),
             history: Vec::new(),
         })
     }
@@ -662,6 +975,10 @@ impl WorkstationHarness {
         trace: Option<&mut Vec<BodyTraceEvent>>,
     ) -> Result<WorkstationStepObservation, WorkstationError> {
         sample.validate()?;
+        if admit_sensory {
+            self.visual_attention
+                .update(&sample, self.history.last(), Some(&self.state));
+        }
         let state_before = self.state.clone();
         let returned_transitions = if admit_sensory {
             self.pending_axes()
@@ -765,9 +1082,9 @@ impl WorkstationHarness {
             frame.activate(effect.control.axis(), effect.control.direction(), effort);
         }
         apply_contact_reaction(&sample, &mut frame);
-        apply_arm_recoil(&sample, &mut frame);
+        self.apply_arm_recoil(&sample, &mut frame);
         self.apply_pre_reach(&sample, &mut frame);
-        apply_global_orient(&sample, &self.state, &mut frame);
+        self.apply_global_orient(&sample, &mut frame);
         apply_ocular_drift(&sample, &self.state, &mut frame);
         let movements = self.state.integrate(frame);
         let joint_stops = joint_stops(&self.state, &crossings, &movements);
@@ -992,6 +1309,7 @@ impl WorkstationHarness {
             return (weight_sum > 0)
                 .then(|| ((sum_x / weight_sum) as i32, (sum_y / weight_sum) as i32));
         }
+        let focus = self.visual_attention.focus[eye.index()]?;
         let foveal = sample.eye(eye).foveal();
         let gaze = self.state.eye(eye).gaze();
         let center = FOVEAL_VISION_SIDE / 2;
@@ -1006,6 +1324,12 @@ impl WorkstationHarness {
             let row = receptor / FOVEAL_VISION_SIDE;
             let world_x = i32::from(gaze.x()) + (column as i32 - center as i32) * FOVEAL_PITCH;
             let world_y = i32::from(gaze.y()) + (row as i32 - center as i32) * FOVEAL_PITCH;
+            let global_column = world_x.clamp(0, i32::from(BODY_MAX)) as usize / 128;
+            let global_row = world_y.clamp(0, i32::from(BODY_MAX)) as usize / 128;
+            let global_cell = global_row * GLOBAL_VISION_SIDE + global_column;
+            if focus.cells & (1_u64 << global_cell) == 0 {
+                continue;
+            }
             if self.own_hand_at(world_x, world_y) {
                 continue;
             }
@@ -1020,34 +1344,69 @@ impl WorkstationHarness {
                 (foveal_y / foveal_weight) as i32,
             ));
         }
-        let field = sample.eye(eye).global();
-        let mut sum_x = 0_i64;
-        let mut sum_y = 0_i64;
-        let mut weight_sum = 0_i64;
-        for receptor in 0..GLOBAL_VISION_FIELDS {
-            let light = field.pixels()[receptor];
-            if light < SALIENCE_FLOOR {
-                continue;
-            }
-            let weight = i64::from(light - SALIENCE_FLOOR);
-            let column = receptor % GLOBAL_VISION_SIDE;
-            let row = receptor / GLOBAL_VISION_SIDE;
-            let world_x = (column * 128 + 64) as i32;
-            let world_y = (row * 128 + 64) as i32;
-            if self.own_hand_at(world_x, world_y) {
-                continue;
-            }
-            sum_x += i64::from(world_x) * weight;
-            sum_y += i64::from(world_y) * weight;
-            weight_sum += weight;
-        }
-        (weight_sum > 0).then(|| ((sum_x / weight_sum) as i32, (sum_y / weight_sum) as i32))
+        Some((i32::from(focus.x), i32::from(focus.y)))
     }
 
     fn own_hand_at(&self, x: i32, y: i32) -> bool {
         let palm = self.state.hand().palm();
         (i32::from(palm.x()) - x).abs() <= REACH_HAND_MASK
             && (i32::from(palm.y()) - y).abs() <= REACH_HAND_MASK
+    }
+
+    /// Contact starts the arm's one-quantum recoil. After attention
+    /// disengages, lateral transport cancels unmatched extension until the
+    /// pointer reaches the new focus, preserving that one-quantum clearance.
+    /// A held contact has not disengaged, so this does not prohibit dragging.
+    fn apply_arm_recoil(&self, sample: &WorldSample, frame: &mut ActuatorFrame) {
+        if touching(sample) {
+            frame.activate(BodyAxis::PalmDepth, Direction::Decrease, 1);
+        }
+        if self
+            .visual_attention
+            .transporting
+            .into_iter()
+            .any(|active| active)
+        {
+            frame.resist_increase(BodyAxis::PalmDepth, BODY_MAX as u16);
+        }
+    }
+
+    /// Retain the currently supported global focus. Selection changes only
+    /// after a physical disengagement recorded by `VisualAttention`.
+    fn apply_global_orient(&self, sample: &WorldSample, frame: &mut ActuatorFrame) {
+        for eye in Eye::ALL {
+            if !sample.eye(eye).has_world_aligned_global() {
+                continue;
+            }
+            let Some(focus) = self.visual_attention.focus[eye.index()] else {
+                continue;
+            };
+            let gaze = self.state.eye(eye).gaze();
+            for (axis, error) in [
+                (
+                    BodyAxis::EyeHorizontal { eye },
+                    i32::from(focus.x) - i32::from(gaze.x()),
+                ),
+                (
+                    BodyAxis::EyeVertical { eye },
+                    i32::from(focus.y) - i32::from(gaze.y()),
+                ),
+            ] {
+                if error == 0 {
+                    continue;
+                }
+                let effort = u16::try_from((error.unsigned_abs() / 32).clamp(1, 4)).unwrap_or(4);
+                frame.activate(
+                    axis,
+                    if error < 0 {
+                        Direction::Decrease
+                    } else {
+                        Direction::Increase
+                    },
+                    effort,
+                );
+            }
+        }
     }
 
     /// The pre-reach depth extension: while the eyes see a salient target
@@ -1258,6 +1617,7 @@ impl WorkstationHarness {
             self.pending_stops.clone(),
             self.reach_strain,
             self.vergence_strain,
+            self.visual_attention.clone(),
             self.history.clone(),
         ))
     }
@@ -1286,6 +1646,7 @@ impl WorkstationHarness {
             pending_stops: payload.pending_stops,
             reach_strain: payload.reach_strain,
             vergence_strain: payload.vergence_strain,
+            visual_attention: payload.visual_attention,
             history: payload.history,
         })
     }
@@ -1306,6 +1667,7 @@ impl WorkstationHarness {
         self.pending_stops = reference.pending_stops;
         self.reach_strain = reference.reach_strain;
         self.vergence_strain = reference.vergence_strain;
+        self.visual_attention = reference.visual_attention;
         self.history = reference.history;
         Ok(())
     }
@@ -1355,6 +1717,10 @@ impl WorkstationHarness {
         digest.update(
             bincode::serialize(&self.state).map_err(|_| WorkstationError::InvalidCheckpoint)?,
         );
+        digest.update(
+            bincode::serialize(&self.visual_attention)
+                .map_err(|_| WorkstationError::InvalidCheckpoint)?,
+        );
         Ok(digest
             .finalize()
             .iter()
@@ -1397,109 +1763,6 @@ fn apply_contact_reaction(sample: &WorldSample, frame: &mut ActuatorFrame) {
     {
         frame.resist_increase(BodyAxis::PalmDepth, BODY_MAX as u16);
     }
-}
-
-/// The arm is elastic: with the extension drive stopped by contact, the
-/// un-driven arm recoils toward its resting length. Press, lift, press
-/// again — the tap cycle is the equilibrium of the extension reflex and
-/// arm elasticity, not a learned trick. Like the surface reaction this is
-/// frame-level physics: it crosses nothing and strengthens nothing.
-fn apply_arm_recoil(sample: &WorldSample, frame: &mut ActuatorFrame) {
-    if sample
-        .contacts()
-        .iter()
-        .any(|contact| contact.pressure() > 0)
-    {
-        frame.activate(BodyAxis::PalmDepth, Direction::Decrease, 1);
-    }
-}
-
-/// Full-screen visual orienting. A fresh spatial transient has priority;
-/// otherwise ordinary tonic global salience supplies the aim. Screen-space
-/// fields stay fixed while eye proprioception supplies the relative error.
-fn apply_global_orient(sample: &WorldSample, state: &WorkstationState, frame: &mut ActuatorFrame) {
-    for eye in Eye::ALL {
-        if !sample.eye(eye).has_world_aligned_global() {
-            continue;
-        }
-        if sample
-            .eye(eye)
-            .foveal()
-            .pixels()
-            .iter()
-            .any(|light| *light > SALIENCE_FLOOR)
-        {
-            continue;
-        }
-        let locate = |brightened_only: bool| {
-            (0..GLOBAL_VISION_FIELDS).find_map(|field| {
-                (0..GLOBAL_CHANGE_SUBREGIONS)
-                    .find(|subregion| {
-                        if brightened_only {
-                            sample.eye(eye).brightened(field, *subregion)
-                        } else {
-                            sample.eye(eye).changed(field, *subregion)
-                        }
-                    })
-                    .map(|subregion| {
-                        let field_row = field / GLOBAL_VISION_SIDE;
-                        let field_column = field % GLOBAL_VISION_SIDE;
-                        let sub_row = subregion / 2;
-                        let sub_column = subregion % 2;
-                        (
-                            (field_column * 128 + sub_column * 64 + 32) as i32,
-                            (field_row * 128 + sub_row * 64 + 32) as i32,
-                        )
-                    })
-            })
-        };
-        let transient = locate(true).or_else(|| locate(false));
-        let target = transient.or_else(|| tonic_global_target(sample.eye(eye).global()));
-        let Some((target_x, target_y)) = target else {
-            continue;
-        };
-        let gaze = state.eye(eye).gaze();
-        for (axis, error) in [
-            (
-                BodyAxis::EyeHorizontal { eye },
-                target_x - i32::from(gaze.x()),
-            ),
-            (
-                BodyAxis::EyeVertical { eye },
-                target_y - i32::from(gaze.y()),
-            ),
-        ] {
-            if error == 0 {
-                continue;
-            }
-            let effort = u16::try_from((error.unsigned_abs() / 32).clamp(1, 4)).unwrap_or(4);
-            frame.activate(
-                axis,
-                if error < 0 {
-                    Direction::Decrease
-                } else {
-                    Direction::Increase
-                },
-                effort,
-            );
-        }
-    }
-}
-
-/// A uniform global field has no visible candidate. Otherwise the brightest
-/// currently visible field wins relative competition. Equal fields resolve
-/// by stable screen position, never by an empty spatial average.
-fn tonic_global_target(field: &crate::LightField) -> Option<(i32, i32)> {
-    let minimum = field.pixels().iter().copied().min()?;
-    let maximum = field.pixels().iter().copied().max()?;
-    if minimum == maximum {
-        return None;
-    }
-    let index = field.pixels().iter().position(|light| *light == maximum)?;
-    Some((
-        (index % GLOBAL_VISION_SIDE * 128 + 64) as i32,
-        (index / GLOBAL_VISION_SIDE * 128 + 64) as i32,
-    ))
 }
 
 /// Compatibility physics for version-14 local-view samples: a wholly dark
@@ -1799,12 +2062,49 @@ mod tests {
         let mut pixels = vec![12_u8; GLOBAL_VISION_FIELDS];
         pixels[8] = 200;
         pixels[14] = 200;
-        let field = LightField::new(8, 8, pixels).unwrap();
-        assert_eq!(tonic_global_target(&field), Some((64, 192)));
-        assert_eq!(
-            tonic_global_target(&LightField::filled(8, 8, 12).unwrap()),
-            None
+        let sample = with_visual_field(
+            pixels,
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            vec![0; FOVEAL_VISION_FIELDS],
         );
+        let mut attention = VisualAttention::default();
+        attention.update(&sample, None, None);
+        let focus = attention.focus[Eye::Left.index()].unwrap();
+        assert_eq!((focus.x, focus.y), (64, 192));
+
+        let quiet = with_visual_field(
+            vec![12; GLOBAL_VISION_FIELDS],
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            vec![0; FOVEAL_VISION_FIELDS],
+        );
+        attention.update(&quiet, Some(&sample), None);
+        assert_eq!(attention.focus[Eye::Left.index()], None);
+    }
+
+    #[test]
+    fn binocular_candidate_selection_is_eye_order_invariant() {
+        let visual = |cell| {
+            let mut global = vec![12; GLOBAL_VISION_FIELDS];
+            global[cell] = 200;
+            VisualField::new(
+                LightField::new(8, 8, global).unwrap(),
+                vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+                LightField::filled(17, 17, 0).unwrap(),
+            )
+            .unwrap()
+        };
+        let left = visual(8);
+        let right = visual(14);
+        let first = WorldSample::new_visual(
+            [left.clone(), right.clone()],
+            [ContactSample::default(); TOUCH_SITES],
+        )
+        .unwrap();
+        let reversed =
+            WorldSample::new_visual([right, left], [ContactSample::default(); TOUCH_SITES])
+                .unwrap();
+
+        assert_eq!(visible_candidates(&first), visible_candidates(&reversed));
     }
 
     fn centered(value: u8) -> LightField {
@@ -1822,6 +2122,15 @@ mod tests {
     }
 
     fn with_visual_field(global: Vec<u8>, changed: Vec<u8>, foveal: Vec<u8>) -> WorldSample {
+        with_visual_contact(global, changed, foveal, 0)
+    }
+
+    fn with_visual_contact(
+        global: Vec<u8>,
+        changed: Vec<u8>,
+        foveal: Vec<u8>,
+        pressure: u16,
+    ) -> WorldSample {
         let visual = || {
             VisualField::new(
                 LightField::new(8, 8, global.clone()).unwrap(),
@@ -1830,18 +2139,111 @@ mod tests {
             )
             .unwrap()
         };
-        WorldSample::new_visual(
-            [visual(), visual()],
-            [ContactSample::default(); TOUCH_SITES],
-        )
-        .unwrap()
+        let mut contacts = [ContactSample::default(); TOUCH_SITES];
+        contacts[0] = ContactSample::new(pressure, 0).unwrap();
+        WorldSample::new_visual([visual(), visual()], contacts).unwrap()
+    }
+
+    fn two_patch_sample(changed: Vec<u8>, pressure: u16) -> WorldSample {
+        let mut global = vec![12; GLOBAL_VISION_FIELDS];
+        global[8] = 200;
+        global[14] = 200;
+        with_visual_contact(global, changed, vec![0; FOVEAL_VISION_FIELDS], pressure)
+    }
+
+    #[test]
+    fn completed_interaction_softly_deprioritizes_the_recent_patch() {
+        let changes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        let visible = two_patch_sample(changes.clone(), 0);
+        let pressed = two_patch_sample(changes, BODY_MAX as u16);
+        let mut attention = VisualAttention::default();
+        attention.update(&visible, None, None);
+        assert_ne!(attention.focus[0].unwrap().cells & (1 << 8), 0);
+
+        attention.update(&pressed, Some(&visible), None);
+        attention.update(&visible, Some(&pressed), None);
+
+        assert_ne!(attention.recent[0].unwrap().region.cells & (1 << 8), 0);
+        assert_ne!(attention.focus[0].unwrap().cells & (1 << 14), 0);
+    }
+
+    #[test]
+    fn recent_patch_remains_selectable_alone_and_returns_after_decay() {
+        let changes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        let visible = two_patch_sample(changes.clone(), 0);
+        let pressed = two_patch_sample(changes, BODY_MAX as u16);
+        let mut attention = VisualAttention::default();
+        attention.update(&visible, None, None);
+        attention.update(&pressed, Some(&visible), None);
+        attention.update(&visible, Some(&pressed), None);
+
+        let mut sole_global = vec![12; GLOBAL_VISION_FIELDS];
+        sole_global[8] = 200;
+        let sole = with_visual_field(
+            sole_global,
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            vec![0; FOVEAL_VISION_FIELDS],
+        );
+        let mut sole_attention = attention.clone();
+        sole_attention.focus = [None; 2];
+        sole_attention.update(&sole, Some(&visible), None);
+        assert_ne!(sole_attention.focus[0].unwrap().cells & (1 << 8), 0);
+
+        for _ in 0..ATTENTION_RECENCY_STEPS {
+            attention.focus = [None; 2];
+            attention.update(&visible, Some(&visible), None);
+        }
+        assert!(attention.recent[0].is_none());
+        assert_ne!(attention.focus[0].unwrap().cells & (1 << 8), 0);
+    }
+
+    #[test]
+    fn novel_onset_can_reclaim_a_recent_patch() {
+        let changes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        let visible = two_patch_sample(changes.clone(), 0);
+        let pressed = two_patch_sample(changes, BODY_MAX as u16);
+        let mut attention = VisualAttention::default();
+        attention.update(&visible, None, None);
+        attention.update(&pressed, Some(&visible), None);
+        attention.update(&visible, Some(&pressed), None);
+
+        let mut onset = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        onset[8 * GLOBAL_CHANGE_SUBREGIONS] = 6;
+        let changed = two_patch_sample(onset, 0);
+        attention.update(&changed, Some(&visible), None);
+
+        assert_ne!(attention.focus[0].unwrap().cells & (1 << 8), 0);
+    }
+
+    #[test]
+    fn disappearance_disengages_without_interaction() {
+        let mut first = vec![12; GLOBAL_VISION_FIELDS];
+        first[8] = 200;
+        let first = with_visual_field(
+            first,
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            vec![0; FOVEAL_VISION_FIELDS],
+        );
+        let mut second = vec![12; GLOBAL_VISION_FIELDS];
+        second[14] = 200;
+        let second = with_visual_field(
+            second,
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            vec![0; FOVEAL_VISION_FIELDS],
+        );
+        let mut attention = VisualAttention::default();
+        attention.update(&first, None, None);
+        attention.update(&second, Some(&first), None);
+
+        assert_ne!(attention.recent[0].unwrap().region.cells & (1 << 8), 0);
+        assert_ne!(attention.focus[0].unwrap().cells & (1 << 14), 0);
     }
 
     #[test]
     fn foveal_detail_refines_the_global_reach_location() {
-        let harness = WorkstationHarness::new(1).unwrap();
+        let mut harness = WorkstationHarness::new(1).unwrap();
         let mut global = vec![0; GLOBAL_VISION_FIELDS];
-        global[0] = 255;
+        global[4 * GLOBAL_VISION_SIDE + 4] = 255;
         let mut foveal = vec![0; FOVEAL_VISION_FIELDS];
         foveal[(FOVEAL_VISION_SIDE / 2) * FOVEAL_VISION_SIDE + FOVEAL_VISION_SIDE / 2 + 4] = 255;
         let sample = with_visual_field(
@@ -1850,10 +2252,8 @@ mod tests {
             foveal,
         );
 
+        harness.visual_attention.update(&sample, None, None);
         assert_eq!(harness.reach_target(&sample, Eye::Left), Some((528, 512)));
-        let mut frame = ActuatorFrame::default();
-        apply_global_orient(&sample, harness.state(), &mut frame);
-        assert_eq!(frame, ActuatorFrame::default());
     }
 
     #[test]
@@ -1878,6 +2278,31 @@ mod tests {
         assert_eq!(rigid[0].decrease_effort, 7);
         assert_eq!(rigid[0].increase_effort, 7);
         assert_eq!(rigid[0].net_impulse, 0);
+    }
+
+    #[test]
+    fn arm_recoil_holds_clearance_during_transport_but_not_after_alignment() {
+        let sample = with_visual_field(
+            vec![12; GLOBAL_VISION_FIELDS],
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            vec![0; FOVEAL_VISION_FIELDS],
+        );
+        let mut harness = WorkstationHarness::new(3).unwrap();
+        harness.visual_attention.transporting = [true; 2];
+        let mut frame = ActuatorFrame::default();
+        frame.activate(BodyAxis::PalmDepth, Direction::Increase, 7);
+        harness.apply_arm_recoil(&sample, &mut frame);
+        let movement = harness.state.clone().integrate(frame);
+        assert_eq!(movement.len(), 1);
+        assert_eq!(movement[0].axis, BodyAxis::PalmDepth);
+        assert_eq!(movement[0].net_impulse, 0);
+        assert!(!movement[0].changed);
+
+        harness.visual_attention.transporting = [false; 2];
+        let mut frame = ActuatorFrame::default();
+        frame.activate(BodyAxis::PalmDepth, Direction::Increase, 7);
+        harness.apply_arm_recoil(&sample, &mut frame);
+        assert!(harness.state.clone().integrate(frame)[0].changed);
     }
 
     #[test]
