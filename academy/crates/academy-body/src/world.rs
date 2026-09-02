@@ -1,7 +1,7 @@
 use crate::course::{BodyCapability, BodyCourseError};
 use truelearner_workstation::{
-    BodyAxis, ContactSample, Digit, Eye, HandPoint, HandState, LightField, MotorEffect, Point,
-    WorkstationRead, WorkstationStepObservation, WorldSample, BODY_MAX, TOUCH_SITES,
+    ContactSample, Eye, HandPoint, HandState, LightField, Point, WorkstationRead, WorldSample,
+    BODY_MAX, TOUCH_SITES,
 };
 
 const SIDE: u16 = 9;
@@ -110,40 +110,9 @@ impl FlatWorld {
         let [left_target, right_target] = targets;
         let left = render_eye(self.seed, left_target, body, Eye::Left)?;
         let right = render_eye(self.seed.rotate_left(11), right_target, body, Eye::Right)?;
-        let contacts = contacts(self.capability, self.seed, self.step, body)?;
+        let contacts = contacts(body)?;
         self.step = self.step.saturating_add(1);
         Ok(WorldSample::new([left, right], contacts)?)
-    }
-
-    pub(crate) fn progress_parents(
-        &self,
-        observation: &WorkstationStepObservation,
-    ) -> Vec<MotorEffect> {
-        if self.capability < BodyCapability::Contact {
-            return Vec::new();
-        }
-        let before = pose_contact_pressures(observation.state_before.hand());
-        let after = pose_contact_pressures(observation.state_after.hand());
-        let changed_axes = observation
-            .movements
-            .iter()
-            .filter(|movement| movement.changed)
-            .filter_map(|movement| match movement.axis {
-                BodyAxis::PalmDepth if before != after => Some(movement.axis),
-                BodyAxis::FingerFlexion { digit }
-                    if before[digit_index(digit) + 1] != after[digit_index(digit) + 1] =>
-                {
-                    Some(movement.axis)
-                }
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        observation
-            .crossings
-            .iter()
-            .copied()
-            .filter(|crossing| changed_axes.contains(&crossing.control.axis()))
-            .collect()
     }
 
     fn fixed_stereo_targets(&mut self, gazes: [Point; 2]) -> [ScenePoint; 2] {
@@ -158,13 +127,20 @@ fn eye_targets(capability: BodyCapability, seed: u64, centers: [Point; 2]) -> [S
         return centers.map(ScenePoint::from_point);
     }
     let disparity = i32::from(StereoDepth::generated(seed).half_disparity());
+    // The stereo pair is placed relative to wherever the eyes start, but a
+    // scene generator may not place an object outside the physical world:
+    // from a crossed starting pose the far-side target would land beyond
+    // the eye's joint range, making fusion physically impossible. Clamping
+    // to the world keeps every target foveatable while preserving the
+    // vergence geometry whenever it fits.
+    let clamped = |x: i32| x.clamp(0, i32::from(BODY_MAX));
     [
         ScenePoint {
-            x: i32::from(centers[0].x()) + disparity,
+            x: clamped(i32::from(centers[0].x()) + disparity),
             y: i32::from(centers[0].y()),
         },
         ScenePoint {
-            x: i32::from(centers[1].x()) - disparity,
+            x: clamped(i32::from(centers[1].x()) - disparity),
             y: i32::from(centers[1].y()),
         },
     ]
@@ -212,14 +188,6 @@ fn render_eye_at(
         gaze,
         96,
     );
-    for digit in Digit::ALL {
-        set_world_pixel(
-            &mut pixels,
-            ScenePoint::from_point(project_hand_point(hand.fingertip(digit), eye)),
-            gaze,
-            128,
-        );
-    }
     Ok(LightField::new(SIDE, SIDE, pixels)?)
 }
 
@@ -283,32 +251,11 @@ fn set_body_pixel(pixels: &mut [u8], point: Point, value: u8) {
     }
 }
 
-fn contacts(
-    capability: BodyCapability,
-    seed: u64,
-    step: u32,
-    body: &WorkstationRead,
-) -> Result<[ContactSample; TOUCH_SITES], BodyCourseError> {
+fn contacts(body: &WorkstationRead) -> Result<[ContactSample; TOUCH_SITES], BodyCourseError> {
     let mut result = [ContactSample::default(); TOUCH_SITES];
-    if capability == BodyCapability::DigitSeparation {
-        let pressure = 64 + u16::try_from(seed.wrapping_add(u64::from(step)) % 4).unwrap_or(0) * 64;
-        for contact in &mut result[1..] {
-            *contact = ContactSample::new(pressure, 0)?;
-        }
-        return Ok(result);
-    }
-    if capability < BodyCapability::Contact {
-        return Ok(result);
-    }
-    let hand = body.state.hand();
-    if hand.palm().depth() >= CONTACT_DEPTH {
-        result[0] = ContactSample::new(contact_pressure(hand.palm().depth()), 0)?;
-    }
-    for digit in Digit::ALL {
-        let tip = hand.fingertip(digit);
-        if tip.depth() >= CONTACT_DEPTH {
-            result[digit_index(digit) + 1] = ContactSample::new(contact_pressure(tip.depth()), 0)?;
-        }
+    let palm = body.state.hand().palm();
+    if palm.depth() >= CONTACT_DEPTH {
+        result[0] = ContactSample::new(contact_pressure(palm.depth()), 0)?;
     }
     Ok(result)
 }
@@ -316,30 +263,6 @@ fn contacts(
 fn contact_pressure(depth: i16) -> u16 {
     let excess = depth.saturating_sub(CONTACT_DEPTH).unsigned_abs();
     96_u16.saturating_add(excess / 4).min(BODY_MAX as u16)
-}
-
-fn pose_contact_pressures(hand: &HandState) -> [u16; TOUCH_SITES] {
-    let mut pressures = [0; TOUCH_SITES];
-    if hand.palm().depth() >= CONTACT_DEPTH {
-        pressures[0] = contact_pressure(hand.palm().depth());
-    }
-    for digit in Digit::ALL {
-        let depth = hand.fingertip(digit).depth();
-        if depth >= CONTACT_DEPTH {
-            pressures[digit_index(digit) + 1] = contact_pressure(depth);
-        }
-    }
-    pressures
-}
-
-const fn digit_index(digit: Digit) -> usize {
-    match digit {
-        Digit::Thumb => 0,
-        Digit::Index => 1,
-        Digit::Middle => 2,
-        Digit::Ring => 3,
-        Digit::Little => 4,
-    }
 }
 
 trait PointOffset {
@@ -359,7 +282,7 @@ impl PointOffset for Point {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use truelearner_workstation::WorkstationHarness;
+    use truelearner_workstation::{BodyAxis, BodyControl, Direction, WorkstationHarness};
 
     #[test]
     fn background_distinguishes_every_adjacent_cell_without_high_contrast() {
@@ -390,20 +313,52 @@ mod tests {
     }
 
     #[test]
-    fn digit_world_varies_touch_without_preferring_a_finger() {
-        let body = WorkstationHarness::new(72).unwrap().read().unwrap();
-        let mut world = FlatWorld::generated(73, BodyCapability::DigitSeparation);
-        let first = world.sample(&body).unwrap();
-        let second = world.sample(&body).unwrap();
+    fn the_hand_renders_as_one_palm_below_the_salience_floor() {
+        let body = WorkstationHarness::new(82).unwrap().read().unwrap();
+        for capability in BodyCapability::ORDER {
+            let sample = FlatWorld::generated(83, capability).sample(&body).unwrap();
+            for eye in Eye::ALL {
+                let field = sample.eye(eye);
+                assert!(
+                    !field.pixels().iter().any(|pixel| (97..129).contains(pixel)),
+                    "no hand pixel reaches the salience floor for {capability:?}"
+                );
+                if matches!(
+                    capability,
+                    BodyCapability::GazeContingency | BodyCapability::BinocularDepth
+                ) {
+                    assert!(
+                        field.pixels().contains(&96),
+                        "the palm is visible for {capability:?}"
+                    );
+                }
+            }
+        }
+    }
 
-        assert_eq!(first.contacts()[0], ContactSample::default());
-        assert!(first.contacts()[1..].iter().all(|contact| {
-            contact.pressure() == first.contacts()[1].pressure() && contact.slip() == 0
-        }));
-        assert_ne!(
-            first.contacts()[1].pressure(),
-            second.contacts()[1].pressure()
-        );
+    #[test]
+    fn the_palm_is_the_single_contact_site() {
+        let harness = WorkstationHarness::new(84).unwrap();
+        let read = harness.read().unwrap();
+        assert!(read.state.hand().palm().depth() < CONTACT_DEPTH);
+        let sample = FlatWorld::generated(85, BodyCapability::HandContingency)
+            .sample(&read)
+            .unwrap();
+        assert_eq!(sample.contacts().len(), TOUCH_SITES);
+        assert!(sample
+            .contacts()
+            .iter()
+            .all(|contact| contact.pressure() == 0));
+
+        let mut deep = WorkstationHarness::new(84).unwrap();
+        let forward = BodyControl::new(BodyAxis::PalmDepth, Direction::Increase);
+        while deep.state().hand().palm().depth() < CONTACT_DEPTH {
+            assert!(deep.perturb_body(forward, 2).unwrap());
+        }
+        let sample = FlatWorld::generated(85, BodyCapability::HandContingency)
+            .sample(&deep.read().unwrap())
+            .unwrap();
+        assert!(sample.contacts()[0].pressure() > 0);
     }
 
     #[test]
@@ -523,8 +478,12 @@ mod tests {
         let left = render_eye_at(80, targets[0], boundary, body.state.hand(), Eye::Left).unwrap();
         let right = render_eye_at(80, targets[1], boundary, body.state.hand(), Eye::Right).unwrap();
 
+        // The left eye's target sits right of its fovea, so it must still
+        // converge; the right eye's target clamps to the world boundary,
+        // which its fovea reaches at the joint stop. Both are visible and
+        // foveatable: no target is generated outside the physical world.
         assert!(target_column(&left) > 4);
-        assert!(target_column(&right) < 4);
+        assert!(target_column(&right) <= 4);
     }
 
     #[test]

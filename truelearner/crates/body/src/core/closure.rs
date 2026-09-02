@@ -79,6 +79,7 @@ pub(crate) fn try_complete_single_return<T: TraceSink>(
             }));
         }
     }
+    strengthen_recent_local_inputs_direct(body, returned.path, event.at, trace);
     if let Some(support) = body.retained_closed_support(
         returned.link,
         source,
@@ -93,6 +94,26 @@ pub(crate) fn try_complete_single_return<T: TraceSink>(
         retain_composite_direct(body, returned.path, event.at, trace);
     }
     true
+}
+
+fn strengthen_recent_local_inputs_direct<T: TraceSink>(
+    body: &mut Body,
+    returned: Path,
+    at: Time,
+    trace: &mut T,
+) {
+    let view = ReactionView::new(&body.arena, &body.arrows, &body.returns);
+    for link in recent_local_inputs(view, returned, at) {
+        let (before, after) = body.arrows[link.slot()].strengthen(1).unwrap_or((1, 1));
+        if T::ENABLED {
+            trace.record(TraceEvent::Strengthened(StrengthTrace {
+                at,
+                link,
+                before,
+                after,
+            }));
+        }
+    }
 }
 
 fn retain_composite_direct<T: TraceSink>(body: &mut Body, path: Path, at: Time, trace: &mut T) {

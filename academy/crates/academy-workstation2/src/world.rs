@@ -1,25 +1,81 @@
 use crate::application::Application;
-use crate::screen::Touchscreen;
+use crate::screen::{Touchscreen, CONTACT_DEPTH};
+use crate::target::TargetApp;
 use crate::{DeviceEvent, ScreenPoint};
 use truelearner_workstation::{
-    Digit, Eye, LightField, Point, WorkstationError, WorkstationState, WorldSample, BODY_MAX,
+    Eye, LightField, Point, WorkstationError, WorkstationState, WorldSample, BODY_MAX,
 };
 
 const RETINA_SIDE: usize = 9;
-const VIEW_STEP: i32 = 64;
+/// One receptor per 128 world units: a full-field retina. From the primary
+/// position the eyes see the whole screen, matching the body course's world
+/// and the harness's receptor-position arithmetic. A narrow view would hide
+/// most of the screen from a centered gaze.
+const VIEW_STEP: i32 = 128;
+/// The hand's visual size in world units: an occluder about a quarter of a
+/// receptor pitch across.
 const HAND_RADIUS: i32 = 34;
+
+/// The one application currently drawn on the screen. The organism sees
+/// pixels; it never sees which application produced them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum App {
+    Keyboard(Application),
+    Target(TargetApp),
+}
+
+impl App {
+    fn frame(&self) -> LightField {
+        match self {
+            Self::Keyboard(app) => app.frame(),
+            Self::Target(app) => app.frame(),
+        }
+    }
+
+    fn apply(&mut self, events: &[DeviceEvent]) {
+        match self {
+            Self::Keyboard(app) => app.apply(events),
+            Self::Target(app) => app.apply(events),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Workstation2 {
     screen: Touchscreen,
-    application: Application,
+    application: App,
 }
 
 impl Workstation2 {
     pub fn new(keyboard_shift: i16) -> Self {
         Self {
-            screen: Touchscreen::new(),
-            application: Application::new(keyboard_shift),
+            screen: Touchscreen::new(CONTACT_DEPTH),
+            application: App::Keyboard(Application::new(keyboard_shift)),
+        }
+    }
+
+    pub fn with_target(app: TargetApp) -> Self {
+        Self {
+            screen: Touchscreen::new(CONTACT_DEPTH),
+            application: App::Target(app),
+        }
+    }
+
+    /// The same target app with the screen placed at `contact_depth`, the
+    /// big-toy exposure knob: a close screen presents the contact
+    /// consequence within the palm's easy reach, exactly like a toy placed
+    /// within a baby's reach. Nothing else changes.
+    pub fn with_target_at_depth(app: TargetApp, contact_depth: i16) -> Self {
+        Self {
+            screen: Touchscreen::new(contact_depth),
+            application: App::Target(app),
+        }
+    }
+
+    pub fn target(&self) -> Option<&TargetApp> {
+        match &self.application {
+            App::Target(app) => Some(app),
+            App::Keyboard(_) => None,
         }
     }
 
@@ -43,11 +99,17 @@ impl Workstation2 {
     }
 
     pub fn text(&self) -> &str {
-        self.application.text()
+        match &self.application {
+            App::Keyboard(app) => app.text(),
+            App::Target(_) => "",
+        }
     }
 
     pub const fn scale(&self) -> i16 {
-        self.application.scale()
+        match &self.application {
+            App::Keyboard(app) => app.scale(),
+            App::Target(_) => 0,
+        }
     }
 }
 
@@ -77,7 +139,7 @@ fn render_eye(
                     y: y as i16,
                 },
             ) {
-                value = 250;
+                value = 8;
             }
             pixels.push(value);
         }
@@ -85,13 +147,13 @@ fn render_eye(
     LightField::new(RETINA_SIDE as u16, RETINA_SIDE as u16, pixels)
 }
 
+/// The hand occludes the screen: held between the eyes and the display, it
+/// blocks light and renders as a dark silhouette (8) below every background
+/// pixel (18..64) and below the salience floor (129). The learner sees it as
+/// contrast, but the body's reflexes never chase it.
 fn hand_visible_at(body: &WorkstationState, eye: Eye, sample: ScreenPoint) -> bool {
     let palm = body.hand().palm();
     projected_near(palm.x(), palm.y(), palm.depth(), eye, sample)
-        || Digit::ALL.into_iter().any(|digit| {
-            let tip = body.hand().fingertip(digit);
-            projected_near(tip.x(), tip.y(), tip.depth(), eye, sample)
-        })
 }
 
 fn projected_near(x: i16, y: i16, depth: i16, eye: Eye, sample: ScreenPoint) -> bool {

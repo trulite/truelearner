@@ -1,17 +1,10 @@
 use academy_body::{
     BodyCapability, BodyCourse, BodyCourseKind, BodyCourseOutcome, BodyEvidenceState,
-    BodyExperience, BodyExperienceMode, BodyVerdict, BodyWorldCause,
-};
-use academy_workstation::DeviceEvent;
-use academy_workstation_course::{
-    RepeatedUseEvidenceState, ScreenDeviceEvidenceState, WorkstationCourse,
-    WorkstationExperienceMode, WorkstationFailure, WorkstationVerdict,
+    BodyExperience, BodyExperienceMode, BodyVerdict,
 };
 use behavior_diagram::BehaviorDiagram;
 use sha2::{Digest, Sha256};
-use truelearner_workstation::{
-    BodyAxis, BodyControl, Direction, WorkstationCheckpoint, WorkstationHarness,
-};
+use truelearner_workstation::{WorkstationCheckpoint, WorkstationHarness};
 
 #[path = "../../../tests/support/behavior_diagram.rs"]
 mod behavior_diagram;
@@ -46,29 +39,25 @@ fn development_commits_but_probe_is_discarded_and_replays_exactly() {
 }
 
 #[test]
-#[ignore = "Workstation1 is disabled by default; its ContactDrag development fails on main"]
-fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels() {
-    let run = BodyCourse::new(31_001)
-        .unwrap()
-        .run_with_workstation_course()
-        .unwrap();
+fn the_pointer_body_course_acquires_every_capability() {
+    let run = BodyCourse::new(31_001).unwrap().run().unwrap();
     for experience in &run.experiences {
         assert_experience_diagram(experience);
     }
     assert!(run.exact_replay);
     assert!(!run.experiences.is_empty());
-    assert!(run.acquired.contains(&BodyCapability::BinocularDepth));
-    assert!(run.acquired.contains(&BodyCapability::HandContingency));
-    assert!(run.acquired.contains(&BodyCapability::DigitSeparation));
-    assert!(run.acquired.contains(&BodyCapability::SelfWorld));
-    assert!(run.acquired.contains(&BodyCapability::Contact));
-    assert!(run.acquired.contains(&BodyCapability::VisualReach));
-    assert!(run.acquired.contains(&BodyCapability::TapHoldRelease));
-    assert!(run.acquired.contains(&BodyCapability::ContactDrag));
-    assert!(run.acquired.contains(&BodyCapability::ThumbContact));
-    assert!(run.acquired.contains(&BodyCapability::PinchDrag));
+    assert_eq!(
+        run.acquired,
+        [
+            BodyCapability::GazeContingency,
+            BodyCapability::GazeControl,
+            BodyCapability::BinocularDepth,
+            BodyCapability::HandContingency,
+            BodyCapability::SelfWorld,
+        ]
+    );
     assert_eq!(run.first_failure, None);
-    assert_eq!(run.schema_version, 14);
+    assert_eq!(run.schema_version, 15);
     let completed =
         WorkstationHarness::restore(WorkstationCheckpoint::decode(&run.body_checkpoint).unwrap())
             .unwrap();
@@ -81,356 +70,38 @@ fn generated_course_acquires_all_body_capabilities_and_preserves_evidence_levels
     assert_eq!(run.courses[0].outcome, BodyCourseOutcome::Acquired);
     assert_eq!(run.courses[1].outcome, BodyCourseOutcome::Acquired);
     assert_eq!(run.courses[2].outcome, BodyCourseOutcome::Acquired);
-    assert_eq!(run.courses[3].outcome, BodyCourseOutcome::Acquired);
-    let evidence_state = |capability| {
-        run.capability_evidence
-            .iter()
-            .find(|evidence| evidence.capability == capability)
-            .unwrap()
-            .state
-    };
-    assert_eq!(
-        evidence_state(BodyCapability::ContactDrag),
-        BodyEvidenceState::Stable
-    );
-    assert_eq!(
-        evidence_state(BodyCapability::ThumbContact),
-        BodyEvidenceState::Stable
-    );
-    assert_eq!(
-        evidence_state(BodyCapability::PinchDrag),
-        BodyEvidenceState::Stable
-    );
-    for capability in [
-        BodyCapability::ContactDrag,
-        BodyCapability::ThumbContact,
-        BodyCapability::PinchDrag,
-    ] {
-        let lesson = run
-            .experiences
-            .iter()
-            .find(|experience| {
-                experience.capability == capability
-                    && experience.mode == BodyExperienceMode::Development
-            })
-            .unwrap();
-        let retention = run
-            .experiences
-            .iter()
-            .find(|experience| {
-                experience.capability == capability
-                    && experience.mode == BodyExperienceMode::Retention
-            })
-            .unwrap();
-        let lesson_reference = WorkstationHarness::restore(
-            WorkstationCheckpoint::decode(&lesson.checkpoint_before).unwrap(),
-        )
-        .unwrap();
-        let retention_reference = WorkstationHarness::restore(
-            WorkstationCheckpoint::decode(&retention.checkpoint_before).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(lesson_reference.state(), retention_reference.state());
+    for capability in BodyCapability::ORDER {
         assert_eq!(
-            lesson_reference.read().unwrap().body_fingerprint,
-            retention_reference.read().unwrap().body_fingerprint
+            run.capability_evidence
+                .iter()
+                .find(|evidence| evidence.capability == capability)
+                .unwrap()
+                .state,
+            BodyEvidenceState::Acquired,
+            "{capability:?}"
         );
     }
-    let contact_retention = run
-        .experiences
-        .iter()
-        .find(|experience| {
-            experience.capability == BodyCapability::ContactDrag
-                && experience.mode == BodyExperienceMode::Retention
-        })
-        .unwrap();
-    assert_eq!(contact_retention.verdict, BodyVerdict::Passed);
-    assert!(contact_retention.replay_exact);
-    assert!(contact_retention.durable_unchanged);
-    let perturbation = contact_retention.perturbation.unwrap();
-    assert_eq!(
-        perturbation.control,
-        BodyControl::new(BodyAxis::PalmHorizontal, Direction::Increase)
-    );
-    assert_eq!(perturbation.impulse, 1);
-    let checkpoint = WorkstationCheckpoint::decode(&contact_retention.checkpoint_before).unwrap();
-    let unperturbed = WorkstationHarness::restore(checkpoint).unwrap();
-    assert_eq!(
-        contact_retention.observations[0]
-            .state_before
-            .hand()
-            .palm()
-            .x(),
-        unperturbed.state().hand().palm().x() + 16
-    );
-    assert!(run.experiences.iter().all(|experience| {
-        experience.perturbation.is_none()
-            || (experience.capability == BodyCapability::ContactDrag
-                && experience.mode == BodyExperienceMode::Retention)
-    }));
-    let contact_probe = run
-        .experiences
-        .iter()
-        .find(|experience| {
-            experience.capability == BodyCapability::Contact
-                && experience.mode == BodyExperienceMode::Probe
-        })
-        .unwrap();
-    assert_eq!(contact_probe.verdict, BodyVerdict::Passed);
-    assert_eq!(contact_probe.samples.len(), 16);
-    assert!(contact_probe
-        .world_observations
-        .iter()
-        .all(|observation| observation.events.is_empty() && observation.fingerprint.is_none()));
-    let tap_experiences = run
-        .experiences
-        .iter()
-        .filter(|experience| experience.capability == BodyCapability::TapHoldRelease)
-        .collect::<Vec<_>>();
-    assert!(!tap_experiences.is_empty());
-    assert!(tap_experiences.iter().all(|experience| experience
-        .world_observations
-        .iter()
-        .all(|observation| observation.fingerprint.is_some())));
-    let demonstration = tap_experiences
-        .iter()
-        .find(|experience| experience.mode == BodyExperienceMode::Demonstration)
-        .unwrap();
-    assert_eq!(demonstration.verdict, BodyVerdict::Presented);
-    assert!(demonstration.replay_exact);
-    assert!(demonstration
-        .world_observations
-        .iter()
-        .flat_map(|observation| &observation.events)
-        .all(|event| event.cause == BodyWorldCause::Demonstrator));
-    let demonstrated_events = demonstration
-        .world_observations
-        .iter()
-        .flat_map(|observation| &observation.events)
-        .map(|event| &event.event)
-        .collect::<Vec<_>>();
-    assert!(demonstrated_events
-        .iter()
-        .any(|event| matches!(event, DeviceEvent::KeyPressed { .. })));
-    assert!(demonstrated_events
-        .iter()
-        .any(|event| matches!(event, DeviceEvent::LongPressActivated { .. })));
-    assert!(demonstrated_events
-        .iter()
-        .any(|event| matches!(event, DeviceEvent::KeyReleased { .. })));
-    let imitation = tap_experiences
-        .iter()
-        .find(|experience| experience.mode == BodyExperienceMode::Control)
-        .unwrap();
-    assert_eq!(imitation.verdict, BodyVerdict::Failed);
-    assert_eq!(imitation.key_press_depth, Some(720));
-    assert!(imitation
-        .world_observations
-        .iter()
-        .all(|observation| observation.events.is_empty()));
-    let depth_controls = tap_experiences
-        .iter()
-        .filter(|experience| experience.mode == BodyExperienceMode::DepthControl)
-        .copied()
-        .collect::<Vec<_>>();
-    assert_eq!(depth_controls.len(), 6);
-    assert_eq!(
-        depth_controls
-            .iter()
-            .map(|experience| experience.key_press_depth.unwrap())
-            .collect::<Vec<_>>(),
-        [640, 656, 672, 688, 704, 720]
-    );
-    assert!(depth_controls.iter().all(|experience| {
-        experience.verdict == BodyVerdict::Passed
-            && experience
-                .world_observations
-                .iter()
-                .flat_map(|observation| &observation.events)
-                .any(|event| matches!(event.event, DeviceEvent::KeyPressed { .. }))
-    }));
-    assert!(depth_controls
-        .windows(2)
-        .all(|pair| pair[0].seed == pair[1].seed
-            && pair[0].checkpoint_before == pair[1].checkpoint_before));
-    let practice = tap_experiences
-        .iter()
-        .find(|experience| experience.mode == BodyExperienceMode::Development)
-        .unwrap();
-    assert_eq!(practice.verdict, BodyVerdict::Passed);
-    assert_eq!(practice.key_press_depth, Some(640));
-    assert!(practice
-        .world_observations
-        .iter()
-        .flat_map(|observation| &observation.events)
-        .all(|event| event.cause == BodyWorldCause::Organism));
-    assert!(practice
-        .world_observations
-        .iter()
-        .flat_map(|observation| &observation.events)
-        .any(|event| matches!(event.event, DeviceEvent::LongPressActivated { .. })));
-    let probe = tap_experiences
-        .iter()
-        .find(|experience| experience.mode == BodyExperienceMode::Probe)
-        .unwrap();
-    assert_eq!(probe.verdict, BodyVerdict::Passed);
-    assert_eq!(probe.key_press_depth, Some(720));
-    let probe_events = probe
-        .world_observations
-        .iter()
-        .flat_map(|observation| &observation.events)
-        .map(|event| &event.event)
-        .collect::<Vec<_>>();
-    assert!(probe_events
-        .iter()
-        .any(|event| matches!(event, DeviceEvent::KeyPressed { .. })));
-    assert!(probe_events
-        .iter()
-        .any(|event| matches!(event, DeviceEvent::LongPressActivated { .. })));
-    assert!(probe_events
-        .iter()
-        .any(|event| matches!(event, DeviceEvent::KeyReleased { .. })));
-    assert!(run
-        .experiences
-        .iter()
-        .filter(|experience| {
-            !matches!(
-                experience.mode,
-                BodyExperienceMode::Demonstration
-                    | BodyExperienceMode::Development
-                    | BodyExperienceMode::Interference
-            )
-        })
-        .all(|experience| experience.durable_unchanged));
-    let course = run.workstation_course.as_ref().unwrap();
-    assert_eq!(course.evidence_state, ScreenDeviceEvidenceState::Acquired);
-    assert_eq!(
-        course.automaticity.state,
-        RepeatedUseEvidenceState::Automatic,
-        "{:#?}",
-        course.automaticity
-    );
-    assert_eq!(course.automaticity.closed_development_uses, 7);
-    assert!(course.automaticity.screen_closed_composites > 0);
-    assert!(course.automaticity.reused_composites > 0);
-    assert!(course.automaticity.saved_physical_work_per_use > 0);
-    assert!(course.automaticity.formation_work > 0);
-    assert!(course.automaticity.break_even_uses <= 1);
-    assert!(course.automaticity.same_external_trace);
-    assert!(course.automaticity.no_return_control);
-    assert!(course.automaticity.interference_survived);
-    assert!(course.automaticity.checkpoint_retained);
-    assert!(course.automaticity.exact_replay);
-    assert_eq!(course.first_failure, Some(WorkstationFailure::Transfer));
-    assert!(course.exact_replay);
-    let experience = |mode| {
-        course
-            .experiences
-            .iter()
-            .find(|experience| experience.mode == mode)
-            .unwrap()
-    };
-    let workstation_demonstration = experience(WorkstationExperienceMode::Demonstration);
-    assert_eq!(
-        workstation_demonstration.automaticity_work_before,
-        workstation_demonstration.automaticity_work_after
-    );
-    assert_eq!(
-        experience(WorkstationExperienceMode::PassiveProbe).verdict,
-        WorkstationVerdict::Failed
-    );
-    assert_eq!(
-        experience(WorkstationExperienceMode::ActionOnlyProbe).verdict,
-        WorkstationVerdict::Failed
-    );
-    let action_only = experience(WorkstationExperienceMode::ActionOnlyDevelopment);
-    assert_eq!(action_only.screen_changes, 0);
-    assert_eq!(action_only.unique_returned_screen_changes, 0);
-    assert!(action_only.screen_closed_composite_links.is_empty());
-    assert_eq!(
-        experience(WorkstationExperienceMode::Development).unique_returned_screen_changes,
-        1
-    );
-    let automaticity_development = course
-        .experiences
-        .iter()
-        .filter(|experience| experience.mode == WorkstationExperienceMode::AutomaticityDevelopment)
-        .collect::<Vec<_>>();
-    assert_eq!(automaticity_development.len(), 7);
-    assert!(automaticity_development.iter().all(|experience| {
-        experience.verdict == WorkstationVerdict::Passed
-            && experience.unique_returned_screen_changes > 0
-            && experience.replay_exact
-            && experience.naturally_quiescent
-    }));
-    assert!(automaticity_development
-        .iter()
-        .any(|experience| !experience.screen_closed_composite_links.is_empty()));
-    let interference = experience(WorkstationExperienceMode::AutomaticityInterference);
-    assert_eq!(interference.verdict, WorkstationVerdict::Presented);
-    assert!(interference.screen_changes > 0);
-    assert_eq!(interference.unique_returned_screen_changes, 0);
-    assert!(interference.screen_closed_composite_links.is_empty());
-    assert_eq!(
-        interference.automaticity_work_before,
-        interference.automaticity_work_after
-    );
-    let automaticity_probe = experience(WorkstationExperienceMode::AutomaticityProbe);
-    assert!(automaticity_probe.mutation_discarded);
-    assert!(!automaticity_probe
-        .retained_composite_links_traversed
-        .is_empty());
-    assert!(!automaticity_probe
-        .retained_composite_traversal_steps
-        .is_empty());
-    assert_eq!(
-        experience(WorkstationExperienceMode::NormalDepthProbe).verdict,
-        WorkstationVerdict::Passed
-    );
-    assert_eq!(
-        experience(WorkstationExperienceMode::Probe).verdict,
-        WorkstationVerdict::Passed
-    );
-    let final_retention = WorkstationCourse::retention_probe(
-        11_031_001,
-        &run.body_checkpoint,
-        run.workstation_pose_checkpoint.as_ref().unwrap(),
-    )
-    .unwrap();
-    assert_eq!(final_retention.verdict, WorkstationVerdict::Failed);
-    let workstation = WorkstationHarness::restore(
-        WorkstationCheckpoint::decode(&course.body_checkpoint).unwrap(),
-    )
-    .unwrap();
-    assert_eq!(
-        workstation.read().unwrap().body_fingerprint,
-        course.final_body_fingerprint
-    );
 }
 
 #[test]
-fn held_out_earlier_frontier_matches_the_frozen_parent() {
+fn a_held_out_seed_acquires_the_whole_course() {
     let run = BodyCourse::new(31_002).unwrap().run().unwrap();
 
     assert!(run.exact_replay);
+    assert_eq!(run.first_failure, None);
     assert_eq!(
         run.acquired,
         [
             BodyCapability::GazeContingency,
             BodyCapability::GazeControl,
+            BodyCapability::BinocularDepth,
             BodyCapability::HandContingency,
-            BodyCapability::DigitSeparation,
+            BodyCapability::SelfWorld,
         ]
     );
-    assert_eq!(run.first_failure, Some(BodyCapability::BinocularDepth));
-    assert_eq!(
-        run.courses[0].outcome,
-        BodyCourseOutcome::Failed(BodyCapability::BinocularDepth)
-    );
+    assert_eq!(run.courses[0].outcome, BodyCourseOutcome::Acquired);
     assert_eq!(run.courses[1].outcome, BodyCourseOutcome::Acquired);
-    assert_eq!(run.courses[2].outcome, BodyCourseOutcome::NotReached);
-    // Workstation1 is disabled by default, so its contact course is absent.
-    assert_eq!(run.courses.len(), 3);
+    assert_eq!(run.courses[2].outcome, BodyCourseOutcome::Acquired);
 }
 
 fn assert_experience_diagram(experience: &BodyExperience) {
@@ -474,12 +145,7 @@ fn assert_experience_diagram(experience: &BodyExperience) {
         diagram.assert_commutes(&["live"], &["replay"]);
     }
 
-    if !matches!(
-        experience.mode,
-        BodyExperienceMode::Demonstration
-            | BodyExperienceMode::Development
-            | BodyExperienceMode::Interference
-    ) {
+    if !matches!(experience.mode, BodyExperienceMode::Development) {
         let durable_after = if experience.durable_unchanged {
             before.clone()
         } else {
@@ -495,12 +161,7 @@ fn assert_experience_diagram(experience: &BodyExperience) {
     }
 
     assert_eq!(experience.samples.len(), experience.observations.len());
-    assert_eq!(
-        experience.samples.len(),
-        experience.world_observations.len()
-    );
     for (step, observation) in experience.observations.iter().enumerate() {
-        let world_observation = &experience.world_observations[step];
         let world = format!("world[{step}]");
         let harness = format!("harness[{step}]");
         let organism = format!("organism[{step}]");
@@ -542,14 +203,6 @@ fn assert_experience_diagram(experience: &BodyExperience) {
         );
         diagram.arrow(&record, &world, "frozen observer record", &evidence);
         diagram.assert_commutes(&[&admit, &run, &effect, &observe], &[&record]);
-        if !world_observation.events.is_empty() {
-            diagram.arrow(
-                format!("{step}: world events"),
-                &outcome,
-                format!("{} external events", world_observation.events.len()),
-                &evidence,
-            );
-        }
 
         if let Some(next) = experience.observations.get(step + 1) {
             assert_eq!(

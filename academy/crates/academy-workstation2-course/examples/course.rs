@@ -16,12 +16,33 @@ fn main() {
         .run(checkpoint, seed)
         .unwrap();
     println!(
-        "steps={steps} shift={} replay={} first_failure={:?}",
-        run.probe_keyboard_shift, run.exact_replay, run.first_failure
+        "steps={steps} replay={} first_failure={:?}",
+        run.exact_replay, run.first_failure
     );
     for c in Capability::ALL {
         println!("  {c:?}: {:?}", run.state(c));
     }
-    println!("  dev:   {:?}", run.development);
-    println!("  probe: {:?}", run.shifted_probe);
+    println!("  gaze:  {:?}", run.gaze);
+    println!("  touch: {:?}", run.touch);
+    for outcome in &run.rungs {
+        println!("  {:?}: state={:?}", outcome.kind, outcome.run.state);
+        if let Some(dev) = &outcome.run.development {
+            println!("    dev:    {dev:?}");
+        }
+        for (i, probe) in outcome.run.probes.iter().enumerate() {
+            println!("    probe{i}: {probe:?}");
+        }
+        for (i, control) in outcome.run.controls.iter().enumerate() {
+            println!("    ctrl{i}:  {control:?}");
+        }
+    }
+    let tap = &run.aimed_tap;
+    println!("  tap: state={:?} replay={}", tap.state, tap.exact_replay);
+    println!("    dev:    {:?}", tap.development);
+    for (i, p) in tap.probes.iter().enumerate() {
+        println!("    probe{i}: {p:?}");
+    }
+    for (i, c) in tap.blind_controls.iter().enumerate() {
+        println!("    blind{i}: {c:?}");
+    }
 }

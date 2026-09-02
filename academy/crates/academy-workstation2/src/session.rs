@@ -35,11 +35,22 @@ impl Workstation2Session {
         checkpoint: WorkstationCheckpoint,
         keyboard_shift: i16,
     ) -> Result<Self, WorkstationError> {
+        Self::with_world(checkpoint, Workstation2::new(keyboard_shift))
+    }
+
+    pub fn with_world(
+        checkpoint: WorkstationCheckpoint,
+        world: Workstation2,
+    ) -> Result<Self, WorkstationError> {
         Ok(Self {
             harness: WorkstationHarness::restore(checkpoint)?,
-            world: Workstation2::new(keyboard_shift),
+            world,
             sequence: 0,
         })
+    }
+
+    pub fn world(&self) -> &Workstation2 {
+        &self.world
     }
 
     pub fn step(&mut self) -> Result<Workstation2Observation, WorkstationError> {

@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use std::fmt;
 
 const MAGIC: &[u8; 8] = b"TLBODY01";
-const VERSION: u16 = 9;
+const VERSION: u16 = 10;
 const HEADER_LEN: usize = 50;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

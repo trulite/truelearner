@@ -2,9 +2,10 @@ use crate::WorkstationError;
 use serde::{Deserialize, Serialize};
 
 pub const BODY_MAX: i16 = 1_023;
-pub const DIGIT_COUNT: usize = 5;
-pub const TOUCH_SITES: usize = DIGIT_COUNT + 1;
-pub const AXIS_COUNT: usize = 15;
+/// One pointer, one contact surface: the undifferentiated hand touches as
+/// one whole, the way a newborn reaches long before fingers differentiate.
+pub const TOUCH_SITES: usize = 1;
+pub const AXIS_COUNT: usize = 7;
 const MAX_PIXELS: usize = 1_048_576;
 const MID: i16 = (BODY_MAX + 1) / 2;
 
@@ -51,36 +52,6 @@ impl Eye {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Digit {
-    Thumb,
-    Index,
-    Middle,
-    Ring,
-    Little,
-}
-
-impl Digit {
-    pub const ALL: [Self; DIGIT_COUNT] = [
-        Self::Thumb,
-        Self::Index,
-        Self::Middle,
-        Self::Ring,
-        Self::Little,
-    ];
-
-    pub(crate) const fn index(self) -> usize {
-        match self {
-            Self::Thumb => 0,
-            Self::Index => 1,
-            Self::Middle => 2,
-            Self::Ring => 3,
-            Self::Little => 4,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
 pub enum Direction {
     Decrease,
     Increase,
@@ -114,10 +85,6 @@ pub enum BodyAxis {
     PalmHorizontal,
     PalmVertical,
     PalmDepth,
-    Wrist,
-    Spread,
-    ThumbOpposition,
-    FingerFlexion { digit: Digit },
 }
 
 impl BodyAxis {
@@ -129,22 +96,6 @@ impl BodyAxis {
         Self::PalmHorizontal,
         Self::PalmVertical,
         Self::PalmDepth,
-        Self::Wrist,
-        Self::Spread,
-        Self::ThumbOpposition,
-        Self::FingerFlexion {
-            digit: Digit::Thumb,
-        },
-        Self::FingerFlexion {
-            digit: Digit::Index,
-        },
-        Self::FingerFlexion {
-            digit: Digit::Middle,
-        },
-        Self::FingerFlexion { digit: Digit::Ring },
-        Self::FingerFlexion {
-            digit: Digit::Little,
-        },
     ];
 
     pub const fn index(self) -> usize {
@@ -154,10 +105,6 @@ impl BodyAxis {
             Self::PalmHorizontal => 4,
             Self::PalmVertical => 5,
             Self::PalmDepth => 6,
-            Self::Wrist => 7,
-            Self::Spread => 8,
-            Self::ThumbOpposition => 9,
-            Self::FingerFlexion { digit } => 10 + digit.index(),
         }
     }
 }
@@ -373,23 +320,6 @@ impl ContactSample {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DigitState {
-    flexion: u16,
-}
-
-impl DigitState {
-    pub const fn flexion(self) -> u16 {
-        self.flexion
-    }
-}
-
-impl Default for DigitState {
-    fn default() -> Self {
-        Self { flexion: 512 }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EyeState {
     gaze: Point,
@@ -409,51 +339,16 @@ impl Default for EyeState {
     }
 }
 
+/// The undifferentiated hand: one pointer with a planar position and a
+/// depth. Its contact surface is the whole hand.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HandState {
     palm: HandPoint,
-    wrist: i16,
-    spread: i16,
-    thumb_opposition: i16,
-    digits: [DigitState; DIGIT_COUNT],
 }
 
 impl HandState {
     pub const fn palm(&self) -> HandPoint {
         self.palm
-    }
-
-    pub const fn wrist(&self) -> i16 {
-        self.wrist
-    }
-
-    pub const fn spread(&self) -> i16 {
-        self.spread
-    }
-
-    pub const fn thumb_opposition(&self) -> i16 {
-        self.thumb_opposition
-    }
-
-    pub fn digit(&self, digit: Digit) -> DigitState {
-        self.digits[digit.index()]
-    }
-
-    pub fn fingertip(&self, digit: Digit) -> HandPoint {
-        let index = i32::try_from(digit.index()).unwrap_or(0) - 2;
-        let spread = i32::from(self.spread) / 24;
-        let opposition = if digit == Digit::Thumb {
-            i32::from(self.thumb_opposition) / 16
-        } else {
-            0
-        };
-        let flexion = i32::from(self.digits[digit.index()].flexion) - i32::from(MID);
-        let reach = 56_i32.saturating_sub(flexion / 16);
-        HandPoint {
-            x: clamp_body(i32::from(self.palm.x) + index * (30 + spread) + opposition),
-            y: clamp_body(i32::from(self.palm.y) - reach),
-            depth: clamp_body(i32::from(self.palm.depth) + flexion / 4 + opposition.abs() / 4),
-        }
     }
 }
 
@@ -465,10 +360,6 @@ impl Default for HandState {
                 y: 768,
                 depth: 256,
             },
-            wrist: 0,
-            spread: 0,
-            thumb_opposition: 0,
-            digits: [DigitState::default(); DIGIT_COUNT],
         }
     }
 }
@@ -552,12 +443,6 @@ impl WorkstationState {
             BodyAxis::PalmHorizontal => self.hand.palm.x - MID,
             BodyAxis::PalmVertical => self.hand.palm.y - 768,
             BodyAxis::PalmDepth => self.hand.palm.depth - 256,
-            BodyAxis::Wrist => self.hand.wrist,
-            BodyAxis::Spread => self.hand.spread,
-            BodyAxis::ThumbOpposition => self.hand.thumb_opposition,
-            BodyAxis::FingerFlexion { digit } => {
-                i16::try_from(self.hand.digit(digit).flexion).unwrap_or(BODY_MAX) - MID
-            }
         }
     }
 
@@ -572,16 +457,6 @@ impl WorkstationState {
             BodyAxis::PalmHorizontal => (self.hand.palm.x == 0, self.hand.palm.x == BODY_MAX),
             BodyAxis::PalmVertical => (self.hand.palm.y == 0, self.hand.palm.y == BODY_MAX),
             BodyAxis::PalmDepth => (self.hand.palm.depth == 0, self.hand.palm.depth == BODY_MAX),
-            BodyAxis::Wrist => (self.hand.wrist == -BODY_MAX, self.hand.wrist == BODY_MAX),
-            BodyAxis::Spread => (self.hand.spread == -BODY_MAX, self.hand.spread == BODY_MAX),
-            BodyAxis::ThumbOpposition => (
-                self.hand.thumb_opposition == -BODY_MAX,
-                self.hand.thumb_opposition == BODY_MAX,
-            ),
-            BodyAxis::FingerFlexion { digit } => {
-                let flexion = self.hand.digit(digit).flexion;
-                (flexion == 0, flexion == BODY_MAX as u16)
-            }
         }
     }
 
@@ -589,35 +464,47 @@ impl WorkstationState {
         let amount = net_impulse.saturating_mul(axis_step(axis));
         match axis {
             BodyAxis::EyeHorizontal { eye } => {
-                self.eyes[eye.index()].gaze.x =
-                    add_bounded(self.eyes[eye.index()].gaze.x, amount, 0, BODY_MAX);
+                // The eye is rate-limited: whatever efforts sum, it moves
+                // at most one axis step per step. A reflex can then never
+                // be outrun by a habit, and summed effort cannot overshoot
+                // a target by more than the reflex can correct.
+                self.eyes[eye.index()].gaze.x = add_bounded(
+                    self.eyes[eye.index()].gaze.x,
+                    amount.clamp(-EYE_VELOCITY, EYE_VELOCITY),
+                    0,
+                    BODY_MAX,
+                );
             }
             BodyAxis::EyeVertical { eye } => {
-                self.eyes[eye.index()].gaze.y =
-                    add_bounded(self.eyes[eye.index()].gaze.y, amount, 0, BODY_MAX);
+                self.eyes[eye.index()].gaze.y = add_bounded(
+                    self.eyes[eye.index()].gaze.y,
+                    amount.clamp(-EYE_VELOCITY, EYE_VELOCITY),
+                    0,
+                    BODY_MAX,
+                );
             }
             BodyAxis::PalmHorizontal => {
-                self.hand.palm.x = add_bounded(self.hand.palm.x, amount, 0, BODY_MAX);
+                // Planar transport is rate-limited: however efforts sum,
+                // the palm moves at most four palm steps per step, so an
+                // insistent reach approaches what it sees instead of
+                // teleporting across it.
+                self.hand.palm.x = add_bounded(
+                    self.hand.palm.x,
+                    amount.clamp(-PALM_VELOCITY, PALM_VELOCITY),
+                    0,
+                    BODY_MAX,
+                );
             }
             BodyAxis::PalmVertical => {
-                self.hand.palm.y = add_bounded(self.hand.palm.y, amount, 0, BODY_MAX);
+                self.hand.palm.y = add_bounded(
+                    self.hand.palm.y,
+                    amount.clamp(-PALM_VELOCITY, PALM_VELOCITY),
+                    0,
+                    BODY_MAX,
+                );
             }
             BodyAxis::PalmDepth => {
                 self.hand.palm.depth = add_bounded(self.hand.palm.depth, amount, 0, BODY_MAX);
-            }
-            BodyAxis::Wrist => {
-                self.hand.wrist = add_bounded(self.hand.wrist, amount, -BODY_MAX, BODY_MAX);
-            }
-            BodyAxis::Spread => {
-                self.hand.spread = add_bounded(self.hand.spread, amount, -BODY_MAX, BODY_MAX);
-            }
-            BodyAxis::ThumbOpposition => {
-                self.hand.thumb_opposition =
-                    add_bounded(self.hand.thumb_opposition, amount, -BODY_MAX, BODY_MAX);
-            }
-            BodyAxis::FingerFlexion { digit } => {
-                self.hand.digits[digit.index()].flexion =
-                    add_bounded_u16(self.hand.digits[digit.index()].flexion, amount);
             }
         }
     }
@@ -670,25 +557,26 @@ impl WorldSample {
 
 const fn axis_step(axis: BodyAxis) -> i32 {
     match axis {
-        BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. } => 128,
+        // Half-pitch granularity: a vergence correction can land within
+        // half a receptor pitch, so fusion settles inside the foveal
+        // tolerance instead of hunting across it a full pitch at a time.
+        BodyAxis::EyeHorizontal { .. } | BodyAxis::EyeVertical { .. } => 64,
         BodyAxis::PalmHorizontal | BodyAxis::PalmVertical | BodyAxis::PalmDepth => 16,
-        BodyAxis::Wrist | BodyAxis::Spread | BodyAxis::ThumbOpposition => 32,
-        BodyAxis::FingerFlexion { .. } => 64,
     }
 }
+
+/// The palm's planar speed bound in world units per step.
+const PALM_VELOCITY: i32 = 64;
+
+/// The eye's speed bound in world units per step: one receptor pitch.
+/// Summed effort cannot exceed it, so no combination of reflex and habit
+/// can overshoot a target by more than one pitch, and the eye can never
+/// move fast enough to leave a seen target's grasp.
+const EYE_VELOCITY: i32 = 128;
 
 fn add_bounded(value: i16, amount: i32, min: i16, max: i16) -> i16 {
     let next = i32::from(value).saturating_add(amount);
     i16::try_from(next.clamp(i32::from(min), i32::from(max))).unwrap_or(value)
-}
-
-fn add_bounded_u16(value: u16, amount: i32) -> u16 {
-    let next = i32::from(value).saturating_add(amount);
-    u16::try_from(next.clamp(0, i32::from(BODY_MAX))).unwrap_or(value)
-}
-
-fn clamp_body(value: i32) -> i16 {
-    i16::try_from(value.clamp(0, i32::from(BODY_MAX))).unwrap_or(BODY_MAX)
 }
 
 #[cfg(test)]
@@ -720,9 +608,7 @@ mod tests {
     fn equal_opposing_effort_is_visible_without_movement() {
         let mut state = WorkstationState::default();
         let before = state.clone();
-        let axis = BodyAxis::FingerFlexion {
-            digit: Digit::Index,
-        };
+        let axis = BodyAxis::PalmHorizontal;
         let mut frame = ActuatorFrame::default();
         frame.activate(axis, Direction::Decrease, 3);
         frame.activate(axis, Direction::Increase, 3);
@@ -761,14 +647,12 @@ mod tests {
     #[test]
     fn independent_eye_and_hand_axes_commute() {
         let eye = BodyAxis::EyeHorizontal { eye: Eye::Left };
-        let finger = BodyAxis::FingerFlexion {
-            digit: Digit::Little,
-        };
+        let planar = BodyAxis::PalmVertical;
         let mut forward = ActuatorFrame::default();
         forward.activate(eye, Direction::Increase, 2);
-        forward.activate(finger, Direction::Decrease, 1);
+        forward.activate(planar, Direction::Decrease, 1);
         let mut reverse = ActuatorFrame::default();
-        reverse.activate(finger, Direction::Decrease, 1);
+        reverse.activate(planar, Direction::Decrease, 1);
         reverse.activate(eye, Direction::Increase, 2);
 
         let mut first = WorkstationState::default();
@@ -795,7 +679,10 @@ mod tests {
     }
 
     #[test]
-    fn one_eye_impulse_moves_one_receptor_pitch() {
+    fn one_eye_impulse_is_capped_at_one_receptor_pitch() {
+        // The eye is rate-limited: one receptor pitch per step however the
+        // efforts sum, so a reflex can lock onto a target a habit would
+        // otherwise jump clean over.
         let mut state = WorkstationState::default();
         let before = state.eye(Eye::Left).gaze().x();
         let mut frame = ActuatorFrame::default();
@@ -807,20 +694,27 @@ mod tests {
 
         let movement = state.integrate(frame);
 
+        assert_eq!(movement[0].velocity, 64);
+        assert_eq!(state.eye(Eye::Left).gaze().x() - before, 64);
+        // A doubled push is still one pitch.
+        let mut state = WorkstationState::default();
+        let mut frame = ActuatorFrame::default();
+        frame.activate(
+            BodyAxis::EyeHorizontal { eye: Eye::Left },
+            Direction::Increase,
+            4,
+        );
+        let movement = state.integrate(frame);
         assert_eq!(movement[0].velocity, 128);
-        assert_eq!(state.eye(Eye::Left).gaze().x() - before, 128);
     }
 
     #[test]
-    fn five_fingertips_have_bounded_three_dimensional_positions() {
+    fn the_pointer_has_one_bounded_three_dimensional_position() {
         let state = WorkstationState::default();
-        let points = Digit::ALL.map(|digit| state.hand().fingertip(digit));
-        assert_eq!(points.len(), DIGIT_COUNT);
-        assert!(points.iter().all(|point| {
-            (0..=BODY_MAX).contains(&point.x())
-                && (0..=BODY_MAX).contains(&point.y())
-                && (0..=BODY_MAX).contains(&point.depth())
-        }));
+        let palm = state.hand().palm();
+        assert!((0..=BODY_MAX).contains(&palm.x()));
+        assert!((0..=BODY_MAX).contains(&palm.y()));
+        assert!((0..=BODY_MAX).contains(&palm.depth()));
     }
 
     #[test]

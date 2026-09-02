@@ -1,3 +1,9 @@
+/// A transmitted link remains locally changeable for this many physical
+/// ticks. The return still has to reach the exact local meeting through the
+/// ordinary outcome law.
+pub(crate) const LOCAL_PLASTICITY_WINDOW: Time = 8;
+pub(crate) const LOCAL_PLASTICITY_STRENGTH_LIMIT: i64 = 2;
+
 pub(crate) fn reaction_needed(body: ReactionView<'_>, moment: &PhysicalMoment) -> bool {
     let mut boundary_changes = 0_usize;
     for recorded in &moment.changes {
@@ -726,6 +732,9 @@ fn record_returned_outcome<T: TraceSink>(
                 entry.offers_choice,
                 fact.event.at,
             );
+            for link in recent_local_inputs(body, entry.path, fact.event.at) {
+                change.change_link(link.into(), LinkChange::Strengthen { amount: 1 });
+            }
             retain_composite_after_return(
                 body,
                 entry.path,
@@ -743,6 +752,48 @@ fn record_returned_outcome<T: TraceSink>(
             );
         }
     }
+}
+
+/// Find every other recently transmitted propagation link in the returned
+/// path's backward cone. The exact path keeps its existing closure update;
+/// this retains coincident local routes without assigning them ancestry.
+fn recent_local_inputs(
+    body: ReactionView<'_>,
+    returned: Path,
+    at: Time,
+) -> Vec<LinkId> {
+    let mut junctions = vec![returned.surface, returned.middle, returned.output];
+    let mut eligible = Vec::new();
+    let mut next = 0;
+    while let Some(&junction) = junctions.get(next) {
+        next += 1;
+        for link in body.arena.incoming(junction) {
+            if !recent_local_input(returned, link, &body.arrows[link.slot()], at) {
+                continue;
+            }
+            let source = body.arena.link(link).expect("incoming link exists").from;
+            if !junctions.contains(&source) {
+                junctions.push(source);
+            }
+            if body.arrows[link.slot()].locally_plastic()
+                && body.arrows[link.slot()].strength() < LOCAL_PLASTICITY_STRENGTH_LIMIT
+            {
+                eligible.push(link);
+            }
+        }
+    }
+    eligible
+}
+
+#[inline(always)]
+fn recent_local_input(returned: Path, link: LinkId, memory: &ArrowState, at: Time) -> bool {
+    if returned.links().contains(&link) || !memory.active() || memory.evidence().is_none() {
+        return false;
+    }
+    memory.last_transmission().is_some_and(|transmission| {
+        transmission.at <= at
+            && at.saturating_sub(transmission.at) <= LOCAL_PLASTICITY_WINDOW
+    })
 }
 
 fn retain_composite_after_return(

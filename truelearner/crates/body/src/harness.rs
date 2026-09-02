@@ -1,8 +1,8 @@
 //! Small physical setup and observation helpers for body-level laws.
 
 use crate::{
-    attach, calibrate, Arrival, Body, Join, Junction, JunctionId, Link, OpenBody, PhysicalEvent,
-    Residual, Run, WitnessKind,
+    attach, calibrate, Arrival, Body, Join, Junction, JunctionId, Link, LinkId, OpenBody,
+    PhysicalEvent, Residual, Run, Time, Trigger, WitnessKind,
 };
 
 #[derive(Clone, Copy)]
@@ -113,6 +113,28 @@ pub fn attach_progress_component(
         body.mark_witness(link, WitnessKind::Progress)
             .expect("new progress link exists");
     }
+}
+
+/// Attaches a learnable link from a source to one target: born with a
+/// whisper of impulse, so it fires and can participate in a path, and the
+/// learner's strengthening laws potentiate it from there — like LTP, the
+/// connection exists weakly and grows with use. A zero-impulse link could
+/// never fire at any strength, since transmission multiplies impulse by
+/// strength; one that fires can grow. The link stays an ordinary drive, so
+/// transmission carries it and closures can return through it.
+pub fn attach_learnable_link(
+    body: &mut Body,
+    source: JunctionId,
+    target: JunctionId,
+    delay: Time,
+    trigger: Trigger,
+) -> LinkId {
+    let link = body
+        .add_link(Link::new(source, target, delay, 1).when(trigger))
+        .expect("validated learnable link");
+    body.mark_locally_plastic(link)
+        .expect("new learnable link exists");
+    link
 }
 
 pub fn schedule(body: &mut Body, at: u64, arrivals: &[Arrival]) {

@@ -1,6 +1,6 @@
 # Body Laws — Executable Contract
 
-> The learner has five primitive laws. Everything below them is either a
+> The learner has six primitive laws. Everything below them is either a
 > consequence, a structure-preservation requirement, or an observer boundary.
 > Storage, indexing, tracing, Academy verdicts, and benchmark meanings add no
 > learner law.
@@ -38,13 +38,27 @@
    strengthen the participating path. Ambiguous, missing, or late evidence
    retains nothing; terminal returns never reopen.
 
-5. **Persistence composes and refines.** Closed histories may be reused,
+5. **Returned local activity changes together.** When one return closes, every
+   other locally plastic propagation link in that path's physically connected
+   backward cone that transmitted during the preceding eight physical ticks
+   strengthens once, up to the local-plasticity strength limit of two. Fixed
+   links carry the local traversal but do not change. This update assigns no
+   ancestry, outcome, closure, or choice to those links. Inactive, absent,
+   disconnected, late, ambiguous, expired, and saturated activity does not
+   change.
+
+6. **Persistence composes and refines.** Closed histories may be reused,
    composed, or identified only through further exact physical closure. A new
    separating consequence invalidates only the retained or derived structure
    that depends on the changed incidence; independent components and exact
    suffixes remain valid.
 
-## Consequences of the five laws
+## Consequences of the six laws
+
+- Exact path ancestry and local plasticity answer different questions. Exact
+  closure records which path acted. Local plasticity records which other links
+  were recently active in that returned path's backward cone. Coincidence may
+  change strength without making a causal claim.
 
 - `Progress` witnesses an open continuing path but cannot close it. `Closure`
   supplies the terminal boundary witness and may locally offer or inhibit the

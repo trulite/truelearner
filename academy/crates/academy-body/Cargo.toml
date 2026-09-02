@@ -6,8 +6,6 @@ publish.workspace = true
 description = "Headless Body Discovery course for TrueLearner Academy"
 
 [dependencies]
-academy-workstation.workspace = true
-academy-workstation-course.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

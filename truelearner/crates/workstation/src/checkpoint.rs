@@ -13,7 +13,7 @@ use std::{
 use truelearner_body::BodyCheckpoint;
 
 const MAGIC: &[u8; 8] = b"TLWORK02";
-const VERSION: u16 = 11;
+const VERSION: u16 = 14;
 const HEADER_LEN: usize = 50;
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
 
@@ -26,6 +26,8 @@ pub(crate) struct Payload {
     pub(crate) physical_tick: u64,
     pub(crate) pending_transitions: [bool; AXIS_COUNT],
     pub(crate) pending_stops: Vec<MotorEffect>,
+    pub(crate) reach_strain: [i32; 2],
+    pub(crate) vergence_strain: i32,
     pub(crate) history: Vec<WorldSample>,
 }
 
@@ -44,6 +46,8 @@ impl WorkstationCheckpoint {
         physical_tick: u64,
         pending_transitions: [bool; AXIS_COUNT],
         pending_stops: Vec<MotorEffect>,
+        reach_strain: [i32; 2],
+        vergence_strain: i32,
         history: Vec<WorldSample>,
     ) -> Self {
         Self {
@@ -55,6 +59,8 @@ impl WorkstationCheckpoint {
                 physical_tick,
                 pending_transitions,
                 pending_stops,
+                reach_strain,
+                vergence_strain,
                 history,
             },
         }

@@ -340,6 +340,7 @@ pub enum PropagationMode {
     Entry,
     Drive {
         boundary_crossing: bool,
+        locally_plastic: bool,
         factors: Option<[LinkId; 2]>,
     },
 }
@@ -544,6 +545,7 @@ impl ArrowState {
             kind: ArrowKind::Propagation {
                 mode: PropagationMode::Drive {
                     boundary_crossing: false,
+                    locally_plastic: false,
                     factors: None,
                 },
                 last_transmission: None,
@@ -697,6 +699,35 @@ impl ArrowState {
             Some(evidence) => evidence.participation(),
             None => 0,
         }
+    }
+
+    #[inline(always)]
+    pub const fn locally_plastic(&self) -> bool {
+        matches!(
+            self.kind,
+            ArrowKind::Propagation {
+                mode: PropagationMode::Drive {
+                    locally_plastic: true,
+                    ..
+                },
+                ..
+            }
+        )
+    }
+
+    #[inline(always)]
+    pub fn mark_locally_plastic(&mut self) -> bool {
+        let ArrowKind::Propagation {
+            mode: PropagationMode::Drive {
+                locally_plastic, ..
+            },
+            ..
+        } = &mut self.kind
+        else {
+            return false;
+        };
+        *locally_plastic = true;
+        true
     }
 
     #[inline(always)]

@@ -24,7 +24,11 @@ struct JunctionId(NonZeroU32);
 struct LinkId(NonZeroU32);
 
 enum Retention { Integrating, Sampled { lifetime: Time, range: u32 } }
-enum Trigger { SourceFires, SourceOpens, SourceCloses }
+enum Trigger {
+    SourceFires,
+    RisesThrough(Impulse), FallsThrough(Impulse),
+    Rises, Falls,
+}
 
 struct Junction {
     threshold: Impulse, potential: Impulse,
@@ -52,7 +56,10 @@ enum ArrowKind {
 }
 enum PropagationMode {
     Entry,
-    Drive { boundary_crossing: bool, factors: Option<[LinkId; 2]> },
+    Drive {
+        boundary_crossing: bool, locally_plastic: bool,
+        factors: Option<[LinkId; 2]>,
+    },
 }
 enum WitnessKind { Progress, Closure { offers_choice: bool } }
 
@@ -76,6 +83,16 @@ struct ClosedSupport { source: JunctionId, witness: LinkId }
 `participation == 0` means no last occurrence; `outcome_present == false`
 means no outcome. Public accessors reconstruct those optional logical views.
 A composite is an ordinary `Drive` with retained `factors`, not another role.
+
+`locally_plastic` is fixed drive morphology, not learned `PathEvidence`.
+`last_transmission` is the link's bounded local eligibility mark. An
+accepted return walks the physically connected backward cone feeding the
+returned path's surface, middle, and output. Each `locally_plastic` propagation
+link in that cone whose last transmission is no more than eight physical ticks
+old strengthens once, up to strength two. Fixed and saturated links carry the
+traversal but do not change. This creates no ancestry, return, or choice; the
+plasticity bit is persistent body state and survives attachment and checkpoint
+restore.
 
 ## Body-owned retained and derived state
 

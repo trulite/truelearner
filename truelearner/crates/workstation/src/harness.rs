@@ -1,40 +1,70 @@
 use crate::checkpoint::WorkstationCheckpoint;
 use crate::state::{ActuatorFrame, BodyControl, Direction};
 use crate::{
-    BodyAxis, BodyMovement, Digit, Eye, Point, WorkstationError, WorkstationState, WorldSample,
+    BodyAxis, BodyMovement, Eye, Point, WorkstationError, WorkstationState, WorldSample,
     AXIS_COUNT, BODY_MAX, TOUCH_SITES,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use truelearner_body::{
     harness::{
-        attach_boundary_component, attach_outcome_component, attach_progress_component,
-        attach_sensor, motor,
+        attach_boundary_component, attach_learnable_link, attach_outcome_component,
+        attach_progress_component, attach_sensor, motor,
     },
     Arrival, AutomaticityWork, Body, BodyCheckpoint, BodyCheckpointError, Junction, JunctionId,
-    Run, TraceEvent as BodyTraceEvent, Work,
+    Link, LinkId, Run, TraceEvent as BodyTraceEvent, Trigger, Work,
 };
 
 const CONTROL_COUNT: usize = AXIS_COUNT * 2;
 const RECEPTOR_SIDE: usize = 9;
 const RECEPTORS_PER_EYE: usize = RECEPTOR_SIDE * RECEPTOR_SIDE;
 const VISUAL_SENSOR_COUNT: usize = Eye::ALL.len() * RECEPTORS_PER_EYE;
+const SALIENCE_COUNT: usize = Eye::ALL.len() * RECEPTORS_PER_EYE;
 const CONTACT_FIELDS: usize = 2;
 const PROPRIOCEPTIVE_FIELDS: usize = 6;
-const SENSOR_COUNT: usize =
-    VISUAL_SENSOR_COUNT + TOUCH_SITES * CONTACT_FIELDS + AXIS_COUNT * PROPRIOCEPTIVE_FIELDS;
+const SENSOR_COUNT: usize = VISUAL_SENSOR_COUNT
+    + SALIENCE_COUNT
+    + TOUCH_SITES * CONTACT_FIELDS
+    + AXIS_COUNT * PROPRIOCEPTIVE_FIELDS;
 const SENSOR_LIFETIME: u64 = u64::MAX;
 const SENSOR_PRIME: i32 = i32::MIN;
+/// Retinal light at or above this floor counts as salient — the one shared
+/// signal of "what stands out" that the foveation and pre-reach reflexes and
+/// the learner all read. Just above mid-range: above the rendered hand of
+/// the body course (palm 96, fingertips 128) and every background, below
+/// every application's target bands. The floor belongs to the organism's
+/// retina, not to any course or application.
+const SALIENCE_FLOOR: u8 = 129;
+/// The drive stops pushing once the palm sits this close to the salience
+/// centroid. The centroid is a mean over lit receptors, so it is accurate
+/// to a few world units; a small deadzone lands the palm well inside any
+/// target the reflex can see.
+const REACH_DEADZONE: i32 = 32;
+/// Receptors this close to the organism's own palm are its own hand, never
+/// a target. The mask is the hand's true visual size: a real occluder, not
+/// a zone — a larger mask would hide the very target the palm reaches once
+/// it arrives, and the reach would orbit it forever.
+const REACH_HAND_MASK: i32 = 40;
 const LIGHT_RANGE: u32 = u8::MAX as u32;
 const BODY_RANGE: u32 = BODY_MAX as u32;
 const SIGNED_BODY_RANGE: u32 = BODY_RANGE * 2;
-const COMPETITION_COMPONENTS: usize = 6;
+const COMPETITION_COMPONENTS: usize = 4;
 const OUTCOME_COMPONENTS: usize = AXIS_COUNT;
 const MOMENT_LIMIT: usize = 512;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct Handles {
     pub(crate) vision: [Vec<JunctionId>; 2],
+    /// One salience cell per receptor: tonic cells that fire while their
+    /// receptor is lit above the salience floor. The foveation reflex is
+    /// wired from them at attach time.
+    pub(crate) salience: [Vec<JunctionId>; 2],
+    /// The learnable value link from each receptor's light sensor onto its
+    /// salience cell: zero impulse at birth, so the reflexes see only raw
+    /// brightness until the learner's own consequence history strengthens
+    /// it. Value written onto salience — top-down attention, earned. Stored
+    /// by link slot for checkpointing; `value_link` reconstructs the id.
+    pub(crate) value: [Vec<u32>; 2],
     pub(crate) contacts: [[JunctionId; CONTACT_FIELDS]; TOUCH_SITES],
     pub(crate) proprioception: [[JunctionId; PROPRIOCEPTIVE_FIELDS]; AXIS_COUNT],
     pub(crate) exploration: [JunctionId; COMPETITION_COMPONENTS],
@@ -46,11 +76,21 @@ pub(crate) struct Handles {
 }
 
 impl Handles {
+    /// The learnable value link of one receptor, reconstructed from its
+    /// stored slot.
+    pub(crate) fn value_link(&self, eye: Eye, receptor: usize) -> Option<LinkId> {
+        LinkId::new(self.value[eye.index()][receptor].saturating_sub(1) as usize)
+    }
+
     fn valid_for(&self, body: &Body) -> bool {
         if self
             .vision
             .iter()
             .any(|receptors| receptors.len() != RECEPTORS_PER_EYE)
+            || self
+                .salience
+                .iter()
+                .any(|cells| cells.len() != RECEPTORS_PER_EYE)
             || self.opportunities.len() != CONTROL_COUNT
             || self.outward.len() != CONTROL_COUNT
         {
@@ -65,11 +105,20 @@ impl Handles {
                     .into_iter()
                     .map(move |direction| control(axis, direction))
             }));
+        let value_links_valid = Eye::ALL.into_iter().all(|eye| {
+            (0..RECEPTORS_PER_EYE).all(|receptor| {
+                self.value_link(eye, receptor)
+                    .is_some_and(|_| self.value[eye.index()][receptor] > 0)
+                    && self.salience[eye.index()].len() == RECEPTORS_PER_EYE
+            })
+        });
         controls_are_canonical
+            && value_links_valid
             && self
                 .vision
                 .iter()
                 .flatten()
+                .chain(self.salience.iter().flatten())
                 .chain(self.contacts.iter().flatten())
                 .chain(self.proprioception.iter().flatten())
                 .chain(&self.exploration)
@@ -159,6 +208,13 @@ pub struct WorkstationHarness {
     physical_tick: u64,
     pending_transitions: [bool; AXIS_COUNT],
     pending_stops: Vec<MotorEffect>,
+    /// Sustained-reach strain per planar axis, signed by aim direction: the
+    /// insistent-reaching integral. While a planar aim persists, the reach
+    /// pulse grows; when the aim clears or flips, the strain resets.
+    reach_strain: [i32; 2],
+    /// Insistent-vergence strain: while the fusion error persists, the
+    /// vergence pulse grows; fused or absent, it resets.
+    vergence_strain: i32,
     history: Vec<WorldSample>,
 }
 
@@ -169,6 +225,8 @@ impl PartialEq for WorkstationHarness {
             && self.physical_tick == other.physical_tick
             && self.pending_transitions == other.pending_transitions
             && self.pending_stops == other.pending_stops
+            && self.reach_strain == other.reach_strain
+            && self.vergence_strain == other.vergence_strain
             && self.history == other.history
     }
 }
@@ -208,17 +266,55 @@ impl WorkstationHarness {
             attach_sensor(&mut body, Junction::integrating(1), &nearby)
         });
         let mut prime = Vec::with_capacity(SENSOR_COUNT);
-        let vision = Eye::ALL.map(|eye| {
-            (0..RECEPTORS_PER_EYE)
-                .map(|receptor| {
-                    let nearby = eye_nearness(&opportunities, eye, receptor);
-                    attach_sampled_sensor(&mut body, LIGHT_RANGE, &nearby, &mut prime)
-                })
-                .collect()
-        });
-        let contacts = std::array::from_fn(|site| {
-            let pressure_nearby = contact_pressure_nearness(&opportunities, site);
-            let slip_nearby = contact_slip_nearness(&opportunities, site);
+        let mut vision = Eye::ALL.map(|_| Vec::with_capacity(RECEPTORS_PER_EYE));
+        let mut salience = Eye::ALL.map(|_| Vec::with_capacity(RECEPTORS_PER_EYE));
+        let mut value = Eye::ALL.map(|_| vec![0_u32; RECEPTORS_PER_EYE]);
+        for eye in Eye::ALL {
+            // The receptor index names three parallel structures: the
+            // vision sensor, the salience cell, and the value link between
+            // them.
+            #[allow(clippy::needless_range_loop)]
+            for receptor in 0..RECEPTORS_PER_EYE {
+                let nearby = eye_palm_nearness(&opportunities, eye, receptor);
+                let sensor = attach_sampled_sensor(&mut body, LIGHT_RANGE, &nearby, &mut prime);
+                vision[eye.index()].push(sensor);
+                // The birthright foveation reflex: a tonic salience cell per
+                // receptor, wired to the eye opportunities that move gaze
+                // toward this receptor. The arc's impulse reaches the motor
+                // threshold alone, so a seen target wins the crossing the
+                // step it appears; a centered stimulus drives both sides
+                // equally, so balance — not a constant — terminates the
+                // pull, and only summed effort above two can outvote it.
+                let cell = attach_sensor(&mut body, Junction::integrating(1), &[]);
+                for opportunity in eye_foveation_drive(&opportunities, eye, receptor) {
+                    body.add_link(Link::new(cell, opportunity, 1, 2))
+                        .expect("validated foveation drive arc");
+                }
+                salience[eye.index()].push(cell);
+                // The learnable value link: this receptor's light sensor onto
+                // its own salience cell, a whisper of impulse at birth. It
+                // fires only when the receptor brightens through the
+                // salience floor — the same events the reflexes answer — so
+                // dark and quiet scenes carry nothing and the exploration
+                // clock stays exact. A receptor whose light has paid can be
+                // strengthened, becoming effectively brighter to the
+                // reflexes: top-down attention, earned from the learner's
+                // own consequence history.
+                let link = attach_learnable_link(
+                    &mut body,
+                    sensor,
+                    cell,
+                    1,
+                    Trigger::RisesThrough(i32::from(SALIENCE_FLOOR)),
+                );
+                value[eye.index()][receptor] = (link.slot() as u32)
+                    .checked_add(1)
+                    .expect("link slot is bounded");
+            }
+        }
+        let contacts = std::array::from_fn(|_site| {
+            let pressure_nearby = contact_pressure_nearness(&opportunities);
+            let slip_nearby = contact_slip_nearness(&opportunities);
             [
                 attach_sampled_sensor(&mut body, BODY_RANGE, &pressure_nearby, &mut prime),
                 attach_sampled_sensor(&mut body, SIGNED_BODY_RANGE, &slip_nearby, &mut prime),
@@ -271,6 +367,8 @@ impl WorkstationHarness {
             body,
             handles: Handles {
                 vision,
+                salience,
+                value,
                 contacts,
                 proprioception,
                 exploration,
@@ -285,6 +383,8 @@ impl WorkstationHarness {
             physical_tick: 0,
             pending_transitions: [false; AXIS_COUNT],
             pending_stops: Vec::new(),
+            reach_strain: [0, 0],
+            vergence_strain: 0,
             history: Vec::new(),
         })
     }
@@ -536,13 +636,17 @@ impl WorkstationHarness {
         let opportunity_wave = if admit_opportunity {
             let exploration = self.handles.exploration
                 [usize::try_from(self.sequence).unwrap_or(0) % COMPETITION_COMPONENTS];
-            self.handles
+            let mut wave = self
+                .handles
                 .opportunities
                 .iter()
                 .chain(std::iter::once(&exploration))
                 .copied()
                 .map(|target| Arrival::caused(target, 1, cause))
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+            wave.extend(self.vergence_wave(&sample, cause));
+            wave.extend(self.reach_depth_wave(&sample, cause));
+            wave
         } else {
             Vec::new()
         };
@@ -590,6 +694,9 @@ impl WorkstationHarness {
             frame.activate(effect.control.axis(), effect.control.direction(), effort);
         }
         apply_contact_reaction(&sample, &mut frame);
+        apply_arm_recoil(&sample, &mut frame);
+        self.apply_pre_reach(&sample, &mut frame);
+        apply_ocular_drift(&sample, &self.state, &mut frame);
         let movements = self.state.integrate(frame);
         let joint_stops = joint_stops(&self.state, &crossings, &movements);
         self.pending_stops.clone_from(&joint_stops);
@@ -697,6 +804,23 @@ impl WorkstationHarness {
                     cause,
                 ));
             }
+            // Salience cells fire while their receptor is lit above the
+            // floor: tonic retina, not change-only. Below the floor they get
+            // no arrival, so a quiet scene costs nothing.
+            for (receptor, cell) in self.handles.salience[eye.index()]
+                .iter()
+                .copied()
+                .enumerate()
+            {
+                let light = sample.eye(eye).sample(receptor_position(receptor));
+                if light > SALIENCE_FLOOR {
+                    wave.push(Arrival::caused(
+                        cell,
+                        i32::from(light - SALIENCE_FLOOR),
+                        cause,
+                    ));
+                }
+            }
         }
         for (site, contact) in sample.contacts().iter().copied().enumerate() {
             let [pressure, slip] = self.handles.contacts[site];
@@ -719,8 +843,184 @@ impl WorkstationHarness {
                 Arrival::caused(upper, i32::from(sense.at_upper_limit), cause),
             ]);
         }
-        debug_assert_eq!(wave.len(), SENSOR_COUNT);
+        debug_assert!(wave.len() <= SENSOR_COUNT);
         wave
+    }
+
+    /// The world position of the brightness-weighted centroid of what this
+    /// eye sees above the salience floor, or `None` when the eye sees only
+    /// dim light or its own hand. Each lit receptor votes with its
+    /// brightness above the floor, so a brighter patch pulls harder than a
+    /// dim one and two distinct things select the brighter instead of
+    /// averaging into the empty space between them. The organism's own
+    /// palm never counts as a target.
+    fn reach_target(&self, sample: &WorldSample, eye: Eye) -> Option<(i32, i32)> {
+        let gaze = self.state.eye(eye).gaze();
+        let field = sample.eye(eye);
+        let center = receptor_position(RECEPTOR_SIDE * 4 + 4);
+        let mut sum_x = 0_i64;
+        let mut sum_y = 0_i64;
+        let mut weight_sum = 0_i64;
+        for receptor in 0..RECEPTORS_PER_EYE {
+            let light = field.sample(receptor_position(receptor));
+            if light < SALIENCE_FLOOR {
+                continue;
+            }
+            let weight = i64::from(light - SALIENCE_FLOOR);
+            let position = receptor_position(receptor);
+            let world_x = i32::from(gaze.x()) + i32::from(position.x()) - i32::from(center.x());
+            let world_y = i32::from(gaze.y()) + i32::from(position.y()) - i32::from(center.y());
+            if self.own_hand_at(world_x, world_y) {
+                continue;
+            }
+            sum_x += i64::from(world_x) * weight;
+            sum_y += i64::from(world_y) * weight;
+            weight_sum += weight;
+        }
+        (weight_sum > 0).then(|| ((sum_x / weight_sum) as i32, (sum_y / weight_sum) as i32))
+    }
+
+    fn own_hand_at(&self, x: i32, y: i32) -> bool {
+        let palm = self.state.hand().palm();
+        (i32::from(palm.x()) - x).abs() <= REACH_HAND_MASK
+            && (i32::from(palm.y()) - y).abs() <= REACH_HAND_MASK
+    }
+
+    /// The pre-reach depth extension: while the eyes see a salient target
+    /// and the palm is not in contact, the arm extends toward what is seen.
+    /// This is infant pre-reaching — a seen thing invites arm extension —
+    /// computed from the organism's own retina and touch alone. Contact
+    /// terminates it: the screen's resistance stops the push, exactly as
+    /// balance terminates orienting, so the pulse never fights a surface.
+    fn reach_depth_wave(&self, sample: &WorldSample, cause: u64) -> Vec<Arrival> {
+        if sample
+            .contacts()
+            .iter()
+            .any(|contact| contact.pressure() > 0)
+        {
+            return Vec::new();
+        }
+        let sees_target = Eye::ALL
+            .into_iter()
+            .any(|eye| self.reach_target(sample, eye).is_some());
+        if !sees_target {
+            return Vec::new();
+        }
+        vec![Arrival::caused(
+            self.handles.opportunities[BodyAxis::PalmDepth.index() * 2 + 1],
+            2,
+            cause,
+        )]
+    }
+
+    /// The yoked vergence controller: when both eyes see salient pulls in
+    /// opposing horizontal directions — the vergence geometry — both eyes'
+    /// horizontal opportunities are pulsed in the same step, every step,
+    /// until each target sits within one receptor pitch of its fovea. Real
+    /// vergence is brainstem-yoked: the eyes converge together or not at
+    /// all, and the choice machinery would otherwise serialize them. The
+    /// pulse shares the opportunity wave's cause, so each eye crosses
+    /// without waiting for a choice. A single centered or shared target
+    /// commands nothing here, so ordinary gaze exploration stays with the
+    /// learner.
+    fn vergence_wave(&mut self, sample: &WorldSample, cause: u64) -> Vec<Arrival> {
+        let mut aims = [0_i32; 2];
+        let mut fused = true;
+        for eye in Eye::ALL {
+            let Some(target) = self.reach_target(sample, eye) else {
+                continue;
+            };
+            // Any horizontal misalignment counts: the stereo course places
+            // its far targets a single receptor pitch off-center, and real
+            // vergence tracks to exact coincidence.
+            let dx = target.0 - i32::from(self.state.eye(eye).gaze().x());
+            if dx != 0 {
+                aims[eye.index()] = dx.signum();
+                fused = false;
+            }
+        }
+        // Insistent vergence: while the vergence error persists, the pulse
+        // grows each step, so no learned habit can stalemate the fusion —
+        // the same strain law as the pre-reach. Fused or absent, the strain
+        // resets.
+        if fused {
+            self.vergence_strain = 0;
+            return Vec::new();
+        }
+        if self.vergence_strain >= 32 {
+            self.vergence_strain = 32;
+        } else {
+            self.vergence_strain += 1;
+        }
+        let mut wave = Vec::new();
+        if aims[0] != 0 && aims[0] == -aims[1] {
+            for eye in Eye::ALL {
+                let direction = usize::from(aims[eye.index()] > 0);
+                wave.push(Arrival::caused(
+                    self.handles.opportunities
+                        [BodyAxis::EyeHorizontal { eye }.index() * 2 + direction],
+                    2_i32.saturating_add(self.vergence_strain.min(28)),
+                    cause,
+                ));
+            }
+        }
+        wave
+    }
+
+    /// The pre-reach as an equilibrium-point shift: the arm's resting
+    /// posture moves toward the salience centroid of what the eyes see.
+    /// Like the ocular drift and the arm recoil, this is frame-level
+    /// physics, not a chosen crossing — the learner's habits still sum
+    /// their effort against it, and a sustained aim recruits more drive
+    /// each step, like an infant straining toward a toy, so no fixed habit
+    /// can stalemate the reach. The strain is reflex machinery: it resets
+    /// when the aim clears or flips.
+    fn apply_pre_reach(&mut self, sample: &WorldSample, frame: &mut ActuatorFrame) {
+        let palm = self.state.hand().palm();
+        let mut horizontal = 0_i32;
+        let mut vertical = 0_i32;
+        for eye in Eye::ALL {
+            let Some(target) = self.reach_target(sample, eye) else {
+                continue;
+            };
+            let dx = target.0 - i32::from(palm.x());
+            let dy = target.1 - i32::from(palm.y());
+            if dx.abs() > REACH_DEADZONE {
+                horizontal += dx.signum();
+            }
+            if dy.abs() > REACH_DEADZONE {
+                vertical += dy.signum();
+            }
+        }
+        let aims = [horizontal.clamp(-1, 1), vertical.clamp(-1, 1)];
+        for (index, axis) in [BodyAxis::PalmHorizontal, BodyAxis::PalmVertical]
+            .into_iter()
+            .enumerate()
+        {
+            if aims[index] == 0 {
+                self.reach_strain[index] = 0;
+                continue;
+            }
+            let flipped = self.reach_strain[index].signum() != 0
+                && self.reach_strain[index].signum() != aims[index];
+            if flipped {
+                self.reach_strain[index] = aims[index];
+            } else {
+                self.reach_strain[index] = self.reach_strain[index]
+                    .saturating_add(aims[index])
+                    .clamp(-32, 32);
+            }
+            let direction = if aims[index] > 0 {
+                Direction::Increase
+            } else {
+                Direction::Decrease
+            };
+            frame.activate(
+                axis,
+                direction,
+                4_i32.saturating_add(self.reach_strain[index].abs().min(28)) as u16,
+            );
+        }
     }
 
     pub const fn state(&self) -> &WorkstationState {
@@ -742,6 +1042,21 @@ impl WorkstationHarness {
     /// This value is never fed back into action selection.
     pub fn automaticity_work(&self) -> AutomaticityWork {
         self.body.automaticity_work()
+    }
+
+    /// Maps an observer trace's strengthened link back to the receptor
+    /// whose value link it is, if it is one: `(eye, receptor)`. Observer
+    /// only — it changes nothing, so a trace can name where the learner
+    /// wrote value onto salience.
+    pub fn receptor_for_value_link(&self, link: LinkId) -> Option<(Eye, usize)> {
+        for eye in Eye::ALL {
+            for receptor in 0..RECEPTORS_PER_EYE {
+                if self.handles.value_link(eye, receptor) == Some(link) {
+                    return Some((eye, receptor));
+                }
+            }
+        }
+        None
     }
 
     /// Maps an observer trace's outward junction back to the physical control
@@ -777,6 +1092,8 @@ impl WorkstationHarness {
             self.physical_tick,
             self.pending_transitions,
             self.pending_stops.clone(),
+            self.reach_strain,
+            self.vergence_strain,
             self.history.clone(),
         ))
     }
@@ -797,6 +1114,8 @@ impl WorkstationHarness {
             physical_tick: payload.physical_tick,
             pending_transitions: payload.pending_transitions,
             pending_stops: payload.pending_stops,
+            reach_strain: payload.reach_strain,
+            vergence_strain: payload.vergence_strain,
             history: payload.history,
         })
     }
@@ -815,6 +1134,8 @@ impl WorkstationHarness {
         self.state = reference.state;
         self.pending_transitions = reference.pending_transitions;
         self.pending_stops = reference.pending_stops;
+        self.reach_strain = reference.reach_strain;
+        self.vergence_strain = reference.vergence_strain;
         self.history = reference.history;
         Ok(())
     }
@@ -908,6 +1229,50 @@ fn apply_contact_reaction(sample: &WorldSample, frame: &mut ActuatorFrame) {
     }
 }
 
+/// The arm is elastic: with the extension drive stopped by contact, the
+/// un-driven arm recoils toward its resting length. Press, lift, press
+/// again — the tap cycle is the equilibrium of the extension reflex and
+/// arm elasticity, not a learned trick. Like the surface reaction this is
+/// frame-level physics: it crosses nothing and strengthens nothing.
+fn apply_arm_recoil(sample: &WorldSample, frame: &mut ActuatorFrame) {
+    if sample
+        .contacts()
+        .iter()
+        .any(|contact| contact.pressure() > 0)
+    {
+        frame.activate(BodyAxis::PalmDepth, Direction::Decrease, 1);
+    }
+}
+
+/// The gaze integrator leaks: when the whole retina is dark — the eyes
+/// staring past the screen's edge — an external drift carries the eyes back
+/// toward the primary position, straight ahead. Like the contact reaction,
+/// this is frame-level physics, not a chosen crossing, so it returns no
+/// consequence and strengthens nothing. Any salience makes the foveation
+/// reflex hold the eye, so lit scenes never drift.
+fn apply_ocular_drift(sample: &WorldSample, state: &WorkstationState, frame: &mut ActuatorFrame) {
+    let dark = Eye::ALL.into_iter().all(|eye| {
+        (0..RECEPTORS_PER_EYE)
+            .all(|receptor| sample.eye(eye).sample(receptor_position(receptor)) <= SALIENCE_FLOOR)
+    });
+    if !dark {
+        return;
+    }
+    let center = (BODY_MAX + 1) / 2;
+    for eye in Eye::ALL {
+        let gaze = state.eye(eye).gaze();
+        let mut push = |axis: BodyAxis, position: i16| {
+            if position > center {
+                frame.activate(axis, Direction::Decrease, 8);
+            } else if position < center {
+                frame.activate(axis, Direction::Increase, 8);
+            }
+        };
+        push(BodyAxis::EyeHorizontal { eye }, gaze.x());
+        push(BodyAxis::EyeVertical { eye }, gaze.y());
+    }
+}
+
 const fn control(axis: BodyAxis, direction: Direction) -> BodyControl {
     BodyControl::new(axis, direction)
 }
@@ -922,15 +1287,8 @@ const fn competition_component(axis: BodyAxis) -> usize {
         BodyAxis::EyeHorizontal { eye: Eye::Right } | BodyAxis::EyeVertical { eye: Eye::Right } => {
             1
         }
-        BodyAxis::PalmHorizontal | BodyAxis::PalmVertical | BodyAxis::Wrist | BodyAxis::Spread => 2,
+        BodyAxis::PalmHorizontal | BodyAxis::PalmVertical => 2,
         BodyAxis::PalmDepth => 3,
-        BodyAxis::ThumbOpposition
-        | BodyAxis::FingerFlexion {
-            digit: Digit::Thumb,
-        } => 4,
-        BodyAxis::FingerFlexion {
-            digit: Digit::Index | Digit::Middle | Digit::Ring | Digit::Little,
-        } => 5,
     }
 }
 
@@ -961,11 +1319,44 @@ fn attach_sampled_sensor(
     sensor
 }
 
-const fn axis_range(axis: BodyAxis) -> u32 {
-    match axis {
-        BodyAxis::Wrist | BodyAxis::Spread | BodyAxis::ThumbOpposition => SIGNED_BODY_RANGE,
-        _ => BODY_RANGE,
-    }
+/// The eye opportunities a salient receptor commands: the movements that
+/// move gaze toward that receptor. The exact foveal center commands
+/// nothing, so a centered stimulus leaves the eye still.
+fn eye_foveation_drive(opportunities: &[JunctionId], eye: Eye, receptor: usize) -> Vec<JunctionId> {
+    let column = receptor % RECEPTOR_SIDE;
+    let row = receptor / RECEPTOR_SIDE;
+    let center = RECEPTOR_SIDE / 2;
+    let mut drive = Vec::with_capacity(2);
+    let mut push = |axis: BodyAxis, position: usize| match position.cmp(&center) {
+        std::cmp::Ordering::Less => drive.push(opportunities[axis.index() * 2]),
+        std::cmp::Ordering::Greater => drive.push(opportunities[axis.index() * 2 + 1]),
+        std::cmp::Ordering::Equal => {}
+    };
+    push(BodyAxis::EyeHorizontal { eye }, column);
+    push(BodyAxis::EyeVertical { eye }, row);
+    drive
+}
+
+/// A retinal receptor is near its displaced eye axes, and near planar palm
+/// transport in both directions. The eye nearness is direction-specific
+/// because a receptor's position names the eye movement that centers it.
+/// Palm transport gets both directions equally: a lit patch says where the
+/// palm could go relative to the gaze, but only a consequence can say which
+/// way, because the palm and the gaze move independently. Every join here
+/// carries zero impulse, so this is a learnable path, never a driven one.
+fn eye_palm_nearness(
+    opportunities: &[JunctionId],
+    eye: Eye,
+    receptor: usize,
+) -> Vec<(JunctionId, u64)> {
+    let mut nearby = eye_nearness(opportunities, eye, receptor);
+    nearby.extend(axis_nearness(opportunities, BodyAxis::PalmHorizontal));
+    nearby.extend(axis_nearness(opportunities, BodyAxis::PalmVertical));
+    nearby
+}
+
+const fn axis_range(_axis: BodyAxis) -> u32 {
+    BODY_RANGE
 }
 
 fn axis_nearness(opportunities: &[JunctionId], axis: BodyAxis) -> Vec<(JunctionId, u64)> {
@@ -1022,36 +1413,15 @@ fn extend_directional_nearness(
     }
 }
 
-fn contact_pressure_nearness(opportunities: &[JunctionId], site: usize) -> Vec<(JunctionId, u64)> {
-    if site == 0 {
-        return axis_nearness(opportunities, BodyAxis::PalmDepth);
-    }
-    digit_contact_nearness(opportunities, site)
+/// The one contact surface of the undifferentiated hand: its pressure is
+/// near palm depth, its slip is near planar palm transport.
+fn contact_pressure_nearness(opportunities: &[JunctionId]) -> Vec<(JunctionId, u64)> {
+    axis_nearness(opportunities, BodyAxis::PalmDepth)
 }
 
-fn contact_slip_nearness(opportunities: &[JunctionId], site: usize) -> Vec<(JunctionId, u64)> {
-    if site == 0 {
-        return [
-            BodyAxis::PalmHorizontal,
-            BodyAxis::PalmVertical,
-            BodyAxis::Wrist,
-            BodyAxis::Spread,
-        ]
+fn contact_slip_nearness(opportunities: &[JunctionId]) -> Vec<(JunctionId, u64)> {
+    [BodyAxis::PalmHorizontal, BodyAxis::PalmVertical]
         .into_iter()
-        .flat_map(|axis| axis_nearness(opportunities, axis))
-        .collect();
-    }
-    digit_contact_nearness(opportunities, site)
-}
-
-fn digit_contact_nearness(opportunities: &[JunctionId], site: usize) -> Vec<(JunctionId, u64)> {
-    let digit = Digit::ALL[site - 1];
-    let axes = if digit == Digit::Thumb {
-        vec![BodyAxis::ThumbOpposition, BodyAxis::FingerFlexion { digit }]
-    } else {
-        vec![BodyAxis::PalmDepth, BodyAxis::FingerFlexion { digit }]
-    };
-    axes.into_iter()
         .flat_map(|axis| axis_nearness(opportunities, axis))
         .collect()
 }
@@ -1128,7 +1498,7 @@ mod tests {
         let axis = BodyAxis::PalmDepth;
         let movement_at_pressure = |pressure| {
             let mut contacts = [ContactSample::default(); TOUCH_SITES];
-            contacts[1] = ContactSample::new(pressure, 0).unwrap();
+            contacts[0] = ContactSample::new(pressure, 0).unwrap();
             let sample = with_fields(field(0), field(0), contacts);
             let mut frame = ActuatorFrame::default();
             frame.activate(axis, Direction::Increase, 7);
@@ -1182,7 +1552,10 @@ mod tests {
             .enumerate()
             .filter_map(|(index, (left, right))| (left != right).then_some(index))
             .collect::<Vec<_>>();
-        assert_eq!(differences, [RECEPTORS_PER_EYE / 2]);
+        // The local vision reading and the local salience feed both change,
+        // by the same local amount: the tonic channel is an ordinary local
+        // transduction of the same pixel, not a second sensor.
+        assert_eq!(differences, [RECEPTORS_PER_EYE / 2, RECEPTORS_PER_EYE]);
     }
 
     #[test]
@@ -1221,40 +1594,13 @@ mod tests {
             competition_component(BodyAxis::PalmDepth),
             competition_component(BodyAxis::PalmHorizontal)
         );
-        assert_eq!(
-            competition_component(BodyAxis::FingerFlexion {
-                digit: Digit::Thumb
-            }),
-            competition_component(BodyAxis::ThumbOpposition)
-        );
-        let harness = WorkstationHarness::new(1).unwrap();
-        let nearby = contact_pressure_nearness(&harness.handles.opportunities, 1);
-        let nearby_junctions = nearby
-            .iter()
-            .map(|(junction, _)| *junction)
-            .collect::<Vec<_>>();
-        for axis in [
-            BodyAxis::ThumbOpposition,
-            BodyAxis::FingerFlexion {
-                digit: Digit::Thumb,
-            },
-        ] {
-            let start = axis.index() * 2;
-            assert!(harness.handles.opportunities[start..start + 2]
-                .iter()
-                .all(|junction| nearby_junctions.contains(junction)));
-        }
-        let palm_start = BodyAxis::PalmDepth.index() * 2;
-        assert!(harness.handles.opportunities[palm_start..palm_start + 2]
-            .iter()
-            .all(|junction| !nearby_junctions.contains(junction)));
     }
 
     #[test]
-    fn one_palm_contact_surface_does_not_bridge_depth_and_planar_products() {
+    fn the_one_contact_surface_does_not_bridge_depth_and_planar_products() {
         let harness = WorkstationHarness::new(1).unwrap();
-        let pressure = contact_pressure_nearness(&harness.handles.opportunities, 0);
-        let slip = contact_slip_nearness(&harness.handles.opportunities, 0);
+        let pressure = contact_pressure_nearness(&harness.handles.opportunities);
+        let slip = contact_slip_nearness(&harness.handles.opportunities);
         let reaches = |nearby: &[(JunctionId, u64)], axis: BodyAxis| {
             let start = axis.index() * 2;
             harness.handles.opportunities[start..start + 2]
@@ -1337,7 +1683,11 @@ mod tests {
         harness.observe(stable.clone()).unwrap();
         let increase = BodyControl::new(BodyAxis::PalmHorizontal, Direction::Increase);
         let decrease = BodyControl::new(BodyAxis::PalmHorizontal, Direction::Decrease);
-        assert!(harness.perturb_body(increase, 64).unwrap());
+        // The palm is rate-limited, so an external push reaches the joint
+        // stop over several perturbations.
+        for _ in 0..32 {
+            harness.perturb_body(increase, 64).unwrap();
+        }
         assert_eq!(harness.state().hand().palm().x(), BODY_MAX);
 
         // Find the first outward push that meets the joint stop without moving.
@@ -1424,6 +1774,460 @@ mod tests {
     }
 
     #[test]
+    fn retinal_receptors_reach_palm_transport_in_both_directions() {
+        // The missing physics for aimed reaching, isolated to bare structure:
+        // a lit patch on the retina must be a learnable candidate for steering
+        // planar palm transport, in both directions equally. The eye axes stay
+        // direction-specific; only the consequence can teach the palm which
+        // way, because the palm and the gaze move independently.
+        let harness = WorkstationHarness::new(1).unwrap();
+        let opportunities = &harness.handles.opportunities;
+        let nearby = |axis: BodyAxis, direction: Direction| {
+            let offset = usize::from(direction == Direction::Increase);
+            (opportunities[axis.index() * 2 + offset], 1)
+        };
+        for receptor in 0..RECEPTORS_PER_EYE {
+            let near = eye_palm_nearness(opportunities, Eye::Left, receptor);
+            let eye_axes = eye_nearness(opportunities, Eye::Left, receptor);
+            assert!(near.starts_with(&eye_axes));
+            for axis in [BodyAxis::PalmHorizontal, BodyAxis::PalmVertical] {
+                for direction in [Direction::Decrease, Direction::Increase] {
+                    assert!(
+                        near.contains(&nearby(axis, direction)),
+                        "receptor {receptor} does not reach {axis:?} {direction:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// The field one eye would see from a bright vertical bar fixed at
+    /// `world_x`, given the current gaze: the bar rides the retina as gaze
+    /// moves, exactly as a rendered world does. `band` is the bar's
+    /// brightness, so a dim mover can be drawn below the salience floor.
+    fn bar_field(gaze: Point, world_x: i16, band: u8) -> LightField {
+        let center = receptor_position(RECEPTOR_SIDE * 4 + 4);
+        let mut pixels = vec![0_u8; RECEPTORS_PER_EYE];
+        for (receptor, pixel) in pixels.iter_mut().enumerate() {
+            let position = receptor_position(receptor);
+            let here = gaze.x() + position.x() - center.x();
+            if (here - world_x).abs() <= 128 {
+                *pixel = band;
+            }
+        }
+        LightField::new(RECEPTOR_SIDE as u16, RECEPTOR_SIDE as u16, pixels).unwrap()
+    }
+
+    #[test]
+    fn a_static_off_fovea_bar_pulls_gaze_from_rest() {
+        // The binocular probe failure isolated to bare physics: with a purely
+        // change-driven retina, a resting body on a static scene is blind, so
+        // a persistently off-fovea target can sit there forever. The tonic
+        // salience channel and the foveation arc must pull gaze to the bar
+        // from rest, with the learner otherwise occupied with the hand.
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let bar_x = 896_i16;
+        let bar = |gaze: Point| bar_field(gaze, bar_x, 230);
+        harness
+            .observe(with_fields(
+                bar(harness.state().eye(Eye::Left).gaze()),
+                bar(harness.state().eye(Eye::Right).gaze()),
+                [ContactSample::default(); TOUCH_SITES],
+            ))
+            .unwrap();
+        for _ in 0..96 {
+            let gaze_left = harness.state().eye(Eye::Left).gaze();
+            let gaze_right = harness.state().eye(Eye::Right).gaze();
+            harness
+                .step(with_fields(
+                    bar(gaze_left),
+                    bar(gaze_right),
+                    [ContactSample::default(); TOUCH_SITES],
+                ))
+                .unwrap();
+        }
+        let gaze = harness.state().eye(Eye::Left).gaze().x();
+        assert!(
+            (gaze - bar_x).abs() <= 128,
+            "gaze {gaze} never foveated the static bar at {bar_x}"
+        );
+    }
+
+    #[test]
+    fn a_foveated_bar_is_quiet_by_balance() {
+        // Termination is balance, not a constant: a centered bar drives both
+        // directions equally, so the eyes settle still and stay there.
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let bar = |gaze: Point| bar_field(gaze, gaze.x(), 230);
+        harness
+            .observe(with_fields(
+                bar(harness.state().eye(Eye::Left).gaze()),
+                bar(harness.state().eye(Eye::Right).gaze()),
+                [ContactSample::default(); TOUCH_SITES],
+            ))
+            .unwrap();
+        for _ in 0..64 {
+            let gaze_left = harness.state().eye(Eye::Left).gaze();
+            let gaze_right = harness.state().eye(Eye::Right).gaze();
+            harness
+                .step(with_fields(
+                    bar(gaze_left),
+                    bar(gaze_right),
+                    [ContactSample::default(); TOUCH_SITES],
+                ))
+                .unwrap();
+        }
+        let gaze = harness.state().eye(Eye::Left).gaze().x();
+        let drift = (gaze - 512).abs();
+        assert!(drift <= 128, "a centered bar drifted {drift} away");
+    }
+
+    #[test]
+    fn below_the_salience_floor_the_reflexes_receive_nothing() {
+        // The rendered hand of the body course renders at 96/128, below the
+        // floor. No salience cell may feed and no reach aim may fire for it:
+        // only what stands out reaches the reflexes. The learner still sees
+        // the dim pixels through its ordinary light sensors — its freedom is
+        // untouched — but the birthright arcs stay silent.
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let gaze = harness.state().eye(Eye::Left).gaze();
+        let dim = bar_field(gaze, 832, 96);
+        let sample = with_fields(
+            bar_field(gaze, 832, 96),
+            dim,
+            [ContactSample::default(); TOUCH_SITES],
+        );
+        let wave = harness.sensory_wave(&sample, 1);
+        let salience_cells: Vec<JunctionId> =
+            harness.handles.salience.iter().flatten().copied().collect();
+        assert!(wave
+            .iter()
+            .all(|arrival| !salience_cells.contains(&arrival.target)));
+        let mut frame = ActuatorFrame::default();
+        let before = frame.clone();
+        harness.apply_pre_reach(&sample, &mut frame);
+        assert_eq!(frame, before, "the pre-reach moved the arm below the floor");
+    }
+
+    #[test]
+    fn value_links_carry_signal_into_the_salience_cells() {
+        // The value channel through the public surface: in the live-key
+        // scene (target jumps on hit, so receptor light changes), the
+        // phasic value links must transmit those changes into the salience
+        // cells. Signal through the channel is the precondition for the
+        // learner ever writing value onto salience.
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let value_links: Vec<truelearner_body::LinkId> = Eye::ALL
+            .into_iter()
+            .flat_map(|eye| {
+                (0..RECEPTORS_PER_EYE)
+                    .filter_map(|r| harness.handles.value_link(eye, r))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        // The live-key scene, honestly: the target jumps on each hit, so
+        // receptor light changes every jump — the phasic value channel
+        // fires on change, and the jumps give it change to carry.
+        let mut rng = 1_i16;
+        let mut jump_x = 600_i16;
+        let bar = |gaze: Point, x: i16| bar_field(gaze, x, 230);
+        let mut contacts = [ContactSample::default(); TOUCH_SITES];
+        let mut strengthened_value_links = 0_usize;
+        let mut value_arrivals = 0_usize;
+        harness
+            .observe(with_fields(
+                bar(harness.state().eye(Eye::Left).gaze(), jump_x),
+                bar(harness.state().eye(Eye::Right).gaze(), jump_x),
+                contacts,
+            ))
+            .unwrap();
+        for step in 0..64 {
+            let depth = harness.state().hand().palm().depth();
+            let contact_now = depth >= 600;
+            contacts[0] = ContactSample::new(u16::from(contact_now) * 1_023, 0).unwrap();
+            // A hit jumps the target, as the live-key world does.
+            if contact_now && step % 2 == 0 {
+                rng = rng.wrapping_mul(5).wrapping_add(1);
+                jump_x = 200 + rng.rem_euclid(624);
+            }
+            let gaze_left = harness.state().eye(Eye::Left).gaze();
+            let gaze_right = harness.state().eye(Eye::Right).gaze();
+            let sample = with_fields(bar(gaze_left, jump_x), bar(gaze_right, jump_x), contacts);
+            let (_observation, trace) = harness.step_traced(sample).unwrap();
+            for event in &trace {
+                match event {
+                    BodyTraceEvent::Strengthened(strength) => {
+                        if value_links.contains(&strength.link) {
+                            strengthened_value_links += 1;
+                        }
+                    }
+                    BodyTraceEvent::Arrival(arrival) => {
+                        if let Some(via) = arrival.via {
+                            if value_links.contains(&via) {
+                                value_arrivals += 1;
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        // Light changes must travel through the value channel, and returned
+        // local activity must potentiate that redundant route.
+        assert!(
+            value_arrivals > 0,
+            "the value channel is silent: {value_arrivals} arrivals"
+        );
+        assert!(
+            strengthened_value_links > 0,
+            "returned local activity did not strengthen a value link"
+        );
+    }
+
+    #[test]
+    fn value_links_survive_the_checkpoint_round_trip() {
+        // Pre-release checkpoint honesty: the value links are part of the
+        // body's structure, so save and restore must preserve every one,
+        // and a restored body must keep behaving identically.
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let before: Vec<Option<LinkId>> = Eye::ALL
+            .into_iter()
+            .flat_map(|eye| {
+                (0..RECEPTORS_PER_EYE)
+                    .map(|r| harness.handles.value_link(eye, r))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        let bar = |gaze: Point| bar_field(gaze, 832, 230);
+        harness
+            .observe(with_fields(
+                bar(harness.state().eye(Eye::Left).gaze()),
+                bar(harness.state().eye(Eye::Right).gaze()),
+                [ContactSample::default(); TOUCH_SITES],
+            ))
+            .unwrap();
+        for _ in 0..8 {
+            let gaze_left = harness.state().eye(Eye::Left).gaze();
+            let gaze_right = harness.state().eye(Eye::Right).gaze();
+            harness
+                .step(with_fields(
+                    bar(gaze_left),
+                    bar(gaze_right),
+                    [ContactSample::default(); TOUCH_SITES],
+                ))
+                .unwrap();
+        }
+        let checkpoint = harness.save().unwrap();
+        let restored = WorkstationHarness::restore(checkpoint).unwrap();
+        let after: Vec<Option<LinkId>> = Eye::ALL
+            .into_iter()
+            .flat_map(|eye| {
+                (0..RECEPTORS_PER_EYE)
+                    .map(|r| restored.handles.value_link(eye, r))
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        assert_eq!(before, after);
+        assert_eq!(
+            restored.state().eye(Eye::Left).gaze().x(),
+            harness.state().eye(Eye::Left).gaze().x()
+        );
+        // The observer mapping agrees on both sides.
+        for eye in Eye::ALL {
+            let link = restored.handles.value_link(eye, 0).unwrap();
+            assert_eq!(restored.receptor_for_value_link(link), Some((eye, 0)));
+        }
+    }
+
+    #[test]
+    fn every_receptor_has_a_learnable_value_link_onto_its_salience_cell() {
+        // Top-down attention, isolated to bare structure: each retinal
+        // receptor's light sensor carries a zero-impulse learnable link onto
+        // its own salience cell. At birth it changes nothing — the reflexes
+        // see only raw brightness — but the learner's strengthening laws can
+        // raise it, so a receptor whose light has paid becomes effectively
+        // brighter to the reflexes. Value written onto salience, built only
+        // from the learner's own consequence history.
+        let harness = WorkstationHarness::new(1).unwrap();
+        for eye in Eye::ALL {
+            for receptor in 0..RECEPTORS_PER_EYE {
+                assert!(
+                    harness.handles.value_link(eye, receptor).is_some(),
+                    "receptor {receptor} of the {eye:?} eye has no value link"
+                );
+            }
+        }
+        // A fresh body behaves exactly as before the links existed: they
+        // carry zero impulse, so a body with them foveates the same static
+        // bar a body without them would.
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let bar = |gaze: Point| bar_field(gaze, 832, 230);
+        harness
+            .observe(with_fields(
+                bar(harness.state().eye(Eye::Left).gaze()),
+                bar(harness.state().eye(Eye::Right).gaze()),
+                [ContactSample::default(); TOUCH_SITES],
+            ))
+            .unwrap();
+        for _ in 0..96 {
+            let gaze_left = harness.state().eye(Eye::Left).gaze();
+            let gaze_right = harness.state().eye(Eye::Right).gaze();
+            harness
+                .step(with_fields(
+                    bar(gaze_left),
+                    bar(gaze_right),
+                    [ContactSample::default(); TOUCH_SITES],
+                ))
+                .unwrap();
+        }
+        let gaze = harness.state().eye(Eye::Left).gaze().x();
+        assert!(
+            (gaze - 832).abs() <= 128,
+            "the value links changed newborn behavior: gaze {gaze}"
+        );
+    }
+
+    #[test]
+    fn vergence_moves_both_eyes_together() {
+        // The binocular rung evidence: each eye foveates its own stereo
+        // target, but the choice machinery serializes the eyes, so no step
+        // ever shows both eyes moving in opposition. Real vergence is
+        // yoked: the eyes converge together or not at all. The vergence
+        // controller must deliver same-step opposing movements.
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let left_bar = |gaze: Point| bar_field(gaze, 896, 230);
+        let right_bar = |gaze: Point| bar_field(gaze, 128, 230);
+        harness
+            .observe(with_fields(
+                left_bar(harness.state().eye(Eye::Left).gaze()),
+                right_bar(harness.state().eye(Eye::Right).gaze()),
+                [ContactSample::default(); TOUCH_SITES],
+            ))
+            .unwrap();
+        let mut opposing_steps = 0_usize;
+        for _ in 0..24 {
+            let gaze_left = harness.state().eye(Eye::Left).gaze();
+            let gaze_right = harness.state().eye(Eye::Right).gaze();
+            let observation = harness
+                .step(with_fields(
+                    left_bar(gaze_left),
+                    right_bar(gaze_right),
+                    [ContactSample::default(); TOUCH_SITES],
+                ))
+                .unwrap();
+            let left_moved = observation.movements.iter().any(|movement| {
+                movement.changed && movement.axis == BodyAxis::EyeHorizontal { eye: Eye::Left }
+            });
+            let right_moved = observation.movements.iter().any(|movement| {
+                movement.changed
+                    && movement.axis == BodyAxis::EyeHorizontal { eye: Eye::Right }
+                    && movement.net_impulse.signum()
+                        != observation
+                            .movements
+                            .iter()
+                            .find(|movement| {
+                                movement.axis == BodyAxis::EyeHorizontal { eye: Eye::Left }
+                            })
+                            .map(|movement| movement.net_impulse.signum())
+                            .unwrap_or(0)
+            });
+            opposing_steps += usize::from(left_moved && right_moved);
+        }
+        assert!(
+            opposing_steps >= 2,
+            "only {opposing_steps} same-step opposing vergence movements"
+        );
+    }
+
+    #[test]
+    fn a_lit_patch_pulls_the_palm_toward_it() {
+        // The missing physics for aimed reaching, isolated to bare physics:
+        // a bright patch on the organism's own retina must drive planar palm
+        // transport toward its world position. The palm starts left of the
+        // bar; a body without the drive never closes the gap.
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let blob_x = harness
+            .state()
+            .hand()
+            .palm()
+            .x()
+            .saturating_add(320)
+            .min(896);
+        let bar = |gaze: Point| bar_field(gaze, blob_x, 230);
+        harness
+            .observe(with_fields(
+                bar(harness.state().eye(Eye::Left).gaze()),
+                bar(harness.state().eye(Eye::Right).gaze()),
+                [ContactSample::default(); TOUCH_SITES],
+            ))
+            .unwrap();
+        for _ in 0..96 {
+            let gaze_left = harness.state().eye(Eye::Left).gaze();
+            let gaze_right = harness.state().eye(Eye::Right).gaze();
+            harness
+                .step(with_fields(
+                    bar(gaze_left),
+                    bar(gaze_right),
+                    [ContactSample::default(); TOUCH_SITES],
+                ))
+                .unwrap();
+        }
+        let palm_x = harness.state().hand().palm().x();
+        assert!(
+            palm_x >= blob_x - 160,
+            "palm {palm_x} never reached the lit patch at {blob_x}"
+        );
+    }
+
+    #[test]
+    fn the_reach_selects_the_brighter_of_two_patches() {
+        // The live-key rung isolated to bare physics: two lit patches — a
+        // bright one and a dim one — must pull the palm into the bright
+        // one, not into the empty midpoint between them. A reach that
+        // averages cannot choose; a reach weighted by brightness can.
+        let mut harness = WorkstationHarness::new(1).unwrap();
+        let bright_x = 704_i16;
+        let dim_x = 320_i16;
+        let field = |gaze: Point| {
+            let mut pixels = vec![0_u8; RECEPTORS_PER_EYE];
+            for (receptor, pixel) in pixels.iter_mut().enumerate() {
+                let position = receptor_position(receptor);
+                let center = receptor_position(RECEPTOR_SIDE * 4 + 4);
+                let here = gaze.x() + position.x() - center.x();
+                if (here - bright_x).abs() <= 128 {
+                    *pixel = 230;
+                } else if (here - dim_x).abs() <= 128 {
+                    *pixel = 140;
+                }
+            }
+            LightField::new(RECEPTOR_SIDE as u16, RECEPTOR_SIDE as u16, pixels).unwrap()
+        };
+        harness
+            .observe(with_fields(
+                field(harness.state().eye(Eye::Left).gaze()),
+                field(harness.state().eye(Eye::Right).gaze()),
+                [ContactSample::default(); TOUCH_SITES],
+            ))
+            .unwrap();
+        for _ in 0..96 {
+            let gaze_left = harness.state().eye(Eye::Left).gaze();
+            let gaze_right = harness.state().eye(Eye::Right).gaze();
+            harness
+                .step(with_fields(
+                    field(gaze_left),
+                    field(gaze_right),
+                    [ContactSample::default(); TOUCH_SITES],
+                ))
+                .unwrap();
+        }
+        let palm_x = harness.state().hand().palm().x();
+        assert!(
+            (palm_x - bright_x).abs() <= 160,
+            "palm {palm_x} chose neither: not the bright patch at {bright_x}"
+        );
+    }
+
+    #[test]
     fn changing_the_right_eye_changes_only_right_receptors() {
         let harness = WorkstationHarness::new(2).unwrap();
         let before = sensory_values(&harness.sensory_wave(
@@ -1451,10 +2255,10 @@ mod tests {
     }
 
     #[test]
-    fn changing_one_touch_site_changes_only_that_touch_reading() {
+    fn changing_the_touch_reading_changes_only_the_contact_reading() {
         let harness = WorkstationHarness::new(3).unwrap();
         let mut contacts = [ContactSample::default(); TOUCH_SITES];
-        contacts[2] = ContactSample::new(7, -3).unwrap();
+        contacts[0] = ContactSample::new(7, -3).unwrap();
         let before = sensory_values(&harness.sensory_wave(
             &with_fields(field(1), field(2), [ContactSample::default(); TOUCH_SITES]),
             1,
@@ -1467,8 +2271,7 @@ mod tests {
             .enumerate()
             .filter_map(|(index, (left, right))| (left != right).then_some(index))
             .collect::<Vec<_>>();
-        let start = VISUAL_SENSOR_COUNT + 2 * CONTACT_FIELDS;
-        assert_eq!(differences, [start, start + 1]);
+        assert_eq!(differences, contact_range().collect::<Vec<_>>());
     }
 
     #[test]

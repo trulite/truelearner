@@ -1,5 +1,5 @@
 use truelearner_workstation::{
-    BodyAxis, ContactSample, Digit, Eye, LightField, WorkstationCheckpoint, WorkstationHarness,
+    BodyAxis, ContactSample, Eye, LightField, WorkstationCheckpoint, WorkstationHarness,
     WorldSample, AXIS_COUNT, BODY_MAX, TOUCH_SITES,
 };
 
@@ -80,7 +80,7 @@ fn corrupt_and_invalid_external_values_fail_closed() {
     bytes[30] ^= 1;
     assert!(WorkstationCheckpoint::decode(&bytes).is_err());
 
-    let invalid = r#"{"eyes":[{"width":1,"height":1,"pixels":[]},{"width":1,"height":1,"pixels":[0]}],"contacts":[{"pressure":0,"slip":0},{"pressure":0,"slip":0},{"pressure":0,"slip":0},{"pressure":0,"slip":0},{"pressure":0,"slip":0},{"pressure":0,"slip":0}]}"#;
+    let invalid = r#"{"eyes":[{"width":1,"height":1,"pixels":[]},{"width":1,"height":1,"pixels":[0]}],"contacts":[{"pressure":0,"slip":0}]}"#;
     let sample = serde_json::from_str(invalid).unwrap();
     let mut candidate = body.clone();
     assert!(candidate.step(sample).is_err());
@@ -88,18 +88,15 @@ fn corrupt_and_invalid_external_values_fail_closed() {
 }
 
 #[test]
-fn two_eyes_one_hand_and_five_fingertips_have_stable_positions() {
+fn two_eyes_and_one_pointer_have_stable_positions() {
     let body = WorkstationHarness::new(94).unwrap();
     let state = body.read().unwrap().state;
     assert_eq!(state.eye(Eye::Left).gaze(), state.eye(Eye::Right).gaze());
 
-    let fingertips = Digit::ALL.map(|digit| state.hand().fingertip(digit));
-    assert_eq!(fingertips.len(), 5);
-    assert!(fingertips.iter().all(|point| {
-        (0..=BODY_MAX).contains(&point.x())
-            && (0..=BODY_MAX).contains(&point.y())
-            && (0..=BODY_MAX).contains(&point.depth())
-    }));
+    let palm = state.hand().palm();
+    assert!((0..=BODY_MAX).contains(&palm.x()));
+    assert!((0..=BODY_MAX).contains(&palm.y()));
+    assert!((0..=BODY_MAX).contains(&palm.depth()));
 
     let proprioception = state.proprioception();
     assert_eq!(proprioception.len(), AXIS_COUNT);

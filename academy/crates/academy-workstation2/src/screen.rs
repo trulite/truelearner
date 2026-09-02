@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use truelearner_workstation::{ContactSample, Digit, WorkstationState, BODY_MAX, TOUCH_SITES};
+use truelearner_workstation::{ContactSample, WorkstationState, BODY_MAX, TOUCH_SITES};
 
 pub const CONTACT_DEPTH: i16 = 600;
 const TOUCH_COUNT: usize = 5;
@@ -40,54 +40,55 @@ pub enum DeviceEvent {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// One contact surface: the whole palm of the undifferentiated hand. The
+/// screen sits at a configurable depth so a course can place it within
+/// easy reach during development, like a toy placed close to a baby,
+/// and at the ordinary distance for its probes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Touchscreen {
-    active: [Option<ScreenPoint>; TOUCH_COUNT],
+    active: Option<ScreenPoint>,
+    contact_depth: i16,
 }
 
 impl Touchscreen {
-    pub(crate) fn new() -> Self {
+    pub(crate) const fn new(contact_depth: i16) -> Self {
         Self {
-            active: [None; TOUCH_COUNT],
+            active: None,
+            contact_depth,
         }
     }
 
     pub(crate) fn contacts(&self, body: &WorkstationState) -> [ContactSample; TOUCH_SITES] {
         let mut contacts = [ContactSample::default(); TOUCH_SITES];
-        for (index, digit) in Digit::ALL.into_iter().enumerate() {
-            if in_contact(body, digit) {
-                contacts[index + 1] =
-                    ContactSample::new(BODY_MAX as u16, 0).expect("bounded screen pressure");
-            }
+        if in_contact(body, self.contact_depth) {
+            contacts[0] = ContactSample::new(BODY_MAX as u16, 0).expect("bounded screen pressure");
         }
         contacts
     }
 
     pub(crate) fn advance(&mut self, body: &WorkstationState) -> Vec<DeviceEvent> {
-        let mut events = Vec::new();
-        for (index, digit) in Digit::ALL.into_iter().enumerate() {
-            let touch = TouchId::new(u8::try_from(index).expect("five digits")).expect("digit id");
-            let next = in_contact(body, digit).then(|| {
-                let tip = body.hand().fingertip(digit);
-                ScreenPoint {
-                    x: tip.x(),
-                    y: tip.y(),
-                }
-            });
-            match (self.active[index], next) {
-                (None, Some(at)) => events.push(DeviceEvent::TouchStarted { touch, at }),
-                (Some(from), Some(to)) if from != to => {
-                    events.push(DeviceEvent::TouchMoved { touch, from, to });
-                }
-                (Some(at), None) => events.push(DeviceEvent::TouchEnded { touch, at }),
-                _ => {}
+        let touch = TouchId::new(0).expect("palm touch id");
+        let next = in_contact(body, self.contact_depth).then(|| {
+            let palm = body.hand().palm();
+            ScreenPoint {
+                x: palm.x(),
+                y: palm.y(),
             }
-            self.active[index] = next;
+        });
+        let mut events = Vec::new();
+        match (self.active, next) {
+            (None, Some(at)) => events.push(DeviceEvent::TouchStarted { touch, at }),
+            (Some(from), Some(to)) if from != to => {
+                events.push(DeviceEvent::TouchMoved { touch, from, to });
+            }
+            (Some(at), None) => events.push(DeviceEvent::TouchEnded { touch, at }),
+            _ => {}
         }
+        self.active = next;
         events
     }
 }
 
-fn in_contact(body: &WorkstationState, digit: Digit) -> bool {
-    body.hand().fingertip(digit).depth() >= CONTACT_DEPTH
+fn in_contact(body: &WorkstationState, contact_depth: i16) -> bool {
+    body.hand().palm().depth() >= contact_depth
 }

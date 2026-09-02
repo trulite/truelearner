@@ -28,6 +28,7 @@ pub enum ApplyError {
     Run(RunError),
     UnknownJunction(JunctionId),
     UnknownLink(LinkId),
+    InvalidLinkRole(LinkId),
     ForwardJunction(NewJunction),
     ForwardLink(NewLink),
 }
@@ -174,6 +175,20 @@ impl Body {
         }
         self.prune_reentry();
         Ok(())
+    }
+
+    /// Allows a propagation link to learn from a returned consequence in its
+    /// recent local backward cone. Exact path learning does not require this.
+    pub fn mark_locally_plastic(&mut self, link: LinkId) -> Result<(), ApplyError> {
+        let memory = self
+            .arrows
+            .get_mut(link.slot())
+            .ok_or(ApplyError::UnknownLink(link))?;
+        if memory.mark_locally_plastic() {
+            Ok(())
+        } else {
+            Err(ApplyError::InvalidLinkRole(link))
+        }
     }
 
     /// Marks an ordinary transmitting link as an outward body/world crossing.

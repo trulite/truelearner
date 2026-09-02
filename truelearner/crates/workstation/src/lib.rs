@@ -10,9 +10,9 @@ pub use harness::{
     MotorEffect, StepMetrics, WorkstationHarness, WorkstationRead, WorkstationStepObservation,
 };
 pub use state::{
-    AxisProprioception, BodyAxis, BodyControl, BodyMovement, ContactSample, Digit, DigitState,
-    Direction, Eye, EyeState, HandPoint, HandState, LightField, Point, WorkstationState,
-    WorldSample, AXIS_COUNT, BODY_MAX, DIGIT_COUNT, TOUCH_SITES,
+    AxisProprioception, BodyAxis, BodyControl, BodyMovement, ContactSample, Direction, Eye,
+    EyeState, HandPoint, HandState, LightField, Point, WorkstationState, WorldSample, AXIS_COUNT,
+    BODY_MAX, TOUCH_SITES,
 };
 use std::fmt;
 pub use truelearner_body::{

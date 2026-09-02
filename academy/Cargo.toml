@@ -1,13 +1,9 @@
 [workspace]
 members = [
-    "crates/academy-arc3",
     "crates/academy-body",
     "crates/academy-formal",
-    "crates/academy-workstation",
     "crates/academy-workstation2",
-    "crates/academy-workstation-course",
     "crates/academy-workstation2-course",
-    "crates/academy-workstation-review",
 ]
 default-members = [
     "crates/academy-body",
@@ -27,17 +23,10 @@ publish = false
 
 [workspace.dependencies]
 academy-body = { path = "crates/academy-body" }
-academy-arc3 = { path = "crates/academy-arc3" }
 academy-formal = { path = "crates/academy-formal" }
-academy-workstation = { path = "crates/academy-workstation" }
 academy-workstation2 = { path = "crates/academy-workstation2" }
-academy-workstation-course = { path = "crates/academy-workstation-course" }
 academy-workstation2-course = { path = "crates/academy-workstation2-course" }
-academy-workstation-review = { path = "crates/academy-workstation-review" }
 truelearner-workstation = { path = "../truelearner/crates/workstation" }
-font8x8 = "0.3.1"
-flate2 = "1"
-image = { version = "0.25.8", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
 sha2 = "0.10.9"

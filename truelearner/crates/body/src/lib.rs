@@ -8,6 +8,9 @@ mod core;
 mod engine;
 pub mod harness;
 #[cfg(test)]
+#[path = "tests/local_plasticity.rs"]
+mod local_plasticity;
+#[cfg(test)]
 #[path = "tests/motif_laws.rs"]
 mod motif_laws;
 mod physics;

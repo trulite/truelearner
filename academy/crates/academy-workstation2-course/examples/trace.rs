@@ -1,6 +1,6 @@
 //! Causally inert per-step trace of a Workstation2 session.
 use academy_workstation2::Workstation2Session;
-use truelearner_workstation::{BodyAxis, Digit, WorkstationCheckpoint, WorkstationHarness};
+use truelearner_workstation::{BodyAxis, WorkstationCheckpoint, WorkstationHarness};
 
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
@@ -15,12 +15,7 @@ fn main() {
     let mut session = Workstation2Session::from_checkpoint(checkpoint, shift).unwrap();
     for _ in 0..steps {
         let o = session.step().unwrap();
-        let hand = o.body.state_after.hand();
-        let palm = hand.palm();
-        let tips = Digit::ALL
-            .into_iter()
-            .map(|d| hand.fingertip(d).depth())
-            .collect::<Vec<_>>();
+        let palm = o.body.state_after.hand().palm();
         let crossings = o
             .body
             .crossings
@@ -53,13 +48,12 @@ fn main() {
             })
             .collect::<Vec<_>>();
         println!(
-            "{:>3} t{:>5} palm=({},{},{}) tips={:?} contacts={} X={:?} M={:?} PD={:?} bp={} pp={} ret={:?} pend={:?} ev={:?} text={:?} scale={}",
+            "{:>3} t{:>5} palm=({},{},{}) contacts={} X={:?} M={:?} PD={:?} bp={} pp={} ret={:?} pend={:?} ev={:?} text={:?} scale={}",
             o.sequence,
             o.body.physical_tick,
             palm.x(),
             palm.y(),
             palm.depth(),
-            tips,
             contacts,
             crossings,
             moved,

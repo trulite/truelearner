@@ -2,20 +2,22 @@
 //! A tablet-like external world. Only light and hand contact enter the body.
 
 mod application;
+mod draw;
 mod screen;
 mod session;
+mod target;
 mod world;
 
+pub use draw::Rect;
 pub use screen::{DeviceEvent, ScreenPoint, TouchId, CONTACT_DEPTH};
 pub use session::{Workstation2Observation, Workstation2Session};
+pub use target::{TargetApp, TargetLayout, TARGET_SIDE};
 pub use world::Workstation2;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use truelearner_workstation::{
-        BodyAxis, BodyControl, Digit, Direction, Eye, WorkstationHarness,
-    };
+    use truelearner_workstation::{BodyAxis, BodyControl, Direction, Eye, WorkstationHarness};
 
     #[test]
     fn gaze_moves_the_retinal_view_over_one_screen() {
@@ -37,10 +39,10 @@ mod tests {
     }
 
     #[test]
-    fn a_real_fingertip_contact_reaches_the_virtual_keyboard() {
+    fn a_real_palm_contact_reaches_the_virtual_keyboard() {
         let mut world = Workstation2::new(0);
         let mut body = WorkstationHarness::new(2).unwrap();
-        while body.state().hand().fingertip(Digit::Middle).depth() < CONTACT_DEPTH {
+        while body.state().hand().palm().depth() < CONTACT_DEPTH {
             body.perturb_body(
                 BodyControl::new(BodyAxis::PalmDepth, Direction::Increase),
                 1,
