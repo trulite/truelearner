@@ -26,24 +26,11 @@ pub enum RunError {
 pub struct Arrival {
     pub target: JunctionId,
     pub impulse: Impulse,
-    pub cause: u64,
 }
 
 impl Arrival {
     pub const fn new(target: JunctionId, impulse: Impulse) -> Self {
-        Self {
-            target,
-            impulse,
-            cause: 0,
-        }
-    }
-
-    pub const fn caused(target: JunctionId, impulse: Impulse, cause: u64) -> Self {
-        Self {
-            target,
-            impulse,
-            cause,
-        }
+        Self { target, impulse }
     }
 }
 
@@ -55,7 +42,6 @@ pub struct Event {
     pub impulse: i64,
     pub before: Impulse,
     pub after: Impulse,
-    pub cause: u64,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
@@ -85,6 +71,10 @@ enum RetentionTag {
     Integrating,
     Sampled,
 }
+
+/// One locally traversable two-link path may still meet membrane potential
+/// already held at its destination. Older potential cannot participate.
+pub(crate) const INTEGRATION_WINDOW: Time = 4;
 
 /// Stored junction state and its propagation edge, in one 32-byte unit.
 #[repr(align(32))]
@@ -151,21 +141,16 @@ impl JunctionSlot {
         self.sampled_known = false;
     }
 
-    pub(crate) fn change(
-        &mut self,
-        at: Time,
-        impulse: i64,
-        cause: u64,
-    ) -> Option<(Impulse, Impulse)> {
+    pub(crate) fn change(&mut self, at: Time, impulse: i64) -> Option<(Impulse, Impulse)> {
         match self.retention {
             RetentionTag::Integrating => {
-                if self.value != 0 && self.stamp != cause {
+                if self.value != 0 && at.saturating_sub(self.stamp) > INTEGRATION_WINDOW {
                     self.value = 0;
                 }
                 let before = self.value;
                 let after = clamp_signal(i64::from(before) + impulse);
                 self.value = after;
-                self.stamp = cause;
+                self.stamp = at;
                 (after >= self.threshold).then(|| {
                     self.value = 0;
                     (before, after)

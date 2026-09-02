@@ -99,13 +99,12 @@ fn retained_ambiguous_trace_shape() -> (Vec<BodyTraceEvent>, usize) {
     };
     let events = vec![
         BodyTraceEvent::Transition(BodyPhysicalEvent {
-            at: 12,
+            at: 22,
             junction: first.output,
             arrivals: 1,
             impulse: 1,
             before: 0,
             after: 1,
-            cause: 7,
         }),
         BodyTraceEvent::Transition(BodyPhysicalEvent {
             at: 22,
@@ -114,27 +113,21 @@ fn retained_ambiguous_trace_shape() -> (Vec<BodyTraceEvent>, usize) {
             impulse: 1,
             before: 0,
             after: 1,
-            cause: 7,
         }),
         BodyTraceEvent::Return(BodyReturnTrace {
             at: 22,
             source: body_junction(7),
-            incoming_cause: 7,
             path: None,
-            return_cause: None,
             return_opened_at: None,
             offers_choice: None,
             open_paths: 2,
-            exact_paths: 2,
             candidates: vec![
                 BodyReturnCandidateTrace {
                     path: first,
-                    cause: 7,
-                    opened_at: 12,
+                    opened_at: 22,
                 },
                 BodyReturnCandidateTrace {
                     path: second,
-                    cause: 7,
                     opened_at: 22,
                 },
             ],
@@ -351,7 +344,6 @@ fn projection_rejects_a_trace_missing_the_output_crossing() {
         _ => unreachable!("fixture selected a return"),
     };
     let path = returned.path.unwrap();
-    let cause = returned.return_cause.unwrap();
     let opened_at = returned.return_opened_at.unwrap();
     let crossing = trace[..returned_index]
         .iter()
@@ -361,7 +353,6 @@ fn projection_rejects_a_trace_missing_the_output_crossing() {
                 BodyTraceEvent::Transition(transition)
                     if transition.at == opened_at
                         && transition.junction == path.output
-                        && transition.cause == cause
             )
         })
         .unwrap();

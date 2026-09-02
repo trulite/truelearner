@@ -72,7 +72,7 @@ fn calibration_transfers_to_a_structured_reading() {
 }
 
 #[test]
-fn calibrated_reading_crosses_an_attachment_without_losing_its_cause() {
+fn calibrated_reading_crosses_an_attachment_at_physical_delay() {
     let mut host = Body::default();
     let received = host.add_junction(Junction::integrating(1)).unwrap();
     let mut sensor = Body::default();
@@ -83,15 +83,12 @@ fn calibrated_reading_crosses_an_attachment_without_losing_its_cause() {
 
     let mut normalizer = calibrate(Band { low: 4, high: 6 }, distance);
     let impulse = normalizer.step(Some(9)).unwrap().amount() as i32;
-    host.inputs(
-        1,
-        &[Arrival::caused(attachment.port(port).unwrap(), impulse, 55)],
-    )
-    .unwrap();
+    host.inputs(1, &[Arrival::new(attachment.port(port).unwrap(), impulse)])
+        .unwrap();
     let mut fired = Vec::new();
     host.run(4, |event| fired.push(event)).unwrap();
 
     assert_eq!(fired.len(), 2);
     assert_eq!(fired[1].junction, received);
-    assert_eq!(fired[1].cause, 55);
+    assert_eq!(fired[1].at, 1);
 }

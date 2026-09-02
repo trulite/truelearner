@@ -26,7 +26,7 @@ impl RepeatedPathWorld {
         );
         let outcome = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
         attach_outcome_component(&mut body, outcome, [motor.opportunity]);
-        schedule(&mut body, 0, &[reading(outcome, 0, 0, 0)]);
+        schedule(&mut body, 0, &[reading(outcome, 0, 0)]);
         body.run(256, |_| {}).unwrap();
         Self {
             body,
@@ -37,43 +37,40 @@ impl RepeatedPathWorld {
         }
     }
 
-    fn act(&mut self, at: u64, cause: u64) -> (Run, Vec<PhysicalEvent>, Vec<TraceEvent>) {
-        schedule(&mut self.body, at, &[reading(self.surface, 0, 1, cause)]);
+    fn act(&mut self, at: u64) -> (Run, Vec<PhysicalEvent>, Vec<TraceEvent>) {
+        schedule(&mut self.body, at, &[reading(self.surface, 0, 1)]);
         schedule(
             &mut self.body,
             at + 1,
-            &[Arrival::caused(self.motor.opportunity, 1, cause)],
+            &[Arrival::new(self.motor.opportunity, 1)],
         );
         self.run_traced()
     }
 
-    fn close(&mut self, at: u64, cause: u64) -> (Run, Vec<PhysicalEvent>, Vec<TraceEvent>) {
+    fn close(&mut self, at: u64) -> (Run, Vec<PhysicalEvent>, Vec<TraceEvent>) {
         self.outcome_value += 1;
         schedule(
             &mut self.body,
             at,
-            &[reading(self.outcome, 0, self.outcome_value, cause)],
+            &[reading(self.outcome, 0, self.outcome_value)],
         );
         self.run_traced()
     }
 
-    fn complete(&mut self, at: u64, cause: u64) -> (Run, Vec<PhysicalEvent>, Path) {
-        let (run, events, _) = self.act(at, cause);
+    fn complete(&mut self, at: u64) -> (Run, Vec<PhysicalEvent>, Path) {
+        let (run, events, _) = self.act(at);
         assert_eq!(effect(&events, &[self.motor]), [0]);
-        let (_, returned_events, trace) = self.close(at + 4, cause);
+        let (_, returned_events, trace) = self.close(at + 4);
         assert!(effect(&returned_events, &[self.motor]).is_empty());
         let path = trace
             .iter()
             .find_map(|event| match event {
-                TraceEvent::Return(returned)
-                    if returned.decision == ReturnDecision::Accepted
-                        && returned.return_cause == Some(cause) =>
-                {
+                TraceEvent::Return(returned) if returned.decision == ReturnDecision::Accepted => {
                     returned.path
                 }
                 _ => None,
             })
-            .expect("an exact returned consequence closes the path");
+            .expect("a unique returned consequence closes the path");
         (run, events, path)
     }
 
@@ -102,14 +99,14 @@ fn motor_event(events: &[PhysicalEvent], motor: Motor) -> PhysicalEvent {
 }
 
 #[test]
-fn three_exact_closed_uses_make_the_same_effect_with_less_internal_work() {
+fn three_supported_closed_uses_make_the_same_effect_with_less_internal_work() {
     let mut world = RepeatedPathWorld::new();
-    world.complete(10, 1);
-    let (subthreshold, _, _) = world.complete(20, 2);
-    let (ordinary, ordinary_events, _) = world.complete(30, 3);
+    world.complete(10);
+    let (subthreshold, _, _) = world.complete(20);
+    let (ordinary, ordinary_events, _) = world.complete(30);
     assert_eq!(subthreshold.work, ordinary.work);
 
-    let (automatic, automatic_events, _) = world.act(40, 4);
+    let (automatic, automatic_events, _) = world.act(40);
     assert_eq!(effect(&automatic_events, &[world.motor]), [0]);
 
     let ordinary_effect = motor_event(&ordinary_events, world.motor);
@@ -129,21 +126,21 @@ fn three_exact_closed_uses_make_the_same_effect_with_less_internal_work() {
 #[test]
 fn changing_a_parent_invalidates_the_stale_composite_before_it_fires() {
     let mut world = RepeatedPathWorld::new();
-    world.complete(10, 1);
-    world.complete(20, 2);
-    let (_, _, path) = world.complete(30, 3);
+    world.complete(10);
+    world.complete(20);
+    let (_, _, path) = world.complete(30);
     world.body.set_link_impulse(path.second, -1).unwrap();
 
-    let (_, events, _) = world.act(40, 4);
+    let (_, events, _) = world.act(40);
     assert!(effect(&events, &[world.motor]).is_empty());
 }
 
 #[test]
 fn a_new_effect_of_the_omitted_middle_forces_the_full_path() {
     let mut world = RepeatedPathWorld::new();
-    world.complete(10, 1);
-    world.complete(20, 2);
-    let (_, _, path) = world.complete(30, 3);
+    world.complete(10);
+    world.complete(20);
+    let (_, _, path) = world.complete(30);
 
     let newly_visible = world.body.add_junction(Junction::integrating(1)).unwrap();
     world
@@ -151,64 +148,17 @@ fn a_new_effect_of_the_omitted_middle_forces_the_full_path() {
         .add_link(Link::new(path.middle, newly_visible, 0, 1))
         .unwrap();
 
-    let (_, events, _) = world.act(40, 4);
+    let (_, events, _) = world.act(40);
     assert_eq!(effect(&events, &[world.motor]), [0]);
     assert!(events.iter().any(|event| event.junction == newly_visible));
 }
 
 #[test]
-fn topological_but_wrong_cause_returns_do_not_earn_automaticity() {
+fn automaticity_survives_a_checkpoint_round_trip() {
     let mut world = RepeatedPathWorld::new();
-    let mut ordinary = None;
-    for (at, cause) in [(10, 1), (20, 2), (30, 3)] {
-        let (run, events, _) = world.act(at, cause);
-        assert_eq!(effect(&events, &[world.motor]), [0]);
-        let (_, _, trace) = world.close(at + 4, cause + 100);
-        assert!(trace.iter().any(|event| matches!(
-            event,
-            TraceEvent::Return(returned)
-                if returned.decision == ReturnDecision::Accepted
-                    && returned.return_cause == Some(cause)
-                    && returned.incoming_cause == cause + 100
-        )));
-        ordinary = Some(run);
-    }
-    let (probe, probe_events, _) = world.act(40, 4);
-    assert_eq!(effect(&probe_events, &[world.motor]), [0]);
-    assert_eq!(probe.work, ordinary.unwrap().work);
-}
-
-#[test]
-fn ambiguous_returns_preserve_the_full_parent_path() {
-    let mut world = RepeatedPathWorld::new();
-    let mut ordinary = None;
-    for (at, first_cause, second_cause) in [(10, 1, 2), (30, 3, 4), (50, 5, 6)] {
-        let (run, events, _) = world.act(at, first_cause);
-        assert_eq!(effect(&events, &[world.motor]), [0]);
-        let (_, events, _) = world.act(at + 4, second_cause);
-        assert_eq!(effect(&events, &[world.motor]), [0]);
-        let (_, _, trace) = world.close(at + 8, 100 + first_cause);
-        assert!(trace.iter().any(|event| matches!(
-            event,
-            TraceEvent::Return(returned)
-                if returned.decision == ReturnDecision::Ambiguous
-                    && returned.open_paths == 2
-                    && returned.exact_paths == 0
-        )));
-        ordinary = Some(run);
-    }
-
-    let (probe, events, _) = world.act(70, 7);
-    assert_eq!(effect(&events, &[world.motor]), [0]);
-    assert_eq!(probe.work, ordinary.unwrap().work);
-}
-
-#[test]
-fn automaticity_survives_an_exact_checkpoint_round_trip() {
-    let mut world = RepeatedPathWorld::new();
-    world.complete(10, 1);
-    world.complete(20, 2);
-    let (ordinary, _, _) = world.complete(30, 3);
+    world.complete(10);
+    world.complete(20);
+    let (ordinary, _, _) = world.complete(30);
     let bytes = world.body.checkpoint().unwrap().canonical_bytes().unwrap();
     let restored = BodyCheckpoint::decode(&bytes).unwrap().restore().unwrap();
     let mut restored_world = RepeatedPathWorld {
@@ -219,8 +169,8 @@ fn automaticity_survives_an_exact_checkpoint_round_trip() {
         outcome_value: world.outcome_value,
     };
 
-    let (plain, plain_events, plain_trace) = world.act(40, 4);
-    let (replayed, replayed_events, replayed_trace) = restored_world.act(40, 4);
+    let (plain, plain_events, plain_trace) = world.act(40);
+    let (replayed, replayed_events, replayed_trace) = restored_world.act(40);
     assert_eq!(plain, replayed);
     assert_eq!(plain_events, replayed_events);
     assert_eq!(plain_trace, replayed_trace);
@@ -230,15 +180,15 @@ fn automaticity_survives_an_exact_checkpoint_round_trip() {
 #[test]
 fn attaching_an_automatic_part_remaps_its_physical_support() {
     let mut world = RepeatedPathWorld::new();
-    world.complete(10, 1);
-    world.complete(20, 2);
-    world.complete(30, 3);
+    world.complete(10);
+    world.complete(20);
+    world.complete(30);
     let mut expected = world.body.clone();
-    schedule(&mut expected, 40, &[reading(world.surface, 0, 1, 4)]);
+    schedule(&mut expected, 40, &[reading(world.surface, 0, 1)]);
     schedule(
         &mut expected,
         41,
-        &[Arrival::caused(world.motor.opportunity, 1, 4)],
+        &[Arrival::new(world.motor.opportunity, 1)],
     );
     let expected_run = expected.run(256, |_| {}).unwrap();
 
@@ -259,8 +209,8 @@ fn attaching_an_automatic_part_remaps_its_physical_support() {
     let surface = attachment.port(surface_port).unwrap();
     let opportunity = attachment.port(opportunity_port).unwrap();
     let attached_effect = attachment.port(effect_port).unwrap();
-    schedule(&mut host, 40, &[reading(surface, 0, 1, 4)]);
-    schedule(&mut host, 41, &[Arrival::caused(opportunity, 1, 4)]);
+    schedule(&mut host, 40, &[reading(surface, 0, 1)]);
+    schedule(&mut host, 41, &[Arrival::new(opportunity, 1)]);
     let mut events = Vec::new();
     let attached_run = host.run(256, |event| events.push(event)).unwrap();
 

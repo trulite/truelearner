@@ -7,7 +7,7 @@ fn events(body: &mut Body) -> Vec<truelearner_body::PhysicalEvent> {
 }
 
 #[test]
-fn inward_attachment_preserves_memory_links_time_and_cause() {
+fn inward_attachment_preserves_memory_links_and_time() {
     let mut host = Body::default();
     let clock = host.add_junction(Junction::integrating(1)).unwrap();
     let received = host.add_junction(Junction::integrating(1)).unwrap();
@@ -34,14 +34,14 @@ fn inward_attachment_preserves_memory_links_time_and_cause() {
     host.input(11, attached_sample, 7).unwrap();
     assert!(events(&mut host).is_empty());
 
-    host.inputs(12, &[Arrival::caused(attached_sample, 9, 44)])
+    host.inputs(12, &[Arrival::new(attached_sample, 9)])
         .unwrap();
     let changed = events(&mut host);
     assert_eq!(changed.len(), 3);
     assert_eq!(changed[0].junction, attached_sample);
-    assert_eq!(changed[1].cause, 44);
+    assert_eq!(changed[1].at, 12);
     assert_eq!(changed[2].junction, received);
-    assert_eq!(changed[2].cause, 44);
+    assert_eq!(changed[2].at, 12);
     assert!(!changed
         .iter()
         .any(|event| event.junction == attached_blocked));
@@ -58,15 +58,15 @@ fn outward_attachment_preserves_declared_direction() {
 
     let attachment = attach(&mut host, hand, &[Join::into_part(action, port, 2, 1)]).unwrap();
     let movement = attachment.port(port).unwrap();
-    host.inputs(3, &[Arrival::caused(action, 1, 9)]).unwrap();
+    host.inputs(3, &[Arrival::new(action, 1)]).unwrap();
 
     let fired = events(&mut host);
     assert_eq!(
         fired
             .iter()
-            .map(|event| (event.at, event.junction, event.cause))
+            .map(|event| (event.at, event.junction))
             .collect::<Vec<_>>(),
-        [(3, action, 9), (5, movement, 9)]
+        [(3, action), (5, movement)]
     );
 }
 
@@ -203,7 +203,7 @@ fn duplicate_open_ports_are_rejected() {
 
 #[test]
 fn disconnected_attachment_order_preserves_behavior() {
-    fn episode(reverse: bool) -> Vec<(usize, u64)> {
+    fn episode(reverse: bool) -> Vec<usize> {
         let mut host = Body::default();
         let targets = [
             host.add_junction(Junction::integrating(1)).unwrap(),
@@ -224,25 +224,19 @@ fn disconnected_attachment_order_preserves_behavior() {
             .unwrap();
             attached[index] = attachment.port(port);
         }
-        for (index, input) in attached.into_iter().enumerate() {
-            host.inputs(1, &[Arrival::caused(input.unwrap(), 1, index as u64 + 7)])
-                .unwrap();
+        for input in attached {
+            host.inputs(1, &[Arrival::new(input.unwrap(), 1)]).unwrap();
         }
         let mut result = events(&mut host)
             .into_iter()
-            .filter_map(|event| {
-                targets
-                    .iter()
-                    .position(|target| *target == event.junction)
-                    .map(|index| (index, event.cause))
-            })
+            .filter_map(|event| targets.iter().position(|target| *target == event.junction))
             .collect::<Vec<_>>();
         result.sort_unstable();
         result
     }
 
-    assert_eq!(episode(false), [(0, 7), (1, 8)]);
-    assert_eq!(episode(true), [(0, 7), (1, 8)]);
+    assert_eq!(episode(false), [0, 1]);
+    assert_eq!(episode(true), [0, 1]);
 }
 
 #[test]
@@ -259,38 +253,29 @@ fn grouping_disconnected_attachments_preserves_behavior() {
         (body, port, input)
     }
 
-    fn direct() -> Vec<(usize, u64)> {
+    fn direct() -> Vec<usize> {
         let mut host = Body::default();
         let targets = [
             host.add_junction(Junction::integrating(1)).unwrap(),
             host.add_junction(Junction::integrating(1)).unwrap(),
         ];
         let mut inputs = Vec::new();
-        for (index, cause) in [7, 8].into_iter().enumerate() {
+        for target in targets {
             let (sensor, port, _) = sensor();
-            let attachment = attach(
-                &mut host,
-                sensor,
-                &[Join::into_host(targets[index], port, 0, 1)],
-            )
-            .unwrap();
-            inputs.push(Arrival::caused(attachment.port(port).unwrap(), 1, cause));
+            let attachment =
+                attach(&mut host, sensor, &[Join::into_host(target, port, 0, 1)]).unwrap();
+            inputs.push(Arrival::new(attachment.port(port).unwrap(), 1));
         }
         host.inputs(1, &inputs).unwrap();
         let mut result = events(&mut host)
             .into_iter()
-            .filter_map(|event| {
-                targets
-                    .iter()
-                    .position(|target| *target == event.junction)
-                    .map(|index| (index, event.cause))
-            })
+            .filter_map(|event| targets.iter().position(|target| *target == event.junction))
             .collect::<Vec<_>>();
         result.sort_unstable();
         result
     }
 
-    fn grouped() -> Vec<(usize, u64)> {
+    fn grouped() -> Vec<usize> {
         let (left, _, left_junction) = sensor();
         let left_body = left.into_body();
         let (right, right_port, _) = sensor();
@@ -318,19 +303,14 @@ fn grouping_disconnected_attachments_preserves_behavior() {
         host.inputs(
             1,
             &[
-                Arrival::caused(attachment.port(group_left).unwrap(), 1, 7),
-                Arrival::caused(attachment.port(group_right).unwrap(), 1, 8),
+                Arrival::new(attachment.port(group_left).unwrap(), 1),
+                Arrival::new(attachment.port(group_right).unwrap(), 1),
             ],
         )
         .unwrap();
         let mut result = events(&mut host)
             .into_iter()
-            .filter_map(|event| {
-                targets
-                    .iter()
-                    .position(|target| *target == event.junction)
-                    .map(|index| (index, event.cause))
-            })
+            .filter_map(|event| targets.iter().position(|target| *target == event.junction))
             .collect::<Vec<_>>();
         result.sort_unstable();
         result

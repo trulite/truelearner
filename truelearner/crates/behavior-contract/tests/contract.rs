@@ -70,7 +70,7 @@ impl Adapter for Noisy {
 
 #[test]
 fn validated_scenario_composes_run_save_restore_and_run() {
-    let scenario = scenarios::checkpoint_replay(1, 7);
+    let scenario = scenarios::checkpoint_replay(1);
     let observations = run_scenario(&Fake, &scenario).unwrap();
     assert_eq!(observations.len(), 4);
 }
@@ -102,7 +102,7 @@ fn behavioral_mismatch_is_data_not_a_runner_panic() {
 
 #[test]
 fn unknown_nearby_motor_fails_before_adapter_construction() {
-    let mut scenario = scenarios::local_action(1, 7);
+    let mut scenario = scenarios::local_action(1);
     scenario.morphology.nearby[0].motor = MotorId(99);
     assert_eq!(
         scenario.validate(),
@@ -112,7 +112,7 @@ fn unknown_nearby_motor_fails_before_adapter_construction() {
 
 #[test]
 fn outcome_components_are_part_of_validated_morphology() {
-    let scenario = scenarios::local_action(1, 7);
+    let scenario = scenarios::local_action(1);
     assert_eq!(
         scenario.morphology.outcome_components,
         [OutcomeComponent {

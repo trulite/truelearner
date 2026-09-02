@@ -218,26 +218,26 @@ Preserve the complete boundary square:
 ```text
 motor crossing ---------> world consequence
       |                          |
-      | opens witness            | retains causal parents
+      | opens local trace        | returns at a physical junction
       v                          v
-open return path -------> closed / ambiguous / no claim
+open return path -------> newest / tied / no claim
 ```
 
 Implement and test it in this order:
 
-1. Let the world retain zero, one, or several exact motor-crossing parents for
-   both boundary consequences and contact progress. A demonstrator has external
-   ancestry and no organism parent. Time adjacency alone supplies no parent.
-2. Return only the opaque crossing and cause through the workstation boundary.
+1. Let the world retain zero, one, or several physical motor crossings for
+   both boundary consequences and contact progress. A demonstrator has no
+   organism crossing.
+2. Return only the opaque crossing through the workstation boundary.
    Do not expose device event, key identity, threshold, capability, direction
    target, or verdict to the organism.
-3. Close one live boundary instance only when exactly one witnessed crossing
-   explains the consequence. Missing ancestry makes no claim; several live
-   explanations are ambiguous and strengthen nothing. Ordinary movement
-   closure does not mark the boundary instance closed.
+3. Close one live boundary instance only when its open trace is uniquely newest
+   at the returned junction. A tie is ambiguous. Recent eligible local links
+   may still strengthen by coincidence. Ordinary movement closure does not
+   mark the boundary instance closed.
 4. Before an `Exploration` warrant can release competition, continue only one
    executable, retained, boundary-open path carrying fresh world-witnessed
-   progress from its own motor cause. Recompute this condition at every choice;
+   progress from its own physical route. Recompute this condition at every choice;
    do not store a permanent continue command.
 5. Boundary closure clears transient outcome selection and inhibits the exact
    completed output. The next release is confined to the same ordinary outcome
@@ -393,7 +393,7 @@ Historical experiments constrain the successor:
 - FD0, FD1, and CC0 separated traversal, forgetting, and consolidation: use
   alone did not earn persistence; a local qualified consequence did. The
   compact body now preserves silent probation, removes it only when a later
-  exact closure exposes invalid local support, and demonstrates bounded steady
+  supported closure exposes invalid local support, and demonstrates bounded steady
   reuse. General finite-resource forgetting remains a separate question.
 - RI0 found a real numeric-identity and insertion-order leak in an older
   simultaneous scheduler. Fresh identities, resident-layout shifts, and
@@ -405,14 +405,13 @@ Historical experiments constrain the successor:
   them.
 
 These are historical constraints, not current behavior or authority. The new
-contract must combine their surviving lessons with the current body's exact
+contract must combine their surviving lessons with the current body's local
 physical return law:
 
-1. Only repeated uniquely attributed returned closure may retain a cheaper
-   route. Wrong, missing, ambiguous, failed, or shuffled return evidence retains
-   none.
+1. Only repeated closure of a uniquely newest local open trace may retain a
+   cheaper route. Missing, tied, failed, or shuffled evidence retains none.
 2. A cheaper route may remove only internally transparent propagation. It may
-   not skip a world crossing, ordered external effect, current returned cause,
+   not skip a world crossing, ordered external effect, current returned trace,
    or boundary closure.
 3. Before consolidation, behavior and work remain the ordinary parent route.
    After consolidation, the complete external trace and physical timing remain
@@ -434,7 +433,7 @@ physical return law:
 The generated evidence ladder is:
 
 ```text
-exact repeated path
+repeated supported path
   -> lower-work reuse
   -> context invalidation and parent fallback
   -> two independently learned paths compose through a real world event
@@ -449,11 +448,11 @@ links carry no level or task tag; the same adjacent-pair law forms two-, four-,
 and eight-link compositions. A visible branch, changed parent, insufficient
 support, or pending input at an omitted interior prevents use before the stale
 composition fires. The real motor crossing and a separately returned world
-intermediate remain explicit. Independent simultaneous components can share
-one cause and still consolidate locally through their participated boundary
-links, with construction-order equality. Checkpoint restart and attachment
-preserve parent identities. Wrong-cause, ambiguous, missing-return, and
-untrained-continuation controls retain nothing. A heterogeneous
+intermediate remain explicit. Independent simultaneous components consolidate
+locally through their separate boundary incidence, with construction-order
+equality. Checkpoint restart and attachment preserve physical topology. Tied,
+missing-return, and untrained-continuation controls retain no structural
+closure. A heterogeneous
 `1,3,2,4,1,2,3,1` delay chain preserves the same nineteen-tick terminal time
 before and after recursive compaction.
 
@@ -462,11 +461,11 @@ Seven closed generic workstation experiences produce two retained paths. A
 fresh changed-luminance probe restored from the developed checkpoint traverses
 one retained link, reproduces the same unordered motor effects with the same
 relative timing, uses less work, and exactly replays. Repeating the same
-physical input without returning the motor parent forms no composite. No task,
+physical input without a returned local consequence forms no composite. No task,
 action label, expected answer, or evaluator verdict enters the harness.
 
 Each rung uses fresh identities, layouts, timings, delays, and distractors.
-Subthreshold, wrong-cause, ambiguous, missing-return, stale-parent,
+Subthreshold, tied-return, missing-return, stale-local-trace,
 same-endpoint/missing-effect, gapped-chain, and disconnected-product controls
 are mandatory. Stop at the first rung whose required physical transition is
 absent; do not let a later application score hide it.

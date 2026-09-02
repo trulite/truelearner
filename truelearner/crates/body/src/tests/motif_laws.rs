@@ -43,10 +43,7 @@ impl DeltaWorld {
         schedule(
             &mut body,
             0,
-            &[
-                Arrival::caused(surface, baseline, 0),
-                Arrival::caused(outcome, 0, 0),
-            ],
+            &[Arrival::new(surface, baseline), Arrival::new(outcome, 0)],
         );
         run(&mut body);
         Self {
@@ -59,61 +56,50 @@ impl DeltaWorld {
         }
     }
 
-    fn act(
-        &mut self,
-        value: i32,
-        outputs: &[usize],
-        at: u64,
-        cause: u64,
-    ) -> (Vec<usize>, Vec<TraceEvent>) {
-        schedule(
-            &mut self.body,
-            at,
-            &[Arrival::caused(self.surface, value, cause)],
-        );
+    fn act(&mut self, value: i32, outputs: &[usize], at: u64) -> (Vec<usize>, Vec<TraceEvent>) {
+        schedule(&mut self.body, at, &[Arrival::new(self.surface, value)]);
         schedule(
             &mut self.body,
             at + 1,
             &outputs
                 .iter()
-                .map(|output| Arrival::caused(self.motors[*output].opportunity, 1, cause))
+                .map(|output| Arrival::new(self.motors[*output].opportunity, 1))
                 .collect::<Vec<_>>(),
         );
         let (events, trace) = run(&mut self.body);
         (effect(&events, &self.motors), trace)
     }
 
-    fn close(&mut self, at: u64, cause: u64) {
+    fn close(&mut self, at: u64) {
         self.outcome_value += 1;
         schedule(
             &mut self.body,
             at,
-            &[Arrival::caused(self.outcome, self.outcome_value, cause)],
+            &[Arrival::new(self.outcome, self.outcome_value)],
         );
         let (_, trace) = run(&mut self.body);
         assert!(trace.iter().any(|event| matches!(
             event,
             TraceEvent::Return(returned)
                 if returned.source == self.outcome
-                    && returned.return_cause == Some(cause)
                     && returned.decision == ReturnDecision::Accepted
         )));
     }
 
     fn demonstrate_rise(&mut self) {
         assert_eq!(
-            self.act(self.baseline + 2, &[Self::PROXY], 10, 1).0,
+            self.act(self.baseline + 2, &[Self::PROXY], 10).0,
             [Self::PROXY]
         );
         assert_eq!(
-            self.act(self.baseline + 4, &[Self::CLOSER], 20, 2).0,
+            self.act(self.baseline + 4, &[Self::CLOSER], 20).0,
             [Self::CLOSER]
         );
-        self.close(22, 2);
+        self.close(22);
     }
 
     fn probe(&mut self, value: i32) -> (Vec<usize>, Vec<TraceEvent>) {
-        self.act(value, &[Self::PROXY, Self::CLOSER], 30, 3)
+        self.act(value, &[Self::PROXY, Self::CLOSER], 30)
     }
 }
 
@@ -189,12 +175,12 @@ fn a_closed_rise_motif_does_not_reuse_for_an_equal_magnitude_fall() {
 fn a_shortcut_preserves_the_sampled_direction_of_its_closed_path() {
     let mut learned = DeltaWorld::new(10);
     learned.demonstrate_rise();
-    for (value, at, cause) in [(16, 30, 3), (18, 40, 4)] {
+    for (value, at) in [(16, 30), (18, 40)] {
         assert_eq!(
-            learned.act(value, &[DeltaWorld::CLOSER], at, cause).0,
+            learned.act(value, &[DeltaWorld::CLOSER], at).0,
             [DeltaWorld::CLOSER]
         );
-        learned.close(at + 2, cause);
+        learned.close(at + 2);
     }
 
     let shortcut_triggers = learned
@@ -217,13 +203,13 @@ fn a_shortcut_preserves_the_sampled_direction_of_its_closed_path() {
     let mut rising = learned.clone();
     assert_eq!(
         rising
-            .act(20, &[DeltaWorld::PROXY, DeltaWorld::CLOSER], 50, 5)
+            .act(20, &[DeltaWorld::PROXY, DeltaWorld::CLOSER], 50)
             .0,
         [DeltaWorld::CLOSER]
     );
     assert_eq!(
         learned
-            .act(16, &[DeltaWorld::PROXY, DeltaWorld::CLOSER], 50, 5)
+            .act(16, &[DeltaWorld::PROXY, DeltaWorld::CLOSER], 50)
             .0,
         [DeltaWorld::PROXY]
     );

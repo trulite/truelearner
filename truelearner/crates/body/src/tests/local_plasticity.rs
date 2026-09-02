@@ -63,22 +63,22 @@ impl LocalMeeting {
         }
     }
 
-    fn act(&mut self, at: u64, causes: [u64; 2], include_remote: bool) -> Vec<TraceEvent> {
+    fn act(&mut self, at: u64, include_remote: bool) -> Vec<TraceEvent> {
         let mut arrivals = vec![
-            Arrival::caused(self.inputs[0], 1, causes[0]),
-            Arrival::caused(self.inputs[1], 1, causes[1]),
+            Arrival::new(self.inputs[0], 1),
+            Arrival::new(self.inputs[1], 1),
         ];
         if include_remote {
             let source = self.body.arena.link(self.remote).unwrap().from;
-            arrivals.push(Arrival::caused(source, 1, 77));
+            arrivals.push(Arrival::new(source, 1));
         }
         self.body.inputs(at, &arrivals).unwrap();
         self.run()
     }
 
-    fn return_outcome(&mut self, at: u64, cause: u64) -> Vec<TraceEvent> {
+    fn return_outcome(&mut self, at: u64) -> Vec<TraceEvent> {
         self.body
-            .inputs(at, &[Arrival::caused(self.outcome, 1, cause)])
+            .inputs(at, &[Arrival::new(self.outcome, 1)])
             .unwrap();
         self.run()
     }
@@ -118,13 +118,13 @@ fn accepted(trace: &[TraceEvent]) -> bool {
 #[test]
 fn a_local_return_strengthens_every_recent_input_to_the_returned_meeting() {
     let mut world = LocalMeeting::new(false);
-    let action = world.act(10, [41, 42], true);
+    let action = world.act(10, true);
     assert!(action.iter().any(|event| matches!(
         event,
         TraceEvent::Transition(change) if change.junction == world.motor.effect
     )));
 
-    let returned = world.return_outcome(14, 99);
+    let returned = world.return_outcome(14);
     assert!(accepted(&returned));
     assert_eq!(world.strength(world.active[0]), 2);
     assert_eq!(world.strength(world.active[1]), 2);
@@ -135,8 +135,8 @@ fn a_local_return_strengthens_every_recent_input_to_the_returned_meeting() {
 #[test]
 fn a_late_return_does_not_strengthen_expired_local_activity() {
     let mut world = LocalMeeting::new(false);
-    world.act(10, [41, 42], false);
-    let returned = world.return_outcome(10 + LOCAL_PLASTICITY_WINDOW + 1, 99);
+    world.act(10, false);
+    let returned = world.return_outcome(10 + LOCAL_PLASTICITY_WINDOW + 1);
 
     assert!(accepted(&returned));
     assert_eq!(world.strength(world.active[0]), 1);
@@ -146,8 +146,8 @@ fn a_late_return_does_not_strengthen_expired_local_activity() {
 #[test]
 fn the_window_boundary_is_eligible() {
     let mut world = LocalMeeting::new(false);
-    world.act(10, [41, 42], false);
-    let returned = world.return_outcome(10 + LOCAL_PLASTICITY_WINDOW, 99);
+    world.act(10, false);
+    let returned = world.return_outcome(10 + LOCAL_PLASTICITY_WINDOW);
 
     assert!(accepted(&returned));
     assert_eq!(world.strength(world.active[0]), 2);
@@ -157,7 +157,7 @@ fn the_window_boundary_is_eligible() {
 #[test]
 fn activity_without_a_return_does_not_strengthen() {
     let mut world = LocalMeeting::new(false);
-    world.act(10, [41, 42], false);
+    world.act(10, false);
 
     assert_eq!(world.strength(world.active[0]), 1);
     assert_eq!(world.strength(world.active[1]), 1);
@@ -170,8 +170,8 @@ fn general_reaction_and_single_return_paths_obey_the_same_law() {
         if general {
             world.require_general_reaction_path();
         }
-        world.act(10, [41, 42], false);
-        let returned = world.return_outcome(14, 99);
+        world.act(10, false);
+        let returned = world.return_outcome(14);
         assert!(accepted(&returned));
         [
             world.strength(world.active[0]),
@@ -197,14 +197,14 @@ fn a_recent_active_predecessor_in_the_local_backward_cone_strengthens() {
         .inputs(
             10,
             &[
-                Arrival::caused(predecessor_source, 1, 41),
-                Arrival::caused(world.inputs[1], 1, 42),
+                Arrival::new(predecessor_source, 1),
+                Arrival::new(world.inputs[1], 1),
             ],
         )
         .unwrap();
     world.run();
 
-    assert!(accepted(&world.return_outcome(14, 99)));
+    assert!(accepted(&world.return_outcome(14)));
     assert_eq!(world.strength(predecessor), 2);
     assert_eq!(world.strength(world.active[0]), 2);
     assert_eq!(world.strength(world.active[1]), 2);
@@ -223,14 +223,14 @@ fn a_fixed_link_carries_eligibility_without_changing() {
         .inputs(
             10,
             &[
-                Arrival::caused(fixed_source, 1, 41),
-                Arrival::caused(world.inputs[1], 1, 42),
+                Arrival::new(fixed_source, 1),
+                Arrival::new(world.inputs[1], 1),
             ],
         )
         .unwrap();
     world.run();
 
-    assert!(accepted(&world.return_outcome(14, 99)));
+    assert!(accepted(&world.return_outcome(14)));
     assert_eq!(world.strength(fixed), 1);
     assert_eq!(world.strength(world.active[0]), 2);
 }
@@ -238,38 +238,23 @@ fn a_fixed_link_carries_eligibility_without_changing() {
 #[test]
 fn local_plasticity_saturates_after_one_change() {
     let mut world = LocalMeeting::new(false);
-    world.act(10, [41, 42], false);
-    assert!(accepted(&world.return_outcome(14, 99)));
-    world.act(20, [51, 52], false);
-    assert!(accepted(&world.return_outcome(24, 100)));
+    world.act(10, false);
+    assert!(accepted(&world.return_outcome(14)));
+    world.act(20, false);
+    assert!(accepted(&world.return_outcome(24)));
 
     assert_eq!(world.strength(world.active[0]), 2);
     assert_eq!(world.strength(world.active[1]), 2);
 }
 
 #[test]
-fn an_ambiguous_return_strengthens_no_recent_input() {
-    let mut world = LocalMeeting::new(false);
-    world.act(10, [41, 42], false);
-    world.act(20, [51, 52], false);
-    let returned = world.return_outcome(24, 99);
-
-    assert!(returned.iter().any(|event| matches!(
-        event,
-        TraceEvent::Return(returned) if returned.decision == ReturnDecision::Ambiguous
-    )));
-    assert_eq!(world.strength(world.active[0]), 1);
-    assert_eq!(world.strength(world.active[1]), 1);
-}
-
-#[test]
 fn checkpoint_restart_preserves_pending_local_eligibility() {
     let mut world = LocalMeeting::new(false);
-    world.act(10, [41, 42], false);
+    world.act(10, false);
     let checkpoint = world.body.checkpoint().unwrap();
     world.body = checkpoint.restore().unwrap();
 
-    assert!(accepted(&world.return_outcome(14, 99)));
+    assert!(accepted(&world.return_outcome(14)));
     assert_eq!(world.strength(world.active[0]), 2);
     assert_eq!(world.strength(world.active[1]), 2);
 }
@@ -313,8 +298,8 @@ fn only_drive_links_can_be_marked_locally_plastic() {
 fn link_construction_order_does_not_change_local_plasticity() {
     let episode = |reverse_links| {
         let mut world = LocalMeeting::new(reverse_links);
-        world.act(10, [41, 42], true);
-        world.return_outcome(14, 99);
+        world.act(10, true);
+        world.return_outcome(14);
         [
             world.strength(world.active[0]),
             world.strength(world.active[1]),

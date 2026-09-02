@@ -17,19 +17,15 @@ fn frontier_preserves_boundary_and_link_participants() {
     let target = body.add_junction(Junction::integrating(1)).unwrap();
     let first = body.add_link(Link::new(source, middle, 1, 1)).unwrap();
     let second = body.add_link(Link::new(middle, target, 1, 1)).unwrap();
-    body.inputs(
-        3,
-        &[Arrival::caused(source, 1, 7), Arrival::caused(source, 1, 7)],
-    )
-    .unwrap();
+    body.inputs(3, &[Arrival::new(source, 1), Arrival::new(source, 1)])
+        .unwrap();
 
     body.step(|_| {}).unwrap();
-    assert_eq!(body.activity.moment.changes[0].event.cause, 7);
     assert_eq!(participant_links(&body, 0), [None, None]);
     assert!(body.arrows[first.slot()].transmitted());
     assert_eq!(
         body.arrows[first.slot()].last_transmission(),
-        Some(crate::core::Occurrence { cause: 7, at: 3 })
+        Some(crate::core::Occurrence { at: 3 })
     );
 
     body.step(|_| {}).unwrap();
@@ -38,7 +34,7 @@ fn frontier_preserves_boundary_and_link_participants() {
     assert!(body.arrows[second.slot()].transmitted());
     assert_eq!(
         body.arrows[second.slot()].last_transmission(),
-        Some(crate::core::Occurrence { cause: 7, at: 4 })
+        Some(crate::core::Occurrence { at: 4 })
     );
 
     body.step(|_| {}).unwrap();
@@ -47,19 +43,19 @@ fn frontier_preserves_boundary_and_link_participants() {
 }
 
 #[test]
-fn meeting_cause_is_order_independent_and_accumulated_once() {
-    fn episode(causes: [u64; 3]) -> u64 {
+fn meeting_impulse_is_order_independent_and_accumulated_once() {
+    fn episode(impulses: [i32; 3]) -> i64 {
         let mut body = Body::default();
         let junction = body.add_junction(Junction::integrating(3)).unwrap();
-        body.inputs(0, &causes.map(|cause| Arrival::caused(junction, 1, cause)))
+        body.inputs(0, &impulses.map(|impulse| Arrival::new(junction, impulse)))
             .unwrap();
         body.step(|_| {}).unwrap();
-        body.activity.moment.changes[0].event.cause
+        body.activity.moment.changes[0].event.impulse
     }
 
-    assert_eq!(episode([8, 8, 8]), 8);
-    assert_eq!(episode([8, 9, 8]), 0);
-    assert_eq!(episode([9, 8, 8]), 0);
+    assert_eq!(episode([1, 1, 1]), 3);
+    assert_eq!(episode([2, 1, 0]), 3);
+    assert_eq!(episode([0, 2, 1]), 3);
 }
 
 #[test]
@@ -76,7 +72,7 @@ fn boundary_input_and_failed_enqueue_record_no_link_transmission() {
     assert!(!body.arrows[link.slot()].transmitted());
 
     assert_eq!(
-        body.send_through(9, link, 3),
+        body.send_through(9, link),
         Err(RunError::TimeWentBackward {
             now: 10,
             requested: 9,

@@ -58,7 +58,6 @@ fn symmetric_trace(count: u16, reversed: bool, base: u16) -> (LawTrace, BTreeSet
     let mut seen = BTreeSet::new();
     for turn in 0..count {
         let at = u64::from(turn) * 10;
-        let cause = u64::from(turn) + 1;
         let (active_sensors, active_motors) = if turn == 0 {
             (&sensors[..1], &motors[..1])
         } else {
@@ -71,13 +70,11 @@ fn symmetric_trace(count: u16, reversed: bool, base: u16) -> (LawTrace, BTreeSet
                 at,
                 target: InputTarget::Sensor(sensor),
                 impulse: 1,
-                cause,
             })
             .chain(active_motors.iter().copied().map(|motor| BoundaryInput {
                 at: at + 1,
                 target: InputTarget::Motor(motor),
                 impulse: 1,
-                cause,
             }))
             .collect();
         let observation = adapter
@@ -102,32 +99,17 @@ fn egglog_program(trace: &LawTrace) -> String {
     let mut program = String::from(include_str!("trace_laws.egg"));
     for arrow in &trace.arrows {
         match arrow {
-            TraceArrow::Eligible {
-                cause,
-                sensor,
-                motor,
-                ..
-            } => program.push_str(&format!("(eligible {cause} {} {})\n", sensor.0, motor.0)),
+            TraceArrow::Eligible { at, sensor, motor } => {
+                program.push_str(&format!("(eligible {at} {} {})\n", sensor.0, motor.0))
+            }
             TraceArrow::Candidate {
-                cause,
-                sensor,
-                motor,
-                ..
+                at, sensor, motor, ..
             } => {
-                program.push_str(&format!(
-                    "(candidate-at {cause} {} {})\n",
-                    sensor.0, motor.0
-                ));
-                program.push_str(&format!("(candidate {cause} {})\n", motor.0));
+                program.push_str(&format!("(candidate-at {at} {} {})\n", sensor.0, motor.0));
+                program.push_str(&format!("(candidate {at} {})\n", motor.0));
             }
-            TraceArrow::Choice { cause, motor, .. } => {
-                program.push_str(&format!("(chosen {cause} {})\n", motor.0));
-            }
-            TraceArrow::Effect { cause, motor, .. } => {
-                program.push_str(&format!("(effect {cause} {})\n", motor.0));
-            }
-            TraceArrow::Return { cause, motor, .. } => {
-                program.push_str(&format!("(returned {cause} {})\n", motor.0));
+            TraceArrow::Choice { at, motor } => {
+                program.push_str(&format!("(chosen {at} {})\n", motor.0));
             }
             _ => {}
         }
@@ -135,23 +117,11 @@ fn egglog_program(trace: &LawTrace) -> String {
     program.push_str("(run 4)\n");
     for arrow in &trace.arrows {
         let check = match arrow {
-            TraceArrow::Eligible {
-                cause,
-                sensor,
-                motor,
-                ..
-            } => Some(format!(
-                "(check (present {cause} {} {}))\n",
-                sensor.0, motor.0
-            )),
-            TraceArrow::Choice { cause, motor, .. } => {
-                Some(format!("(check (path-chosen {cause} {}))\n", motor.0))
+            TraceArrow::Eligible { at, sensor, motor } => {
+                Some(format!("(check (present {at} {} {}))\n", sensor.0, motor.0))
             }
-            TraceArrow::Effect { cause, motor, .. } => {
-                Some(format!("(check (moved {cause} {}))\n", motor.0))
-            }
-            TraceArrow::Return { cause, motor, .. } => {
-                Some(format!("(check (closed {cause} {}))\n", motor.0))
+            TraceArrow::Choice { at, motor } => {
+                Some(format!("(check (path-chosen {at} {}))\n", motor.0))
             }
             _ => None,
         };
@@ -185,7 +155,6 @@ proptest! {
         let trace = |motor| LawTrace {
             arrows: vec![TraceArrow::Candidate {
                 at: 1,
-                cause: 1,
                 sensor: SensorId(0),
                 motor: MotorId(motor),
                 new_path: true,
@@ -208,7 +177,7 @@ proptest! {
 
 #[test]
 fn egglog_proves_the_same_composed_trace() {
-    let observations = run_scenario(&NewBodyAdapter, &scenarios::learns_and_reuses(1, 9)).unwrap();
+    let observations = run_scenario(&NewBodyAdapter, &scenarios::learns_and_reuses(1)).unwrap();
     let trace = observations
         .into_iter()
         .fold(LawTrace::default(), |trace, observation| {
@@ -227,7 +196,6 @@ fn egglog_rejects_a_missing_candidate_arrow() {
     let trace = LawTrace {
         arrows: vec![TraceArrow::Eligible {
             at: 1,
-            cause: 1,
             sensor: SensorId(6),
             motor: MotorId(7),
         }],

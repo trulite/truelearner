@@ -390,7 +390,6 @@ mod tests {
                 Direction::Increase,
             ),
             impulse: 16,
-            cause: 2,
         });
 
         session

@@ -16,18 +16,18 @@ fn integrating_memory_holds_subthreshold_input() {
 }
 
 #[test]
-fn integrating_memory_composes_only_one_retained_cause() {
+fn integrating_memory_composes_only_within_its_local_time_window() {
     let mut body = Body::default();
     let junction = body.add_junction(Junction::integrating(2)).unwrap();
-    body.inputs(0, &[Arrival::caused(junction, 1, 7)]).unwrap();
-    body.inputs(1, &[Arrival::caused(junction, 1, 8)]).unwrap();
+    body.inputs(0, &[Arrival::new(junction, 1)]).unwrap();
+    body.inputs(5, &[Arrival::new(junction, 1)]).unwrap();
 
     let mut changes = Vec::new();
     body.run(2, |change| changes.push(change)).unwrap();
     assert!(changes.is_empty());
     assert_eq!(body.held(junction), Some(1));
 
-    body.inputs(2, &[Arrival::caused(junction, 1, 8)]).unwrap();
+    body.inputs(6, &[Arrival::new(junction, 1)]).unwrap();
     body.run(1, |change| changes.push(change)).unwrap();
     assert_eq!(changes.len(), 1);
     assert_eq!((changes[0].before, changes[0].after), (1, 2));

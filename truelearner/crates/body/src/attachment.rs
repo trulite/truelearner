@@ -142,6 +142,7 @@ pub fn attach(
     let part_consolidation = std::mem::take(&mut part.body.consolidation);
     let part_reentry = std::mem::take(&mut part.body.reentry);
     host.has_composites |= part.body.has_composites;
+    host.has_local_plasticity |= part.body.has_local_plasticity;
     let (junction_base, link_base) = host.arena.append(part_arena);
     debug_assert_eq!(host.arrows.len(), link_base);
     for memory in &mut part_arrows {

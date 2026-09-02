@@ -11,7 +11,7 @@ const FIRST_SUPPORT_ID: u64 = 1;
 const SECOND_SUPPORT_ID: u64 = 2;
 
 /// A formal request together with the exact physical links represented by its
-/// local support identifiers.
+/// local support labels. These labels exist only in the observer proof.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClosureProjection {
     pub request: CausalCheckRequest,
@@ -35,17 +35,11 @@ pub fn project_closed_return(
             event: return_event_index,
             decision: returned.decision,
             open_paths: returned.open_paths,
-            exact_paths: returned.exact_paths,
         });
     }
     let path = returned
         .path
         .ok_or(TraceProjectionError::AcceptedReturnMissingPath(
-            return_event_index,
-        ))?;
-    let cause = returned
-        .return_cause
-        .ok_or(TraceProjectionError::AcceptedReturnMissingCause(
             return_event_index,
         ))?;
     let opened_at =
@@ -63,7 +57,6 @@ pub fn project_closed_return(
                 BodyTraceEvent::Transition(transition)
                     if transition.at == opened_at
                         && transition.junction == path.output
-                        && transition.cause == cause
             )
         })
         .count();
@@ -146,7 +139,7 @@ pub fn project_closed_boundary_return(
     project_closed_return(events, return_event_index)
 }
 
-/// Projects every causally eligible contender of one ambiguous return.
+/// Projects every equally recent local contender of one ambiguous return.
 ///
 /// A same-tick contender is admitted only when its output transition occurs
 /// earlier in the trace. Candidate counts without the paths themselves are not
@@ -169,13 +162,23 @@ pub fn project_ambiguous_return(
             retained: returned.candidates.len(),
         });
     }
-    let candidates = returned
+    let latest = returned
         .candidates
         .iter()
         .filter(|candidate| candidate.opened_at <= returned.at)
+        .map(|candidate| candidate.opened_at)
+        .max()
+        .ok_or(TraceProjectionError::InsufficientLocalCandidates {
+            event: return_event_index,
+            retained: 0,
+        })?;
+    let candidates = returned
+        .candidates
+        .iter()
+        .filter(|candidate| candidate.opened_at == latest)
         .collect::<Vec<_>>();
     if candidates.len() < 2 {
-        return Err(TraceProjectionError::InsufficientCausalCandidates {
+        return Err(TraceProjectionError::InsufficientLocalCandidates {
             event: return_event_index,
             retained: candidates.len(),
         });
@@ -199,7 +202,6 @@ pub fn project_ambiguous_return(
                     BodyTraceEvent::Transition(transition)
                         if transition.at == candidate.opened_at
                             && transition.junction == candidate.path.output
-                            && transition.cause == candidate.cause
                 )
             })
             .count();
@@ -208,25 +210,6 @@ pub fn project_ambiguous_return(
                 event: return_event_index,
                 candidate: index,
                 observed: crossings,
-            });
-        }
-        let strengthening = events[return_event_index + 1..]
-            .iter()
-            .filter(|event| {
-                matches!(
-                    event,
-                    BodyTraceEvent::Strengthened(strength)
-                        if strength.at == returned.at
-                            && [candidate.path.first, candidate.path.second]
-                                .contains(&strength.link)
-                )
-            })
-            .count();
-        if strengthening != 0 {
-            return Err(TraceProjectionError::AmbiguousReturnStrengthened {
-                event: return_event_index,
-                candidate: index,
-                observed: strengthening,
             });
         }
     }
@@ -314,7 +297,6 @@ pub enum TraceProjectionError {
         event: usize,
         decision: BodyReturnDecision,
         open_paths: usize,
-        exact_paths: usize,
     },
     ReturnNotAmbiguous {
         event: usize,
@@ -326,7 +308,7 @@ pub enum TraceProjectionError {
         recorded: usize,
         retained: usize,
     },
-    InsufficientCausalCandidates {
+    InsufficientLocalCandidates {
         event: usize,
         retained: usize,
     },
@@ -339,14 +321,8 @@ pub enum TraceProjectionError {
         candidate: usize,
         observed: usize,
     },
-    AmbiguousReturnStrengthened {
-        event: usize,
-        candidate: usize,
-        observed: usize,
-    },
     TooManyCandidates(usize),
     AcceptedReturnMissingPath(usize),
-    AcceptedReturnMissingCause(usize),
     AcceptedReturnMissingOpening(usize),
     OutputCrossingCount {
         event: usize,
@@ -370,10 +346,9 @@ impl fmt::Display for TraceProjectionError {
                 event,
                 decision,
                 open_paths,
-                exact_paths,
             } => write!(
                 formatter,
-                "return {event} is {decision:?}, with {open_paths} open and {exact_paths} exact paths"
+                "return {event} is {decision:?}, with {open_paths} open paths"
             ),
             Self::ReturnNotAmbiguous { event, decision } => {
                 write!(formatter, "return {event} is {decision:?}, not ambiguous")
@@ -389,9 +364,9 @@ impl fmt::Display for TraceProjectionError {
                 formatter,
                 "return {event} records {recorded} candidates but retains {retained}"
             ),
-            Self::InsufficientCausalCandidates { event, retained } => write!(
+            Self::InsufficientLocalCandidates { event, retained } => write!(
                 formatter,
-                "return {event} retains only {retained} causally eligible candidates"
+                "return {event} retains only {retained} equally recent local candidates"
             ),
             Self::DuplicateCandidatePath { event, candidate } => write!(
                 formatter,
@@ -405,22 +380,11 @@ impl fmt::Display for TraceProjectionError {
                 formatter,
                 "return {event} candidate {candidate} has {observed} matching output transitions instead of one"
             ),
-            Self::AmbiguousReturnStrengthened {
-                event,
-                candidate,
-                observed,
-            } => write!(
-                formatter,
-                "ambiguous return {event} candidate {candidate} has {observed} strengthening events"
-            ),
             Self::TooManyCandidates(event) => {
                 write!(formatter, "return {event} has too many candidates to identify")
             }
             Self::AcceptedReturnMissingPath(event) => {
                 write!(formatter, "accepted return {event} names no path")
-            }
-            Self::AcceptedReturnMissingCause(event) => {
-                write!(formatter, "accepted return {event} names no cause")
             }
             Self::AcceptedReturnMissingOpening(event) => {
                 write!(formatter, "accepted return {event} names no opening")

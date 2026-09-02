@@ -13,12 +13,11 @@ fn path(index: usize) -> TracePath {
 fn candidate(index: usize, drive: u16) -> CandidateTrace {
     CandidateTrace {
         at: 7,
-        cause: 11,
         group: 0,
         path: path(index),
         connected_outcomes: Vec::new(),
         executable: true,
-        return_cause: None,
+        return_present: false,
         unanswered: false,
         outcome: None,
         participation: 0,
@@ -96,7 +95,7 @@ fn offline_verifier_checks_unique_reentry_receipt_shape() {
     reaching.reentry_incidence_visits = 1;
     reaching.outcome = Some(Outcome {
         at: 5,
-        caused_transition: true,
+        changed_world: true,
         available_until_choice: true,
     });
     let stale = candidate(1, 512);
@@ -230,7 +229,7 @@ fn offline_verifier_checks_unanswered_output_release() {
     unanswered.strength = 3;
     unanswered.outcome = Some(Outcome {
         at: 10,
-        caused_transition: true,
+        changed_world: true,
         available_until_choice: false,
     });
     let mut alternative = candidate(1, 512);
@@ -354,7 +353,7 @@ fn offline_verifier_names_the_old_surface_locality_failure() {
     let mut weak = candidate(0, 44);
     weak.outcome = Some(Outcome {
         at: 3,
-        caused_transition: true,
+        changed_world: true,
         available_until_choice: true,
     });
     let strong = candidate(1, 1_023);
@@ -381,9 +380,9 @@ fn offline_verifier_names_the_old_surface_locality_failure() {
 }
 
 #[test]
-fn exact_current_return_precedes_current_surface_locality() {
+fn unique_current_return_precedes_current_surface_locality() {
     let mut returning = candidate(0, 44);
-    returning.return_cause = Some(returning.cause);
+    returning.return_present = true;
     let strong = candidate(1, 1_023);
     let events = [
         TraceEvent::Candidate(returning.clone()),

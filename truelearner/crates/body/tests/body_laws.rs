@@ -1,6 +1,6 @@
 use truelearner_body::{
     attach, harness::*, verify_choice_contract, Arrival, Body, ChoiceWarrant, Join, Junction,
-    JunctionId, Link, OpenBody, ReturnDecision, TraceEvent, Work,
+    JunctionId, Link, OpenBody, TraceEvent, Work,
 };
 
 struct LocalWorld {
@@ -29,12 +29,12 @@ impl LocalWorld {
         }
     }
 
-    fn act(&mut self, at: u64, cause: u64) -> Trace {
-        schedule(&mut self.body, at, &[reading(self.surface, 0, 1, cause)]);
+    fn act(&mut self, at: u64) -> Trace {
+        schedule(&mut self.body, at, &[reading(self.surface, 0, 1)]);
         let opportunities = self
             .motors
             .iter()
-            .map(|motor| Arrival::caused(motor.opportunity, 1, cause))
+            .map(|motor| Arrival::new(motor.opportunity, 1))
             .collect::<Vec<_>>();
         schedule(&mut self.body, at + 1, &opportunities);
         finish(&mut self.body)
@@ -72,7 +72,7 @@ impl CompetitionWorld {
             consequence,
             motors.map(|motor| motor.opportunity),
         );
-        schedule(&mut body, 0, &[reading(consequence, 0, 0, 0)]);
+        schedule(&mut body, 0, &[reading(consequence, 0, 0)]);
         finish(&mut body);
         Self {
             body,
@@ -83,36 +83,30 @@ impl CompetitionWorld {
         }
     }
 
-    fn act(&mut self, which: usize, at: u64, cause: u64) -> Trace {
-        schedule(
-            &mut self.body,
-            at,
-            &[reading(self.surfaces[which], 0, 1, cause)],
-        );
+    fn act(&mut self, which: usize, at: u64) -> Trace {
+        schedule(&mut self.body, at, &[reading(self.surfaces[which], 0, 1)]);
         schedule(
             &mut self.body,
             at + 1,
-            &[Arrival::caused(self.motors[which].opportunity, 1, cause)],
+            &[Arrival::new(self.motors[which].opportunity, 1)],
         );
         finish(&mut self.body)
     }
 
-    fn compete(&mut self, at: u64, cause: u64) -> Trace {
-        self.compete_traced(at, cause).0
+    fn compete(&mut self, at: u64) -> Trace {
+        self.compete_traced(at).0
     }
 
-    fn compete_traced(&mut self, at: u64, cause: u64) -> (Trace, Vec<TraceEvent>) {
+    fn compete_traced(&mut self, at: u64) -> (Trace, Vec<TraceEvent>) {
         schedule(
             &mut self.body,
             at,
-            &self.surfaces.map(|surface| reading(surface, 0, 1, cause)),
+            &self.surfaces.map(|surface| reading(surface, 0, 1)),
         );
         schedule(
             &mut self.body,
             at + 1,
-            &self
-                .motors
-                .map(|motor| Arrival::caused(motor.opportunity, 1, cause)),
+            &self.motors.map(|motor| Arrival::new(motor.opportunity, 1)),
         );
         let mut events = Vec::new();
         let mut trace = Vec::new();
@@ -124,29 +118,29 @@ impl CompetitionWorld {
         (Trace { run, events }, trace)
     }
 
-    fn return_change(&mut self, at: u64, cause: u64) -> Trace {
+    fn return_change(&mut self, at: u64) -> Trace {
         self.consequence_value += 1;
         schedule(
             &mut self.body,
             at,
-            &[reading(self.consequence, 0, self.consequence_value, cause)],
+            &[reading(self.consequence, 0, self.consequence_value)],
         );
         finish(&mut self.body)
     }
 
-    fn return_repeat(&mut self, at: u64, cause: u64) -> Trace {
+    fn return_repeat(&mut self, at: u64) -> Trace {
         schedule(
             &mut self.body,
             at,
-            &[reading(self.consequence, 0, self.consequence_value, cause)],
+            &[reading(self.consequence, 0, self.consequence_value)],
         );
         finish(&mut self.body)
     }
 
-    fn completed_cycle(&mut self, which: usize, at: u64, cause: u64) {
-        let action = self.act(which, at, cause);
+    fn completed_cycle(&mut self, which: usize, at: u64) {
+        let action = self.act(which, at);
         assert_eq!(effect(&action.events, &self.motors), [which]);
-        self.return_change(at + 2, cause);
+        self.return_change(at + 2);
     }
 }
 
@@ -173,7 +167,7 @@ impl LearnerWorld {
         ];
         let consequence = attach_sensor(&mut body, Junction::sampled(1_000), &[]);
         attach_outcome_component(&mut body, consequence, [motor.opportunity]);
-        schedule(&mut body, 0, &[reading(consequence, 0, 0, 0)]);
+        schedule(&mut body, 0, &[reading(consequence, 0, 0)]);
         finish(&mut body);
         Self {
             body,
@@ -184,10 +178,10 @@ impl LearnerWorld {
         }
     }
 
-    fn close(&mut self, member_count: usize, at: u64, cause: u64, live_change: bool) -> Trace {
+    fn close(&mut self, member_count: usize, at: u64, live_change: bool) -> Trace {
         let arrivals = self.members[..member_count]
             .iter()
-            .map(|member| reading(*member, 0, 1, cause))
+            .map(|member| reading(*member, 0, 1))
             .collect::<Vec<_>>();
         schedule(&mut self.body, at, &arrivals);
         if live_change {
@@ -195,18 +189,18 @@ impl LearnerWorld {
             schedule(
                 &mut self.body,
                 at,
-                &[reading(self.consequence, 0, self.consequence_value, cause)],
+                &[reading(self.consequence, 0, self.consequence_value)],
             );
         }
         finish(&mut self.body)
     }
 
-    fn probe(&mut self, at: u64, cause: u64) -> Trace {
-        schedule(&mut self.body, at, &[reading(self.members[0], 0, 1, cause)]);
+    fn probe(&mut self, at: u64) -> Trace {
+        schedule(&mut self.body, at, &[reading(self.members[0], 0, 1)]);
         schedule(
             &mut self.body,
             at + 1,
-            &[Arrival::caused(self.motor.opportunity, 1, cause)],
+            &[Arrival::new(self.motor.opportunity, 1)],
         );
         finish(&mut self.body)
     }
@@ -262,7 +256,7 @@ fn repeated_sensor_sample_is_identity_and_real_change_fires() {
     let mut body = Body::default();
     let sensor = attach_sensor(&mut body, Junction::sampled(10), &[]);
     for (at, value) in [(0, 7), (1, 7), (2, 9)] {
-        schedule(&mut body, at, &[reading(sensor, 0, value, 0)]);
+        schedule(&mut body, at, &[reading(sensor, 0, value)]);
     }
 
     let trace = finish(&mut body);
@@ -275,38 +269,17 @@ fn repeated_sensor_sample_is_identity_and_real_change_fires() {
 fn expired_sensor_memory_does_not_invent_a_transition() {
     let mut body = Body::default();
     let sensor = attach_sensor(&mut body, Junction::sampled(4), &[]);
-    schedule(&mut body, 1, &[reading(sensor, 0, 7, 0)]);
-    schedule(&mut body, 5, &[reading(sensor, 0, 9, 0)]);
+    schedule(&mut body, 1, &[reading(sensor, 0, 7)]);
+    schedule(&mut body, 5, &[reading(sensor, 0, 9)]);
 
     assert!(finish(&mut body).events.is_empty());
 }
 
 #[test]
-fn causal_identity_composes_only_when_all_meeting_arrivals_agree() {
-    fn cause(left: u64, right: u64) -> u64 {
-        let mut body = Body::default();
-        let junction = integrating(&mut body, 2);
-        schedule(
-            &mut body,
-            0,
-            &[
-                Arrival::caused(junction, 1, left),
-                Arrival::caused(junction, 1, right),
-            ],
-        );
-        finish(&mut body).events[0].cause
-    }
-
-    assert_eq!(cause(8, 8), 8);
-    assert_eq!(cause(8, 9), 0);
-    assert_eq!(cause(9, 8), 0);
-}
-
-#[test]
 fn a_surface_without_a_nearby_output_changes_no_later_action() {
     let mut world = LocalWorld::new(&[]);
-    let first = world.act(10, 1);
-    let second = world.act(20, 2);
+    let first = world.act(10);
+    let second = world.act(20);
 
     assert!(effect(&first.events, &world.motors).is_empty());
     assert!(effect(&second.events, &world.motors).is_empty());
@@ -315,9 +288,9 @@ fn a_surface_without_a_nearby_output_changes_no_later_action() {
 #[test]
 fn a_local_surface_forms_one_reusable_choice_without_duplicate_growth() {
     let mut world = LocalWorld::new(&[2]);
-    let first = world.act(10, 1);
-    let second = world.act(20, 2);
-    let third = world.act(30, 3);
+    let first = world.act(10);
+    let second = world.act(20);
+    let third = world.act(30);
 
     assert_eq!(effect(&first.events, &world.motors), [0]);
     assert_eq!(effect(&second.events, &world.motors), [0]);
@@ -328,7 +301,7 @@ fn a_local_surface_forms_one_reusable_choice_without_duplicate_growth() {
 #[test]
 fn formation_is_local_and_does_not_cross_distance_three() {
     let mut world = LocalWorld::new(&[3]);
-    let trace = world.act(10, 1);
+    let trace = world.act(10);
 
     assert!(effect(&trace.events, &world.motors).is_empty());
 }
@@ -347,8 +320,8 @@ fn an_outward_effect_does_not_form_a_reentry_choice() {
         .port(port)
         .unwrap();
 
-    schedule(&mut body, 10, &[reading(outside, 0, 1, 7)]);
-    schedule(&mut body, 11, &[Arrival::caused(motor.opportunity, 1, 7)]);
+    schedule(&mut body, 10, &[reading(outside, 0, 1)]);
+    schedule(&mut body, 11, &[Arrival::new(motor.opportunity, 1)]);
     let trace = finish(&mut body);
 
     assert_eq!(event_count(&trace.events, returned), 1);
@@ -358,7 +331,7 @@ fn an_outward_effect_does_not_form_a_reentry_choice() {
 #[test]
 fn one_connected_world_chooses_exactly_one_action() {
     let mut world = LocalWorld::new(&[1, 2]);
-    let trace = world.act(10, 3);
+    let trace = world.act(10);
 
     assert_eq!(effect(&trace.events, &world.motors).len(), 1);
 }
@@ -366,38 +339,25 @@ fn one_connected_world_chooses_exactly_one_action() {
 #[test]
 fn latest_available_consequence_precedes_old_strength() {
     let mut world = CompetitionWorld::new(false);
-    for (at, cause) in [(10, 1), (20, 2), (30, 3)] {
-        world.completed_cycle(0, at, cause);
+    for at in [10, 20, 30] {
+        world.completed_cycle(0, at);
     }
-    world.completed_cycle(1, 40, 4);
+    world.completed_cycle(1, 40);
 
-    let chosen = world.compete(50, 5);
+    let chosen = world.compete(50);
     assert_eq!(effect(&chosen.events, &world.motors), [1]);
-}
-
-#[test]
-fn an_exact_current_return_precedes_every_other_action() {
-    let mut world = CompetitionWorld::new(false);
-    for (at, cause) in [(10, 1), (20, 2), (30, 3)] {
-        world.completed_cycle(1, at, cause);
-    }
-    let opened = world.act(0, 40, 42);
-    assert_eq!(effect(&opened.events, &world.motors), [0]);
-
-    let chosen = world.compete(50, 42);
-    assert_eq!(effect(&chosen.events, &world.motors), [0]);
 }
 
 #[test]
 fn ambiguous_current_returns_do_not_create_a_false_preference() {
     let mut world = CompetitionWorld::new(false);
-    for (at, cause) in [(10, 1), (20, 2), (30, 3)] {
-        world.completed_cycle(0, at, cause);
+    for at in [10, 20, 30] {
+        world.completed_cycle(0, at);
     }
-    world.act(0, 40, 7);
-    world.act(1, 42, 7);
+    world.act(0, 40);
+    world.act(1, 42);
 
-    let chosen = world.compete(50, 7);
+    let chosen = world.compete(50);
     assert_eq!(effect(&chosen.events, &world.motors), [0]);
 }
 
@@ -405,10 +365,10 @@ fn ambiguous_current_returns_do_not_create_a_false_preference() {
 fn an_unanswered_action_gives_an_alternative_the_next_chance() {
     let mut world = CompetitionWorld::new(false);
 
-    let first = world.act(0, 10, 1);
+    let first = world.act(0, 10);
     assert_eq!(effect(&first.events, &world.motors), [0]);
 
-    let (next, trace) = world.compete_traced(20, 2);
+    let (next, trace) = world.compete_traced(20);
     assert_eq!(effect(&next.events, &world.motors), [1]);
     assert!(trace.iter().any(|event| matches!(
         event,
@@ -424,17 +384,17 @@ fn an_unanswered_action_gives_an_alternative_the_next_chance() {
 #[test]
 fn a_previously_successful_action_without_a_new_return_releases_to_an_alternative() {
     let mut world = CompetitionWorld::new(false);
-    world.completed_cycle(0, 10, 1);
-    assert_eq!(effect(&world.act(1, 20, 2).events, &world.motors), [1]);
+    world.completed_cycle(0, 10);
+    assert_eq!(effect(&world.act(1, 20).events, &world.motors), [1]);
 
-    let (first, first_trace) = world.compete_traced(30, 3);
+    let (first, first_trace) = world.compete_traced(30);
     assert_eq!(effect(&first.events, &world.motors), [0]);
     assert!(first_trace.iter().any(|event| matches!(
         event,
         TraceEvent::Choice(choice) if choice.warrant == Some(ChoiceWarrant::RetainedContinuation)
     )));
 
-    let (next, trace) = world.compete_traced(40, 4);
+    let (next, trace) = world.compete_traced(40);
     let choices = trace
         .iter()
         .filter_map(|event| match event {
@@ -466,9 +426,9 @@ fn a_previously_successful_action_without_a_new_return_releases_to_an_alternativ
 #[test]
 fn a_completed_action_gives_an_untried_alternative_the_next_chance() {
     let mut world = CompetitionWorld::new(false);
-    world.completed_cycle(0, 10, 1);
+    world.completed_cycle(0, 10);
 
-    let (next, trace) = world.compete_traced(20, 2);
+    let (next, trace) = world.compete_traced(20);
     assert_eq!(effect(&next.events, &world.motors), [1]);
     assert!(trace.iter().any(|event| matches!(
         event,
@@ -492,22 +452,18 @@ fn a_fresh_return_preserves_the_acted_output_for_untried_release() {
     );
     let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
     attach_outcome_component(&mut body, outcome, motors.map(|motor| motor.opportunity));
-    schedule(&mut body, 0, &[reading(outcome, 0, 0, 0)]);
+    schedule(&mut body, 0, &[reading(outcome, 0, 0)]);
     finish(&mut body);
 
-    schedule(&mut body, 10, &[reading(surface, 0, 1, 1)]);
-    schedule(
-        &mut body,
-        11,
-        &[Arrival::caused(motors[0].opportunity, 1, 1)],
-    );
+    schedule(&mut body, 10, &[reading(surface, 0, 1)]);
+    schedule(&mut body, 11, &[Arrival::new(motors[0].opportunity, 1)]);
     assert_eq!(effect(&finish(&mut body).events, &motors), [0]);
 
-    schedule(&mut body, 20, &[reading(surface, 0, 1, 2)]);
+    schedule(&mut body, 20, &[reading(surface, 0, 1)]);
     schedule(
         &mut body,
         21,
-        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 2)),
+        &motors.map(|motor| Arrival::new(motor.opportunity, 1)),
     );
     let mut events = Vec::new();
     let mut trace = Vec::new();
@@ -531,12 +487,12 @@ fn a_fresh_return_preserves_the_acted_output_for_untried_release() {
     schedule(
         &mut body,
         30,
-        &[reading(local_bridge, 0, 1, 3), reading(outcome, 0, 1, 3)],
+        &[reading(local_bridge, 0, 1), reading(outcome, 0, 1)],
     );
     schedule(
         &mut body,
         31,
-        &motors.map(|motor| Arrival::caused(motor.opportunity, 1, 3)),
+        &motors.map(|motor| Arrival::new(motor.opportunity, 1)),
     );
     let mut events = Vec::new();
     let mut trace = Vec::new();
@@ -567,26 +523,24 @@ fn a_fresh_return_preserves_the_acted_output_for_untried_release() {
 #[test]
 fn a_unique_ordinary_return_continues_after_both_outputs_were_tried() {
     let mut world = CompetitionWorld::new(false);
-    world.completed_cycle(0, 10, 1);
-    world.completed_cycle(1, 20, 2);
-    assert_eq!(effect(&world.act(1, 30, 3).events, &world.motors), [1]);
+    world.completed_cycle(0, 10);
+    world.completed_cycle(1, 20);
+    assert_eq!(effect(&world.act(1, 30).events, &world.motors), [1]);
 
     world.consequence_value += 1;
     schedule(
         &mut world.body,
         40,
         &[
-            reading(world.consequence, 0, world.consequence_value, 3),
-            reading(world.surfaces[0], 0, 1, 4),
-            reading(world.surfaces[1], 0, 1, 4),
+            reading(world.consequence, 0, world.consequence_value),
+            reading(world.surfaces[0], 0, 1),
+            reading(world.surfaces[1], 0, 1),
         ],
     );
     schedule(
         &mut world.body,
         41,
-        &world
-            .motors
-            .map(|motor| Arrival::caused(motor.opportunity, 1, 4)),
+        &world.motors.map(|motor| Arrival::new(motor.opportunity, 1)),
     );
     let mut events = Vec::new();
     let mut trace = Vec::new();
@@ -613,20 +567,20 @@ fn a_unique_ordinary_return_continues_after_both_outputs_were_tried() {
 #[test]
 fn a_fresh_external_opportunity_crosses_only_into_the_root_learner() {
     let mut root = LearnerWorld::new();
-    root.close(2, 10, 1, true);
-    let root_probe = root.probe(20, 2);
+    root.close(2, 10, true);
+    let root_probe = root.probe(20);
 
     let mut child = LearnerWorld::new();
-    child.close(2, 10, 1, true);
-    child.close(3, 20, 2, true);
-    let child_probe = child.probe(30, 3);
+    child.close(2, 10, true);
+    child.close(3, 20, true);
+    let child_probe = child.probe(30);
 
     assert_eq!(event_count(&root_probe.events, root.motor.effect), 1);
     assert_eq!(event_count(&child_probe.events, child.motor.effect), 0);
 }
 
 #[test]
-fn disconnected_causal_components_choose_independently() {
+fn disconnected_physical_components_choose_independently() {
     let mut body = Body::default();
     let motors = [motor(&mut body), motor(&mut body)];
     let surfaces = [
@@ -651,27 +605,26 @@ fn disconnected_causal_components_choose_independently() {
     schedule(
         &mut body,
         0,
-        &consequences.map(|sensor| reading(sensor, 0, 0, 0)),
+        &consequences.map(|sensor| reading(sensor, 0, 0)),
     );
     finish(&mut body);
 
     for index in 0..2 {
-        let cause = index as u64 + 1;
         schedule(
             &mut body,
             10 + index as u64 * 10,
-            &[reading(surfaces[index], 0, 1, cause)],
+            &[reading(surfaces[index], 0, 1)],
         );
         schedule(
             &mut body,
             11 + index as u64 * 10,
-            &[Arrival::caused(motors[index].opportunity, 1, cause)],
+            &[Arrival::new(motors[index].opportunity, 1)],
         );
         finish(&mut body);
         schedule(
             &mut body,
             12 + index as u64 * 10,
-            &[reading(consequences[index], 0, 1, cause)],
+            &[reading(consequences[index], 0, 1)],
         );
         finish(&mut body);
     }
@@ -679,17 +632,14 @@ fn disconnected_causal_components_choose_independently() {
     schedule(
         &mut body,
         40,
-        &[
-            reading(surfaces[0], 0, 1, 30),
-            reading(surfaces[1], 0, 1, 40),
-        ],
+        &[reading(surfaces[0], 0, 1), reading(surfaces[1], 0, 1)],
     );
     schedule(
         &mut body,
         41,
         &[
-            Arrival::caused(motors[0].opportunity, 1, 30),
-            Arrival::caused(motors[1].opportunity, 1, 40),
+            Arrival::new(motors[0].opportunity, 1),
+            Arrival::new(motors[1].opportunity, 1),
         ],
     );
     let trace = finish(&mut body);
@@ -702,12 +652,12 @@ fn connected_choice_is_independent_of_construction_order() {
     let mut forward = CompetitionWorld::new(false);
     let mut reverse = CompetitionWorld::new(true);
     for world in [&mut forward, &mut reverse] {
-        world.completed_cycle(0, 10, 1);
-        world.completed_cycle(1, 20, 2);
+        world.completed_cycle(0, 10);
+        world.completed_cycle(1, 20);
     }
 
-    let forward_trace = forward.compete(30, 3);
-    let reverse_trace = reverse.compete(30, 3);
+    let forward_trace = forward.compete(30);
+    let reverse_trace = reverse.compete(30);
 
     let forward_positions = effect(&forward_trace.events, &forward.motors);
     let reverse_positions = effect(&reverse_trace.events, &reverse.motors);
@@ -715,69 +665,56 @@ fn connected_choice_is_independent_of_construction_order() {
 }
 
 #[test]
-fn an_actual_output_opens_one_physical_return() {
-    let mut world = CompetitionWorld::new(false);
-    let action = world.act(0, 10, 11);
-    assert_eq!(effect(&action.events, &world.motors), [0]);
-    world.return_change(12, 11);
-
-    let returned = world.compete(20, 11);
-    assert_eq!(effect(&returned.events, &world.motors), [0]);
-}
-
-#[test]
 fn a_later_consequence_credits_only_the_action_that_physically_happened() {
     let mut world = CompetitionWorld::new(false);
-    world.act(1, 10, 8);
-    world.act(0, 20, 9);
-    world.return_change(22, 9);
+    world.act(1, 10);
+    world.act(0, 20);
+    world.return_change(22);
 
-    let chosen = world.compete(30, 10);
+    let chosen = world.compete(30);
     assert_eq!(effect(&chosen.events, &world.motors), [0]);
 }
 
 #[test]
 fn preopening_and_repeated_samples_close_nothing_and_credit_nothing() {
     let mut before = CompetitionWorld::new(false);
-    before.return_change(10, 30);
-    before.act(0, 20, 30);
+    before.return_change(10);
+    before.act(0, 20);
 
     let mut repeated = CompetitionWorld::new(false);
-    repeated.act(0, 10, 30);
-    repeated.return_repeat(12, 30);
+    repeated.act(0, 10);
+    repeated.return_repeat(12);
 
     assert_eq!(
-        effect(&before.compete(40, 40).events, &before.motors),
-        effect(&repeated.compete(40, 40).events, &repeated.motors)
+        effect(&before.compete(40).events, &before.motors),
+        effect(&repeated.compete(40).events, &repeated.motors)
     );
 }
 
 #[test]
 fn one_physical_consequence_has_one_learning_effect() {
     let mut once = CompetitionWorld::new(false);
-    once.act(0, 10, 4);
-    once.return_change(12, 4);
+    once.act(0, 10);
+    once.return_change(12);
 
     let mut repeated = once.body.clone();
     schedule(
         &mut repeated,
         13,
-        &[reading(once.consequence, 0, once.consequence_value, 4)],
+        &[reading(once.consequence, 0, once.consequence_value)],
     );
     finish(&mut repeated);
 
-    let once_trace = once.compete(20, 5);
+    let once_trace = once.compete(20);
     schedule(
         &mut repeated,
         20,
-        &once.surfaces.map(|surface| reading(surface, 0, 1, 5)),
+        &once.surfaces.map(|surface| reading(surface, 0, 1)),
     );
     schedule(
         &mut repeated,
         21,
-        &once
-            .motors
-            .map(|motor| Arrival::caused(motor.opportunity, 1, 5)),
+        &once.motors.map(|motor| Arrival::new(motor.opportunity, 1)),
     );
     let repeated_trace = finish(&mut repeated);
 
@@ -790,13 +727,13 @@ fn one_physical_consequence_has_one_learning_effect() {
 #[test]
 fn a_returned_consequence_is_available_until_one_choice_then_consumed() {
     let mut world = CompetitionWorld::new(false);
-    for (at, cause) in [(10, 1), (20, 2), (30, 3)] {
-        world.completed_cycle(1, at, cause);
+    for at in [10, 20, 30] {
+        world.completed_cycle(1, at);
     }
-    world.completed_cycle(0, 40, 4);
+    world.completed_cycle(0, 40);
 
-    let first = world.compete(50, 5);
-    let second = world.compete(60, 6);
+    let first = world.compete(50);
+    let second = world.compete(60);
     assert_eq!(effect(&first.events, &world.motors), [0]);
     assert_eq!(effect(&second.events, &world.motors), [1]);
 }
@@ -806,82 +743,35 @@ fn one_completed_physical_cycle_strengthens_its_participating_action() {
     let mut completed = CompetitionWorld::new(false);
     let mut unchanged = CompetitionWorld::new(false);
     for world in [&mut completed, &mut unchanged] {
-        for (at, cause) in [(10, 1), (20, 2), (30, 3)] {
-            world.completed_cycle(1, at, cause);
+        for at in [10, 20, 30] {
+            world.completed_cycle(1, at);
         }
-        world.act(0, 40, 4);
+        world.act(0, 40);
     }
-    completed.return_change(42, 4);
-    unchanged.return_repeat(42, 4);
+    completed.return_change(42);
+    unchanged.return_repeat(42);
 
     assert_eq!(
-        effect(&completed.compete(50, 5).events, &completed.motors),
+        effect(&completed.compete(50).events, &completed.motors),
         [0]
     );
     assert_eq!(
-        effect(&unchanged.compete(50, 5).events, &unchanged.motors),
+        effect(&unchanged.compete(50).events, &unchanged.motors),
         [1]
     );
 }
 
 #[test]
-fn an_ambiguous_return_does_not_strengthen_a_path() {
-    let mut ambiguous = CompetitionWorld::new(false);
-    ambiguous.act(0, 10, 7);
-    ambiguous.act(1, 20, 7);
-    ambiguous.consequence_value += 1;
-    schedule(
-        &mut ambiguous.body,
-        22,
-        &[reading(
-            ambiguous.consequence,
-            0,
-            ambiguous.consequence_value,
-            7,
-        )],
-    );
-    let mut trace = Vec::new();
-    ambiguous
-        .body
-        .run_traced(256, |_| {}, |event| trace.push(event))
-        .unwrap();
-
-    let returned = trace
-        .iter()
-        .find_map(|event| match event {
-            TraceEvent::Return(returned) if returned.decision == ReturnDecision::Ambiguous => {
-                Some(returned)
-            }
-            _ => None,
-        })
-        .expect("the return is physically ambiguous");
-    assert_eq!(returned.open_paths, 2);
-    assert_eq!(returned.exact_paths, 2);
-    assert_eq!(returned.candidates.len(), 2);
-    assert!(
-        returned
-            .candidates
-            .iter()
-            .all(|candidate| candidate.cause == 7 && candidate.opened_at <= returned.at),
-        "{returned:#?}"
-    );
-    assert_ne!(returned.candidates[0].path, returned.candidates[1].path);
-    assert!(!trace
-        .iter()
-        .any(|event| matches!(event, TraceEvent::Strengthened(_))));
-}
-
-#[test]
 fn learner_construction_requires_new_physical_membership() {
     let mut repeated = LearnerWorld::new();
-    repeated.close(2, 10, 1, true);
-    repeated.close(2, 20, 2, true);
-    let repeated_probe = repeated.probe(30, 3);
+    repeated.close(2, 10, true);
+    repeated.close(2, 20, true);
+    let repeated_probe = repeated.probe(30);
 
     let mut expanded = LearnerWorld::new();
-    expanded.close(2, 10, 1, true);
-    expanded.close(3, 20, 2, true);
-    let expanded_probe = expanded.probe(30, 3);
+    expanded.close(2, 10, true);
+    expanded.close(3, 20, true);
+    let expanded_probe = expanded.probe(30);
 
     assert_eq!(
         event_count(&repeated_probe.events, repeated.motor.effect),
@@ -896,19 +786,19 @@ fn learner_construction_requires_new_physical_membership() {
 #[test]
 fn construction_composes_only_a_same_moment_live_consequence() {
     let mut same = LearnerWorld::new();
-    same.close(2, 10, 1, true);
-    let same_probe = same.probe(20, 2);
+    same.close(2, 10, true);
+    let same_probe = same.probe(20);
 
     let mut stale = LearnerWorld::new();
-    stale.close(2, 10, 1, false);
+    stale.close(2, 10, false);
     stale.consequence_value += 1;
     schedule(
         &mut stale.body,
         11,
-        &[reading(stale.consequence, 0, stale.consequence_value, 1)],
+        &[reading(stale.consequence, 0, stale.consequence_value)],
     );
     finish(&mut stale.body);
-    let stale_probe = stale.probe(20, 2);
+    let stale_probe = stale.probe(20);
 
     assert_eq!(event_count(&same_probe.events, same.motor.effect), 1);
     assert_eq!(event_count(&stale_probe.events, stale.motor.effect), 0);
@@ -923,14 +813,14 @@ fn observing_events_cannot_change_the_body() {
         motors: silent.motors.clone(),
     };
 
-    schedule(&mut silent.body, 10, &[reading(silent.surface, 0, 1, 1)]);
+    schedule(&mut silent.body, 10, &[reading(silent.surface, 0, 1)]);
     schedule(
         &mut silent.body,
         11,
-        &[Arrival::caused(silent.motors[0].opportunity, 1, 1)],
+        &[Arrival::new(silent.motors[0].opportunity, 1)],
     );
     silent.body.run(256, |_| {}).unwrap();
-    let trace = observed.act(10, 1);
+    let trace = observed.act(10);
 
     assert_eq!(
         silent.body.held(silent.surface),

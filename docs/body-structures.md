@@ -19,7 +19,6 @@ task, authority, or I/O dependency. Body contains no translated core state.
 ```rust
 type Time = u64;
 type Impulse = i32;
-type Cause = u64;
 struct JunctionId(NonZeroU32);
 struct LinkId(NonZeroU32);
 
@@ -31,8 +30,7 @@ enum Trigger {
 }
 
 struct Junction {
-    threshold: Impulse, potential: Impulse,
-    retention: Retention, last_source: Cause,
+    threshold: Impulse, retention: Retention,
 }
 struct Link {
     from: JunctionId, to: JunctionId, delay: Time,
@@ -42,7 +40,7 @@ struct Path {
     surface: JunctionId, middle: JunctionId, output: JunctionId,
     first: LinkId, second: LinkId,
 }
-struct Occurrence { cause: Cause, at: Time }
+struct Occurrence { at: Time }
 
 struct ArrowState { active: bool, kind: ArrowKind }
 enum ArrowKind {
@@ -51,7 +49,7 @@ enum ArrowKind {
         last_transmission: Option<Occurrence>, evidence: PathEvidence,
     },
     Witness { kind: WitnessKind, last_transmission: Option<Occurrence> },
-    Return { path: Path, cause: Cause, opened_at: Time, status: ReturnStatus },
+    Return { path: Path, opened_at: Time, status: ReturnStatus },
     Membership,
 }
 enum PropagationMode {
@@ -66,9 +64,9 @@ enum WitnessKind { Progress, Closure { offers_choice: bool } }
 struct PathEvidence {
     participation: u64, last_participation: Occurrence,
     outcome_at: Time, outcome_present: bool,
-    outcome_caused_transition: bool, outcome_available: bool,
+    outcome_changed_world: bool, outcome_available: bool,
     boundary_closed: bool, boundary_inhibited: bool,
-    exact_closures: u8, strength: i64,
+    supported_closures: u8, strength: i64,
 }
 
 enum ReturnStatus {
@@ -84,15 +82,19 @@ struct ClosedSupport { source: JunctionId, witness: LinkId }
 means no outcome. Public accessors reconstruct those optional logical views.
 A composite is an ordinary `Drive` with retained `factors`, not another role.
 
+An integrating junction holds subthreshold potential for four physical ticks.
+Only arrivals at that same junction inside the window can sum. Sampled
+junctions retain their separate declared lifetime. Neither mechanism stores an
+episode or cause identifier.
+
 `locally_plastic` is fixed drive morphology, not learned `PathEvidence`.
-`last_transmission` is the link's bounded local eligibility mark. An
-accepted return walks the physically connected backward cone feeding the
-returned path's surface, middle, and output. Each `locally_plastic` propagation
-link in that cone whose last transmission is no more than eight physical ticks
-old strengthens once, up to strength two. Fixed and saturated links carry the
-traversal but do not change. This creates no ancestry, return, or choice; the
-plasticity bit is persistent body state and survives attachment and checkpoint
-restore.
+`last_transmission` is the link's bounded local eligibility mark. A returned
+event walks the physically connected backward cone of every open path at that
+source. Each `locally_plastic` propagation link in those cones whose last
+transmission is no more than eight physical ticks old strengthens once, up to
+strength two. Fixed and saturated links carry the traversal but do not change.
+This creates no ancestry, return, or choice; the plasticity bit is persistent
+body state and survives attachment and checkpoint restore.
 
 ## Body-owned retained and derived state
 
@@ -101,7 +103,7 @@ struct Body {
     graph: Arena + Vec<ArrowState>,
     consolidation: Option<Box<Consolidation>>,
     reentry: Option<Box<ReentryCache>>,
-    derived: ReturnIndex + has_composites,
+    derived: ReturnIndex + has_composites + has_local_plasticity,
     transient: schedule + current moment + reusable scratch,
 }
 
@@ -111,10 +113,10 @@ struct Consolidation {
     work: AutomaticityWork,
 }
 struct AutomaticWitness {
-    returned: LinkId, path: Path, cause: Cause, pairs: Vec<AutomaticPair>,
+    returned: LinkId, path: Path, pairs: Vec<AutomaticPair>,
 }
 struct AutomaticEvidence {
-    owner: LinkId, pair: AutomaticPair, exact_closures: u8,
+    owner: LinkId, pair: AutomaticPair, supported_closures: u8,
 }
 struct AutomaticPair { first: LinkId, second: LinkId }
 

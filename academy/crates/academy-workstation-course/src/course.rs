@@ -1145,7 +1145,7 @@ mod tests {
     }
 
     #[test]
-    fn returned_screen_change_requires_the_exact_preceding_crossing() {
+    fn returned_screen_change_requires_the_preceding_local_crossing() {
         let parent = MotorEffect {
             at: 1,
             control: BodyControl::new(
@@ -1153,7 +1153,6 @@ mod tests {
                 Direction::Increase,
             ),
             impulse: 16,
-            cause: 2,
         };
         let mut harness = WorkstationHarness::new(91_002).unwrap();
         let sample = academy_workstation::WorkstationWorld::new()

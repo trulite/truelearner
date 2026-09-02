@@ -1,18 +1,4 @@
-use crate::{Scenario, Sensor, SensorId, Step};
-
-pub fn with_cause(mut scenario: Scenario, cause: u64) -> Scenario {
-    for step in &mut scenario.steps {
-        if let Step::Run(episode) = step {
-            for input in &mut episode.inputs {
-                input.cause = cause;
-            }
-            for effect in &mut episode.expected.effects {
-                effect.cause = cause;
-            }
-        }
-    }
-    scenario
-}
+use crate::{Scenario, Sensor, SensorId};
 
 pub fn reversed_construction(mut scenario: Scenario) -> Scenario {
     scenario.morphology.sensors.reverse();
@@ -51,7 +37,7 @@ mod tests {
 
     #[test]
     fn deterministic_variants_preserve_named_physical_references() {
-        let original = scenarios::local_action(1, 7);
+        let original = scenarios::local_action(1);
         let reversed = reversed_construction(original.clone());
         assert_eq!(original.name, reversed.name);
         assert_eq!(original.steps, reversed.steps);
@@ -66,16 +52,5 @@ mod tests {
             original.morphology.sensors.len() + 16
         );
         dormant.validate().unwrap();
-
-        let changed = with_cause(original, 91);
-        let Step::Run(episode) = &changed.steps[0] else {
-            unreachable!()
-        };
-        assert!(episode.inputs.iter().all(|input| input.cause == 91));
-        assert!(episode
-            .expected
-            .effects
-            .iter()
-            .all(|effect| effect.cause == 91));
     }
 }

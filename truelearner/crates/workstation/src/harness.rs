@@ -54,8 +54,11 @@ const LIGHT_RANGE: u32 = u8::MAX as u32;
 const BODY_RANGE: u32 = BODY_MAX as u32;
 const SIGNED_BODY_RANGE: u32 = BODY_RANGE * 2;
 const COMPETITION_COMPONENTS: usize = 4;
-const OUTCOME_COMPONENTS: usize = AXIS_COUNT;
+const OUTCOME_COMPONENTS: usize = CONTROL_COUNT;
 const MOMENT_LIMIT: usize = 512;
+/// Separate complete sensorimotor observations by more than the body's local
+/// membrane-integration window. Signals inside one observation still meet.
+const PHYSICAL_STEP_GAP: u64 = 5;
 /// A disengaged location remains relatively recent for one ordinary visual
 /// observation window. Recency is event-gated: continued looking does not
 /// refresh it, and a sole supported patch remains selectable.
@@ -194,36 +197,6 @@ impl Handles {
                 .chain(self.outward.iter().map(|(junction, _)| junction))
                 .all(|junction| body.held(*junction).is_some())
     }
-
-    fn valid_legacy_for(&self, body: &Body) -> bool {
-        self.visual_transients.iter().all(Vec::is_empty)
-            && self.foveal_vision.iter().all(Vec::is_empty)
-            && self.global_vision.iter().all(Vec::is_empty)
-            && self
-                .vision
-                .iter()
-                .all(|values| values.len() == RECEPTORS_PER_EYE)
-            && self
-                .salience
-                .iter()
-                .all(|values| values.len() == RECEPTORS_PER_EYE)
-            && self.opportunities.len() == CONTROL_COUNT
-            && self.outward.len() == CONTROL_COUNT
-            && self
-                .vision
-                .iter()
-                .flatten()
-                .chain(self.salience.iter().flatten())
-                .chain(self.contacts.iter().flatten())
-                .chain(self.proprioception.iter().flatten())
-                .chain(&self.exploration)
-                .chain(&self.competition_outcomes)
-                .chain(&self.outcomes)
-                .chain(&self.resisted_progress)
-                .chain(&self.opportunities)
-                .chain(self.outward.iter().map(|(junction, _)| junction))
-                .all(|junction| body.held(*junction).is_some())
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -231,7 +204,6 @@ pub struct MotorEffect {
     pub at: u64,
     pub control: BodyControl,
     pub impulse: i32,
-    pub cause: u64,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -301,7 +273,7 @@ pub struct WorkstationHarness {
     pub(crate) state: WorkstationState,
     pub(crate) sequence: u64,
     pub(crate) physical_tick: u64,
-    pub(crate) pending_transitions: [bool; AXIS_COUNT],
+    pub(crate) pending_transitions: [Option<Direction>; AXIS_COUNT],
     pub(crate) pending_stops: Vec<MotorEffect>,
     /// Sustained-reach strain per planar axis, signed by aim direction: the
     /// insistent-reaching integral. While a planar aim persists, the reach
@@ -412,18 +384,6 @@ impl VisualAttention {
             .map(|candidate| candidate.region);
             self.transporting[eye.index()] = disengaged && self.focus[eye.index()].is_some();
         }
-    }
-
-    pub(crate) fn from_history(history: &[WorldSample]) -> Self {
-        let mut attention = Self::default();
-        for (index, sample) in history.iter().enumerate() {
-            attention.update(
-                sample,
-                index.checked_sub(1).and_then(|before| history.get(before)),
-                None,
-            );
-        }
-        attention
     }
 }
 
@@ -603,10 +563,10 @@ fn choose_candidate(
 
 impl WorkstationHarness {
     pub fn new(_seed: u64) -> Result<Self, WorkstationError> {
-        Self::fresh(true)
+        Self::fresh()
     }
 
-    fn fresh(include_version_15_vision: bool) -> Result<Self, WorkstationError> {
+    fn fresh() -> Result<Self, WorkstationError> {
         let mut body = Body::default();
         body.reserve(
             COMPETITION_COMPONENTS * 2
@@ -711,13 +671,8 @@ impl WorkstationHarness {
         }
         let outcomes =
             std::array::from_fn(|_| attach_sensor(&mut body, Junction::integrating(1), &[]));
-        for axis in BodyAxis::ALL {
-            let start = axis.index() * 2;
-            attach_outcome_component(
-                &mut body,
-                outcomes[axis.index()],
-                opportunities[start..start + 2].iter().copied(),
-            );
+        for (index, outcome) in outcomes.iter().copied().enumerate() {
+            attach_outcome_component(&mut body, outcome, [opportunities[index]]);
         }
         let resisted_progress =
             std::array::from_fn(|_| attach_sensor(&mut body, Junction::integrating(1), &[]));
@@ -733,9 +688,6 @@ impl WorkstationHarness {
         body.run(MOMENT_LIMIT, |_| {}).map_err(body_error)?;
         let mut handles = Handles {
             vision,
-            // Version 15 appends its new visual tissue after the complete
-            // version-14 body. Fresh construction and migration therefore
-            // produce the same junction and link identities.
             global_vision: Eye::ALL.map(|_| Vec::new()),
             visual_transients: Eye::ALL.map(|_| Vec::new()),
             foveal_vision: Eye::ALL.map(|_| Vec::new()),
@@ -750,27 +702,20 @@ impl WorkstationHarness {
             opportunities,
             outward,
         };
-        if include_version_15_vision {
-            append_visual_tissue(&mut body, &mut handles)?;
-        }
+        append_visual_tissue(&mut body, &mut handles)?;
         Ok(Self {
             body,
             handles,
             state: WorkstationState::default(),
             sequence: 0,
             physical_tick: 0,
-            pending_transitions: [false; AXIS_COUNT],
+            pending_transitions: [None; AXIS_COUNT],
             pending_stops: Vec::new(),
             reach_strain: [0, 0],
             vergence_strain: 0,
             visual_attention: VisualAttention::default(),
             history: Vec::new(),
         })
-    }
-
-    #[cfg(test)]
-    pub(crate) fn legacy_for_test() -> Result<Self, WorkstationError> {
-        Self::fresh(false)
     }
 
     pub fn step(
@@ -980,13 +925,16 @@ impl WorkstationHarness {
                 .update(&sample, self.history.last(), Some(&self.state));
         }
         let state_before = self.state.clone();
-        let returned_transitions = if admit_sensory {
-            self.pending_axes()
+        let returned_controls = if admit_sensory {
+            self.pending_controls()
         } else {
             Vec::new()
         };
-        let cause = self.sequence.saturating_add(1);
-        let at = self.physical_tick.saturating_add(1);
+        let returned_transitions = returned_controls
+            .iter()
+            .map(|control| control.axis())
+            .collect::<Vec<_>>();
+        let at = self.physical_tick.saturating_add(PHYSICAL_STEP_GAP);
         // A joint stop met on the previous step is a completed boundary of the
         // body itself; it joins the world's boundary parents for this wave.
         let stops = std::mem::take(&mut self.pending_stops);
@@ -1001,19 +949,16 @@ impl WorkstationHarness {
             self.body.inputs(at, &boundary_wave).map_err(body_error)?;
         }
         let mut first_wave = if admit_sensory {
-            self.sensory_wave(&sample, cause)
+            self.sensory_wave(&sample)
         } else {
             Vec::new()
         };
         first_wave.extend(self.resisted_progress_wave(progress_parents));
-        let mut returned_components = [false; OUTCOME_COMPONENTS];
-        for axis in &returned_transitions {
-            returned_components[outcome_component(*axis)] = true;
-        }
-        for (component, returned) in returned_components.into_iter().enumerate() {
-            if returned {
-                first_wave.push(Arrival::caused(self.handles.outcomes[component], 1, cause));
-            }
+        for control in returned_controls {
+            first_wave.push(Arrival::new(
+                self.handles.outcomes[control_index(control)],
+                1,
+            ));
         }
         if !first_wave.is_empty() {
             self.body
@@ -1030,10 +975,10 @@ impl WorkstationHarness {
                 .iter()
                 .chain(std::iter::once(&exploration))
                 .copied()
-                .map(|target| Arrival::caused(target, 1, cause))
+                .map(|target| Arrival::new(target, 1))
                 .collect::<Vec<_>>();
-            wave.extend(self.vergence_wave(&sample, cause));
-            wave.extend(self.reach_depth_wave(&sample, cause));
+            wave.extend(self.vergence_wave(&sample));
+            wave.extend(self.reach_depth_wave(&sample));
             wave
         } else {
             Vec::new()
@@ -1060,7 +1005,6 @@ impl WorkstationHarness {
                         .impulse
                         .clamp(i64::from(i32::MIN), i64::from(i32::MAX))
                         as i32,
-                    cause: event.cause,
                 });
             }
         };
@@ -1092,7 +1036,14 @@ impl WorkstationHarness {
         self.pending_transitions = std::array::from_fn(|index| {
             movements
                 .iter()
-                .any(|movement| movement.axis.index() == index && movement.changed)
+                .find(|movement| movement.axis.index() == index && movement.changed)
+                .map(|movement| {
+                    if movement.net_impulse < 0 {
+                        Direction::Decrease
+                    } else {
+                        Direction::Increase
+                    }
+                })
         });
         let pending_transitions = self.pending_axes();
         let pose_changed = !self.state.same_pose(&state_before);
@@ -1133,64 +1084,34 @@ impl WorkstationHarness {
     }
 
     fn boundary_wave(&self, parents: &[MotorEffect]) -> Vec<Arrival> {
-        let mut causes: [Vec<u64>; COMPETITION_COMPONENTS] = std::array::from_fn(|_| Vec::new());
+        let mut present = [false; COMPETITION_COMPONENTS];
         for parent in parents {
             let component = competition_component(parent.control.axis());
-            if !causes[component].contains(&parent.cause) {
-                causes[component].push(parent.cause);
-            }
+            present[component] = true;
         }
-        causes
+        present
             .into_iter()
             .enumerate()
-            .filter_map(|(component, causes)| {
-                let cause = match causes.as_slice() {
-                    [] => return None,
-                    [cause] => *cause,
-                    _ => 0,
-                };
-                Some(Arrival::caused(
-                    self.handles.competition_outcomes[component],
-                    1,
-                    cause,
-                ))
-            })
+            .filter(|(_, present)| *present)
+            .map(|(component, _)| Arrival::new(self.handles.competition_outcomes[component], 1))
             .collect()
     }
 
     fn resisted_progress_wave(&self, parents: &[MotorEffect]) -> Vec<Arrival> {
         BodyAxis::ALL
             .into_iter()
-            .filter_map(|axis| {
-                let mut cause = 0;
-                for parent in parents
-                    .iter()
-                    .filter(|parent| parent.control.axis() == axis)
-                {
-                    if cause == 0 {
-                        cause = parent.cause;
-                    } else if cause != parent.cause {
-                        return None;
-                    }
-                }
-                (cause != 0).then_some(())?;
-                Some(Arrival::caused(
-                    self.handles.resisted_progress[axis.index()],
-                    1,
-                    cause,
-                ))
-            })
+            .filter(|axis| parents.iter().any(|parent| parent.control.axis() == *axis))
+            .map(|axis| Arrival::new(self.handles.resisted_progress[axis.index()], 1))
             .collect()
     }
 
-    fn sensory_wave(&self, sample: &WorldSample, cause: u64) -> Vec<Arrival> {
+    fn sensory_wave(&self, sample: &WorldSample) -> Vec<Arrival> {
         let mut wave = Vec::with_capacity(SENSOR_COUNT);
         for eye in Eye::ALL {
             for (receptor, target) in self.handles.vision[eye.index()].iter().copied().enumerate() {
-                wave.push(Arrival::caused(
+                wave.push(Arrival::new(
                     target,
                     i32::from(sample.eye(eye).foveal().sample(receptor_position(receptor))),
-                    cause,
                 ));
             }
             if sample.eye(eye).has_world_aligned_global() {
@@ -1199,10 +1120,9 @@ impl WorkstationHarness {
                     .copied()
                     .enumerate()
                 {
-                    wave.push(Arrival::caused(
+                    wave.push(Arrival::new(
                         target,
                         i32::from(sample.eye(eye).global().pixels()[field]),
-                        cause,
                     ));
                 }
                 for (receptor, target) in self.handles.visual_transients[eye.index()]
@@ -1214,7 +1134,7 @@ impl WorkstationHarness {
                     let subregion = receptor % GLOBAL_CHANGE_SUBREGIONS;
                     let impulse = sample.eye(eye).change_impulse(field, subregion);
                     if impulse != 0 {
-                        wave.push(Arrival::caused(target, impulse, cause));
+                        wave.push(Arrival::new(target, impulse));
                     }
                 }
                 let phase = self.sequence as usize % GLOBAL_CHANGE_SUBREGIONS;
@@ -1224,10 +1144,9 @@ impl WorkstationHarness {
                     .enumerate()
                 {
                     if foveal_phase(receptor) == phase {
-                        wave.push(Arrival::caused(
+                        wave.push(Arrival::new(
                             target,
                             i32::from(sample.eye(eye).foveal().pixels()[receptor]),
-                            cause,
                         ));
                     }
                 }
@@ -1242,33 +1161,25 @@ impl WorkstationHarness {
             {
                 let light = sample.eye(eye).foveal().sample(receptor_position(receptor));
                 if light > SALIENCE_FLOOR {
-                    wave.push(Arrival::caused(
-                        cell,
-                        i32::from(light - SALIENCE_FLOOR),
-                        cause,
-                    ));
+                    wave.push(Arrival::new(cell, i32::from(light - SALIENCE_FLOOR)));
                 }
             }
         }
         for (site, contact) in sample.contacts().iter().copied().enumerate() {
             let [pressure, slip] = self.handles.contacts[site];
-            wave.push(Arrival::caused(
-                pressure,
-                i32::from(contact.pressure()),
-                cause,
-            ));
-            wave.push(Arrival::caused(slip, i32::from(contact.slip()), cause));
+            wave.push(Arrival::new(pressure, i32::from(contact.pressure())));
+            wave.push(Arrival::new(slip, i32::from(contact.slip())));
         }
         for sense in self.state.proprioception() {
             let [position, velocity, decrease, increase, lower, upper] =
                 self.handles.proprioception[sense.axis.index()];
             wave.extend([
-                Arrival::caused(position, i32::from(sense.position), cause),
-                Arrival::caused(velocity, i32::from(sense.velocity), cause),
-                Arrival::caused(decrease, i32::from(sense.decrease_effort), cause),
-                Arrival::caused(increase, i32::from(sense.increase_effort), cause),
-                Arrival::caused(lower, i32::from(sense.at_lower_limit), cause),
-                Arrival::caused(upper, i32::from(sense.at_upper_limit), cause),
+                Arrival::new(position, i32::from(sense.position)),
+                Arrival::new(velocity, i32::from(sense.velocity)),
+                Arrival::new(decrease, i32::from(sense.decrease_effort)),
+                Arrival::new(increase, i32::from(sense.increase_effort)),
+                Arrival::new(lower, i32::from(sense.at_lower_limit)),
+                Arrival::new(upper, i32::from(sense.at_upper_limit)),
             ]);
         }
         debug_assert!(wave.len() <= SENSOR_COUNT);
@@ -1415,7 +1326,7 @@ impl WorkstationHarness {
     /// computed from the organism's own retina and touch alone. Contact
     /// terminates it: the screen's resistance stops the push, exactly as
     /// balance terminates orienting, so the pulse never fights a surface.
-    fn reach_depth_wave(&self, sample: &WorldSample, cause: u64) -> Vec<Arrival> {
+    fn reach_depth_wave(&self, sample: &WorldSample) -> Vec<Arrival> {
         if sample
             .contacts()
             .iter()
@@ -1429,10 +1340,9 @@ impl WorkstationHarness {
         if !sees_target {
             return Vec::new();
         }
-        vec![Arrival::caused(
+        vec![Arrival::new(
             self.handles.opportunities[BodyAxis::PalmDepth.index() * 2 + 1],
             2,
-            cause,
         )]
     }
 
@@ -1442,11 +1352,11 @@ impl WorkstationHarness {
     /// until each target sits within one receptor pitch of its fovea. Real
     /// vergence is brainstem-yoked: the eyes converge together or not at
     /// all, and the choice machinery would otherwise serialize them. The
-    /// pulse shares the opportunity wave's cause, so each eye crosses
-    /// without waiting for a choice. A single centered or shared target
+    /// pulse shares the opportunity wave, so each eye crosses without
+    /// waiting for a choice. A single centered or shared target
     /// commands nothing here, so ordinary gaze exploration stays with the
     /// learner.
-    fn vergence_wave(&mut self, sample: &WorldSample, cause: u64) -> Vec<Arrival> {
+    fn vergence_wave(&mut self, sample: &WorldSample) -> Vec<Arrival> {
         let mut aims = [0_i32; 2];
         let mut fused = true;
         for eye in Eye::ALL {
@@ -1479,11 +1389,10 @@ impl WorkstationHarness {
         if aims[0] != 0 && aims[0] == -aims[1] {
             for eye in Eye::ALL {
                 let direction = usize::from(aims[eye.index()] > 0);
-                wave.push(Arrival::caused(
+                wave.push(Arrival::new(
                     self.handles.opportunities
                         [BodyAxis::EyeHorizontal { eye }.index() * 2 + direction],
                     2_i32.saturating_add(self.vergence_strain.min(28)),
-                    cause,
                 ));
             }
         }
@@ -1623,16 +1532,10 @@ impl WorkstationHarness {
     }
 
     pub fn restore(checkpoint: WorkstationCheckpoint) -> Result<Self, WorkstationError> {
-        let (mut payload, legacy_visual_migration) = checkpoint.open();
-        let mut body = BodyCheckpoint::decode(&payload.body)
+        let payload = checkpoint.open();
+        let body = BodyCheckpoint::decode(&payload.body)
             .and_then(BodyCheckpoint::restore)
             .map_err(body_checkpoint_error)?;
-        if legacy_visual_migration {
-            if !payload.handles.valid_legacy_for(&body) {
-                return Err(WorkstationError::InvalidCheckpoint);
-            }
-            append_visual_tissue(&mut body, &mut payload.handles)?;
-        }
         if !payload.handles.valid_for(&body) {
             return Err(WorkstationError::InvalidCheckpoint);
         }
@@ -1661,7 +1564,7 @@ impl WorkstationHarness {
         if !self.body.is_quiet() {
             return Err(WorkstationError::InvalidCheckpoint);
         }
-        let (reference, _) = checkpoint.clone().open();
+        let reference = checkpoint.clone().open();
         self.state = reference.state;
         self.pending_transitions = reference.pending_transitions;
         self.pending_stops = reference.pending_stops;
@@ -1695,7 +1598,16 @@ impl WorkstationHarness {
     fn pending_axes(&self) -> Vec<BodyAxis> {
         BodyAxis::ALL
             .into_iter()
-            .filter(|axis| self.pending_transitions[axis.index()])
+            .filter(|axis| self.pending_transitions[axis.index()].is_some())
+            .collect()
+    }
+
+    fn pending_controls(&self) -> Vec<BodyControl> {
+        BodyAxis::ALL
+            .into_iter()
+            .filter_map(|axis| {
+                self.pending_transitions[axis.index()].map(|direction| control(axis, direction))
+            })
             .collect()
     }
 
@@ -1801,8 +1713,12 @@ const fn control(axis: BodyAxis, direction: Direction) -> BodyControl {
     BodyControl::new(axis, direction)
 }
 
-const fn outcome_component(axis: BodyAxis) -> usize {
-    axis.index()
+const fn control_index(control: BodyControl) -> usize {
+    control.axis().index() * 2
+        + match control.direction() {
+            Direction::Decrease => 0,
+            Direction::Increase => 1,
+        }
 }
 
 const fn competition_component(axis: BodyAxis) -> usize {
@@ -2308,22 +2224,16 @@ mod tests {
     #[test]
     fn target_intensity_is_an_ordinary_local_reading() {
         let harness = WorkstationHarness::new(1).unwrap();
-        let high = harness.sensory_wave(
-            &with_fields(
-                centered(255),
-                field(0),
-                [ContactSample::default(); TOUCH_SITES],
-            ),
-            1,
-        );
-        let lower = harness.sensory_wave(
-            &with_fields(
-                centered(254),
-                field(0),
-                [ContactSample::default(); TOUCH_SITES],
-            ),
-            1,
-        );
+        let high = harness.sensory_wave(&with_fields(
+            centered(255),
+            field(0),
+            [ContactSample::default(); TOUCH_SITES],
+        ));
+        let lower = harness.sensory_wave(&with_fields(
+            centered(254),
+            field(0),
+            [ContactSample::default(); TOUCH_SITES],
+        ));
 
         assert_eq!(
             high.iter()
@@ -2356,32 +2266,22 @@ mod tests {
     }
 
     #[test]
-    fn progress_requires_one_explicit_causal_parent_per_axis() {
+    fn progress_is_one_local_pulse_per_active_axis() {
         let harness = WorkstationHarness::new(1).unwrap();
         let parent = MotorEffect {
             at: 7,
             control: BodyControl::new(BodyAxis::PalmDepth, Direction::Increase),
             impulse: 1,
-            cause: 41,
         };
 
         assert_eq!(
             harness.resisted_progress_wave(&[parent]),
-            [Arrival::caused(
+            [Arrival::new(
                 harness.handles.resisted_progress[BodyAxis::PalmDepth.index()],
                 1,
-                41,
             )]
         );
-        assert!(harness
-            .resisted_progress_wave(&[
-                parent,
-                MotorEffect {
-                    cause: 42,
-                    ..parent
-                },
-            ])
-            .is_empty());
+        assert_eq!(harness.resisted_progress_wave(&[parent, parent]).len(), 1);
         assert!(harness.resisted_progress_wave(&[]).is_empty());
     }
 
@@ -2430,7 +2330,9 @@ mod tests {
                     .iter()
                     .filter(|effect| competition_component(effect.control.axis()) == expected)
                     .count(),
-                1
+                1,
+                "component {expected}: {:?}",
+                explored.crossings
             );
         }
     }
@@ -2694,7 +2596,7 @@ mod tests {
             dim,
             [ContactSample::default(); TOUCH_SITES],
         );
-        let wave = harness.sensory_wave(&sample, 1);
+        let wave = harness.sensory_wave(&sample);
         let salience_cells: Vec<JunctionId> =
             harness.handles.salience.iter().flatten().copied().collect();
         assert!(wave
@@ -3027,14 +2929,16 @@ mod tests {
     #[test]
     fn changing_the_right_eye_changes_only_right_receptors() {
         let harness = WorkstationHarness::new(2).unwrap();
-        let before = harness.sensory_wave(
-            &with_fields(field(1), field(2), [ContactSample::default(); TOUCH_SITES]),
-            1,
-        );
-        let after = harness.sensory_wave(
-            &with_fields(field(1), field(3), [ContactSample::default(); TOUCH_SITES]),
-            1,
-        );
+        let before = harness.sensory_wave(&with_fields(
+            field(1),
+            field(2),
+            [ContactSample::default(); TOUCH_SITES],
+        ));
+        let after = harness.sensory_wave(&with_fields(
+            field(1),
+            field(3),
+            [ContactSample::default(); TOUCH_SITES],
+        ));
         let visual_targets = |eye: Eye| {
             harness.handles.vision[eye.index()]
                 .iter()
@@ -3072,11 +2976,12 @@ mod tests {
         let harness = WorkstationHarness::new(3).unwrap();
         let mut contacts = [ContactSample::default(); TOUCH_SITES];
         contacts[0] = ContactSample::new(7, -3).unwrap();
-        let before = harness.sensory_wave(
-            &with_fields(field(1), field(2), [ContactSample::default(); TOUCH_SITES]),
-            1,
-        );
-        let after = harness.sensory_wave(&with_fields(field(1), field(2), contacts), 1);
+        let before = harness.sensory_wave(&with_fields(
+            field(1),
+            field(2),
+            [ContactSample::default(); TOUCH_SITES],
+        ));
+        let after = harness.sensory_wave(&with_fields(field(1), field(2), contacts));
         let contact_targets = harness
             .handles
             .contacts
@@ -3126,7 +3031,7 @@ mod tests {
     #[test]
     fn external_perturbation_changes_pose_without_changing_the_learner() {
         let mut harness = WorkstationHarness::new(6).unwrap();
-        let (before, _) = harness.save().unwrap().open();
+        let before = harness.save().unwrap().open();
         let x_before = before.state.hand().palm().x();
 
         assert!(harness
@@ -3136,7 +3041,7 @@ mod tests {
             )
             .unwrap());
 
-        let (after, _) = harness.save().unwrap().open();
+        let after = harness.save().unwrap().open();
         assert_eq!(after.state.hand().palm().x(), x_before + 8);
         assert_eq!(after.body, before.body);
         assert_eq!(after.handles, before.handles);
@@ -3195,7 +3100,7 @@ mod tests {
     }
 
     #[test]
-    fn returned_movement_fires_only_its_exact_axis_witness() {
+    fn returned_movement_fires_only_its_directional_witness() {
         let mut harness = WorkstationHarness::new(5).unwrap();
         let mut outward = harness.step(sample()).unwrap();
         for _ in 0..3 {
@@ -3206,7 +3111,11 @@ mod tests {
         }
         assert!(!outward.pending_transitions.is_empty());
 
-        let expected_axes = outward.pending_transitions;
+        let expected_controls = harness.pending_controls();
+        let expected_axes = expected_controls
+            .iter()
+            .map(|control| control.axis())
+            .collect::<Vec<_>>();
         let (returned, trace) = harness.step_traced(sample()).unwrap();
         assert_eq!(returned.returned_transitions, expected_axes);
 
@@ -3217,9 +3126,9 @@ mod tests {
                 _ => None,
             })
             .collect::<Vec<_>>();
-        let expected_witnesses = expected_axes
+        let expected_witnesses = expected_controls
             .iter()
-            .map(|axis| harness.handles.outcomes[axis.index()])
+            .map(|control| harness.handles.outcomes[control_index(*control)])
             .collect::<Vec<_>>();
         let observed_witnesses = harness
             .handles

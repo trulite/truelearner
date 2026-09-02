@@ -8,8 +8,7 @@ struct CandidatePath {
     second: LinkRef,
     form: PathForm,
     at: Time,
-    current_cause: Cause,
-    return_cause: Option<Cause>,
+    return_present: bool,
     unanswered: bool,
     connected_start: usize,
     connected_end: usize,
@@ -93,16 +92,10 @@ fn form_and_choose<T: TraceSink>(
         }
 
         let surface = fact.event.junction;
-        let current_cause = if is_progress_source(body, surface) {
-            0
-        } else {
-            fact.event.cause
-        };
         let ready_start = ready.len();
         append_existing_ready_paths(
             body,
             fact.event,
-            current_cause,
             fact.drive,
             ready,
             connected_outcomes,
@@ -175,8 +168,7 @@ fn form_and_choose<T: TraceSink>(
                         },
                     },
                     at: fact.event.at,
-                    current_cause,
-                    return_cause: None,
+                    return_present: false,
                     unanswered: false,
                     connected_start,
                     connected_end,
@@ -237,14 +229,13 @@ fn form_and_choose<T: TraceSink>(
         for (index, candidate) in ready.iter().enumerate() {
             trace.record(TraceEvent::Candidate(CandidateTrace {
                 at: candidate.at,
-                cause: candidate.current_cause,
                 group: worlds[index],
                 path: candidate.trace_path(),
                 connected_outcomes: connected_outcomes
                     [candidate.connected_start..candidate.connected_end]
                     .to_vec(),
                 executable: candidate.executable,
-                return_cause: candidate.return_cause,
+                return_present: candidate.return_present,
                 unanswered: candidate.unanswered,
                 outcome: candidate.outcome,
                 participation: candidate.participation,
@@ -335,7 +326,7 @@ fn form_and_choose<T: TraceSink>(
             },
             LinkRef::Existing,
         );
-        change.send(through, winner.at, winner.current_cause);
+        change.send(through, winner.at);
         for (index, candidate) in ready.iter().enumerate() {
             if worlds[index] != worlds[choice.winner] || !candidate.boundary_inhibited {
                 continue;
@@ -363,9 +354,8 @@ fn append_recurrent_motor_paths(
     connected_outcomes: &mut Vec<JunctionId>,
 ) {
     let start = paths.len();
-    for (at, output, cause) in moment.boundary_arrivals() {
-        if cause == 0
-            || moment
+    for (at, output) in moment.boundary_arrivals() {
+        if moment
                 .changes
                 .iter()
                 .any(|change| change.event.junction == output)
@@ -374,14 +364,13 @@ fn append_recurrent_motor_paths(
             continue;
         }
         for second in body.arena.incoming(output) {
-            let Some((path, outcome, occurrence, outcome_source)) =
-                recurrent_path(body, second, cause)
+            let Some((path, outcome, _occurrence, outcome_source)) =
+                recurrent_path(body, second, at)
             else {
                 continue;
             };
             if paths[start..].iter().any(|candidate| {
-                candidate.current_cause == cause
-                    && candidate.second == LinkRef::Existing(path.second)
+                candidate.second == LinkRef::Existing(path.second)
             }) {
                 continue;
             }
@@ -392,12 +381,11 @@ fn append_recurrent_motor_paths(
                 body,
                 path,
                 at,
-                cause,
                 1,
                 connected_start,
                 connected_end,
             );
-            candidate.return_cause = Some(occurrence.cause);
+            candidate.return_present = true;
             candidate.outcome = Some(outcome);
             candidate.outcome_source = Some(outcome_source);
             paths.push(candidate);
@@ -436,8 +424,7 @@ fn recurrent_candidate_is_selected(
         .iter()
         .enumerate()
         .filter(|(index, other)| {
-            other.current_cause == path.current_cause
-                && recurrent_exact_representative(candidates, *index)
+            recurrent_exact_representative(candidates, *index)
                 && recurrent_competition_source(body, other) == Some(competition_source)
         })
         .map(|(_, other)| other.participated_at)
@@ -445,8 +432,7 @@ fn recurrent_candidate_is_selected(
         .expect("candidate belongs to its competition component");
     path.participated_at == oldest_component
         && unique_ready(candidates.iter().enumerate().filter_map(|(index, other)| {
-            (other.current_cause == path.current_cause
-                && other.participated_at == oldest_component
+            (other.participated_at == oldest_component
                 && recurrent_exact_representative(candidates, index)
                 && recurrent_competition_source(body, other) == Some(competition_source))
             .then_some(index)
@@ -461,7 +447,7 @@ fn recurrent_exact_representative(candidates: &[CandidatePath], candidate: usize
     let latest = candidates
         .iter()
         .filter(|other| {
-            other.current_cause == path.current_cause && other.outcome_source == Some(source)
+            other.outcome_source == Some(source)
         })
         .map(|other| other.participated_at)
         .max();
@@ -469,8 +455,7 @@ fn recurrent_exact_representative(candidates: &[CandidatePath], candidate: usize
         && candidates
             .iter()
             .filter(|other| {
-                other.current_cause == path.current_cause
-                    && other.outcome_source == Some(source)
+                other.outcome_source == Some(source)
                     && other.participated_at == path.participated_at
             })
             .count()
@@ -497,20 +482,20 @@ fn recurrent_competition_source(
 fn recurrent_path(
     body: ReactionView<'_>,
     second: LinkId,
-    cause: Cause,
+    at: Time,
 ) -> Option<(Path, Outcome, Occurrence, JunctionId)> {
     let path = path_from_drive(body, second)?;
     let memory = &body.arrows[path.second.slot()];
     let occurrence = memory.occurrence()?;
     let outcome = memory.outcome()?;
     if memory.participation() == 0
-        || !outcome.caused_transition
+        || !outcome.changed_world
         || !outcome.available_until_choice
         || memory.boundary_closed()
         || memory.boundary_inhibited()
         || path_has_open_return(body, path.middle, path.output)
         || !path_is_executable(body, path.surface, true)
-        || path_surface_transmitted_on(body, path, cause)
+        || path_surface_transmitted_near(body, path, at)
     {
         return None;
     }
@@ -529,13 +514,13 @@ fn recurrent_path(
         },
     )
     .unwrap_or(outcome_source);
-    if closure_component_transmitted_on(body, competition_source, cause) {
+    if closure_component_transmitted_near(body, competition_source, at) {
         return None;
     }
     Some((path, outcome, occurrence, outcome_source))
 }
 
-fn path_surface_transmitted_on(body: ReactionView<'_>, path: Path, cause: Cause) -> bool {
+fn path_surface_transmitted_near(body: ReactionView<'_>, path: Path, at: Time) -> bool {
     let component = unique_witness_source(
         body,
         path.output,
@@ -553,7 +538,10 @@ fn path_surface_transmitted_on(body: ReactionView<'_>, path: Path, cause: Cause)
         if !body.arrows[first.slot()].is_entry()
             || !body.arrows[first.slot()]
                 .last_transmission()
-                .is_some_and(|occurrence| occurrence.cause == cause)
+                .is_some_and(|occurrence| {
+                    occurrence.at <= at
+                        && at.saturating_sub(occurrence.at) <= crate::physics::INTEGRATION_WINDOW
+                })
         {
             continue;
         }
@@ -584,10 +572,10 @@ fn path_surface_transmitted_on(body: ReactionView<'_>, path: Path, cause: Cause)
     false
 }
 
-fn closure_component_transmitted_on(
+fn closure_component_transmitted_near(
     body: ReactionView<'_>,
     source: JunctionId,
-    cause: Cause,
+    at: Time,
 ) -> bool {
     let mut next = body
         .arena
@@ -606,7 +594,11 @@ fn closure_component_transmitted_on(
             path_from_drive(body, drive).is_some()
                 && body.arrows[drive.slot()]
                     .last_transmission()
-                    .is_some_and(|occurrence| occurrence.cause == cause)
+                    .is_some_and(|occurrence| {
+                        occurrence.at <= at
+                            && at.saturating_sub(occurrence.at)
+                                <= crate::physics::INTEGRATION_WINDOW
+                    })
         }) {
             return true;
         }
@@ -617,7 +609,6 @@ fn closure_component_transmitted_on(
 fn append_existing_ready_paths(
     body: ReactionView<'_>,
     event: crate::physics::Event,
-    current_cause: Cause,
     drive: u16,
     paths: &mut Vec<CandidatePath>,
     connected_outcomes: &mut Vec<JunctionId>,
@@ -658,7 +649,6 @@ fn append_existing_ready_paths(
                         second: second_id,
                     },
                     event.at,
-                    current_cause,
                     drive,
                     connected_start,
                     connected_end,
@@ -673,7 +663,6 @@ fn existing_candidate(
     body: ReactionView<'_>,
     path: Path,
     at: Time,
-    current_cause: Cause,
     drive: u16,
     connected_start: usize,
     connected_end: usize,
@@ -707,8 +696,9 @@ fn existing_candidate(
             },
         },
         at,
-        current_cause,
-        return_cause: occurrence.map(|occurrence| occurrence.cause),
+        return_present: scan_live_returns(body, path.surface)
+            .selected
+            .is_some_and(|returned| returned.opened_at <= at),
         unanswered: path_has_open_return(body, path.middle, path.output),
         connected_start,
         connected_end,

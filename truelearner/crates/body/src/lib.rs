@@ -14,9 +14,6 @@ mod local_plasticity;
 #[path = "tests/motif_laws.rs"]
 mod motif_laws;
 mod physics;
-#[cfg(test)]
-#[path = "tests/planning_goal_laws.rs"]
-mod planning_goal_laws;
 mod trace;
 
 pub use crate::attachment::{
@@ -25,11 +22,9 @@ pub use crate::attachment::{
 pub use crate::calibration::{calibrate, Normalizer, Residual};
 pub use crate::checkpoint::{BodyCheckpoint, BodyCheckpointError};
 pub use crate::core::{
-    ApplyError, AutomaticityState, AutomaticityWork, Cause, ChoiceWarrant, JunctionRef, LinkRef,
-    Outcome, Path, ReentryState,
+    ApplyError, AutomaticityState, AutomaticityWork, ChoiceWarrant, JunctionRef, LinkRef, Outcome,
+    Path, ReentryState,
 };
-#[cfg(test)]
-pub(crate) use crate::core::{ArrowKind, ReturnStatus};
 pub(crate) use crate::core::{ArrowState, Consolidation, ReentryCache, WitnessKind};
 pub use crate::engine::Body;
 pub use crate::physics::{

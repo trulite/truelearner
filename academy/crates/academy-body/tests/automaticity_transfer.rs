@@ -109,9 +109,11 @@ fn repeated_closed_workstation_experience_compacts_and_transfers() {
             })
             .expect("the world consequence reaches a return source");
         assert_eq!(returned.decision, BodyReturnDecision::Accepted);
-        assert_eq!(returned.exact_paths, 1);
-        assert_eq!(returned.return_cause, Some(parent.cause));
-        let path = returned.path.expect("the exact return names its path");
+        let path = returned.path.expect("the local return names its path");
+        assert_eq!(
+            harness.control_for_trace_output(path.output),
+            Some(parent.control)
+        );
         count_path(&mut closure_counts, path);
         if harness.automaticity_work().composites_formed > formed_before {
             let formed = trace

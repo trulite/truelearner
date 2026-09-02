@@ -1,5 +1,5 @@
 const LOCAL_RADIUS: i32 = 2;
-const AUTOMATIC_AFTER_EXACT_CLOSURES: u8 = 3;
+const AUTOMATIC_AFTER_SUPPORTED_CLOSURES: u8 = 3;
 const THOUGHT_SHORTCUT_AFTER_REHEARSALS: u8 = 3;
 const MAX_REENTRY_DEPTH: usize = 16;
 const MAX_REENTRY_INCIDENCE_VISITS: u16 = 256;
@@ -11,7 +11,7 @@ pub enum ChoiceWarrant {
     ReturnedConsequence,
     /// Previously closed progress or outcome support selects a continuation.
     RetainedContinuation,
-    /// Read-only traversal finds one retained exact or identity-free route.
+    /// Read-only traversal finds one retained unique route.
     Reentry,
     /// An unresolved path releases competition to an available alternative.
     Exploration,
@@ -22,7 +22,7 @@ pub enum ChoiceWarrant {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AutomaticityWork {
     pub pair_observations: u64,
-    pub exact_closure_updates: u64,
+    pub supported_closure_updates: u64,
     pub composites_formed: u64,
 }
 
@@ -36,7 +36,7 @@ pub struct AutomaticityState {
 impl AutomaticityWork {
     pub const fn total(self) -> u64 {
         self.pair_observations
-            .saturating_add(self.exact_closure_updates)
+            .saturating_add(self.supported_closure_updates)
             .saturating_add(self.composites_formed)
     }
 }
@@ -58,7 +58,6 @@ impl AutomaticPair {
 struct AutomaticWitness {
     returned: LinkId,
     path: Path,
-    cause: Cause,
     pairs: Vec<AutomaticPair>,
 }
 
@@ -76,7 +75,7 @@ impl AutomaticWitness {
 struct AutomaticEvidence {
     owner: LinkId,
     pair: AutomaticPair,
-    exact_closures: u8,
+    supported_closures: u8,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -127,10 +126,10 @@ impl Consolidation {
             .work
             .pair_observations
             .saturating_add(other.work.pair_observations);
-        self.work.exact_closure_updates = self
+        self.work.supported_closure_updates = self
             .work
-            .exact_closure_updates
-            .saturating_add(other.work.exact_closure_updates);
+            .supported_closure_updates
+            .saturating_add(other.work.supported_closure_updates);
         self.work.composites_formed = self
             .work
             .composites_formed
@@ -298,7 +297,6 @@ struct LinkSpec {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum LinkChange {
     Participated {
-        cause: Cause,
         at: Time,
     },
     RememberOutcome {
@@ -336,7 +334,6 @@ enum Edit {
     Send {
         through: LinkRef,
         at: Time,
-        cause: Cause,
     },
     ChangeLink {
         link: LinkRef,
@@ -348,7 +345,6 @@ enum Edit {
         path: Path,
         outcome_witness: Option<LinkId>,
         motif_parent: Option<LinkId>,
-        exact: bool,
         exclusive_source: bool,
         offers_choice: bool,
         at: Time,
@@ -369,11 +365,6 @@ pub(crate) struct Change {
 }
 
 impl Change {
-    #[cfg(test)]
-    pub fn empty() -> Self {
-        Self::default()
-    }
-
     fn add_junction(&mut self, spec: Junction) -> NewJunction {
         let id = NewJunction(self.junctions);
         self.junctions += 1;
@@ -393,8 +384,8 @@ impl Change {
         id
     }
 
-    fn send(&mut self, through: LinkRef, at: Time, cause: Cause) {
-        self.edits.push(Edit::Send { through, at, cause });
+    fn send(&mut self, through: LinkRef, at: Time) {
+        self.edits.push(Edit::Send { through, at });
     }
 
     fn change_link(&mut self, link: LinkRef, change: LinkChange) {
@@ -409,7 +400,6 @@ impl Change {
         path: Path,
         outcome_witness: Option<LinkId>,
         motif_parent: Option<LinkId>,
-        exact: bool,
         exclusive_source: bool,
         offers_choice: bool,
         at: Time,
@@ -420,7 +410,6 @@ impl Change {
             path,
             outcome_witness,
             motif_parent,
-            exact,
             exclusive_source,
             offers_choice,
             at,
@@ -484,15 +473,12 @@ struct MomentFact {
 
 #[derive(Clone, Copy, Debug)]
 struct ConstructionFact {
-    cause: Cause,
     junction: JunctionId,
     consequence: bool,
 }
 
 #[derive(Clone, Debug, Default)]
 struct ConstructionScratch {
-    counts: HashMap<Cause, usize>,
-    passive_counts: HashMap<Cause, usize>,
     facts: Vec<ConstructionFact>,
     members: Vec<JunctionId>,
     consequences: Vec<JunctionId>,
@@ -557,8 +543,6 @@ impl ReentryScratch {
 
 impl ConstructionScratch {
     fn clear(&mut self) {
-        self.counts.clear();
-        self.passive_counts.clear();
         self.facts.clear();
         self.members.clear();
         self.consequences.clear();
@@ -592,6 +576,8 @@ pub(crate) struct ReactionScratch {
     winners: Vec<ReadyChoice>,
     reentry: ReentryScratch,
     construction: ConstructionScratch,
+    pub(crate) local_junctions: Vec<JunctionId>,
+    pub(crate) local_eligible: Vec<LinkId>,
     pub(crate) change: Change,
     pub(crate) applied: Applied,
 }
@@ -642,6 +628,8 @@ impl ReactionScratch {
         self.winners.clear();
         self.reentry.clear();
         self.construction.clear();
+        self.local_junctions.clear();
+        self.local_eligible.clear();
         self.change.clear();
         self.applied.junctions.clear();
         self.applied.links.clear();
@@ -654,9 +642,7 @@ impl ReactionScratch {
             && self.connected_outcomes.is_empty()
             && self.worlds.is_empty()
             && self.winners.is_empty()
-            && self.construction.counts.is_empty()
             && self.construction.facts.is_empty()
-            && self.construction.passive_counts.is_empty()
             && self.construction.members.is_empty()
             && self.construction.consequences.is_empty()
             && self.construction.candidates.is_empty()
@@ -664,6 +650,8 @@ impl ReactionScratch {
             && self.construction.visited.is_empty()
             && self.construction.leaves.is_empty()
             && self.construction.parent_members.is_empty()
+            && self.local_junctions.is_empty()
+            && self.local_eligible.is_empty()
             && self.change.is_empty()
             && self.applied.junctions.is_empty()
             && self.applied.links.is_empty()

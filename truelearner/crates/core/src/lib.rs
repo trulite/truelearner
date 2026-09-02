@@ -9,7 +9,6 @@ verus! {
 
 pub type Time = u64;
 pub type Impulse = i32;
-pub type Cause = u64;
 pub const DRIVE_MAX: u16 = 1_023;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -167,7 +166,6 @@ impl Path {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct Occurrence {
-    pub cause: Cause,
     pub at: Time,
 }
 
@@ -175,7 +173,7 @@ pub struct Occurrence {
 #[cfg_attr(not(verus_only), derive(Serialize, Deserialize))]
 pub struct Outcome {
     pub at: Time,
-    pub caused_transition: bool,
+    pub changed_world: bool,
     pub available_until_choice: bool,
 }
 
@@ -188,9 +186,9 @@ pub struct PathEvidence {
     boundary_closed: bool,
     boundary_inhibited: bool,
     outcome_present: bool,
-    outcome_caused_transition: bool,
+    outcome_changed_world: bool,
     outcome_available: bool,
-    exact_closures: u8,
+    supported_closures: u8,
     strength: i64,
 }
 
@@ -198,14 +196,14 @@ impl Default for PathEvidence {
     fn default() -> Self {
         Self {
             participation: 0,
-            last_participation: Occurrence { cause: 0, at: 0 },
+            last_participation: Occurrence { at: 0 },
             outcome_at: 0,
             boundary_closed: false,
             boundary_inhibited: false,
             outcome_present: false,
-            outcome_caused_transition: false,
+            outcome_changed_world: false,
             outcome_available: false,
-            exact_closures: 0,
+            supported_closures: 0,
             strength: 1,
         }
     }
@@ -231,7 +229,7 @@ impl PathEvidence {
         if self.outcome_present {
             Some(Outcome {
                 at: self.outcome_at,
-                caused_transition: self.outcome_caused_transition,
+                changed_world: self.outcome_changed_world,
                 available_until_choice: self.outcome_available,
             })
         } else {
@@ -250,8 +248,8 @@ impl PathEvidence {
     }
 
     #[inline(always)]
-    pub const fn exact_closures(&self) -> u8 {
-        self.exact_closures
+    pub const fn supported_closures(&self) -> u8 {
+        self.supported_closures
     }
 
     #[inline(always)]
@@ -272,7 +270,7 @@ impl PathEvidence {
     pub fn remember_outcome(&mut self, outcome: Outcome) {
         self.outcome_at = outcome.at;
         self.outcome_present = true;
-        self.outcome_caused_transition = outcome.caused_transition;
+        self.outcome_changed_world = outcome.changed_world;
         self.outcome_available = outcome.available_until_choice;
     }
 
@@ -305,9 +303,9 @@ impl PathEvidence {
     }
 
     #[inline(always)]
-    pub fn increment_exact_closures(&mut self) -> u8 {
-        self.exact_closures = self.exact_closures.saturating_add(1);
-        self.exact_closures
+    pub fn increment_supported_closures(&mut self) -> u8 {
+        self.supported_closures = self.supported_closures.saturating_add(1);
+        self.supported_closures
     }
 
     #[inline(always)]
@@ -317,20 +315,18 @@ impl PathEvidence {
         (before, self.strength)
     }
 
-    fn learn_closure(&mut self, at: Time, offers_choice: bool, exact: bool) -> (u8, i64, i64) {
+    fn learn_closure(&mut self, at: Time, offers_choice: bool) -> (u8, i64, i64) {
         self.remember_outcome(Outcome {
             at,
-            caused_transition: true,
+            changed_world: true,
             available_until_choice: offers_choice,
         });
         if !offers_choice {
             self.close_boundary();
         }
-        if exact {
-            self.increment_exact_closures();
-        }
+        self.increment_supported_closures();
         let (before, after) = self.strengthen(1);
-        (self.exact_closures, before, after)
+        (self.supported_closures, before, after)
     }
 }
 
@@ -517,7 +513,6 @@ pub enum ArrowKind {
     },
     Return {
         path: Path,
-        cause: Cause,
         opened_at: Time,
         status: ReturnStatus,
     },
@@ -551,14 +546,14 @@ impl ArrowState {
                 last_transmission: None,
                 evidence: PathEvidence {
                     participation: 0,
-                    last_participation: Occurrence { cause: 0, at: 0 },
+                    last_participation: Occurrence { at: 0 },
                     outcome_at: 0,
                     boundary_closed: false,
                     boundary_inhibited: false,
                     outcome_present: false,
-                    outcome_caused_transition: false,
+                    outcome_changed_world: false,
                     outcome_available: false,
-                    exact_closures: 0,
+                    supported_closures: 0,
                     strength: 1,
                 },
             },
@@ -574,14 +569,14 @@ impl ArrowState {
                 last_transmission: None,
                 evidence: PathEvidence {
                     participation: 0,
-                    last_participation: Occurrence { cause: 0, at: 0 },
+                    last_participation: Occurrence { at: 0 },
                     outcome_at: 0,
                     boundary_closed: false,
                     boundary_inhibited: false,
                     outcome_present: false,
-                    outcome_caused_transition: false,
+                    outcome_changed_world: false,
                     outcome_available: false,
-                    exact_closures: 0,
+                    supported_closures: 0,
                     strength: 1,
                 },
             },
@@ -600,12 +595,11 @@ impl ArrowState {
     }
 
     #[inline(always)]
-    pub const fn open_return(path: Path, cause: Cause, opened_at: Time) -> Self {
+    pub const fn open_return(path: Path, opened_at: Time) -> Self {
         Self {
             active: true,
             kind: ArrowKind::Return {
                 path,
-                cause,
                 opened_at,
                 status: ReturnStatus::Open {
                     switched_from: None,
@@ -770,9 +764,9 @@ impl ArrowState {
     }
 
     #[inline(always)]
-    pub const fn exact_closures(&self) -> u8 {
+    pub const fn supported_closures(&self) -> u8 {
         match self.evidence() {
-            Some(evidence) => evidence.exact_closures(),
+            Some(evidence) => evidence.supported_closures(),
             None => 0,
         }
     }
@@ -846,9 +840,9 @@ impl ArrowState {
     }
 
     #[inline(always)]
-    pub fn increment_exact_closures(&mut self) -> Option<u8> {
+    pub fn increment_supported_closures(&mut self) -> Option<u8> {
         self.evidence_mut()
-            .map(PathEvidence::increment_exact_closures)
+            .map(PathEvidence::increment_supported_closures)
     }
 
     #[inline(always)]
@@ -858,14 +852,9 @@ impl ArrowState {
     }
 
     #[inline(always)]
-    pub fn learn_closure(
-        &mut self,
-        at: Time,
-        offers_choice: bool,
-        exact: bool,
-    ) -> Option<(u8, i64, i64)> {
+    pub fn learn_closure(&mut self, at: Time, offers_choice: bool) -> Option<(u8, i64, i64)> {
         self.evidence_mut()
-            .map(|evidence| evidence.learn_closure(at, offers_choice, exact))
+            .map(|evidence| evidence.learn_closure(at, offers_choice))
     }
 
     #[inline(always)]
@@ -956,14 +945,13 @@ impl ArrowState {
     }
 
     #[inline(always)]
-    pub const fn open_return_data(&self) -> Option<(Path, Cause, Time, Option<LinkId>)> {
+    pub const fn open_return_data(&self) -> Option<(Path, Time, Option<LinkId>)> {
         match self.kind {
             ArrowKind::Return {
                 path,
-                cause,
                 opened_at,
                 status: ReturnStatus::Open { switched_from },
-            } if self.active => Some((path, cause, opened_at, switched_from)),
+            } if self.active => Some((path, opened_at, switched_from)),
             _ => None,
         }
     }
@@ -1115,7 +1103,7 @@ mod tests {
 
     #[test]
     fn return_history_closes_once_from_open() {
-        let mut returned = ArrowState::open_return(path(), 7, 11);
+        let mut returned = ArrowState::open_return(path(), 11);
         let support = ClosedSupport {
             source: JunctionId::new(3).unwrap(),
             witness: LinkId::new(2).unwrap(),
@@ -1130,8 +1118,8 @@ mod tests {
 
     #[test]
     fn ambiguous_and_expired_returns_retain_no_support() {
-        let mut ambiguous = ArrowState::open_return(path(), 7, 11);
-        let mut expired = ArrowState::open_return(path(), 7, 11);
+        let mut ambiguous = ArrowState::open_return(path(), 11);
+        let mut expired = ArrowState::open_return(path(), 11);
 
         assert!(ambiguous.mark_ambiguous(12));
         assert!(expired.expire_return());

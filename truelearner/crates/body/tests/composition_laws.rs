@@ -42,8 +42,8 @@ impl TwoStepWorld {
             &mut body,
             0,
             &[
-                Arrival::caused(intermediate, 0, 0),
-                Arrival::caused(final_outcome, 0, 0),
+                Arrival::new(intermediate, 0),
+                Arrival::new(final_outcome, 0),
             ],
         );
         finish(&mut body);
@@ -69,12 +69,12 @@ impl TwoStepWorld {
         (events, trace)
     }
 
-    fn teach_first_step(&mut self, at: u64, cause: u64) {
-        schedule(&mut self.body, at, &[reading(self.start, 0, 1, cause)]);
+    fn teach_first_step(&mut self, at: u64) {
+        schedule(&mut self.body, at, &[reading(self.start, 0, 1)]);
         schedule(
             &mut self.body,
             at + 1,
-            &[Arrival::caused(self.motors[0].opportunity, 1, cause)],
+            &[Arrival::new(self.motors[0].opportunity, 1)],
         );
         let (action, _) = self.run_traced();
         assert_eq!(effect(&action, &self.motors), [0]);
@@ -83,12 +83,7 @@ impl TwoStepWorld {
         schedule(
             &mut self.body,
             at + 4,
-            &[reading(
-                self.intermediate,
-                0,
-                self.intermediate_value,
-                cause,
-            )],
+            &[reading(self.intermediate, 0, self.intermediate_value)],
         );
         let (returned, trace) = self.run_traced();
         assert!(effect(&returned, &self.motors).is_empty());
@@ -97,26 +92,20 @@ impl TwoStepWorld {
             TraceEvent::Return(returned)
                 if returned.decision == ReturnDecision::Accepted
                     && returned.source == self.intermediate
-                    && returned.return_cause == Some(cause)
         )));
     }
 
-    fn teach_second_step(&mut self, at: u64, cause: u64) {
+    fn teach_second_step(&mut self, at: u64) {
         self.intermediate_value += 1;
         schedule(
             &mut self.body,
             at,
-            &[reading(
-                self.intermediate,
-                0,
-                self.intermediate_value,
-                cause,
-            )],
+            &[reading(self.intermediate, 0, self.intermediate_value)],
         );
         schedule(
             &mut self.body,
             at + 1,
-            &[Arrival::caused(self.motors[1].opportunity, 1, cause)],
+            &[Arrival::new(self.motors[1].opportunity, 1)],
         );
         let (action, _) = self.run_traced();
         assert_eq!(effect(&action, &self.motors), [1]);
@@ -125,7 +114,7 @@ impl TwoStepWorld {
         schedule(
             &mut self.body,
             at + 4,
-            &[reading(self.final_outcome, 0, self.final_value, cause)],
+            &[reading(self.final_outcome, 0, self.final_value)],
         );
         let (returned, trace) = self.run_traced();
         assert!(effect(&returned, &self.motors).is_empty());
@@ -134,30 +123,20 @@ impl TwoStepWorld {
             TraceEvent::Return(returned)
                 if returned.decision == ReturnDecision::Accepted
                     && returned.source == self.final_outcome
-                    && returned.return_cause == Some(cause)
         )));
     }
 
-    fn start_probe(&mut self, at: u64, cause: u64) -> Vec<PhysicalEvent> {
-        schedule(&mut self.body, at, &[reading(self.start, 0, 1, cause)]);
+    fn start_probe(&mut self, at: u64) -> Vec<PhysicalEvent> {
+        schedule(&mut self.body, at, &[reading(self.start, 0, 1)]);
         self.run_traced().0
     }
 
-    fn return_intermediate(
-        &mut self,
-        at: u64,
-        cause: u64,
-    ) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
+    fn return_intermediate(&mut self, at: u64) -> (Vec<PhysicalEvent>, Vec<TraceEvent>) {
         self.intermediate_value += 1;
         schedule(
             &mut self.body,
             at,
-            &[reading(
-                self.intermediate,
-                0,
-                self.intermediate_value,
-                cause,
-            )],
+            &[reading(self.intermediate, 0, self.intermediate_value)],
         );
         self.run_traced()
     }
@@ -166,66 +145,41 @@ impl TwoStepWorld {
 #[test]
 fn separately_learned_steps_compose_through_one_physical_intermediate() {
     let mut world = TwoStepWorld::new(false);
-    world.teach_first_step(10, 1);
-    world.teach_second_step(20, 2);
+    world.teach_first_step(10);
+    world.teach_second_step(20);
 
-    let first = world.start_probe(30, 3);
+    let first = world.start_probe(30);
     assert_eq!(effect(&first, &world.motors), [0]);
 
-    let (second, trace) = world.return_intermediate(34, 3);
+    let (second, trace) = world.return_intermediate(34);
     assert_eq!(effect(&second, &world.motors), [1]);
     assert!(trace.iter().any(|event| matches!(
         event,
         TraceEvent::Return(returned)
             if returned.decision == ReturnDecision::Accepted
                 && returned.source == world.intermediate
-                && returned.return_cause == Some(3)
     )));
 }
 
 #[test]
 fn an_untrained_second_step_is_not_invented() {
     let mut world = TwoStepWorld::new(false);
-    world.teach_first_step(10, 1);
+    world.teach_first_step(10);
 
-    let first = world.start_probe(20, 2);
+    let first = world.start_probe(20);
     assert_eq!(effect(&first, &world.motors), [0]);
-    let (second, _) = world.return_intermediate(24, 2);
+    let (second, _) = world.return_intermediate(24);
     assert!(effect(&second, &world.motors).is_empty());
-}
-
-#[test]
-fn a_wrong_cause_cannot_close_a_step_while_starting_the_next() {
-    let mut world = TwoStepWorld::new(false);
-    world.teach_first_step(10, 1);
-    world.teach_second_step(20, 2);
-
-    let first = world.start_probe(30, 3);
-    assert_eq!(effect(&first, &world.motors), [0]);
-    let (second, trace) = world.return_intermediate(34, 99);
-
-    assert_eq!(effect(&second, &world.motors), [1]);
-    assert!(trace.iter().any(|event| matches!(
-        event,
-        TraceEvent::Return(returned)
-            if returned.decision == ReturnDecision::BlockedByCandidatePath
-                && returned.source == world.intermediate
-                && returned.exact_paths == 0
-    )));
-    assert!(!trace.iter().any(|event| matches!(
-        event,
-        TraceEvent::Strengthened(strengthened) if strengthened.at == 34
-    )));
 }
 
 #[test]
 fn composition_is_independent_of_motor_construction_order() {
     let composed_effects = |reverse_motor_construction| {
         let mut world = TwoStepWorld::new(reverse_motor_construction);
-        world.teach_first_step(10, 1);
-        world.teach_second_step(20, 2);
-        let first = effect(&world.start_probe(30, 3), &world.motors);
-        let second = effect(&world.return_intermediate(34, 3).0, &world.motors);
+        world.teach_first_step(10);
+        world.teach_second_step(20);
+        let first = effect(&world.start_probe(30), &world.motors);
+        let second = effect(&world.return_intermediate(34).0, &world.motors);
         (first, second)
     };
 
@@ -235,14 +189,14 @@ fn composition_is_independent_of_motor_construction_order() {
 #[test]
 fn automatic_internal_paths_do_not_skip_the_real_world_intermediate() {
     let mut world = TwoStepWorld::new(false);
-    for (at, cause) in [(10, 1), (20, 2), (30, 3)] {
-        world.teach_first_step(at, cause);
+    for at in [10, 20, 30] {
+        world.teach_first_step(at);
     }
-    for (at, cause) in [(40, 4), (50, 5), (60, 6)] {
-        world.teach_second_step(at, cause);
+    for at in [40, 50, 60] {
+        world.teach_second_step(at);
     }
 
-    let first = world.start_probe(70, 7);
+    let first = world.start_probe(70);
     assert_eq!(effect(&first, &world.motors), [0]);
     assert_eq!(
         first
@@ -253,13 +207,12 @@ fn automatic_internal_paths_do_not_skip_the_real_world_intermediate() {
         "an internal composite must not invent its world return"
     );
 
-    let (second, trace) = world.return_intermediate(74, 7);
+    let (second, trace) = world.return_intermediate(74);
     assert_eq!(effect(&second, &world.motors), [1]);
     assert!(trace.iter().any(|event| matches!(
         event,
         TraceEvent::Return(returned)
             if returned.decision == ReturnDecision::Accepted
                 && returned.source == world.intermediate
-                && returned.return_cause == Some(7)
     )));
 }

@@ -13,7 +13,6 @@ pub(crate) struct Firing {
     at: Time,
     target: JunctionId,
     impulse: Impulse,
-    cause: u64,
     /// `None` is a boundary arrival; `Some` is the exact transmitting link.
     pub(crate) via: Option<LinkId>,
     next_at_junction: u32,
@@ -114,22 +113,18 @@ fn bucket(now: Time, at: Time) -> usize {
 #[derive(Clone, Copy, Debug)]
 struct MeetingState {
     impulse: i64,
-    cause: u64,
     arrivals: u32,
     first: u32,
     last: u32,
-    mixed_cause: bool,
 }
 
 impl Default for MeetingState {
     fn default() -> Self {
         Self {
             impulse: 0,
-            cause: 0,
             arrivals: 0,
             first: NO_PARTICIPANT,
             last: NO_PARTICIPANT,
-            mixed_cause: false,
         }
     }
 }
@@ -168,11 +163,11 @@ pub(crate) struct PhysicalMoment {
 }
 
 impl PhysicalMoment {
-    pub(crate) fn boundary_arrivals(&self) -> impl Iterator<Item = (Time, JunctionId, u64)> + '_ {
+    pub(crate) fn boundary_arrivals(&self) -> impl Iterator<Item = (Time, JunctionId)> + '_ {
         self.participants
             .iter()
             .filter(|participant| participant.via.is_none())
-            .map(|participant| (participant.at, participant.target, participant.cause))
+            .map(|participant| (participant.at, participant.target))
     }
 
     #[cfg(test)]
@@ -222,6 +217,7 @@ pub struct Body {
     pub(crate) consolidation: Option<Box<Consolidation>>,
     pub(crate) reentry: Option<Box<ReentryCache>>,
     pub(crate) has_composites: bool,
+    pub(crate) has_local_plasticity: bool,
     activity: Activity,
 }
 
@@ -282,7 +278,7 @@ impl Body {
                 .map_err(RunError::UnknownJunction)?;
         }
         for arrival in arrivals {
-            self.enqueue(at, arrival.target, arrival.impulse, arrival.cause, None)?;
+            self.enqueue(at, arrival.target, arrival.impulse, None)?;
         }
         Ok(())
     }
@@ -414,7 +410,6 @@ impl Body {
                     at: firing.at,
                     target: firing.target,
                     impulse: firing.impulse,
-                    cause: firing.cause,
                     via: firing.via,
                 }));
             }
@@ -422,12 +417,10 @@ impl Body {
             let meeting = &mut self.activity.meetings.states[index];
             if meeting.arrivals == 0 {
                 self.activity.meetings.touched.push(firing.target);
-                meeting.cause = firing.cause;
                 meeting.first = participant;
             } else {
                 self.activity.moment.participants[meeting.last as usize].next_at_junction =
                     participant;
-                meeting.mixed_cause |= meeting.cause != firing.cause;
             }
             meeting.last = participant;
             meeting.impulse += i64::from(firing.impulse);
@@ -442,14 +435,8 @@ impl Body {
             let index = junction.slot();
             let meeting = std::mem::take(&mut self.activity.meetings.states[index]);
             work.meetings += 1;
-            let cause = if meeting.mixed_cause {
-                0
-            } else {
-                meeting.cause
-            };
-
             let slot = self.arena.junction_mut(junction).expect("live junction");
-            let Some((before, after)) = slot.change(at, meeting.impulse, cause) else {
+            let Some((before, after)) = slot.change(at, meeting.impulse) else {
                 continue;
             };
             work.changes += 1;
@@ -460,7 +447,6 @@ impl Body {
                 impulse: meeting.impulse,
                 before,
                 after,
-                cause,
             };
             let mut boundary = false;
             let mut used = UsedPaths::None;
@@ -519,7 +505,6 @@ impl Body {
                 at: firing.at,
                 target: firing.target,
                 impulse: firing.impulse,
-                cause: firing.cause,
                 via: firing.via,
             }));
         }
@@ -528,7 +513,7 @@ impl Body {
             .arena
             .junction_mut(firing.target)
             .expect("live junction")
-            .change(at, i64::from(firing.impulse), firing.cause)
+            .change(at, i64::from(firing.impulse))
         else {
             self.activity.moment.changes.clear();
             self.react_current_moment(at, trace)?;
@@ -542,17 +527,32 @@ impl Body {
             impulse: i64::from(firing.impulse),
             before,
             after,
-            cause: firing.cause,
         };
         observe(event);
         if T::ENABLED {
             trace.record(TraceEvent::Transition(event));
         }
-        self.transmit(event, firing.via, work)?;
-        if firing.via.is_none() && crate::core::try_complete_single_return(self, event, trace) {
+        let completed = if firing.via.is_none() && self.has_local_plasticity {
+            let mut local_junctions = std::mem::take(&mut self.activity.reaction.local_junctions);
+            let mut local_eligible = std::mem::take(&mut self.activity.reaction.local_eligible);
+            let completed = crate::core::try_complete_single_return(
+                self,
+                event,
+                Some((&mut local_junctions, &mut local_eligible)),
+                trace,
+            );
+            self.activity.reaction.local_junctions = local_junctions;
+            self.activity.reaction.local_eligible = local_eligible;
+            completed
+        } else {
+            firing.via.is_none()
+                && crate::core::try_complete_single_return(self, event, None, trace)
+        };
+        if completed {
             self.activity.moment.changes.clear();
             return Ok(Some(at));
         }
+        self.transmit(event, firing.via, work)?;
         let body = ReactionView::new(&self.arena, &self.arrows, &self.returns);
         let used = firing
             .via
@@ -651,16 +651,13 @@ impl Body {
                         at: change.at.saturating_add(selected.delay),
                         target: selected.to,
                         impulse,
-                        cause: change.cause,
                         via: Some(through),
                         next_at_junction: NO_PARTICIPANT,
                     })?;
-                    self.arrows[through.slot()].record_transmission(crate::core::Occurrence {
-                        cause: change.cause,
-                        at: change.at,
-                    });
+                    self.arrows[through.slot()]
+                        .record_transmission(crate::core::Occurrence { at: change.at });
                     if let Some(first) = predecessor {
-                        self.observe_automatic_pair(first, through, change.cause);
+                        self.observe_automatic_pair(first, through, change.at);
                     }
                     work.emissions += 1;
                 }
@@ -700,35 +697,27 @@ impl Body {
         at: Time,
         target: JunctionId,
         impulse: Impulse,
-        cause: u64,
         via: Option<LinkId>,
     ) -> Result<(), RunError> {
         self.activity.pending.push(Firing {
             at,
             target,
             impulse,
-            cause,
             via,
             next_at_junction: NO_PARTICIPANT,
         })
     }
 
-    pub(crate) fn send_through(
-        &mut self,
-        at: Time,
-        link_id: LinkId,
-        cause: u64,
-    ) -> Result<(), RunError> {
+    pub(crate) fn send_through(&mut self, at: Time, link_id: LinkId) -> Result<(), RunError> {
         let link = *self.arena.link(link_id).expect("validated live link");
         let impulse = effective_impulse(link.impulse, self.arrows[link_id.slot()].strength());
         self.enqueue(
             at.saturating_add(link.delay),
             link.to,
             impulse,
-            cause,
             Some(link_id),
         )?;
-        self.arrows[link_id.slot()].record_transmission(crate::core::Occurrence { cause, at });
+        self.arrows[link_id.slot()].record_transmission(crate::core::Occurrence { at });
         Ok(())
     }
 }

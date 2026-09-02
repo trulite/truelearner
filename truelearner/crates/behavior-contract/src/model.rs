@@ -55,7 +55,6 @@ pub struct BoundaryInput {
     pub at: u64,
     pub target: InputTarget,
     pub impulse: i32,
-    pub cause: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

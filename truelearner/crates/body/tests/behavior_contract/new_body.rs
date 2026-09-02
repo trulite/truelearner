@@ -81,11 +81,10 @@ impl Adapter for NewBodyAdapter {
                     .get(&motor)
                     .ok_or(NewAdapterError::UnknownMotor(motor))?,
             };
-            waves.entry(input.at).or_default().push(Arrival::caused(
-                target,
-                input.impulse,
-                input.cause,
-            ));
+            waves
+                .entry(input.at)
+                .or_default()
+                .push(Arrival::new(target, input.impulse));
         }
         for (at, arrivals) in waves {
             organism
@@ -105,7 +104,7 @@ impl Adapter for NewBodyAdapter {
                 limit,
                 |event| {
                     if let Some(motor) = outward.get(&event.junction) {
-                        raw_effects.push((event.at, *motor, event.impulse, event.cause));
+                        raw_effects.push((event.at, *motor, event.impulse));
                     }
                 },
                 |event| raw_trace.push(event),
@@ -113,12 +112,11 @@ impl Adapter for NewBodyAdapter {
             .map_err(NewAdapterError::Run)?;
         let effects = raw_effects
             .into_iter()
-            .map(|(at, motor, impulse, cause)| {
+            .map(|(at, motor, impulse)| {
                 Ok(Effect {
                     at,
                     motor,
                     impulse: i32::try_from(impulse).map_err(|_| NewAdapterError::EffectOverflow)?,
-                    cause,
                 })
             })
             .collect::<Result<Vec<_>, NewAdapterError>>()?;
@@ -128,7 +126,6 @@ impl Adapter for NewBodyAdapter {
                 .iter()
                 .map(|input| TraceArrow::Input {
                     at: input.at,
-                    cause: input.cause,
                     target: input.target,
                 })
                 .collect(),
@@ -142,7 +139,6 @@ impl Adapter for NewBodyAdapter {
                     ) {
                         trace.arrows.push(TraceArrow::Candidate {
                             at: candidate.at,
-                            cause: candidate.cause,
                             sensor,
                             motor,
                             new_path: candidate.new_path,
@@ -162,7 +158,6 @@ impl Adapter for NewBodyAdapter {
                             .filter(|nearby| nearby.sensor == sensor && nearby.distance <= 2)
                             .map(|nearby| TraceArrow::Eligible {
                                 at: transition.at,
-                                cause: transition.cause,
                                 sensor,
                                 motor: nearby.motor,
                             }),
@@ -175,21 +170,8 @@ impl Adapter for NewBodyAdapter {
                     let Some(motor) = organism.motor_for(winner.output) else {
                         continue;
                     };
-                    let Some(cause) = raw_trace.iter().find_map(|event| match event {
-                        TraceEvent::Candidate(candidate)
-                            if candidate.at == choice.at
-                                && candidate.group == choice.group
-                                && candidate.path == winner =>
-                        {
-                            Some(candidate.cause)
-                        }
-                        _ => None,
-                    }) else {
-                        continue;
-                    };
                     trace.arrows.push(TraceArrow::Choice {
                         at: choice.at,
-                        cause,
                         motor,
                     });
                 }
@@ -197,13 +179,9 @@ impl Adapter for NewBodyAdapter {
                     let Some(path) = returned.path else {
                         continue;
                     };
-                    let Some(cause) = returned.return_cause else {
-                        continue;
-                    };
                     if let Some(motor) = organism.motor_for(path.output) {
                         trace.arrows.push(TraceArrow::Return {
                             at: returned.at,
-                            cause,
                             motor,
                         });
                     }
@@ -220,7 +198,6 @@ impl Adapter for NewBodyAdapter {
             .arrows
             .extend(effects.iter().map(|effect| TraceArrow::Effect {
                 at: effect.at,
-                cause: effect.cause,
                 motor: effect.motor,
             }));
         Ok(Observation {

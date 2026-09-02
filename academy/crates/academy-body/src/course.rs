@@ -449,10 +449,9 @@ fn evaluate(
         {
             return BodyVerdict::MissingExploration;
         }
-        return binocular_depth_verdict(
-            binocular_fusion_steps(samples),
-            binocular_alignment_improvements(samples),
-        );
+        let fusion = binocular_fusion_steps(samples);
+        let improvements = binocular_alignment_improvements(samples);
+        return binocular_depth_verdict(fusion, improvements);
     }
     let movements = observations
         .iter()

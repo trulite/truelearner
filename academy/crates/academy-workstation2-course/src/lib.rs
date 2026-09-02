@@ -353,18 +353,18 @@ mod tests {
     }
 
     #[test]
-    fn a_fresh_body_acquires_the_reflex_ladder_and_reports_the_learning_frontier() {
+    fn a_fresh_body_reports_the_id_free_learning_frontier() {
         let run = completed_course();
 
         assert!(run.exact_replay);
         assert!(run.gaze.naturally_quiescent);
         assert!(run.touch.naturally_quiescent);
-        // The earlier rungs and coherent two-patch selection acquire.
+        // Foundations and observer controls remain acquired under local,
+        // identifier-free coincidence.
         for capability in [
             Capability::Gaze,
             Capability::Touch,
             Capability::AimedTap,
-            Capability::LiveKey,
             Capability::Scan,
             Capability::QuietHand,
         ] {
@@ -376,7 +376,8 @@ mod tests {
                 run.touch
             );
         }
-        assert_eq!(run.first_failure, Some(Capability::DeadKey));
+        assert_eq!(run.state(Capability::LiveKey), EvidenceState::Emerging);
+        assert_eq!(run.first_failure, Some(Capability::LiveKey));
         // The killing control for the tap rung stays at chance.
         assert!(run.aimed_tap.controls_quiet());
     }
@@ -389,21 +390,25 @@ mod tests {
             .iter()
             .find(|outcome| outcome.kind == screen_use::RungKind::LiveKey)
             .unwrap();
-        assert_eq!(live_key.run.state, EvidenceState::Acquired);
-        for (probe, control) in live_key.run.probes.iter().zip(&live_key.run.controls) {
-            assert!(probe.prefers_the_reactive_key());
-            assert!(control.prefers_the_reactive_key());
-        }
+        assert_eq!(live_key.run.state, EvidenceState::Emerging);
+        let passing_pairs = live_key
+            .run
+            .probes
+            .iter()
+            .zip(&live_key.run.controls)
+            .filter(|(probe, control)| {
+                probe.prefers_the_reactive_key() && control.prefers_the_reactive_key()
+            })
+            .count();
+        assert!(passing_pairs > 0);
+        assert!(passing_pairs < live_key.run.probes.len());
         let dead_key = run
             .rungs
             .iter()
             .find(|outcome| outcome.kind == screen_use::RungKind::DeadKey)
             .unwrap();
         assert_eq!(dead_key.run.state, EvidenceState::Unknown);
-        assert!(dead_key
-            .run
-            .probes
-            .iter()
-            .all(|probe| !probe.abandons_the_dead_key()));
+        assert!(dead_key.run.development.is_none());
+        assert!(dead_key.run.probes.is_empty());
     }
 }

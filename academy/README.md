@@ -47,12 +47,12 @@ branch that acquired device-to-screen causality. Later ContactDrag learning
 currently makes the key path inaccessible; the retention ladder records that
 failure rather than claiming that the two branches have composed.
 
-TapHoldRelease development records a cause-tagged external demonstration,
+TapHoldRelease development records an external demonstration,
 tests unaided imitation, and, when needed, restores the pre-demonstration body
 for a non-learning press-depth ladder before self-caused practice on a softer
 key. Each ladder rung clones the same checkpoint, changes only the external
 press threshold, and stops at the first missing press. Contact continuation
-requires an exact motor parent supplied by the world transition; boundary
+requires a recent local motor crossing supplied by the world transition; boundary
 completion releases only the antagonist in the same actuator component. Only
 organism-caused events can satisfy the subsequent normal-key probe.
 

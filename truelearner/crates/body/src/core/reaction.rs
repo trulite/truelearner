@@ -1,5 +1,5 @@
 /// A transmitted link remains locally changeable for this many physical
-/// ticks. The return still has to reach the exact local meeting through the
+/// ticks. The return still has to reach the local meeting through the
 /// ordinary outcome law.
 pub(crate) const LOCAL_PLASTICITY_WINDOW: Time = 8;
 pub(crate) const LOCAL_PLASTICITY_STRENGTH_LIMIT: i64 = 2;
@@ -12,14 +12,14 @@ pub(crate) fn reaction_needed(body: ReactionView<'_>, moment: &PhysicalMoment) -
         {
             return true;
         }
-        if recorded.boundary && recorded.event.cause != 0 {
+        if recorded.boundary {
             boundary_changes += 1;
             if boundary_changes >= 2 {
                 return true;
             }
         }
     }
-    moment.boundary_arrivals().any(|(_, target, _)| {
+    moment.boundary_arrivals().any(|(_, target)| {
         !moment
             .changes
             .iter()
@@ -61,21 +61,6 @@ fn is_outcome_source(body: ReactionView<'_>, junction: JunctionId) -> bool {
             return true;
         }
         next = link.next;
-    }
-    false
-}
-
-fn is_progress_source(body: ReactionView<'_>, junction: JunctionId) -> bool {
-    let mut next = body
-        .arena
-        .junction(junction)
-        .and_then(|junction| junction.outgoing_head);
-    while let Some(link) = next {
-        let physical = body.arena.link(link).expect("live progress incidence");
-        next = physical.next;
-        if body.arrows[link.slot()].witness_kind() == Some(WitnessKind::Progress) {
-            return true;
-        }
     }
     false
 }
@@ -224,39 +209,26 @@ fn detect_closure(
     let mut at = None;
     for change in &moment.changes {
         let event = change.event;
-        if !change.boundary || event.cause == 0 {
+        if !change.boundary {
             continue;
         }
         at = Some(event.at);
         let consequence = is_outcome_source(body, event.junction);
-        if !consequence {
-            *scratch.counts.entry(event.cause).or_default() += 1;
-            if !boundary_can_react(body, event.junction) {
-                *scratch.passive_counts.entry(event.cause).or_default() += 1;
-            }
-        }
         scratch.facts.push(ConstructionFact {
-            cause: event.cause,
             junction: event.junction,
             consequence,
         });
     }
 
-    let mut causes = scratch
-        .counts
+    let member_count = scratch.facts.iter().filter(|fact| !fact.consequence).count();
+    let has_passive_member = scratch
+        .facts
         .iter()
-        .filter(|(cause, count)| {
-            **count >= 2 && scratch.passive_counts.get(cause).copied().unwrap_or(0) > 0
-        })
-        .map(|(cause, _)| *cause);
-    let cause = causes.next()?;
-    if causes.next().is_some() {
+        .any(|fact| !fact.consequence && !boundary_can_react(body, fact.junction));
+    if member_count < 2 || !has_passive_member {
         return None;
     }
     for fact in &scratch.facts {
-        if fact.cause != cause {
-            continue;
-        }
         if fact.consequence {
             scratch.consequences.push(fact.junction);
         } else {
@@ -315,7 +287,14 @@ pub(crate) fn react_into<T: TraceSink>(
 ) {
     scratch.clear();
     if let Some(fact) = return_only_fact(body, moment) {
-        record_returned_outcome(body, &fact, &mut scratch.change, trace);
+        record_returned_outcome(
+            body,
+            &fact,
+            &mut scratch.local_junctions,
+            &mut scratch.local_eligible,
+            &mut scratch.change,
+            trace,
+        );
         return;
     }
     scratch
@@ -369,7 +348,14 @@ pub(crate) fn react_into<T: TraceSink>(
         &mut scratch.construction,
         &mut scratch.change,
     );
-    record_returned_outcomes(body, &scratch.facts, &mut scratch.change, trace);
+    record_returned_outcomes(
+        body,
+        &scratch.facts,
+        &mut scratch.local_junctions,
+        &mut scratch.local_eligible,
+        &mut scratch.change,
+        trace,
+    );
 }
 
 fn return_only_fact(body: ReactionView<'_>, moment: &PhysicalMoment) -> Option<MomentFact> {
@@ -492,12 +478,11 @@ fn construct_caused_reentry_memberships(
         if returning.next().is_some() {
             continue;
         }
-        let selected = scan_live_returns(body, reentry.condition, fact.event.cause);
-        let Some(returned) = selected.selected.filter(|returned| {
-            selected.exact_total == 1
-                && returned.cause == fact.event.cause
-                && returned.opened_at <= fact.event.at
-        }) else {
+        let selected = scan_live_returns(body, reentry.condition);
+        let Some(returned) = selected
+            .selected
+            .filter(|returned| returned.opened_at <= fact.event.at)
+        else {
             continue;
         };
         let (JunctionRef::Existing(middle), LinkRef::Existing(first), LinkRef::Existing(second)) =
@@ -599,7 +584,6 @@ fn record_used_outputs(body: ReactionView<'_>, facts: &[MomentFact], change: &mu
             change.change_link(
                 link.into(),
                 LinkChange::Participated {
-                    cause: fact.event.cause,
                     at: fact.event.at,
                 },
             );
@@ -611,13 +595,12 @@ fn record_used_outputs(body: ReactionView<'_>, facts: &[MomentFact], change: &mu
                 delay: 0,
                 impulse: 0,
                 trigger: Trigger::SourceFires,
-                state: ArrowState::open_return(path, fact.event.cause, fact.event.at),
+                state: ArrowState::open_return(path, fact.event.at),
             },
         );
         change.change_link(
             returned.into(),
             LinkChange::Participated {
-                cause: fact.event.cause,
                 at: fact.event.at,
             },
         );
@@ -635,6 +618,8 @@ fn record_used_outputs(body: ReactionView<'_>, facts: &[MomentFact], change: &mu
 fn record_returned_outcomes<T: TraceSink>(
     body: ReactionView<'_>,
     facts: &[MomentFact],
+    local_junctions: &mut Vec<JunctionId>,
+    local_eligible: &mut Vec<LinkId>,
     change: &mut Change,
     trace: &mut T,
 ) {
@@ -645,32 +630,38 @@ fn record_returned_outcomes<T: TraceSink>(
         {
             continue;
         }
-        record_returned_outcome(body, fact, change, trace);
+        record_returned_outcome(
+            body,
+            fact,
+            local_junctions,
+            local_eligible,
+            change,
+            trace,
+        );
     }
 }
 
 fn record_returned_outcome<T: TraceSink>(
     body: ReactionView<'_>,
     fact: &MomentFact,
+    local_junctions: &mut Vec<JunctionId>,
+    local_eligible: &mut Vec<LinkId>,
     change: &mut Change,
     trace: &mut T,
 ) {
-    let selected = scan_live_returns(body, fact.event.junction, fact.event.cause);
-    // One exact physical event may finish the preceding path while starting
+    let selected = scan_live_returns(body, fact.event.junction);
+    // One local physical event may finish the preceding path while starting
     // an already learned next path. A merely coincident ready surface cannot.
-    if fact.had_ready_path && selected.exact_total != 1 {
+    if fact.had_ready_path && selected.selected.is_none() {
         if T::ENABLED {
             let candidates = trace_return_candidates(body, fact.event.junction);
             trace.record(TraceEvent::Return(ReturnTrace {
                 at: fact.event.at,
                 source: fact.event.junction,
-                incoming_cause: fact.event.cause,
                 path: None,
-                return_cause: None,
                 return_opened_at: None,
                 offers_choice: None,
                 open_paths: selected.total,
-                exact_paths: selected.exact_total,
                 candidates,
                 decision: ReturnDecision::BlockedByCandidatePath,
             }));
@@ -689,13 +680,10 @@ fn record_returned_outcome<T: TraceSink>(
         trace.record(TraceEvent::Return(ReturnTrace {
             at: fact.event.at,
             source: fact.event.junction,
-            incoming_cause: fact.event.cause,
             path: selected.selected.map(|returned| returned.path),
-            return_cause: selected.selected.map(|returned| returned.cause),
             return_opened_at: selected.selected.map(|returned| returned.opened_at),
             offers_choice: selected.selected.map(|returned| returned.offers_choice),
             open_paths: selected.total,
-            exact_paths: selected.exact_total,
             candidates,
             decision,
         }));
@@ -704,43 +692,51 @@ fn record_returned_outcome<T: TraceSink>(
         .selected
         .filter(|returned| returned.opened_at <= fact.event.at);
     let motif_parent = accepted
-        .filter(|returned| returned.cause == fact.event.cause)
         .filter(|returned| body.arrows[returned.link.slot()].switched_from().is_some())
         .and_then(|returned| matching_return_motif(body, returned, fact.event.junction))
         .map(|closed| closed.link);
     if let Some(returned) = accepted.filter(|returned| !returned.offers_choice) {
         clear_output_selection(body, returned.path.output, change);
     }
-    for entry in body
+    let open_entries = body
         .returns
         .by_source
         .get(fact.event.junction.slot())
         .into_iter()
-        .flatten()
-        .filter(|entry| open_return(body, **entry).is_some())
-    {
+        .flatten();
+    if body.arrows.iter().any(ArrowState::locally_plastic) {
+        local_eligible.clear();
+        for entry in open_entries.clone() {
+            if open_return(body, *entry).is_some() {
+                append_recent_local_inputs(
+                    body,
+                    entry.path,
+                    fact.event.at,
+                    local_junctions,
+                    local_eligible,
+                );
+            }
+        }
+        for link in local_eligible.iter().copied() {
+            change.change_link(link.into(), LinkChange::Strengthen { amount: 1 });
+        }
+    }
+    for entry in open_entries {
+        if open_return(body, *entry).is_none() {
+            continue;
+        }
         if accepted.is_some_and(|returned| returned.link == entry.link) {
-            let returned = accepted.expect("selected accepted return exists");
             change.complete_return(
                 fact.event.junction,
                 entry.link,
                 entry.path,
                 entry.outcome_witness,
                 motif_parent,
-                returned.cause == fact.event.cause,
                 entry.exclusive_source,
                 entry.offers_choice,
                 fact.event.at,
             );
-            for link in recent_local_inputs(body, entry.path, fact.event.at) {
-                change.change_link(link.into(), LinkChange::Strengthen { amount: 1 });
-            }
-            retain_composite_after_return(
-                body,
-                entry.path,
-                returned.cause == fact.event.cause,
-                change,
-            );
+            retain_composite_after_return(body, entry.path, change);
         } else {
             change.change_link(
                 entry.link.into(),
@@ -755,15 +751,17 @@ fn record_returned_outcome<T: TraceSink>(
 }
 
 /// Find every other recently transmitted propagation link in the returned
-/// path's backward cone. The exact path keeps its existing closure update;
+/// path's backward cone. The returned path keeps its closure update;
 /// this retains coincident local routes without assigning them ancestry.
-fn recent_local_inputs(
+fn append_recent_local_inputs(
     body: ReactionView<'_>,
     returned: Path,
     at: Time,
-) -> Vec<LinkId> {
-    let mut junctions = vec![returned.surface, returned.middle, returned.output];
-    let mut eligible = Vec::new();
+    junctions: &mut Vec<JunctionId>,
+    eligible: &mut Vec<LinkId>,
+) {
+    junctions.clear();
+    junctions.extend([returned.surface, returned.middle, returned.output]);
     let mut next = 0;
     while let Some(&junction) = junctions.get(next) {
         next += 1;
@@ -777,12 +775,12 @@ fn recent_local_inputs(
             }
             if body.arrows[link.slot()].locally_plastic()
                 && body.arrows[link.slot()].strength() < LOCAL_PLASTICITY_STRENGTH_LIMIT
+                && !eligible.contains(&link)
             {
                 eligible.push(link);
             }
         }
     }
-    eligible
 }
 
 #[inline(always)]
@@ -799,16 +797,14 @@ fn recent_local_input(returned: Path, link: LinkId, memory: &ArrowState, at: Tim
 fn retain_composite_after_return(
     body: ReactionView<'_>,
     path: Path,
-    exact: bool,
     change: &mut Change,
 ) {
     if let Some(composite) = composite_with_parents(body, path) {
         change.change_link(composite.into(), LinkChange::Strengthen { amount: 1 });
         return;
     }
-    let exact_closures = body.arrows[path.first.slot()].exact_closures();
-    if !exact
-        || exact_closures.saturating_add(1) < AUTOMATIC_AFTER_EXACT_CLOSURES
+    let supported_closures = body.arrows[path.first.slot()].supported_closures();
+    if supported_closures.saturating_add(1) < AUTOMATIC_AFTER_SUPPORTED_CLOSURES
         || !path_can_be_composed(body, path)
     {
         return;

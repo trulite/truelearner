@@ -10,12 +10,12 @@ fn mark_current_returns(
     }) {
         let source = fact.event.junction;
         let output = latest_fresh_output(body, source).or_else(|| {
-            scan_live_returns(body, source, fact.event.cause)
+            scan_live_returns(body, source)
                 .selected
                 .filter(|returned| returned.opened_at <= fact.event.at)
                 .map(|returned| returned.path.output)
         });
-        let progress_output = unique_progress_output(paths, source, fact.event.cause);
+        let progress_output = unique_progress_output(paths, source);
         for path in paths.iter_mut() {
             let connected = &connected_outcomes[path.connected_start..path.connected_end];
             if connected.contains(&source) {
@@ -31,15 +31,11 @@ fn mark_current_returns(
 fn unique_progress_output(
     paths: &[CandidatePath],
     source: JunctionId,
-    cause: Cause,
 ) -> Option<JunctionId> {
-    if cause == 0 {
-        return None;
-    }
     let mut output = None;
     for path in paths.iter().filter(|path| {
         path.progress_source == Some(source)
-            && path.return_cause == Some(cause)
+            && path.return_present
             && path.participation > 0
     }) {
         match output {
@@ -128,7 +124,6 @@ fn fresh_opportunity(
             && path.drive == strongest_drive
             && path.unanswered
             && path.participation > 0
-            && path.current_cause != 0
     });
     let (donor_index, donor) = donors.next()?;
     if donors.next().is_some() {
@@ -185,7 +180,7 @@ fn output_has_returned_path(body: ReactionView<'_>, output: JunctionId) -> bool 
             && body.arrows[drive.slot()].participation() > 0
             && body.arrows[drive.slot()]
                 .outcome()
-                .is_some_and(|outcome| outcome.caused_transition)
+                .is_some_and(|outcome| outcome.changed_world)
     })
 }
 
@@ -336,8 +331,7 @@ where
     let release_to_untried_output = has_tried_output && has_untried_output;
 
     if let Some(winner) = unique_ready((0..paths.len()).filter(eligible).filter(|index| {
-        let path = &paths[*index];
-        path.return_cause.is_some() && path.return_cause == Some(path.current_cause)
+        paths[*index].return_present
     })) {
         return Some(warranted(
             winner,

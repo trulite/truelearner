@@ -50,7 +50,7 @@ fn main() {
                         continue;
                     }
                     println!(
-                        "  cand t{} g{} {:?} exec={} part={}@{} outpart={} unans={} outcome={:?} src={:?} bopen={} binh={} resist={} str={} drive={} ret={:?} new={}",
+                        "  cand t{} g{} {:?} exec={} part={}@{} outpart={} unans={} outcome={:?} src={:?} bopen={} binh={} resist={} str={} drive={} new={}",
                         c.at,
                         c.group,
                         control.map(|k| format!("{:?}/{:?}", k.axis(), k.direction())),
@@ -59,14 +59,13 @@ fn main() {
                         c.participated_at,
                         c.output_participated,
                         c.unanswered,
-                        c.outcome.map(|o| (o.at, o.caused_transition, o.available_until_choice)),
+                        c.outcome.map(|o| (o.at, o.changed_world, o.available_until_choice)),
                         c.outcome_source.map(|j| format!("{j:?}")),
                         c.boundary_open,
                         c.boundary_inhibited,
                         c.resisted_progress,
                         c.strength,
                         c.drive,
-                        c.return_cause,
                         c.new_path,
                     );
                 }

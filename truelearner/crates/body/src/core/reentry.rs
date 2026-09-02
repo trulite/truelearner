@@ -856,7 +856,7 @@ fn unique_prior_unclosed_sibling_before(
         if path.output == current.output
             || memory.participation() == 0
             || memory.occurrence().is_none_or(|occurrence| occurrence.at >= current_at)
-            || memory.exact_closures() != 0
+            || memory.supported_closures() != 0
             || !path_has_open_return(body, path.middle, path.output)
         {
             continue;

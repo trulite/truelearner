@@ -38,18 +38,17 @@ that discard mutation. Each has a positive claim and a killing control.
 | rung | positive claim in a fresh probe | control that must stay at chance | state |
 |---|---|---|---|
 | Aimed tap | taps inside the target far exceed the target's share of the screen | same body, target drawn at zero contrast | Acquired |
-| Live key | taps on the target exceed taps on the decoy | target and decoy swapped in the probe | Acquired |
-| Dead key | after the target stops reacting, taps on it fall within a budget | target keeps reacting; tap rate must not fall | Frontier |
+| Live key | taps on the target exceed taps on the decoy | target and decoy swapped in the probe | Emerging frontier |
+| Dead key | after the target stops reacting, taps on it fall within a budget | target keeps reacting; tap rate must not fall | Gated |
 | Scan | gaze reaches the visible target before the first tap on it | with the same seed, the visible target is found before its zero-contrast control | Acquired |
 | Quiet hand | contact rate on blank screens is far below contact rate with a target lit | no rise over time on blank screens | Acquired |
 | Sequence | the rewarded order A-then-B exceeds B-then-A | order requirement reversed in the probe | Frontier |
 | Drag | releases land on the goal far above its share of the screen, after starting on the target | goal drawn at zero contrast | Frontier |
 
-The measured frontier is DeadKey. LiveKey passes through event-gated coherent
-focus: an interaction release deprioritizes its recent region when a visible
-peer exists, while a reactive relocation supplies a fresh 16x16 onset. A sole
-unchanged patch remains physically supported, so DeadKey must still acquire a
-generic consequence-sensitive stop. Sequence and Drag remain gated behind it.
+The identifier-free measured frontier is LiveKey. Its unchanged gate passes
+two of three probe/control pairs, so the state is `Emerging`. Direction-labelled
+movement witnesses preserve the body course without reviving an episode ID.
+DeadKey, Sequence, and Drag remain gated behind LiveKey.
 
 "Far exceeds" means at least three times the chance rate with at least twenty
 taps, on at least three seeds. A rung that passes on one seed is `Emerging`;
@@ -72,7 +71,7 @@ Verdicts are derived from these numbers only. Failures are preserved.
 
 - The only organism input is one `WorldSample`: retinal light, fingertip
   contact, proprioception. Same as today.
-- The session never passes causal parents, device events, target identity,
+- The session never passes episode identities, device events, target identity,
   scores, or level state to the body. The joint-stop boundary is body
   morphology and stays inside the harness.
 - Target, decoy, and level are course vocabulary. The organism never sees a

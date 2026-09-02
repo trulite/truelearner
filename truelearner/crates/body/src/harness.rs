@@ -27,8 +27,8 @@ pub fn calibrated(normal: i32, reading: i32) -> i32 {
     normalizer.step(Some(reading)).unwrap().amount() as i32
 }
 
-pub fn reading(target: JunctionId, normal: i32, value: i32, cause: u64) -> Arrival {
-    Arrival::caused(target, calibrated(normal, value), cause)
+pub fn reading(target: JunctionId, normal: i32, value: i32) -> Arrival {
+    Arrival::new(target, calibrated(normal, value))
 }
 
 pub fn attach_sensor(
@@ -166,17 +166,9 @@ pub fn effect(events: &[PhysicalEvent], motors: &[Motor]) -> Vec<usize> {
         .collect()
 }
 
-pub fn physical_trace(events: &[PhysicalEvent]) -> Vec<(u64, JunctionId, i32, i32, u64)> {
+pub fn physical_trace(events: &[PhysicalEvent]) -> Vec<(u64, JunctionId, i32, i32)> {
     events
         .iter()
-        .map(|event| {
-            (
-                event.at,
-                event.junction,
-                event.before,
-                event.after,
-                event.cause,
-            )
-        })
+        .map(|event| (event.at, event.junction, event.before, event.after))
         .collect()
 }

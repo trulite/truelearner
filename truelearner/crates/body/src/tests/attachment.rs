@@ -15,7 +15,7 @@ fn attachment_preserves_live_returns_when_rebuilding_the_index() {
         first: host_link,
         second: host_link,
     };
-    host.replace_arrow_state(host_link, ArrowState::open_return(host_path, 8, 0))
+    host.replace_arrow_state(host_link, ArrowState::open_return(host_path, 8))
         .unwrap();
 
     let mut part = Body::default();
@@ -30,7 +30,7 @@ fn attachment_preserves_live_returns_when_rebuilding_the_index() {
         first: part_link,
         second: part_link,
     };
-    part.replace_arrow_state(part_link, ArrowState::open_return(part_path, 3, 0))
+    part.replace_arrow_state(part_link, ArrowState::open_return(part_path, 3))
         .unwrap();
     let part = OpenBody::new(part, vec![part_junction]).unwrap();
 

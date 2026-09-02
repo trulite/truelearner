@@ -1,7 +1,6 @@
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct ReturnEntry {
-    pub(crate) cause: Cause,
     pub(crate) link: LinkId,
     pub(crate) path: Path,
     pub(crate) exclusive_source: bool,
@@ -55,7 +54,7 @@ impl Body {
     }
 
     fn insert_live_return(&mut self, link: LinkId) {
-        let Some((path, cause, _, _)) = self.arrows[link.slot()].open_return_data() else {
+        let Some((path, _, _)) = self.arrows[link.slot()].open_return_data() else {
             return;
         };
         self.returns.live_count += 1;
@@ -89,7 +88,6 @@ impl Body {
         for (source, offers_choice) in sources {
             let view = ReactionView::new(&self.arena, &self.arrows, &self.returns);
             let entry = ReturnEntry {
-                cause,
                 link,
                 path,
                 exclusive_source,
@@ -105,7 +103,7 @@ impl Body {
     }
 
     fn remove_live_return(&mut self, link: LinkId) {
-        let Some((path, _, _, _)) = self.arrows[link.slot()].open_return_data() else {
+        let Some((path, _, _)) = self.arrows[link.slot()].open_return_data() else {
             return;
         };
         self.expire_automatic_witness(link);
@@ -178,13 +176,14 @@ impl Body {
     }
 
     /// Allows a propagation link to learn from a returned consequence in its
-    /// recent local backward cone. Exact path learning does not require this.
+    /// recent local backward cone. Structural path closure does not require this.
     pub fn mark_locally_plastic(&mut self, link: LinkId) -> Result<(), ApplyError> {
         let memory = self
             .arrows
             .get_mut(link.slot())
             .ok_or(ApplyError::UnknownLink(link))?;
         if memory.mark_locally_plastic() {
+            self.has_local_plasticity = true;
             Ok(())
         } else {
             Err(ApplyError::InvalidLinkRole(link))
@@ -264,14 +263,6 @@ impl Body {
         kind: WitnessKind,
     ) -> Result<(), ApplyError> {
         self.replace_arrow_state(link, ArrowState::witness(kind))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn apply(&mut self, mut change: Change) -> Result<Applied, ApplyError> {
-        let mut applied = Applied::default();
-        let at = self.now();
-        self.apply_reusing(&mut change, &mut applied, at, &mut NoTrace)?;
-        Ok(applied)
     }
 
     pub(crate) fn apply_reusing<T: TraceSink>(
@@ -403,10 +394,9 @@ impl Body {
                     }
                     applied.links.push(id);
                 }
-                Edit::Send { through, at, cause } => {
+                Edit::Send { through, at } => {
                     let link = resolve_link(through, applied)?;
-                    self.send_through(at, link, cause)
-                        .map_err(ApplyError::Run)?;
+                    self.send_through(at, link).map_err(ApplyError::Run)?;
                 }
                 Edit::CompleteReturn {
                     source,
@@ -414,7 +404,6 @@ impl Body {
                     path,
                     outcome_witness,
                     motif_parent,
-                    exact,
                     exclusive_source,
                     offers_choice,
                     at,
@@ -426,7 +415,7 @@ impl Body {
                         .open_return_data()
                         .is_some();
                     if self.needs_automatic_closure() {
-                        self.complete_automatic_witness(returned, path, exact);
+                        self.complete_automatic_witness(returned, path);
                     }
                     if was_open {
                         if exclusive_source {
@@ -435,17 +424,18 @@ impl Body {
                             self.remove_live_return_with_path(returned, Some(path));
                         }
                     }
-                    let mut exact_closures = self.arrows[path.first.slot()].exact_closures();
+                    let mut supported_closures =
+                        self.arrows[path.first.slot()].supported_closures();
                     for (index, link) in path.links().into_iter().enumerate() {
                         let memory = self
                             .arrows
                             .get_mut(link.slot())
                             .ok_or(ApplyError::UnknownLink(link))?;
                         let (closures, before, after) = memory
-                            .learn_closure(at, offers_choice, exact && index == 0)
+                            .learn_closure(at, offers_choice)
                             .unwrap_or((0, 1, 1));
                         if index == 0 {
-                            exact_closures = closures;
+                            supported_closures = closures;
                         }
                         if T::ENABLED {
                             trace.record(TraceEvent::Strengthened(StrengthTrace {
@@ -461,8 +451,7 @@ impl Body {
                         source,
                         path,
                         outcome_witness,
-                        exact,
-                        exclusive_source && exact_closures > u8::from(exact),
+                        exclusive_source && supported_closures > 1,
                     ) {
                         self.arrows[returned.slot()].close_return(at, support, motif_parent);
                     }
@@ -520,8 +509,8 @@ impl Body {
                         .get_mut(link.slot())
                         .ok_or(ApplyError::UnknownLink(link))?;
                     match change {
-                        LinkChange::Participated { cause, at } => {
-                            touch_reentry = memory.participate(Occurrence { cause, at });
+                        LinkChange::Participated { at } => {
+                            touch_reentry = memory.participate(Occurrence { at });
                         }
                         LinkChange::RememberOutcome {
                             at,
@@ -529,7 +518,7 @@ impl Body {
                         } => {
                             memory.remember_outcome(Outcome {
                                 at,
-                                caused_transition: false,
+                                changed_world: false,
                                 available_until_choice,
                             });
                         }

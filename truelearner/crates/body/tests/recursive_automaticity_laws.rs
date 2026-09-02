@@ -45,7 +45,7 @@ impl ChainWorld {
             internal.push(next);
             from = next;
         }
-        schedule(&mut body, 0, &[reading(outcome, 0, 0, 0)]);
+        schedule(&mut body, 0, &[reading(outcome, 0, 0)]);
         body.run(512, |_| {}).unwrap();
         Self {
             body,
@@ -59,12 +59,12 @@ impl ChainWorld {
         }
     }
 
-    fn act(&mut self, at: u64, cause: u64) -> (Run, Vec<PhysicalEvent>) {
-        schedule(&mut self.body, at, &[reading(self.surface, 0, 1, cause)]);
+    fn act(&mut self, at: u64) -> (Run, Vec<PhysicalEvent>) {
+        schedule(&mut self.body, at, &[reading(self.surface, 0, 1)]);
         schedule(
             &mut self.body,
             at + 1,
-            &[Arrival::caused(self.motor.opportunity, 1, cause)],
+            &[Arrival::new(self.motor.opportunity, 1)],
         );
         let mut events = Vec::new();
         let run = self.body.run(512, |event| events.push(event)).unwrap();
@@ -73,21 +73,21 @@ impl ChainWorld {
         (run, events)
     }
 
-    fn close(&mut self, at: u64, cause: u64) {
+    fn close(&mut self, at: u64) {
         self.outcome_value += 1;
         schedule(
             &mut self.body,
             at,
-            &[reading(self.outcome, 0, self.outcome_value, cause)],
+            &[reading(self.outcome, 0, self.outcome_value)],
         );
         self.body.run(512, |_| {}).unwrap();
         assert!(self.body.is_quiet());
     }
 
-    fn complete(&mut self, at: u64, cause: u64) -> (Run, Vec<PhysicalEvent>) {
-        let result = self.act(at, cause);
+    fn complete(&mut self, at: u64) -> (Run, Vec<PhysicalEvent>) {
+        let result = self.act(at);
         assert!(result.1.iter().any(|event| event.junction == self.terminal));
-        self.close(at + 32, cause);
+        self.close(at + 32);
         result
     }
 }
@@ -95,12 +95,12 @@ impl ChainWorld {
 #[test]
 fn heterogeneous_delays_survive_every_recursive_level() {
     let mut world = ChainWorld::with_delays(&[1, 3, 2, 4, 1, 2, 3, 1]);
-    world.complete(10, 1);
-    let (ordinary, ordinary_events) = world.complete(60, 2);
-    for (index, at) in [110, 160, 210, 260, 310, 360, 410].into_iter().enumerate() {
-        world.complete(at, index as u64 + 3);
+    world.complete(10);
+    let (ordinary, ordinary_events) = world.complete(60);
+    for at in [110, 160, 210, 260, 310, 360, 410] {
+        world.complete(at);
     }
-    let (automatic, automatic_events) = world.act(460, 20);
+    let (automatic, automatic_events) = world.act(460);
 
     let ordinary_terminal = terminal_event(&ordinary_events, world.terminal);
     let automatic_terminal = terminal_event(&automatic_events, world.terminal);
@@ -125,7 +125,8 @@ fn terminal_event(events: &[PhysicalEvent], terminal: JunctionId) -> PhysicalEve
 fn delta(after: AutomaticityWork, before: AutomaticityWork) -> AutomaticityWork {
     AutomaticityWork {
         pair_observations: after.pair_observations - before.pair_observations,
-        exact_closure_updates: after.exact_closure_updates - before.exact_closure_updates,
+        supported_closure_updates: after.supported_closure_updates
+            - before.supported_closure_updates,
         composites_formed: after.composites_formed - before.composites_formed,
     }
 }
@@ -135,16 +136,16 @@ fn retained_links_reenter_the_same_law_and_form_a_recursive_hierarchy() {
     let mut world = ChainWorld::new(8);
     let before = world.body.automaticity_work();
 
-    world.complete(10, 1);
-    let (ordinary, ordinary_events) = world.complete(60, 2);
-    world.complete(110, 3);
-    let (level_one, level_one_events) = world.complete(160, 4);
-    world.complete(210, 5);
-    world.complete(260, 6);
-    let (level_two, level_two_events) = world.complete(310, 7);
-    world.complete(360, 8);
-    world.complete(410, 9);
-    let (level_three, level_three_events) = world.act(460, 10);
+    world.complete(10);
+    let (ordinary, ordinary_events) = world.complete(60);
+    world.complete(110);
+    let (level_one, level_one_events) = world.complete(160);
+    world.complete(210);
+    world.complete(260);
+    let (level_two, level_two_events) = world.complete(310);
+    world.complete(360);
+    world.complete(410);
+    let (level_three, level_three_events) = world.act(460);
 
     let ordinary_terminal = terminal_event(&ordinary_events, world.terminal);
     for (started, events) in [
@@ -167,35 +168,19 @@ fn retained_links_reenter_the_same_law_and_form_a_recursive_hierarchy() {
 }
 
 #[test]
-fn wrong_cause_returns_never_consolidate_a_transparent_chain() {
-    let mut world = ChainWorld::new(8);
-    let mut last = None;
-    for (index, at) in [10, 60, 110, 160, 210, 260].into_iter().enumerate() {
-        let cause = index as u64 + 1;
-        let run = world.act(at, cause).0;
-        world.close(at + 32, cause + 1_000);
-        last = Some(run);
-    }
-    let (probe, _) = world.act(310, 10);
-    assert_eq!(probe.work, last.expect("ordinary comparison run").work);
-    assert_eq!(world.body.automaticity_work().exact_closure_updates, 0);
-    assert_eq!(world.body.automaticity_work().composites_formed, 0);
-}
-
-#[test]
 fn a_visible_branch_prevents_a_shortcut_from_erasing_it() {
     let mut world = ChainWorld::new(8);
     let fork = world.internal[2];
     let branch = world.body.add_junction(Junction::integrating(1)).unwrap();
     world.body.add_link(Link::new(fork, branch, 1, 1)).unwrap();
 
-    let (ordinary_run, ordinary_events) = world.complete(10, 1);
+    let (ordinary_run, ordinary_events) = world.complete(10);
     for (index, at) in [10, 60, 110, 160, 210, 260, 310].into_iter().enumerate() {
         if index != 0 {
-            world.complete(at, index as u64 + 1);
+            world.complete(at);
         }
     }
-    let (automatic, events) = world.act(360, 20);
+    let (automatic, events) = world.act(360);
     assert!(events.iter().any(|event| event.junction == fork));
     assert!(events.iter().any(|event| event.junction == branch));
     assert!(events.iter().any(|event| event.junction == world.terminal));
@@ -206,26 +191,23 @@ fn a_visible_branch_prevents_a_shortcut_from_erasing_it() {
 #[test]
 fn a_changed_leaf_invalidates_every_dependent_level_before_it_fires() {
     let mut world = ChainWorld::new(8);
-    for (index, at) in [10, 60, 110, 160, 210, 260, 310, 360, 410]
-        .into_iter()
-        .enumerate()
-    {
-        world.complete(at, index as u64 + 1);
+    for at in [10, 60, 110, 160, 210, 260, 310, 360, 410] {
+        world.complete(at);
     }
-    let (automatic, _) = world.act(460, 20);
-    world.close(492, 20);
+    let (automatic, _) = world.act(460);
+    world.close(492);
 
     let changed = world.chain[3];
     world.body.set_link_impulse(changed, -1).unwrap();
-    let (_, interrupted) = world.act(520, 21);
+    let (_, interrupted) = world.act(520);
     assert_eq!(effect(&interrupted, &[world.motor]), [0]);
     assert!(!interrupted
         .iter()
         .any(|event| event.junction == world.terminal));
-    world.close(552, 21);
+    world.close(552);
 
     world.body.set_link_impulse(changed, 1).unwrap();
-    let (restored, restored_events) = world.act(580, 22);
+    let (restored, restored_events) = world.act(580);
     assert!(restored_events
         .iter()
         .any(|event| event.junction == world.terminal));
@@ -235,37 +217,26 @@ fn a_changed_leaf_invalidates_every_dependent_level_before_it_fires() {
 #[test]
 fn a_pending_input_into_an_omitted_interior_forces_local_fallback() {
     let mut world = ChainWorld::new(8);
-    for (index, at) in [10, 60, 110, 160, 210, 260, 310, 360, 410]
-        .into_iter()
-        .enumerate()
-    {
-        world.complete(at, index as u64 + 1);
+    for at in [10, 60, 110, 160, 210, 260, 310, 360, 410] {
+        world.complete(at);
     }
     let interrupted = world.internal[3];
-    schedule(
-        &mut world.body,
-        526,
-        &[Arrival::caused(interrupted, 1, 999)],
-    );
-    let (_, events) = world.act(520, 21);
+    schedule(&mut world.body, 526, &[Arrival::new(interrupted, 1)]);
+    let (_, events) = world.act(520);
 
     let meeting = events
         .iter()
         .find(|event| event.junction == interrupted)
         .expect("the interrupted physical interior must remain present");
     assert_eq!(meeting.arrivals, 2);
-    assert_eq!(meeting.cause, 0);
     assert!(events.iter().any(|event| event.junction == world.terminal));
 }
 
 #[test]
 fn recursive_automaticity_survives_checkpoint_and_continuous_time() {
     let mut world = ChainWorld::new(8);
-    for (index, at) in [10, 60, 110, 160, 210, 260, 310, 360, 410]
-        .into_iter()
-        .enumerate()
-    {
-        world.complete(at, index as u64 + 1);
+    for at in [10, 60, 110, 160, 210, 260, 310, 360, 410] {
+        world.complete(at);
     }
     let bytes = world.body.checkpoint().unwrap().canonical_bytes().unwrap();
     let restored = BodyCheckpoint::decode(&bytes).unwrap().restore().unwrap();
@@ -280,8 +251,8 @@ fn recursive_automaticity_survives_checkpoint_and_continuous_time() {
         outcome_value: world.outcome_value,
     };
 
-    let (plain_run, plain_events) = world.act(100_000, 20);
-    let (replay_run, replay_events) = replay.act(100_000, 20);
+    let (plain_run, plain_events) = world.act(100_000);
+    let (replay_run, replay_events) = replay.act(100_000);
     assert_eq!(plain_run, replay_run);
     assert_eq!(plain_events, replay_events);
     assert_eq!(
@@ -293,18 +264,15 @@ fn recursive_automaticity_survives_checkpoint_and_continuous_time() {
 #[test]
 fn recursive_dependencies_are_remapped_when_the_learned_body_is_attached() {
     let mut world = ChainWorld::new(8);
-    for (index, at) in [10, 60, 110, 160, 210, 260, 310, 360, 410]
-        .into_iter()
-        .enumerate()
-    {
-        world.complete(at, index as u64 + 1);
+    for at in [10, 60, 110, 160, 210, 260, 310, 360, 410] {
+        world.complete(at);
     }
     let mut expected = world.body.clone();
-    schedule(&mut expected, 460, &[reading(world.surface, 0, 1, 20)]);
+    schedule(&mut expected, 460, &[reading(world.surface, 0, 1)]);
     schedule(
         &mut expected,
         461,
-        &[Arrival::caused(world.motor.opportunity, 1, 20)],
+        &[Arrival::new(world.motor.opportunity, 1)],
     );
     let mut expected_events = Vec::new();
     let expected_run = expected
@@ -334,8 +302,8 @@ fn recursive_dependencies_are_remapped_when_the_learned_body_is_attached() {
         .unwrap();
     let attached = attach(&mut host, part, &[]).unwrap();
     let [surface, opportunity, effect, terminal] = ports.map(|port| attached.port(port).unwrap());
-    schedule(&mut host, 460, &[reading(surface, 0, 1, 20)]);
-    schedule(&mut host, 461, &[Arrival::caused(opportunity, 1, 20)]);
+    schedule(&mut host, 460, &[reading(surface, 0, 1)]);
+    schedule(&mut host, 461, &[Arrival::new(opportunity, 1)]);
     let mut events = Vec::new();
     let run = host.run(512, |event| events.push(event)).unwrap();
 
@@ -344,26 +312,14 @@ fn recursive_dependencies_are_remapped_when_the_learned_body_is_attached() {
         events
             .iter()
             .filter(|event| event.junction == effect || event.junction == terminal)
-            .map(|event| (
-                event.at,
-                event.impulse,
-                event.before,
-                event.after,
-                event.cause
-            ))
+            .map(|event| (event.at, event.impulse, event.before, event.after,))
             .collect::<Vec<_>>(),
         expected_events
             .iter()
             .filter(|event| {
                 event.junction == world.motor.effect || event.junction == world.terminal
             })
-            .map(|event| (
-                event.at,
-                event.impulse,
-                event.before,
-                event.after,
-                event.cause
-            ))
+            .map(|event| (event.at, event.impulse, event.before, event.after,))
             .collect::<Vec<_>>()
     );
 }
@@ -412,28 +368,22 @@ impl ProductWorld {
         } else {
             [add_part(&mut body), add_part(&mut body)]
         };
-        schedule(
-            &mut body,
-            0,
-            &parts.map(|part| reading(part.outcome, 0, 0, 0)),
-        );
+        schedule(&mut body, 0, &parts.map(|part| reading(part.outcome, 0, 0)));
         body.run(1_024, |_| {}).unwrap();
         Self { body, parts }
     }
 
-    fn act(&mut self, at: u64, causes: [u64; 2]) -> (Run, Vec<PhysicalEvent>) {
+    fn act(&mut self, at: u64) -> (Run, Vec<PhysicalEvent>) {
         schedule(
             &mut self.body,
             at,
-            &std::array::from_fn::<_, 2, _>(|index| {
-                reading(self.parts[index].surface, 0, 1, causes[index])
-            }),
+            &std::array::from_fn::<_, 2, _>(|index| reading(self.parts[index].surface, 0, 1)),
         );
         schedule(
             &mut self.body,
             at + 1,
             &std::array::from_fn::<_, 2, _>(|index| {
-                Arrival::caused(self.parts[index].motor.opportunity, 1, causes[index])
+                Arrival::new(self.parts[index].motor.opportunity, 1)
             }),
         );
         let mut events = Vec::new();
@@ -447,7 +397,7 @@ impl ProductWorld {
         (run, events)
     }
 
-    fn close(&mut self, at: u64, causes: [u64; 2]) {
+    fn close(&mut self, at: u64) {
         for part in &mut self.parts {
             part.outcome_value += 1;
         }
@@ -459,16 +409,15 @@ impl ProductWorld {
                     self.parts[index].outcome,
                     0,
                     self.parts[index].outcome_value,
-                    causes[index],
                 )
             }),
         );
         self.body.run(1_024, |_| {}).unwrap();
     }
 
-    fn complete(&mut self, at: u64, causes: [u64; 2]) -> (Run, Vec<PhysicalEvent>) {
-        let result = self.act(at, causes);
-        self.close(at + 32, causes);
+    fn complete(&mut self, at: u64) -> (Run, Vec<PhysicalEvent>) {
+        let result = self.act(at);
+        self.close(at + 32);
         result
     }
 }
@@ -477,13 +426,12 @@ impl ProductWorld {
 fn independent_simultaneous_skills_consolidate_as_a_product() {
     fn climb(reverse: bool) -> (Run, Run, AutomaticityWork) {
         let mut world = ProductWorld::new(reverse);
-        world.complete(10, [1, 1]);
-        let ordinary = world.complete(60, [2, 2]).0;
-        for (index, at) in [110, 160, 210, 260, 310, 360, 410].into_iter().enumerate() {
-            let cause = index as u64 + 3;
-            world.complete(at, [cause, cause]);
+        world.complete(10);
+        let ordinary = world.complete(60).0;
+        for at in [110, 160, 210, 260, 310, 360, 410] {
+            world.complete(at);
         }
-        let automatic = world.act(460, [20, 20]).0;
+        let automatic = world.act(460).0;
         (ordinary, automatic, world.body.automaticity_work())
     }
 
@@ -498,14 +446,14 @@ fn independent_simultaneous_skills_consolidate_as_a_product() {
 fn formation_cost_is_finite_and_reuse_can_amortize_it() {
     let mut world = ChainWorld::new(8);
     let before = world.body.automaticity_work();
-    world.complete(10, 1);
-    let ordinary = world.complete(60, 2).0;
-    for (index, at) in [110, 160, 210, 260, 310, 360, 410].into_iter().enumerate() {
-        world.complete(at, index as u64 + 3);
+    world.complete(10);
+    let ordinary = world.complete(60).0;
+    for at in [110, 160, 210, 260, 310, 360, 410] {
+        world.complete(at);
     }
     let acquired = delta(world.body.automaticity_work(), before);
-    let (automatic, _) = world.act(460, 20);
-    world.close(492, 20);
+    let (automatic, _) = world.act(460);
+    world.close(492);
     let saving = total(ordinary.work) - total(automatic.work);
     assert!(saving > 0);
     let break_even_uses = acquired.total().div_ceil(saving);
@@ -516,7 +464,7 @@ fn formation_cost_is_finite_and_reuse_can_amortize_it() {
     let mut repaid = 0_u64;
     for use_index in 0..break_even_uses {
         let at = 550 + use_index * 50;
-        let run = world.complete(at, 100 + use_index).0;
+        let run = world.complete(at).0;
         repaid = repaid.saturating_add(total(ordinary.work) - total(run.work));
     }
     assert!(repaid >= acquired.total());
@@ -527,36 +475,36 @@ fn formation_cost_is_finite_and_reuse_can_amortize_it() {
 #[test]
 fn silence_preserves_probation_but_a_closed_invalid_context_forgets_it_locally() {
     let mut world = ChainWorld::new(8);
-    world.complete(10, 1);
-    world.complete(60, 2);
+    world.complete(10);
+    world.complete(60);
     let probation = world.body.automaticity_state();
     assert!(probation.candidate_pairs > 0);
     assert!(!probation.has_recursive_composites);
 
     let distractor = world.body.add_junction(Junction::integrating(1)).unwrap();
-    schedule(&mut world.body, 500, &[Arrival::caused(distractor, 1, 90)]);
+    schedule(&mut world.body, 500, &[Arrival::new(distractor, 1)]);
     world.body.run(32, |_| {}).unwrap();
     assert_eq!(world.body.automaticity_state(), probation);
 
     for link in &world.chain {
         world.body.set_link_impulse(*link, -1).unwrap();
     }
-    let (_, interrupted) = world.act(600, 3);
+    let (_, interrupted) = world.act(600);
     assert!(!interrupted
         .iter()
         .any(|event| event.junction == world.terminal));
     assert_eq!(world.body.automaticity_state().open_witnesses, 0);
-    world.close(632, 3);
+    world.close(632);
     assert_eq!(world.body.automaticity_state().open_witnesses, 0);
     assert_eq!(world.body.automaticity_state().candidate_pairs, 0);
 
     for link in &world.chain {
         world.body.set_link_impulse(*link, 1).unwrap();
     }
-    world.complete(700, 4);
+    world.complete(700);
     assert!(world.body.automaticity_state().candidate_pairs > 0);
     assert!(!world.body.automaticity_state().has_recursive_composites);
-    world.complete(750, 5);
-    world.complete(800, 6);
+    world.complete(750);
+    world.complete(800);
     assert!(world.body.automaticity_state().has_recursive_composites);
 }

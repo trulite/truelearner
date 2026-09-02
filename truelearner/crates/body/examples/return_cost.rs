@@ -68,7 +68,7 @@ fn verify_measured_wave() {
 }
 
 fn admit_return(body: &mut Body, outcome: JunctionId) {
-    body.inputs(body.now() + 1, &[Arrival::caused(outcome, 1, 1)])
+    body.inputs(body.now() + 1, &[Arrival::new(outcome, 1)])
         .unwrap();
 }
 
@@ -84,17 +84,13 @@ fn open_two_returns() -> (Body, JunctionId) {
         );
         let outcome = attach_sensor(&mut body, Junction::sampled(100), &[]);
         attach_outcome_component(&mut body, outcome, [motor.opportunity]);
-        schedule(&mut body, index * 4, &[reading(outcome, 0, 0, 0)]);
+        schedule(&mut body, index * 4, &[reading(outcome, 0, 0)]);
         finish(&mut body);
-        schedule(
-            &mut body,
-            1 + index * 4,
-            &[reading(surface, 0, 1, index + 1)],
-        );
+        schedule(&mut body, 1 + index * 4, &[reading(surface, 0, 1)]);
         schedule(
             &mut body,
             2 + index * 4,
-            &[Arrival::caused(motor.opportunity, 1, index + 1)],
+            &[Arrival::new(motor.opportunity, 1)],
         );
         finish(&mut body);
         outcomes.push(outcome);

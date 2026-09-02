@@ -1,6 +1,6 @@
 use crate::{
-    Cause, ChoiceWarrant, JunctionId, JunctionRef, LinkId, LinkRef, Outcome, Path, PhysicalEvent,
-    Run, Time,
+    ChoiceWarrant, JunctionId, JunctionRef, LinkId, LinkRef, Outcome, Path, PhysicalEvent, Run,
+    Time,
 };
 use serde::{Deserialize, Serialize};
 use std::{cmp::Reverse, error::Error, fmt};
@@ -10,7 +10,6 @@ pub struct TraceArrival {
     pub at: Time,
     pub target: JunctionId,
     pub impulse: i32,
-    pub cause: Cause,
     pub via: Option<LinkId>,
 }
 
@@ -69,12 +68,11 @@ pub struct MotifRouteTrace {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct CandidateTrace {
     pub at: Time,
-    pub cause: Cause,
     pub group: usize,
     pub path: TracePath,
     pub connected_outcomes: Vec<JunctionId>,
     pub executable: bool,
-    pub return_cause: Option<Cause>,
+    pub return_present: bool,
     pub unanswered: bool,
     pub outcome: Option<Outcome>,
     pub participation: u64,
@@ -470,14 +468,12 @@ fn expected_choice<'a>(
         .copied()
         .filter(|candidate| construction || (candidate.executable && !candidate.boundary_inhibited))
         .collect::<Vec<_>>();
-    let exact_returns = eligible
+    let returned = eligible
         .iter()
         .copied()
-        .filter(|candidate| {
-            candidate.return_cause.is_some() && candidate.return_cause == Some(candidate.cause)
-        })
+        .filter(|candidate| candidate.return_present)
         .collect::<Vec<_>>();
-    if let [candidate] = exact_returns.as_slice() {
+    if let [candidate] = returned.as_slice() {
         return Some(ExpectedChoice {
             candidate,
             warrant: ChoiceWarrant::ReturnedConsequence,
@@ -861,7 +857,6 @@ pub enum ReturnDecision {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub struct ReturnCandidateTrace {
     pub path: Path,
-    pub cause: Cause,
     pub opened_at: Time,
 }
 
@@ -869,13 +864,10 @@ pub struct ReturnCandidateTrace {
 pub struct ReturnTrace {
     pub at: Time,
     pub source: JunctionId,
-    pub incoming_cause: Cause,
     pub path: Option<Path>,
-    pub return_cause: Option<Cause>,
     pub return_opened_at: Option<Time>,
     pub offers_choice: Option<bool>,
     pub open_paths: usize,
-    pub exact_paths: usize,
     pub candidates: Vec<ReturnCandidateTrace>,
     pub decision: ReturnDecision,
 }

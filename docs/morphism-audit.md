@@ -9,13 +9,13 @@ organism.
 | Level | Physical meaning | Current evidence |
 | --- | --- | --- |
 | Object | A junction or body/world interface | Stable IDs, attachment ports, checkpoint replay |
-| Arrow | Propagation, action, returned consequence, or membership | `Link`, `Path`, exact `Return`, `Membership` |
+| Arrow | Propagation, action, returned consequence, or membership | `Link`, `Path`, local `Return`, `Membership` |
 | Weight | Delay, drive, work, strength | Link delay and impulse, normalized current drive, `Work`, closure strength |
 | Path | Adjacent arrows with one real intermediate | `composition_laws` |
 | Motif | A closed path or small branch history retained through its physical support | `automaticity_laws`; renamed switch-then-close composition |
 | Recursive motif | A retained motif that re-enters the same composition law | `recursive_automaticity_laws` |
 | Diagram | Product, branch, loop, or symmetry formed by arrows | Product, invalidation, trace, and renaming laws |
-| Quotient | Histories that remain interchangeable under returned consequences | Exact-return membership and tentative third-instance motif reentry |
+| Quotient | Histories that remain interchangeable under returned consequences | Returned-path membership and tentative third-instance motif reentry |
 
 ## Active laws
 
@@ -26,23 +26,23 @@ organism.
   direction.
 - Shifted absolute baselines with the same positive delta produce the same
   normalized drive and the same learned behavior.
-- Only an exact returned consequence retains closed causal support;
-  ambiguity and wrong ancestry do not.
+- Only a uniquely newest returned local trace retains closed support; a tie
+  does not.
 - Separately learned steps compose only through their real returned
   intermediate.
-- Three exact closures can retain a supported composite without changing its
+- Three supported closures can retain a composite without changing its
   external effect or losing the sampled direction of its parent path.
 - Retained composites recursively re-enter the same law.
 - A visible branch or changed parent invalidates a shortcut before it fires.
 - Independent simultaneous skills remain a product.
 - Construction order, attachment renaming, checkpoints, and trace projection
   preserve the relevant structure.
-- An exact return merely simultaneous with an unrelated replay creates no
+- A local return merely simultaneous with an unrelated replay creates no
   shared membership.
-- An exact return that is itself the condition of one unique reentry composes
+- A returned path that is itself the condition of one unique reentry composes
   the two participating surfaces through the existing membership law.
-- Two renamed histories of “unanswered sibling, then exact closure” retain one
-  sparse return-to-return composition without becoming causal members or
+- Two renamed histories of “unanswered sibling, then supported closure” retain one
+  sparse return-to-return composition without becoming members or
   immediately changing choice.
 - A retained two-example motif can transiently support one fresh candidate
   when both its successful and unanswered physical roles match. Several
@@ -54,8 +54,8 @@ organism.
   exactly one route to a currently present condition may select its first
   action. Two reaching routes make no claim.
 - Tentative motif support constructs no additional topology and strengthens
-  nothing. A later exact return independently closes the fresh path; wrong
-  ancestry and ambiguity retain no closed support.
+  nothing. A later local return independently closes the fresh path; a tied
+  return retains no closed support.
 - A valid retained composite consumes no unfamiliar-depth lifetime during
   transient reentry. Its exact witnessed step remains in the receipt, cycles
   and the incidence ceiling still fail closed, and inspection itself forms no
@@ -88,21 +88,21 @@ Active tests:
 
 `motif_laws::a_shortcut_preserves_the_sampled_direction_of_its_closed_path`
 
-### 2. Caused cross-instance membership
+### 2. Returned cross-instance membership
 
-When the source of one exact accepted return is also the condition of the one
+When the source of one accepted local return is also the condition of the one
 selected unique reentry, their two witnessed surfaces are passed to the
 existing membership constructor. Unrelated, missing, passive, and ambiguous
 returns remain negative controls.
 
 Active test:
 
-`planning_goal_laws::an_exact_return_that_is_the_reentry_condition_forms_shared_causal_membership`
+The black-box composition suite checks this through observable returned paths.
 
 ### 3. Renamed branch-motif composition
 
-When an action follows one exact, still-unanswered sibling, its temporary
-return link remembers that predecessor. If the later exact closure has the
+When an action follows one local, still-unanswered sibling, its temporary
+return link remembers that predecessor. If the later supported closure has the
 same link form as a previously closed history, the retired return witness
 points to that earlier retired return witness. This uses cold fields on those
 links: it adds no `Shape` object, hot memory field, membership claim, or choice

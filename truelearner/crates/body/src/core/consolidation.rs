@@ -125,16 +125,8 @@ impl Body {
         source: JunctionId,
         path: Path,
         outcome_witness: Option<LinkId>,
-        exact: bool,
         replaces_existing: bool,
     ) -> Option<ClosedSupport> {
-        if !exact {
-            if replaces_existing {
-                self.invalidate_closed_step(path);
-            }
-            self.arrows[returned.slot()].expire_return();
-            return None;
-        }
         let Some(outcome_witness) = outcome_witness else {
             if replaces_existing {
                 self.invalidate_closed_step(path);
@@ -228,15 +220,15 @@ impl Body {
         }
     }
 
-    pub(crate) fn observe_automatic_pair(&mut self, first: LinkId, second: LinkId, cause: Cause) {
-        if cause == 0 || first == second || !automatic_segment_role(self, first) {
+    pub(crate) fn observe_automatic_pair(&mut self, first: LinkId, second: LinkId, at: Time) {
+        if first == second || !automatic_segment_role(self, first) {
             return;
         }
         if !automatic_segment_role(self, second) {
             return;
         }
         let pair = AutomaticPair { first, second };
-        let Some((returned, path)) = self.automatic_witness_for_pair(pair, cause) else {
+        let Some((returned, path)) = self.automatic_witness_for_pair(pair, at) else {
             return;
         };
         let index = self
@@ -254,7 +246,6 @@ impl Body {
                 automaticity.witnesses.push(AutomaticWitness {
                     returned,
                     path,
-                    cause,
                     pairs: Vec::new(),
                 });
                 automaticity.closure_maintenance = true;
@@ -272,16 +263,15 @@ impl Body {
     fn automatic_witness_for_pair(
         &self,
         pair: AutomaticPair,
-        cause: Cause,
+        at: Time,
     ) -> Option<(LinkId, Path)> {
         if let Some(automaticity) = &self.consolidation {
             let mut continuing = automaticity.witnesses.iter().filter(|witness| {
-                witness.cause == cause
-                    && (witness.pairs.contains(&pair)
-                        || witness
-                            .pairs
-                            .last()
-                            .is_some_and(|previous| previous.second == pair.first))
+                witness.pairs.contains(&pair)
+                    || witness
+                        .pairs
+                        .last()
+                        .is_some_and(|previous| previous.second == pair.first)
             });
             if let Some(witness) = continuing.next() {
                 if continuing.next().is_none() {
@@ -295,8 +285,7 @@ impl Body {
         let view = ReactionView::new(&self.arena, &self.arrows, &self.returns);
         let mut roots = self.returns.by_source.iter().flatten().filter_map(|entry| {
             let returned = open_return(view, *entry)?;
-            (returned.cause == cause
-                && self.automatic_root_descends_from(returned.path.output, root, cause))
+            self.automatic_root_descends_from(returned.path.output, root, at)
             .then_some((returned.link, returned.path))
         });
         let root = roots.next()?;
@@ -307,7 +296,7 @@ impl Body {
         &self,
         output: JunctionId,
         root: JunctionId,
-        cause: Cause,
+        at: Time,
     ) -> bool {
         output == root
             || self.arena.incoming(root).any(|link| {
@@ -318,7 +307,9 @@ impl Body {
                     && memory.boundary_crossing()
                     && memory
                         .last_transmission()
-                        .is_some_and(|occurrence| occurrence.cause == cause)
+                        .is_some_and(|occurrence| {
+                            at.saturating_sub(occurrence.at) <= LOCAL_PLASTICITY_WINDOW
+                        })
             })
     }
 
@@ -332,12 +323,11 @@ impl Body {
         self.refresh_automatic_closure();
     }
 
-    fn complete_automatic_witness(&mut self, returned: LinkId, path: Path, exact: bool) {
+    fn complete_automatic_witness(&mut self, returned: LinkId, path: Path) {
         if self.consolidation.is_none() {
             return;
         }
-        if exact
-            && self
+        if self
                 .consolidation
                 .as_ref()
                 .is_some_and(|automaticity| !automaticity.evidence.is_empty())
@@ -377,19 +367,16 @@ impl Body {
             .expect("checked automaticity")
             .witnesses
             .remove(index);
-        if !exact {
-            self.refresh_automatic_closure();
-            return;
-        }
-
         let mut ready = Vec::new();
         for pair in witness.pairs {
             if !automatic_pair_is_valid(self, pair) {
                 continue;
             }
             let automaticity = self.consolidation_mut();
-            automaticity.work.exact_closure_updates =
-                automaticity.work.exact_closure_updates.saturating_add(1);
+            automaticity.work.supported_closure_updates = automaticity
+                .work
+                .supported_closure_updates
+                .saturating_add(1);
             if automatic_composite_with_parents(self, pair).is_some() {
                 continue;
             }
@@ -399,15 +386,15 @@ impl Body {
                 .iter_mut()
                 .find(|evidence| evidence.owner == witness.path.first && evidence.pair == pair)
             {
-                evidence.exact_closures = evidence.exact_closures.saturating_add(1);
-                if evidence.exact_closures >= AUTOMATIC_AFTER_EXACT_CLOSURES {
+                evidence.supported_closures = evidence.supported_closures.saturating_add(1);
+                if evidence.supported_closures >= AUTOMATIC_AFTER_SUPPORTED_CLOSURES {
                     ready.push(pair);
                 }
             } else {
                 self.consolidation_mut().evidence.push(AutomaticEvidence {
                     owner: witness.path.first,
                     pair,
-                    exact_closures: 1,
+                    supported_closures: 1,
                 });
             }
         }

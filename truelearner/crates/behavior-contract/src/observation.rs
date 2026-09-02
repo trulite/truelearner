@@ -5,7 +5,6 @@ pub struct Effect {
     pub at: u64,
     pub motor: MotorId,
     pub impulse: i32,
-    pub cause: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

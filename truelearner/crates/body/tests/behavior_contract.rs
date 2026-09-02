@@ -26,22 +26,22 @@ fn quiet_is_the_same_on_the_compact_body() {
 
 #[test]
 fn local_action_is_the_same_on_the_compact_body() {
-    assert_scenario(scenarios::local_action(1, 7));
+    assert_scenario(scenarios::local_action(1));
 }
 
 #[test]
 fn distant_action_is_rejected_on_the_compact_body() {
-    assert_scenario(scenarios::no_local_action(3, 8));
+    assert_scenario(scenarios::no_local_action(3));
 }
 
 #[test]
 fn learned_action_is_reused_on_the_compact_body() {
-    assert_scenario(scenarios::learns_and_reuses(1, 9));
+    assert_scenario(scenarios::learns_and_reuses(1));
 }
 
 #[test]
 fn learned_action_replays_after_checkpoint_on_the_compact_body() {
-    assert_scenario(scenarios::checkpoint_replay(1, 10));
+    assert_scenario(scenarios::checkpoint_replay(1));
 }
 
 #[test]
@@ -64,14 +64,12 @@ fn a_changed_contingency_releases_relearns_and_replays_on_the_compact_body() {
 
 #[test]
 fn deterministic_variants_are_the_same_on_the_compact_body() {
-    let base = scenarios::local_action(1, 7);
+    let base = scenarios::local_action(1);
     let failures = [
-        properties::with_cause(base.clone(), 11),
-        properties::with_cause(base.clone(), 99),
         properties::reversed_construction(base.clone()),
         properties::with_dormant_sensors(base.clone(), 32),
         properties::with_dormant_sensors(base, 1_024),
-        scenarios::no_local_action(4, 13),
+        scenarios::no_local_action(4),
     ]
     .into_iter()
     .enumerate()

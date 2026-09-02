@@ -19,7 +19,7 @@ pub fn quiet() -> Scenario {
     }
 }
 
-pub fn local_action(distance: u32, cause: u64) -> Scenario {
+pub fn local_action(distance: u32) -> Scenario {
     let action_at = 1 + u64::from(distance);
     Scenario {
         name: "local-input-forms-and-chooses-one-action",
@@ -30,13 +30,11 @@ pub fn local_action(distance: u32, cause: u64) -> Scenario {
                     at: 0,
                     target: InputTarget::Sensor(SURFACE),
                     impulse: 1,
-                    cause,
                 },
                 BoundaryInput {
                     at: 1,
                     target: InputTarget::Motor(ACTION),
                     impulse: 1,
-                    cause,
                 },
             ],
             moment_limit: 64,
@@ -44,14 +42,13 @@ pub fn local_action(distance: u32, cause: u64) -> Scenario {
                 at: action_at,
                 motor: ACTION,
                 impulse: 1,
-                cause,
             }]),
         })],
     }
 }
 
-pub fn no_local_action(distance: u32, cause: u64) -> Scenario {
-    let mut scenario = local_action(distance, cause);
+pub fn no_local_action(distance: u32) -> Scenario {
+    let mut scenario = local_action(distance);
     scenario.name = "distant-input-does-not-form-an-action";
     let Step::Run(episode) = &mut scenario.steps[0] else {
         unreachable!()
@@ -60,18 +57,17 @@ pub fn no_local_action(distance: u32, cause: u64) -> Scenario {
     scenario
 }
 
-pub fn learns_and_reuses(distance: u32, cause: u64) -> Scenario {
-    let mut scenario = local_action(distance, cause);
+pub fn learns_and_reuses(distance: u32) -> Scenario {
+    let mut scenario = local_action(distance);
     scenario.name = "consequence-is-retained-and-used-later";
-    scenario.steps.extend([
-        consequence(10, cause + 1),
-        later_surface(20, distance, cause + 2),
-    ]);
+    scenario
+        .steps
+        .extend([consequence(10), later_surface(20, distance)]);
     scenario
 }
 
-pub fn checkpoint_replay(distance: u32, cause: u64) -> Scenario {
-    let mut scenario = learns_and_reuses(distance, cause);
+pub fn checkpoint_replay(distance: u32) -> Scenario {
+    let mut scenario = learns_and_reuses(distance);
     scenario.name = "checkpoint-replays-the-same-next-episode";
     let replay = scenario.steps.pop().expect("reuse episode exists");
     scenario.steps.extend([
@@ -121,20 +117,19 @@ pub fn independent_outcome_components() -> Scenario {
             ],
         },
         steps: vec![
-            actions(0, 1, &[surfaces[1]], &[motors[1]], &[motors[1]]),
-            returned_outcome(10, 2, outcomes[0]),
-            actions(20, 3, &[surfaces[3]], &[motors[3]], &[motors[3]]),
-            returned_outcome(30, 4, outcomes[1]),
+            actions(0, &[surfaces[1]], &[motors[1]], &[motors[1]]),
+            returned_outcome(10, outcomes[0]),
+            actions(20, &[surfaces[3]], &[motors[3]], &[motors[3]]),
+            returned_outcome(30, outcomes[1]),
             actions(
                 40,
-                7,
                 &[surfaces[0], surfaces[2]],
                 &[motors[0], motors[2]],
                 &[motors[0], motors[2]],
             ),
-            returned_outcome(50, 8, outcomes[0]),
-            returned_outcome(51, 8, outcomes[1]),
-            actions(60, 9, &surfaces, &motors, &[motors[0], motors[2]]),
+            returned_outcome(50, outcomes[0]),
+            returned_outcome(51, outcomes[1]),
+            actions(60, &surfaces, &motors, &[motors[0], motors[2]]),
         ],
     }
 }
@@ -167,8 +162,8 @@ pub fn unanswered_output_releases() -> Scenario {
             }],
         },
         steps: vec![
-            actions(0, 1, &[surfaces[0]], &[motors[0]], &[motors[0]]),
-            actions(10, 2, &surfaces, &motors, &[motors[1]]),
+            actions(0, &[surfaces[0]], &[motors[0]], &[motors[0]]),
+            actions(10, &surfaces, &motors, &[motors[1]]),
         ],
     }
 }
@@ -201,27 +196,26 @@ pub fn changed_contingency_releases_and_relearns() -> Scenario {
             }],
         },
         steps: vec![
-            actions(0, 1, &[surfaces[0]], &[motors[0]], &[motors[0]]),
-            returned_outcome(2, 1, outcome),
-            actions(10, 2, &[surfaces[1]], &[motors[1]], &[motors[1]]),
-            actions(20, 3, &surfaces, &motors, &[motors[0]]),
-            actions(30, 4, &surfaces, &motors, &[motors[1]]),
-            returned_outcome(32, 4, outcome),
+            actions(0, &[surfaces[0]], &[motors[0]], &[motors[0]]),
+            returned_outcome(2, outcome),
+            actions(10, &[surfaces[1]], &[motors[1]], &[motors[1]]),
+            actions(20, &surfaces, &motors, &[motors[0]]),
+            actions(30, &surfaces, &motors, &[motors[1]]),
+            returned_outcome(32, outcome),
             Step::Save {
                 checkpoint: "switched",
             },
-            actions(40, 5, &surfaces, &motors, &[motors[1]]),
+            actions(40, &surfaces, &motors, &[motors[1]]),
             Step::Restore {
                 checkpoint: "switched",
             },
-            actions(40, 5, &surfaces, &motors, &[motors[1]]),
+            actions(40, &surfaces, &motors, &[motors[1]]),
         ],
     }
 }
 
 fn actions(
     at: u64,
-    cause: u64,
     surfaces: &[SensorId],
     opportunities: &[MotorId],
     expected: &[MotorId],
@@ -233,13 +227,11 @@ fn actions(
             at,
             target: InputTarget::Sensor(sensor),
             impulse: 1,
-            cause,
         })
         .chain(opportunities.iter().copied().map(|motor| BoundaryInput {
             at: at + 1,
             target: InputTarget::Motor(motor),
             impulse: 1,
-            cause,
         }))
         .collect();
     Step::Run(Episode {
@@ -253,53 +245,48 @@ fn actions(
                     at: at + 2,
                     motor,
                     impulse: 1,
-                    cause,
                 })
                 .collect(),
         ),
     })
 }
 
-fn returned_outcome(at: u64, cause: u64, outcome: SensorId) -> Step {
+fn returned_outcome(at: u64, outcome: SensorId) -> Step {
     Step::Run(Episode {
         inputs: vec![BoundaryInput {
             at,
             target: InputTarget::Sensor(outcome),
             impulse: 1,
-            cause,
         }],
         moment_limit: 64,
         expected: Expected::quiet(Vec::new()),
     })
 }
 
-fn consequence(at: u64, cause: u64) -> Step {
+fn consequence(at: u64) -> Step {
     Step::Run(Episode {
         inputs: vec![BoundaryInput {
             at,
             target: InputTarget::Sensor(CONSEQUENCE),
             impulse: 1,
-            cause,
         }],
         moment_limit: 64,
         expected: Expected::quiet(Vec::new()),
     })
 }
 
-fn later_surface(at: u64, distance: u32, cause: u64) -> Step {
+fn later_surface(at: u64, distance: u32) -> Step {
     Step::Run(Episode {
         inputs: vec![BoundaryInput {
             at,
             target: InputTarget::Sensor(SURFACE),
             impulse: 1,
-            cause,
         }],
         moment_limit: 64,
         expected: Expected::quiet(vec![Effect {
             at: at + 1 + u64::from(distance),
             motor: ACTION,
             impulse: 1,
-            cause,
         }]),
     })
 }
