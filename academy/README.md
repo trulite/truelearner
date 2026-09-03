@@ -91,10 +91,12 @@ state, action budget, and evaluator data remain in Python.
 
 The course acquires the ARC prerequisites through `Sequence` and stops at the
 independent `Drag` capability. ARC may start from that frontier checkpoint.
-Runs remain `plumbing-negative-control` evidence until the body passes the
-generic game-surface probe. The pinned fixture preserves the physical trace and
-exact fresh-process replay. Server-selected and private holdouts remain
-untouched.
+The checkpoint passes the generic game-surface gate for all six mapped controls
+and a marked content point within 32 physical steps. The inert control stays
+inactive, no wrong activation completes, every step reaches natural quiet, and
+replay is exact. ARC runs remain `plumbing-negative-control` evidence. The
+pinned fixture preserves the physical trace and exact fresh-process replay.
+Server-selected and private holdouts remain untouched.
 
 ```sh
 cargo run --release --locked --manifest-path academy/Cargo.toml \

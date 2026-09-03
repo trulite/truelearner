@@ -360,15 +360,44 @@ fn run_phase(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use academy_workstation2::{
+        BezelControl, DeviceEvent, Workstation2, Workstation2Observation, Workstation2Session,
+    };
     use std::sync::OnceLock;
-    use truelearner_workstation::WorkstationHarness;
+    use truelearner_workstation::{ColorField, Rgb, WorkstationHarness};
 
-    fn completed_course() -> &'static CourseRun {
-        static RUN: OnceLock<CourseRun> = OnceLock::new();
+    fn completed_course() -> &'static (CourseRun, WorkstationCheckpoint) {
+        static RUN: OnceLock<(CourseRun, WorkstationCheckpoint)> = OnceLock::new();
         RUN.get_or_init(|| {
             let checkpoint = WorkstationHarness::new(11).unwrap().save().unwrap();
-            Workstation2Course::new(256).run(checkpoint, 11).unwrap()
+            Workstation2Course::new(256)
+                .run_with_diagnostic_checkpoint(checkpoint, 11)
+                .unwrap()
         })
+    }
+
+    fn run_game_surface(
+        checkpoint: &WorkstationCheckpoint,
+        content: &ColorField,
+        point_enabled: bool,
+        enabled: &[BezelControl],
+    ) -> Vec<Workstation2Observation> {
+        let neutral = ColorField::filled(content.width(), content.height(), Rgb::gray(0)).unwrap();
+        let world = Workstation2::with_game_surface(neutral, false, &[]).unwrap();
+        let mut session = Workstation2Session::with_world(checkpoint.clone(), world).unwrap();
+        let baseline = session.step().unwrap();
+        assert!(baseline.body.naturally_quiescent);
+        session
+            .replace_game_surface(content.clone(), point_enabled, enabled)
+            .unwrap();
+        let mut observations = Vec::with_capacity(33);
+        observations.push(baseline);
+        observations.extend((0..32).map(|_| {
+            let step = session.step().unwrap();
+            assert!(step.body.naturally_quiescent);
+            step
+        }));
+        observations
     }
 
     #[test]
@@ -382,7 +411,7 @@ mod tests {
 
     #[test]
     fn a_fresh_body_acquires_separate_looking_and_approach() {
-        let run = completed_course();
+        let run = &completed_course().0;
 
         assert!(run.exact_replay);
         assert!(run.gaze.naturally_quiescent);
@@ -416,7 +445,7 @@ mod tests {
 
     #[test]
     fn the_learning_frontier_names_its_evidence() {
-        let run = completed_course();
+        let run = &completed_course().0;
         let live_key = run
             .rungs
             .iter()
@@ -451,5 +480,114 @@ mod tests {
             .controls
             .iter()
             .all(screen_use::RungEvidence::keeps_tapping_a_live_key));
+    }
+
+    fn assert_control_gate(expected: BezelControl) {
+        let checkpoint = &completed_course().1;
+        let dark = ColorField::filled(64, 64, Rgb::gray(0)).unwrap();
+        let live = run_game_surface(checkpoint, &dark, false, &[expected]);
+        let replay = run_game_surface(checkpoint, &dark, false, &[expected]);
+        assert_eq!(live, replay);
+        let mut completed = 0;
+        for event in live
+            .iter()
+            .flat_map(|observation| &observation.device_events)
+        {
+            match event {
+                DeviceEvent::ControlActivated { control, .. } => {
+                    assert_eq!(*control, expected);
+                    completed += 1;
+                }
+                DeviceEvent::ContentActivated { .. } => {
+                    panic!("control probe completed a content activation")
+                }
+                DeviceEvent::TouchStarted { .. }
+                | DeviceEvent::TouchMoved { .. }
+                | DeviceEvent::TouchEnded { .. } => {}
+            }
+        }
+        assert!(completed > 0, "{expected:?} did not activate in 32 steps");
+    }
+
+    #[test]
+    fn sequence_checkpoint_operates_game_surface_north() {
+        assert_control_gate(BezelControl::North);
+    }
+
+    #[test]
+    fn sequence_checkpoint_operates_game_surface_south() {
+        assert_control_gate(BezelControl::South);
+    }
+
+    #[test]
+    fn sequence_checkpoint_operates_game_surface_west() {
+        assert_control_gate(BezelControl::West);
+    }
+
+    #[test]
+    fn sequence_checkpoint_operates_game_surface_east() {
+        assert_control_gate(BezelControl::East);
+    }
+
+    #[test]
+    fn sequence_checkpoint_operates_game_surface_primary() {
+        assert_control_gate(BezelControl::Primary);
+    }
+
+    #[test]
+    fn sequence_checkpoint_operates_game_surface_back() {
+        assert_control_gate(BezelControl::Back);
+    }
+
+    #[test]
+    fn sequence_checkpoint_keeps_inert_game_surface_inactive() {
+        let checkpoint = &completed_course().1;
+        let dark = ColorField::filled(64, 64, Rgb::gray(0)).unwrap();
+        let inert = run_game_surface(checkpoint, &dark, false, &[]);
+        let inert_replay = run_game_surface(checkpoint, &dark, false, &[]);
+        assert_eq!(inert, inert_replay);
+        assert!(inert
+            .iter()
+            .all(
+                |observation| observation.device_events.iter().all(|event| !matches!(
+                    event,
+                    DeviceEvent::ControlActivated { .. } | DeviceEvent::ContentActivated { .. }
+                ))
+            ));
+    }
+
+    #[test]
+    fn sequence_checkpoint_operates_marked_game_surface_content() {
+        let checkpoint = &completed_course().1;
+        let mut pixels = vec![Rgb::gray(0); 64 * 64];
+        for row in 12..28 {
+            for column in 40..56 {
+                pixels[row * 64 + column] = Rgb::gray(176);
+            }
+        }
+        let marked = ColorField::new(64, 64, pixels).unwrap();
+        let content = run_game_surface(checkpoint, &marked, true, &[]);
+        let content_replay = run_game_surface(checkpoint, &marked, true, &[]);
+        assert_eq!(content, content_replay);
+        let mut completed = 0;
+        for event in content
+            .iter()
+            .flat_map(|observation| &observation.device_events)
+        {
+            match event {
+                DeviceEvent::ContentActivated { column, row, .. } => {
+                    assert!((40..56).contains(column));
+                    assert!((12..28).contains(row));
+                    completed += 1;
+                }
+                DeviceEvent::ControlActivated { .. } => {
+                    panic!("content probe completed a control activation")
+                }
+                DeviceEvent::TouchStarted { .. }
+                | DeviceEvent::TouchMoved { .. }
+                | DeviceEvent::TouchEnded { .. } => {}
+            }
+        }
+        assert!(completed > 0, "marked content did not activate in 32 steps");
     }
 }

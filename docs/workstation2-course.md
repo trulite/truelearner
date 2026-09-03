@@ -43,13 +43,13 @@ that discard mutation. Each has a positive claim and a killing control.
 | Dead key | after the target stops reacting, taps on it fall within a budget | target keeps reacting; tap rate must not fall | Acquired |
 | Scan | gaze reaches the visible target before the first tap on it | with the same seed, the visible target is found before its zero-contrast control | Acquired |
 | Quiet hand | contact rate on blank screens is far below contact rate with a target lit | no rise over time on blank screens | Acquired |
-| Sequence | the rewarded order A-then-B exceeds B-then-A | order requirement reversed in the probe | Current frontier |
+| Sequence | the rewarded order A-then-B exceeds B-then-A | order requirement reversed in the probe | Acquired |
 | Drag | releases land on the goal far above its share of the screen, after starting on the target | goal drawn at zero contrast | Frontier |
 
-The identifier-free measured frontier is Sequence. LiveKey and DeadKey pass all
-three probe/control pairs. Gaze and approach are separate physical branches:
-omitted visual change inhibits only the local visual-to-hand line, while the
-visual-to-eye line remains active. Sequence is `Unknown`; Drag remains gated.
+The identifier-free measured frontier is Drag. LiveKey, DeadKey, and Sequence
+pass all three probe/control pairs. Gaze and approach are separate physical
+branches: omitted visual change inhibits only the local visual-to-hand line,
+while the visual-to-eye line remains active. Drag is `Unknown`.
 
 "Far exceeds" means at least three times the chance rate with at least twenty
 taps, on at least three seeds. A rung that passes on one seed is `Emerging`;
@@ -102,9 +102,11 @@ requires the capabilities through Sequence. Drag remains an independent
 manipulation capability and does not gate ARC.
 
 At the Drag frontier, `run_with_diagnostic_checkpoint` may export the developed
-Sequence checkpoint for ARC. The current pinned fixture remains
-`plumbing-negative-control` evidence until the generic game controls pass their
-own probes. It cannot support an ARC capability or score claim.
+Sequence checkpoint for ARC. That checkpoint passes the generic game-surface
+regression: North, South, West, East, Primary, Back, and marked content activate
+within 32 steps; an inert surface does not; replay is exact; every step reaches
+natural quiet; and no probe completes the wrong activation. This does not
+support an ARC capability or score claim.
 
 The ARC application uses a generic game surface: content in the central
 viewport and equal-size controls on the bezel. Offered controls are bright and

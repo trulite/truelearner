@@ -669,7 +669,10 @@ evidence records pixels, generic events, body observations, physical traces,
 work, fingerprints, and exact fresh-process replay.
 
 The named fresh-body course acquires the ARC prerequisites through `Sequence`
-and stops at the independent `Drag` capability. ARC runs remain
-`plumbing-negative-control` until the body passes the generic game-surface
-probe. They carry no ARC capability or score claim. Server-selected and private
-holdouts remain uninspected.
+and stops at the independent `Drag` capability. Its diagnostic Sequence
+checkpoint passes the generic game-surface gate within 32 physical steps for
+North, South, West, East, Primary, Back, and marked content; the inert control
+stays inactive, every step reaches natural quiet, and replay is exact. This is
+foundation evidence only. ARC runs remain `plumbing-negative-control` and carry
+no ARC capability or score claim. Server-selected and private holdouts remain
+uninspected.
