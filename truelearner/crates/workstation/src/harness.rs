@@ -434,19 +434,26 @@ impl VisualAttention {
                     continue;
                 }
             }
-            let disengaged = self.focus[eye.index()].is_some();
+            let had_focus = self.focus[eye.index()].is_some();
             if let Some(focus) = self.focus[eye.index()] {
                 self.recent[eye.index()] = Some(RecentAttention {
                     region: focus,
                     remaining: ATTENTION_RECENCY_STEPS,
                 });
             }
-            self.focus[eye.index()] = choose_candidate(
+            let selected = choose_candidate(
                 &candidates,
                 self.recent[eye.index()].map(|recent| recent.region),
-            )
-            .map(|candidate| candidate.region);
-            self.transporting[eye.index()] = disengaged && self.focus[eye.index()].is_some();
+            );
+            self.focus[eye.index()] = selected.map(|candidate| candidate.region);
+            self.transporting[eye.index()] = selected.is_some_and(|candidate| {
+                had_focus
+                    || (candidate.fresh_onset
+                        && state.is_some_and(|state| {
+                            let palm = state.hand().palm();
+                            !attention_region_contains(candidate.region, palm.x(), palm.y())
+                        }))
+            });
         }
     }
 }
@@ -2556,6 +2563,171 @@ mod tests {
 
         assert_ne!(attention.recent[0].unwrap().region.cells & (1 << 8), 0);
         assert_ne!(attention.focus[0].unwrap().cells & (1 << 14), 0);
+    }
+
+    #[test]
+    fn fresh_first_focus_outside_palm_enters_transport_clearance() {
+        let mut global = vec![12; GLOBAL_VISION_FIELDS];
+        global[0] = 200;
+        let mut changes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        changes[0] = 6;
+        let sample = with_visual_field(global, changes, vec![0; FOVEAL_VISION_FIELDS]);
+        let state = WorkstationState::default();
+        let mut attention = VisualAttention::default();
+
+        attention.update(&sample, None, Some(&state));
+
+        assert!(attention.focus.iter().all(Option::is_some));
+        assert_eq!(attention.transporting, [true; 2]);
+    }
+
+    #[test]
+    fn tonic_first_focus_preserves_unconstrained_depth() {
+        let mut global = vec![12; GLOBAL_VISION_FIELDS];
+        global[0] = 200;
+        let sample = with_visual_field(
+            global,
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            vec![0; FOVEAL_VISION_FIELDS],
+        );
+        let state = WorkstationState::default();
+        let mut attention = VisualAttention::default();
+
+        attention.update(&sample, None, Some(&state));
+
+        assert!(attention.focus.iter().all(Option::is_some));
+        assert_eq!(attention.transporting, [false; 2]);
+    }
+
+    #[test]
+    fn existing_focus_switch_preserves_transport_clearance() {
+        let mut first_global = vec![12; GLOBAL_VISION_FIELDS];
+        first_global[0] = 200;
+        let first = with_visual_field(
+            first_global,
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            vec![0; FOVEAL_VISION_FIELDS],
+        );
+        let mut second_global = vec![12; GLOBAL_VISION_FIELDS];
+        second_global[52] = 200;
+        let second = with_visual_field(
+            second_global,
+            vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS],
+            vec![0; FOVEAL_VISION_FIELDS],
+        );
+        let state = WorkstationState::default();
+        let mut attention = VisualAttention::default();
+        attention.update(&first, None, Some(&state));
+
+        attention.update(&second, Some(&first), Some(&state));
+
+        assert!(attention
+            .focus
+            .iter()
+            .flatten()
+            .all(|focus| focus.cells == 1_u64 << 52));
+        assert_eq!(attention.transporting, [true; 2]);
+    }
+
+    #[test]
+    fn first_focus_clearance_blocks_only_depth_until_alignment() {
+        let mut global = vec![12; GLOBAL_VISION_FIELDS];
+        global[0] = 200;
+        let mut changes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        changes[0] = 6;
+        let sample = with_visual_field(global, changes, vec![0; FOVEAL_VISION_FIELDS]);
+        let mut harness = WorkstationHarness::new(3).unwrap();
+        harness
+            .visual_attention
+            .update(&sample, None, Some(&harness.state));
+
+        let mut transport = ActuatorFrame::default();
+        transport.activate(BodyAxis::PalmHorizontal, Direction::Decrease, 1);
+        transport.activate(BodyAxis::PalmVertical, Direction::Decrease, 1);
+        transport.activate(BodyAxis::PalmDepth, Direction::Increase, 7);
+        harness.apply_contact_posture(&sample, &mut transport);
+        let movements = harness.state.clone().integrate(transport);
+        let movement = |axis| {
+            movements
+                .iter()
+                .find(|movement| movement.axis == axis)
+                .unwrap()
+        };
+        assert!(movement(BodyAxis::PalmHorizontal).changed);
+        assert!(movement(BodyAxis::PalmVertical).changed);
+        assert_eq!(movement(BodyAxis::PalmDepth).net_impulse, 0);
+        assert!(!movement(BodyAxis::PalmDepth).changed);
+
+        for step in 0..11 {
+            let mut align = ActuatorFrame::default();
+            if step < 7 {
+                align.activate(BodyAxis::PalmHorizontal, Direction::Decrease, 8);
+            }
+            align.activate(BodyAxis::PalmVertical, Direction::Decrease, 8);
+            harness.state.integrate(align);
+        }
+        assert_eq!(harness.state.hand().palm().x(), 64);
+        assert_eq!(harness.state.hand().palm().y(), 64);
+        let aligned = harness.state.clone();
+        harness
+            .visual_attention
+            .update(&sample, Some(&sample), Some(&aligned));
+        assert_eq!(harness.visual_attention.transporting, [false; 2]);
+
+        let mut contact = ActuatorFrame::default();
+        contact.activate(BodyAxis::PalmDepth, Direction::Increase, 1);
+        harness.apply_contact_posture(&sample, &mut contact);
+        let movements = harness.state.clone().integrate(contact);
+        assert!(movements
+            .iter()
+            .any(|movement| movement.axis == BodyAxis::PalmDepth && movement.changed));
+    }
+
+    #[test]
+    fn first_focus_clearance_is_mirror_and_translation_symmetric() {
+        for (cell, expected_x, expected_y) in [
+            (0, 32, 32),
+            (1, 160, 32),
+            (7, 928, 32),
+            (56, 32, 928),
+            (63, 928, 928),
+        ] {
+            let mut global = vec![12; GLOBAL_VISION_FIELDS];
+            global[cell] = 200;
+            let mut changes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+            changes[cell * GLOBAL_CHANGE_SUBREGIONS] = 6;
+            let sample = with_visual_field(global, changes, vec![0; FOVEAL_VISION_FIELDS]);
+            let state = WorkstationState::default();
+            let mut attention = VisualAttention::default();
+
+            attention.update(&sample, None, Some(&state));
+
+            assert_eq!(attention.transporting, [true; 2]);
+            for focus in attention.focus.into_iter().flatten() {
+                assert_eq!((focus.x, focus.y), (expected_x, expected_y));
+            }
+        }
+    }
+
+    #[test]
+    fn first_focus_clearance_survives_checkpoint_replay() {
+        let mut global = vec![12; GLOBAL_VISION_FIELDS];
+        global[0] = 200;
+        let mut changes = vec![0; GLOBAL_VISION_FIELDS * GLOBAL_CHANGE_SUBREGIONS];
+        changes[0] = 6;
+        let sample = with_visual_field(global, changes, vec![0; FOVEAL_VISION_FIELDS]);
+        let mut live = WorkstationHarness::new(3).unwrap();
+        live.step(sample.clone()).unwrap();
+        assert_eq!(live.visual_attention.transporting, [true; 2]);
+        let checkpoint = live.save().unwrap();
+        let mut replay = WorkstationHarness::restore(checkpoint).unwrap();
+
+        assert_eq!(replay.visual_attention.transporting, [true; 2]);
+        assert_eq!(
+            live.step(sample.clone()).unwrap(),
+            replay.step(sample).unwrap()
+        );
+        assert_eq!(live.save().unwrap(), replay.save().unwrap());
     }
 
     #[test]
